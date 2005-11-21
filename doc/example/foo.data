@@ -1,0 +1,4 @@
+1;1987-12-04;"This is a test of data file"
+2;2005-03-02;"diziz'another test with som'o'lil'quotes"
+42;;"No need to date this"
+67;1999-01-02;Oops I didn't escape this string?!

@@ -1,0 +1,34 @@
+======
+README
+======
+
+How to compile documentation for pgloader
+-----------------------------------------
+
+**doc_pgloader.rest**
+
+Some documentation for pgloader project, in english. 
+
+ReST format (see
+http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html for more info
+on this format and tools).
+
+Since its plain text, you don't need to compile anything to read it ;-)
+
+But you can still get a PDF or an HTML file:
+
+compile PDF version : 
+
+ $ make doc_pgloader.pdf
+
+compile HTML version : 
+
+ $ make doc_pgloader.html
+
+Contact the authors
+-------------------
+
+Feel free to send me questions / comments / patches / whatever :
+
+Jean-Paul Argudo <jean-paul.argudo@dalibo.com>
+
