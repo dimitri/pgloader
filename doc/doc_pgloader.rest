@@ -6,7 +6,9 @@ pgloader
 	Jean-Paul Argudo <jean-paul.argudo@dalibo.com>
 
 :Version:
-	$Id: doc_pgloader.rest,v 1.1 2005-11-21 16:05:50 jpargudo Exp $
+	$Id: doc_pgloader.rest,v 1.2 2006-03-28 21:39:25 jpargudo Exp $
+:Type:
+    User manual
 
 :Comment:
 	pgLoader v.1.x documentation (install, usage and example)
@@ -132,11 +134,19 @@ The corresponding file "foo.conf" for the above datafile is the following: ::
  file_sepchar	= ;
  #nulls		= NULL
  quote 		= "
+ file_is_utf8   = 0
 
 Note that separation character is set to ";" and that quoting is specifyied 
 with the character double-quote: "
 
 Inserts will be commited each 1000, per blocks of 1000 rows at a time.
+
+The datafile nor the database is in utf-8, so the parameter *file_is_utf8* is
+set to 0. Set it to 1 otherwise: when both database and datafile are in utf-8.
+
+Since ``pgctl`` internals run in utf-8, the data must be converted *on the
+fly* to utf-8 when reading the datafile, thats why pgloader needs to know how
+is the datafile like, utf-8 or not.
 
 
 pgloader execution
