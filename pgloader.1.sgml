@@ -1,0 +1,742 @@
+<!doctype refentry PUBLIC "-//OASIS//DTD DocBook V4.1//EN">
+<refentry>
+  <refentryinfo>
+    <address>
+      <email>dim@dalibo.com</email>
+    </address>
+    <author>
+      <firstname>Dimitri</firstname>
+      <surname>Fontaine</surname>
+    </author>
+    <date>August 2006</date>
+    <copyright>
+      <year>2006</year>
+      <holder>Dimitri Fontaine</holder>
+    </copyright>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>pgloader</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>pgloader</refname>
+    <refpurpose>
+Import CSV data and Large Object to PostgreSQL
+    </refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>pgloader</command>
+      <arg><option>-c</option> configuration file</arg>
+      <arg><option>-p</option> pedantic</arg>
+      <arg><option>-d</option> debug</arg>
+      <arg><option>-v</option> verbose</arg>
+      <arg><option>-n</option> dry run</arg>
+      <arg><option>-Cn</option> count</arg>
+      <arg><option>-Fn</option> from</arg>
+      <arg><option>-In</option> from id</arg>
+      <arg><option>-E</option> input files encoding</arg>
+      <arg>Section1 Section2</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>description</title>
+    <para>
+      <command>pgloader</command> imports data from a flat file and
+      insert it into a database table. It uses a flat file per
+      database table, and you can configure as many Sections as you
+      want, each one associating a table name and a data file.
+    </para>
+
+    <para>
+      Data are parsed and rewritten, then given to PostgreSQL
+      <command>COPY</command> command. Parsing is necessary for
+      dealing with end of lines and eventual trailing separator
+      characters, and for column reordering: your flat data file may
+      not have the same column order as the databse table has.
+    </para>
+
+    <para>
+      <command>pgloader</command> is also able to load some large
+      objects data into PostgreSQL, as of now only Informix
+      <command>UNLOAD</command> data files are supported. This command
+      gives large objects data location information into the main data
+      file. <command>pgloader</command> parse it and produces and SQL
+      UPDATE order per large object, and commit those orders once
+      every <command>commit_every</command> configuration parameter.
+    </para>
+
+    <para>
+      <command>pgloader</command> issue some timing statistics
+      every <command>commit_every</command> commits (see Configuration
+      for this setting). At the end of each section processing, a
+      summary of overall operations, numbers of updates and commits,
+      time it took in seconds, errors logged and database errors is
+      issued.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>options</title>
+
+    <para>
+      In order for <command>pgloader</command> to run, you have to
+      edit a configuration file (see Configuration) consisting of
+      Section definitions. Each section refers to a PostgreSQL table
+      into which some data is to be loaded.
+    </para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-c</option></term>
+        <term><option>--config</option></term>
+        <listitem>
+          <para>
+	    specifies the configuration file to use. The default file
+	    name is <filename>pgloader.conf</filename>, searched into
+	    current working directory.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-p</option></term>
+        <term><option>--pedantic</option></term>
+        <listitem>
+          <para>
+	    activates the <command>pedantic</command> mode, where any
+	    warning is considered as a fatal error, thus stopping the
+	    processing of the input file.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-d</option></term>
+        <term><option>--debug</option></term>
+        <listitem>
+          <para>
+	    makes <command>pgloader</command> say it all about what it
+	    does. debug implies verbose.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-v</option></term>
+        <term><option>--verbose</option></term>
+        <listitem>
+          <para>
+	    makes <command>pgloader</command> very verbose about
+	    what it does.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--dry-run</option></term>
+        <listitem>
+          <para>
+	    makes <command>pgloader</command> simulate operations,
+	    that implies no database connection and no data extraction
+	    from blob files.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-T</option></term>
+        <term><option>--truncate</option></term>
+        <listitem>
+          <para>
+	    makes <command>pgloader</command> issue a truncate SQL
+	    command before importing data.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-V</option></term>
+        <term><option>--vacuum</option></term>
+        <listitem>
+          <para>
+	    makes <command>pgloader</command> issue a vacuum full
+	    verbose analyse SQL command before importing data.
+	  </para>
+	  <para>
+	    This vacuum is run from shell command
+	    <command>/usr/bin/vacuumdb</command> with connection
+	    informations taken from configuration file (see
+	    Configuration section of this manual page), but without
+	    password prompting. If you use this option, please
+	    configure your <filename>pg_hba.conf</filename> in a way
+	    no password is prompted (trust).
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-C</option></term>
+        <term><option>--count</option></term>
+        <listitem>
+          <para>
+	    Number of input lines to process, default is to process
+	    all the input lines.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-F</option></term>
+        <term><option>--from</option></term>
+        <listitem>
+          <para>
+	    Input line number from which we begin to process (and
+	    count). <command>pgloader</command> will skip all
+	    preceding lines.
+	  </para>
+	  <para>
+	    You can't use both <option>-F</option> and
+	    <option>-I</option> at the same time.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-I</option></term>
+        <term><option>--from-id</option></term>
+        <listitem>
+          <para>
+	    From which <command>id</command> do we begin to process
+	    (and count) input lines.
+	  </para>
+	  <para>
+	    When a composite key is used, you have to give each column
+	    of the key separated by comma, on the form col_name=value.
+	  </para>
+	  <para>
+	    Please notice using the <command>--from-id</command>
+	    option implies <command>pgloader</command> will try to get
+	    row id of each row, it being on the interval processed or
+	    not. This could have some performance impact, and you may
+	    end up prefering to use <command>--from</command> instead.
+	  </para>
+	  <para>
+	    Example: <command>pgloader -I col1:val1,col2:val2</command>
+	  </para>
+	  <para>
+	    You can't use both <option>-F</option> and
+	    <option>-I</option> at the same time.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-E</option></term>
+        <term><option>--encoding</option></term>
+        <listitem>
+          <para>
+	    Input data files encoding. Defaults to 'latin9'.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>Section</option></term>
+        <listitem>
+          <para>
+	    is the name of a configured Section describing some data
+	    to load
+	  </para>
+	  <para>
+	    Section arguments are optionnal, if no section is given
+	    all configured sections are processed.
+	  </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>configuration</title>
+    <para>
+      The configuration file has a .ini file syntax, its first section
+      has to be the <command>pgsql</command> one, defining how to
+      access to the PostgreSQL database server where to load
+      data. Then you may define any number of sections, each one
+      describing a data loading task to be performed by
+      <command>pgloader</command>.
+    </para>
+
+    <para>
+      The <command>[pgsql]</command> section has the following
+      options, which all must be set.
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><option>host</option></term>
+        <listitem>
+          <para>
+	    PostgreSQL database server name, for example
+	    <filename>localhost</filename>.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>port</option></term>
+        <listitem>
+          <para>
+	    PostgreSQL database server listening port, 5432. You have
+	    to fill this entry.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>base</option></term>
+        <listitem>
+          <para>
+	    The name of the database you want to load data into.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>user</option></term>
+        <listitem>
+          <para>
+	    Connecting PostgreSQL user name.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>pass</option></term>
+        <listitem>
+          <para>
+	    The password of the user. The better is to grant a
+	    <command>trust</command> access privilege in PostgreSQL
+	    <filename>pg_hba.conf</filename>. Then you can set this
+	    entry to whatever value you want to.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>client_encoding</option></term>
+        <listitem>
+          <para>
+	    Set this parameter to have <command>pgloader</command>
+	    connects to PostgreSQL using this encoding.
+	  </para>
+	  <para>
+	    This parameter is optionnal and defaults to 'latin9'.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>copy_every</option></term>
+        <listitem>
+          <para>
+	    When issuing <command>COPY</command> PostgreSQL commands,
+	    <command>pgloader</command> will not make a single big
+	    COPY attempt, but copy <command>copy_every</command> lines
+	    at a time.
+	  </para>
+	  <para>
+	    This parameter is optionnal and defaults to 10000.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>commit_every</option></term>
+        <listitem>
+          <para>
+	    PostgreSQL <command>COMMIT</command> frequency, exprimed
+	    in <command>UPDATE</command> orders. A good value is 1000,
+	    that means commiting the SQL transaction every 1000 input
+	    lines.
+	  </para>
+	  <para>
+	    <command>pgloader</command> issues commit every
+	    commit_every updates, on connection closing and when a SQL
+	    error occurs.
+	  </para>
+	  <para>
+	    This parameter is optionnal and defaults to 1000.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>copy_delimiter</option></term>
+        <listitem>
+          <para>
+	    The field separator to use in COPY FROM produced statements. If
+	    you don't specify this, the same separator as the one given in
+	    <command>field_sep</command> parameter will be used.
+	  </para>
+	  <para>
+	    Please note <command>PostgreSQL</command> requires a single char
+	    properly encoded (see your <command>client_encoding</command>
+	    parameter), or it abort in error and even may crash.
+	  </para>
+	  <para>
+	    This parameter is optionnal and defaults to
+	    <command>field_sep</command>.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>newline_escapes</option></term>
+        <listitem>
+          <para>
+	    For parameter effect description, see below (same name, table
+	    local setting).
+	  </para>
+          <para>
+	    You can setup here a global escape caracter, to be considered on
+	    each and every column of each and every table defined
+	    thereafter.
+	  </para>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>null</option></term>
+        <listitem>
+          <para>
+	    You can configure here how <command>null</command> value is
+	    represented into your flat data file.
+	  </para>
+	  <para>
+	    This parameter is optionnal and defaults to
+	    <command>''</command> (that is empty string).
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>empty_string</option></term>
+        <listitem>
+          <para>
+	    You can configure here how empty values are represented into
+	    your flat data file.
+	  </para>
+	  <para>
+	    This parameter is optionnal and defaults to <command>'\
+	    '</command> (that is backslash followed by space).
+	  </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>
+      You then can define any number of data section, and give them an
+      arbitrary name. Some options are required, some are actually
+      optionnals, in which case it is said so thereafter.
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><option>table</option></term>
+        <listitem>
+          <para>
+	    The table name of the database where to load data.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>filename</option></term>
+        <listitem>
+          <para>
+	    The absolute path to the input data file. The large object
+	    files are to be found into the same directory. Their name
+	    can be in the form [bc]lob[0-9a-f]{4}.[0-9a-f]{3}, but
+	    this information is not used by
+	    <command>pgloader</command>.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>reject_log</option></term>
+        <listitem>
+          <para>
+	    In case of errors processing input data, a human readable
+	    log per rejected input data line is produced into the
+	    reject_log file.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>reject_data</option></term>
+        <listitem>
+          <para>
+	    In case of errors processing input data, the rejected
+	    input line is appended to the reject_data file.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>field_sep</option></term>
+        <listitem>
+          <para>
+	    The field separator used into the data file. The same
+	    separator will be used by the generated
+	    <command>COPY</command> commands, thus
+	    <command>pgloader</command> does not have to deal with
+	    escaping the delimiter it uses (input data has to have
+	    escaped it).
+	  </para>
+	  <para>
+	    This parameter is optionnal and defaults to pipe char '|'.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>field_count</option></term>
+        <listitem>
+          <para>
+	    The <command>UNLOAD</command> command does not escape
+	    newlines when they appear into table data. Hence, you may
+	    obtain multi-line data files, where a single database row
+	    (say tuple if you prefer to) can span multiple physical
+	    lines into the unloaded file.
+	  </para>
+	  <para>
+	    If this is your case, you may want to configure here the
+	    number of columns per tuple. Then
+	    <command>pgloader</command> will count columns and
+	    buffer line input in order to re-assemble several physical
+	    lines into one data row when needed.
+	  </para>
+	  <para>
+	    This parameter is optionnal.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>trailing_sep</option></term>
+        <listitem>
+          <para>
+	    If this option is set to <command>True</command>, the
+	    input data file is known to append a
+	    <command>field_sep</command> as the last character of each
+	    of its lines. With this option set, this last character is
+	    then not considered as a field separator.
+	  </para>
+	  <para>
+	    This parameter is optionnal and defaults to False.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>client_encoding</option></term>
+        <listitem>
+          <para>
+	    Set this parameter to have <command>pgloader</command>
+	    connects to PostgreSQL using this encoding.
+	  </para>
+	  <para>
+	    This parameter is optionnal and defaults to 'latin9'. If defined
+	    on a table level, this local value will overwritte the global
+	    one.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>null</option></term>
+        <listitem>
+          <para>
+	    You can configure here how <command>null</command> value is
+	    represented into your flat data file.
+	  </para>
+	  <para>
+	    This parameter is optionnal and defaults to
+	    <command>''</command> (that is empty string). If defined on a
+	    table level, this local value will overwritte the global one.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>empty_string</option></term>
+        <listitem>
+          <para>
+	    You can configure here how empty values are represented into
+	    your flat data file.
+	  </para>
+	  <para>
+	    This parameter is optionnal and defaults to <command>'\
+	    '</command> (that is backslash followed by space). If defined on
+	    a table level, this local value will overwritte the global one.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>newline_escapes</option></term>
+        <listitem>
+          <para>
+	    Sometimes the input data file has field values containing
+	    newlines, and the export program used (as Informix
+	    <command>UNLOAD</command> command) escape in-field
+	    newlines. So you want <command>pgloader</command> to keep
+	    those newlines, while at the same time preserving them.
+	  </para>
+	  <para>
+	    This option does the described work on specified fields
+	    and considering the escaping character you configure,
+	    following this syntax:
+	  </para>
+	  <para>
+	    newline_escapes = colname:\, other_colname:§
+	  </para>
+	  <para>
+	    This parameter is optionnal, and the extra work is only
+	    done when set. You can configure
+	    <command>newline_escapes</command> for as many fields as
+	    necessary, and you may configure a different escaping
+	    character each time.
+	  </para>
+	  <para>
+	    Please note that at the moment,
+	    <command>pgloader</command> does only support one
+	    character length <command>newline_escapes</command>.
+	  </para>
+	  <para>
+	    When both a global (see <command>[pgsql]</command> section)
+	    <command>newline_escapes</command> parameter and a table local
+	    one are set, <command>pgloader</command> issues a warning and
+	    only consider the global setting.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>index</option></term>
+        <listitem>
+          <para>
+	    Table index definition, to be used in blob UPDATE'ing. You
+	    define an index column by giving its name and its column
+	    number (as found into your data file, and counting from 1)
+	    separated by a colon.  If your table has a composite key,
+	    then you can define multiple columns here, separated by a
+	    comma.
+	  </para>
+	  <para>
+	    index = colname:3, other_colname:5
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>columns</option></term>
+        <listitem>
+          <para>
+	    You can define here table columns, with the same
+	    definition format as in previous <command>index</command>
+	    parameter.
+	  </para>
+	  <para>
+	    In case you have a lot a columns per table, you will want
+	    to use ultiple lines for this parameter value. Python
+	    <command>ConfigParser</command> module knows how to read
+	    multi-line parameters, you don't have to escape anything.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>blob_columns</option></term>
+        <listitem>
+          <para>
+	    The definition of the colums where to find some blob or
+	    clob reference. This definition is composed by a table
+	    column name, a column number (couting from one) reference
+	    into the Informix <command>UNLOAD</command> data file, and
+	    a large object type, separated by a colon. You can have
+	    several columns in this field, separated by a
+	    comma.
+	  </para>
+	  <para>
+	    Supported large objects type are Informix blob and clob,
+	    the awaited configuration string are respectively
+	    <command>ifx_blob</command> for binary (bytea) content
+	    type and <command>ifx_clob</command> for text type values.
+	  </para>
+	  <para>
+	    Here's an example:
+	  </para>
+	  <para>
+	    blob_type = clob_column:3:ifx_blob, other_clob_column:5:ifx_clob
+	  </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>confifuration example</title>
+    <para>
+      Please see the given configuration example which should be distributed
+      in
+      <filename>/usr/share/doc/pgloader/examples/pgloader.conf</filename>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+    <para>
+      <command>pgloader</command> was at first an Informix to
+      PostgreSQL migration helper which imported Informix large
+      objects directly into a PostgreSQL database.
+    </para>
+
+    <para>
+      Then as we got some data we couldn't file tools to care about,
+      we decided <command>ifx_blob</command> would become
+      <command>pgloader</command>, as it had to be able to import all
+      Informix UNLOAD data. Those data contains escaped separator into
+      unquoted data field and multi-lines fields (\r and \n are not
+      escaped).
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Bugs</title>
+    <para>
+      Please report bugs to Dimitri Fontaine &lt;dim@dalibo.com&gt;.
+    </para>
+    <para>
+      When last line is alone on a <command>COPY</command> command and its
+      parsing ends in error (not enough columns read for example), no
+      information is given back by <command>pgloader</command>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Authors</title>
+    <para>
+      <command>pgloader</command> is written by <author>Dimitri
+      Fontaine</author> <email>dim@dalibo.com</email>.
+    </para>
+  </refsect1>
+  
+</refentry>

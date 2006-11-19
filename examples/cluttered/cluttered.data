@@ -1,0 +1,16 @@
+1^some multi\
+line text with\
+newline escaping^and some other data following^
+2^and another line^clean^
+3^and\
+a last multiline\
+escaped line
+with a missing\
+escaping^just to test^
+4^\ ^empty value^
+5^^null value^
+6^multi line\
+escaped value\
+\
+with empty line\
+embeded^last line^

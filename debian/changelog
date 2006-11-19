@@ -1,0 +1,23 @@
+pgloader (2.0.2) unstable; urgency=low
+
+  * configurable null and empty_string representations
+  * bugfix on newline_escapes behavior when all lines are not escaped
+  * new global newline_escapes setting
+  * uses by default psycopg2, failback to psycopg1 if not available
+  * client_encoding can now be set on each table
+  * documentation (manpage) update
+
+ -- Dimitri Fontaine <dim@dalibo.com>  Wed, 15 Nov 2006 22:26:46 +0100
+
+pgloader (2.0.1-2) unstable; urgency=low
+
+  * package cleaning (lintian warnings and error)
+
+ -- Dimitri Fontaine <dim@dalibo.com>  Tue, 14 Nov 2006 18:14:57 +0100
+
+pgloader (2.0.1-1) unstable; urgency=low
+
+  * Initial release
+
+ -- Dimitri Fontaine <dim@dalibo.com>  Mon, 13 Nov 2006 22:56:15 +0100
+

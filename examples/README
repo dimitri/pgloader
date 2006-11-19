@@ -1,0 +1,55 @@
+In this directory you'll find out some pgloader usage examples.
+
+To use them, please first create a pgloader database, then for each example
+the tables it needs, then issue the pgloader command:
+
+ $ createdb --encoding=utf-8 pgloader
+ $ cd examples
+ $ psql pgloader < simple/simple.sql
+ $ ../pgloader.py -Tvc examples/pgloader.conf simple
+
+If you want to load data from all examples, create tables for all of them
+first, then run pgloader without argument.
+
+The provided examples are:
+
+. simple
+
+  This dataset shows basic case, with trailing separator and data
+  reordering.
+
+. errors
+
+  Same test, but with impossible dates. Should report some errors. It does
+not report errors, check you're not using psycopg 1.1.21.
+
+. clob
+
+  This dataset shows some text large object importing to PostgreSQL text
+  datatype.
+
+. cluttured
+
+  A dataset with newline escaped and multi-line input (without quoting)
+  Beware of data reordering, too.
+
+
+You can launch all those pgloader tests in one run, provided you created the
+necessary tables:
+
+ $ for test in simple clob cluttured; do psql pgloader < $test/$test.sql; done
+ $ ../pgloader.py -Tc pgloader.conf
+
+ [...]
+
+ Table name        |    duration |    size |    updates |     errors
+ ====================================================================
+ clob              |      0.121s |   32 kB |          7 |          0
+ cluttered         |      0.041s |   32 kB |          3 |          0
+ simple            |      0.040s |   16 kB |          6 |          0
+ ====================================================================
+ Total             |      0.369s |   80 kB |         16 |          0
+
+And you then have a nice summary.
+
+
