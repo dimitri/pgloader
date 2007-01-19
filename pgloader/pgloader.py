@@ -136,6 +136,17 @@ class PGLoader:
             print 'columns', self.columns
             print 'blob_columns', self.blob_cols
 
+
+        # optionnal partial loading option (sequences case)
+        self.partial_copy   = False
+        self.partial_coldef = None
+        
+        if config.has_option(name, 'partial_copy'):
+            self.partial_copy = config.get(name, 'partial_copy') == 'True'
+
+            if self.partial_copy:
+                self.partial_coldef = [name for (name, pos) in self.columns]
+
         # optionnal newline escaped option
         self.newline_escapes = []
         if config.has_option(name, 'newline_escapes'):
@@ -352,6 +363,14 @@ class PGLoader:
     def csv_import(self):
         """ import CSV data, using COPY """
 
+        ##
+        # Inform database about optionnal partial columns definition
+        # usage for COPY (sequences case, e.g.)
+        if self.partial_coldef is not None:
+            partial_copy_coldef = ", ".join(self.partial_coldef)
+        else:
+            partial_copy_coldef = None
+
         for line, columns in self.read_data():
             if self.blob_cols is not None:
                 columns, rowids = self.read_blob(line, columns)
@@ -374,14 +393,17 @@ class PGLoader:
                 print line
                 print c_ordered
                 print len(c_ordered)
+                print self.db.partial_coldef
                 print
                     
             if not DRY_RUN:
-                self.db.copy_from(self.table, c_ordered, line, self.reject)
+                self.db.copy_from(self.table, partial_copy_coldef,
+                                  c_ordered, line, self.reject)
 
         if not DRY_RUN:
             # we may need a last COPY for the rest of data
-            self.db.copy_from(self.table, None, None, self.reject, EOF = True)
+            self.db.copy_from(self.table, partial_copy_coldef,
+                              None, None, self.reject, EOF = True)
 
         return
 

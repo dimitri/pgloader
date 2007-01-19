@@ -82,6 +82,7 @@ class db:
         self.running_commands  = 0
         self.last_commit_time  = time.time()
         self.first_commit_time = self.last_commit_time
+        self.partial_coldef    = None
 
         if DEBUG:
             if self.dbconn is not None:
@@ -256,10 +257,16 @@ class db:
         print "--- COPY data buffer saved in %s ---" % n
         return n
 
-    def copy_from(self, table, columns, input_line, reject, EOF = False):
+    def copy_from(self, table, partial_coldef, columns, input_line,
+                  reject, EOF = False):
         """ Generate some COPY SQL for PostgreSQL """
         ok = True
         if not self.copy: self.copy = True
+
+        if partial_coldef is not None:
+            # we prefer not having to mess table param on the caller side
+            # as it's an implementation detail concerning db class
+            table = "%s (%s) " % (table, partial_coldef)
 
         if EOF or self.running_commands == self.copy_every \
                and self.buffer is not None:

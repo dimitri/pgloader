@@ -44,7 +44,7 @@ Import CSV data and Large Object to PostgreSQL
   </refsynopsisdiv>
 
   <refsect1>
-    <title>description</title>
+    <title>DESCRIPTION</title>
     <para>
       <command>pgloader</command> imports data from a flat file and
       insert it into a database table. It uses a flat file per
@@ -81,7 +81,7 @@ Import CSV data and Large Object to PostgreSQL
   </refsect1>
 
   <refsect1>
-    <title>options</title>
+    <title>OPTIONS</title>
 
     <para>
       In order for <command>pgloader</command> to run, you have to
@@ -263,7 +263,7 @@ Import CSV data and Large Object to PostgreSQL
   </refsect1>
 
   <refsect1>
-    <title>configuration</title>
+    <title>CONFIGURATION</title>
     <para>
       The configuration file has a .ini file syntax, its first section
       has to be the <command>pgsql</command> one, defining how to
@@ -591,6 +591,21 @@ Import CSV data and Large Object to PostgreSQL
       </varlistentry>
 
       <varlistentry>
+        <term><option>partial_copy</option></term>
+        <listitem>
+          <para>
+	    If your columns definition does not contain all of the
+	    PostgreSQL table definition, set this parameter to
+	    <command>True</command>.
+	  </para>
+	  <para>
+	    This parameter is optionnal and defaults to
+	    <command>False</command>.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>newline_escapes</option></term>
         <listitem>
           <para>
@@ -693,7 +708,7 @@ Import CSV data and Large Object to PostgreSQL
   </refsect1>
 
   <refsect1>
-    <title>confifuration example</title>
+    <title>CONFIGURATION EXAMPLE</title>
     <para>
       Please see the given configuration example which should be distributed
       in
@@ -702,7 +717,7 @@ Import CSV data and Large Object to PostgreSQL
   </refsect1>
 
   <refsect1>
-    <title>History</title>
+    <title>HISTORY</title>
     <para>
       <command>pgloader</command> was at first an Informix to
       PostgreSQL migration helper which imported Informix large
@@ -720,7 +735,7 @@ Import CSV data and Large Object to PostgreSQL
   </refsect1>
 
   <refsect1>
-    <title>Bugs</title>
+    <title>BUGS</title>
     <para>
       Please report bugs to Dimitri Fontaine &lt;dim@dalibo.com&gt;.
     </para>
@@ -732,7 +747,7 @@ Import CSV data and Large Object to PostgreSQL
   </refsect1>
 
   <refsect1>
-    <title>Authors</title>
+    <title>AUTHORS</title>
     <para>
       <command>pgloader</command> is written by <author>Dimitri
       Fontaine</author> <email>dim@dalibo.com</email>.
