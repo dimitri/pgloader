@@ -1,3 +1,18 @@
+pgloader (2.2.0) unstable; urgency=low
+
+  * Support for partial loading of data (subrange(s) of columns)
+  * COPY table (col1, col2, ..., coln) systematically used
+  * Support for CSV format (with quoting)
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Mon, 04 Jun 2007 11:13:21 +0200
+
+pgloader (2.1.0) unstable; urgency=low
+
+  * Added support for partial COPY table definition
+  * Documentation and example update (see serial)
+
+ -- Dimitri Fontaine <dim@dalibo.com>  Fri, 19 Jan 2007 12:25:39 +0100
+
 pgloader (2.0.2) unstable; urgency=low
 
   * configurable null and empty_string representations

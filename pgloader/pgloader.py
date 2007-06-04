@@ -49,14 +49,6 @@ class PGLoader:
             print
             print "[%s] parse configuration" % self.name
         
-        # some configuration elements don't have default value
-        for opt in ('table', 'filename'):
-            if  config.has_option(name, opt):
-                self.__dict__[opt] = config.get(name, opt)
-            else:
-                print 'Error: please configure %s.%s' % (name, opt)
-                self.config_errors += 1
-
         ##
         # reject log and data files defaults to /tmp/<section>.rej[.log]
         if config.has_option(name, 'reject_log'):
@@ -75,38 +67,6 @@ class PGLoader:
 
         # reject logging
         self.reject = Reject(self.reject_log, self.reject_data)
-        
-
-        # optionnal number of columns per line
-        self.field_count = None
-        if config.has_option(name, 'field_count'):
-            self.field_count = config.getint(name, 'field_count')
-
-        # optionnal field separator
-        self.field_sep = FIELD_SEP
-        if config.has_option(name, 'field_sep'):
-            self.field_sep = config.get(name, 'field_sep')
-
-            if not DRY_RUN:
-                if self.db.copy_sep is None:
-                    self.db.copy_sep = self.field_sep
-
-        # optionnal trailing separator option
-        self.trailing_sep = False
-        if config.has_option(name, 'trailing_sep'):
-            self.trailing_sep = config.get(name, 'trailing_sep') == 'True'
-
-        # optionnal null and empty_string per table parameters
-        if config.has_option(name, 'null'):
-            self.db.null = parse_config_string(config.get(name, 'null'))
-        else:
-            self.db.null = NULL
-
-        if config.has_option(name, 'empty_string'):
-            self.db.empty_string = parse_config_string(
-                config.get(name, 'empty_string'))
-        else:
-            self.db.empty_string = EMPTY_STRING
 
         # optionnal local option client_encoding
         if config.has_option(name, 'client_encoding'):
@@ -114,9 +74,17 @@ class PGLoader:
                 config.get(name, 'client_encoding'))
 
         if DEBUG:
-            print "null: '%s'" % self.db.null
-            print "empty_string: '%s'" %  self.db.empty_string
             print "client_encoding: '%s'" % self.db.client_encoding
+
+
+        ##
+        # data filename
+        for opt in ('table', 'filename'):
+            if  config.has_option(name, opt):
+                self.__dict__[opt] = config.get(name, opt)
+            else:
+                print 'Error: please configure %s.%s' % (name, opt)
+                self.config_errors += 1
 
         ##
         # we parse some columns definitions
@@ -137,34 +105,74 @@ class PGLoader:
             print 'blob_columns', self.blob_cols
 
 
+        ##
+        # We have for example columns = col1:2, col2:1
+        # this means the order of input columns is not the same as the
+        # awaited order of COPY, so we want a mapping index, here [2, 1]
+        if self.columns is not None:
+            self.col_mapping = [i for (c, i) in self.columns]
+
+        ##
         # optionnal partial loading option (sequences case)
-        self.partial_copy   = False
-        self.partial_coldef = None
-        
-        if config.has_option(name, 'partial_copy'):
-            self.partial_copy = config.get(name, 'partial_copy') == 'True'
+        # self.table_colspec is the column list to give to
+        # COPY table(...) command, either the cols given in
+        # the only_cols config, or the columns directly
+        self.only_cols = None
+        self.table_colspec = [n for (n, pos) in self.columns]
 
-            if self.partial_copy:
-                self.partial_coldef = [name for (name, pos) in self.columns]
+        if config.has_option(name, 'only_cols'):
+            self.only_cols = config.get(name, 'only_cols')
 
-        # optionnal newline escaped option
-        self.newline_escapes = []
-        if config.has_option(name, 'newline_escapes'):
-            if NEWLINE_ESCAPES is not None:
-                # this parameter is globally set, will ignore local
-                # definition
-                print "Warning: ignoring %s newline_escapes option" % name
-                print "         option is set to '%s' globally" \
-                      % NEWLINE_ESCAPES
-            else:
-                self._parse_fields('newline_escapes',
-                                   config.get(name, 'newline_escapes'),
-                                   argtype = 'char')
+            ##
+            # first make an index list out of configuration
+            # which contains coma separated ranges or values
+            # as for example: only_cols = 1-3, 5
+            try:
+                only_cols = [x.strip() for x in self.only_cols.split(",")]
+                expanded  = []
 
-        if NEWLINE_ESCAPES is not None:
-            # set NEWLINE_ESCAPES for each table column
-            self.newline_escapes = [(a, NEWLINE_ESCAPES)
-                                    for (a, x) in self.columns]
+                # expand ranges
+                for oc in only_cols:
+                    if '-' in oc:
+                        (a, b) = [int(x) for x in oc.split("-")]
+                        for i in range(a, b+1):
+                            expanded.append(i)
+                    else:
+                        expanded.append(int(oc))
+
+                self.only_cols     = expanded
+                self.table_colspec = [self.columns[x-1][0] for x in expanded]
+
+            except Exception, e:
+                print 'Error: section %s, only_cols: configured range is invalid' % name
+                raise PGLoader_Error, e
+
+        if DEBUG:
+            print "only_cols", self.only_cols
+            print "table_colspec", self.table_colspec
+
+
+        ##
+        # data format, from which depend data reader
+        self.format = None
+        if config.has_option(name, 'format'):
+            self.format = config.get(name, 'format')
+            
+            if self.format.lower() == 'csv':
+                from csvreader import CSVReader 
+                self.reader = CSVReader(self.db, self.filename, self.table, self.columns)
+            
+            elif self.format.lower() == 'text':
+                from textreader import TextReader
+                self.reader = TextReader(self.db, self.filename, self.table, self.columns)
+            
+        if self.format is None:
+            print 'Error: %s: format parameter needed' % name
+            raise PGLoader_Error
+
+        ##
+        # parse the reader specific section options
+        self.reader.readconfig(name, config)
 
         ##
         # How can we mix those columns definitions ?
@@ -187,12 +195,6 @@ class PGLoader:
                 "for blob importing (blob_cols), please configure index")
             self.config_errors += 1
 
-        ##
-        # We have for example columns = col1:2, col2:1
-        # this means the order of input columns is not the same as the
-        # awaited order of COPY, so we want a mapping index, here [2, 1]
-        if self.columns is not None:
-            self.col_mapping = [i for (c, i) in self.columns]
 
         ##
         # if options.fromid is not None it has to be either a value,
@@ -267,55 +269,7 @@ class PGLoader:
         except Exception, error:
             # FIXME: make some errors and write some error messages
             raise
-
-    def _split_line(self, line):
-        """ split given line and returns a columns list """
-        last_sep = 0
-        columns  = []
-        pos      = line.find(self.field_sep, last_sep)
-        
-        while pos != -1:
-            # don't consider backslash escaped separators melted into data
-            # warning, we may find some data|\\|data
-            # that is some escaped \ then a legal | separator
-            i=1
-            while pos-i >= 0 and line[pos-i] == '\\':
-                i += 1
-
-            # now i-1 is the number of \ preceding the separator
-            # it's a legal separator only if i-1 is even
-            if (i-1) % 2 == 0:
-                # there's no need to keep escaped delimiters inside a column
-                # and we want to avoid double-escaping them
-                columns.append(line[last_sep:pos]
-                               .replace("\\%s" % self.field_sep,
-                                        self.field_sep))
-                last_sep = pos + 1
-
-            pos = line.find(self.field_sep, pos + 1)
-
-        # append last column
-        columns.append(line[last_sep:])
-        return columns
-
-    def _rowids(self, columns):
-        """ get rowids for given input line """
-        rowids = {}
-        try:
-            for id_name, id_col in self.index:
-                rowids[id_name] = columns[id_col - 1]
-
-        except IndexError, e:
-            messages = [
-                "Warning: couldn't get id %d on column #%d" % (id_name,
-                                                               id_col), 
-                str(e)
-                ]
-                
-            self.reject.log(messages, line)
-
-        return rowids
-
+            
     def summary(self):
         """ return a (duration, updates, errors) tuple """
         self.duration = time.time() - self.init_time
@@ -351,7 +305,7 @@ class PGLoader:
 
         if self.columns is not None:
             print "Notice: COPY csv data"
-            self.csv_import()
+            self.data_import()
 
         elif self.blob_cols is not None:
             # elif: COPY process also blob data
@@ -360,18 +314,9 @@ class PGLoader:
         # then show up some stats
         self.print_stats()
 
-    def csv_import(self):
-        """ import CSV data, using COPY """
-
-        ##
-        # Inform database about optionnal partial columns definition
-        # usage for COPY (sequences case, e.g.)
-        if self.partial_coldef is not None:
-            partial_copy_coldef = ", ".join(self.partial_coldef)
-        else:
-            partial_copy_coldef = None
-
-        for line, columns in self.read_data():
+    def data_import(self):
+        """ import CSV or TEXT data, using COPY """
+        for line, columns in self.reader.readlines():
             if self.blob_cols is not None:
                 columns, rowids = self.read_blob(line, columns)
 
@@ -379,33 +324,35 @@ class PGLoader:
                 print self.col_mapping
                 print len(columns), len(self.col_mapping)
 
-            if False and VERBOSE:
-                print line
-                for i in [37, 44, 52, 38]:
-                    print len(columns[i-1]), columns[i-1]
-                print
-
             ##
-            # Now we have to reorder the columns to match schema
-            c_ordered = [columns[i-1] for i in self.col_mapping]
+            # Now we have to reorder the columns to match schema, and only
+            # consider data matched by self.only_cols
+            if self.only_cols is not None:
+                c_ordered = [columns[self.col_mapping[i-1]-1] for i in self.only_cols]
+            else:
+                c_ordered = [columns[i-1] for i in self.col_mapping]
 
             if DRY_RUN or DEBUG:
                 print line
                 print c_ordered
                 print len(c_ordered)
-                print self.db.partial_coldef
+                print self.table_colspec
                 print
                     
             if not DRY_RUN:
-                self.db.copy_from(self.table, partial_copy_coldef,
+                self.db.copy_from(self.table, self.table_colspec,
                                   c_ordered, line, self.reject)
 
         if not DRY_RUN:
             # we may need a last COPY for the rest of data
-            self.db.copy_from(self.table, partial_copy_coldef,
+            self.db.copy_from(self.table, self.table_colspec,
                               None, None, self.reject, EOF = True)
 
         return
+
+    ##
+    # BLOB data reading/parsing
+    # probably should be moved out from this file
 
     def lo_import(self):
         """ import large object data, using UPDATEs """
@@ -426,223 +373,6 @@ class PGLoader:
                                     rowids, cname, data, btype,
                                     line, self.reject)
 
-    def _chomp(self, input_line):
-        """ chomp end of line when necessary, and trailing_sep too """
-
-        if len(input_line) == 0:
-            if DEBUG:
-                print 'pgloader._chomp: skipping empty line'
-            return input_line
-        
-        # chomp a copy of the input_line, we will need the original one
-        line = input_line[:]
-
-        if line[-2:] == "\r\n":
-            line = line[:-2]
-
-        elif line[-1] == "\r":
-            line = line[:-1]
-
-        elif line[-1] == "\n":
-            line = line[:-1]
-
-        # trailing separator to whipe out ?
-        if self.trailing_sep \
-            and line[-len(self.field_sep)] == self.field_sep:
-            
-            line = line[:-len(self.field_sep)]
-
-        return line
-
-    def _escape_newlines(self, columns):
-        """ trim out newline escapes to be found inside data columns """
-        if DEBUG:
-            print 'Debug: escaping columns newlines'
-            print 'Debug:', self.newline_escapes
-
-        for (ne_col, ne_esc) in self.newline_escapes:
-            # don't forget configured col references use counting from 1
-            ne_colnum = dict(self.columns)[ne_col] - 1
-            if DEBUG:
-                print 'Debug: column %s[%d] escaped with %s' \
-                      % (ne_col, ne_colnum+1, ne_esc)
-
-            col_data = columns[ne_colnum]
-            
-            if self.db.is_null(col_data) or self.db.is_empty(col_data):
-                if DEBUG:
-                    print 'Debug: skipping null or empty column'
-                continue
-
-            escaped   = []
-            tmp       = col_data
-
-            for line in tmp.split('\n'):
-                if len(line) == 0:
-                    if DEBUG:
-                        print 'Debug: skipping empty line'
-                    continue
-
-                if DEBUG:
-                    print 'Debug: chomping:', line
-                    
-                tmpline = self._chomp(line)
-                if tmpline[-1] == ne_esc:
-                    tmpline = tmpline[:-1]
-
-                    # chomp out only escaping char, not newline itself
-                    escaped.append(line[:len(tmpline)] + \
-                                   line[len(tmpline)+1:])
-
-                else:
-                    # line does not end with escaping char, keep it
-                    escaped.append(line)
-
-            columns[ne_colnum] = '\n'.join(escaped)
-        return columns
-
-    def read_data(self):
-        """ read data from configured file, and generate (yields) for
-        each data line: line, columns and rowid """
-
-        # temporary feature for controlling when to begin real inserts
-        # if first time launch, set to True.
-        input_buffer = StringIO()
-        nb_lines     = 0
-        begin_linenb = None
-        nb_plines    = 0
-
-        ##
-        # if neither -I nor -F was used, we can state that begin = 0
-        if FROM_ID is None and FROM_COUNT == 0:
-            if VERBOSE:
-                print 'Notice: beginning on first line'
-            begin_linenb = 1
-
-        if INPUT_ENCODING is not None:
-            try:
-                fd = codecs.open(self.filename, encoding = INPUT_ENCODING)
-            except LookupError, e:
-                # codec not found
-                raise PGLoader_Error, "Input codec: %s" % e
-        else:
-            try:
-                fd = open(self.filename)
-            except IOError, error:
-                raise PGLoader_Error, error
-
-        for line in fd:
-            # we count real physical lines
-            nb_plines += 1
-
-            if INPUT_ENCODING is not None:
-                # this may not be necessary, after all
-                try:
-                    line = line.encode(INPUT_ENCODING)
-                except UnicodeDecodeError, e:
-                    reject.log(['Codec error', str(e)], input_line)
-                    continue
-                
-            if self.field_count is not None:
-                input_buffer.write(line)
-                # act as if this were the last input_buffer for this line
-                tmp     = self._chomp(input_buffer.getvalue())
-                columns = self._split_line(tmp)
-                nb_cols = len(columns)
-
-                # check we got them all if not and field_count was
-                # given, we have a multi-line input
-                if nb_cols < self.field_count:
-                    continue
-                else:
-                    # we have read all the logical line
-                    line = tmp
-                    input_buffer.close()
-                    input_buffer = StringIO()
-
-                    if nb_cols != self.field_count:
-                        if DEBUG:
-                            print line
-                            print columns
-                            print
-                        self.reject.log(
-                            'Error parsing columns on line ' +\
-                            '%d [row %d]: found %d columns' \
-                            % (nb_plines, nb_lines, nb_cols), line)
-            else:
-                # normal operation mode : one physical line is one
-                # logical line. we didn't split input line yet
-                line    = self._chomp(line)
-                nb_cols = None
-                columns = None
-
-            if len(line) == 0:
-                # skip empty lines
-                continue
-
-            # we count logical lines
-            nb_lines += 1
-
-            ##
-            # if -F is used, count lines to skip, and skip them
-            if FROM_COUNT > 0:
-                if nb_lines < FROM_COUNT:
-                    continue
-
-                if nb_lines == FROM_COUNT:
-                    begin_linenb = nb_lines
-                    if VERBOSE:
-                        print 'Notice: reached beginning on line %d' % nb_lines
-
-            ##
-            # check for beginning if option -I was used
-            if FROM_ID is not None:
-                if columns is None:
-                    columns = self._split_line(line)
-                    
-                rowids = self._rowids(columns)
-                                      
-                if FROM_ID == rowids:
-                    begin_linenb = nb_lines
-                    if VERBOSE:
-                        print 'Notice: reached beginning on line %d' % nb_lines
-
-                elif begin_linenb is None:
-                    # begin is set to 1 when we don't use neither -I nor -F
-                    continue
-
-            if COUNT is not None and begin_linenb is not None \
-               and (nb_lines - begin_linenb + 1) > COUNT:
-                
-                if VERBOSE:
-                    print 'Notice: reached line %d, stopping' % nb_lines
-                break
-
-            if columns is None:
-                columns = self._split_line(line)
-
-            if DEBUG:
-                print 'Debug: read data'
-
-            # now, we may have to apply newline_escapes on configured columns
-            if NEWLINE_ESCAPES or self.newline_escapes != []:
-                columns = self._escape_newlines(columns)
-
-            nb_cols = len(columns)
-            if nb_cols != len(self.columns):
-                if DEBUG:
-                    print line
-                    print columns
-                    print
-
-                msg = 'Error parsing columns on line ' +\
-                      '%d [row %d]: found %d columns' \
-                      % (nb_plines, nb_lines, nb_cols)
-
-                self.reject.log(msg, line)
-                continue
-
-            yield line, columns
 
 
     def read_blob(self, line, columns):
@@ -727,3 +457,21 @@ class PGLoader:
         return columns, rowids
                                            
                     
+    def _rowids(self, columns):
+        """ get rowids for given input line """
+        rowids = {}
+        try:
+            for id_name, id_col in self.index:
+                rowids[id_name] = columns[id_col - 1]
+
+        except IndexError, e:
+            messages = [
+                "Warning: couldn't get id %d on column #%d" % (id_name,
+                                                               id_col), 
+                str(e)
+                ]
+                
+            self.reject.log(messages, line)
+
+        return rowids
+

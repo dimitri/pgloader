@@ -20,8 +20,10 @@ The provided examples are:
 
 . errors
 
-  Same test, but with impossible dates. Should report some errors. It does
-not report errors, check you're not using psycopg 1.1.21.
+  Same test, but with impossible dates. Should report some errors. If it
+  does not report errors, check you're not using psycopg 1.1.21.
+
+  Should report 3 errors out of 7 lines (4 updates).
 
 . clob
 
@@ -33,23 +35,38 @@ not report errors, check you're not using psycopg 1.1.21.
   A dataset with newline escaped and multi-line input (without quoting)
   Beware of data reordering, too.
 
+. csv
+
+  A dataset with csv delimiter ',' and quoting '"'.
+
+. partial
+
+  A dataset from which we only load some columns of the provided one.
+
+. serial
+
+  In this dataset the id field is ommited, it's a serial which will be
+  automatically set by PostgreSQL while COPYing.
 
 You can launch all those pgloader tests in one run, provided you created the
 necessary tables:
 
- $ for test in simple clob cluttured; do psql pgloader < $test/$test.sql; done
+ $ for sql in */*sql; do psql pgloader < $sql; done
  $ ../pgloader.py -Tc pgloader.conf
-
+ 
  [...]
-
+ 
  Table name        |    duration |    size |    updates |     errors
  ====================================================================
- clob              |      0.121s |   32 kB |          7 |          0
- cluttered         |      0.041s |   32 kB |          3 |          0
- simple            |      0.040s |   16 kB |          6 |          0
+ clob              |      0.041s |   32 kB |          7 |          0
+ cluttered         |      0.037s |   32 kB |          6 |          0
+ csv               |      0.019s |   16 kB |          6 |          0
+ errors            |      0.032s |   32 kB |          4 |          3
+ partial           |      0.024s |   32 kB |          7 |          0
+ serial            |      0.028s |   32 kB |          7 |          0
+ simple            |      0.029s |   32 kB |          7 |          0
  ====================================================================
- Total             |      0.369s |   80 kB |         16 |          0
+ Total             |      0.210s |  208 kB |         44 |          3
 
-And you then have a nice summary.
 
 

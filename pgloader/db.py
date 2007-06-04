@@ -257,16 +257,18 @@ class db:
         print "--- COPY data buffer saved in %s ---" % n
         return n
 
-    def copy_from(self, table, partial_coldef, columns, input_line,
+    def copy_from(self, table, table_colspec, columns, input_line,
                   reject, EOF = False):
         """ Generate some COPY SQL for PostgreSQL """
         ok = True
         if not self.copy: self.copy = True
 
-        if partial_coldef is not None:
-            # we prefer not having to mess table param on the caller side
-            # as it's an implementation detail concerning db class
-            table = "%s (%s) " % (table, partial_coldef)
+        ##
+        # build the table colomns specs from parameters
+        # ie. we always issue COPY table (col1, col2, ..., coln) commands
+        table = "%s (%s) " % (table, ", ".join(table_colspec))
+        if DEBUG:
+            print 'COPY %s' % table
 
         if EOF or self.running_commands == self.copy_every \
                and self.buffer is not None:
