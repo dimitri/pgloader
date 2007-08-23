@@ -1,4 +1,3 @@
-# -*- coding: ISO-8859-15 -*-
 # Author: Dimitri Fontaine <dimitri@dalibo.com>
 #
 # pgloader Large Object support

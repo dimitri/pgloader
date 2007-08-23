@@ -1,5 +1,4 @@
-DOCS = pgloader.1.sgml
-GARBAGE = manpage.links manpage.refs
+DOCS = pgloader.1.txt
 
 # debian setting
 DESTDIR =
@@ -18,6 +17,11 @@ install:
 	cp -a $(libs) $(libdir)/pgloader
 	cp -a $(examples) $(exdir)
 
-man: $(DOCS)
-	docbook2man $(DOCS) 2>/dev/null
-	-rm -f $(GARBAGE)
+html: $(DOCS)
+	asciidoc -a toc $<
+
+pgloader.1.xml: $(DOCS)
+	asciidoc -d manpage -b docbook $<
+
+man: pgloader.1.xml
+	xmlto man $<

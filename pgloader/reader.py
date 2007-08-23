@@ -1,4 +1,3 @@
-# -*- coding: ISO-8859-15 -*-
 # Author: Dimitri Fontaine <dim@tapoueh.org>
 #
 # pgloader data reader interface and defaults

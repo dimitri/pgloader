@@ -1,0 +1,486 @@
+= pgloader(1) =
+
+== NAME ==
+
+pgloader - Import CSV data and Large Object to PostgreSQL
+
+== SYNOPSIS ==
+
+  pgloader [-c configuration file] [-p pedantic] [-d debug] [-v verbose]
+           [-n dryrun] [-Cn count] [-Fn from] [-In from id] [-E input files encoding]
+           [Section1 Section2]
+
+== DESCRIPTION ==
+
++pgloader+ imports data from a flat file and insert it into a database
+table. It uses a flat file per database table, and you can configure
+as many Sections as you want, each one associating a table name and a
+data file.
+
+Data are parsed and rewritten, then given to PostgreSQL +COPY+
+command. Parsing is necessary for dealing with end of lines and
+eventual trailing separator characters, and for column reordering:
+your flat data file may not have the same column order as the database
+table has.
+
++pgloader+ is also able to load some large objects data into
+PostgreSQL, as of now only Informix +UNLOAD+ data files are
+supported. This command gives large objects data location information
+into the main data file. +pgloader+ parse it add the +text+ or +bytea+
+content properly escaped to the +COPY+ data.
+
++pgloader+ issue some timing statistics every +commit_every+ commits
+(see Configuration for this setting). At the end of each section
+processing, a summary of overall operations, numbers of updates and
+commits, time it took in seconds, errors logged and database errors is
+issued.
+
++pgloader+ is available from +pgfoundry+ at
+http://pgfoundry.org/projects/pgloader/[], where you'll find a debian
+package, a source package and an anonymous CVS.
+
+== OPTIONS ==
+
+In order for pgloader to run, you have to edit a configuration file
+(see Configuration) consisting of Section definitions. Each section
+refers to a PostgreSQL table into which some data is to be loaded.
+
+-c, --config::
+
+    specifies the configuration file to use. The default file name is
+    pgloader.conf, searched into current working directory.
+
+-p, --pedantic::
+
+    activates the pedantic mode, where any warning is considered as a fatal
+    error, thus stopping the processing of the input file.
+
+-d, --debug::
+
+    makes pgloader say it all about what it does. debug implies verbose.
+
+-v, --verbose::
+
+    makes pgloader very verbose about what it does.
+
+-n, --dry-run::
+
+    makes pgloader simulate operations, that implies no database connection and
+    no data extraction from blob files.
+
+-T, --truncate::
+
+    makes pgloader issue a truncate SQL command before importing data.
+
+-V, --vacuum::
++
+makes pgloader issue a vacuum full verbose analyse SQL command before
+importing data.
++ 
+This vacuum is run from shell command /usr/bin/vacuumdb with
+connection informations taken from configuration file (see
+Configuration section of this manual page), but without password
+prompting. If you use this option, please configure your pg_hba.conf
+in a way no password is prompted (trust).
+
+-C, --count::
+
+    Number of input lines to process, default is to process all the input
+    lines.
+
+-F, --from::
++
+Input line number from which we begin to process (and count). pgloader
+will skip all preceding lines.
++
+You can't use both -F and -I at the same time.
+
+-I, --from-id::
++
+From which id do we begin to process (and count) input lines.
++
+When a composite key is used, you have to give each column of the key
+separated by comma, on the form col_name=value.
++
+Please notice using the --from-id option implies pgloader will try to
+get row id of each row, it being on the interval processed or
+not. This could have some performance impact, and you may end up
+prefering to use --from instead.
++
+  Example: pgloader -I col1:val1,col2:val2
++
+You can't use both -F and -I at the same time.
+
+-E, --encoding::
+
+    Input data files encoding. Defaults to 'latin9'.
+
+Section::
++
+is the name of a configured Section describing some data to load
++
+Section arguments are optionnal, if no section is given all configured
+sections are processed.
+
+== GLOBAL CONFIGURATION SECTION ==
+
+The configuration file has a .ini file syntax, its first section has
+to be the pgsql one, defining how to access to the PostgreSQL database
+server where to load data. Then you may define any number of sections,
+each one describing a data loading task to be performed by pgloader.
+
+The [pgsql] section has the following options, which all must be set.
+
+host::
+
+    PostgreSQL database server name, for example localhost.
+
+port::
+
+    PostgreSQL database server listening port, 5432. You have to fill this
+    entry.
+
+base::
+
+    The name of the database you want to load data into.
+
+user::
+
+    Connecting PostgreSQL user name.
+
+pass::
+
+    The password of the user. The better is to grant a trust access privilege
+    in PostgreSQL pg_hba.conf. Then you can set this entry to whatever value
+    you want to.
+
+client_encoding::
++
+Set this parameter to have pgloader connects to PostgreSQL using this
+encoding.
++
+This parameter is optionnal and defaults to 'latin9'.
+
+datestyle::
++
+Set this parameter to have pgloader connects to PostgreSQL using this
+datestyle setting.
++
+This parameter is optionnal and has no default value, thus pgloader will
+use whatever your PostgreSQL is configured to as default.
+
+copy_every::
++
+When issuing +COPY+ PostgreSQL commands, pgloader will not make a
+single big +COPY+ attempt, but copy copy_every lines at a time.
++
+This parameter is optionnal and defaults to 10000.
+
+commit_every::
++
+PostgreSQL +COMMIT+ frequency, exprimed in +UPDATE+ orders. A good
+value is 1000, that means commiting the SQL transaction every 1000
+input lines.
++
++pgloader+ issues commit every +commit_every+ updates, on connection
+closing and when a SQL error occurs.
++
+This parameter is optionnal and defaults to 1000.
+
+copy_delimiter::
++
+The field separator to use in +COPY FROM+ produced statements. If you
+don't specify this, the same separator as the one given in +field_sep+
+parameter will be used.
++
+Please note PostgreSQL requires a single char properly encoded (see
+your +client_encoding+ parameter), or it abort in error and even may
+crash.
++
+This parameter is optionnal and defaults to +field_sep+.
+
+newline_escapes::
++
+For parameter effect description, see below (same name, table local
+setting).
++
+You can setup here a global escape caracter, to be considered on each
+and every column of each and every text-format table defined
+thereafter.
+
+null::
++
+You can configure here how null value is represented into your flat
+data file.
++
+This parameter is optionnal and defaults to '' (that is +empty string+).
+
+empty_string::
++
+You can configure here how empty values are represented into your flat
+data file.
++
+This parameter is optionnal and defaults to '\ ' (that is backslash
+followed by space).
+
+
+== COMMON FORMAT CONFIGURATION PARAMETERS ==
+
+You then can define any number of data section, and give them an arbitrary
+name. Some options are required, some are actually optionnals, in which case it
+is said so thereafter.
+
+First, we'll go through common parameters, applicable whichever format of data
+you're refering to. Then text-format only parameters will be presented,
+followed by csv-only parameters.
+
+table::
+
+    The table name of the database where to load data.
+
+format::
++
+The format data are to be found, either text or csv.
++
+See next sections for format specific options.
+
+filename::
+
+    The absolute path to the input data file. The large object files
+    are to be found into the same directory. Their name can be in the
+    form +[bc]lob[0-9a-f]{4}.[0-9a-f]{3}+, but this information is not
+    used by +pgloader+.
+
+reject_log::
+
+    In case of errors processing input data, a human readable log per rejected
+    input data line is produced into the +reject_log+ file.
+
+reject_data::
+
+    In case of errors processing input data, the rejected input line is
+    appended to the +reject_data+ file.
+
+field_sep::
++
+The field separator used into the data file. The same separator will
+be used by the generated +COPY+ commands, thus +pgloader+ does not
+have to deal with escaping the delimiter it uses (input data has to
+have escaped it).
++
+This parameter is optionnal and defaults to pipe char '|'.
+
+client_encoding::
++
+Set this parameter to have pgloader connects to PostgreSQL using this
+encoding.
++
+This parameter is optionnal and defaults to 'latin9'. If defined on a
+table level, this local value will overwritte the global one.
+
+datestyle::
++
+Set this parameter to have pgloader connects to PostgreSQL using this
++datestyle+ setting.
++
+This parameter is optionnal and has no default. If defined on a table
+level, this local value will overwritte the global one.
+
+null::
++
+You can configure here how null value is represented into your flat
+data file.
++
+This parameter is optionnal and defaults to +''+ (that is empty
+string). If defined on a table level, this local value will overwritte
+the global one.
+
+empty_string::
++
+You can configure here how empty values are represented into your flat
+data file.
++
+This parameter is optionnal and defaults to '\ ' (that is backslash
+followed by space). If defined on a table level, this local value will
+overwritte the global one.
+
+index::
++
+Table index definition, to be used in blob +UPDATE+'ing. You define an
+index column by giving its name and its column number (as found into
+your data file, and counting from 1) separated by a colon. If your
+table has a composite key, then you can define multiple columns here,
+separated by a comma.
++
+    index = colname:3, other_colname:5
+
+columns::
++
+You can define here table columns, with the same definition format as
+in previous index parameter.
++
+Note you'll have to define here all the columns to be found in data
+file, whether you want to use them all or not. When not using them
+all, use the +only_cols+ parameter to restrict.
++
+As of +pgloader 2.2+ the column list used might not be the same as the
+table columns definition.
++
+As of +pgloader 2.2.1+ you can omit column numbering if you want to, a
+counter is then maintained for you, starting from 1 and set to +last
+value + 1+ on each column, where +last value+ was either computed or
+given in the config. So you can even omit only 'some' columns in
+there.
++
+    columns = x, y, a, b, d:6, c:5
++
+In case you have a lot a columns per table, you will want to use
+multiple lines for this parameter value. Python ConfigParser module
+knows how to read multi-line parameters, you don't have to escape
+anything.
+
+only_cols::
++
+If you want to only load a part of the columns you have into the data
+file, this option let you define which columns you're interrested
+in. +only_col+ is a comma separated list of ranges or values, as in
+following example.
++
+    only_cols = 1-3, 5
++
+This parameter is optionnal and defaults to the list of all columns
+given on the columns parameter list, in the colname order.
+
+blob_columns::
++
+The definition of the colums where to find some blob or clob
+reference. This definition is composed by a table column name, a
+column number (couting from one) reference into the Informix +UNLOAD+
+data file, and a large object type, separated by a colon. You can have
+several columns in this field, separated by a comma.
++
+Supported large objects type are Informix blob and clob, the awaited
+configuration string are respectively +ifx_blob+ for binary (bytea)
+content type and +ifx_clob+ for text type values.
++
+Here's an example:
++
+    blob_type = clob_column:3:ifx_blob, other_clob_column:5:ifx_clob
+
+== TEXT FORMAT CONFIGURATION PARAMETERS ==
+
+field_count::
++
+The +UNLOAD+ command does not escape newlines when they appear into
+table data. Hence, you may obtain multi-line data files, where a
+single database row (say tuple if you prefer to) can span multiple
+physical lines into the unloaded file.
++
+If this is your case, you may want to configure here the number of
+columns per tuple. Then pgloader will count columns and buffer line
+input in order to re-assemble several physical lines into one data row
+when needed.
++
+This parameter is optionnal.
+
+trailing_sep::
++
+If this option is set to True, the input data file is known to append
+a +field_sep+ as the last character of each of its lines. With this
+option set, this last character is then not considered as a field
+separator.
++
+This parameter is optionnal and defaults to +False+.
+
+newline_escapes::
++
+Sometimes the input data file has field values containing newlines,
+and the export program used (as Informix +UNLOAD+ command) escape
+in-field newlines.  So you want +pgloader+ to keep those newlines,
+while at the same time preserving them.
++
+This option does the described work on specified fields and
+considering the escaping character you configure, following this
+syntax:
++
+    newline_escapes = colname:\, other_colname:§
++
+This parameter is optionnal, and the extra work is only done when
+set. You can configure +newline_escapes+ for as many fields as
+necessary, and you may configure a different escaping character each
+time.
++
+Please note that at the moment, +pgloader+ does only support one
+character length +newline_escapes+.
++
+When both a global (see +[pgsql]+ section) +newline_escapes+ parameter
+and a table local one are set, +pgloader+ issues a warning and only
+consider the global setting.
+
+== CSV FORMAT CONFIGURATION PARAMETERS ==
+
+doublequote::
+
+    Controls how instances of +quotechar+ appearing inside a field
+    should be themselves be quoted. When +True+, the character is
+    doubled. When +False+, the +escapechar+ is used as a prefix to the
+    +quotechar+. It defaults to +True+.
+
+escapechar::
+
+    A one-character string used by the writer to escape the delimiter
+    if quoting is set to +QUOTE_NONE+ and the +quotechar+ if
+    +doublequote+ is +False+. On reading, the +escapechar+ removes any
+    special meaning from the following character. It defaults to
+    +None+, which disables escaping.
+
+quotechar::
+
+    A one-character string used to quote fields containing special
+    characters, such as the +delimiter+ or +quotechar+, or which
+    contain new-line characters.  It defaults to '"'.
+
+skipinitialspace::
+
+    When +True+, whitespace immediately following the +delimiter+ is
+    ignored. The default is +False+.
+
+== CONFIGURATION EXAMPLE ==
+
+Please see the given configuration example which should be distributed in
++/usr/share/doc/pgloader/examples/pgloader.conf+.
+
+The example configuration file comes with example data and can be used
+a unit test of +pgloader+.
+
+== HISTORY ==
+
++pgloader+ has first been a +tcl+ tool written by Christopher
+Kings-Lynne and Jan Wieck, and then maintained by Jean-Paul
+Argudo. When it became clear it would be easier to rewrite it in
+another language than to properly learn +tcl+ and add to the project
+missing options, +pgloader+ was rewritten in python by Dimitri
+Fontaine.
+
++pgloader+ was rewritten to act as an Informix to PostgreSQL migration
+helper which imported Informix large objects directly into a
+PostgreSQL database.
+
+Then as we got some data we couldn't file tools to care about, we
+decided ifx_blob would become +pgloader+, as it had to be able to
+import all Informix +UNLOAD+ data. Those data contains escaped
+separator into unquoted data field and multi-lines fields (+\r+ and
++\n+ are not escaped).
+
+== BUGS ==
+
+Please report bugs to Dimitri Fontaine <dim@tapoueh.org>.
+
+When last line is alone on a +COPY+ command and its parsing ends in
+error (not enough columns read for example), no information is given
+back by +pgloader+.
+
+== AUTHORS ==
+
++pgloader+ is written by Dimitri Fontaine <dim@tapoueh.org>.
+

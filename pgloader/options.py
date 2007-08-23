@@ -1,10 +1,10 @@
-# -*- coding: ISO-8859-15 -*-
 # Author: Dimitri Fontaine <dimitri@dalibo.com>
 #
 # Some common options, for each module to get them
 
 INPUT_ENCODING     = None
 PG_CLIENT_ENCODING = 'latin9'
+DATESTYLE          = None
 
 COPY_SEP     = None
 FIELD_SEP    = '|'

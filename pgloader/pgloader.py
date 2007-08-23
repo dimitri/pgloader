@@ -1,4 +1,3 @@
-# -*- coding: ISO-8859-15 -*-
 # Author: Dimitri Fontaine <dimitri@dalibo.com>
 #
 # pgloader main class
@@ -75,6 +74,14 @@ class PGLoader:
 
         if DEBUG:
             print "client_encoding: '%s'" % self.db.client_encoding
+
+
+        # optionnal local option datestyle
+        if config.has_option(name, 'datestyle'):
+            self.db.datestyle = config.get(name, 'datestyle')
+
+        if DEBUG:
+            print "datestyle: '%s'" % self.db.datestyle
 
 
         ##
@@ -252,8 +259,14 @@ class PGLoader:
         f = self.__dict__[attr] = []
 
         try:
+            serial = 1
+            
             for field_def in str.split(','):
-                properties = [x.strip() for x in field_def.split(':')]
+                if argtype == 'int' and field_def.find(':') == -1:
+                    # support for automatic ordering
+                    properties = [field_def.strip(), serial]
+                else:
+                    properties = [x.strip() for x in field_def.split(':')]
 
                 if not btype:
                     # normal column definition, for COPY usage
@@ -265,6 +278,10 @@ class PGLoader:
                     # UPDATE usage
                     colname, arg, btype = properties
                     f.append((colname, __getarg(arg, argtype), btype))
+
+                # update serial
+                if argtype == 'int':
+                    serial = int(arg) + 1
                     
         except Exception, error:
             # FIXME: make some errors and write some error messages

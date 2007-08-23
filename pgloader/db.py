@@ -1,4 +1,3 @@
-# -*- coding: ISO-8859-15 -*-
 # Author: Dimitri Fontaine <dimitri@dalibo.com>
 #
 # pgloader database connection handling
@@ -9,7 +8,7 @@ from cStringIO import StringIO
 
 from options import DRY_RUN, VERBOSE, DEBUG, PEDANTIC
 from options import TRUNCATE, VACUUM
-from options import INPUT_ENCODING, PG_CLIENT_ENCODING
+from options import INPUT_ENCODING, PG_CLIENT_ENCODING, DATESTYLE
 from options import COPY_SEP, FIELD_SEP, CLOB_SEP, NULL, EMPTY_STRING
 
 from tools   import PGLoader_Error
@@ -40,6 +39,7 @@ class db:
         self.copy_every      = copy_every
         self.commit_every    = commit_every
         self.client_encoding = client_encoding
+        self.datestyle       = DATESTYLE
         self.null            = NULL
         self.empty_string    = EMPTY_STRING
 
@@ -72,6 +72,22 @@ class db:
         cursor.execute(sql, [self.client_encoding])
         cursor.close()
 
+    def set_datestyle(self):
+        """ set session datestyle to self.datestyle """
+
+        if self.datestyle is None:
+            return
+
+        if DEBUG:
+            # debug only cause reconnecting happens on every
+            # configured section
+            print 'Setting datestyle to %s' % self.datestyle
+        
+        sql = 'set session datestyle to %s'
+        cursor = self.dbconn.cursor()
+        cursor.execute(sql, [self.datestyle])
+        cursor.close()
+
     def reset(self):
         """ reset internal counters and open a new database connection """
         self.buffer            = None
@@ -94,6 +110,7 @@ class db:
 
         self.dbconn = psycopg.connect(self.dsn)
         self.set_encoding()
+        self.set_datestyle()
 
     def print_stats(self):
         """ output some stats about recent activity """
@@ -339,8 +356,8 @@ class db:
             except psycopg.DatabaseError, error:
                 # non recoverable error
                 mesg = "\n".join(["Please check PostgreSQL logs",
-                                  "HINT:  double check your client_encoding" +
-                                  " and copy_delimiter settings"])
+                                  "HINT:  double check your client_encoding,"+
+                                  " datestyle and copy_delimiter settings"])
                 raise PGLoader_Error, mesg
 
         # prepare next run

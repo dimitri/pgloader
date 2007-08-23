@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-# -*- coding: ISO-8859-15 -*-
 # Author: Dimitri Fontaine <dimitri@dalibo.com>
 
 """
@@ -165,6 +164,9 @@ def parse_config(conffile):
         if config.has_option(section, 'client_encoding'):
             dbconn.client_encoding = config.get(section, 'client_encoding')
 
+        if config.has_option(section, 'datestyle'):
+            dbconn.datestyle = config.get(section, 'datestyle')
+
         if config.has_option(section, 'copy_every'):
             dbconn.copy_every = config.getint(section, 'copy_every')
 
@@ -173,6 +175,12 @@ def parse_config(conffile):
 
         if config.has_option(section, 'copy_delimiter'):
             dbconn.copy_sep = config.get(section, 'copy_delimiter')
+
+        # optionnal global newline_escapes
+        if config.has_option(section, 'newline_escapes'):
+            setting = pgloader.tools.parse_config_string(
+                config.get(section, 'newline_escapes'))
+            pgloader.options.NEWLINE_ESCAPES = setting
 
         # Then there are null and empty_string optionnal parameters
         # They canbe overriden in specific table configuration
@@ -184,12 +192,6 @@ def parse_config(conffile):
             pgloader.options.EMPTY_STRING = pgloader.tools.parse_config_string(
                 config.get(section, 'empty_string'))
 
-        # optionnal global newline_escapes
-        if config.has_option(section, 'newline_escapes'):
-            setting = pgloader.tools.parse_config_string(
-                config.get(section, 'newline_escapes'))
-            pgloader.options.NEWLINE_ESCAPES = setting
-            
     except Exception, error:
         print "Error: Could not initialize PostgreSQL connection:"
         print error

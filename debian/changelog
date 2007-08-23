@@ -1,3 +1,11 @@
+pgloader (2.2.1) unstable; urgency=low
+
+  * Support for datestyle setting
+  * Support for omiting column numbering
+  * Change documentation source format from SGML to asciidoc
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Thu, 23 Aug 2007 12:35:34 +0200
+
 pgloader (2.2.0) unstable; urgency=low
 
   * Support for partial loading of data (subrange(s) of columns)
