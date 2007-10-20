@@ -63,7 +63,7 @@ refers to a PostgreSQL table into which some data is to be loaded.
 
     makes pgloader very verbose about what it does.
 
--q, --quiet:
+-q, --quiet::
 
     makes pgloader very quiet about what it does: only output errors.
 
