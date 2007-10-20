@@ -16,6 +16,8 @@ NEWLINE_ESCAPES = None
 
 DEBUG      = False
 VERBOSE    = False
+QUIET      = False
+SUMMARY    = False
 DRY_RUN    = False
 PEDANTIC   = False
 

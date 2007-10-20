@@ -55,6 +55,16 @@ def parse_options():
                       default = False,
                       help    = "be verbose and about processing progress")
 
+    parser.add_option("-q", "--quiet", action = "store_true",
+                      dest    = "quiet",
+                      default = False,
+                      help    = "be quiet, only print out errors")
+
+    parser.add_option("-s", "--summary", action = "store_true",
+                      dest    = "summary",
+                      default = False,
+                      help    = "print a summary")
+
     parser.add_option("-n", "--dry-run", action = "store_true",
                       dest    = "dryrun",
                       default = False,
@@ -106,10 +116,16 @@ def parse_options():
         print "Error: Can't set both options fromcount (-F) AND fromid (-I)"
         sys.exit(1)
 
+    if opts.quiet and (opts.verbose or opts.debug):
+        print "Error: Can't be verbose and quiet at the same time!"
+        sys.exit(1)
+
     pgloader.options.DRY_RUN    = opts.dryrun
     pgloader.options.DEBUG      = opts.debug
     # if debug, then verbose
     pgloader.options.VERBOSE    = opts.verbose or opts.debug
+    pgloader.options.QUIET      = opts.quiet
+    pgloader.options.SUMMARY    = opts.summary    
     pgloader.options.PEDANTIC   = opts.pedantic
 
     pgloader.options.TRUNCATE   = opts.truncate
@@ -241,7 +257,8 @@ def load_data():
     config, dbconn = parse_config(conffile)
 
     # load some pgloader package modules
-    from pgloader.options  import DRY_RUN, VERBOSE, DEBUG, PEDANTIC, VACUUM
+    from pgloader.options  import VERBOSE, DEBUG, QUIET, SUMMARY
+    from pgloader.options  import DRY_RUN, PEDANTIC, VACUUM
     from pgloader.pgloader import PGLoader
     from pgloader.tools    import PGLoader_Error
 
@@ -291,65 +308,68 @@ def load_data():
     td = time.time() - begin
 
     retcode = 0
-    
-    # print a pretty summary
-    t= 'Table name        |    duration |    size |    updates |     errors '
+
+    t= 'Table name        |    duration |    size |  copy rows |     errors '
     _= '===================================================================='
 
-    tu = te = ts = 0 # total updates, errors, size
-    if not DRY_RUN:
-        dbconn.reset()
-        cursor = dbconn.dbconn.cursor()
+    if SUMMARY:  
+        # print a pretty summary
+        tu = te = ts = 0 # total updates, errors, size
+        if not DRY_RUN:
+            dbconn.reset()
+            cursor = dbconn.dbconn.cursor()
 
-    s_ok = 0
-    for s in sections:
-        if s not in summary:
-            continue
+        s_ok = 0
+        for s in sections:
+            if s not in summary:
+                continue
 
-        s_ok += 1
-        if s_ok == 1:
-            # print pretty sumary header now
-            print
-            print t
+            s_ok += 1
+            if s_ok == 1:
+                # print pretty sumary header now
+                print
+                print t
+                print _
+
+            t, d, u, e = summary[s]
+            d = duration_pprint(d)
+
+            if not DRY_RUN:
+                sql = "select pg_total_relation_size(%s), " + \
+                      "pg_size_pretty(pg_total_relation_size(%s));"
+                cursor.execute(sql, [t, t])
+                octets, s = cursor.fetchone()
+                ts += octets
+
+                if s[5:] == 'bytes': s = s[:-5] + ' B'
+            else:
+                s = '-'
+
+            print '%-18s| %ss | %7s | %10d | %10d' % (t, d, s, u, e)
+
+            tu += u
+            te += e
+
+            if e > 0:
+                retcode += 1
+
+        if s_ok > 1:
+            td = duration_pprint(td)
+
+            # pretty size
+            cursor.execute("select pg_size_pretty(%s);", [ts])
+            [ts] = cursor.fetchone()
+            if ts[5:] == 'bytes': ts = ts[:-5] + ' B'
+
             print _
-        
-        t, d, u, e = summary[s]
-        d = duration_pprint(d)
+            print 'Total             | %ss | %7s | %10d | %10d' \
+                  % (td, ts, tu, te)
 
-        if not DRY_RUN:
-            sql = "select pg_total_relation_size(%s), " + \
-                  "pg_size_pretty(pg_total_relation_size(%s));"
-            cursor.execute(sql, [t, t])
-            octets, s = cursor.fetchone()
-            ts += octets
-            
-            if s[5:] == 'bytes': s = s[:-5] + ' B'
-        else:
-            s = '-'
-        
-        print '%-18s| %ss | %7s | %10d | %10d' % (t, d, s, u, e)
+            if not DRY_RUN:
+                cursor.close()
+                
+        print
 
-        tu += u
-        te += e
-
-        if e > 0:
-            retcode += 1
-
-    if s_ok > 1:
-        td = duration_pprint(td)
-
-        # pretty size
-        cursor.execute("select pg_size_pretty(%s);", [ts])
-        [ts] = cursor.fetchone()
-        if ts[5:] == 'bytes': ts = ts[:-5] + ' B'
-        
-        print _
-        print 'Total             | %ss | %7s | %10d | %10d' % (td, ts, tu, te)
-
-        if not DRY_RUN:
-            cursor.close()
-
-    print
     if VACUUM and not DRY_RUN:
         print 'vacuumdb... '
         try:

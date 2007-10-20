@@ -35,7 +35,8 @@ build-stamp: configure-stamp
 
 	# Add here commands to compile the package.
 	#$(MAKE)
-	docbook-to-man pgloader.1.sgml > pgloader.1
+	#docbook-to-man pgloader.1.sgml > pgloader.1
+	$(MAKE) man
 
 	touch $@
 

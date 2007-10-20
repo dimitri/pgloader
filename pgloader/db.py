@@ -6,7 +6,7 @@
 import os, sys, os.path, time, codecs
 from cStringIO import StringIO
 
-from options import DRY_RUN, VERBOSE, DEBUG, PEDANTIC
+from options import DRY_RUN, VERBOSE, DEBUG, QUIET, PEDANTIC
 from options import TRUNCATE, VACUUM
 from options import INPUT_ENCODING, PG_CLIENT_ENCODING, DATESTYLE
 from options import COPY_SEP, FIELD_SEP, CLOB_SEP, NULL, EMPTY_STRING
@@ -117,15 +117,15 @@ class db:
         d = time.time() - self.first_commit_time
         u = self.commited_rows
         c = self.commits
-        print "## %d updates in %d commits took %5.3f seconds" % (u, c, d)
+        print " %d updates in %d commits took %5.3f seconds" % (u, c, d)
 
         if self.errors > 0:
-            print "## %d database errors occured" % self.errors
+            print " %d database errors occured" % self.errors
             if self.copy and not VACUUM:
-                print "## Please do VACUUM your database to recover space"
+                print "  Please do VACUUM your database to recover space"
         else:
             if u > 0:
-                print "## No database error occured"
+                print " No database error occured"
         return
 
     def is_null(self, value):
@@ -236,9 +236,10 @@ class db:
                 self.commits += 1
                 duration      = now - self.last_commit_time
                 self.last_commit_time = now
-                
-                print "-- commit %d: %d updates in %5.3fs --" \
-                      % (self.commits, self.running_commands, duration)
+
+                if not QUIET:
+                    print "-- commit %d: %d updates in %5.3fs --" \
+                          % (self.commits, self.running_commands, duration)
 
                 self.commited_rows   += self.running_commands
                 self.running_commands = 1
@@ -271,7 +272,8 @@ class db:
         os.close(f)
 
         # systematicaly write about this
-        print "--- COPY data buffer saved in %s ---" % n
+        if not QUIET:
+            print "  -- COPY data buffer saved in %s ---" % n
         return n
 
     def copy_from(self, table, table_colspec, columns, input_line,
@@ -311,8 +313,9 @@ class db:
                 duration              = now - self.last_commit_time
                 self.last_commit_time = now
 
-                print "-- COPY %d: %d rows copied in %5.3fs --" \
-                      % (self.commits, self.running_commands, duration)
+                if not QUIET:
+                    print "  - COPY %d: %d rows copied in %5.3fs --" \
+                          % (self.commits, self.running_commands, duration)
 
                 # prepare next run
                 self.buffer.close()
@@ -416,7 +419,7 @@ class db:
                 x.close()
 
                 if DEBUG:
-                    print "--- COPY ERROR processing progress: %d rows copied"\
+                    print "  -- COPY ERROR handling progress: %d rows copied"\
                           % (xcount)
 
                 x.close()

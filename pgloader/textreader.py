@@ -13,7 +13,7 @@ from db       import db
 from lo       import ifx_clob, ifx_blob
 from reader   import DataReader
 
-from options import DRY_RUN, VERBOSE, DEBUG, PEDANTIC
+from options import DRY_RUN, VERBOSE, DEBUG, QUIET, PEDANTIC
 from options import TRUNCATE, VACUUM
 from options import COUNT, FROM_COUNT, FROM_ID
 from options import INPUT_ENCODING, PG_CLIENT_ENCODING
@@ -50,9 +50,10 @@ class TextReader(DataReader):
             if NEWLINE_ESCAPES is not None:
                 # this parameter is globally set, will ignore local
                 # definition
-                print "Warning: ignoring %s newline_escapes option" % name
-                print "         option is set to '%s' globally" \
-                      % NEWLINE_ESCAPES
+                if not QUIET:
+                    print "Warning: ignoring %s newline_escapes option" % name
+                    print "         option is set to '%s' globally" \
+                          % NEWLINE_ESCAPES
             else:
                 self._parse_fields('newline_escapes',
                                    config.get(name, 'newline_escapes'),

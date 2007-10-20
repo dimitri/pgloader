@@ -5,7 +5,7 @@
 import os, sys, os.path, time, codecs
 from cStringIO import StringIO
 
-from options import DRY_RUN, VERBOSE, DEBUG, PEDANTIC
+from options import DRY_RUN, VERBOSE, DEBUG, QUIET, PEDANTIC
 
 class PGLoader_Error(Exception):
     """ Internal pgloader processing error """
@@ -26,17 +26,18 @@ class Reject:
         # we will open files on first error
         self.errors = 0
 
-    def print_stats(self):
+    def print_stats(self, name, quiet):
         """ give a summary """
         if DRY_RUN:
             return
         
         if self.errors == 0:
-            print "## No data were rejected"
+            if not quiet:
+                print " No data were rejected"
         else:
-            print "## %d errors found into data" % self.errors
-            print "   please read %s for errors log" % self.reject_log
-            print "   and %s for data still to process" % self.reject_data
+            print " %d errors found into [%s] data" % (self.errors, name)
+            print "  please read %s for errors log" % self.reject_log
+            print "  and %s for data still to process" % self.reject_data
 
     def log(self, messages, data = None):
         """ log the messages into reject_log, and the data into reject_data
