@@ -290,7 +290,7 @@ def load_data():
             pgloader = PGLoader(s, config, dbconn)
             pgloader.run()
             
-            summary[s] = (pgloader.name,) + pgloader.summary()
+            summary[s] = (pgloader.table,) + pgloader.summary()
         except PGLoader_Error, e:
             if e == '':
                 print '[%s] Please correct previous errors' % s
@@ -338,14 +338,18 @@ def load_data():
                 sql = "select pg_total_relation_size(%s), " + \
                       "pg_size_pretty(pg_total_relation_size(%s));"
                 cursor.execute(sql, [t, t])
-                octets, s = cursor.fetchone()
+                octets, sp = cursor.fetchone()
                 ts += octets
 
-                if s[5:] == 'bytes': s = s[:-5] + ' B'
+                if sp[5:] == 'bytes': sp = sp[:-5] + ' B'
             else:
-                s = '-'
+                sp = '-'
 
-            print '%-18s| %ss | %7s | %10d | %10d' % (t, d, s, u, e)
+            tn = s
+            if len(tn) > 18:
+                tn = s[0:15] + "..."
+                
+            print '%-18s| %ss | %7s | %10d | %10d' % (tn, d, sp, u, e)
 
             tu += u
             te += e
