@@ -263,17 +263,17 @@ class db:
 
         return ok
 
-    def save_copy_buffer(self, table):
+    def save_copy_buffer(self, tablename):
         """ save copy buffer to a temporary file for further inspection """
         import tempfile
-        (f, n) = tempfile.mkstemp(prefix='%s.' % table,
+        (f, n) = tempfile.mkstemp(prefix='%s.' % tablename,
                                   suffix='.pgimport', dir='/tmp')
         os.write(f, self.buffer.getvalue())
         os.close(f)
 
         # systematicaly write about this
         if not QUIET:
-            print "  -- COPY data buffer saved in %s ---" % n
+            print "  -- COPY data buffer saved in %s --" % n
         return n
 
     def copy_from(self, table, table_colspec, columns, input_line,
@@ -285,7 +285,8 @@ class db:
         ##
         # build the table colomns specs from parameters
         # ie. we always issue COPY table (col1, col2, ..., coln) commands
-        table = "%s (%s) " % (table, ", ".join(table_colspec))
+        tablename = table
+        table     = "%s (%s) " % (table, ", ".join(table_colspec))
         if DEBUG:
             print 'COPY %s' % table
 
@@ -299,7 +300,7 @@ class db:
                 return False
             
             if DEBUG:
-                self.save_copy_buffer(table)
+                self.save_copy_buffer(tablename)
 
             self.buffer.seek(0)
             now = time.time()
@@ -332,7 +333,7 @@ class db:
                     if not DEBUG:
                         # in DEBUG mode, copy buffer has already been saved
                         # to file
-                        self.save_copy_buffer(table)
+                        self.save_copy_buffer(tablename)
 
                 # copy recovery process
                 now = time.time()
