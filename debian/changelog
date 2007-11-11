@@ -1,8 +1,10 @@
 pgloader (2.2.2) unstable; urgency=low
 
   * New command line options --quiet and --summary (-qs for short)
+  * Bugfix: temp filename no more contains columns (per user report)
+  * debian package now properly include and install the man page
 
- -- Dimitri Fontaine <dim@tapoueh.org>  Sat, 20 Oct 2007 16:20:18 +0200
+ -- Dimitri Fontaine <dim@tapoueh.org>  Sun, 11 Nov 2007 20:44:23 +0100
 
 pgloader (2.2.1) unstable; urgency=low
 

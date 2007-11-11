@@ -1,7 +1,7 @@
 Source: pgloader
 Section: misc
 Priority: extra
-Maintainer: Dimitri Fontaine <dim@dalibo.com>
+Maintainer: Dimitri Fontaine <dim@tapoueh.org>
 Build-Depends: debhelper (>= 5), docbook-to-man (>= 2.0.0), python-support (>= 0.3)
 Standards-Version: 3.7.2
 
