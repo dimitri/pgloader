@@ -36,6 +36,11 @@ def parse_options():
     usage  = "%prog [-c <config_filename>] Section [Section ...]"
     parser = OptionParser(usage = usage)
     
+    parser.add_option("--version", action = "store_true",
+                      dest    = "version",
+                      default = False,
+                      help    = "show pgloader version")
+
     parser.add_option("-c", "--config", dest = "config",
                       default = "pgloader.conf",
                       help    = "configuration file, defauts to pgloader.conf")
@@ -97,6 +102,10 @@ def parse_options():
                       help    = "input files encoding")
 
     (opts, args) = parser.parse_args()
+
+    if opts.version:
+        print "PgLoader version %s" % pgloader.options.PGLOADER_VERSION
+        sys.exit(0)
 
     # check existence en read ability of config file
     if not os.path.exists(opts.config):

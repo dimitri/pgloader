@@ -30,10 +30,17 @@ class TextReader(DataReader):
      - ...
     """
 
+    def __init__(self, db, reject, filename, table, columns, newline_escapes):
+        """ init textreader with a newline_escapes parameter """
+        DataReader.__init__(self, db, reject, filename, table, columns)
+
+        self.newline_escapes = newline_escapes
+
+
     def readconfig(self, name, config):
         """ get this reader module configuration from config file """
         DataReader.readconfig(self, name, config)
-        
+
         # optionnal number of columns per line
         self.field_count = None
         if config.has_option(name, 'field_count'):
@@ -44,27 +51,6 @@ class TextReader(DataReader):
         if config.has_option(name, 'trailing_sep'):
             self.trailing_sep = config.get(name, 'trailing_sep') == 'True'
 
-        # optionnal newline escaped option
-        self.newline_escapes = []
-        if config.has_option(name, 'newline_escapes'):
-            if NEWLINE_ESCAPES is not None:
-                # this parameter is globally set, will ignore local
-                # definition
-                if not QUIET:
-                    print "Warning: ignoring %s newline_escapes option" % name
-                    print "         option is set to '%s' globally" \
-                          % NEWLINE_ESCAPES
-            else:
-                self._parse_fields('newline_escapes',
-                                   config.get(name, 'newline_escapes'),
-                                   argtype = 'char')
-
-        if NEWLINE_ESCAPES is not None:
-            # set NEWLINE_ESCAPES for each table column
-            self.newline_escapes = [(a, NEWLINE_ESCAPES)
-                                    for (a, x) in self.columns]
-
-        
 
     def readlines(self):
         """ read data from configured file, and generate (yields) for

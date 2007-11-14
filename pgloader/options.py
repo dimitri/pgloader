@@ -2,6 +2,8 @@
 #
 # Some common options, for each module to get them
 
+PGLOADER_VERSION = '2.2.3'
+
 INPUT_ENCODING     = None
 PG_CLIENT_ENCODING = 'latin9'
 DATESTYLE          = None
@@ -28,5 +30,4 @@ COUNT      = None
 FROM_COUNT = None
 FROM_ID    = None
 
-
-
+UDC_PREFIX = 'udc_'

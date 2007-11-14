@@ -1,10 +1,20 @@
+pgloader (2.2.3) unstable; urgency=low
+
+  * User Defined Columns
+  * Temporary files with copy data content now suffixed .pgloader
+  * New option --version
+  * Fix TextReader newline_escapes configuration option reading
+  * Fix Reader reject initialisation
+  * Skip database related settings when in DRY_RUN mode (-n)
+  * List all command line options from man page synopsis
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Wed, 14 Nov 2007 21:57:39 +0100
+
 pgloader (2.2.2) unstable; urgency=low
 
   * New command line options --quiet and --summary (-qs for short)
-  * Bugfix: temp filename no more contains columns (per user report)
-  * debian package now properly include and install the man page
 
- -- Dimitri Fontaine <dim@tapoueh.org>  Sun, 11 Nov 2007 20:44:23 +0100
+ -- Dimitri Fontaine <dim@tapoueh.org>  Sat, 20 Oct 2007 16:20:18 +0200
 
 pgloader (2.2.1) unstable; urgency=low
 

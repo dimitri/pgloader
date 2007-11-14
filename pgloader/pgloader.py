@@ -18,6 +18,7 @@ from options import COUNT, FROM_COUNT, FROM_ID
 from options import INPUT_ENCODING, PG_CLIENT_ENCODING
 from options import COPY_SEP, FIELD_SEP, CLOB_SEP, NULL, EMPTY_STRING
 from options import NEWLINE_ESCAPES
+from options import UDC_PREFIX
 
 class PGLoader:
     """
@@ -72,7 +73,7 @@ class PGLoader:
             self.db.client_encoding = parse_config_string(
                 config.get(name, 'client_encoding'))
 
-        if DEBUG:
+        if DEBUG and not DRY_RUN:
             print "client_encoding: '%s'" % self.db.client_encoding
 
 
@@ -80,7 +81,7 @@ class PGLoader:
         if config.has_option(name, 'datestyle'):
             self.db.datestyle = config.get(name, 'datestyle')
 
-        if DEBUG:
+        if DEBUG and not DRY_RUN:
             print "datestyle: '%s'" % self.db.datestyle
 
 
@@ -113,21 +114,109 @@ class PGLoader:
 
 
         ##
+        # The config section can also provide user-defined colums
+        # which are option beginning with options.UDC_PREFIX
+        udcs = [o
+                for o in config.options(name)
+                if o[:len(UDC_PREFIX)] == UDC_PREFIX]
+        
+        if len(udcs) > 0:
+            self.udcs = []
+            for udc in udcs:
+                udc_name  = udc[:]
+                udc_name  = udc_name[udc_name.find('_')+1:]
+                udc_value = config.get(name, udc)
+
+                self.udcs.append((udc_name, udc_value))
+        else:
+            self.udcs = None
+
+        if DEBUG:
+            print 'udcs:', self.udcs
+
+        # better check there's no user defined column overriding file
+        # columns
+        if self.udcs:
+            errs = []
+            cols = [c for (c, cn) in self.columns]
+            for (udc_name, udc_value) in self.udcs:
+                if udc_name in cols:
+                    errs.append(udc_name)
+
+            if errs:
+                for c in errs:
+                    print 'Error: %s is configured both as a ' % c +\
+                          '%s.columns entry and as a user-defined column' \
+                          % name
+
+                self.config_errors += 1
+
+        # we need the copy_columns parameter if user-defined columns
+        # are used
+        if self.udcs:
+            if config.has_option(name, 'copy_columns'):
+                namelist = [n for (n, c) in self.columns] + \
+                           [n for (n, v) in self.udcs]
+
+                copy_columns = config.get(name, 'copy_columns').split(',')
+                self.copy_columns = [x.strip()
+                                     for x in copy_columns
+                                     if x.strip() in namelist]
+
+                if len(self.copy_columns) != len(copy_columns):
+                    print 'Error: %s.copy_columns refers to ' % name +\
+                          'unconfigured columns '
+
+                    self.config_errors += 1
+
+            else:
+                print 'Error: section %s does not define ' % name +\
+                      'copy_columns but uses user-defined columns'
+
+                self.config_errors += 1
+
+        # in the copy_columns case, columnlist is that simple:
+        self.columnlist = None
+        if self.udcs:
+            if self.copy_columns:
+                self.columnlist = self.copy_columns
+
+        if DEBUG:
+            print 'udcs', self.udcs
+            if self.udcs:
+                print 'copy_columns', self.copy_columns
+
+        ##
         # We have for example columns = col1:2, col2:1
         # this means the order of input columns is not the same as the
         # awaited order of COPY, so we want a mapping index, here [2, 1]
-        if self.columns is not None:
-            self.col_mapping = [i for (c, i) in self.columns]
+        #
+        # The column mapping is to be done on all_columns, which
+        # allows user to have their user-defined columns talken into
+        # account in the COPY ordering.
+        
+        self.col_mapping = [i for (c, i) in self.columns]
+
+        if self.col_mapping == range(1, len(self.columns)+1):
+            # no mapping to do
+            self.col_mapping = None
 
         ##
         # optionnal partial loading option (sequences case)
-        # self.table_colspec is the column list to give to
+        #
+        # self.columnlist is the column list to give to
         # COPY table(...) command, either the cols given in
         # the only_cols config, or the columns directly
+        
         self.only_cols = None
-        self.table_colspec = [n for (n, pos) in self.columns]
 
         if config.has_option(name, 'only_cols'):
+            if self.udcs:
+                print 'Error: section %s defines both ' % name  +\
+                      'user-defined columns and only_cols'
+
+                self.config_errors += 1
+            
             self.only_cols = config.get(name, 'only_cols')
 
             ##
@@ -147,17 +236,50 @@ class PGLoader:
                     else:
                         expanded.append(int(oc))
 
-                self.only_cols     = expanded
-                self.table_colspec = [self.columns[x-1][0] for x in expanded]
+                # we have to find colspec based on self.columns
+                self.only_cols  = expanded
+                self.columnlist = [self.columns[x-1][0] for x in expanded]
 
             except Exception, e:
-                print 'Error: section %s, only_cols: configured range is invalid' % name
+                print 'Error: section %s, only_cols: ' % name +\
+                      'configured range is invalid'
                 raise PGLoader_Error, e
 
-        if DEBUG:
-            print "only_cols", self.only_cols
-            print "table_colspec", self.table_colspec
+        if self.only_cols is None:
+            if self.columnlist is None:
+                # default case, no user-defined cols, no restriction
+                self.columnlist = [n for (n, pos) in self.columns]
 
+        if DEBUG:
+            #print "columns", self.columns
+            print "only_cols", self.only_cols
+            #print "udcs", self.udcs
+            print "columnlist", self.columnlist
+
+        ##
+        # This option is textreader specific, but being lazy and
+        # short-timed, I don't make self._parse_fields() callable from
+        # outside this class. Hence the code here.
+        #
+        # optionnal newline escaped option
+        self.newline_escapes = []
+        if config.has_option(name, 'newline_escapes'):
+            if NEWLINE_ESCAPES is not None:
+                # this parameter is globally set, will ignore local
+                # definition
+                if not QUIET:
+                    print "Warning: ignoring %s newline_escapes option" % name
+                    print "         option is set to '%s' globally" \
+                          % NEWLINE_ESCAPES
+            else:
+                self._parse_fields('newline_escapes',
+                                   config.get(name, 'newline_escapes'),
+                                   argtype = 'char')
+
+        if NEWLINE_ESCAPES is not None:
+            # set NEWLINE_ESCAPES for each table column
+            self.newline_escapes = [(a, NEWLINE_ESCAPES)
+                                    for (a, x) in self.columns]        
 
         ##
         # data format, from which depend data reader
@@ -167,11 +289,16 @@ class PGLoader:
             
             if self.format.lower() == 'csv':
                 from csvreader import CSVReader 
-                self.reader = CSVReader(self.db, self.filename, self.table, self.columns)
+                self.reader = CSVReader(self.db, self.reject,
+                                        self.filename,
+                                        self.table, self.columns)
             
             elif self.format.lower() == 'text':
                 from textreader import TextReader
-                self.reader = TextReader(self.db, self.filename, self.table, self.columns)
+                self.reader = TextReader(self.db, self.reject,
+                                         self.filename,
+                                         self.table, self.columns,
+                                         self.newline_escapes)
             
         if self.format is None:
             print 'Error: %s: format parameter needed' % name
@@ -342,32 +469,53 @@ class PGLoader:
             if self.blob_cols is not None:
                 columns, rowids = self.read_blob(line, columns)
 
-            if DEBUG:
-                print self.col_mapping
-                print len(columns), len(self.col_mapping)
+            data = columns
 
-            ##
-            # Now we have to reorder the columns to match schema, and only
-            # consider data matched by self.only_cols
-            if self.only_cols is not None:
-                c_ordered = [columns[self.col_mapping[i-1]-1] for i in self.only_cols]
+            if self.udcs:
+                dudcs = dict(self.udcs)
+                ddict = dict(self.columns)
+                data = []
+                for c in self.copy_columns:
+                    if c in ddict:
+                        data.append(columns[ddict[c]-1])
+                    else:
+                        data.append(dudcs[c])
+
+                if DEBUG:
+                    print 'columns', columns
+                    print 'data   ', data
+
             else:
-                c_ordered = [columns[i-1] for i in self.col_mapping]
+                if self.col_mapping:
+                    if DEBUG:
+                        print 'col_mapping', self.col_mapping
+
+                    data = [columns[i-1] for i in self.col_mapping]
+
+                    if DEBUG:
+                        print 'columns', columns
+                        print 'data   ', data
+
+                if self.only_cols:
+                    # only consider data matched by self.only_cols
+                    if self.col_mapping:
+                        data = [columns[self.col_mapping[i-1]-1]
+                                for i in self.only_cols]
+                    else:
+                        data = [columns[i-1] for i in self.only_cols]
 
             if DRY_RUN or DEBUG:
                 print line
-                print c_ordered
-                print len(c_ordered)
-                print self.table_colspec
+                print self.columnlist, data
                 print
                     
             if not DRY_RUN:
-                self.db.copy_from(self.table, self.table_colspec,
-                                  c_ordered, line, self.reject)
+                self.db.copy_from(self.table, self.columnlist,
+                                  data, line, self.reject)
 
         if not DRY_RUN:
             # we may need a last COPY for the rest of data
-            self.db.copy_from(self.table, self.table_colspec,
+            self.db.copy_from(self.table, self.columnlist,
                               None, None, self.reject, EOF = True)
 
         return

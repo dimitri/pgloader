@@ -6,9 +6,11 @@ pgloader - Import CSV data and Large Object to PostgreSQL
 
 == SYNOPSIS ==
 
-  pgloader [-c configuration file] [-p pedantic] [-d debug] [-v verbose]
-           [-n dryrun] [-Cn count] [-Fn from] [-In from id] [-E input files encoding]
-           [Section1 Section2]
+pgloader [--version] [-c configuration file]
+         [-p pedantic] [-d debug] [-v verbose] [-q quiet] [-s summary]
+         [-n dryrun] [-Cn count] [-Fn from] [-In from id]
+         [-E input files encoding]
+         [Section1 Section2]
 
 == DESCRIPTION ==
 
@@ -31,9 +33,9 @@ content properly escaped to the +COPY+ data.
 
 +pgloader+ issue some timing statistics every +commit_every+ commits
 (see Configuration for this setting). At the end of each section
-processing, a summary of overall operations, numbers of updates and
-commits, time it took in seconds, errors logged and database errors is
-issued.
+processing, a summary of overall operations, numbers of rows copied
+and commits, time it took in seconds, errors logged and database
+errors is issued.
 
 +pgloader+ is available from +pgfoundry+ at
 http://pgfoundry.org/projects/pgloader/[], where you'll find a debian
@@ -44,6 +46,10 @@ package, a source package and an anonymous CVS.
 In order for pgloader to run, you have to edit a configuration file
 (see Configuration) consisting of Section definitions. Each section
 refers to a PostgreSQL table into which some data is to be loaded.
+
+--version::
+
+    print out pgloader version, then quit.
 
 -c, --config::
 
@@ -184,6 +190,7 @@ single big +COPY+ attempt, but copy copy_every lines at a time.
 +
 This parameter is optionnal and defaults to 10000.
 
+//////////////////////////////////////////
 commit_every::
 +
 PostgreSQL +COMMIT+ frequency, exprimed in +UPDATE+ orders. A good
@@ -194,6 +201,7 @@ input lines.
 closing and when a SQL error occurs.
 +
 This parameter is optionnal and defaults to 1000.
+//////////////////////////////////////////
 
 copy_delimiter::
 +
@@ -312,6 +320,7 @@ This parameter is optionnal and defaults to '\ ' (that is backslash
 followed by space). If defined on a table level, this local value will
 overwritte the global one.
 
+//////////////////////////////////////////
 index::
 +
 Table index definition, to be used in blob +UPDATE+'ing. You define an
@@ -321,11 +330,15 @@ table has a composite key, then you can define multiple columns here,
 separated by a comma.
 +
     index = colname:3, other_colname:5
+//////////////////////////////////////////
 
 columns::
 +
-You can define here table columns, with the same definition format as
-in previous index parameter.
+You can define here table columns, by giving their names and
+optionnaly column number (as found into your data file, and counting
+from 1) separated by a colon.
++
+    columns = x, y, a, b, d:6, c:5
 +
 Note you'll have to define here all the columns to be found in data
 file, whether you want to use them all or not. When not using them
@@ -335,17 +348,49 @@ As of +pgloader 2.2+ the column list used might not be the same as the
 table columns definition.
 +
 As of +pgloader 2.2.1+ you can omit column numbering if you want to, a
-counter is then maintained for you, starting from 1 and set to +last
-value + 1+ on each column, where +last value+ was either computed or
+counter is then maintained for you, starting from 1 and set to +$$last
+value + 1$$+ on each column, where +last value+ was either computed or
 given in the config. So you can even omit only 'some' columns in
 there.
-+
-    columns = x, y, a, b, d:6, c:5
 +
 In case you have a lot a columns per table, you will want to use
 multiple lines for this parameter value. Python ConfigParser module
 knows how to read multi-line parameters, you don't have to escape
 anything.
+
+user_defined_columns::
++
+Those are special columns not found in the data file but which you
+want to load into the database. The configuration options beginning
+with +udc_+ are taken as column names with constant values. The
+following example define the column +c+ as having the value +constant
+value+ for each and every row of the input data file.
++
+    udc_c = constant value
++
+The option +copy_columns+ is used to define the exact +columnsList+
+given to +COPY+.
++
+A simple use case is the loading into the same database table of data
+coming from more than one file. If you need to keep track of the data
+origin, add a column to the table model and define a 'udc_' for
++pgloader+ to add a constant value in the database.
++
+Using user-defined columns require defining +copy_columns+ and is not
+compatible with +only_cols+ usage.
++
+
+copy_columns::
++
+This options defines the columns to load from the input data file and
+the user defined columns, and in which order to do this. Place here
+the column names separated by commas.
++
+    copy_columns = b, c, d
++
+This option is required if any user column is defined, and conflicts
+with the +only_cols+ option. It won't have any effect when used in a
+section where no user column is defined.
 
 only_cols::
 +
@@ -358,6 +403,9 @@ following example.
 +
 This parameter is optionnal and defaults to the list of all columns
 given on the columns parameter list, in the colname order.
++
+This option conflicts with user defined columns and +copy_columns+
+option.
 
 blob_columns::
 +

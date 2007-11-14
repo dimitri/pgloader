@@ -20,12 +20,13 @@ class DataReader:
      - multi-line support is explicit (via 
     """
 
-    def __init__(self, db, filename, table, columns):
+    def __init__(self, db, reject, filename, table, columns):
         """ init internal variables """
         self.db        = db
         self.filename  = filename
         self.table     = table
         self.columns   = columns
+        self.reject    = reject
 
     def readconfig(self, name, config):
         """ read configuration section for common options
@@ -37,18 +38,19 @@ class DataReader:
 
         see textreader.py and csvreader.py
         """
-        # optionnal null and empty_string per table parameters
-        if config.has_option(name, 'null'):
-            self.db.null = parse_config_string(config.get(name, 'null'))
-        else:
-            self.db.null = NULL
 
-        if config.has_option(name, 'empty_string'):
-            self.db.empty_string = parse_config_string(
-                config.get(name, 'empty_string'))
-        else:
-            self.db.empty_string = EMPTY_STRING
+        if not DRY_RUN:
+            # optionnal null and empty_string per table parameters
+            if config.has_option(name, 'null'):
+                self.db.null = parse_config_string(config.get(name, 'null'))
+            else:
+                self.db.null = NULL
 
+            if config.has_option(name, 'empty_string'):
+                self.db.empty_string = parse_config_string(
+                    config.get(name, 'empty_string'))
+            else:
+                self.db.empty_string = EMPTY_STRING
 
         # optionnal field separator
         self.field_sep = FIELD_SEP
@@ -59,7 +61,7 @@ class DataReader:
                 if self.db.copy_sep is None:
                     self.db.copy_sep = self.field_sep
 
-        if DEBUG:
+        if DEBUG and not DRY_RUN:
             print "null: '%s'" % self.db.null
             print "empty_string: '%s'" %  self.db.empty_string
 

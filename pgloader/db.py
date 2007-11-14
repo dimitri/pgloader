@@ -267,7 +267,7 @@ class db:
         """ save copy buffer to a temporary file for further inspection """
         import tempfile
         (f, n) = tempfile.mkstemp(prefix='%s.' % tablename,
-                                  suffix='.pgimport', dir='/tmp')
+                                  suffix='.pgloader', dir='/tmp')
         os.write(f, self.buffer.getvalue())
         os.close(f)
 
@@ -276,7 +276,7 @@ class db:
             print "  -- COPY data buffer saved in %s --" % n
         return n
 
-    def copy_from(self, table, table_colspec, columns, input_line,
+    def copy_from(self, table, columnlist, columns, input_line,
                   reject, EOF = False):
         """ Generate some COPY SQL for PostgreSQL """
         ok = True
@@ -286,7 +286,7 @@ class db:
         # build the table colomns specs from parameters
         # ie. we always issue COPY table (col1, col2, ..., coln) commands
         tablename = table
-        table     = "%s (%s) " % (table, ", ".join(table_colspec))
+        table     = "%s (%s) " % (table, ", ".join(columnlist))
         if DEBUG:
             print 'COPY %s' % table
 
