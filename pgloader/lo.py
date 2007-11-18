@@ -38,15 +38,16 @@ class ifx_lo:
 class ifx_clob(ifx_lo):
     """ Informix Text Large Object file """
 
-    def __init__(self, filename):
+    def __init__(self, filename, input_encoding):
         """ init a clob object  """
         self.file      = None
         self.filename  = filename
 
         if self.file is None:
-            if INPUT_ENCODING is not None:
+            if input_encoding is not None:
+                import codecs
                 self.file = codecs.open(self.filename, 'r',
-                                        encoding = INPUT_ENCODING)
+                                        encoding = input_encoding)
             else:
                 self.file = open(self.filename, 'r')
 

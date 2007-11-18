@@ -253,6 +253,78 @@ def duration_pprint(duration):
     else:
         return '%10.3f' % duration
 
+def print_summary(dbconn, sections, summary, td):
+    """ print a pretty summary """
+    from pgloader.options  import VERBOSE, DEBUG, QUIET, SUMMARY
+    from pgloader.options  import DRY_RUN, PEDANTIC, VACUUM
+    from pgloader.pgloader import PGLoader
+    from pgloader.tools    import PGLoader_Error
+
+    retcode = 0
+
+    t= 'Table name        |    duration |    size |  copy rows |     errors '
+    _= '===================================================================='
+
+    tu = te = ts = 0 # total updates, errors, size
+    if not DRY_RUN:
+        dbconn.reset()
+        cursor = dbconn.dbconn.cursor()
+
+    s_ok = 0
+    for s in sections:
+        if s not in summary:
+            continue
+
+        s_ok += 1
+        if s_ok == 1:
+            # print pretty sumary header now
+            print
+            print t
+            print _
+
+        t, d, u, e = summary[s]
+        d = duration_pprint(d)
+
+        if not DRY_RUN:
+            sql = "select pg_total_relation_size(%s), " + \
+                  "pg_size_pretty(pg_total_relation_size(%s));"
+            cursor.execute(sql, [t, t])
+            octets, sp = cursor.fetchone()
+            ts += octets
+
+            if sp[5:] == 'bytes': sp = sp[:-5] + ' B'
+        else:
+            sp = '-'
+
+        tn = s
+        if len(tn) > 18:
+            tn = s[0:15] + "..."
+
+        print '%-18s| %ss | %7s | %10d | %10d' % (tn, d, sp, u, e)
+
+        tu += u
+        te += e
+
+        if e > 0:
+            retcode += 1
+
+    if s_ok > 1:
+        td = duration_pprint(td)
+
+        # pretty size
+        cursor.execute("select pg_size_pretty(%s);", [ts])
+        [ts] = cursor.fetchone()
+        if ts[5:] == 'bytes': ts = ts[:-5] + ' B'
+
+        print _
+        print 'Total             | %ss | %7s | %10d | %10d' \
+              % (td, ts, tu, te)
+
+        if not DRY_RUN:
+            cursor.close()
+
+    return retcode
+
 def load_data():
     """ read option line and configuration file, then process data
     import of given section, or all sections if no section is given on
@@ -310,78 +382,23 @@ def load_data():
             if PEDANTIC:
                 pgloader.print_stats()
 
+        except UnicodeDecodeError, e:
+            print "Error: can't open '%s' with given input encoding '%s'" \
+                  % (pgloader.filename, pgloader.input_encoding)
+                                    
         except KeyboardInterrupt:
             print "Aborting on user demand (Interrupt)"
 
     # total duration
     td = time.time() - begin
-
     retcode = 0
 
-    t= 'Table name        |    duration |    size |  copy rows |     errors '
-    _= '===================================================================='
-
     if SUMMARY:  
-        # print a pretty summary
-        tu = te = ts = 0 # total updates, errors, size
-        if not DRY_RUN:
-            dbconn.reset()
-            cursor = dbconn.dbconn.cursor()
-
-        s_ok = 0
-        for s in sections:
-            if s not in summary:
-                continue
-
-            s_ok += 1
-            if s_ok == 1:
-                # print pretty sumary header now
-                print
-                print t
-                print _
-
-            t, d, u, e = summary[s]
-            d = duration_pprint(d)
-
-            if not DRY_RUN:
-                sql = "select pg_total_relation_size(%s), " + \
-                      "pg_size_pretty(pg_total_relation_size(%s));"
-                cursor.execute(sql, [t, t])
-                octets, sp = cursor.fetchone()
-                ts += octets
-
-                if sp[5:] == 'bytes': sp = sp[:-5] + ' B'
-            else:
-                sp = '-'
-
-            tn = s
-            if len(tn) > 18:
-                tn = s[0:15] + "..."
-                
-            print '%-18s| %ss | %7s | %10d | %10d' % (tn, d, sp, u, e)
-
-            tu += u
-            te += e
-
-            if e > 0:
-                retcode += 1
-
-        if s_ok > 1:
-            td = duration_pprint(td)
-
-            # pretty size
-            cursor.execute("select pg_size_pretty(%s);", [ts])
-            [ts] = cursor.fetchone()
-            if ts[5:] == 'bytes': ts = ts[:-5] + ' B'
-
-            print _
-            print 'Total             | %ss | %7s | %10d | %10d' \
-                  % (td, ts, tu, te)
-
-            if not DRY_RUN:
-                cursor.close()
-                
-        print
+        try:
+            retcode = print_summary(dbconn, sections, summary, td)
+            print
+        except PGLoader_Error, e:
+            print "Can't print summary: %s" % e
 
     if VACUUM and not DRY_RUN:
         print 'vacuumdb... '

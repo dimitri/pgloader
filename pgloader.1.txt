@@ -267,6 +267,10 @@ filename::
     form +[bc]lob[0-9a-f]{4}.[0-9a-f]{3}+, but this information is not
     used by +pgloader+.
 
+input_encoding::
+
+    The encoding of the configured +filename+.
+
 reject_log::
 
     In case of errors processing input data, a human readable log per rejected

@@ -69,7 +69,10 @@ class db:
         
         sql = 'set session client_encoding to %s'
         cursor = self.dbconn.cursor()
-        cursor.execute(sql, [self.client_encoding])
+        try:
+            cursor.execute(sql, [self.client_encoding])
+        except psycopg.ProgrammingError, e:
+            raise PGLoader_Error, e
         cursor.close()
 
     def set_datestyle(self):
@@ -368,7 +371,7 @@ class db:
         if self.buffer is None:
             self.buffer = StringIO()
 
-        self.prepare_copy_data(columns)
+        self.prepare_copy_data(columns, input_line, reject)
         self.running_commands += 1
         return ok
 
@@ -447,7 +450,7 @@ class db:
         return commits, ok, ko
 
 
-    def prepare_copy_data(self, columns):
+    def prepare_copy_data(self, columns, input_line, reject):
         """ add a data line to copy buffer """
         if columns is not None:
             first_col = True

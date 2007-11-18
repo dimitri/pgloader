@@ -76,6 +76,14 @@ class PGLoader:
         if DEBUG and not DRY_RUN:
             print "client_encoding: '%s'" % self.db.client_encoding
 
+        # optionnal local option input_encoding
+        self.input_encoding = None
+        if config.has_option(name, 'input_encoding'):
+            self.input_encoding = parse_config_string(
+                config.get(name, 'input_encoding'))
+
+        if DEBUG:
+            print "input_encoding: '%s'" % self.input_encoding
 
         # optionnal local option datestyle
         if config.has_option(name, 'datestyle'):
@@ -290,13 +298,13 @@ class PGLoader:
             if self.format.lower() == 'csv':
                 from csvreader import CSVReader 
                 self.reader = CSVReader(self.db, self.reject,
-                                        self.filename,
+                                        self.filename, self.input_encoding,
                                         self.table, self.columns)
             
             elif self.format.lower() == 'text':
                 from textreader import TextReader
                 self.reader = TextReader(self.db, self.reject,
-                                         self.filename,
+                                         self.filename, self.input_encoding,
                                          self.table, self.columns,
                                          self.newline_escapes)
             
@@ -605,7 +613,9 @@ class PGLoader:
                                                             self.field_sep)
 
                     elif btype == 'ifx_clob':
-                        self.blobs[abs_blobname] = ifx_clob(abs_blobname)
+                        self.blobs[abs_blobname] = \
+                                                 ifx_clob(abs_blobname,
+                                                          self.input_encoding)
 
                 blob = self.blobs[abs_blobname]
 

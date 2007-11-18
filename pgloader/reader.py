@@ -20,14 +20,19 @@ class DataReader:
      - multi-line support is explicit (via 
     """
 
-    def __init__(self, db, reject, filename, table, columns):
+    def __init__(self, db, reject, filename, input_encoding, table, columns):
         """ init internal variables """
         self.db        = db
         self.filename  = filename
+        self.input_encoding = input_encoding
         self.table     = table
         self.columns   = columns
         self.reject    = reject
 
+        if self.input_encoding is None:
+            if INPUT_ENCODING is not None:
+                self.input_encoding = INPUT_ENCODING
+                                
     def readconfig(self, name, config):
         """ read configuration section for common options
 

@@ -30,9 +30,11 @@ class TextReader(DataReader):
      - ...
     """
 
-    def __init__(self, db, reject, filename, table, columns, newline_escapes):
+    def __init__(self, db, reject, filename, input_encoding,
+                 table, columns, newline_escapes):
         """ init textreader with a newline_escapes parameter """
-        DataReader.__init__(self, db, reject, filename, table, columns)
+        DataReader.__init__(self, db, reject,
+                            filename, input_encoding, table, columns)
 
         self.newline_escapes = newline_escapes
 
@@ -70,9 +72,9 @@ class TextReader(DataReader):
                 print 'Notice: beginning on first line'
             begin_linenb = 1
 
-        if INPUT_ENCODING is not None:
+        if self.input_encoding is not None:
             try:
-                fd = codecs.open(self.filename, encoding = INPUT_ENCODING)
+                fd = codecs.open(self.filename, encoding = self.input_encoding)
             except LookupError, e:
                 # codec not found
                 raise PGLoader_Error, "Input codec: %s" % e
@@ -86,10 +88,10 @@ class TextReader(DataReader):
             # we count real physical lines
             nb_plines += 1
 
-            if INPUT_ENCODING is not None:
+            if self.input_encoding is not None:
                 # this may not be necessary, after all
                 try:
-                    line = line.encode(INPUT_ENCODING)
+                    line = line.encode(self.input_encoding)
                 except UnicodeDecodeError, e:
                     reject.log(['Codec error', str(e)], input_line)
                     continue

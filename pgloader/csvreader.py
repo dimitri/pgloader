@@ -64,9 +64,9 @@ class CSVReader(DataReader):
             
         csv.register_dialect('pgloader', pgloader_dialect)
 
-        if INPUT_ENCODING is not None:
+        if self.input_encoding is not None:
             try:
-                fd = codecs.open(self.filename, encoding = INPUT_ENCODING)
+                fd = codecs.open(self.filename, encoding = self.input_encoding)
             except LookupError, e:
                 # codec not found
                 raise PGLoader_Error, "Input codec: %s" % e
