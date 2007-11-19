@@ -290,8 +290,6 @@ class db:
         # ie. we always issue COPY table (col1, col2, ..., coln) commands
         tablename = table
         table     = "%s (%s) " % (table, ", ".join(columnlist))
-        if DEBUG:
-            print 'COPY %s' % table
 
         if EOF or self.running_commands == self.copy_every \
                and self.buffer is not None:

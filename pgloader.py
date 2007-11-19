@@ -187,10 +187,19 @@ def parse_config(conffile):
                     connect = False)
 
         if config.has_option(section, 'client_encoding'):
-            dbconn.client_encoding = config.get(section, 'client_encoding')
+            client_encoding = pgloader.tools.parse_config_string(
+                config.get(section, 'client_encoding'))
+            dbconn.client_encoding = client_encoding
+
+        if config.has_option(section, 'input_encoding'):
+            input_encoding = pgloader.tools.parse_config_string(
+                config.get(section, 'input_encoding'))
+            pgloader.options.INPUT_ENCODING = input_encoding
 
         if config.has_option(section, 'datestyle'):
-            dbconn.datestyle = config.get(section, 'datestyle')
+            datestyle = pgloader.tools.parse_config_string(
+                config.get(section, 'datestyle'))
+            dbconn.datestyle = datestyle
 
         if config.has_option(section, 'copy_every'):
             dbconn.copy_every = config.getint(section, 'copy_every')

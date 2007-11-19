@@ -77,7 +77,7 @@ class PGLoader:
             print "client_encoding: '%s'" % self.db.client_encoding
 
         # optionnal local option input_encoding
-        self.input_encoding = None
+        self.input_encoding = INPUT_ENCODING
         if config.has_option(name, 'input_encoding'):
             self.input_encoding = parse_config_string(
                 config.get(name, 'input_encoding'))
@@ -87,7 +87,8 @@ class PGLoader:
 
         # optionnal local option datestyle
         if config.has_option(name, 'datestyle'):
-            self.db.datestyle = config.get(name, 'datestyle')
+            self.db.datestyle = parse_config_string(
+                config.get(name, 'datestyle'))
 
         if DEBUG and not DRY_RUN:
             print "datestyle: '%s'" % self.db.datestyle
