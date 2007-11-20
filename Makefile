@@ -9,12 +9,14 @@ exdir    = $(DESTDIR)/usr/share/doc/pgloader
 pgloader = pgloader.py
 examples = examples
 libs = $(wildcard pgloader/*.py)
+refm = $(wildcard reformat/*.py)
 
 install:
 	install -m 755 $(pgloader) $(libdir)
 	install -m 755 -d $(libdir)/pgloader
 
 	cp -a $(libs) $(libdir)/pgloader
+	cp -a $(refm) $(libdir)/reformat
 	cp -a $(examples) $(exdir)
 
 html: $(DOCS)

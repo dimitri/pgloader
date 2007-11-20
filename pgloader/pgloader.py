@@ -168,9 +168,16 @@ class PGLoader:
                            [n for (n, v) in self.udcs]
 
                 copy_columns = config.get(name, 'copy_columns').split(',')
-                self.copy_columns = [x.strip()
-                                     for x in copy_columns
-                                     if x.strip() in namelist]
+                
+                self.copy_columns = []
+                for x in copy_columns:
+                    x = x.strip(' \n\r')
+                    if x not in namelist:
+                        print 'Error: "%s" not in %s column list, ' \
+                              % (x, name) +\
+                              'including user defined columns'
+                    else:
+                        self.copy_columns.append(x)
 
                 if len(self.copy_columns) != len(copy_columns):
                     print 'Error: %s.copy_columns refers to ' % name +\
@@ -314,6 +321,57 @@ class PGLoader:
             raise PGLoader_Error
 
         ##
+        # Some column might need reformating
+        if config.has_option(name, 'reformat'):
+            self._parse_fields('c_reformat', config.get(name, 'reformat'),
+                               btype = True, argtype = 'string')
+        else:
+            self.reformat = None
+
+        if DEBUG:
+            print 'reformat:', self.c_reformat
+
+        # check the configure reformating is available
+        if self.c_reformat:
+            import imp
+            self.reformat = []
+            
+            for r_colname, r_module, r_function in self.c_reformat:
+                if r_colname not in self.columnlist:
+                    print 'Error: %s.reformat refers to unknown column %s' \
+                          % ( name, r_colname )
+                    self.config_errors += 1
+
+                # load the given module name and function
+                module = None
+                try:
+                    fp, pathname, description = \
+                        imp.find_module(r_module,
+                                        ['reformat',
+                                         # explicit debian packaging support
+                                         '/usr/share/pgloader/reformat'])
+                    
+                    module = imp.load_module(r_module,
+                                             fp, pathname, description)
+                    
+                except ImportError, e:
+                    print 'Error: %s failed to import reformat module %s' \
+                          % (name, r_module)
+                    self.config_errors += 1
+
+                if module:
+                    if r_function in module.__dict__:
+                        self.reformat.append((r_colname,
+                                              module.__dict__[r_function]))
+                    else:
+                        print 'Error: reformat module %s has no %s function'%\
+                              (r_module, r_function)
+                        self.config_errors += 1
+
+        if DEBUG:
+            print 'reformat', self.reformat
+
+        ##
         # parse the reader specific section options
         self.reader.readconfig(name, config)
 
@@ -382,13 +440,17 @@ class PGLoader:
                 # arg is the target column index
                 try:
                     arg = int(arg)
-                except ValueError:
-                    raise PGLoader_Error
+                except ValueError, e:
+                    raise PGLoader_Error, e
                         
             elif argtype == 'char':
                 # arg is an escape char
                 if len(arg) > 1:
-                    raise PGLoader_Error
+                    raise PGLoader_Error, 'more than one character for char'
+
+            elif argtype == 'string':
+                # accept all inputs
+                pass
 
             return arg
 
@@ -474,15 +536,40 @@ class PGLoader:
 
     def data_import(self):
         """ import CSV or TEXT data, using COPY """
+
+        # some more practical data format of internals
+        ddict = dict(self.columns)
+        if self.reformat:
+            drefc = dict(self.reformat)
+                
+        if self.udcs:
+            dudcs = dict(self.udcs)
+        
         for line, columns in self.reader.readlines():
             if self.blob_cols is not None:
                 columns, rowids = self.read_blob(line, columns)
 
-            data = columns
+            if self.reformat:
+                refc = dict(self.reformat)
+                data = []
+                for cname, cpos in self.columns:
+                    if cname in drefc:
+                        # reformat the column value
+                        data.append(drefc[cname](self.reject,
+                                                 columns[cpos-1]))
+                    else:
+                        data.append(columns[cpos-1])
 
+                if DEBUG:
+                    print 'reformat'
+                    print 'columns', columns
+                    print 'data   ', data
+
+                # we want next steps to take reformated data as input
+                columns = data
+                    
             if self.udcs:
                 dudcs = dict(self.udcs)
-                ddict = dict(self.columns)
                 data = []
                 for c in self.copy_columns:
                     if c in ddict:
@@ -491,6 +578,7 @@ class PGLoader:
                         data.append(dudcs[c])
 
                 if DEBUG:
+                    print 'udcs'
                     print 'columns', columns
                     print 'data   ', data
 
@@ -513,9 +601,13 @@ class PGLoader:
                     else:
                         data = [columns[i-1] for i in self.only_cols]
 
+            if not self.reformat and not self.udcs and not self.col_mapping:
+                data = columns
+
             if DRY_RUN or DEBUG:
-                print line
-                print self.columnlist, data
+                print '<', line
+                print ' ', self.columnlist
+                print '>', data
                 print
                     
             if not DRY_RUN:
