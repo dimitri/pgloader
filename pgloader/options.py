@@ -31,3 +31,5 @@ FROM_COUNT = None
 FROM_ID    = None
 
 UDC_PREFIX = 'udc_'
+
+REFORMAT_PATH = ['/usr/share/pgloader/reformat']

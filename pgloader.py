@@ -226,6 +226,21 @@ def parse_config(conffile):
             pgloader.options.EMPTY_STRING = pgloader.tools.parse_config_string(
                 config.get(section, 'empty_string'))
 
+        if config.has_option(section, 'reformat_path'):
+            import os.path
+            reformat_path = []
+            tmp_rpath = config.get(section, 'reformat_path')
+
+            for p in tmp_rpath.split(':'):
+                if os.path.exists(p):
+                    reformat_path.append(p)
+                else:
+                    print 'Error: reformat_path %s does not exists, ignored'%p
+
+            pgloader.options.REFORMAT_PATH = reformat_path
+        else:
+            pgloader.reformat_path = None
+
     except Exception, error:
         print "Error: Could not initialize PostgreSQL connection:"
         print error

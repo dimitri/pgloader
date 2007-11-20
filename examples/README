@@ -48,25 +48,39 @@ The provided examples are:
   In this dataset the id field is ommited, it's a serial which will be
   automatically set by PostgreSQL while COPYing.
 
+. reformat
+
+  A timestamp column is formated the way MySQL dump its timestamp,
+  which is not the same as the way PostgreSQL reads them. The
+  reformat.mysql module is used to reformat the data on-the-fly.
+
+. udc
+
+  A used defined column test, where all file columns are not used but
+  a new constant one, not found in the input datafile, is added while
+  loading data.
+
 You can launch all those pgloader tests in one run, provided you created the
 necessary tables:
 
  $ for sql in */*sql; do psql pgloader < $sql; done
- $ ../pgloader.py -Tc pgloader.conf
+ $ ../pgloader.py -Tsc pgloader.conf
  
  [...]
- 
- Table name        |    duration |    size |    updates |     errors
+
+ Table name        |    duration |    size |  copy rows |     errors
  ====================================================================
- clob              |      0.041s |   32 kB |          7 |          0
- cluttered         |      0.037s |   32 kB |          6 |          0
- csv               |      0.019s |   16 kB |          6 |          0
- errors            |      0.032s |   32 kB |          4 |          3
- partial           |      0.024s |   32 kB |          7 |          0
- serial            |      0.028s |   32 kB |          7 |          0
- simple            |      0.029s |   32 kB |          7 |          0
+ clob              |      0.043s |   32 kB |          7 |          0
+ cluttered         |      0.032s |   32 kB |          6 |          0
+ csv               |      0.031s |   16 kB |          6 |          0
+ errors            |      0.030s |   32 kB |          4 |          3
+ partial           |      0.078s |   32 kB |          7 |          0
+ reformat          |      0.018s |   24 kB |          4 |          1
+ serial            |      0.024s |   32 kB |          7 |          0
+ simple            |      0.024s |   32 kB |          7 |          0
+ udc               |      0.018s |   32 kB |          5 |          0
  ====================================================================
- Total             |      0.210s |  208 kB |         44 |          3
+ Total             |      0.298s |  264 kB |         53 |          4
 
 
-
+Please note errors test should return 3 errors and reformat 1 error.

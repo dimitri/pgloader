@@ -229,16 +229,31 @@ null::
 You can configure here how null value is represented into your flat
 data file.
 +
-This parameter is optionnal and defaults to '' (that is +empty string+).
+This parameter is optionnal and defaults to +''+ (that is +empty string+).
 
 empty_string::
 +
 You can configure here how empty values are represented into your flat
 data file.
 +
-This parameter is optionnal and defaults to '\ ' (that is backslash
-followed by space).
+This parameter is optionnal and defaults to +$$'\ '$$+ (that is
+backslash followed by space).
 
+reformat_path::
++
+When using +reformat+ option, provide here a colon separated path list
+where to look for reformating module.
++
+    reformat_path = .:/home/dim/PostgreSQL/pgfoundry/pgloader/reformat
++
+The directories given here should exist and contain a
++$$__init__.py$$+ file (for python to consider them as packages), the
+only modules and functions used in the package will be the one you
+configure with +reformat+ section specific option.
++
+Default value is +/usr/share/pgloader/reformat+, which is where the
+provided +debian+ package of +pgloader+ installs the +reformat+
+modules.
 
 == COMMON FORMAT CONFIGURATION PARAMETERS ==
 
@@ -288,7 +303,7 @@ be used by the generated +COPY+ commands, thus +pgloader+ does not
 have to deal with escaping the delimiter it uses (input data has to
 have escaped it).
 +
-This parameter is optionnal and defaults to pipe char '|'.
+This parameter is optionnal and defaults to pipe char +$$'|'$$+.
 
 client_encoding::
 +
@@ -426,6 +441,33 @@ content type and +ifx_clob+ for text type values.
 Here's an example:
 +
     blob_type = clob_column:3:ifx_blob, other_clob_column:5:ifx_clob
+
+reformat::
++
+Use this option when you need to preprocess some column data with
++pgloader+ reformating modules, or your own. The value of this option is
+a comma separated list of columns to rewrite, which are a colon
+separated list of column name, reformat module name, reformat function
+name. Here's an example to reformat column +dt_cx+ with the
++mysql.timestamp()+ reformating function:
++
+    reformat = dt_cx:mysql:timestamp
++
+See global setting option +reformat_path+ for configuring where
++pgloader+ will look for reformat packages and modules.
++
+If you want to write a new formating function, provide a python
+package called +reformat+ (a directory of this name containing an
+empty +$$ __init__.py$$+ file will do) and place in there arbitrary named
+modules (+foo.py+ files) containing functions with the following
+signature:
++
+    def bar(reject, input)
++
+The reject object has a +log(self, messages, data = None)+ method for
+you to log errors into +section.rej.log+ and +section.rej+ files.
+
+
 
 == TEXT FORMAT CONFIGURATION PARAMETERS ==
 

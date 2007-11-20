@@ -19,6 +19,7 @@ from options import INPUT_ENCODING, PG_CLIENT_ENCODING
 from options import COPY_SEP, FIELD_SEP, CLOB_SEP, NULL, EMPTY_STRING
 from options import NEWLINE_ESCAPES
 from options import UDC_PREFIX
+from options import REFORMAT_PATH
 
 class PGLoader:
     """
@@ -326,10 +327,10 @@ class PGLoader:
             self._parse_fields('c_reformat', config.get(name, 'reformat'),
                                btype = True, argtype = 'string')
         else:
-            self.reformat = None
+            self.c_reformat = self.reformat = None
 
         if DEBUG:
-            print 'reformat:', self.c_reformat
+            print 'reformat', self.c_reformat
 
         # check the configure reformating is available
         if self.c_reformat:
@@ -346,17 +347,18 @@ class PGLoader:
                 module = None
                 try:
                     fp, pathname, description = \
-                        imp.find_module(r_module,
-                                        ['reformat',
-                                         # explicit debian packaging support
-                                         '/usr/share/pgloader/reformat'])
+                        imp.find_module(r_module, REFORMAT_PATH)
+
+                    if DEBUG:
+                        print 'Found %s at %s' % (r_module, pathname)
                     
                     module = imp.load_module(r_module,
                                              fp, pathname, description)
                     
                 except ImportError, e:
-                    print 'Error: %s failed to import reformat module %s' \
+                    print 'Error: %s failed to import reformat module "%s"' \
                           % (name, r_module)
+                    print '       from %s' % str(REFORMAT_PATH)
                     self.config_errors += 1
 
                 if module:
@@ -582,6 +584,8 @@ class PGLoader:
                     print 'columns', columns
                     print 'data   ', data
 
+                columns = data
+                
             else:
                 if self.col_mapping:
                     if DEBUG:
@@ -593,15 +597,15 @@ class PGLoader:
                         print 'columns', columns
                         print 'data   ', data
 
-                if self.only_cols:
-                    # only consider data matched by self.only_cols
-                    if self.col_mapping:
-                        data = [columns[self.col_mapping[i-1]-1]
-                                for i in self.only_cols]
-                    else:
-                        data = [columns[i-1] for i in self.only_cols]
+                    columns = data
 
-            if not self.reformat and not self.udcs and not self.col_mapping:
+            if self.only_cols:
+                data = [columns[i-1] for i in self.only_cols]
+
+            if not self.reformat \
+                   and not self.udcs \
+                   and not self.col_mapping \
+                   and not self.only_cols:
                 data = columns
 
             if DRY_RUN or DEBUG:
