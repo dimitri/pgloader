@@ -14,6 +14,7 @@ refm = $(wildcard reformat/*.py)
 install:
 	install -m 755 $(pgloader) $(libdir)
 	install -m 755 -d $(libdir)/pgloader
+	install -m 755 -d $(libdir)/reformat
 
 	cp -a $(libs) $(libdir)/pgloader
 	cp -a $(refm) $(libdir)/reformat

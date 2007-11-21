@@ -1,3 +1,11 @@
+pgloader (2.2.4) unstable; urgency=low
+
+  * Reformat modules to change input on-the-fly
+  * mysql module with timestamp function provided
+  * some fixes, all tests green again
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Tue, 20 Nov 2007 16:48:19 +0100
+
 pgloader (2.2.3) unstable; urgency=low
 
   * User Defined Columns
