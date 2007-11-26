@@ -30,8 +30,11 @@ class PGLoader:
     def __init__(self, name, config, db):
         """ Init with a configuration section """
         # Some settings
-        self.name = name
-        self.db   = db
+        self.name      = name
+        self.db        = db
+
+        self.template     = None
+        self.use_template = None
 
         self.index     = None
         self.columns   = None
@@ -46,28 +49,77 @@ class PGLoader:
         # unload data file, hence we keep track of them all
         self.blobs = {}
 
-        if VERBOSE:
+        if config.has_option(name, 'template'):
+            self.template = True
+            
+            # just skip it here
+            if VERBOSE:
+                print
+                print "[%s] skip template configuration" % self.name
+
+        if not self.template and VERBOSE:
             print
             print "[%s] parse configuration" % self.name
+
+        if not self.template:
+            # check if the section wants to use a template
+            if config.has_option(name, 'use_template'):
+                self.template = config.get(name, 'use_template')
+
+                if not config.has_section(self.template):
+                    m = 'Error: %s refers to unknown template section %s' \
+                        % (name, self.template)
+                    
+                    raise PGLoader_Error, m
+
+                # first load template configuration
+                if VERBOSE:
+                    print "Reading configuration from template section [%s]" \
+                          % self.template
+                self.__read_conf__(self.template, config, db)
+
+                # reinit self.template now its relative config section is read
+                self.template = None
+
+            # now load specific configuration
+            if VERBOSE:
+                print
+                print "Reading configuration from section [%s]" % name
+            
+            self.__read_conf__(name, config, db)
+
+        if DEBUG:
+            print '%s init done' % name
+            print
         
+    def __read_conf__(self, name, config, db):
+        """ init self from config section name  """
+
         ##
         # reject log and data files defaults to /tmp/<section>.rej[.log]
         if config.has_option(name, 'reject_log'):
             self.reject_log = config.get(name, 'reject_log')
-        else:
-            self.reject_log = os.path.join('/tmp', '%s.rej.log' % name)
-            if VERBOSE:
-                print 'Notice: reject log in %s' % self.reject_log
-            
+
         if config.has_option(name, 'reject_data'):
             self.reject_data = config.get(name, 'reject_data')
-        else:
+        
+        if not self.template and 'reject_log' not in self.__dict__:
+            self.reject_log = os.path.join('/tmp', '%s.rej.log' % name)
+            
+        if not self.template and 'reject_data' not in self.__dict__:
             self.reject_data = os.path.join('/tmp', '%s.rej' % name)
-            if VERBOSE:
-                print 'Notice: rejected data in %s' % self.reject_data
 
         # reject logging
-        self.reject = Reject(self.reject_log, self.reject_data)
+        if not self.template:
+            self.reject = Reject(self.reject_log, self.reject_data)
+
+            if VERBOSE:
+                print 'Notice: reject log in %s' % self.reject.reject_log
+                print 'Notice: rejected data in %s' % self.reject.reject_data
+
+        else:
+            # needed to instanciate self.reader while in template section
+            self.reject = None
 
         # optionnal local option client_encoding
         if config.has_option(name, 'client_encoding'):
@@ -98,11 +150,18 @@ class PGLoader:
         ##
         # data filename
         for opt in ('table', 'filename'):
-            if  config.has_option(name, opt):
+            if config.has_option(name, opt):
+                if DEBUG:
+                    print '%s.%s: %s' % (name, opt, config.get(name, opt))
                 self.__dict__[opt] = config.get(name, opt)
             else:
-                print 'Error: please configure %s.%s' % (name, opt)
-                self.config_errors += 1
+                if not self.template:
+                    print 'Error: please configure %s.%s' % (name, opt)
+                    self.config_errors += 1
+                else:
+                    # Reading Configuration Template section
+                    # we want the attribute to exists for further usage
+                    self.__dict__[opt] = None
 
         ##
         # we parse some columns definitions
@@ -122,6 +181,11 @@ class PGLoader:
             print 'columns', self.columns
             print 'blob_columns', self.blob_cols
 
+        if self.name == name and not self.columns:
+            print 'Error: %s has no columns defined' % name
+            self.config_errors += 1
+
+        self.columns = []
 
         ##
         # The config section can also provide user-defined colums
@@ -211,7 +275,6 @@ class PGLoader:
         # The column mapping is to be done on all_columns, which
         # allows user to have their user-defined columns talken into
         # account in the COPY ordering.
-        
         self.col_mapping = [i for (c, i) in self.columns]
 
         if self.col_mapping == range(1, len(self.columns)+1):
@@ -298,28 +361,50 @@ class PGLoader:
             self.newline_escapes = [(a, NEWLINE_ESCAPES)
                                     for (a, x) in self.columns]        
 
-        ##
-        # data format, from which depend data reader
-        self.format = None
         if config.has_option(name, 'format'):
             self.format = config.get(name, 'format')
-            
-            if self.format.lower() == 'csv':
-                from csvreader import CSVReader 
-                self.reader = CSVReader(self.db, self.reject,
-                                        self.filename, self.input_encoding,
-                                        self.table, self.columns)
-            
-            elif self.format.lower() == 'text':
-                from textreader import TextReader
-                self.reader = TextReader(self.db, self.reject,
-                                         self.filename, self.input_encoding,
-                                         self.table, self.columns,
-                                         self.newline_escapes)
-            
-        if self.format is None:
+
+            if 'reader' not in self.__dict__:
+                if DEBUG:
+                    print 'READER INIT'
+                
+                if self.format.lower() == 'csv':
+                    from csvreader import CSVReader 
+                    self.reader = CSVReader(self.db, self.reject,
+                                            self.filename,
+                                            self.input_encoding,
+                                            self.table, self.columns)
+
+                elif self.format.lower() == 'text':
+                    from textreader import TextReader
+                    self.reader = TextReader(self.db, self.reject,
+                                             self.filename,
+                                             self.input_encoding,
+                                             self.table, self.columns,
+                                             self.newline_escapes)
+
+                self.reader.readconfig(name, config)
+
+        if not self.template and self.format is None:
+            # error only when not loading the Template part
             print 'Error: %s: format parameter needed' % name
             raise PGLoader_Error
+        else:
+            if DEBUG:
+                print 'MANUAL REINIT OF READER'
+            self.reader.reject          = self.reject
+            self.reader.filename        = self.filename
+            self.reader.input_encoding  = self.input_encoding
+            self.reader.newline_escapes = self.newline_escapes
+            self.reader.readconfig(name, config)
+
+            print 'BLURPS', self.reader.trailing_sep
+
+##         ##
+##         # parse the reader specific section options
+##         if not self.template:
+##             self.reader.readconfig(name, config)
+##             print 'BLURPS', self.reader.trailing_sep
 
         ##
         # Some column might need reformating
@@ -372,10 +457,6 @@ class PGLoader:
 
         if DEBUG:
             print 'reformat', self.reformat
-
-        ##
-        # parse the reader specific section options
-        self.reader.readconfig(name, config)
 
         ##
         # How can we mix those columns definitions ?

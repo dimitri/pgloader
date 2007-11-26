@@ -26,5 +26,5 @@ html: $(DOCS)
 pgloader.1.xml: $(DOCS)
 	asciidoc -d manpage -b docbook $<
 
-man: pgloader.1.xml
+man: ${DOCS:.txt=.xml}
 	xmlto man $<

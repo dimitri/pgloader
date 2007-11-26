@@ -393,9 +393,11 @@ def load_data():
     for s in sections:
         try:
             pgloader = PGLoader(s, config, dbconn)
-            pgloader.run()
             
-            summary[s] = (pgloader.table,) + pgloader.summary()
+            if not pgloader.template:
+                pgloader.run()            
+                summary[s] = (pgloader.table,) + pgloader.summary()
+                
         except PGLoader_Error, e:
             if e == '':
                 print '[%s] Please correct previous errors' % s
