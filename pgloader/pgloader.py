@@ -54,11 +54,9 @@ class PGLoader:
             
             # just skip it here
             if VERBOSE:
-                print
-                print "[%s] skip template configuration" % self.name
+                print "[%s] is a template" % self.name
 
         if not self.template and VERBOSE:
-            print
             print "[%s] parse configuration" % self.name
 
         if not self.template:
@@ -83,10 +81,16 @@ class PGLoader:
 
             # now load specific configuration
             if VERBOSE:
-                print
                 print "Reading configuration from section [%s]" % name
             
             self.__read_conf__(name, config, db)
+
+        # force reinit of self.reader, which depends on template and
+        # specific options
+        if 'reader' in self.__dict__:
+            self.reader.__init__(self.db, self.reject,
+                                 self.filename, self.input_encoding,
+                                 self.table, self.columns)
 
         if DEBUG:
             print '%s init done' % name
@@ -181,11 +185,15 @@ class PGLoader:
             print 'columns', self.columns
             print 'blob_columns', self.blob_cols
 
-        if self.name == name and not self.columns:
-            print 'Error: %s has no columns defined' % name
-            self.config_errors += 1
+        if self.columns is None:
+            if not self.template:
+                print 'Error: %s has no columns defined' % name
+                self.config_errors += 1
 
-        self.columns = []
+            else:
+                # non critical error, and code thereafter wants to use
+                # self.columns as a list
+                self.columns = []
 
         ##
         # The config section can also provide user-defined colums
@@ -331,9 +339,7 @@ class PGLoader:
                 self.columnlist = [n for (n, pos) in self.columns]
 
         if DEBUG:
-            #print "columns", self.columns
             print "only_cols", self.only_cols
-            #print "udcs", self.udcs
             print "columnlist", self.columnlist
 
         ##
@@ -364,47 +370,28 @@ class PGLoader:
         if config.has_option(name, 'format'):
             self.format = config.get(name, 'format')
 
-            if 'reader' not in self.__dict__:
-                if DEBUG:
-                    print 'READER INIT'
-                
-                if self.format.lower() == 'csv':
-                    from csvreader import CSVReader 
-                    self.reader = CSVReader(self.db, self.reject,
-                                            self.filename,
-                                            self.input_encoding,
-                                            self.table, self.columns)
+            if self.format.lower() == 'csv':
+                from csvreader import CSVReader 
+                self.reader = CSVReader(self.db, self.reject,
+                                        self.filename, self.input_encoding,
+                                        self.table, self.columns)
 
-                elif self.format.lower() == 'text':
-                    from textreader import TextReader
-                    self.reader = TextReader(self.db, self.reject,
-                                             self.filename,
-                                             self.input_encoding,
-                                             self.table, self.columns,
-                                             self.newline_escapes)
+            elif self.format.lower() == 'text':
+                from textreader import TextReader
+                self.reader = TextReader(self.db, self.reject,
+                                         self.filename, self.input_encoding,
+                                         self.table, self.columns,
+                                         self.newline_escapes)
 
-                self.reader.readconfig(name, config)
+        if 'reader' in self.__dict__:
+            if DEBUG:
+                print 'reader.readconfig()'
+            self.reader.readconfig(name, config)
 
         if not self.template and self.format is None:
             # error only when not loading the Template part
             print 'Error: %s: format parameter needed' % name
             raise PGLoader_Error
-        else:
-            if DEBUG:
-                print 'MANUAL REINIT OF READER'
-            self.reader.reject          = self.reject
-            self.reader.filename        = self.filename
-            self.reader.input_encoding  = self.input_encoding
-            self.reader.newline_escapes = self.newline_escapes
-            self.reader.readconfig(name, config)
-
-            print 'BLURPS', self.reader.trailing_sep
-
-##         ##
-##         # parse the reader specific section options
-##         if not self.template:
-##             self.reader.readconfig(name, config)
-##             print 'BLURPS', self.reader.trailing_sep
 
         ##
         # Some column might need reformating
@@ -444,7 +431,9 @@ class PGLoader:
                     print 'Error: %s failed to import reformat module "%s"' \
                           % (name, r_module)
                     print '       from %s' % str(REFORMAT_PATH)
+                    print '       %s' % e
                     self.config_errors += 1
+
 
                 if module:
                     if r_function in module.__dict__:

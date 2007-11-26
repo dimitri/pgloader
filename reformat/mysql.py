@@ -2,7 +2,6 @@
 #
 # pgloader mysql reformating module
 #
-from pgloader.tools import PGLoader_Error
 
 def timestamp(reject, input):
     """ Reformat str as a PostgreSQL timestamp
@@ -12,7 +11,7 @@ def timestamp(reject, input):
     """
     if len(input) != 14:
         e = "MySQL timestamp reformat input too short: %s" % input
-        raise PGLoader_Error, e
+        reject.log(e, input)
     
     year    = input[0:4]
     month   = input[4:6]
@@ -21,4 +20,4 @@ def timestamp(reject, input):
     minute  = input[10:12]
     seconds = input[12:14]
     
-    return '%s-%s-%s %s:%s:%s' % (year, month, day, hour, month, seconds)
+    return '%s-%s-%s %s:%s:%s' % (year, month, day, hour, minute, seconds)

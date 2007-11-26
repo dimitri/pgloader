@@ -22,6 +22,9 @@ class DataReader:
 
     def __init__(self, db, reject, filename, input_encoding, table, columns):
         """ init internal variables """
+        if DEBUG:
+            print 'reader __init__', filename, table, columns
+        
         self.db        = db
         self.filename  = filename
         self.input_encoding = input_encoding
@@ -32,7 +35,7 @@ class DataReader:
         if self.input_encoding is None:
             if INPUT_ENCODING is not None:
                 self.input_encoding = INPUT_ENCODING
-                                
+
     def readconfig(self, name, config):
         """ read configuration section for common options
 
@@ -67,8 +70,9 @@ class DataReader:
                     self.db.copy_sep = self.field_sep
 
         if DEBUG and not DRY_RUN:
-            print "null: '%s'" % self.db.null
-            print "empty_string: '%s'" %  self.db.empty_string
+            print "reader.readconfig null: '%s'" % self.db.null
+            print "reader.readconfig empty_string: '%s'" \
+                  %  self.db.empty_string
 
     def readlines(self):
         """ read data from configured file, and generate (yields) for

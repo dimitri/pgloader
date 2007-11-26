@@ -31,28 +31,39 @@ class TextReader(DataReader):
     """
 
     def __init__(self, db, reject, filename, input_encoding,
-                 table, columns, newline_escapes):
+                 table, columns, newline_escapes = None):
         """ init textreader with a newline_escapes parameter """
         DataReader.__init__(self, db, reject,
                             filename, input_encoding, table, columns)
 
-        self.newline_escapes = newline_escapes
-
+        if 'newline_escapes' not in self.__dict__:
+            self.newline_escapes = newline_escapes
 
     def readconfig(self, name, config):
         """ get this reader module configuration from config file """
         DataReader.readconfig(self, name, config)
 
+        # this will be called twice if templates are in used, so we
+        # have to protect ourselves against removing already read
+        # configurations while in second run.
+
         # optionnal number of columns per line
-        self.field_count = None
+        if 'field_count' not in self.__dict__:
+            self.field_count = None
+            
         if config.has_option(name, 'field_count'):
             self.field_count = config.getint(name, 'field_count')
 
         # optionnal trailing separator option
-        self.trailing_sep = False
+        if 'trailing_sep' not in self.__dict__:
+            self.trailing_sep = False
+            
         if config.has_option(name, 'trailing_sep'):
             self.trailing_sep = config.get(name, 'trailing_sep') == 'True'
 
+        if DEBUG:
+            print 'reader.readconfig: field_count', self.field_count
+            print 'reader.readconfig: trailing_sep', self.trailing_sep
 
     def readlines(self):
         """ read data from configured file, and generate (yields) for

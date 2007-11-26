@@ -116,3 +116,34 @@ def parse_config_string(str):
 
             
     
+def read_path(strpath, verbose = False, path = [], check = True):
+    """ read a path configuration element, discarding non-existing entries """
+    import os.path
+
+    for p in strpath.split(':'):
+        path.append(p)
+
+    if check:
+        return check_path(path, verbose)
+    else:
+        return path
+
+def check_path(path, verbose = False):
+    """ removes non existant and non {directories, symlink} entries from path
+    """
+    path_ok = []
+
+    for p in path:
+        if os.path.exists(p):
+            if os.path.isdir(p) or \
+                   (os.path.islink(p) and os.path.isdir(os.path.realpath(p))):
+                path_ok.append(p)
+            else:
+                if verbose:
+                    print "Warning: path entry '%s' " % p + \
+                          "is not a directory or does not link to a directory"
+        else:
+            if verbose:
+                print "Warning: path entry '%s' does not exists, ignored" % p
+
+    return path_ok

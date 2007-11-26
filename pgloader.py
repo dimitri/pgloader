@@ -101,6 +101,10 @@ def parse_options():
                       default = None,
                       help    = "input files encoding")
 
+    parser.add_option("-R", "--reformat_path", dest = "reformat_path",
+                      default = None,
+                      help    = "PATH where to find reformat python modules")
+
     (opts, args) = parser.parse_args()
 
     if opts.version:
@@ -129,10 +133,13 @@ def parse_options():
         print "Error: Can't be verbose and quiet at the same time!"
         sys.exit(1)
 
+    # if debug, then verbose
+    if opts.debug:
+        opts.verbose = True
+
     pgloader.options.DRY_RUN    = opts.dryrun
     pgloader.options.DEBUG      = opts.debug
-    # if debug, then verbose
-    pgloader.options.VERBOSE    = opts.verbose or opts.debug
+    pgloader.options.VERBOSE    = opts.verbose
     pgloader.options.QUIET      = opts.quiet
     pgloader.options.SUMMARY    = opts.summary    
     pgloader.options.PEDANTIC   = opts.pedantic
@@ -145,6 +152,9 @@ def parse_options():
     pgloader.options.FROM_ID    = opts.fromid
 
     pgloader.options.INPUT_ENCODING = opts.encoding
+
+    if opts.reformat_path:
+        pgloader.options.REFORMAT_PATH = opts.reformat_path
 
     return opts.config, args
 
@@ -227,19 +237,10 @@ def parse_config(conffile):
                 config.get(section, 'empty_string'))
 
         if config.has_option(section, 'reformat_path'):
-            import os.path
-            reformat_path = []
-            tmp_rpath = config.get(section, 'reformat_path')
-
-            for p in tmp_rpath.split(':'):
-                if os.path.exists(p):
-                    reformat_path.append(p)
-                else:
-                    print 'Error: reformat_path %s does not exists, ignored'%p
-
-            pgloader.options.REFORMAT_PATH = reformat_path
-        else:
-            pgloader.reformat_path = None
+            # command line value is prefered to config format one
+            if not pgloader.options.REFORMAT_PATH:
+                rpath = config.get(section, 'reformat_path')
+                pgloader.options.REFORMAT_PATH = rpath
 
     except Exception, error:
         print "Error: Could not initialize PostgreSQL connection:"
@@ -361,6 +362,25 @@ def load_data():
     # now init db connection
     config, dbconn = parse_config(conffile)
 
+    from pgloader.tools   import read_path, check_path
+    from pgloader.options import VERBOSE
+    import pgloader.options
+    rpath  = read_path(pgloader.options.REFORMAT_PATH, check = False)
+    crpath = check_path(rpath, VERBOSE)
+
+    if not crpath:
+        # don't check same path entries twice
+        default_rpath = set(crpath) \
+                        - set(pgloader.options.DEFAULT_REFORMAT_PATH)
+        
+        pgloader.options.REFORMAT_PATH = check_path(default_rpath, VERBOSE)
+    else:
+        pgloader.options.REFORMAT_PATH = rpath
+
+    if VERBOSE:
+        print 'Notice: Reformat path is', pgloader.options.REFORMAT_PATH
+        print
+
     # load some pgloader package modules
     from pgloader.options  import VERBOSE, DEBUG, QUIET, SUMMARY
     from pgloader.options  import DRY_RUN, PEDANTIC, VACUUM
@@ -392,11 +412,17 @@ def load_data():
     sections.sort()
     for s in sections:
         try:
+            if VERBOSE:
+                print
+                
             pgloader = PGLoader(s, config, dbconn)
             
             if not pgloader.template:
                 pgloader.run()            
                 summary[s] = (pgloader.table,) + pgloader.summary()
+            else:
+                if VERBOSE:
+                    print "Skipping section %s, which is a template" % s
                 
         except PGLoader_Error, e:
             if e == '':
