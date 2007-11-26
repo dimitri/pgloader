@@ -65,7 +65,7 @@ class PGLoader:
                 self.template = config.get(name, 'use_template')
 
                 if not config.has_section(self.template):
-                    m = 'Error: %s refers to unknown template section %s' \
+                    m = '%s refers to unknown template section %s' \
                         % (name, self.template)
                     
                     raise PGLoader_Error, m
@@ -74,7 +74,16 @@ class PGLoader:
                 if VERBOSE:
                     print "Reading configuration from template section [%s]" \
                           % self.template
-                self.__read_conf__(self.template, config, db)
+
+                try:
+                    self.__read_conf__(self.template, config, db,
+                                       want_template = True)
+                except PGLoader_Error, e:
+                    print
+                    print e
+                    m = "%s.use_template does not refer to a template section"\
+                        % name
+                    raise PGLoader_Error, m
 
                 # reinit self.template now its relative config section is read
                 self.template = None
@@ -96,8 +105,12 @@ class PGLoader:
             print '%s init done' % name
             print
         
-    def __read_conf__(self, name, config, db):
+    def __read_conf__(self, name, config, db, want_template = False):
         """ init self from config section name  """
+
+        if want_template and not config.has_option(name, 'template'):
+            e = 'Error: section %s is not a template' % name
+            raise PGLoader_Error, e
 
         ##
         # reject log and data files defaults to /tmp/<section>.rej[.log]
@@ -388,7 +401,8 @@ class PGLoader:
                 print 'reader.readconfig()'
             self.reader.readconfig(name, config)
 
-        if not self.template and self.format is None:
+        if not self.template and \
+           ('format' not in self.__dict__ or self.format is None):
             # error only when not loading the Template part
             print 'Error: %s: format parameter needed' % name
             raise PGLoader_Error

@@ -9,7 +9,7 @@ pgloader - Import CSV data and Large Object to PostgreSQL
 pgloader [--version] [-c configuration file]
          [-p pedantic] [-d debug] [-v verbose] [-q quiet] [-s summary]
          [-n dryrun] [-Cn count] [-Fn from] [-In from id]
-         [-E input files encoding]
+         [-E input files encoding] [-R reformat:path]
          [Section1 Section2]
 
 == DESCRIPTION ==
@@ -128,6 +128,12 @@ You can't use both -F and -I at the same time.
 -E, --encoding::
 
     Input data files encoding. Defaults to 'latin9'.
+
+-R, --reformat_path::
+
+    PATH where to find reformat python modules, defaults to
+    +/usr/share/pgloader/reformat+. See +reformat_path+ option for
+    syntax and default value.
 
 Section::
 +
@@ -254,6 +260,9 @@ configure with +reformat+ section specific option.
 Default value is +/usr/share/pgloader/reformat+, which is where the
 provided +debian+ package of +pgloader+ installs the +reformat+
 modules.
++
+If the +-R+ or +--reformat_path+ command line option is used, it will
+have precedence over configuration file setting.
 
 == COMMON FORMAT CONFIGURATION PARAMETERS ==
 
@@ -264,6 +273,24 @@ is said so thereafter.
 First, we'll go through common parameters, applicable whichever format of data
 you're refering to. Then text-format only parameters will be presented,
 followed by csv-only parameters.
+
+template::
++
+When this option is set, current section is to be considered a
+template, that is only read from section(s) using it as so (see
++use_template+ below).
++
+The value given to the option is not taken into account by +pgloader+,
+only the fact that it exists has meaning. But +ConfigParser+ requires
+a value to be affected to consider the option set. Use +True+ as a
+value, for example.
+
+use_template::
++
+This option setting have to be the name of a template section, which
+can define the exact same options as a normal section. If the actual
+section and the +use_template+ template section both define the same
+option, the former is used: actual setting overrides template's one.
 
 table::
 
