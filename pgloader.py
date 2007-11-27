@@ -369,12 +369,16 @@ def load_data():
         rpath  = read_path(pgloader.options.REFORMAT_PATH, check = False)
         crpath = check_path(rpath, VERBOSE)
     else:
-        crpath = None
+        rpath  = crpath  = None
 
     if not crpath:
-        # don't check same path entries twice
-        default_rpath = set(crpath) \
-                        - set(pgloader.options.DEFAULT_REFORMAT_PATH)
+        if rpath:
+            # don't check same path entries twice
+        
+            default_rpath = set(crpath) \
+                            - set(pgloader.options.DEFAULT_REFORMAT_PATH)
+        else:
+            default_rpath = pgloader.options.DEFAULT_REFORMAT_PATH
         
         pgloader.options.REFORMAT_PATH = check_path(default_rpath, VERBOSE)
     else:

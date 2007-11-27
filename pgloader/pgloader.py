@@ -172,7 +172,7 @@ class PGLoader:
                     print '%s.%s: %s' % (name, opt, config.get(name, opt))
                 self.__dict__[opt] = config.get(name, opt)
             else:
-                if not self.template:
+                if not self.template and opt not in self.__dict__:
                     print 'Error: please configure %s.%s' % (name, opt)
                     self.config_errors += 1
                 else:
@@ -248,30 +248,48 @@ class PGLoader:
 
         # we need the copy_columns parameter if user-defined columns
         # are used
-        if self.udcs:
+        #
+        # when using templates, we can read copy_columns setup without
+        # having any user-defined column defined
+        if self.template or self.udcs:
             if config.has_option(name, 'copy_columns'):
+                namelist = [n for (n, c) in self.columns]
+                if self.udcs:
+                    namelist += [n for (n, v) in self.udcs]
+
+                self.config_copy_columns = config.get(name, 'copy_columns')
+                self.config_copy_columns = self.config_copy_columns.split(',')
+                
+                self.copy_columns = []
+                for x in self.config_copy_columns:
+                    x = x.strip(' \n\r')
+                    # just add all the given columns in this pass
+                    self.copy_columns.append(x)
+
+                if DEBUG:
+                    print 'config copy_columns', self.config_copy_columns
+                    print 'copy_columns', self.copy_columns
+                    
+        if not self.template:
+            # check for errors time!
+            if 'copy_columns' in self.__dict__:
                 namelist = [n for (n, c) in self.columns] + \
                            [n for (n, v) in self.udcs]
 
-                copy_columns = config.get(name, 'copy_columns').split(',')
-                
-                self.copy_columns = []
-                for x in copy_columns:
-                    x = x.strip(' \n\r')
+                for x in self.copy_columns:
                     if x not in namelist:
                         print 'Error: "%s" not in %s column list, ' \
                               % (x, name) +\
                               'including user defined columns'
-                    else:
-                        self.copy_columns.append(x)
-
-                if len(self.copy_columns) != len(copy_columns):
+                        self.config_errors += 1
+                        
+                if len(self.copy_columns) != len(self.config_copy_columns):
                     print 'Error: %s.copy_columns refers to ' % name +\
                           'unconfigured columns '
 
                     self.config_errors += 1
-
-            else:
+                    
+            elif self.udcs:
                 print 'Error: section %s does not define ' % name +\
                       'copy_columns but uses user-defined columns'
 
@@ -280,12 +298,12 @@ class PGLoader:
         # in the copy_columns case, columnlist is that simple:
         self.columnlist = None
         if self.udcs:
-            if self.copy_columns:
+            if 'copy_columns' in self.__dict__ and self.copy_columns:
                 self.columnlist = self.copy_columns
 
         if DEBUG:
-            print 'udcs', self.udcs
-            if self.udcs:
+            print 'udcs:', self.udcs
+            if self.udcs and 'copy_columns' in self.__dict__:
                 print 'copy_columns', self.copy_columns
 
         ##
@@ -508,9 +526,8 @@ class PGLoader:
             print 'Notice: composite key found, -I evaluated to %s' % FROM_ID
 
         if self.config_errors > 0:
-            mesg = ['Configuration errors for section %s' % self.name,
-                    'Please see reject log file %s' % self.reject_log]
-            raise PGLoader_Error, '\n'.join(mesg)
+            mesg = 'Configuration errors for section %s' % self.name
+            raise PGLoader_Error, mesg
 
         # Now reset database connection
         if not DRY_RUN:
