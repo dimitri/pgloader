@@ -365,8 +365,11 @@ def load_data():
     from pgloader.tools   import read_path, check_path
     from pgloader.options import VERBOSE
     import pgloader.options
-    rpath  = read_path(pgloader.options.REFORMAT_PATH, check = False)
-    crpath = check_path(rpath, VERBOSE)
+    if pgloader.options.REFORMAT_PATH:
+        rpath  = read_path(pgloader.options.REFORMAT_PATH, check = False)
+        crpath = check_path(rpath, VERBOSE)
+    else:
+        crpath = None
 
     if not crpath:
         # don't check same path entries twice
