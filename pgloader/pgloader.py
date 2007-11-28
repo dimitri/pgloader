@@ -182,7 +182,8 @@ class PGLoader:
                 else:
                     # Reading Configuration Template section
                     # we want the attribute to exists for further usage
-                    self.__dict__[opt] = None
+                    if opt not in self.__dict__:
+                        self.__dict__[opt] = None
 
         ##
         # we parse some columns definitions

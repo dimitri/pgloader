@@ -60,8 +60,10 @@ class DataReader:
             else:
                 self.db.empty_string = EMPTY_STRING
 
-        # optionnal field separator
-        self.field_sep = FIELD_SEP
+        # optionnal field separator, could be defined from template
+        if 'field_sep' not in self.__dict__:
+            self.field_sep = FIELD_SEP
+        
         if config.has_option(name, 'field_sep'):
             self.field_sep = config.get(name, 'field_sep')
 
@@ -73,6 +75,7 @@ class DataReader:
             print "reader.readconfig null: '%s'" % self.db.null
             print "reader.readconfig empty_string: '%s'" \
                   %  self.db.empty_string
+            print "reader.readconfig field_sep: '%s'" % self.field_sep
 
     def readlines(self):
         """ read data from configured file, and generate (yields) for
