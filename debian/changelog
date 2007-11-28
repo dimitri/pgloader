@@ -1,4 +1,4 @@
-pgloader (2.2.5~dev) unstable; urgency=low
+pgloader (2.2.5~dev-1) unstable; urgency=low
 
   * Configuration now supports templates
   * Command line option for setting --reformat_path, -R

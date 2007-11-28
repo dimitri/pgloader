@@ -89,6 +89,9 @@ class TextReader(DataReader):
             except LookupError, e:
                 # codec not found
                 raise PGLoader_Error, "Input codec: %s" % e
+            except IOError, e:
+                # file not found, for example
+                raise PGLoader_Error, "IOError: %s" % e
         else:
             try:
                 fd = open(self.filename)
