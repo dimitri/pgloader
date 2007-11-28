@@ -101,6 +101,10 @@ class PGLoader:
                                  self.filename, self.input_encoding,
                                  self.table, self.columns)
 
+        # Now reset database connection
+        if not DRY_RUN:
+            self.db.reset()            
+
         if DEBUG:
             print '%s init done' % name
             print
@@ -528,10 +532,6 @@ class PGLoader:
         if self.config_errors > 0:
             mesg = 'Configuration errors for section %s' % self.name
             raise PGLoader_Error, mesg
-
-        # Now reset database connection
-        if not DRY_RUN:
-            self.db.reset()
 
     def _parse_fields(self, attr, str, btype = False, argtype = 'int'):
         """ parse the user string str for fields definition to store
