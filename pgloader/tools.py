@@ -85,8 +85,11 @@ class Reject:
 
         # now we close the two fds
         for f in [fd_log, fd_data]:
-            f.flush()
-            f.close()
+            try:
+                f.flush()
+                f.close()
+            except IOError, e:
+                raise PGLoader_Error, e
 
         self.errors += 1
 

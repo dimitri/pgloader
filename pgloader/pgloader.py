@@ -436,13 +436,15 @@ class PGLoader:
             self._parse_fields('c_reformat', config.get(name, 'reformat'),
                                btype = True, argtype = 'string')
         else:
-            self.c_reformat = self.reformat = None
+            # remember reformat could have been configured from template
+            if 'c_reformat' not in self.__dict__:
+                self.c_reformat = self.reformat = None
 
         if DEBUG:
             print 'reformat', self.c_reformat
 
         # check the configure reformating is available
-        if self.c_reformat:
+        if not self.template and self.c_reformat:
             import imp
             self.reformat = []
             
@@ -481,7 +483,7 @@ class PGLoader:
                               (r_module, r_function)
                         self.config_errors += 1
 
-        if DEBUG:
+        if DEBUG and not self.template:
             print 'reformat', self.reformat
 
         ##
