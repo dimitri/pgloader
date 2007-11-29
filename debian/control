@@ -9,13 +9,8 @@ Package: pgloader
 Architecture: all
 Depends: python (>=2.4.4), python-psycopg2 | python-psycopg (<< 1.1.21)
 Description: loads flat data files into PostgreSQL
- pgloader imports data from a flat file and insert it into a database
- table. It uses a flat file per database table, and you can configure as
- many Sections as you want, each one associating a table name and a data
- file.
- .
- Data are parsed and rewritten, then given to PostgreSQL COPY command.
- Parsing is necessary for dealing with end of lines and eventual trailing
- separator characters, and for column reordering: your flat data file may
- not have the same column order as the databse table has.
-
+ pgloader imports data from flat files and insert it into a database
+ table. You have to provide a configuration file containing sections,
+ which each defines how to load a table. CSV and text format are
+ supported, the latter being able to parse multi-line non-quoted with
+ trailing delimiter quite CSV input, such as given by Informix UNLOAD.

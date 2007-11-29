@@ -108,7 +108,7 @@ def parse_options():
     (opts, args) = parser.parse_args()
 
     if opts.version:
-        print "PgLoader version %s" % pgloader.options.PGLOADER_VERSION
+        print "PGLoader version %s" % pgloader.options.PGLOADER_VERSION
         sys.exit(0)
 
     # check existence en read ability of config file
