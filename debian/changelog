@@ -2,7 +2,7 @@ pgloader (2.2.5~dev-1) unstable; urgency=low
 
   * Configuration now supports templates
   * Command line option for setting --reformat_path, -R
-  *
+  * Closes: #453434 (ITP)
 
  -- Dimitri Fontaine <dim@tapoueh.org>  Mon, 26 Nov 2007 21:53:11 +0100
 
