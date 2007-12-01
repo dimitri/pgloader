@@ -33,4 +33,4 @@ FROM_ID    = None
 UDC_PREFIX = 'udc_'
 
 REFORMAT_PATH = None
-DEFAULT_REFORMAT_PATH = ['/usr/share/pgloader/reformat']
+DEFAULT_REFORMAT_PATH = ['/usr/share/python-support/pgloader/reformat']

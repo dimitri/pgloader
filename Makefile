@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.6 2007-11-29 21:30:22 dim Exp $
+# $Id: Makefile,v 1.7 2007-12-01 10:15:29 dim Exp $
 #
 # Makefile for debian packaging purpose, make install not intended to work.
 
@@ -9,7 +9,7 @@ VERSION = $(shell ./pgloader.py --version | cut -d' ' -f3)
 # debian setting
 DESTDIR =
 
-libdir   = $(DESTDIR)/usr/share/pgloader
+libdir   = $(DESTDIR)/usr/share/python-support/pgloader
 exdir    = $(DESTDIR)/usr/share/doc/pgloader
 
 pgloader = pgloader.py
