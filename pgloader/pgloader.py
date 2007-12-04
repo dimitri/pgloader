@@ -1,4 +1,4 @@
-# Author: Dimitri Fontaine <dimitri@dalibo.com>
+# Author: Dimitri Fontaine <dim@tapoueh.org>
 #
 # pgloader main class
 #
@@ -160,7 +160,7 @@ class PGLoader:
             print "input_encoding: '%s'" % self.input_encoding
 
         # optionnal local option datestyle
-        if config.has_option(name, 'datestyle'):
+        if not DRY_RUN and config.has_option(name, 'datestyle'):
             self.db.datestyle = parse_config_string(
                 config.get(name, 'datestyle'))
 

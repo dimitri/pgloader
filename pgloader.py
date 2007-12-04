@@ -1,25 +1,8 @@
 #! /usr/bin/env python
-# Author: Dimitri Fontaine <dimitri@dalibo.com>
+# Author: Dimitri Fontaine <dim@tapoueh.org>
 
 """
-PostgreSQL data import tool, aimed to replace and extands pgloader.
-
-Important features :
- - CSV file format import using COPY
- - multi-line input file
- - configurable amount of rows per COPY instruction
- - large object to TEXT or BYTEA field handling
-   (only informix blobs and clobs supported as of now)
- - trailing slash optionnal removal (support informix UNLOAD file format)
- - begin processing at any line in the file, by number or row id
- - dry-run option, to validate input reading without connecting to database
- - pedantic option, to stop processing on warning
- - reject log and reject data files: you can reprocess refused data later
- - COPY errors recovery via redoing COPY with half files until file is
-   one line long, then reject log this line
-
-Please read the fine manual page pg_import(1) for command line usage
-(options) and configuration file format.
+PostgreSQL data import tool, see included man page.
 """
 
 import os, sys, os.path, time, codecs
@@ -27,6 +10,7 @@ from cStringIO import StringIO
 
 import pgloader.options
 import pgloader.tools
+import pgloader.logger
 
 def parse_options():
     """ Parse given options """
@@ -113,24 +97,25 @@ def parse_options():
 
     # check existence en read ability of config file
     if not os.path.exists(opts.config):
-        print "Error: Configuration file %s does not exists" % opts.config
-        print parser.format_help()
+        print >>sys.stderr, \
+              "Error: Configuration file %s does not exists" % opts.config
+        print >>sys.stderr, parser.format_help()
         sys.exit(1)
 
     if not os.access(opts.config, os.R_OK):
-        print "Error: Can't read configuration file %s" % opts.config
-        print parser.format_help()
+        print >>sys.stderr, \
+              "Error: Can't read configuration file %s" % opts.config
+        print >>sys.stderr, parser.format_help()
         sys.exit(1)
 
-    if opts.verbose:
-        print 'Using %s configuration file' % opts.config
-
     if opts.fromcount != 0 and opts.fromid is not None:
-        print "Error: Can't set both options fromcount (-F) AND fromid (-I)"
+        print >>sys.stderr, \
+              "Error: Can't set both options fromcount (-F) AND fromid (-I)"
         sys.exit(1)
 
     if opts.quiet and (opts.verbose or opts.debug):
-        print "Error: Can't be verbose and quiet at the same time!"
+        print >>sys.stderr, \
+              "Error: Can't be verbose and quiet at the same time!"
         sys.exit(1)
 
     # if debug, then verbose
@@ -156,6 +141,14 @@ def parse_options():
     if opts.reformat_path:
         pgloader.options.REFORMAT_PATH = opts.reformat_path
 
+    import logging
+    if opts.debug:
+        pgloader.options.CLIENT_MIN_MESSAGES = logging.DEBUG
+    elif opts.verbose:
+        pgloader.options.CLIENT_MIN_MESSAGES = logging.INFO
+    elif opts.quiet:
+        pgloader.options.CLIENT_MIN_MESSAGES = logging.ERROR
+
     return opts.config, args
 
 def parse_config(conffile):
@@ -169,21 +162,44 @@ def parse_config(conffile):
     try:
         config.read(conffile)
     except:
-        print "Error: Given file is not a configuration file"
+        print >>sys.stderr, "Error: Given file is not a configuration file"
         sys.exit(4)
 
     if not config.has_section(section):
-        print "Error: Please provide a [%s] section" % section
+        print >>sys.stderr, "Error: Please provide a [%s] section" % section
         sys.exit(5)
 
     # load some options
     # this has to be done after command line parsing
     from pgloader.options  import DRY_RUN, VERBOSE, DEBUG, PEDANTIC
     from pgloader.options  import NULL, EMPTY_STRING
+    from pgloader.options  import CLIENT_MIN_MESSAGES
+
+    # first read the logging configuration
+    if not CLIENT_MIN_MESSAGES:
+        if config.has_option(section, 'client_min_messages'):
+            cmm = config.get(section, 'client_min_messages')
+            pgloader.options.CLIENT_MIN_MESSAGES = pgloader.logger.level(cmm)
+        else:
+            # CLIENT_MIN_MESSAGES has not been set at all
+            pgloader.options.CLIENT_MIN_MESSAGES = NOTICE
+
+    if config.has_option(section, 'log_min_messages'):
+        lmm = config.get(section, 'log_min_messages')
+        pgloader.options.LOG_MIN_MESSAGES = pgloader.logger.level(lmm)
+    else:
+        pgloader.options.LOG_MIN_MESSAGES = NOTICE
+    
+
+    pgloader.log = pgloader.logger.init(pgloader.options.CLIENT_MIN_MESSAGES,
+                                        pgloader.options.LOG_MIN_MESSAGES,
+                                        '/tmp/pgloader.log')
+
+    pgloader.log.info("Logger initialized")
+    pgloader.log.debug("PHOQUE")
 
     if DRY_RUN:
-        if VERBOSE:
-            print "Notice: dry run mode, not connecting to database"
+        pgloader.log.info("dry run mode, not connecting to database")
         return config, None
 
     try:
@@ -243,7 +259,7 @@ def parse_config(conffile):
                 pgloader.options.REFORMAT_PATH = rpath
 
     except Exception, error:
-        print "Error: Could not initialize PostgreSQL connection:"
+        pgloader.log.error("Could not initialize PostgreSQL connection:")
         print error
         sys.exit(6)
 
@@ -252,15 +268,20 @@ def parse_config(conffile):
 def myprint(l, line_prefix = "  ", cols = 78):
     """ pretty print list l elements """
     # some code for pretty print
+    lines = []
+    
     tmp = line_prefix
     for e in l:
         if len(tmp) + len(e) > cols:
-            print tmp
+            lines.append(tmp)
             tmp = line_prefix
             
         if tmp != line_prefix: tmp += " "
         tmp += e
-    print tmp
+        
+    lines.append(tmp)
+
+    return lines
 
 def duration_pprint(duration):
     """ pretty print duration (human readable information) """
@@ -384,9 +405,7 @@ def load_data():
     else:
         pgloader.options.REFORMAT_PATH = rpath
 
-    if VERBOSE:
-        print 'Notice: Reformat path is', pgloader.options.REFORMAT_PATH
-        print
+    pgloader.log.info('Reformat path is %s', pgloader.options.REFORMAT_PATH)
 
     # load some pgloader package modules
     from pgloader.options  import VERBOSE, DEBUG, QUIET, SUMMARY
@@ -408,9 +427,9 @@ def load_data():
             if s != 'pgsql':
                 sections.append(s)
 
-    if VERBOSE:
-        print 'Will consider following sections:'
-        myprint(sections)
+    pgloader.log.info('Will consider following sections:')
+    for line in myprint(sections):
+        pgloader.log.info(line)
 
     # we count time passed from now on
     begin = time.time()
@@ -419,34 +438,30 @@ def load_data():
     sections.sort()
     for s in sections:
         try:
-            if VERBOSE:
-                print
-                
-            pgloader = PGLoader(s, config, dbconn)
+            loader = PGLoader(s, config, dbconn)
             
-            if not pgloader.template:
-                pgloader.run()            
-                summary[s] = (pgloader.table,) + pgloader.summary()
+            if not loader.template:
+                loader.run()            
+                summary[s] = (loader.table,) + loader.summary()
             else:
-                if VERBOSE:
-                    print "Skipping section %s, which is a template" % s
+                pgloader.log.info("Skipping section %s, which is a template" \
+                                  % s)
                 
         except PGLoader_Error, e:
             if e == '':
-                print '[%s] Please correct previous errors' % s
+                pgloader.log.error('[%s] Please correct previous errors' % s)
             else:
-                print
-                print 'Error: %s' % e
+                pgloader.log.error('%s' % e)
 
             if PEDANTIC:
                 pgloader.print_stats()
 
         except UnicodeDecodeError, e:
-            print "Error: can't open '%s' with given input encoding '%s'" \
-                  % (pgloader.filename, pgloader.input_encoding)
+            pgloader.log.error("can't open '%s' with given input encoding '%s'" \
+                               % (loader.filename, loader.input_encoding))
                                     
         except KeyboardInterrupt:
-            print "Aborting on user demand (Interrupt)"
+            pgloader.log.warning("Aborting on user demand (Interrupt)")
 
     # total duration
     td = time.time() - begin
@@ -457,10 +472,10 @@ def load_data():
             retcode = print_summary(dbconn, sections, summary, td)
             print
         except PGLoader_Error, e:
-            print "Can't print summary: %s" % e
+            pgloader.log.error("Can't print summary: %s" % e)
 
     if VACUUM and not DRY_RUN:
-        print 'vacuumdb... '
+        pgloader.log.info('vacuumdb... ')
         try:
             dbconn.vacuum()
         except KeyboardInterrupt:

@@ -286,7 +286,8 @@ class TextReader(DataReader):
 
             col_data = columns[ne_colnum]
             
-            if self.db.is_null(col_data) or self.db.is_empty(col_data):
+            if self.db and \
+               (self.db.is_null(col_data) or self.db.is_empty(col_data)):
                 if DEBUG:
                     print 'Debug: skipping null or empty column'
                 continue
