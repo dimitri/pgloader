@@ -11,6 +11,7 @@ from cStringIO import StringIO
 import pgloader.options
 import pgloader.tools
 import pgloader.logger
+from pgloader.tools import PGLoader_Error
 
 def parse_options():
     """ Parse given options """
@@ -52,6 +53,10 @@ def parse_options():
     parser.add_option("-l", "--level", dest = "loglevel",
                       default = None,
                       help    = "loglevel to use: ERROR, WARNING, INFO, DEBUG")
+
+    parser.add_option("-L", "--logfile", dest = "logfile",
+                      default = "/tmp/pgloader.log",
+                      help    = "log file, defauts to /tmp/pgloader.log")
 
     parser.add_option("-s", "--summary", action = "store_true",
                       dest    = "summary",
@@ -99,7 +104,7 @@ def parse_options():
         print "PGLoader version %s" % pgloader.options.PGLOADER_VERSION
         sys.exit(0)
 
-    # check existence en read ability of config file
+    # check existence and read ability of config file
     if not os.path.exists(opts.config):
         print >>sys.stderr, \
               "Error: Configuration file %s does not exists" % opts.config
@@ -145,6 +150,8 @@ def parse_options():
     if opts.reformat_path:
         pgloader.options.REFORMAT_PATH = opts.reformat_path
 
+    pgloader.options.LOG_FILE = opts.logfile
+
     import logging
     if opts.loglevel:
         loglevel = pgloader.logger.level(opts.loglevel)
@@ -180,7 +187,8 @@ def parse_config(conffile):
     # this has to be done after command line parsing
     from pgloader.options  import DRY_RUN, VERBOSE, DEBUG, PEDANTIC
     from pgloader.options  import NULL, EMPTY_STRING
-    from pgloader.options  import CLIENT_MIN_MESSAGES
+    from pgloader.options  import CLIENT_MIN_MESSAGES, LOG_FILE
+    from pgloader.tools    import check_dirname
 
     # first read the logging configuration
     if not CLIENT_MIN_MESSAGES:
@@ -196,14 +204,42 @@ def parse_config(conffile):
         pgloader.options.LOG_MIN_MESSAGES = pgloader.logger.level(lmm)
     else:
         pgloader.options.LOG_MIN_MESSAGES = NOTICE
-    
-    log = pgloader.logger.init(pgloader.options.CLIENT_MIN_MESSAGES,
-                               pgloader.options.LOG_MIN_MESSAGES,
-                               '/tmp/pgloader.log')
+
+    if config.has_option(section, 'log_file'):
+        # don't overload the command line -L option if given
+        if not pgloader.options.LOG_FILE:
+            pgloader.options.LOG_FILE = config.get(section, 'log_file')
+
+    if pgloader.options.LOG_FILE:
+        ok, logdir_mesg = check_dirname(pgloader.options.LOG_FILE)
+        if not ok:
+            # force default setting
+            pgloader.options.LOG_FILE = pgloader.options.DEFAULT_LOG_FILE
+
+    try:
+        log = pgloader.logger.init(pgloader.options.CLIENT_MIN_MESSAGES,
+                                   pgloader.options.LOG_MIN_MESSAGES,
+                                   pgloader.options.LOG_FILE)
+    except PGLoader_Error, e:
+        try:
+            log = pgloader.logger.init(pgloader.options.CLIENT_MIN_MESSAGES,
+                                       pgloader.options.LOG_MIN_MESSAGES,
+                                       pgloader.options.DEFAULT_LOG_FILE)
+
+            log.warning(e)
+            log.warning("Using default logfile %s",
+                        pgloader.options.DEFAULT_LOG_FILE)
+        except PGLoader_Error, e:
+            print e
+            sys.exit(8)
+        
     pgloader.logger.log = log
 
     log.info("Logger initialized")
-    log.debug("PHOQUE")
+    if logdir_mesg:
+        log.error(logdir_mesg)
+        log.error("Default logfile %s has been used instead",
+                  pgloader.options.LOG_FILE)
 
     if DRY_RUN:
         log.info("dry run mode, not connecting to database")
@@ -223,6 +259,11 @@ def parse_config(conffile):
             client_encoding = pgloader.tools.parse_config_string(
                 config.get(section, 'client_encoding'))
             dbconn.client_encoding = client_encoding
+
+        if config.has_option(section, 'lc_messages'):
+            lc_messages = pgloader.tools.parse_config_string(
+                config.get(section, 'lc_messages'))
+            dbconn.lc_messages = lc_messages
 
         if config.has_option(section, 'input_encoding'):
             input_encoding = pgloader.tools.parse_config_string(
@@ -311,7 +352,6 @@ def print_summary(dbconn, sections, summary, td):
     from pgloader.options  import VERBOSE, DEBUG, QUIET, SUMMARY
     from pgloader.options  import DRY_RUN, PEDANTIC, VACUUM
     from pgloader.pgloader import PGLoader
-    from pgloader.tools    import PGLoader_Error
 
     retcode = 0
 
@@ -393,6 +433,7 @@ def load_data():
     from pgloader.logger  import log
     from pgloader.tools   import read_path, check_path
     from pgloader.options import VERBOSE
+    
     import pgloader.options
     if pgloader.options.REFORMAT_PATH:
         rpath  = read_path(pgloader.options.REFORMAT_PATH, check = False)

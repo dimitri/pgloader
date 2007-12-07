@@ -5,6 +5,7 @@
 # standard error levels are used for code and configuration error messages
 # data error logging is managed by tools.Reject class
 
+from tools import PGLoader_Error
 import logging
 
 def init(client_min_messages = logging.INFO,
@@ -13,11 +14,14 @@ def init(client_min_messages = logging.INFO,
 
     fmt = '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
 
-    logging.basicConfig(level    = log_min_messages,
-                        format   = fmt,
-                        datefmt  = '%d-%m-%Y %H:%M:%S',
-                        filename = filename,
-                        filemode = 'w')
+    try:
+        logging.basicConfig(level    = log_min_messages,
+                            format   = fmt,
+                            datefmt  = '%d-%m-%Y %H:%M:%S',
+                            filename = filename,
+                            filemode = 'w')
+    except IOError, e:
+        raise PGLoader_Error, e
 
     console = logging.StreamHandler()
     console.setLevel(client_min_messages)

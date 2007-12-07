@@ -8,6 +8,7 @@ pgloader - Import CSV data and Large Object to PostgreSQL
 
 pgloader [--version] [-c configuration file]
          [-p pedantic] [-d debug] [-v verbose] [-q quiet] [-s summary]
+	 [-l loglevel] [-L logfile]
          [-n dryrun] [-Cn count] [-Fn from] [-In from id]
          [-E input files encoding] [-R reformat:path]
          [Section1 Section2]
@@ -76,6 +77,10 @@ refers to a PostgreSQL table into which some data is to be loaded.
 -l, --loglevel::
 
     log level to use when reporting to the console, see +client_min_messages+.
+
+-L, --logfile::
+
+    file where to log messages, see +log_min_messages+.
 
 -s, --summary::
 
@@ -280,15 +285,30 @@ log_min_messages::
     defaults to +/tmp/pgloader.log+. See +client_min_messages+ for
     available levels.
 
+log_file::
+
+    Relative or absolute path to the +log_file+ where to log messages
+    of level of at least +log_min_messages+ level. The 'dirname' of
+    the given +log_file+, if it doesn't exists, will be created by
+    +pgloader+. If any error prevents +pgloader+ to use the
+    +log_file+, it will default to using +/tmp/pgloader.log+ and say
+    so.
+
+lc_messages::
+
+    The PostgreSQL session will use this +LC_MESSAGES+ setting if
+    given, defaults to server configuration by not issuing anything
+    with respect to this setting when not set.
+
 == COMMON FORMAT CONFIGURATION PARAMETERS ==
 
-You then can define any number of data section, and give them an arbitrary
-name. Some options are required, some are actually optionnals, in which case it
-is said so thereafter.
+You then can define any number of data section, and give them an
+arbitrary name. Some options are required, some are actually optional,
+in which case it is said so thereafter.
 
-First, we'll go through common parameters, applicable whichever format of data
-you're refering to. Then text-format only parameters will be presented,
-followed by csv-only parameters.
+First, we'll go through common parameters, applicable whichever format
+of data you're referring to. Then text-format only parameters will be
+presented, followed by csv-only parameters.
 
 template::
 +

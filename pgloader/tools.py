@@ -121,7 +121,7 @@ def parse_config_string(str):
 
             
     
-def read_path(strpath, verbose = False, path = [], check = True):
+def read_path(strpath, log, path = [], check = True):
     """ read a path configuration element, discarding non-existing entries """
     import os.path
 
@@ -129,11 +129,11 @@ def read_path(strpath, verbose = False, path = [], check = True):
         path.append(p)
 
     if check:
-        return check_path(path, verbose)
+        return check_path(path, log)
     else:
         return path
 
-def check_path(path, verbose = False):
+def check_path(path, log):
     """ removes non existant and non {directories, symlink} entries from path
     """
     path_ok = []
@@ -144,11 +144,26 @@ def check_path(path, verbose = False):
                    (os.path.islink(p) and os.path.isdir(os.path.realpath(p))):
                 path_ok.append(p)
             else:
-                if verbose:
-                    print "Warning: path entry '%s' " % p + \
-                          "is not a directory or does not link to a directory"
+                log.warning("path entry '%s' is not a directory " + \
+                            "or does not link to a directory", p)
         else:
-            if verbose:
-                print "Warning: path entry '%s' does not exists, ignored" % p
+            log.warning("path entry '%s' does not exists, ignored" % p)
 
     return path_ok
+
+
+def check_dirname(path):
+    """ check if given path dirname exists, try to create it if if doesn't """
+
+    # try to create the log file and the directory where it lives
+    logdir = os.path.dirname(path)
+    if logdir and not os.path.exists(logdir):
+        # logdir is not empty (not CWD) and does not exists
+        try:
+            os.makedirs(logdir)
+        except (IOError, OSError), e:
+            return False, e
+
+    return True, None
+
+    

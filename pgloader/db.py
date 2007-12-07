@@ -43,6 +43,7 @@ class db:
         self.datestyle       = DATESTYLE
         self.null            = NULL
         self.empty_string    = EMPTY_STRING
+        self.lc_messages     = None
 
         if connect:
             self.reset()
@@ -89,6 +90,23 @@ class db:
         cursor.execute(sql, [self.datestyle])
         cursor.close()
 
+    def set_lc_messages(self):
+        """ set lc_messages to self.lc_messages """
+        if self.lc_messages is None:
+            return
+        
+        # debug only cause reconnecting happens on every
+        # configured section
+        self.log.debug('Setting lc_messages to %s', self.lc_messages)
+        
+        sql = 'set session lc_messages to %s'
+        cursor = self.dbconn.cursor()
+        try:
+            cursor.execute(sql, [self.lc_messages])
+        except psycopg.ProgrammingError, e:
+            raise PGLoader_Error, e
+        cursor.close()
+
     def reset(self):
         """ reset internal counters and open a new database connection """
         self.buffer            = None
@@ -110,6 +128,7 @@ class db:
         self.dbconn = psycopg.connect(self.dsn)
         self.set_encoding()
         self.set_datestyle()
+        self.set_lc_messages()
 
     def print_stats(self):
         """ output some stats about recent activity """
@@ -307,7 +326,8 @@ class db:
                 self.commited_rows   += self.running_commands
                 self.running_commands = 0
 
-            except psycopg.ProgrammingError, error:
+            except (psycopg.ProgrammingError,
+                    psycopg.DatabaseError), error:
                 # rollback current transaction
                 self.dbconn.rollback()
 
@@ -337,13 +357,6 @@ class db:
                 # recovery process has closed the buffer
                 self.buffer = None
                 self.running_commands = 0
-
-            except psycopg.DatabaseError, error:
-                # non recoverable error
-                mesg = "\n".join(["Please check PostgreSQL logs",
-                                  "HINT:  double check your client_encoding,"+
-                                  " datestyle and copy_delimiter settings"])
-                raise PGLoader_Error, mesg
 
         # prepare next run
         if self.buffer is None:

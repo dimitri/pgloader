@@ -37,3 +37,6 @@ DEFAULT_REFORMAT_PATH = ['/usr/share/python-support/pgloader/reformat']
 
 CLIENT_MIN_MESSAGES = None
 LOG_MIN_MESSAGES    = DEBUG
+DEFAULT_LOG_FILE    = "/tmp/pgloader.log"
+LOG_FILE            = None
+

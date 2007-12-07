@@ -1,7 +1,9 @@
-pgloader (2.2.5~dev.1-2) unstable; urgency=low
+pgloader (2.2.5-1) unstable; urgency=low
 
   * Now using proper python logging module
-  * New client_min_messages and log_min_messages options
+  * New client_min_messages, log_min_messages, log_file and lc_messages options
+  * Better reporting of DatabaseError (pkey violation, e.g.)
+  * Have logging of error data work again in all cases (DatabaseError)
 
  -- Dimitri Fontaine <dim@tapoueh.org>  Fri, 07 Dec 2007 14:48:08 +0100
 
