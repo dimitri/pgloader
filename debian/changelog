@@ -1,3 +1,10 @@
+pgloader (2.2.5~dev.1-2) unstable; urgency=low
+
+  * Now using proper python logging module
+  * New client_min_messages and log_min_messages options
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Fri, 07 Dec 2007 14:48:08 +0100
+
 pgloader (2.2.5~dev-1) unstable; urgency=low
 
   * Configuration now supports templates

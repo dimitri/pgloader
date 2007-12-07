@@ -12,12 +12,12 @@ from options import INPUT_ENCODING, PG_CLIENT_ENCODING, DATESTYLE
 from options import COPY_SEP, FIELD_SEP, CLOB_SEP, NULL, EMPTY_STRING
 
 from tools   import PGLoader_Error
+from logger  import log
 
 try:
     import psycopg2.psycopg1 as psycopg
 except ImportError:
-    if VERBOSE:
-        print 'No psycopg2 module found, trying psycopg1'
+    log.info('No psycopg2 module found, trying psycopg1')
     import psycopg
 
 class db:
@@ -27,6 +27,7 @@ class db:
                  client_encoding = PG_CLIENT_ENCODING,
                  copy_every = 10000, commit_every = 1000, connect = True):
         """ Connects to the specified database """
+        self.log     = log
         self.dbconn  = None
         self.dsn     = "host=%s port=%d user=%s dbname=%s password=%s" \
                        % (host, port, user, base, passwd)
@@ -61,11 +62,9 @@ class db:
 
     def set_encoding(self):
         """ set connection encoding to self.client_encoding """
-
-        if DEBUG:
-            # debug only cause reconnecting happens on every
-            # configured section
-            print 'Setting client encoding to %s' % self.client_encoding
+        # debug only cause reconnecting happens on every
+        # configured section
+        self.log.debug('Setting client encoding to %s', self.client_encoding)
         
         sql = 'set session client_encoding to %s'
         cursor = self.dbconn.cursor()
@@ -81,10 +80,9 @@ class db:
         if self.datestyle is None:
             return
 
-        if DEBUG:
-            # debug only cause reconnecting happens on every
-            # configured section
-            print 'Setting datestyle to %s' % self.datestyle
+        # debug only cause reconnecting happens on every
+        # configured section
+        self.log.debug('Setting datestyle to %s', self.datestyle)
         
         sql = 'set session datestyle to %s'
         cursor = self.dbconn.cursor()
@@ -103,13 +101,11 @@ class db:
         self.first_commit_time = self.last_commit_time
         self.partial_coldef    = None
 
-        if DEBUG:
-            if self.dbconn is not None:
-                print 'Debug: closing current connection'
-                self.dbconn.close()
+        if self.dbconn is not None:
+            self.log.debug('Debug: closing current connection')
+            self.dbconn.close()
 
-        if DEBUG:
-            print 'Debug: connecting to dns %s' % self.dsn
+        self.log.debug('Debug: connecting to dns %s', self.dsn)
 
         self.dbconn = psycopg.connect(self.dsn)
         self.set_encoding()
@@ -120,15 +116,15 @@ class db:
         d = time.time() - self.first_commit_time
         u = self.commited_rows
         c = self.commits
-        print " %d updates in %d commits took %5.3f seconds" % (u, c, d)
+        self.log.info(" %d updates in %d commits took %5.3f seconds", u, c, d)
 
         if self.errors > 0:
-            print " %d database errors occured" % self.errors
+            self.log.error("%d database errors occured", self.errors)
             if self.copy and not VACUUM:
-                print "  Please do VACUUM your database to recover space"
+                self.log.info("Please VACUUM your database to recover space")
         else:
             if u > 0:
-                print " No database error occured"
+                self.log.info("No database error occured")
         return
 
     def is_null(self, value):
@@ -142,43 +138,36 @@ class db:
     def truncate(self, table):
         """ issue an SQL TRUNCATE TABLE on given table """
         if DRY_RUN:
-            if VERBOSE:
-                print "Notice: won't truncate tables on dry-run mode"
+            self.log.info("Won't truncate tables on dry-run mode")
             return
         
         sql = "TRUNCATE TABLE %s;" % table
 
-        if VERBOSE:
-            print 'Notice: %s' % sql
+        self.log.info('%s' % sql)
         
         try:
             cursor = self.dbconn.cursor()
             cursor.execute(sql)
             self.dbconn.commit()
         except Exception, error:
-            if VERBOSE:
-                print error
+            self.log.error(error)
             raise PGLoader_Error, "Couldn't truncate table %s" % table
     
     def vacuum(self):
         """ issue an vacuumdb -fvz database """
         if DRY_RUN:
-            if VERBOSE:
-                print
-                print 'Notice: no vacuum in dry-run mode'
+            self.log.info('no vacuum in dry-run mode')
             return -1
 
         command = "/usr/bin/vacuumdb %s -fvz %s 2>&1" \
                   % (self.connect, self.base)
 
-        if VERBOSE:
-            print command
+        self.log.info(command)
 
         out = os.popen(command)
         for line in out.readlines():
-            if DEBUG:
-                # don't print \n
-                print line[:-1]
+            # don't print \n
+            self.log.debug(line[:-1])
         
         return out.close()
     
@@ -213,8 +202,7 @@ class db:
             values.append(rowids[name])
         sql += ";"
 
-        if DEBUG:
-            print 'Debug: %s' % sql
+        self.log.debug('%s' % sql)
 
         try:
             cursor = self.dbconn.cursor()
@@ -229,8 +217,8 @@ class db:
                 for i,v in rowids.items():
                     if str_rowids != "": str_rowids += ", "
                     str_rowids += "%s:%s" % (i, v)
-                print '%s %s %s %6do' \
-                      % (table, str_rowids, blob_cname, len(data))
+                self.log.debug('%s %s %s %6do', 
+                          table, str_rowids, blob_cname, len(data))
 
             if self.running_commands == self.commit_every:
                 now = time.time()
@@ -240,9 +228,8 @@ class db:
                 duration      = now - self.last_commit_time
                 self.last_commit_time = now
 
-                if not QUIET:
-                    print "-- commit %d: %d updates in %5.3fs --" \
-                          % (self.commits, self.running_commands, duration)
+                self.log.info("commit %d: %d updates in %5.3fs",
+                         self.commits, self.running_commands, duration)
 
                 self.commited_rows   += self.running_commands
                 self.running_commands = 1
@@ -256,9 +243,9 @@ class db:
             self.dbconn.commit()
             # don't use self.commited_rows here, it's only updated
             # after a commit
-            print "Error: update %d rejected: commiting (read log file %s)" \
-                  % (self.commits * self.commit_every + self.running_commands,
-                     reject.reject_log)
+            self.log.error("update %d rejected: commiting (read log file %s)",
+                      self.commits * self.commit_every + self.running_commands,
+                      reject.reject_log)
 
             reject.log(str(e), input_line)
             self.errors += 1
@@ -273,10 +260,7 @@ class db:
                                   suffix='.pgloader', dir='/tmp')
         os.write(f, self.buffer.getvalue())
         os.close(f)
-
-        # systematicaly write about this
-        if not QUIET:
-            print "  -- COPY data buffer saved in %s --" % n
+        self.log.warning("COPY data buffer saved in %s" % n)
         return n
 
     def copy_from(self, table, columnlist, columns, input_line,
@@ -296,8 +280,7 @@ class db:
             # time to copy data to PostgreSQL table
 
             if self.buffer is None:
-                if VERBOSE:
-                    print "Error: no data to COPY"
+                self.log.warning("no data to COPY")
                 return False
             
             if DEBUG:
@@ -315,9 +298,8 @@ class db:
                 duration              = now - self.last_commit_time
                 self.last_commit_time = now
 
-                if not QUIET:
-                    print "  - COPY %d: %d rows copied in %5.3fs --" \
-                          % (self.commits, self.running_commands, duration)
+                self.log.info("COPY %d: %d rows copied in %5.3fs",
+                         self.commits, self.running_commands, duration)
 
                 # prepare next run
                 self.buffer.close()
@@ -329,12 +311,11 @@ class db:
                 # rollback current transaction
                 self.dbconn.rollback()
 
-                if VERBOSE:
-                    print 'Notice: COPY error, trying to find on which line'
-                    if not DEBUG:
-                        # in DEBUG mode, copy buffer has already been saved
-                        # to file
-                        self.save_copy_buffer(tablename)
+                self.log.warning('COPY error, trying to find on which line')
+                if not DEBUG:
+                    # in DEBUG mode, copy buffer has already been saved
+                    # to file
+                    self.save_copy_buffer(tablename)
 
                 # copy recovery process
                 now = time.time()
@@ -347,9 +328,8 @@ class db:
                 self.commited_rows   += ok
                 self.errors          += ko
 
-                if VERBOSE:
-                    print 'Notice: COPY error recovery done (%d/%d) in %5.3fs'\
-                          % (ko, ok, duration)
+                self.log.warning('COPY error recovery done (%d/%d) in %5.3fs',
+                            ko, ok, duration)
 
                 # commit this transaction
                 self.dbconn.commit()
@@ -379,8 +359,7 @@ class db:
         if count == 1:
             reject.log('COPY error on this line', buff.getvalue())
             buff.close()
-            if DEBUG:
-                print '--- Notice: found one more line in error'
+            self.log.debug('found one more line in error')
 
             # returns commits, ok, ko
             return 0, 0, 1
@@ -407,9 +386,8 @@ class db:
         # we don't need no more orgininal buff
         buff.close()
 
-        if DEBUG:
-            print '--- Trying to find errors, dividing %d lines in %d and %d' \
-                  % (count, m, n-m)
+        self.log.debug('Trying to find errors, dividing %d lines in %d and %d',
+                  count, m, n-m)
 
         # now we have two buffers to copy to PostgreSQL database
         cursor = self.dbconn.cursor()
@@ -420,9 +398,8 @@ class db:
                 self.dbconn.commit()
                 x.close()
 
-                if DEBUG:
-                    print "  -- COPY ERROR handling progress: %d rows copied"\
-                          % (xcount)
+                self.log.debug("COPY ERROR handling progress: %d rows copied",
+                          xcount)
 
                 x.close()
                 commits += 1
@@ -435,9 +412,8 @@ class db:
                 if xcount == 1:
                     ko += 1
                     reject.log('COPY error: %s' % error, x.getvalue())
-                    if DEBUG:
-                        print '--- Notice: found one more line in error'
-                        print x.getvalue()
+                    self.log.debug('Notice: found one more line in error')
+                    self.log.debug(x.getvalue())
 
                 else:
                     _c, _o, _k = self.copy_from_buff(table, x, xcount, reject)
@@ -464,8 +440,7 @@ class db:
 
                 elif self.is_empty(c):
                     # empty string has been read
-                    if DEBUG:
-                        print "empty string read: '%s'" % c
+                    self.log.debug("empty string read: '%s'" % c)
                     self.buffer.write('')
 
                 else:

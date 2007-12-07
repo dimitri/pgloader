@@ -22,11 +22,15 @@ def init(client_min_messages = logging.INFO,
     console = logging.StreamHandler()
     console.setLevel(client_min_messages)
 
-    formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
+    formatter = logging.Formatter('%(name)-12s %(levelname)-8s %(message)s')
     console.setFormatter(formatter)
     logging.getLogger('').addHandler(console)
 
     return logging.getLogger('pgloader')
+
+def getLogger(name):
+    """ return a new logger instance named name, properly configured """
+    return logging.getLogger(name)
 
 def level(name):
     """ return a logging level from user string """
@@ -38,13 +42,13 @@ def level(name):
         return logging.INFO
 
     elif name.upper() == 'WARNING':
-        return logging.INFO
+        return logging.WARNING
 
     elif name.upper() == 'ERROR':
-        return logging.INFO
+        return logging.ERROR
 
     elif name.upper() == 'CRITICAL':
-        return logging.INFO
+        return logging.CRITICAL
 
     else:
         return logging.NOTSET

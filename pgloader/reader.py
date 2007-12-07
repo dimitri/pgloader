@@ -20,11 +20,12 @@ class DataReader:
      - multi-line support is explicit (via 
     """
 
-    def __init__(self, db, reject, filename, input_encoding, table, columns):
+    def __init__(self, log, db, reject,
+                 filename, input_encoding, table, columns):
         """ init internal variables """
-        if DEBUG:
-            print 'reader __init__', filename, table, columns
-        
+        log.debug('reader __init__ %s %s %s', filename, table, columns)
+
+        self.log       = log
         self.db        = db
         self.filename  = filename
         self.input_encoding = input_encoding
@@ -52,13 +53,15 @@ class DataReader:
             if config.has_option(name, 'null'):
                 self.db.null = parse_config_string(config.get(name, 'null'))
             else:
-                self.db.null = NULL
+                if 'null' not in self.__dict__:
+                    self.db.null = NULL
 
             if config.has_option(name, 'empty_string'):
                 self.db.empty_string = parse_config_string(
                     config.get(name, 'empty_string'))
             else:
-                self.db.empty_string = EMPTY_STRING
+                if 'empty_string' not in self.__dict__:
+                    self.db.empty_string = EMPTY_STRING
 
         # optionnal field separator, could be defined from template
         if 'field_sep' not in self.__dict__:
@@ -71,11 +74,11 @@ class DataReader:
                 if self.db.copy_sep is None:
                     self.db.copy_sep = self.field_sep
 
-        if DEBUG and not DRY_RUN:
-            print "reader.readconfig null: '%s'" % self.db.null
-            print "reader.readconfig empty_string: '%s'" \
-                  %  self.db.empty_string
-            print "reader.readconfig field_sep: '%s'" % self.field_sep
+        if not DRY_RUN:
+            self.log.debug("reader.readconfig null: '%s'" % self.db.null)
+            self.log.debug("reader.readconfig empty_string: '%s'",
+                           self.db.empty_string)
+            self.log.debug("reader.readconfig field_sep: '%s'", self.field_sep)
 
     def readlines(self):
         """ read data from configured file, and generate (yields) for

@@ -8,6 +8,7 @@
 import os, sys, os.path, time, codecs
 from cStringIO import StringIO
 
+from logger   import log, getLogger
 from tools    import PGLoader_Error, Reject, parse_config_string
 from db       import db
 from lo       import ifx_clob, ifx_blob
@@ -30,8 +31,9 @@ class PGLoader:
     def __init__(self, name, config, db):
         """ Init with a configuration section """
         # Some settings
-        self.name      = name
-        self.db        = db
+        self.name  = name
+        self.db    = db
+        self.log   = getLogger(name)
 
         self.template     = None
         self.use_template = None
@@ -51,13 +53,10 @@ class PGLoader:
 
         if config.has_option(name, 'template'):
             self.template = True
-            
-            # just skip it here
-            if VERBOSE:
-                print "[%s] is a template" % self.name
+            self.log.info("[%s] is a template", self.name)
 
-        if not self.template and VERBOSE:
-            print "[%s] parse configuration" % self.name
+        if not self.template:
+            self.log.info("[%s] parse configuration", self.name)
 
         if not self.template:
             # check if the section wants to use a template
@@ -71,43 +70,43 @@ class PGLoader:
                     raise PGLoader_Error, m
 
                 # first load template configuration
-                if VERBOSE:
-                    print "Reading configuration from template section [%s]" \
-                          % self.template
+                self.log.info("Reading configuration from template " +\
+                              "section [%s]", self.template)
+
+                self.real_log = self.log
+                self.log = getLogger(self.template)
 
                 try:
                     self.__read_conf__(self.template, config, db,
                                        want_template = True)
                 except PGLoader_Error, e:
-                    print
-                    print e
+                    self.log.error(e)
                     m = "%s.use_template does not refer to a template section"\
                         % name
                     raise PGLoader_Error, m
 
                 # reinit self.template now its relative config section is read
                 self.template = None
+                self.log      = self.real_log
 
             # now load specific configuration
-            if VERBOSE:
-                print "Reading configuration from section [%s]" % name
+            self.log.info("Reading configuration from section [%s]", name)
             
             self.__read_conf__(name, config, db)
 
         # force reinit of self.reader, which depends on template and
         # specific options
         if 'reader' in self.__dict__:
-            self.reader.__init__(self.db, self.reject,
+            self.reader.__init__(self.log, self.db, self.reject,
                                  self.filename, self.input_encoding,
                                  self.table, self.columns)
 
         # Now reset database connection
         if not DRY_RUN:
+            self.db.log = self.log
             self.db.reset()            
 
-        if DEBUG:
-            print '%s init done' % name
-            print
+        self.log.debug('%s init done' % name)
         
     def __read_conf__(self, name, config, db, want_template = False):
         """ init self from config section name  """
@@ -132,11 +131,10 @@ class PGLoader:
 
         # reject logging
         if not self.template:
-            self.reject = Reject(self.reject_log, self.reject_data)
+            self.reject = Reject(self.log, self.reject_log, self.reject_data)
 
-            if VERBOSE:
-                print 'Notice: reject log in %s' % self.reject.reject_log
-                print 'Notice: rejected data in %s' % self.reject.reject_data
+            self.log.info('reject log in %s', self.reject.reject_log)
+            self.log.info('rejected data in %s', self.reject.reject_data)
 
         else:
             # needed to instanciate self.reader while in template section
@@ -147,8 +145,8 @@ class PGLoader:
             self.db.client_encoding = parse_config_string(
                 config.get(name, 'client_encoding'))
 
-        if DEBUG and not DRY_RUN:
-            print "client_encoding: '%s'" % self.db.client_encoding
+        if not DRY_RUN:
+            self.log.debug("client_encoding: '%s'", self.db.client_encoding)
 
         # optionnal local option input_encoding
         self.input_encoding = INPUT_ENCODING
@@ -156,28 +154,25 @@ class PGLoader:
             self.input_encoding = parse_config_string(
                 config.get(name, 'input_encoding'))
 
-        if DEBUG:
-            print "input_encoding: '%s'" % self.input_encoding
+        self.log.debug("input_encoding: '%s'", self.input_encoding)
 
         # optionnal local option datestyle
         if not DRY_RUN and config.has_option(name, 'datestyle'):
             self.db.datestyle = parse_config_string(
                 config.get(name, 'datestyle'))
 
-        if DEBUG and not DRY_RUN:
-            print "datestyle: '%s'" % self.db.datestyle
-
+        if not DRY_RUN:
+            self.log.debug("datestyle: '%s'", self.db.datestyle)
 
         ##
         # data filename
         for opt in ('table', 'filename'):
             if config.has_option(name, opt):
-                if DEBUG:
-                    print '%s.%s: %s' % (name, opt, config.get(name, opt))
+                self.log.debug('%s.%s: %s', name, opt, config.get(name, opt))
                 self.__dict__[opt] = config.get(name, opt)
             else:
-                if not self.template and opt not in self.__dict__:
-                    print 'Error: please configure %s.%s' % (name, opt)
+                if not self.template and not self.__dict__[opt]:
+                    self.log.error('Error: please configure %s.%s', name, opt)
                     self.config_errors += 1
                 else:
                     # Reading Configuration Template section
@@ -198,14 +193,13 @@ class PGLoader:
                                config.get(name, 'blob_columns'),
                                btype = True)
 
-        if DEBUG:
-            print 'index', self.index
-            print 'columns', self.columns
-            print 'blob_columns', self.blob_cols
+        self.log.debug('index %s', str(self.index))
+        self.log.debug('columns %s', str(self.columns))
+        self.log.debug('blob_columns %s', str(self.blob_cols))
 
         if self.columns is None:
             if not self.template:
-                print 'Error: %s has no columns defined' % name
+                self.log.error('%s has no columns defined', name)
                 self.config_errors += 1
 
             else:
@@ -231,8 +225,7 @@ class PGLoader:
         else:
             self.udcs = None
 
-        if DEBUG:
-            print 'udcs:', self.udcs
+        self.log.debug('udcs: %s', str(self.udcs))
 
         # better check there's no user defined column overriding file
         # columns
@@ -245,9 +238,9 @@ class PGLoader:
 
             if errs:
                 for c in errs:
-                    print 'Error: %s is configured both as a ' % c +\
-                          '%s.columns entry and as a user-defined column' \
-                          % name
+                    self.log.error('%s is configured both as a %s.columns ' +\
+                                   'entry and as a user-defined column',
+                                   c, name)
 
                 self.config_errors += 1
 
@@ -271,9 +264,9 @@ class PGLoader:
                     # just add all the given columns in this pass
                     self.copy_columns.append(x)
 
-                if DEBUG:
-                    print 'config copy_columns', self.config_copy_columns
-                    print 'copy_columns', self.copy_columns
+                self.log.debug('config copy_columns %s',
+                               str(self.config_copy_columns))
+                self.log.debug('copy_columns %s', str(self.copy_columns))
                     
         if not self.template:
             # check for errors time!
@@ -283,20 +276,20 @@ class PGLoader:
 
                 for x in self.copy_columns:
                     if x not in namelist:
-                        print 'Error: "%s" not in %s column list, ' \
-                              % (x, name) +\
-                              'including user defined columns'
+                        self.log.error('"%s" not in %s column list, ' + \
+                                       'including user defined columns',
+                                       x, name)
                         self.config_errors += 1
                         
                 if len(self.copy_columns) != len(self.config_copy_columns):
-                    print 'Error: %s.copy_columns refers to ' % name +\
-                          'unconfigured columns '
+                    self.log.error('%s.copy_columns refers to ' +\
+                                   'unconfigured columns', name)
 
                     self.config_errors += 1
                     
             elif self.udcs:
-                print 'Error: section %s does not define ' % name +\
-                      'copy_columns but uses user-defined columns'
+                self.log.error('section %s does not define copy_columns ' +\
+                               'but uses user-defined columns', name)
 
                 self.config_errors += 1
 
@@ -306,10 +299,9 @@ class PGLoader:
             if 'copy_columns' in self.__dict__ and self.copy_columns:
                 self.columnlist = self.copy_columns
 
-        if DEBUG:
-            print 'udcs:', self.udcs
-            if self.udcs and 'copy_columns' in self.__dict__:
-                print 'copy_columns', self.copy_columns
+        self.log.debug('udcs: %s', str(self.udcs))
+        if self.udcs and 'copy_columns' in self.__dict__:
+            self.log.debug('copy_columns %s', str(self.copy_columns))
 
         ##
         # We have for example columns = col1:2, col2:1
@@ -336,8 +328,8 @@ class PGLoader:
 
         if config.has_option(name, 'only_cols'):
             if self.udcs:
-                print 'Error: section %s defines both ' % name  +\
-                      'user-defined columns and only_cols'
+                self.log.error('section %s defines both ' +\
+                               'user-defined columns and only_cols', name)
 
                 self.config_errors += 1
             
@@ -365,8 +357,8 @@ class PGLoader:
                 self.columnlist = [self.columns[x-1][0] for x in expanded]
 
             except Exception, e:
-                print 'Error: section %s, only_cols: ' % name +\
-                      'configured range is invalid'
+                self.log.error('section %s, only_cols: ' +\
+                               'configured range is invalid', name)
                 raise PGLoader_Error, e
 
         if self.only_cols is None:
@@ -374,9 +366,8 @@ class PGLoader:
                 # default case, no user-defined cols, no restriction
                 self.columnlist = [n for (n, pos) in self.columns]
 
-        if DEBUG:
-            print "only_cols", self.only_cols
-            print "columnlist", self.columnlist
+        self.log.debug("only_cols %s", str(self.only_cols))
+        self.log.debug("columnlist %s", str(self.columnlist))
 
         ##
         # This option is textreader specific, but being lazy and
@@ -389,10 +380,9 @@ class PGLoader:
             if NEWLINE_ESCAPES is not None:
                 # this parameter is globally set, will ignore local
                 # definition
-                if not QUIET:
-                    print "Warning: ignoring %s newline_escapes option" % name
-                    print "         option is set to '%s' globally" \
-                          % NEWLINE_ESCAPES
+                self.log.warning("ignoring %s newline_escapes option" +\
+                                 "option is set to '%s' globally",
+                                 name, NEWLINE_ESCAPES)
             else:
                 self._parse_fields('newline_escapes',
                                    config.get(name, 'newline_escapes'),
@@ -408,26 +398,25 @@ class PGLoader:
 
             if self.format.lower() == 'csv':
                 from csvreader import CSVReader 
-                self.reader = CSVReader(self.db, self.reject,
+                self.reader = CSVReader(self.log, self.db, self.reject,
                                         self.filename, self.input_encoding,
                                         self.table, self.columns)
 
             elif self.format.lower() == 'text':
                 from textreader import TextReader
-                self.reader = TextReader(self.db, self.reject,
+                self.reader = TextReader(self.log, self.db, self.reject,
                                          self.filename, self.input_encoding,
                                          self.table, self.columns,
                                          self.newline_escapes)
 
         if 'reader' in self.__dict__:
-            if DEBUG:
-                print 'reader.readconfig()'
+            self.log.debug('reader.readconfig()')
             self.reader.readconfig(name, config)
 
         if not self.template and \
            ('format' not in self.__dict__ or self.format is None):
             # error only when not loading the Template part
-            print 'Error: %s: format parameter needed' % name
+            self.log.Error('%s: format parameter needed', name)
             raise PGLoader_Error
 
         ##
@@ -440,8 +429,7 @@ class PGLoader:
             if 'c_reformat' not in self.__dict__:
                 self.c_reformat = self.reformat = None
 
-        if DEBUG:
-            print 'reformat', self.c_reformat
+        self.log.debug('reformat %s', str(self.c_reformat))
 
         # check the configure reformating is available
         if not self.template and self.c_reformat:
@@ -450,8 +438,8 @@ class PGLoader:
             
             for r_colname, r_module, r_function in self.c_reformat:
                 if r_colname not in self.columnlist:
-                    print 'Error: %s.reformat refers to unknown column %s' \
-                          % ( name, r_colname )
+                    self.log.error('%s.reformat refers to unknown column %s',
+                                   name, r_colname)
                     self.config_errors += 1
 
                 # load the given module name and function
@@ -460,17 +448,16 @@ class PGLoader:
                     fp, pathname, description = \
                         imp.find_module(r_module, REFORMAT_PATH)
 
-                    if DEBUG:
-                        print 'Found %s at %s' % (r_module, pathname)
+                    self.log.debug('Found %s at %s', r_module, str(pathname))
                     
                     module = imp.load_module(r_module,
                                              fp, pathname, description)
                     
                 except ImportError, e:
-                    print 'Error: %s failed to import reformat module "%s"' \
-                          % (name, r_module)
-                    print '       from %s' % str(REFORMAT_PATH)
-                    print '       %s' % e
+                    self.log.error('%s failed to import reformat module "%s"',
+                                   name, r_module)
+                    self.log.error('from %s', str(REFORMAT_PATH))
+                    self.log.error(e)
                     self.config_errors += 1
 
 
@@ -479,12 +466,12 @@ class PGLoader:
                         self.reformat.append((r_colname,
                                               module.__dict__[r_function]))
                     else:
-                        print 'Error: reformat module %s has no %s function'%\
-                              (r_module, r_function)
+                        self.log.error('reformat module %s has no %s function',
+                                       r_module, r_function)
                         self.config_errors += 1
 
-        if DEBUG and not self.template:
-            print 'reformat', self.reformat
+        if not self.template:
+            self.log.debug('reformat %s', str(self.reformat))
 
         ##
         # How can we mix those columns definitions ?
@@ -530,7 +517,7 @@ class PGLoader:
                         'Error: unable to parse given key %s' % FROM_ID)
                     raise PGLoader_Error
 
-            print 'Notice: composite key found, -I evaluated to %s' % FROM_ID
+            self.log.info('composite key found, -I evaluated to %s', FROM_ID)
 
         if self.config_errors > 0:
             mesg = 'Configuration errors for section %s' % self.name
@@ -620,22 +607,18 @@ class PGLoader:
         """ depending on configuration, do given job """
 
         # Announce the beginning of the work
-        if not QUIET:
-            print
-            print "[%s]" % self.name
+        self.log.info("[%s]" % self.name)
 
         if TRUNCATE and not DRY_RUN:
             self.db.truncate(self.table)
 
         if self.columns is not None:
-            if not QUIET:
-                print "Notice: COPY csv data"
+            self.log.info("COPY csv data")
             self.data_import()
 
         elif self.blob_cols is not None:
             # elif: COPY process also blob data
-            if not QUIET:
-                print "Notice: UPDATE blob data"
+            self.log.info("UPDATE blob data")
 
         # then show up some stats
         self.print_stats()
@@ -666,10 +649,9 @@ class PGLoader:
                     else:
                         data.append(columns[cpos-1])
 
-                if DEBUG:
-                    print 'reformat'
-                    print 'columns', columns
-                    print 'data   ', data
+                self.log.debug('reformat')
+                self.log.debug('columns %s', str(columns))
+                self.log.debug('data    %s', str(data))
 
                 # we want next steps to take reformated data as input
                 columns = data
@@ -683,23 +665,20 @@ class PGLoader:
                     else:
                         data.append(dudcs[c])
 
-                if DEBUG:
-                    print 'udcs'
-                    print 'columns', columns
-                    print 'data   ', data
-
+                self.log.debug('udcs')
+                self.log.debug('columns %s', str(columns))
+                self.log.debug('data    %s', str(data))
+                
                 columns = data
                 
             else:
                 if self.col_mapping:
-                    if DEBUG:
-                        print 'col_mapping', self.col_mapping
+                    self.log.debug('col_mapping %s', str(self.col_mapping))
 
                     data = [columns[i-1] for i in self.col_mapping]
 
-                    if DEBUG:
-                        print 'columns', columns
-                        print 'data   ', data
+                    self.log.debug('columns %s', str(columns))
+                    self.log.debug('data    %s', str(data))
 
                     columns = data
 
@@ -712,11 +691,14 @@ class PGLoader:
                    and not self.only_cols:
                 data = columns
 
-            if DRY_RUN or DEBUG:
-                print '<', line
-                print ' ', self.columnlist
-                print '>', data
-                print
+            if DRY_RUN:
+                self.log.info('< %s', line)
+                self.log.info('  %s', str(self.columnlist))
+                self.log.info('> %s', str(data))
+            else:
+                self.log.debug('< %s', line)
+                self.log.debug('  %s', str(self.columnlist))
+                self.log.debug('> %s', str(data))
                     
             if not DRY_RUN:
                 self.db.copy_from(self.table, self.columnlist,
@@ -742,10 +724,8 @@ class PGLoader:
             columns, rowids = self.read_blob(line, columns)
             
             # and insert it into database
-            if DRY_RUN or DEBUG:
-                print line
-                print columns
-                print
+            self.log.debug(line)
+            self.log.debug(str(line))
 
             if not DRY_RUN:
                 self.db.insert_blob(self.table, self.index,
@@ -810,12 +790,14 @@ class PGLoader:
                         raise PGLoader_Error, msg
 
                     elif btype == 'ifx_blob':
-                        self.blobs[abs_blobname] = ifx_blob(abs_blobname, 
+                        self.blobs[abs_blobname] = ifx_blob(self.log,
+                                                            abs_blobname, 
                                                             self.field_sep)
 
                     elif btype == 'ifx_clob':
                         self.blobs[abs_blobname] = \
-                                                 ifx_clob(abs_blobname,
+                                                 ifx_clob(self.log,
+                                                          abs_blobname,
                                                           self.input_encoding)
 
                 blob = self.blobs[abs_blobname]
@@ -828,11 +810,9 @@ class PGLoader:
                 data = blob.extract(rowids, c, begin, length)
                 columns[blob_col] = data
 
-                if DEBUG:
-                    print 'Debug: read blob data'
-                    print rowids
-                    print data
-                    print
+                self.log.debug('read blob data')
+                self.log.debug(str(rowids))
+                self.log.debug(str(data))
 
         # no we have read all defined blob data, returns new columns
         return columns, rowids

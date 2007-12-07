@@ -73,6 +73,10 @@ refers to a PostgreSQL table into which some data is to be loaded.
 
     makes pgloader very quiet about what it does: only output errors.
 
+-l, --loglevel::
+
+    log level to use when reporting to the console, see +client_min_messages+.
+
 -s, --summary::
 
     makes pgloader print a 'nice' summary at the end of operations.
@@ -263,6 +267,18 @@ modules.
 +
 If the +-R+ or +--reformat_path+ command line option is used, it will
 have precedence over configuration file setting.
+
+client_min_messages::
+
+    Minimum level of messages to print to the console while
+    running. Defined levels are +DEBUG+, +INFO+, +WARNING+, +ERROR+,
+    +CRITICAL+, from min to max.  +
+
+log_min_messages::
+
+    Minimum level of messages to print out to the log file, which
+    defaults to +/tmp/pgloader.log+. See +client_min_messages+ for
+    available levels.
 
 == COMMON FORMAT CONFIGURATION PARAMETERS ==
 

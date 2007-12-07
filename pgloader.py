@@ -49,6 +49,10 @@ def parse_options():
                       default = False,
                       help    = "be quiet, only print out errors")
 
+    parser.add_option("-l", "--level", dest = "loglevel",
+                      default = None,
+                      help    = "loglevel to use: ERROR, WARNING, INFO, DEBUG")
+
     parser.add_option("-s", "--summary", action = "store_true",
                       dest    = "summary",
                       default = False,
@@ -142,7 +146,10 @@ def parse_options():
         pgloader.options.REFORMAT_PATH = opts.reformat_path
 
     import logging
-    if opts.debug:
+    if opts.loglevel:
+        loglevel = pgloader.logger.level(opts.loglevel)
+        pgloader.options.CLIENT_MIN_MESSAGES = loglevel
+    elif opts.debug:
         pgloader.options.CLIENT_MIN_MESSAGES = logging.DEBUG
     elif opts.verbose:
         pgloader.options.CLIENT_MIN_MESSAGES = logging.INFO
@@ -190,16 +197,16 @@ def parse_config(conffile):
     else:
         pgloader.options.LOG_MIN_MESSAGES = NOTICE
     
+    log = pgloader.logger.init(pgloader.options.CLIENT_MIN_MESSAGES,
+                               pgloader.options.LOG_MIN_MESSAGES,
+                               '/tmp/pgloader.log')
+    pgloader.logger.log = log
 
-    pgloader.log = pgloader.logger.init(pgloader.options.CLIENT_MIN_MESSAGES,
-                                        pgloader.options.LOG_MIN_MESSAGES,
-                                        '/tmp/pgloader.log')
-
-    pgloader.log.info("Logger initialized")
-    pgloader.log.debug("PHOQUE")
+    log.info("Logger initialized")
+    log.debug("PHOQUE")
 
     if DRY_RUN:
-        pgloader.log.info("dry run mode, not connecting to database")
+        log.info("dry run mode, not connecting to database")
         return config, None
 
     try:
@@ -259,7 +266,7 @@ def parse_config(conffile):
                 pgloader.options.REFORMAT_PATH = rpath
 
     except Exception, error:
-        pgloader.log.error("Could not initialize PostgreSQL connection:")
+        log.error("Could not initialize PostgreSQL connection:")
         print error
         sys.exit(6)
 
@@ -383,6 +390,7 @@ def load_data():
     # now init db connection
     config, dbconn = parse_config(conffile)
 
+    from pgloader.logger  import log
     from pgloader.tools   import read_path, check_path
     from pgloader.options import VERBOSE
     import pgloader.options
@@ -405,7 +413,7 @@ def load_data():
     else:
         pgloader.options.REFORMAT_PATH = rpath
 
-    pgloader.log.info('Reformat path is %s', pgloader.options.REFORMAT_PATH)
+    log.info('Reformat path is %s', pgloader.options.REFORMAT_PATH)
 
     # load some pgloader package modules
     from pgloader.options  import VERBOSE, DEBUG, QUIET, SUMMARY
@@ -427,9 +435,9 @@ def load_data():
             if s != 'pgsql':
                 sections.append(s)
 
-    pgloader.log.info('Will consider following sections:')
+    log.info('Will consider following sections:')
     for line in myprint(sections):
-        pgloader.log.info(line)
+        log.info(line)
 
     # we count time passed from now on
     begin = time.time()
@@ -444,24 +452,24 @@ def load_data():
                 loader.run()            
                 summary[s] = (loader.table,) + loader.summary()
             else:
-                pgloader.log.info("Skipping section %s, which is a template" \
+                log.info("Skipping section %s, which is a template" \
                                   % s)
                 
         except PGLoader_Error, e:
             if e == '':
-                pgloader.log.error('[%s] Please correct previous errors' % s)
+                log.error('[%s] Please correct previous errors' % s)
             else:
-                pgloader.log.error('%s' % e)
+                log.error('%s' % e)
 
             if PEDANTIC:
                 pgloader.print_stats()
 
         except UnicodeDecodeError, e:
-            pgloader.log.error("can't open '%s' with given input encoding '%s'" \
+            log.error("can't open '%s' with given input encoding '%s'" \
                                % (loader.filename, loader.input_encoding))
                                     
         except KeyboardInterrupt:
-            pgloader.log.warning("Aborting on user demand (Interrupt)")
+            log.warning("Aborting on user demand (Interrupt)")
 
     # total duration
     td = time.time() - begin
@@ -472,10 +480,10 @@ def load_data():
             retcode = print_summary(dbconn, sections, summary, td)
             print
         except PGLoader_Error, e:
-            pgloader.log.error("Can't print summary: %s" % e)
+            log.error("Can't print summary: %s" % e)
 
     if VACUUM and not DRY_RUN:
-        pgloader.log.info('vacuumdb... ')
+        log.info('vacuumdb... ')
         try:
             dbconn.vacuum()
         except KeyboardInterrupt:

@@ -38,8 +38,9 @@ class ifx_lo:
 class ifx_clob(ifx_lo):
     """ Informix Text Large Object file """
 
-    def __init__(self, filename, input_encoding):
+    def __init__(self, log, filename, input_encoding):
         """ init a clob object  """
+        self.log       = log
         self.file      = None
         self.filename  = filename
 
@@ -51,14 +52,14 @@ class ifx_clob(ifx_lo):
             else:
                 self.file = open(self.filename, 'r')
 
-            if VERBOSE:
-                print "Notice: Opening informix clob file:", self.filename
+            self.log.info("Opening informix clob file: %s", self.filename)
                 
 class ifx_blob(ifx_lo):
     """ Informix Binary Large Object file """
 
-    def __init__(self, filename, field_sep):
+    def __init__(self, log, filename, field_sep):
         """ init a clob object  """
+        self.log       = log
         self.file      = None
         self.filename  = filename
         self.field_sep = field_sep # used by bytea_escape
@@ -69,8 +70,7 @@ class ifx_blob(ifx_lo):
 
         if self.file is None:
             self.file = open(self.filename, 'rb')
-            if VERBOSE:
-                print "Notice: Opening informix blob file:", self.filename
+            self.log.info("Opening informix blob file: %s", self.filename)
 
     def bytea_escape(self, bitstring):
         """ escape chars from bitstring for PostgreSQL bytea input

@@ -18,8 +18,9 @@ class Reject:
     reject_data contains input lines which this tool couldn't manage
     """
 
-    def __init__(self, reject_log, reject_data):
+    def __init__(self, log, reject_log, reject_data):
         """ Constructor, with file names """
+        self._log        = log
         self.reject_log  = reject_log
         self.reject_data = reject_data
 
@@ -32,12 +33,13 @@ class Reject:
             return
         
         if self.errors == 0:
-            if not quiet:
-                print " No data were rejected"
+            self._log.info("No data were rejected")
         else:
-            print " %d errors found into [%s] data" % (self.errors, name)
-            print "  please read %s for errors log" % self.reject_log
-            print "  and %s for data still to process" % self.reject_data
+            self._log.error("%d errors found into [%s] data",
+                            self.errors, name)
+            self._log.error("please read %s for errors log", self.reject_log)
+            self._log.error("and %s for data still to process",
+                            self.reject_data)
 
     def log(self, messages, data = None):
         """ log the messages into reject_log, and the data into reject_data

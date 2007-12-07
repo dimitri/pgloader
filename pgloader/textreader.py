@@ -30,10 +30,10 @@ class TextReader(DataReader):
      - ...
     """
 
-    def __init__(self, db, reject, filename, input_encoding,
+    def __init__(self, log, db, reject, filename, input_encoding,
                  table, columns, newline_escapes = None):
         """ init textreader with a newline_escapes parameter """
-        DataReader.__init__(self, db, reject,
+        DataReader.__init__(self, log, db, reject,
                             filename, input_encoding, table, columns)
 
         if 'newline_escapes' not in self.__dict__:
@@ -61,9 +61,8 @@ class TextReader(DataReader):
         if config.has_option(name, 'trailing_sep'):
             self.trailing_sep = config.get(name, 'trailing_sep') == 'True'
 
-        if DEBUG:
-            print 'reader.readconfig: field_count', self.field_count
-            print 'reader.readconfig: trailing_sep', self.trailing_sep
+        self.log.debug('reader.readconfig: field_count %s', self.field_count)
+        self.log.debug('reader.readconfig: trailing_sep %s', self.trailing_sep)
 
     def readlines(self):
         """ read data from configured file, and generate (yields) for
@@ -79,8 +78,7 @@ class TextReader(DataReader):
         ##
         # if neither -I nor -F was used, we can state that begin = 0
         if FROM_ID is None and FROM_COUNT == 0:
-            if VERBOSE:
-                print 'Notice: beginning on first line'
+            self.log.info('beginning on first line')
             begin_linenb = 1
 
         if self.input_encoding is not None:
