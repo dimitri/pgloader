@@ -3,10 +3,10 @@
 # pgloader database connection handling
 # COPY dichotomy on error
 
-import os, sys, os.path, time, codecs
+import os, sys, os.path, time, codecs, logging
 from cStringIO import StringIO
 
-from options import DRY_RUN, VERBOSE, DEBUG, QUIET, PEDANTIC
+from options import DRY_RUN, PEDANTIC, CLIENT_MIN_MESSAGES
 from options import TRUNCATE, VACUUM
 from options import INPUT_ENCODING, PG_CLIENT_ENCODING, DATESTYLE
 from options import COPY_SEP, FIELD_SEP, CLOB_SEP, NULL, EMPTY_STRING
@@ -283,7 +283,7 @@ class db:
                 self.log.warning("no data to COPY")
                 return False
             
-            if DEBUG:
+            if CLIENT_MIN_MESSAGES <= logging.DEBUG:
                 self.save_copy_buffer(tablename)
 
             self.buffer.seek(0)
@@ -312,7 +312,7 @@ class db:
                 self.dbconn.rollback()
 
                 self.log.warning('COPY error, trying to find on which line')
-                if not DEBUG:
+                if CLIENT_MIN_MESSAGES > logging.DEBUG:
                     # in DEBUG mode, copy buffer has already been saved
                     # to file
                     self.save_copy_buffer(tablename)

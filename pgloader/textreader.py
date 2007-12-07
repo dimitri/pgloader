@@ -13,7 +13,7 @@ from db       import db
 from lo       import ifx_clob, ifx_blob
 from reader   import DataReader
 
-from options import DRY_RUN, VERBOSE, DEBUG, QUIET, PEDANTIC
+from options import DRY_RUN, PEDANTIC
 from options import TRUNCATE, VACUUM
 from options import COUNT, FROM_COUNT, FROM_ID
 from options import INPUT_ENCODING, PG_CLIENT_ENCODING
@@ -126,10 +126,8 @@ class TextReader(DataReader):
                     input_buffer = StringIO()
 
                     if nb_cols != self.field_count:
-                        if DEBUG:
-                            print line
-                            print columns
-                            print
+                        self.log.debug(line)
+                        self.log.debug(str(columns))
                         self.reject.log(
                             'Error parsing columns on line ' +\
                             '%d [row %d]: found %d columns' \
@@ -156,8 +154,7 @@ class TextReader(DataReader):
 
                 if nb_lines == FROM_COUNT:
                     begin_linenb = nb_lines
-                    if VERBOSE:
-                        print 'Notice: reached beginning on line %d' % nb_lines
+                    sys.log.info('reached beginning on line %d', nb_lines)
 
             ##
             # check for beginning if option -I was used
@@ -169,8 +166,7 @@ class TextReader(DataReader):
                                       
                 if FROM_ID == rowids:
                     begin_linenb = nb_lines
-                    if VERBOSE:
-                        print 'Notice: reached beginning on line %d' % nb_lines
+                    sys.log.debug('reached beginning on line %d', nb_lines)
 
                 elif begin_linenb is None:
                     # begin is set to 1 when we don't use neither -I nor -F
@@ -179,15 +175,13 @@ class TextReader(DataReader):
             if COUNT is not None and begin_linenb is not None \
                and (nb_lines - begin_linenb + 1) > COUNT:
                 
-                if VERBOSE:
-                    print 'Notice: reached line %d, stopping' % nb_lines
+                self.log.info('reached line %d, stopping', nb_lines)
                 break
 
             if columns is None:
                 columns = self._split_line(line)
 
-            if DEBUG:
-                print 'Debug: read data'
+            self.log.debug('read data')
 
             # now, we may have to apply newline_escapes on configured columns
             if NEWLINE_ESCAPES or self.newline_escapes != []:
@@ -195,10 +189,8 @@ class TextReader(DataReader):
 
             nb_cols = len(columns)
             if nb_cols != len(self.columns):
-                if DEBUG:
-                    print line
-                    print columns
-                    print
+                self.log.debug(line)
+                self.log.debug(str(columns))
 
                 msg = 'Error parsing columns on line ' +\
                       '%d [row %d]: found %d columns' \
@@ -245,8 +237,7 @@ class TextReader(DataReader):
         """ chomp end of line when necessary, and trailing_sep too """
 
         if len(input_line) == 0:
-            if DEBUG:
-                print 'pgloader._chomp: skipping empty line'
+            self.log.debug('pgloader._chomp: skipping empty line')
             return input_line
         
         # chomp a copy of the input_line, we will need the original one
@@ -271,23 +262,20 @@ class TextReader(DataReader):
 
     def _escape_newlines(self, columns):
         """ trim out newline escapes to be found inside data columns """
-        if DEBUG:
-            print 'Debug: escaping columns newlines'
-            print 'Debug:', self.newline_escapes
+        self.log.debug('escaping columns newlines')
+        self.log.debug(self.newline_escapes)
 
         for (ne_col, ne_esc) in self.newline_escapes:
             # don't forget configured col references use counting from 1
             ne_colnum = dict(self.columns)[ne_col] - 1
-            if DEBUG:
-                print 'Debug: column %s[%d] escaped with %s' \
-                      % (ne_col, ne_colnum+1, ne_esc)
+            self.log.debug('column %s[%d] escaped with %s',
+                          ne_col, ne_colnum+1, ne_esc)
 
             col_data = columns[ne_colnum]
             
             if self.db and \
                (self.db.is_null(col_data) or self.db.is_empty(col_data)):
-                if DEBUG:
-                    print 'Debug: skipping null or empty column'
+                self.log.debug('skipping null or empty column')
                 continue
 
             escaped   = []
@@ -295,12 +283,10 @@ class TextReader(DataReader):
 
             for line in tmp.split('\n'):
                 if len(line) == 0:
-                    if DEBUG:
-                        print 'Debug: skipping empty line'
+                    self.log.debug('skipping empty line')
                     continue
 
-                if DEBUG:
-                    print 'Debug: chomping:', line
+                self.log.debug('chomping: %s', line)
                     
                 tmpline = self._chomp(line)
                 if tmpline[-1] == ne_esc:

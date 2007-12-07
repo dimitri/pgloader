@@ -5,7 +5,7 @@
 import os, sys, os.path, time, codecs
 from cStringIO import StringIO
 
-from options import DRY_RUN, VERBOSE, DEBUG, QUIET, PEDANTIC
+from options import DRY_RUN, PEDANTIC
 
 class PGLoader_Error(Exception):
     """ Internal pgloader processing error """
@@ -27,7 +27,7 @@ class Reject:
         # we will open files on first error
         self.errors = 0
 
-    def print_stats(self, name, quiet):
+    def print_stats(self, name):
         """ give a summary """
         if DRY_RUN:
             return

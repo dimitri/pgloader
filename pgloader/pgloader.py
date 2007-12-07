@@ -13,7 +13,7 @@ from tools    import PGLoader_Error, Reject, parse_config_string
 from db       import db
 from lo       import ifx_clob, ifx_blob
 
-from options import DRY_RUN, VERBOSE, DEBUG, QUIET, PEDANTIC
+from options import DRY_RUN, PEDANTIC
 from options import TRUNCATE, VACUUM
 from options import COUNT, FROM_COUNT, FROM_ID
 from options import INPUT_ENCODING, PG_CLIENT_ENCODING
@@ -595,12 +595,11 @@ class PGLoader:
 
         if self.reject is not None:
             self.errors = self.reject.errors
-            self.reject.print_stats(self.name, QUIET)
+            self.reject.print_stats(self.name)
 
-        if not QUIET:
-            if self.db is not None:
-                self.updates = self.db.commited_rows
-                self.db.print_stats()
+        if self.db is not None:
+            self.updates = self.db.commited_rows
+            self.db.print_stats()
         return
 
     def run(self):

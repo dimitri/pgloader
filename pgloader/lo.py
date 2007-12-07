@@ -4,7 +4,7 @@
 
 from cStringIO import StringIO
 from tools     import PGLoader_Error
-from options   import DRY_RUN, VERBOSE, DEBUG, PEDANTIC
+from options   import DRY_RUN, PEDANTIC
 from options   import INPUT_ENCODING
 
 class ifx_lo:

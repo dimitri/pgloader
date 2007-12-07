@@ -13,7 +13,7 @@ from db       import db
 from lo       import ifx_clob, ifx_blob
 from reader   import DataReader
 
-from options import DRY_RUN, VERBOSE, DEBUG, PEDANTIC
+from options import DRY_RUN, PEDANTIC
 from options import TRUNCATE, VACUUM
 from options import COUNT, FROM_COUNT, FROM_ID
 from options import INPUT_ENCODING, PG_CLIENT_ENCODING
