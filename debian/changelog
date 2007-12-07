@@ -4,8 +4,9 @@ pgloader (2.2.5-1) unstable; urgency=low
   * New client_min_messages, log_min_messages, log_file and lc_messages options
   * Better reporting of DatabaseError (pkey violation, e.g.)
   * Have logging of error data work again in all cases (DatabaseError)
+  * Protect some more settings from begin overwritten when using templates
 
- -- Dimitri Fontaine <dim@tapoueh.org>  Fri, 07 Dec 2007 14:48:08 +0100
+ -- Dimitri Fontaine <dim@tapoueh.org>  Fri, 07 Dec 2007 23:24:58 +0100
 
 pgloader (2.2.5~dev-1) unstable; urgency=low
 
