@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.8 2007-12-03 10:10:00 dim Exp $
+# $Id: Makefile,v 1.9 2007-12-08 20:19:32 dim Exp $
 #
 # Makefile for debian packaging purpose, make install not intended to work.
 
@@ -32,6 +32,9 @@ install:
 
 html: $(DOCS)
 	asciidoc -a toc $<
+
+site: html
+	scp ${DOCS:.txt=.html} cvs.pgfoundry.org:htdocs
 
 pgloader.1.xml: $(DOCS)
 	asciidoc -d manpage -b docbook $<
