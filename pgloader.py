@@ -5,7 +5,7 @@
 PostgreSQL data import tool, see included man page.
 """
 
-import os, sys, os.path, time, codecs
+import os, sys, os.path, time, codecs, logging
 from cStringIO import StringIO
 
 import pgloader.options
@@ -152,7 +152,6 @@ def parse_options():
 
     pgloader.options.LOG_FILE = opts.logfile
 
-    import logging
     if opts.loglevel:
         loglevel = pgloader.logger.level(opts.loglevel)
         pgloader.options.CLIENT_MIN_MESSAGES = loglevel
@@ -197,13 +196,13 @@ def parse_config(conffile):
             pgloader.options.CLIENT_MIN_MESSAGES = pgloader.logger.level(cmm)
         else:
             # CLIENT_MIN_MESSAGES has not been set at all
-            pgloader.options.CLIENT_MIN_MESSAGES = NOTICE
+            pgloader.options.CLIENT_MIN_MESSAGES = logging.INFO
 
     if config.has_option(section, 'log_min_messages'):
         lmm = config.get(section, 'log_min_messages')
         pgloader.options.LOG_MIN_MESSAGES = pgloader.logger.level(lmm)
     else:
-        pgloader.options.LOG_MIN_MESSAGES = NOTICE
+        pgloader.options.LOG_MIN_MESSAGES = logging.INFO
 
     if config.has_option(section, 'log_file'):
         # don't overload the command line -L option if given
