@@ -620,22 +620,28 @@ a unit test of +pgloader+.
 
 == HISTORY ==
 
-+pgloader+ has first been a +tcl+ tool written by Christopher
-Kings-Lynne and Jan Wieck, and then maintained by Jean-Paul
-Argudo. When it became clear it would be easier to rewrite it in
-another language than to properly learn +tcl+ and add to the project
-missing options, +pgloader+ was rewritten in python by Dimitri
-Fontaine.
++pgloader+ has first been a +tcl+ tool written by Jan Wieck and
+released by Christopher Kings-Lynne, who created the
+http://pgfoundry.org[pgfoundry] project for it to be published. Later
+on, Jean-Paul Argudo took over the maintenance.  When it became clear
+that it would be easier to rewrite it in another language than to
+properly learn +tcl+ and develop some missing options, +pgloader+ was
+rewritten in python by Dimitri Fontaine.
 
 +pgloader+ was rewritten to act as an Informix to PostgreSQL migration
 helper which imported Informix large objects directly into a
 PostgreSQL database.
 
 Then as we got some data we couldn't file tools to care about, we
-decided ifx_blob would become +pgloader+, as it had to be able to
+decided +ifx_blob+ would become +pgloader+, as it had to be able to
 import all Informix +UNLOAD+ data. Those data contains escaped
 separator into unquoted data field and multi-lines fields (+\r+ and
 +\n+ are not escaped).
+
++pgloader+ has since gained some more features allowing it to directly
+import +mysqldump -T+ data, and is known to be used in production
+environments where a +PostgreSQL+ database is used for reporting
+against data from several servers running different RDBMS softwares.
 
 == BUGS ==
 
