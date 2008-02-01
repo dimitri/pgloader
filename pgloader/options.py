@@ -2,7 +2,7 @@
 #
 # Some common options, for each module to get them
 
-PGLOADER_VERSION = '2.2.6~dev'
+PGLOADER_VERSION = '2.2.6'
 
 INPUT_ENCODING     = None
 PG_CLIENT_ENCODING = 'latin9'
