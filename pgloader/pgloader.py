@@ -14,7 +14,7 @@ from db       import db
 from lo       import ifx_clob, ifx_blob
 
 from options import DRY_RUN, PEDANTIC
-from options import TRUNCATE, VACUUM
+from options import TRUNCATE, VACUUM, TRIGGERS
 from options import COUNT, FROM_COUNT, FROM_ID
 from options import INPUT_ENCODING, PG_CLIENT_ENCODING
 from options import COPY_SEP, FIELD_SEP, CLOB_SEP, NULL, EMPTY_STRING
@@ -608,8 +608,12 @@ class PGLoader:
         # Announce the beginning of the work
         self.log.info("[%s]" % self.name)
 
-        if TRUNCATE and not DRY_RUN:
-            self.db.truncate(self.table)
+        if not DRY_RUN:
+            if TRUNCATE:
+                self.db.truncate(self.table)
+                
+            if TRIGGERS:
+                self.db.disable_triggers(self.table)
 
         if self.columns is not None:
             self.log.info("COPY csv data")
@@ -618,6 +622,9 @@ class PGLoader:
         elif self.blob_cols is not None:
             # elif: COPY process also blob data
             self.log.info("UPDATE blob data")
+
+        if TRIGGERS and not DRY_RUN:
+            self.db.enable_triggers(self.table)
 
         # then show up some stats
         self.print_stats()

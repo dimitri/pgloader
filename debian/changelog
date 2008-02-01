@@ -1,3 +1,10 @@
+pgloader (2.2.6-1) unstable; urgency=low
+
+  * pgloader -V now VACUUM each table separately, no more vacuumdb issued
+  * New option -D to DISABLE Triggers while loading (ENABLE them one done)
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Fri, 01 Feb 2008 11:01:34 +0100
+
 pgloader (2.2.5-1) unstable; urgency=low
 
   * Now using proper python logging module

@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.9 2007-12-08 20:19:32 dim Exp $
+# $Id: Makefile,v 1.10 2008-02-01 10:24:38 dim Exp $
 #
 # Makefile for debian packaging purpose, make install not intended to work.
 
@@ -20,6 +20,7 @@ refm = $(wildcard reformat/*.py)
 DEBDIR = /tmp/pgloader
 EXPORT = $(DEBDIR)/export/pgloader
 ORIG   = $(DEBDIR)/export/pgloader_$(VERSION).orig.tar.gz
+ARCHIVE= $(DEBDIR)/export/pgloader-$(VERSION).tar.gz
 
 install:
 	install -m 755 $(pgloader) $(DESTDIR)/usr/bin/pgloader
@@ -59,6 +60,9 @@ deb:
 	rm -rf $(DEBDIR)/pgloader/debian
 	(cd $(DEBDIR) && tar czf $(ORIG) pgloader)
 
+	# have a copy of the $ORIG file named $ARCHIVE for non-debian packagers
+	cp $(ORIG) $(ARCHIVE)
+
 	# build the debian package and copy them to ..
 	(cd $(EXPORT) && debuild)
-	cp -a $(DEBDIR)/export/pgloader_$(VERSION)* ..
+	cp -a $(DEBDIR)/export/pgloader[_-]$(VERSION)* ..

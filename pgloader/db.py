@@ -170,25 +170,62 @@ class db:
             self.dbconn.commit()
         except Exception, error:
             self.log.error(error)
-            raise PGLoader_Error, "Couldn't truncate table %s" % table
+            raise PGLoader_Error, "Couldn't TRUNCATE table %s" % table
     
-    def vacuum(self):
-        """ issue an vacuumdb -fvz database """
+    def vacuum(self, table):
+        """ issue VACUUM ANALYZE table """
         if DRY_RUN:
             self.log.info('no vacuum in dry-run mode')
             return -1
 
-        command = "/usr/bin/vacuumdb %s -fvz %s 2>&1" \
-                  % (self.connect, self.base)
+        sql = "VACUUM ANALYZE %s;" % table
 
-        self.log.info(command)
-
-        out = os.popen(command)
-        for line in out.readlines():
-            # don't print \n
-            self.log.debug(line[:-1])
+        self.log.info('%s' % sql)
         
-        return out.close()
+        try:
+            cursor = self.dbconn.cursor()
+            cursor.execute(sql)
+            self.dbconn.commit()
+        except Exception, error:
+            self.log.error(error)
+            raise PGLoader_Error, "Couldn't VACUUM table %s" % table
+
+    def disable_triggers(self, table):
+        """ issue ALTER TABLE table DISABLE TRIGGER ALL """
+        if DRY_RUN:
+            self.log.info("Won't disable triggers on dry-run mode")
+            return
+        
+        sql = "ALTER TABLE %s DISABLE TRIGGER ALL;" % table
+
+        self.log.info('%s' % sql)
+        
+        try:
+            cursor = self.dbconn.cursor()
+            cursor.execute(sql)
+            self.dbconn.commit()
+        except Exception, error:
+            self.log.error(error)
+            raise PGLoader_Error, "Couldn't DISABLE TRIGGERS on table %s" % table
+
+    def enable_triggers(self, table):
+        """ issue ALTER TABLE table ENABLE TRIGGER ALL """
+        if DRY_RUN:
+            self.log.info("Won't enable triggers on dry-run mode")
+            return
+        
+        sql = "ALTER TABLE %s ENABLE TRIGGER ALL;" % table
+
+        self.log.info('%s' % sql)
+        
+        try:
+            cursor = self.dbconn.cursor()
+            cursor.execute(sql)
+            self.dbconn.commit()
+        except Exception, error:
+            self.log.error(error)
+            raise PGLoader_Error, "Couldn't ENABLE TRIGGERS on table %s" % table
+
     
     def insert_blob(self, table, index, rowids,
                     blob_cname, data, btype,

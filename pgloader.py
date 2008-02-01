@@ -69,14 +69,19 @@ def parse_options():
                       help    = "simulate operations, don't connect to the db")
 
     parser.add_option("-T", "--truncate", action = "store_true",
-                      dest = "truncate",
+                      dest    = "truncate",
                       default = False,
                       help    = "truncate tables before importing data")
+
+    parser.add_option("-D", "--disable-triggers", action = "store_true",
+                      dest    = "triggers",
+                      default = False,
+                      help    = "Disable triggers before loading, Enable them again after")
 
     parser.add_option("-V", "--vacuum", action = "store_true",
                       dest = "vacuum",
                       default = False,
-                      help    = "vacuum database after having imported data")
+                      help    = "vacuum tables after data loading")
 
     parser.add_option("-C", "--count", dest = "count",
                       default = None, type = "int",
@@ -140,6 +145,7 @@ def parse_options():
 
     pgloader.options.TRUNCATE   = opts.truncate
     pgloader.options.VACUUM     = opts.vacuum
+    pgloader.options.TRIGGERS   = opts.triggers
     
     pgloader.options.COUNT      = opts.count
     pgloader.options.FROM_COUNT = opts.fromcount
