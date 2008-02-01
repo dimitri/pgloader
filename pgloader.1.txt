@@ -91,20 +91,21 @@ refers to a PostgreSQL table into which some data is to be loaded.
     makes pgloader simulate operations, that implies no database connection and
     no data extraction from blob files.
 
+-D, --disable-triggers::
+
+    makes +pgloader+ issue a +ALTER TABLE <table> DISABLE TRIGGER ALL+
+    before loading the data, and +ENABLE+ them again once data is
+    loaded.
+
 -T, --truncate::
 
-    makes pgloader issue a truncate SQL command before importing data.
+    makes +pgloader+ issue a +TRUNCATE <table>+ SQL command before
+    importing data.
 
 -V, --vacuum::
-+
-makes pgloader issue a vacuum full verbose analyse SQL command before
-importing data.
-+ 
-This vacuum is run from shell command /usr/bin/vacuumdb with
-connection informations taken from configuration file (see
-Configuration section of this manual page), but without password
-prompting. If you use this option, please configure your pg_hba.conf
-in a way no password is prompted (trust).
+
+    makes +pgloader+ issue a +VACUUM ANALYZE <table>+ SQL command
+    after data loading.
 
 -C, --count::
 
