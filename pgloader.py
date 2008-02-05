@@ -451,16 +451,25 @@ def load_data():
 
     # we run through sorted section list
     sections.sort()
+
+    threads = {}
+    running = 0
     for s in sections:
+        summary[s] = []
+        loader     = PGLoader(s, config, summary[s])
         try:
-            loader = PGLoader(s, config)
-            
             if not loader.template:
-                loader.run()            
-                summary[s] = (loader.table,) + loader.summary()
+                filename       = loader.filename
+                input_encoding = loader.input_encoding
+        
+                threads[s] = loader
+            
+                log.info("Starting thread %d for %s" % (running, s))
+                threads[s].start()
+                running += 1
             else:
-                log.info("Skipping section %s, which is a template" \
-                                  % s)
+                log.info("Skipping section %s, which is a template" % s)
+                summary.pop(s)
                 
         except PGLoader_Error, e:
             if e == '':
@@ -469,14 +478,32 @@ def load_data():
                 log.error('%s' % e)
 
             if PEDANTIC:
-                pgloader.print_stats()
+                # was: threads[s].print_stats()
+                # but now thread[s] is no more alive
+                pass
 
         except UnicodeDecodeError, e:
             log.error("can't open '%s' with given input encoding '%s'" \
-                               % (loader.filename, loader.input_encoding))
+                               % (filename, input_encoding))
                                     
         except KeyboardInterrupt:
             log.warning("Aborting on user demand (Interrupt)")
+
+    while running > 0:
+        for s in threads:
+            if not threads[s].isAlive():
+                running -= 1
+
+        if running > 0:
+            log.info("%d thread(s) still running" % running)            
+                
+            try:
+                log.info('waiting for %d threads, sleeping %gs' % (running, .1))
+                time.sleep(.1)
+            except KeyboardInterrupt:
+                log.warning("Aborting %d threads still running at user demand"\
+                            % running)
+                break
 
     # total duration
     td = time.time() - begin

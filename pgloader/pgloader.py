@@ -5,7 +5,7 @@
 # handles configuration, parse data, then pass them to database module for
 # COPY preparation
 
-import os, sys, os.path, time, codecs
+import os, sys, os.path, time, codecs, threading
 from cStringIO import StringIO
 
 from logger   import log, getLogger
@@ -22,17 +22,20 @@ from options import NEWLINE_ESCAPES
 from options import UDC_PREFIX
 from options import REFORMAT_PATH
 
-class PGLoader:
+class PGLoader(threading.Thread):
     """
     PGLoader reads some data file and depending on ts configuration,
     import data with COPY or update blob data with UPDATE.
     """
 
-    def __init__(self, name, config):
+    def __init__(self, name, config, stats):
         """ Init with a configuration section """
+        threading.Thread.__init__(self, name = name)
+        
         # Some settings
-        self.name  = name
-        self.log   = getLogger(name)
+        self.stats   = stats
+        self.name    = name
+        self.log     = getLogger(name)
 
         self.__dbconnect__(config)
 
@@ -635,7 +638,6 @@ class PGLoader:
 
     def print_stats(self):
         """ print out some statistics """
-
         if self.reject is not None:
             self.errors = self.reject.errors
             self.reject.print_stats(self.name)
@@ -671,6 +673,18 @@ class PGLoader:
 
         # then show up some stats
         self.print_stats()
+
+        # update the main summary
+        self.duration = time.time() - self.init_time
+        
+        if self.reject is not None:
+            self.errors = self.reject.errors
+            
+        for x in [self.table, self.duration, self.db.commited_rows, self.errors]:
+            self.stats.append(x)
+        
+        self.log.info("loading done")
+        return
 
     def data_import(self):
         """ import CSV or TEXT data, using COPY """
