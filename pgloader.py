@@ -528,13 +528,6 @@ def load_data():
         except PGLoader_Error, e:
             log.error("Can't print summary: %s" % e)
 
-    if VACUUM and not DRY_RUN:
-        log.info('vacuumdb... ')
-        try:
-            dbconn.vacuum()
-        except KeyboardInterrupt:
-            pass    
-
     return retcode
 
 if __name__ == "__main__":
