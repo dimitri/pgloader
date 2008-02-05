@@ -28,12 +28,13 @@ class PGLoader:
     import data with COPY or update blob data with UPDATE.
     """
 
-    def __init__(self, name, config, db):
+    def __init__(self, name, config):
         """ Init with a configuration section """
         # Some settings
         self.name  = name
-        self.db    = db
         self.log   = getLogger(name)
+
+        self.__dbconnect__(config)
 
         self.template     = None
         self.use_template = None
@@ -107,6 +108,48 @@ class PGLoader:
             self.db.reset()            
 
         self.log.debug('%s init done' % name)
+
+    def __dbconnect__(self, config):
+        """ connects to database """
+        section = 'pgsql'
+    
+        if DRY_RUN:
+            log.info("dry run mode, not connecting to database")
+            return
+
+        try:
+            self.db = db(config.get(section, 'host'),
+                         config.getint(section, 'port'),
+                         config.get(section, 'base'),
+                         config.get(section, 'user'),
+                         config.get(section, 'pass'),
+                         connect = False)
+
+            if config.has_option(section, 'client_encoding'):
+                self.db.client_encoding = parse_config_string(
+                    config.get(section, 'client_encoding'))
+
+            if config.has_option(section, 'lc_messages'):
+                self.db.lc_messages = parse_config_string(
+                    config.get(section, 'lc_messages'))
+
+            if config.has_option(section, 'datestyle'):
+                self.db.datestyle = parse_config_string(
+                    config.get(section, 'datestyle'))
+
+            if config.has_option(section, 'copy_every'):
+                self.db.copy_every = config.getint(section, 'copy_every')
+
+            if config.has_option(section, 'commit_every'):
+                self.db.commit_every = config.getint(
+                    section, 'commit_every')
+
+            if config.has_option(section, 'copy_delimiter'):
+                self.db.copy_sep = config.get(section, 'copy_delimiter')
+
+        except Exception, error:
+            log.error("Could not initialize PostgreSQL connection")
+            raise PGLoader_Error, error
         
     def __read_conf__(self, name, config, db, want_template = False):
         """ init self from config section name  """

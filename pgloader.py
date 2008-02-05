@@ -246,77 +246,34 @@ def parse_config(conffile):
         log.error("Default logfile %s has been used instead",
                   pgloader.options.LOG_FILE)
 
-    if DRY_RUN:
-        log.info("dry run mode, not connecting to database")
-        return config, None
+    if config.has_option(section, 'input_encoding'):
+        input_encoding = pgloader.tools.parse_config_string(
+            config.get(section, 'input_encoding'))
+        pgloader.options.INPUT_ENCODING = input_encoding
 
-    try:
-        from pgloader.db import db
-        
-        dbconn = db(config.get(section, 'host'),
-                    config.getint(section, 'port'),
-                    config.get(section, 'base'),
-                    config.get(section, 'user'),
-                    config.get(section, 'pass'),
-                    connect = False)
+    # optionnal global newline_escapes
+    if config.has_option(section, 'newline_escapes'):
+        setting = pgloader.tools.parse_config_string(
+            config.get(section, 'newline_escapes'))
+        pgloader.options.NEWLINE_ESCAPES = setting
 
-        if config.has_option(section, 'client_encoding'):
-            client_encoding = pgloader.tools.parse_config_string(
-                config.get(section, 'client_encoding'))
-            dbconn.client_encoding = client_encoding
+    # Then there are null and empty_string optionnal parameters
+    # They canbe overriden in specific table configuration
+    if config.has_option(section, 'null'):
+        pgloader.options.NULL = pgloader.tools.parse_config_string(
+            config.get(section, 'null'))
 
-        if config.has_option(section, 'lc_messages'):
-            lc_messages = pgloader.tools.parse_config_string(
-                config.get(section, 'lc_messages'))
-            dbconn.lc_messages = lc_messages
+    if config.has_option(section, 'empty_string'):
+        pgloader.options.EMPTY_STRING = pgloader.tools.parse_config_string(
+            config.get(section, 'empty_string'))
 
-        if config.has_option(section, 'input_encoding'):
-            input_encoding = pgloader.tools.parse_config_string(
-                config.get(section, 'input_encoding'))
-            pgloader.options.INPUT_ENCODING = input_encoding
+    if config.has_option(section, 'reformat_path'):
+        # command line value is prefered to config format one
+        if not pgloader.options.REFORMAT_PATH:
+            rpath = config.get(section, 'reformat_path')
+            pgloader.options.REFORMAT_PATH = rpath
 
-        if config.has_option(section, 'datestyle'):
-            datestyle = pgloader.tools.parse_config_string(
-                config.get(section, 'datestyle'))
-            dbconn.datestyle = datestyle
-
-        if config.has_option(section, 'copy_every'):
-            dbconn.copy_every = config.getint(section, 'copy_every')
-
-        if config.has_option(section, 'commit_every'):
-            dbconn.commit_every = config.getint(section, 'commit_every')
-
-        if config.has_option(section, 'copy_delimiter'):
-            dbconn.copy_sep = config.get(section, 'copy_delimiter')
-
-        # optionnal global newline_escapes
-        if config.has_option(section, 'newline_escapes'):
-            setting = pgloader.tools.parse_config_string(
-                config.get(section, 'newline_escapes'))
-            pgloader.options.NEWLINE_ESCAPES = setting
-
-        # Then there are null and empty_string optionnal parameters
-        # They canbe overriden in specific table configuration
-        if config.has_option(section, 'null'):
-            pgloader.options.NULL = pgloader.tools.parse_config_string(
-                config.get(section, 'null'))
-
-        if config.has_option(section, 'empty_string'):
-            pgloader.options.EMPTY_STRING = pgloader.tools.parse_config_string(
-                config.get(section, 'empty_string'))
-
-        if config.has_option(section, 'reformat_path'):
-            # command line value is prefered to config format one
-            if not pgloader.options.REFORMAT_PATH:
-                rpath = config.get(section, 'reformat_path')
-                pgloader.options.REFORMAT_PATH = rpath
-
-    except Exception, error:
-        log.error("Could not initialize PostgreSQL connection:")
-        print error
-        sys.exit(6)
-
-    return config, dbconn
+    return config
 
 def myprint(l, line_prefix = "  ", cols = 78):
     """ pretty print list l elements """
@@ -364,7 +321,8 @@ def print_summary(dbconn, sections, summary, td):
     _= '===================================================================='
 
     tu = te = ts = 0 # total updates, errors, size
-    if not DRY_RUN:
+
+    if False and not DRY_RUN:
         dbconn.reset()
         cursor = dbconn.dbconn.cursor()
 
@@ -383,7 +341,7 @@ def print_summary(dbconn, sections, summary, td):
         t, d, u, e = summary[s]
         d = duration_pprint(d)
 
-        if not DRY_RUN:
+        if False and not DRY_RUN:
             sql = "select pg_total_relation_size(%s), " + \
                   "pg_size_pretty(pg_total_relation_size(%s));"
             cursor.execute(sql, [t, t])
@@ -410,15 +368,18 @@ def print_summary(dbconn, sections, summary, td):
         td = duration_pprint(td)
 
         # pretty size
-        cursor.execute("select pg_size_pretty(%s);", [ts])
-        [ts] = cursor.fetchone()
-        if ts[5:] == 'bytes': ts = ts[:-5] + ' B'
+        if False and not DRY_RUN:
+            cursor.execute("select pg_size_pretty(%s);", [ts])
+            [ts] = cursor.fetchone()
+            if ts[5:] == 'bytes': ts = ts[:-5] + ' B'
+        else:
+            ts = '-'
 
         print _
         print 'Total             | %ss | %7s | %10d | %10d' \
               % (td, ts, tu, te)
 
-        if not DRY_RUN:
+        if False and not DRY_RUN:
             cursor.close()
 
     return retcode
@@ -433,7 +394,7 @@ def load_data():
     conffile, args = parse_options()
 
     # now init db connection
-    config, dbconn = parse_config(conffile)
+    config = parse_config(conffile)
 
     from pgloader.logger  import log
     from pgloader.tools   import read_path, check_path
@@ -492,7 +453,7 @@ def load_data():
     sections.sort()
     for s in sections:
         try:
-            loader = PGLoader(s, config, dbconn)
+            loader = PGLoader(s, config)
             
             if not loader.template:
                 loader.run()            
@@ -523,7 +484,7 @@ def load_data():
 
     if SUMMARY:  
         try:
-            retcode = print_summary(dbconn, sections, summary, td)
+            retcode = print_summary(None, sections, summary, td)
             print
         except PGLoader_Error, e:
             log.error("Can't print summary: %s" % e)
