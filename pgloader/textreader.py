@@ -154,7 +154,7 @@ class TextReader(DataReader):
 
                 if nb_lines == FROM_COUNT:
                     begin_linenb = nb_lines
-                    sys.log.info('reached beginning on line %d', nb_lines)
+                    self.log.info('reached beginning on line %d', nb_lines)
 
             ##
             # check for beginning if option -I was used
@@ -166,7 +166,7 @@ class TextReader(DataReader):
                                       
                 if FROM_ID == rowids:
                     begin_linenb = nb_lines
-                    sys.log.debug('reached beginning on line %d', nb_lines)
+                    self.log.debug('reached beginning on line %d', nb_lines)
 
                 elif begin_linenb is None:
                     # begin is set to 1 when we don't use neither -I nor -F
