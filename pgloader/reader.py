@@ -37,6 +37,9 @@ class DataReader:
             if INPUT_ENCODING is not None:
                 self.input_encoding = INPUT_ENCODING
 
+        self.start = None
+        self.end   = None
+
     def readconfig(self, name, config):
         """ read configuration section for common options
 
@@ -84,3 +87,8 @@ class DataReader:
         """ read data from configured file, and generate (yields) for
         each data line: line, columns and rowid """
         pass
+
+    def set_boundaries(self, (start, end)):
+        """ set the boundaries of this reader """
+        self.start = start
+        self.end   = end

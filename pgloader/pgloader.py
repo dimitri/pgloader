@@ -21,6 +21,8 @@ from options import COPY_SEP, FIELD_SEP, CLOB_SEP, NULL, EMPTY_STRING
 from options import NEWLINE_ESCAPES
 from options import UDC_PREFIX
 from options import REFORMAT_PATH
+from options import MAX_THREADS, MAX_PARALLEL_SECTIONS
+from options import SECTION_THREADS, SPLIT_FILE_READING
 
 class PGLoader(threading.Thread):
     """
@@ -28,14 +30,18 @@ class PGLoader(threading.Thread):
     import data with COPY or update blob data with UPDATE.
     """
 
-    def __init__(self, name, config, stats):
+    def __init__(self, name, config, stats, logname = None):
         """ Init with a configuration section """
         threading.Thread.__init__(self, name = name)
         
         # Some settings
         self.stats   = stats
         self.name    = name
-        self.log     = getLogger(name)
+        self.config  = config
+
+        if logname is None:
+            logname  = name
+        self.log     = getLogger(logname)
 
         self.__dbconnect__(config)
 
@@ -437,8 +443,44 @@ class PGLoader(threading.Thread):
         if NEWLINE_ESCAPES is not None:
             # set NEWLINE_ESCAPES for each table column
             self.newline_escapes = [(a, NEWLINE_ESCAPES)
-                                    for (a, x) in self.columns]        
+                                    for (a, x) in self.columns]
 
+        ##
+        # Parallelism knobs
+        for opt, default in [('max_threads', MAX_THREADS),
+                             ('section_threads', SECTION_THREADS),
+                             ('split_file_reading', SPLIT_FILE_READING)]:
+            
+            if config.has_option(name, opt):
+                if opt in ['max_threads', 'section_threads']:
+                    self.__dict__[opt] = config.getint(name, opt)
+                else:
+                    self.__dict__[opt] = config.get(name, opt) == 'True'
+            else:
+                if not self.template:
+                    self.__dict__[opt] = default
+
+            if not self.template:
+                self.log.info('%s.%s = %s' % (name, opt, str(self.__dict__[opt])))
+
+        if not self.template and self.split_file_reading:
+            global FROM_COUNT
+            if FROM_COUNT is not None and FROM_COUNT > 0:
+                raise PGLoader_Error, \
+                      "Conflict: can't use both 'split_file_reading' and '--from'"
+
+            global FROM_ID
+            if FROM_ID is not None:
+                raise PGLoader_Error, \
+                      "Conflict: can't use both 'split_file_reading' and '--from-id'"
+
+        if not self.template and self.section_threads > self.max_threads:
+            raise PGLoader_Error, \
+                  "%s.section_threads > %s.max_threads : %d > %d" \
+                  % (name, name, self.section_threads, self.max_threads)
+
+        ##
+        # Reader's init
         if config.has_option(name, 'format'):
             self.format = config.get(name, 'format')
 
@@ -648,11 +690,113 @@ class PGLoader(threading.Thread):
         return
 
     def run(self):
-        """ depending on configuration, do given job """
-
+        """ controling thread which dispatch the job """
+        
         # Announce the beginning of the work
         self.log.info("[%s]" % self.name)
 
+        if self.max_threads == 1:
+
+            if self.reader.start is not None:
+                self.log.info("Loading from offset %d to %d" \
+                              %  (self.reader.start, self.reader.end))
+
+            self.prepare_processing()
+            self.process()
+            self.finish_processing()
+            return
+
+        # now we're going to need mutli-threading
+        if self.section_threads == -1:
+            self.section_threads = self.max_threads
+
+        if self.split_file_reading:
+            # this option is not compatible with text mode when
+            # field_count is used (meaning end of line could be found
+            # in the data)
+            if self.format.lower() == 'text' and self.field_count is not None:
+                raise PGLoader_Error, \
+                      "Can't use split_file_reading with text " +\
+                      "format when 'field_count' is used"
+            
+            # init boundaries to give to each thread
+            from stat import ST_SIZE
+            previous   = 0
+            filesize   = os.stat(self.filename)[ST_SIZE]
+            boundaries = []
+            for partn in range(self.section_threads):
+                start = previous
+                end   = (partn+1)*filesize / self.section_threads
+                boundaries.append((start, end))
+
+                previous = end + 1
+
+            self.log.info("Spliting input file of %d bytes %s" \
+                          % (filesize, str(boundaries)))
+
+            # Now check for real boundaries
+            fd = file(self.filename)
+            b  = 0
+            for b in range(len(boundaries)):
+                start, end = boundaries[b]
+                fd.seek(end)
+                dummy_str = fd.readline()
+
+                # update both current boundary end and next start
+                boundaries[b] = (start, fd.tell())
+                if (b+1) < len(boundaries):
+                    boundaries[b+1] = (fd.tell()+1, boundaries[b+1][1])
+                
+            fd.close()
+
+            self.log.info("Spliting input file of %d bytes %s" \
+                          % (filesize, str(boundaries)))
+
+            self.prepare_processing()
+
+            # now create self.section_threads PGLoader threads
+            summary = {}
+            threads = {}
+            running = 0
+            
+            for current in range(self.section_threads):
+                summary[current] = []
+                current_name     = "%s[%d]" % (self.name, current) 
+                loader = PGLoader(self.name,
+                                  self.config,
+                                  summary[current],
+                                  current_name)
+                loader.max_threads = 1
+                loader.reader.set_boundaries(boundaries[current])
+                loader.dont_prepare_nor_finish = True
+                
+                threads[current_name] = loader
+                threads[current_name].start()
+                running += 1
+
+            # wait for loaders completion
+            while running > 0:
+                for cn in threads:
+                    if not threads[cn].isAlive():
+                        running -= 1
+
+                if running > 0:
+                    log.info('waiting for %d threads, sleeping %gs' % (running, 1))
+                    time.sleep(1)
+
+            self.finish_processing()
+            log.info('No more threads are running, %s done' % self.name)
+            return
+
+        else:
+            # here we need a special thread reading the file
+            pass
+
+    def prepare_processing(self):
+        """ Things to do before processing data """
+        if 'dont_prepare_nor_finish' in self.__dict__:
+            return
+        
         if not DRY_RUN:
             if TRUNCATE:
                 self.db.truncate(self.table)
@@ -660,13 +804,10 @@ class PGLoader(threading.Thread):
             if TRIGGERS:
                 self.db.disable_triggers(self.table)
 
-        if self.columns is not None:
-            self.log.info("COPY csv data")
-            self.data_import()
-
-        elif self.blob_cols is not None:
-            # elif: COPY process also blob data
-            self.log.info("UPDATE blob data")
+    def finish_processing(self):
+        """ Things to do after processing data """
+        if 'dont_prepare_nor_finish' in self.__dict__:
+            return
 
         if TRIGGERS and not DRY_RUN:
             self.db.enable_triggers(self.table)
@@ -685,6 +826,18 @@ class PGLoader(threading.Thread):
         
         self.log.info("loading done")
         return
+
+
+    def process(self):
+        """ depending on configuration, do given job """
+
+        if self.columns is not None:
+            self.log.info("COPY csv data")
+            self.data_import()
+
+        elif self.blob_cols is not None:
+            # elif: COPY process also blob data
+            self.log.info("UPDATE blob data")
 
     def data_import(self):
         """ import CSV or TEXT data, using COPY """

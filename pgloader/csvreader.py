@@ -76,7 +76,17 @@ class CSVReader(DataReader):
             except IOError, error:
                 raise PGLoader_Error, error
 
+        if self.start is not None and self.start > 0:
+            self.log.info("CSV Reader starting at offset %d" % self.start)
+            fd.seek(self.start)
+
         # now read the lines
         for columns in csv.reader(fd, dialect = 'pgloader'):
+
+            if self.end is not None and fd.tell() >= self.end:
+                self.log.info("CSV Reader stoping, offset %d >= %d" % (fd.tell(), self.end()))
+                fd.close()
+                break
+            
             line = self.field_sep.join(columns)
             yield line, columns

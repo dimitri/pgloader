@@ -96,9 +96,18 @@ class TextReader(DataReader):
             except IOError, error:
                 raise PGLoader_Error, error
 
+        if self.start is not None and self.start > 0:
+            self.log.info("Text Reader starting at offset %d" % self.start)
+            fd.seek(self.start)
+
         for line in fd:
             # we count real physical lines
             nb_plines += 1
+
+            if self.end is not None and fd.tell() >= self.end:
+                self.log.info("Text Reader stoping, offset %d >= %d" % (fd.tell(), self.end()))
+                fd.close()
+                break
 
             if self.input_encoding is not None:
                 # this may not be necessary, after all

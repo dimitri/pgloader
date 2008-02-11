@@ -273,6 +273,10 @@ def parse_config(conffile):
             rpath = config.get(section, 'reformat_path')
             pgloader.options.REFORMAT_PATH = rpath
 
+    if config.has_option(section, 'max_parallel_sections'):
+        mps = config.getint(section, 'max_parallel_sections')
+        pgloader.options.MAX_PARALLEL_SECTIONS = mps
+
     return config
 
 def myprint(l, line_prefix = "  ", cols = 78):
@@ -425,6 +429,7 @@ def load_data():
     # load some pgloader package modules
     from pgloader.options  import VERBOSE, DEBUG, QUIET, SUMMARY
     from pgloader.options  import DRY_RUN, PEDANTIC, VACUUM
+    from pgloader.options  import MAX_PARALLEL_SECTIONS
     from pgloader.pgloader import PGLoader
     from pgloader.tools    import PGLoader_Error
 
@@ -454,10 +459,32 @@ def load_data():
 
     threads = {}
     running = 0
-    for s in sections:
-        summary[s] = []
-        loader     = PGLoader(s, config, summary[s])
+    current = 0
+    
+    while current < len(sections):
+        s = sections[current]
+
+        # update running
+        if running > 0:
+            for s in threads:
+                if not threads[s].isAlive():
+                    running -= 1
+
+        if MAX_PARALLEL_SECTIONS != -1:
+            # -1 means we can start as many parallel section
+            # processing as we want to
+            
+            if running == MAX_PARALLEL_SECTIONS:
+                # we have to wait for one thread to terminate
+                # before considering next one
+                log.info('%d/%d threads running, sleeping %gs' \
+                         % (running, MAX_PARALLEL_SECTIONS, .1))
+                time.sleep(.1)
+                continue
+                        
         try:
+            summary[s] = []
+            loader     = PGLoader(s, config, summary[s])
             if not loader.template:
                 filename       = loader.filename
                 input_encoding = loader.input_encoding
@@ -489,17 +516,21 @@ def load_data():
         except KeyboardInterrupt:
             log.warning("Aborting on user demand (Interrupt)")
 
+        current += 1
+
     while running > 0:
         for s in threads:
             if not threads[s].isAlive():
                 running -= 1
 
         if running > 0:
-            log.info("%d thread(s) still running" % running)            
+            if MAX_PARALLEL_SECTIONS != 1:
+                log.info("%d thread(s) still running" % running)            
                 
             try:
-                log.info('waiting for %d threads, sleeping %gs' % (running, .1))
-                time.sleep(.1)
+                if MAX_PARALLEL_SECTIONS != 1:
+                    log.info('waiting for %d threads, sleeping %gs' % (running, 1))
+                time.sleep(1)
             except KeyboardInterrupt:
                 log.warning("Aborting %d threads still running at user demand"\
                             % running)

@@ -2,7 +2,7 @@
 #
 # Some common options, for each module to get them
 
-PGLOADER_VERSION = '2.2.6'
+PGLOADER_VERSION = '2.3.0~dev'
 
 INPUT_ENCODING     = None
 PG_CLIENT_ENCODING = 'latin9'
@@ -35,6 +35,11 @@ UDC_PREFIX = 'udc_'
 
 REFORMAT_PATH = None
 DEFAULT_REFORMAT_PATH = ['/usr/share/python-support/pgloader/reformat']
+
+MAX_THREADS           = 1
+MAX_PARALLEL_SECTIONS = 1
+SECTION_THREADS       = -1
+SPLIT_FILE_READING    = False
 
 CLIENT_MIN_MESSAGES = None
 LOG_MIN_MESSAGES    = DEBUG

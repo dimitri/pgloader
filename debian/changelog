@@ -1,3 +1,11 @@
+pgloader (2.3.0-1) unstable; urgency=low
+
+  * Mutli-threaded pgloader (see options max_threads, max_parallel_sections,
+                             section_threads and split_file_reading)
+  * FIX for -C and -I options (replace sys.log with self.log), per user request
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Mon, 11 Feb 2008 15:04:40 +0100
+
 pgloader (2.2.6-1) unstable; urgency=low
 
   * pgloader -V now VACUUM each table separately, no more vacuumdb issued
