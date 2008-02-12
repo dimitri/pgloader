@@ -393,16 +393,6 @@ def print_summary(dbconn, sections, summary, td):
 
     return retcode
 
-def running_threads(threads):
-    """ count running threads """
-    running = 0
-    for s in threads:
-        if threads[s].isAlive():
-            running += 1
-
-    return running
-    
-
 def load_data():
     """ read option line and configuration file, then process data
     import of given section, or all sections if no section is given on
@@ -523,13 +513,15 @@ def load_data():
         current += 1
 
     if not interrupted:
+        from pgloader.tools import running_threads
+        
         n = running_threads(threads)            
         log.info("Waiting for %d threads to terminate" % n)
 
         # Try to acquire all semaphore entries
         for i in range(max_running):
             sem.acquire()
-            log.debug("Acquired %d times, " % i + \
+            log.debug("Acquired %d times, " % (i+1) + \
                       "still waiting for %d threads to terminate" \
                       % running_threads(threads))
 

@@ -167,3 +167,12 @@ def check_dirname(path):
     return True, None
 
     
+
+def running_threads(threads):
+    """ count running threads """
+    running = 0
+    for s in threads:
+        if threads[s].isAlive():
+            running += 1
+
+    return running

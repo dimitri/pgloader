@@ -105,7 +105,7 @@ class TextReader(DataReader):
             nb_plines += 1
 
             if self.end is not None and fd.tell() >= self.end:
-                self.log.info("Text Reader stoping, offset %d >= %d" % (fd.tell(), self.end()))
+                self.log.info("Text Reader stoping, offset %d >= %d" % (fd.tell(), self.end))
                 fd.close()
                 break
 

@@ -82,11 +82,11 @@ class CSVReader(DataReader):
 
         # now read the lines
         for columns in csv.reader(fd, dialect = 'pgloader'):
-
-            if self.end is not None and fd.tell() >= self.end:
-                self.log.info("CSV Reader stoping, offset %d >= %d" % (fd.tell(), self.end()))
-                fd.close()
-                break
-            
             line = self.field_sep.join(columns)
             yield line, columns
+
+            if self.end is not None and fd.tell() >= self.end:
+                self.log.info("CSV Reader stoping, offset %d >= %d" % (fd.tell(), self.end))
+                fd.close()
+                return
+            
