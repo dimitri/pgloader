@@ -1,0 +1,130 @@
+= TODO LIST =
+
+== Multi Threaded Import ==
+
+* Terminate +split_file_reading+ behavior implementation (status: debug)
+
+* Implement /round robin reader/ behavior
+
+== Constraint Exclusion support ==
+
+=== User level configuration
+
+At user level, you will have to add a +constraint_exclusion = on+
+parameter to pgloader section configuration for it to bother checking
+if the destination table has some children etc.
+
+You'll need to provide also a global ce_path parameter (where to find user
+python constraint exclusion modules) and a +ce_modules+ parameter for each 
+section where +constraint_exclusion = on+:
+    ce_modules = columnA:module:class, columnB:module:class
+
+As the +ce_path+ could point to any number of modules where a single
+type is supported by several modules, I'll let the user choose which
+module to use.
+
+=== Constraint exclusion modules
+
+The modules will provide one or several class(es) (kind of a packaging
+issue), each one will have to register which datatypes and operators
+they know about.  Here's some pseudo-code of a module, which certainly
+is the best way to express a code design idea:
+
+    class MyCE:
+       def __init__(self, operator, constant, cside='r'):
+          """ CHECK ( col operator constant ) => cside = 'r', could be 'l' """
+          ...
+    
+       @classmethod
+       def support_type(cls, type):
+          return type in ['integer', 'bigint', 'smallint', 'real', 'double']
+    
+       @classmethod
+       def support_operator(cls, op):
+           return op in ['=', '>', '<', '>=', '<=', '%']
+    
+       def check(self, op, data):
+          if op == '>' : return self.gt(data)
+          ...
+    
+       def gt(self, data):
+          if cside == 'l':
+             return self.constant > data
+          elif cside == 'r':
+             return data > self.constant
+
+This way pgloader will be able to support any datatype (user datatype
+like IP4R included) and operator (+@@+, +~<=+ or whatever). For
+pgloader to handle a +CHECK()+ constraint, though, it'll have to be
+configured to use a CE class supporting the used operators and
+datatypes.
+
+=== PGLoader constraint exclusion support
+
+The +CHECK()+ constraint being a tree of check expressions[*] linked
+by logical operators, pgloader will have to build some logic tree of
+MyCE (user CE modules) and evaluate all the checks in order to be able
+to choose the input line partition.
+
+[*]: +check((a % 10) = 1)+ makes an expression tree containing 2 check
+nodes
+
+After having parsed +pg_constraint.consrc+ (not +conbin+ which seems
+too much an internal dump for using it from user code) and built a
+CHECK tree for each partition, pgloader will try to decide if it's
+about range partitioning (most common case).
+
+If each partition CHECK tree is +AND((a>=b, a<c)+ or a variation of
+it, we have range partitioning. Then surely we can optimize the code
+to run to choose the partition where to COPY data to and still use the
+module operator implementation, e.g. making a binary search on a
+partitions limits tree.
+
+If you want some other widely used (or not) partitioning scheme to be 
+recognized and optimized by pgloader, just tell me and we'll see about it :)
+
+Having this step as a user module seems overkill at the moment,
+though.
+
+=== Multi-Threading behavior and CE support
+
+Now, pgloader will be able to run N threads, each one loading some
+data to a partitionned child-table target. N will certainly be
+configured depending on the number of server cores and not depending
+on the partition numbers...
+
+So what do we do when reading a tuple we want to store in a partition
+which has no dedicated Thread started yet, and we already have N
+Threads running?  I'm thinking about some LRU(Thread) to choose a
+Thread to terminate (launch COPY with current buffer and quit) and
+start a new one for the current partition target.
+
+Hopefully there won't be such high values of N that the LRU is a bad
+choice per see, and the input data won't be so messy to have to
+stop/start Threads at each new line.
+
+== Reject Behaviour ==
+
+Implement several reject behaviours for pgloader and allow users to
+configure them depending on the error we had. For example user might
+configure pgloader to load rejected data to some other table when the
+error is PK violation.
+
+== Fixed Format ==
+
+Support fixed format: no separator, known length (in bytes) per
+column.
+
+== Facilities ==
+
+Add options:
+
+* +skip_head_lines+
+
+  Will allow to skip the +n+ first lines of the given files (headers)
+
+* +with_header+
+
+  Will allow pgloader to configure the +columns+ parameter from the
+  first line of the file, and skip loading it.
+

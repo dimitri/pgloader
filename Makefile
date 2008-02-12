@@ -1,8 +1,9 @@
-# $Id: Makefile,v 1.10 2008-02-01 10:24:38 dim Exp $
+# $Id: Makefile,v 1.11 2008-02-12 17:31:33 dim Exp $
 #
 # Makefile for debian packaging purpose, make install not intended to work.
 
 DOCS    = pgloader.1.txt
+TODO    = TODO.txt
 CVSROOT = $(shell cat CVS/Root)
 VERSION = $(shell ./pgloader.py --version | cut -d' ' -f3)
 
@@ -32,6 +33,9 @@ install:
 	cp -a $(examples) $(exdir)
 
 html: $(DOCS)
+	asciidoc -a toc $<
+
+todo: $(TODO)
 	asciidoc -a toc $<
 
 site: html
