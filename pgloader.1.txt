@@ -440,6 +440,25 @@ In case you have a lot a columns per table, you will want to use
 multiple lines for this parameter value. Python ConfigParser module
 knows how to read multi-line parameters, you don't have to escape
 anything.
++
+An easy way to get the list of attributes (columns) of your tables
+(say +a+, +b+ and +c+) is by the following query:
++
+    BEGIN;
+    CREATE AGGREGATE array_acc(anyelement) (
+        SFUNC = array_append,
+        STYPE = anyarray,
+        INITCOND = '{}'
+    );
+    
+    SELECT relname, array_acc(attname)
+      FROM pg_attribute a join pg_class c on a.attrelid = c.oid
+     WHERE relname in ('a', 'b', 'c')
+           and attname not in ('tableoid','cmax','xmax','cmin','xmin','ctid')
+  GROUP BY relname;
+    
+    ROLLBACK;
++
 
 user_defined_columns::
 +
