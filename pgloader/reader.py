@@ -37,6 +37,8 @@ class DataReader:
             if INPUT_ENCODING is not None:
                 self.input_encoding = INPUT_ENCODING
 
+        # (start, end) are used for split_file_reading mode
+        # queue when in round_robin_read mode
         self.start = None
         self.end   = None
 
@@ -92,3 +94,4 @@ class DataReader:
         """ set the boundaries of this reader """
         self.start = start
         self.end   = end
+

@@ -2,7 +2,7 @@
 #
 # pgloader librairies
 
-import os, sys, os.path, time, codecs
+import os, sys, os.path, time, codecs, collections
 from cStringIO import StringIO
 
 from options import DRY_RUN, PEDANTIC
@@ -176,3 +176,16 @@ def running_threads(threads):
             running += 1
 
     return running
+
+
+class RRReader(collections.deque):
+    """ Round Robin reader, which are collections.deque with a
+    readlines() method"""
+
+    def readlines(self):
+        """ return next line from queue """
+        while 1:
+            try:
+                yield self.popleft()
+            except IndexError:
+                return

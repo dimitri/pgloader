@@ -39,6 +39,7 @@ DEFAULT_REFORMAT_PATH = ['/usr/share/python-support/pgloader/reformat']
 MAX_PARALLEL_SECTIONS = 1
 SECTION_THREADS       = 1
 SPLIT_FILE_READING    = False
+RRQUEUE_SIZE          = None
 
 CLIENT_MIN_MESSAGES = None
 LOG_MIN_MESSAGES    = DEBUG
