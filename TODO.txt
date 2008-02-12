@@ -1,10 +1,10 @@
-= TODO LIST =
+= PGLOADER TODO LIST =
 
 == Multi Threaded Import ==
 
 * Terminate +split_file_reading+ behavior implementation (status: debug)
 
-* Implement /round robin reader/ behavior
+* Implement 'round robin reader' behavior
 
 == Constraint Exclusion support ==
 
@@ -17,6 +17,7 @@ if the destination table has some children etc.
 You'll need to provide also a global ce_path parameter (where to find user
 python constraint exclusion modules) and a +ce_modules+ parameter for each 
 section where +constraint_exclusion = on+:
+
     ce_modules = columnA:module:class, columnB:module:class
 
 As the +ce_path+ could point to any number of modules where a single
@@ -119,11 +120,11 @@ column.
 
 Add options:
 
-* +skip_head_lines+
++skip_head_lines+::
 
   Will allow to skip the +n+ first lines of the given files (headers)
 
-* +with_header+
++with_header+::
 
   Will allow pgloader to configure the +columns+ parameter from the
   first line of the file, and skip loading it.

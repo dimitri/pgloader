@@ -834,9 +834,6 @@ class PGLoader(threading.Thread):
         if TRIGGERS and not DRY_RUN:
             self.db.enable_triggers(self.table)
 
-        # then show up some stats
-        self.print_stats()
-
         self.log.info("loading done")
         return
 
@@ -849,6 +846,9 @@ class PGLoader(threading.Thread):
             
         for x in [self.table, self.duration, self.db.commited_rows, self.errors]:
             self.stats.append(x)
+
+        # then show up some stats
+        self.print_stats()
         
     def process(self):
         """ depending on configuration, do given job """
