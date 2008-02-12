@@ -5,7 +5,7 @@
 PostgreSQL data import tool, see included man page.
 """
 
-import os, sys, os.path, time, codecs, logging
+import os, sys, os.path, time, codecs, logging, threading
 from cStringIO import StringIO
 
 import pgloader.options
@@ -342,8 +342,13 @@ def print_summary(dbconn, sections, summary, td):
             print t
             print _
 
-        t, d, u, e = summary[s]
-        d = duration_pprint(d)
+        if summary[s]:
+            t, d, u, e = summary[s]
+            d = duration_pprint(d)
+        else:
+            t = s
+            d = '%9s ' % '-'
+            u = e = 0
 
         if False and not DRY_RUN:
             sql = "select pg_total_relation_size(%s), " + \
@@ -387,6 +392,16 @@ def print_summary(dbconn, sections, summary, td):
             cursor.close()
 
     return retcode
+
+def running_threads(threads):
+    """ count running threads """
+    running = 0
+    for s in threads:
+        if threads[s].isAlive():
+            running += 1
+
+    return running
+    
 
 def load_data():
     """ read option line and configuration file, then process data
@@ -458,46 +473,34 @@ def load_data():
     sections.sort()
 
     threads = {}
-    running = 0
     current = 0
+    interrupted = False
+
+    max_running = MAX_PARALLEL_SECTIONS
+    if max_running == -1:
+        max_running = len(sections)
+
+    sem = threading.BoundedSemaphore(max_running)
     
     while current < len(sections):
         s = sections[current]
 
-        # update running
-        if running > 0:
-            for s in threads:
-                if not threads[s].isAlive():
-                    running -= 1
-
-        if MAX_PARALLEL_SECTIONS != -1:
-            # -1 means we can start as many parallel section
-            # processing as we want to
-            
-            if running == MAX_PARALLEL_SECTIONS:
-                # we have to wait for one thread to terminate
-                # before considering next one
-                log.info('%d/%d threads running, sleeping %gs' \
-                         % (running, MAX_PARALLEL_SECTIONS, .1))
-                time.sleep(.1)
-                continue
-                        
         try:
             summary[s] = []
-            loader     = PGLoader(s, config, summary[s])
+            loader     = PGLoader(s, config, sem, summary[s])
             if not loader.template:
                 filename       = loader.filename
                 input_encoding = loader.input_encoding
-        
-                threads[s] = loader
-            
-                log.info("Starting thread %d for %s" % (running, s))
+                threads[s]     = loader
+
+                # .start() will sem.aquire(), so we won't have more
+                # than max_running threads running at any time.
+                log.info("Starting thread for %s" % s)
                 threads[s].start()
-                running += 1
             else:
                 log.info("Skipping section %s, which is a template" % s)
                 summary.pop(s)
-                
+
         except PGLoader_Error, e:
             if e == '':
                 log.error('[%s] Please correct previous errors' % s)
@@ -514,38 +517,35 @@ def load_data():
                                % (filename, input_encoding))
                                     
         except KeyboardInterrupt:
+            interrupted = True
             log.warning("Aborting on user demand (Interrupt)")
 
         current += 1
 
-    while running > 0:
-        for s in threads:
-            if not threads[s].isAlive():
-                running -= 1
+    if not interrupted:
+        n = running_threads(threads)            
+        log.info("Waiting for %d threads to terminate" % n)
 
-        if running > 0:
-            if MAX_PARALLEL_SECTIONS != 1:
-                log.info("%d thread(s) still running" % running)            
-                
-            try:
-                if MAX_PARALLEL_SECTIONS != 1:
-                    log.info('waiting for %d threads, sleeping %gs' % (running, 1))
-                time.sleep(1)
-            except KeyboardInterrupt:
-                log.warning("Aborting %d threads still running at user demand"\
-                            % running)
-                break
+        # Try to acquire all semaphore entries
+        for i in range(max_running):
+            sem.acquire()
+            log.debug("Acquired %d times, " % i + \
+                      "still waiting for %d threads to terminate" \
+                      % running_threads(threads))
 
     # total duration
     td = time.time() - begin
     retcode = 0
 
-    if SUMMARY:  
+    if SUMMARY and not interrupted:
         try:
             retcode = print_summary(None, sections, summary, td)
             print
         except PGLoader_Error, e:
             log.error("Can't print summary: %s" % e)
+
+        except KeyboardInterrupt:
+            pass
 
     return retcode
 

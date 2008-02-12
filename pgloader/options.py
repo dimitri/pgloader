@@ -36,9 +36,8 @@ UDC_PREFIX = 'udc_'
 REFORMAT_PATH = None
 DEFAULT_REFORMAT_PATH = ['/usr/share/python-support/pgloader/reformat']
 
-MAX_THREADS           = 1
 MAX_PARALLEL_SECTIONS = 1
-SECTION_THREADS       = -1
+SECTION_THREADS       = 1
 SPLIT_FILE_READING    = False
 
 CLIENT_MIN_MESSAGES = None

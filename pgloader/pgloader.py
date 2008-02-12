@@ -21,7 +21,7 @@ from options import COPY_SEP, FIELD_SEP, CLOB_SEP, NULL, EMPTY_STRING
 from options import NEWLINE_ESCAPES
 from options import UDC_PREFIX
 from options import REFORMAT_PATH
-from options import MAX_THREADS, MAX_PARALLEL_SECTIONS
+from options import MAX_PARALLEL_SECTIONS
 from options import SECTION_THREADS, SPLIT_FILE_READING
 
 class PGLoader(threading.Thread):
@@ -30,12 +30,17 @@ class PGLoader(threading.Thread):
     import data with COPY or update blob data with UPDATE.
     """
 
-    def __init__(self, name, config, stats, logname = None):
+    def __init__(self, name, config, sem, stats, logname = None):
         """ Init with a configuration section """
         threading.Thread.__init__(self, name = name)
-        
-        # Some settings
+
+        # sem and stats are global objects:
+        # sem is shared by all threads at the same level, stats is a
+        # private entry of a shared dict
+        self.sem     = sem
         self.stats   = stats
+
+        # thereafter parameters are local
         self.name    = name
         self.config  = config
 
@@ -162,6 +167,9 @@ class PGLoader(threading.Thread):
         
     def __read_conf__(self, name, config, db, want_template = False):
         """ init self from config section name  """
+
+        # we'll need both of them from the globals
+        global FROM_COUNT, FROM_ID
 
         if want_template and not config.has_option(name, 'template'):
             e = 'Error: section %s is not a template' % name
@@ -447,37 +455,28 @@ class PGLoader(threading.Thread):
 
         ##
         # Parallelism knobs
-        for opt, default in [('max_threads', MAX_THREADS),
-                             ('section_threads', SECTION_THREADS),
-                             ('split_file_reading', SPLIT_FILE_READING)]:
-            
-            if config.has_option(name, opt):
-                if opt in ['max_threads', 'section_threads']:
-                    self.__dict__[opt] = config.getint(name, opt)
-                else:
-                    self.__dict__[opt] = config.get(name, opt) == 'True'
-            else:
-                if not self.template:
-                    self.__dict__[opt] = default
+        if config.has_option(name, 'section_threads'):
+            self.section_threads = config.getint(name, 'section_threads')
+        else:
+            self.section_threads = SECTION_THREADS
 
-            if not self.template:
-                self.log.info('%s.%s = %s' % (name, opt, str(self.__dict__[opt])))
+        if config.has_option(name, 'split_file_reading'):
+            self.split_file_reading = config.get(name, 'split_file_reading') == 'True'
+        else:
+            self.split_file_reading = SPLIT_FILE_READING
+            
+        if not self.template:
+            for opt in ('section_threads', 'split_file_reading'):
+                self.log.debug('%s.%s = %s' % (name, opt, str(self.__dict__[opt])))
 
         if not self.template and self.split_file_reading:
-            global FROM_COUNT
             if FROM_COUNT is not None and FROM_COUNT > 0:
                 raise PGLoader_Error, \
                       "Conflict: can't use both 'split_file_reading' and '--from'"
 
-            global FROM_ID
             if FROM_ID is not None:
                 raise PGLoader_Error, \
                       "Conflict: can't use both 'split_file_reading' and '--from-id'"
-
-        if not self.template and self.section_threads > self.max_threads:
-            raise PGLoader_Error, \
-                  "%s.section_threads > %s.max_threads : %d > %d" \
-                  % (name, name, self.section_threads, self.max_threads)
 
         ##
         # Reader's init
@@ -587,7 +586,6 @@ class PGLoader(threading.Thread):
         # if options.fromid is not None it has to be either a value,
         # when index is single key or a dict in a string, when index
         # is a multiple key
-        global FROM_ID
         if FROM_ID is not None:
             if len(self.index) > 1:
                 # we have to evaluate given string and see if it is a
@@ -691,12 +689,14 @@ class PGLoader(threading.Thread):
 
     def run(self):
         """ controling thread which dispatch the job """
+
+        # care about number of threads launched
+        self.sem.acquire()
         
         # Announce the beginning of the work
-        self.log.info("[%s]" % self.name)
+        self.log.info("%s launched" % self.name)
 
-        if self.max_threads == 1:
-
+        if self.section_threads == 1:
             if self.reader.start is not None:
                 self.log.info("Loading from offset %d to %d" \
                               %  (self.reader.start, self.reader.end))
@@ -704,11 +704,11 @@ class PGLoader(threading.Thread):
             self.prepare_processing()
             self.process()
             self.finish_processing()
-            return
 
-        # now we're going to need mutli-threading
-        if self.section_threads == -1:
-            self.section_threads = self.max_threads
+            self.log.info("Releasing %s" % self.name)
+            self.sem.release()
+
+            return
 
         if self.split_file_reading:
             # this option is not compatible with text mode when
@@ -731,7 +731,7 @@ class PGLoader(threading.Thread):
 
                 previous = end + 1
 
-            self.log.info("Spliting input file of %d bytes %s" \
+            self.log.debug("Spliting input file of %d bytes %s" \
                           % (filesize, str(boundaries)))
 
             # Now check for real boundaries
@@ -755,42 +755,57 @@ class PGLoader(threading.Thread):
             self.prepare_processing()
 
             # now create self.section_threads PGLoader threads
+            # the semaphore here is not really usefull, but is part of the API
+            sem     = threading.BoundedSemaphore(self.section_threads)
             summary = {}
             threads = {}
             running = 0
             
             for current in range(self.section_threads):
-                summary[current] = []
-                current_name     = "%s[%d]" % (self.name, current) 
-                loader = PGLoader(self.name,
-                                  self.config,
-                                  summary[current],
-                                  current_name)
-                loader.max_threads = 1
-                loader.reader.set_boundaries(boundaries[current])
-                loader.dont_prepare_nor_finish = True
-                
-                threads[current_name] = loader
-                threads[current_name].start()
-                running += 1
+                try:
+                    summary[current] = []
+                    current_name     = "%s[%d]" % (self.name, current)
+
+                    loader = PGLoader(self.name, self.config, sem,
+                                      summary[current], current_name)
+
+                    loader.section_threads = 1
+                    loader.reader.set_boundaries(boundaries[current])
+                    loader.dont_prepare_nor_finish = True
+
+                    threads[current_name] = loader
+                    threads[current_name].start()
+                    running += 1
+                    
+                except Exception, e:
+                    raise
 
             # wait for loaders completion
             while running > 0:
-                for cn in threads:
-                    if not threads[cn].isAlive():
-                        running -= 1
+                try:
+                    for cn in threads:
+                        if not threads[cn].isAlive():
+                            running -= 1
 
-                if running > 0:
-                    log.info('waiting for %d threads, sleeping %gs' % (running, 1))
-                    time.sleep(1)
+                    if running > 0:
+                        self.log.info('waiting for %d threads, sleeping %gs' % (running, 1))
+                        time.sleep(1)
+                        
+                except KeyboardInterrupt:
+                    self.log.warning("Aborting %d threads in section %s "\
+                                % (running, self.name))
+                    break
 
             self.finish_processing()
-            log.info('No more threads are running, %s done' % self.name)
-            return
+            self.log.info('No more threads are running, %s done' % self.name)
 
         else:
             # here we need a special thread reading the file
             pass
+
+        self.sem.release()
+        self.log.info("%s released" % self.name)
+        return
 
     def prepare_processing(self):
         """ Things to do before processing data """
