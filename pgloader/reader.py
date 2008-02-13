@@ -95,3 +95,5 @@ class DataReader:
         self.start = start
         self.end   = end
 
+        self.log.info("reader start=%d, end=%d" % (self.start, self.end))
+
