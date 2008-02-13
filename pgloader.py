@@ -517,6 +517,7 @@ def load_data():
         
         n = running_threads(threads)            
         log.info("Waiting for %d threads to terminate" % n)
+        time.sleep(2)
 
         # Try to acquire all semaphore entries
         for i in range(max_running):
