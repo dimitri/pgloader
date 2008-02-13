@@ -23,9 +23,15 @@ class Reject:
         self._log        = log
         self.reject_log  = reject_log
         self.reject_data = reject_data
+        self.lock        = None
 
         # we will open files on first error
         self.errors = 0
+
+    def set_lock(self, lock):
+        """ when used in a multi-threaded way, you want a common
+        reject facility, protected from concurrent writes """
+        self.lock = lock
 
     def print_stats(self, name):
         """ give a summary """
@@ -42,6 +48,26 @@ class Reject:
                             self.reject_data)
 
     def log(self, messages, data = None):
+        """ Acquire the lock if needed, do_log() and check for IOError """
+
+        if self.lock:
+            self._log.debug("Reject acquire")
+            self.lock.acquire()
+
+        try:
+            self.do_log(messages, data)
+
+        except IOError, e:
+            raise PGLoader_Error, e
+
+        except PGLoader_Error, e:
+            raise 
+
+        if self.lock:
+            self._log.debug("Reject release")
+            self.lock.release()
+
+    def do_log(self, messages, data = None):
         """ log the messages into reject_log, and the data into reject_data
 
         We open the file on each request, cause we supose errors to be
@@ -49,11 +75,8 @@ class Reject:
         """
 
         if self.errors == 0:
-            try:
-                fd_log  = open(self.reject_log,  'wb+')
-                fd_data = open(self.reject_data, 'wb+')
-            except IOError, error:
-                raise PGLoader_Error, error
+            fd_log  = open(self.reject_log,  'wb+')
+            fd_data = open(self.reject_data, 'wb+')
         else:
             fd_log  = open(self.reject_log,  'ab+')
             fd_data = open(self.reject_data, 'ab+')
@@ -87,11 +110,8 @@ class Reject:
 
         # now we close the two fds
         for f in [fd_log, fd_data]:
-            try:
-                f.flush()
-                f.close()
-            except IOError, e:
-                raise PGLoader_Error, e
+            f.flush()
+            f.close()
 
         self.errors += 1
 
