@@ -5,7 +5,7 @@
 # handles configuration, parse data, then pass them to database module for
 # COPY preparation
 
-import os, sys, os.path, time, codecs
+import os, sys, os.path, time
 from cStringIO import StringIO
 
 from tools    import PGLoader_Error, Reject, parse_config_string
@@ -69,24 +69,38 @@ class TextReader(DataReader):
         ##
         # if neither -I nor -F was used, we can state that begin = 0
         if FROM_ID is None and FROM_COUNT == 0:
-            self.log.info('beginning on first line')
+            self.log.debug('beginning on first line')
             begin_linenb = 1
 
         self._open()
 
         if self.start is not None and self.start > 0:
-            self.log.info("Text Reader starting at offset %d" % self.start)
+            self.log.debug("Text Reader starting at offset %d" % self.start)
             self.fd.seek(self.start)
 
-        for line in self.fd:
+        self.log.debug("textreader at position %d" % self.fd.tell())
+        
+        #for line in self.fd.readline():
+
+        line = 'dumb non-empty init value'
+        last_line_read = False
+        
+        while line != '':
+            line = self.fd.readline()
+            
             # we count real physical lines
             nb_plines += 1
 
-            if self.end is not None and self.fd.tell() >= self.end:
-                self.log.info("Text Reader stoping, offset %d >= %d" \
-                              % (self.fd.tell(), self.end))
+            if last_line_read:
+                self.log.debug("Text Reader stoping, offset %d >= %d" \
+                               % (self.fd.tell(), self.end))
                 self.fd.close()
-                break
+                return
+            
+            if self.end is not None and self.fd.tell() >= self.end:
+                # we want to process current line and stop at next
+                # iteration
+                last_line_read = True
 
             if self.input_encoding is not None:
                 # this may not be necessary, after all

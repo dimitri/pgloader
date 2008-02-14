@@ -102,9 +102,11 @@ class DataReader:
         
         if self.input_encoding is not None:
             try:
+                import codecs
                 self.fd = codecs.open(self.filename,
                                       encoding  = self.input_encoding,
                                       buffering = self.bufsize)
+                self.log.info("Opened '%s' with encoding '%s'" % (self.filename, self.input_encoding))
             except LookupError, e:
                 # codec not found
                 raise PGLoader_Error, "Input codec: %s" % e
@@ -117,7 +119,9 @@ class DataReader:
             except IOError, error:
                 raise PGLoader_Error, error
 
-        self.log.info("Opened '%s' in %s" % (self.filename, self.fd))
+        self.log.debug("Opened '%s' in %s (fileno %s), ftell %d" \
+                      % (self.filename, self.fd,
+                         self.fd.fileno(), self.fd.tell()))
         return self.fd
 
     def readlines(self):
@@ -130,5 +134,5 @@ class DataReader:
         self.start = start
         self.end   = end
 
-        self.log.info("reader start=%d, end=%d" % (self.start, self.end))
+        self.log.debug("reader start=%d, end=%d" % (self.start, self.end))
 

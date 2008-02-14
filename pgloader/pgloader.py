@@ -137,9 +137,11 @@ class PGLoader(threading.Thread):
             self.db.log = self.log            
             self.db.reset()            
 
+        if not self.template and not DRY_RUN:
             # check we have properly configured the copy separator
             if self.db.copy_sep is None:
                 self.log.debug("%s" % self.db)
+                self.log.error("COPY sep is %s" % self.db.copy_sep)
                 msg = "BUG: pgloader couldn't configure its COPY separator"
                 raise PGLoader_Error, msg
             
@@ -567,7 +569,7 @@ class PGLoader(threading.Thread):
                                          self.table, self.columns,
                                          self.newline_escapes)
 
-            self.log.info('reader.readconfig()')
+            self.log.debug('reader.readconfig()')
             self.reader.readconfig(config, name, self.tsection)
 
 
@@ -776,8 +778,8 @@ class PGLoader(threading.Thread):
 
         if self.section_threads == 1:
             if 'reader' in self.__dict__ and self.reader.start is not None:
-                self.log.info("Loading from offset %d to %d" \
-                              %  (self.reader.start, self.reader.end))
+                self.log.debug("Loading from offset %d to %d" \
+                               %  (self.reader.start, self.reader.end))
 
             try:
                 # catch worker exception
@@ -817,8 +819,12 @@ class PGLoader(threading.Thread):
         more thread is running
         """
         from tools import running_threads
+
+        n = running_threads(workers)
+        self.log.info("Waiting for %d/%d threads to terminate" \
+                      % (n, len(workers)))
         
-        for i in range(len(workers)):
+        for i in range(n):
             sem.acquire()
             self.log.debug("Acquired %d times, " % (i+1) + \
                            "still waiting for %d threads to terminate" \
@@ -892,9 +898,6 @@ class PGLoader(threading.Thread):
         # wait for loaders completion, first let them some time to
         # be started
         time.sleep(2)
-
-        n = running_threads(threads)            
-        log.info("Waiting for %d threads to terminate" % n)
 
         self.wait_for_workers(sem, threads)
         self.finish_processing()
@@ -1019,10 +1022,6 @@ class PGLoader(threading.Thread):
             
             self.log.debug("locks[%d].release (done set)" % c)
             locks[c].release()
-
-        from tools import running_threads
-        n = running_threads(threads)            
-        self.log.info("Waiting for %d threads to terminate" % n)
 
         self.wait_for_workers(sem, threads)
         self.finish_processing()
