@@ -66,29 +66,20 @@ class CSVReader(DataReader):
             
         csv.register_dialect('pgloader', pgloader_dialect)
 
-        if self.input_encoding is not None:
-            try:
-                fd = codecs.open(self.filename, encoding = self.input_encoding)
-            except LookupError, e:
-                # codec not found
-                raise PGLoader_Error, "Input codec: %s" % e
-        else:
-            try:
-                fd = open(self.filename, "rb")
-            except IOError, error:
-                raise PGLoader_Error, error
-
+        self._open()
+        
         if self.start is not None and self.start > 0:
             self.log.info("CSV Reader starting at offset %d" % self.start)
-            fd.seek(self.start)
+            self.fd.seek(self.start)
 
         # now read the lines
-        for columns in csv.reader(fd, dialect = 'pgloader'):
+        for columns in csv.reader(self.fd, dialect = 'pgloader'):
             line = self.field_sep.join(columns)
             yield line, columns
 
-            if self.end is not None and fd.tell() >= self.end:
-                self.log.info("CSV Reader stoping, offset %d >= %d" % (fd.tell(), self.end))
-                fd.close()
+            if self.end is not None and self.fd.tell() >= self.end:
+                self.log.info("CSV Reader stoping, offset %d >= %d" \
+                              % (self.fd.tell(), self.end))
+                self.fd.close()
                 return
             

@@ -93,6 +93,30 @@ class DataReader:
 
         return self.__dict__[option]
 
+    def _open(self, mode = 'rb'):
+        """ open self.filename wrt self.encoding """
+        # we don't yet force buffering, but...
+        self.bufsize = -1
+        
+        if self.input_encoding is not None:
+            try:
+                self.fd = codecs.open(self.filename,
+                                      encoding  = self.input_encoding,
+                                      buffering = self.bufsize)
+            except LookupError, e:
+                # codec not found
+                raise PGLoader_Error, "Input codec: %s" % e
+            except IOError, e:
+                # file not found, for example
+                raise PGLoader_Error, "IOError: %s" % e
+        else:
+            try:
+                self.fd = open(self.filename, mode, self.bufsize)
+            except IOError, error:
+                raise PGLoader_Error, error
+
+        return self.fd
+
     def readlines(self):
         """ read data from configured file, and generate (yields) for
         each data line: line, columns and rowid """

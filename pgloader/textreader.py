@@ -72,32 +72,20 @@ class TextReader(DataReader):
             self.log.info('beginning on first line')
             begin_linenb = 1
 
-        if self.input_encoding is not None:
-            try:
-                fd = codecs.open(self.filename, encoding = self.input_encoding)
-            except LookupError, e:
-                # codec not found
-                raise PGLoader_Error, "Input codec: %s" % e
-            except IOError, e:
-                # file not found, for example
-                raise PGLoader_Error, "IOError: %s" % e
-        else:
-            try:
-                fd = open(self.filename)
-            except IOError, error:
-                raise PGLoader_Error, error
+        self._open()
 
         if self.start is not None and self.start > 0:
             self.log.info("Text Reader starting at offset %d" % self.start)
-            fd.seek(self.start)
+            self.fd.seek(self.start)
 
-        for line in fd:
+        for line in self.fd:
             # we count real physical lines
             nb_plines += 1
 
-            if self.end is not None and fd.tell() >= self.end:
-                self.log.info("Text Reader stoping, offset %d >= %d" % (fd.tell(), self.end))
-                fd.close()
+            if self.end is not None and self.fd.tell() >= self.end:
+                self.log.info("Text Reader stoping, offset %d >= %d" \
+                              % (self.fd.tell(), self.end))
+                self.fd.close()
                 break
 
             if self.input_encoding is not None:
