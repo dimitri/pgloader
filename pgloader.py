@@ -412,7 +412,7 @@ def load_data():
     import pgloader.options
     if pgloader.options.REFORMAT_PATH:
         rpath  = read_path(pgloader.options.REFORMAT_PATH, check = False)
-        crpath = check_path(rpath, VERBOSE)
+        crpath = check_path(rpath, log)
     else:
         rpath  = crpath  = None
 
@@ -425,7 +425,7 @@ def load_data():
         else:
             default_rpath = pgloader.options.DEFAULT_REFORMAT_PATH
         
-        pgloader.options.REFORMAT_PATH = check_path(default_rpath, VERBOSE)
+        pgloader.options.REFORMAT_PATH = check_path(default_rpath, log)
     else:
         pgloader.options.REFORMAT_PATH = rpath
 
