@@ -65,6 +65,7 @@ class DataReader:
             self.db.empty_string = parse_config_string(self.empty_string)
 
         self._getopt('field_sep', config, name, template, FIELD_SEP)
+        
         if not DRY_RUN:
             if self.db.copy_sep is None:
                 self.db.copy_sep = self.field_sep
@@ -73,6 +74,7 @@ class DataReader:
             self.log.debug("reader.readconfig null: '%s'" % self.db.null)
             self.log.debug("reader.readconfig empty_string: '%s'",
                            self.db.empty_string)
+            self.log.debug("reader.db %s copy_sep %s" % (self.db, self.db.copy_sep))
             
         self.log.debug("reader.readconfig field_sep: '%s'", self.field_sep)
 
@@ -115,6 +117,7 @@ class DataReader:
             except IOError, error:
                 raise PGLoader_Error, error
 
+        self.log.info("Opened '%s' in %s" % (self.filename, self.fd))
         return self.fd
 
     def readlines(self):

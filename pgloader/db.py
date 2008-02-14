@@ -514,7 +514,13 @@ class db:
                                           ('\r', '\\r'),
                                           ('\t', '\\t'),
                                           ('\v', '\\v')]:
-                        c = c.replace(orig, escaped)
+                        try:
+                            c = c.replace(orig, escaped)
+                        except TypeError, e:
+                            self.log.error("db.prepare_copy_data columns %s"    % str(columns))
+                            self.log.error("db.prepare_copy_data input_line %s" % str(input_line))
+                            self.log.error("TypeError: '%s'.replace(%s, %s)"    % (c, orig, escaped))
+                            raise PGLoader_Error, e
 
                     self.buffer.write(c)
 
