@@ -87,42 +87,15 @@ class DataReader:
 
         elif template and config.has_option(template, option):
             self.__dict__[option] = config.get(template, option)
-            self.log.debug("reader._getopt %s from %s is '%s'" % (option, template, self.__dict__[option]))
+            self.log.debug("reader._getopt %s from %s is '%s'" \
+                           % (option, template, self.__dict__[option]))
 
         elif option not in self.__dict__:
-            self.log.debug("reader._getopt %s defaults to '%s'" % (option, default))
+            self.log.debug("reader._getopt %s defaults to '%s'" \
+                           % (option, default))
             self.__dict__[option] = default
 
         return self.__dict__[option]
-
-    def _open(self, mode = 'rb'):
-        """ open self.filename wrt self.encoding """
-        # we don't yet force buffering, but...
-        self.bufsize = -1
-        
-        if self.input_encoding is not None:
-            try:
-                import codecs
-                self.fd = codecs.open(self.filename,
-                                      encoding  = self.input_encoding,
-                                      buffering = self.bufsize)
-                self.log.info("Opened '%s' with encoding '%s'" % (self.filename, self.input_encoding))
-            except LookupError, e:
-                # codec not found
-                raise PGLoader_Error, "Input codec: %s" % e
-            except IOError, e:
-                # file not found, for example
-                raise PGLoader_Error, "IOError: %s" % e
-        else:
-            try:
-                self.fd = open(self.filename, mode, self.bufsize)
-            except IOError, error:
-                raise PGLoader_Error, error
-
-        self.log.debug("Opened '%s' in %s (fileno %s), ftell %d" \
-                      % (self.filename, self.fd,
-                         self.fd.fileno(), self.fd.tell()))
-        return self.fd
 
     def readlines(self):
         """ read data from configured file, and generate (yields) for
@@ -136,3 +109,94 @@ class DataReader:
 
         self.log.debug("reader start=%d, end=%d" % (self.start, self.end))
 
+
+class UnbufferedFileReader:
+    """
+    Allow to read a file line by line, avoiding any read-buffering
+    effect. This allows for readers to reliably compare fd.tell()
+    position after each line reading.
+    """
+
+    def __init__(self, filename, log,
+                 mode = "rb", encoding = None,
+                 start = None, end = None):
+        """ constructor """
+        self.filename = filename
+        self.log      = log
+        self.mode     = mode
+        self.encoding = encoding
+        self.start    = start
+        self.end      = end
+        self.fd       = None
+        self.position = 0
+
+        # we don't yet force buffering, but...
+        self.bufsize = -1
+        
+        if self.encoding is not None:
+            try:
+                import codecs
+                self.fd = codecs.open(self.filename,
+                                      encoding  = self.encoding,
+                                      buffering = self.bufsize)
+                self.log.info("Opened '%s' with encoding '%s'" \
+                              % (self.filename, self.encoding))
+            except LookupError, e:
+                # codec not found
+                raise PGLoader_Error, "Input codec: %s" % e
+            except IOError, e:
+                # file not found, for example
+                raise PGLoader_Error, "IOError: %s" % e
+            
+        else:
+            try:
+                self.fd = open(self.filename, mode, self.bufsize)
+            except IOError, error:
+                raise PGLoader_Error, error
+
+        if self.start:
+            self.fd.seek(self.start)
+            self.position = self.fd.tell()
+
+        self.log.debug("Opened '%s' in %s (fileno %s), ftell %d" \
+                      % (self.filename, self.fd,
+                         self.fd.fileno(), self.position))
+        return
+
+    def tell(self):
+        return self.position
+
+    def seek(self, position):
+        self.fd.seek(position)
+        self.position = self.fd.tell()
+
+        return self.position
+        
+    def next(self):
+        """ implement the iterator protocol """
+        yield self.__iter__()
+
+    def __iter__(self):
+        """ read a line at a time """
+        line = 'dumb non-empty init value'
+        last_line_read = False
+        
+        while line != '':
+            line = self.fd.readline()
+            self.position = self.fd.tell()
+
+            if last_line_read:
+                self.log.debug("FileReader stoping, offset %d >= %d" \
+                               % (self.position, self.end))
+                self.fd.close()
+                return
+            
+            if self.end is not None and self.fd.tell() >= self.end:
+                # we want to process current line and stop at next
+                # iteration
+                last_line_read = True
+
+            yield line
+
+        return
+    

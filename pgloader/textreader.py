@@ -11,7 +11,7 @@ from cStringIO import StringIO
 from tools    import PGLoader_Error, Reject, parse_config_string
 from db       import db
 from lo       import ifx_clob, ifx_blob
-from reader   import DataReader
+from reader   import DataReader, UnbufferedFileReader
 
 from options import DRY_RUN, PEDANTIC
 from options import TRUNCATE, VACUUM
@@ -72,35 +72,14 @@ class TextReader(DataReader):
             self.log.debug('beginning on first line')
             begin_linenb = 1
 
-        self._open()
-
-        if self.start is not None and self.start > 0:
-            self.log.debug("Text Reader starting at offset %d" % self.start)
-            self.fd.seek(self.start)
-
-        self.log.debug("textreader at position %d" % self.fd.tell())
+        self.fd = UnbufferedFileReader(self.filename, self.log,
+                                       encoding = self.input_encoding,
+                                       start    = self.start,
+                                       end      = self.end)
         
-        #for line in self.fd.readline():
-
-        line = 'dumb non-empty init value'
-        last_line_read = False
-        
-        while line != '':
-            line = self.fd.readline()
-            
+        for line in self.fd:
             # we count real physical lines
             nb_plines += 1
-
-            if last_line_read:
-                self.log.debug("Text Reader stoping, offset %d >= %d" \
-                               % (self.fd.tell(), self.end))
-                self.fd.close()
-                return
-            
-            if self.end is not None and self.fd.tell() >= self.end:
-                # we want to process current line and stop at next
-                # iteration
-                last_line_read = True
 
             if self.input_encoding is not None:
                 # this may not be necessary, after all

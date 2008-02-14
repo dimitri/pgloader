@@ -11,7 +11,7 @@ from cStringIO import StringIO
 from tools    import PGLoader_Error, Reject, parse_config_string
 from db       import db
 from lo       import ifx_clob, ifx_blob
-from reader   import DataReader
+from reader   import DataReader, UnbufferedFileReader
 
 from options import DRY_RUN, PEDANTIC
 from options import TRUNCATE, VACUUM
@@ -47,7 +47,8 @@ class CSVReader(DataReader):
         for opt in ['doublequote', 'escapechar',
                     'quotechar', 'skipinitialspace']:
             
-            self.log.debug("reader.readconfig %s: '%s'" % (opt, self.__dict__[opt]))
+            self.log.debug("reader.readconfig %s: '%s'" \
+                           % (opt, self.__dict__[opt]))
 
     def readlines(self):
         """ read data from configured file, and generate (yields) for
@@ -66,25 +67,14 @@ class CSVReader(DataReader):
             
         csv.register_dialect('pgloader', pgloader_dialect)
 
-        self._open()
+        self.fd = UnbufferedFileReader(self.filename, self.log,
+                                       encoding = self.input_encoding,
+                                       start    = self.start,
+                                       end      = self.end)
         
-        if self.start is not None and self.start > 0:
-            self.log.debug("CSV Reader starting at offset %d" % self.start)
-            self.fd.seek(self.start)
-
-        self.log.info("csvreader at position %d" % self.fd.tell())
-
         # now read the lines
         for columns in csv.reader(self.fd, dialect = 'pgloader'):
-
-            self.log.info("csvreader at position %d" % self.fd.tell())
-            
             line = self.field_sep.join(columns)
             yield line, columns
-
-            if self.end is not None and self.fd.tell() >= self.end:
-                self.log.debug("CSV Reader stoping, offset %d >= %d" \
-                               % (self.fd.tell(), self.end))
-                self.fd.close()
-                return
             
+        return
