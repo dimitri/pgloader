@@ -1,11 +1,12 @@
-# $Id: Makefile,v 1.11 2008-02-12 17:31:33 dim Exp $
+# $Id: Makefile,v 1.12 2008-02-14 23:09:06 dim Exp $
 #
 # Makefile for debian packaging purpose, make install not intended to work.
 
 DOCS    = pgloader.1.txt
 TODO    = TODO.txt
 CVSROOT = $(shell cat CVS/Root)
-VERSION = $(shell ./pgloader.py --version | cut -d' ' -f3)
+VERSION = $(shell ./pgloader.py --version |cut -d' ' -f3)
+SHORTVER= $(shell ./pgloader.py --version |cut -d' ' -f3 |cut -d '~' -f1)
 
 # debian setting
 DESTDIR =
@@ -19,9 +20,9 @@ libs = $(wildcard pgloader/*.py)
 refm = $(wildcard reformat/*.py)
 
 DEBDIR = /tmp/pgloader
-EXPORT = $(DEBDIR)/export/pgloader
+EXPORT = $(DEBDIR)/export/pgloader-$(SHORTVER)
 ORIG   = $(DEBDIR)/export/pgloader_$(VERSION).orig.tar.gz
-ARCHIVE= $(DEBDIR)/export/pgloader-$(VERSION).tar.gz
+ARCHIVE= $(DEBDIR)/export/pgloader-$(SHORTVER).tar.gz
 
 install:
 	install -m 755 $(pgloader) $(DESTDIR)/usr/bin/pgloader
@@ -50,7 +51,7 @@ man: ${DOCS:.txt=.xml}
 deb:
 	# working copy from where to make the .orig archive
 	rm -rf $(DEBDIR)	
-	mkdir -p $(DEBDIR)/pgloader
+	mkdir -p $(DEBDIR)/pgloader-$(SHORTVER)
 	mkdir -p $(EXPORT)
 	cp -a . $(EXPORT)
 	for n in ".#*" "*~" "*.pyc" "build-stamp" "configure-stamp"; do \
@@ -61,8 +62,8 @@ deb:
 
 	# prepare the .orig without the debian/ packaging stuff
 	cp -a $(EXPORT) $(DEBDIR)
-	rm -rf $(DEBDIR)/pgloader/debian
-	(cd $(DEBDIR) && tar czf $(ORIG) pgloader)
+	rm -rf $(DEBDIR)/pgloader-$(SHORTVER)/debian
+	(cd $(DEBDIR) && tar czf $(ORIG) pgloader-$(SHORTVER))
 
 	# have a copy of the $ORIG file named $ARCHIVE for non-debian packagers
 	cp $(ORIG) $(ARCHIVE)
@@ -70,3 +71,4 @@ deb:
 	# build the debian package and copy them to ..
 	(cd $(EXPORT) && debuild)
 	cp -a $(DEBDIR)/export/pgloader[_-]$(VERSION)* ..
+	cp -a $(ARCHIVE) ..

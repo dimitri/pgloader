@@ -1,4 +1,4 @@
-pgloader (2.3.0-1) unstable; urgency=low
+pgloader (2.3.0~dev-1) unstable; urgency=low
 
   * Mutli-threaded pgloader (see options max_threads, max_parallel_sections,
                              section_threads and split_file_reading)
