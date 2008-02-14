@@ -39,27 +39,18 @@ class TextReader(DataReader):
         if 'newline_escapes' not in self.__dict__:
             self.newline_escapes = newline_escapes
 
-    def readconfig(self, name, config):
+    def readconfig(self, config, name, template):
         """ get this reader module configuration from config file """
-        DataReader.readconfig(self, name, config)
+        DataReader.readconfig(self, config, name, template)
 
         # this will be called twice if templates are in used, so we
         # have to protect ourselves against removing already read
         # configurations while in second run.
 
-        # optionnal number of columns per line
-        if 'field_count' not in self.__dict__:
-            self.field_count = None
-            
-        if config.has_option(name, 'field_count'):
-            self.field_count = config.getint(name, 'field_count')
-
-        # optionnal trailing separator option
-        if 'trailing_sep' not in self.__dict__:
-            self.trailing_sep = False
-            
-        if config.has_option(name, 'trailing_sep'):
-            self.trailing_sep = config.get(name, 'trailing_sep') == 'True'
+        self._getopt('field_count', config, name, template, None)
+        self._getopt('trailing_sep', config, name, template, False)
+        if self.trailing_sep is not False:
+            self.trailing_sep = self.trailing_sep == 'True'
 
         self.log.debug('reader.readconfig: field_count %s', self.field_count)
         self.log.debug('reader.readconfig: trailing_sep %s', self.trailing_sep)

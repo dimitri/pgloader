@@ -42,10 +42,13 @@ class DataReader:
         self.start = None
         self.end   = None
 
-    def readconfig(self, name, config):
+    def readconfig(self, config, name, template):
         """ read configuration section for common options
 
         name is configuration section name, conf the ConfigParser object
+
+        template is the (maybe None) template section name declared in
+        the use_template configuration option.
 
         specific option reading code is to be found on subclasses
         which implements read data parsing code.
@@ -55,35 +58,40 @@ class DataReader:
 
         if not DRY_RUN:
             # optionnal null and empty_string per table parameters
-            if config.has_option(name, 'null'):
-                self.db.null = parse_config_string(config.get(name, 'null'))
-            else:
-                if 'null' not in self.__dict__:
-                    self.db.null = NULL
+            self._getopt('null', config, name, template, NULL)
+            self.db.null = parse_config_string(self.null)
 
-            if config.has_option(name, 'empty_string'):
-                self.db.empty_string = parse_config_string(
-                    config.get(name, 'empty_string'))
-            else:
-                if 'empty_string' not in self.__dict__:
-                    self.db.empty_string = EMPTY_STRING
+            self._getopt('empty_string', config, name, template, EMPTY_STRING)
+            self.db.empty_string = parse_config_string(self.empty_string)
 
-        # optionnal field separator, could be defined from template
-        if 'field_sep' not in self.__dict__:
-            self.field_sep = FIELD_SEP
-        
-        if config.has_option(name, 'field_sep'):
-            self.field_sep = config.get(name, 'field_sep')
-
-            if not DRY_RUN:
-                if self.db.copy_sep is None:
-                    self.db.copy_sep = self.field_sep
+        self._getopt('field_sep', config, name, template, FIELD_SEP)
+        if not DRY_RUN:
+            if self.db.copy_sep is None:
+                self.db.copy_sep = self.field_sep
 
         if not DRY_RUN:
             self.log.debug("reader.readconfig null: '%s'" % self.db.null)
             self.log.debug("reader.readconfig empty_string: '%s'",
                            self.db.empty_string)
-            self.log.debug("reader.readconfig field_sep: '%s'", self.field_sep)
+            
+        self.log.debug("reader.readconfig field_sep: '%s'", self.field_sep)
+
+    def _getopt(self, option, config, section, template, default = None):
+        """ Init given configuration option """
+
+        if config.has_option(section, option):
+            self.__dict__[option] = config.get(section, option)
+            self.log.debug("reader._getopt %s from %s is '%s'" % (option, section, self.__dict__[option]))
+
+        elif template and config.has_option(template, option):
+            self.__dict__[option] = config.get(template, option)
+            self.log.debug("reader._getopt %s from %s is '%s'" % (option, template, self.__dict__[option]))
+
+        elif option not in self.__dict__:
+            self.log.debug("reader._getopt %s defaults to '%s'" % (option, default))
+            self.__dict__[option] = default
+
+        return self.__dict__[option]
 
     def readlines(self):
         """ read data from configured file, and generate (yields) for

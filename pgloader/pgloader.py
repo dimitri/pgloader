@@ -64,6 +64,7 @@ class PGLoader(threading.Thread):
 
         self.template     = None
         self.use_template = None
+        self.tsection     = None
 
         self.index     = None
         self.columns   = None
@@ -88,6 +89,7 @@ class PGLoader(threading.Thread):
         if not self.template:
             # check if the section wants to use a template
             if config.has_option(name, 'use_template'):
+                self.tsection = config.get(name, 'use_template')
                 self.template = config.get(name, 'use_template')
 
                 if not config.has_section(self.template):
@@ -121,13 +123,6 @@ class PGLoader(threading.Thread):
             
             self._read_conf(name, config, db)
 
-        # force reinit of self.reader, which depends on template and
-        # specific options
-        if 'reader' in self.__dict__:
-            self.reader.__init__(self.log, self.db, self.reject,
-                                 self.filename, self.input_encoding,
-                                 self.table, self.columns)
-
         # Now reset database connection
         if not DRY_RUN:
             self.db.log = self.log
@@ -141,6 +136,7 @@ class PGLoader(threading.Thread):
     
         if DRY_RUN:
             log.info("dry run mode, not connecting to database")
+            self.db = None
             return
 
         try:
@@ -214,7 +210,7 @@ class PGLoader(threading.Thread):
                 self.log.info('rejected data in %s', self.reject.reject_data)
 
             else:
-                # needed to instanciate self.reader while in template section
+                # needed to instanciate self.reject while in template section
                 self.reject = None
 
         # optionnal local option client_encoding
@@ -487,7 +483,11 @@ class PGLoader(threading.Thread):
             self.rrqueue_size = config.getint(name, 'rrqueue_size')
 
         if self.rrqueue_size is None or self.rrqueue_size < 1:
-            self.rrqueue_size = self.db.copy_every
+            if DRY_RUN:
+                # won't be used
+                self.rrqueue_size = 1
+            else:
+                self.rrqueue_size = self.db.copy_every
             
         if not self.template:
             for opt in ('section_threads', 'split_file_reading'):
@@ -507,48 +507,50 @@ class PGLoader(threading.Thread):
         # Reader's init
         if config.has_option(name, 'format'):
             self.format = config.get(name, 'format')
+        
+        if not self.template:
+            # Only init self.reader in real section, not from
+            # template.  self.reader.readconfig() will care about
+            # reading its configuration from template and current
+            # section.
+
+            if 'format' not in self.__dict__:
+                raise PGLoader_Error, "Please configure %s.format" % name
+                
+            self.log.info("File '%s' will be read in %s format" \
+                          % (self.filename, self.format))
 
             if self.format.lower() == 'csv':
                 from csvreader import CSVReader 
                 self.reader = CSVReader(self.log, self.db, self.reject,
-                                        self.filename, self.input_encoding,
+                                        self.filename,
+                                        self.input_encoding,
                                         self.table, self.columns)
 
             elif self.format.lower() == 'text':
                 from textreader import TextReader
                 self.reader = TextReader(self.log, self.db, self.reject,
-                                         self.filename, self.input_encoding,
+                                         self.filename,
+                                         self.input_encoding,
                                          self.table, self.columns,
                                          self.newline_escapes)
 
-        if not self.template \
-               and self.format.lower() == 'text' \
-               and ('field_count' in self.reader.__dict__ \
-                    and self.reader.field_count) \
-               and ('trailing_sep' in self.reader.__dict__ \
-                    and self.reader.trailing_sep):
-            
-            # this option is not compatible with text mode when
-            # field_count is used (meaning end of line could be found
-            # in the data)
-            
-            raise PGLoader_Error, \
-                  "Can't use split_file_reading with text " +\
-                  "format when 'field_count' is used"
-
-        if not self.template:
-            self.log.info("File '%s' will be read in %s format" \
-                          % (self.filename, self.format))
-
-        if 'reader' in self.__dict__:
             self.log.debug('reader.readconfig()')
-            self.reader.readconfig(name, config)
+            self.reader.readconfig(config, name, self.tsection)
 
-        if not self.template and \
-           ('format' not in self.__dict__ or self.format is None):
-            # error only when not loading the Template part
-            self.log.Error('%s: format parameter needed', name)
-            raise PGLoader_Error
+
+            if self.split_file_reading:
+                if self.format.lower() == 'text' \
+                   and (self.reader.field_count is not None \
+                        or self.reader.trailing_sep):
+
+                    # split_file_reading is not compatible with text
+                    # mode when field_count or trailing_sep is used
+                    # (meaning end of line could be found in the data)
+
+                    raise PGLoader_Error, \
+                          "Can't use split_file_reading with text " +\
+                          "format when 'field_count' or 'trailing_sep' is used"
 
         ##
         # Some column might need reformating
@@ -1045,9 +1047,14 @@ class PGLoader(threading.Thread):
         
         if self.reject is not None:
             self.errors = self.reject.errors
+
+        if DRY_RUN:
+            self.commited_rows = 0
+        else:
+            self.commited_rows = self.db.commited_rows
             
         for x in [self.table, self.duration,
-                  self.db.commited_rows, self.errors]:
+                  self.commited_rows, self.errors]:
             self.stats.append(x)
 
         # then show up some stats

@@ -25,27 +25,29 @@ class CSVReader(DataReader):
     Read some CSV formatted data
     """
 
-    def readconfig(self, name, config):
+    def readconfig(self, config, name, template):
         """ get this reader module configuration from config file """
-        DataReader.readconfig(self, name, config)
+        DataReader.readconfig(self, config, name, template)
+
+        self._getopt('doublequote', config, name, template, False)
+        if self.doublequote is not False:
+            self.doublequote = self.doublequote == 'True'
         
-        # optionnal doublequote: defaults to escaping, not doubling
-        self.doublequote = False
-        if config.has_option(name, 'doublequote'):
-            self.trailing_sep = config.get(name, 'doublequote') == 'True'
+        self._getopt('escapechar', config, name, template, None)
+        if self.escapechar is not None:
+            self.escapechar = self.escapechar[0]
 
-        self.escapechar = None
-        if config.has_option(name, 'escapechar'):
-            self.escapechar = config.get(name, 'escapechar')[0]
+        self._getopt('quotechar', config, name, template, '"')
+        self.quotechar = self.quotechar[0]
 
-        self.quotechar = '"'
-        if config.has_option(name, 'quotechar'):
-            self.quotechar = config.get(name, 'quotechar')[0]
+        self._getopt('skipinitialspace', config, name, template, False)
+        if self.skipinitialspace is not False:
+            self.skipinitialspace = self.skipinitialspace == 'True'
 
-        self.skipinitialspace = False
-        if config.has_option(name, 'skipinitialspace'):
-            self.skipinitialspace = config.get(name, 'skipinitialspace') == 'True'
-
+        for opt in ['doublequote', 'escapechar',
+                    'quotechar', 'skipinitialspace']:
+            
+            self.log.debug("reader.readconfig %s: '%s'" % (opt, self.__dict__[opt]))
 
     def readlines(self):
         """ read data from configured file, and generate (yields) for
