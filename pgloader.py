@@ -465,7 +465,6 @@ def load_data():
     threads = {}
     current = 0
     interrupted = False
-    got_errors  = False
 
     max_running = MAX_PARALLEL_SECTIONS
     if max_running == -1:
@@ -493,8 +492,6 @@ def load_data():
                 summary.pop(s)
 
         except PGLoader_Error, e:
-            got_errors = True
-            
             if e == '':
                 log.error('[%s] Please correct previous errors' % s)
             else:
@@ -506,7 +503,6 @@ def load_data():
                 pass
 
         except UnicodeDecodeError, e:
-            got_errors = True
             log.error("can't open '%s' with given input encoding '%s'" \
                                % (filename, input_encoding))
                                     
@@ -534,7 +530,7 @@ def load_data():
     td = time.time() - begin
     retcode = 0
 
-    if SUMMARY and not interrupted and not got_errors:
+    if SUMMARY and not interrupted:
         try:
             retcode = print_summary(None, sections, summary, td)
             print

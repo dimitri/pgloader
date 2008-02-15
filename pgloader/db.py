@@ -119,16 +119,22 @@ class db:
         self.first_commit_time = self.last_commit_time
         self.partial_coldef    = None
 
-        if self.dbconn is not None:
-            self.log.debug('Debug: closing current connection')
-            self.dbconn.close()
+        try:
+            if self.dbconn is not None:
+                self.log.debug('Debug: closing current connection')
+                self.dbconn.close()
 
-        self.log.debug('Debug: connecting to dns %s', self.dsn)
+            self.log.debug('Debug: connecting to dns %s', self.dsn)
 
-        self.dbconn = psycopg.connect(self.dsn)
-        self.set_encoding()
-        self.set_datestyle()
-        self.set_lc_messages()
+            self.dbconn = psycopg.connect(self.dsn)
+            self.set_encoding()
+            self.set_datestyle()
+            self.set_lc_messages()
+            
+        except psycopg.OperationalError, e:
+            # e.g. too many connections
+            self.log.error(e)
+            raise PGLoader_Error, "Can't connect to database"
 
     def print_stats(self):
         """ output some stats about recent activity """

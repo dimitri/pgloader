@@ -134,8 +134,8 @@ class PGLoader(threading.Thread):
 
         # Now reset database connection
         if not DRY_RUN:
-            self.db.log = self.log            
-            self.db.reset()            
+            self.db.log = self.log
+            self.db.reset()
 
         if not self.template and not DRY_RUN:
             # check we have properly configured the copy separator
@@ -1015,7 +1015,8 @@ class PGLoader(threading.Thread):
 
         k = threads.keys()
         for c in range(self.section_threads):
-            self.log.debug("locks[%d].acquire to set %s.done = True" % (c, k[c]))            
+            self.log.debug("locks[%d].acquire to set %s.done = True" \
+                           % (c, k[c]))            
             locks[c].acquire()
             
             threads[k[c]].done = True
