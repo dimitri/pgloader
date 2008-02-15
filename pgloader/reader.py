@@ -185,8 +185,8 @@ class UnbufferedFileReader:
             line = self.fd.readline()
             self.position = self.fd.tell()
 
-            if last_line_read:
-                self.log.debug("FileReader stoping, offset %d >= %d" \
+            if line == '' or last_line_read:
+                self.log.debug("FileReader stoping, offset %d >= %s" \
                                % (self.position, self.end))
                 self.fd.close()
                 return
