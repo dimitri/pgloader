@@ -462,8 +462,10 @@ def load_data():
     # we run through sorted section list
     sections.sort()
 
-    threads = {}
-    current = 0
+    threads  = {}
+    started  = {}
+    finished = {}
+    current  = 0
     interrupted = False
 
     max_running = MAX_PARALLEL_SECTIONS
@@ -476,8 +478,12 @@ def load_data():
         s = sections[current]
 
         try:
-            summary[s] = []
-            loader     = PGLoader(s, config, sem, summary[s])
+            summary [s] = []
+            started [s] = threading.Event()
+            finished[s] = threading.Event()
+            
+            loader     = PGLoader(s, config, sem,
+                                  (started[s], finished[s]), summary[s])
             if not loader.template:
                 filename       = loader.filename
                 input_encoding = loader.input_encoding
@@ -485,11 +491,13 @@ def load_data():
 
                 # .start() will sem.aquire(), so we won't have more
                 # than max_running threads running at any time.
-                log.info("Starting thread for %s" % s)
+                log.debug("Starting thread for %s" % s)
                 threads[s].start()
             else:
                 log.info("Skipping section %s, which is a template" % s)
-                summary.pop(s)
+
+                for d in (summary, started, finished):
+                    d.pop(s)
 
         except PGLoader_Error, e:
             if e == '':
@@ -512,19 +520,12 @@ def load_data():
 
         current += 1
 
-    if not interrupted:
-        from pgloader.tools import running_threads
-        
-        n = running_threads(threads)            
-        log.info("Waiting for %d threads to terminate" % n)
-        time.sleep(2)
+    # get sure each thread is started, then each one is done
+    from pgloader.tools import check_events
 
-        # Try to acquire all semaphore entries
-        for i in range(max_running):
-            sem.acquire()
-            log.debug("Acquired %d times, " % (i+1) + \
-                      "still waiting for %d threads to terminate" \
-                      % running_threads(threads))
+    check_events(started, log, "is running")
+    log.info("All threads are started, wait for them to terminate")
+    check_events(finished, log, "processing is over")
 
     # total duration
     td = time.time() - begin

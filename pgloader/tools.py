@@ -186,17 +186,14 @@ def check_dirname(path):
 
     return True, None
 
+
+def check_events(events, log, context = "is running"):
+    """ wait until all events (list) are set """
+    for t in events:
+        events[t].wait()
+        log.debug("thread %s %s" % (t, context))
     
-
-def running_threads(threads):
-    """ count running threads """
-    running = 0
-    for s in threads:
-        if threads[s].isAlive():
-            running += 1
-
-    return running
-
+    return
 
 class RRReader(collections.deque):
     """ Round Robin reader, which are collections.deque with a
