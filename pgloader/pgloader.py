@@ -83,7 +83,7 @@ class PGLoader(threading.Thread):
         self.config_errors = 0
         self.errors        = 0
         self.updates       = 0
-        self.init_time     = time.time()
+        self.init_time     = None
 
         # we may have to open several clob files while parsing the
         # unload data file, hence we keep track of them all
@@ -780,6 +780,7 @@ class PGLoader(threading.Thread):
 
         # tell parent thread we are running now
         self.started.set()
+        self.init_time = time.time()        
         
         # Announce the beginning of the work
         self.log.debug("%s processing" % self.logname)
