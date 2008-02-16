@@ -301,6 +301,12 @@ lc_messages::
     given, defaults to server configuration by not issuing anything
     with respect to this setting when not set.
 
+max_parallel_sections::
+
+    Number of sections to load at the same time, each in its own
+    thread. Default to +1+, which is the legacy behaviour and the more
+    common wanted one.
+
 == COMMON FORMAT CONFIGURATION PARAMETERS ==
 
 You then can define any number of data section, and give them an
@@ -550,6 +556,44 @@ signature:
 The reject object has a +log(self, messages, data = None)+ method for
 you to log errors into +section.rej.log+ and +section.rej+ files.
 
+
+== PARALLEL LOADING ==
+
+This section is about loading a single given section by multiple
+threads. To load several sections at once in a parallel fashion,
+please refer to +max_parallel_sections+ global option.
+
+section_threads::
+
+    This option allows to configure how many threads +pgloader+ will
+    use to process current section. See +split_file_reading+ for more
+    information about how those threads will serve the
+    loading. Defaults to +1+, which is the legacy behaviour and the
+    more needed one too.
+
+split_file_reading::
++
+This option is only used by +pgloader+ when +section_threads+ is more
+than +1+, and configures how the work will be spread to threads. It
+defaults to +False+.
++
+When +split_file_reading+ is +True+, +pgloader+ will have each section
+thread process a part of the input file. The file splitting is done at
+the byte level, not at the line count level: knowing how many lines
+the input file has would require loading it first...
++
+When +split_file_reading+ is +False+, +pgloader+ will have one thread
+read the input file and give workers threads input lines to process in
+a round-robin fashion. Please note the reader thread will have to
+parse the lines (according to +format+ parameter).
+
+rrqueue_size::
+
+    When +split_file_reading+ is +False+, this is the size of the
+    +pgloader+ queue used to balance input lines to workers
+    threads. Instead of giving them one line at a time in a
+    round-robin fashion, +pgloader+ will feed workers +rrqueue_size+
+    lines at a time. This defaults to +copy_every+.
 
 
 == TEXT FORMAT CONFIGURATION PARAMETERS ==
