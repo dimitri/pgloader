@@ -1009,6 +1009,10 @@ class PGLoader(threading.Thread):
             p = c
             c = (n / self.rrqueue_size) % self.section_threads
 
+        # save this for later reference
+        last_p = p
+        last_c = c
+
         # we could have some locks to release here
         self.log.debug("p=%d c=%d n=%d (n/rrqueue_size)%%%d=%d " \
                        % (p, c, n,
@@ -1022,12 +1026,22 @@ class PGLoader(threading.Thread):
             self.log.debug("locks[%d].release" % p)
             locks[p].release()
 
+        # we could have read all the data and not needed all workers,
+        # log it when it's the case, then set .done = True without
+        # taking again a lock which we already have.
+        if n < (self.section_threads * self.rrqueue_size):
+            self.log.info("processed all data with only %d workers" % (c+1))
+
         # mark all worker threads has done
         k = threads.keys()
         for c in range(self.section_threads):
-            self.log.debug("locks[%d].acquire to set %s.done = True" \
+            # we don't need any lock.acquire if we didn't use the worker
+            if n > (self.section_threads * self.rrqueue_size) \
+               or c <= last_c:
+                self.log.debug("locks[%d].acquire to set %s.done = True" \
                            % (c, k[c]))            
-            locks[c].acquire()
+                locks[c].acquire()
+
             
             threads[k[c]].done = True
             
