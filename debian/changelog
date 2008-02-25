@@ -1,3 +1,9 @@
+pgloader (2.3.0~dev-2) unstable; urgency=low
+
+  * columns = * is now supported
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Mon, 25 Feb 2008 14:58:46 +0100
+
 pgloader (2.3.0~dev-1) unstable; urgency=low
 
   * Mutli-threaded pgloader (see options max_parallel_sections,

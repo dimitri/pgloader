@@ -77,6 +77,7 @@ class PGLoader(threading.Thread):
         self.tsection     = None
 
         self.index     = None
+        self.all_cols  = None
         self.columns   = None
         self.blob_cols = None
 
@@ -139,7 +140,6 @@ class PGLoader(threading.Thread):
 
         # Now reset database connection
         if not DRY_RUN:
-            self.db.log = self.log
             self.db.reset()
 
         if not self.template and not DRY_RUN:
@@ -204,6 +204,9 @@ class PGLoader(threading.Thread):
                                % (self.db.copy_sep, self.tsection))
 
             self.log.debug("_dbconnect copy_sep %s " % self.db.copy_sep)
+
+            # we want self.db messages to get printed as from our section
+            self.db.log = self.log
 
         except Exception, error:
             log.error("Could not initialize PostgreSQL connection")
@@ -295,7 +298,18 @@ class PGLoader(threading.Thread):
             self._parse_fields('index', config.get(name, 'index'))
 
         if config.has_option(name, 'columns'):
-            self._parse_fields('columns', config.get(name, 'columns'))
+            conf_cols = config.get(name, 'columns')
+            if conf_cols == '*':
+                self.all_cols    = True
+                self.db.all_cols = True
+
+                # force db to connect now
+                self.db.reset()
+                self.columns = self.db.get_all_columns(self.table)
+                self.log.info("columns = *, got %s", str(self.columns))
+
+            else:
+                self._parse_fields('columns', config.get(name, 'columns'))
 
         if config.has_option(name, 'blob_columns'):
             self._parse_fields('blob_cols',
@@ -477,6 +491,9 @@ class PGLoader(threading.Thread):
 
         self.log.debug("only_cols %s", str(self.only_cols))
         self.log.debug("columnlist %s", str(self.columnlist))
+
+        if not self.template and self.only_cols is not None:
+            self.db.all_cols = False
 
         ##
         # This option is textreader specific, but being lazy and

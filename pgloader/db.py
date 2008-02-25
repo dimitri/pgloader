@@ -45,6 +45,10 @@ class db:
         self.empty_string    = EMPTY_STRING
         self.lc_messages     = None
 
+        # this allows to specify configuration has columns = *
+        # when true, we don't include column list in COPY statements
+        self.all_cols = None
+
         if connect:
             self.reset()
 
@@ -107,6 +111,50 @@ class db:
             raise PGLoader_Error, e
         cursor.close()
 
+    def get_all_columns(self, tablename):
+        """ select the columns name list from catalog """
+
+        if tablename.find('.') == -1:
+            schemaname = 'public'
+        else:
+            try:
+                schemaname, tablename = tablename.split('.')
+            except ValueError, e:
+                self.log.warning("db.get_all_columns: " + \
+                                 "%s has more than one '.' separator" \
+                                 % tablename)
+                raise PGLoader_Error, e
+
+        sql = """
+  SELECT attname, attnum
+    FROM pg_attribute
+   WHERE attrelid = (SELECT oid
+                       FROM pg_class
+                      WHERE relname = %s
+                            AND relnamespace = (SELECT oid
+                                                  FROM pg_namespace
+                                                 WHERE nspname = %s)
+                    )
+          AND attnum > 0 AND NOT attisdropped
+ORDER BY attnum
+"""
+        self.log.debug("get_all_columns: %s %s %s" % (tablename, schemaname, sql))
+
+        columns = []        
+        cursor  = self.dbconn.cursor()
+        try:
+            cursor.execute(sql, [tablename, schemaname])
+
+            for row in cursor.fetchall():
+                columns.append(row)
+
+        except psycopg.ProgrammingError, e:
+            raise PGLoader_Error, e
+
+        cursor.close()
+
+        return columns
+
     def reset(self):
         """ reset internal counters and open a new database connection """
         self.buffer            = None
@@ -141,7 +189,7 @@ class db:
         d = time.time() - self.first_commit_time
         u = self.commited_rows
         c = self.commits
-        self.log.info(" %d updates in %d commits took %5.3f seconds", u, c, d)
+        self.log.info(" %d rows copied in %d commits took %5.3f seconds", u, c, d)
 
         if self.errors > 0:
             self.log.error("%d database errors occured", self.errors)
@@ -335,7 +383,12 @@ class db:
         # build the table colomns specs from parameters
         # ie. we always issue COPY table (col1, col2, ..., coln) commands
         tablename = table
-        table     = "%s (%s) " % (table, ", ".join(columnlist))
+        if self.all_cols:
+            table = table
+        else:
+            table = "%s (%s) " % (table, ", ".join(columnlist))
+
+        self.log.debug("COPY will use table definition: '%s'" % table)
 
         if EOF or self.running_commands == self.copy_every \
                and self.buffer is not None:

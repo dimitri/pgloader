@@ -13,5 +13,6 @@ Description: loads flat data files into PostgreSQL
  pgloader imports data from flat files and insert it into a database
  table. You have to provide a configuration file containing sections,
  which each defines how to load a table. CSV and text format are
- supported, the latter being able to parse multi-line non-quoted with
- trailing delimiter quite CSV input, such as given by Informix UNLOAD.
+ supported, the former is able to import MySQL dumps when -T is used,
+ the latter is able to parse multi-line non-quoted with trailing
+ delimiter quite CSV input, such as given by Informix UNLOAD.
