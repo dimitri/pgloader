@@ -465,6 +465,14 @@ An easy way to get the list of attributes (columns) of your tables
     
     ROLLBACK;
 +
+As of +pgloader 2.3.0+ you can simply set +columns = *+ and +pgloader+
+will issue the needed SQL for you. This only works if your data file
+and your table definition both present the columns in the exact same
+order, obviously.
++
+Internally, +pgloader+ will issue a +COPY+ statement without the
+column names if possible, meaning when +only_cols+ is not used at the
+same time as +columns = *+ is used.
 
 user_defined_columns::
 +

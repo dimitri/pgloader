@@ -1,9 +1,10 @@
-# $Id: Makefile,v 1.12 2008-02-14 23:09:06 dim Exp $
+# $Id: Makefile,v 1.13 2008-02-25 14:55:29 dim Exp $
 #
 # Makefile for debian packaging purpose, make install not intended to work.
 
 DOCS    = pgloader.1.txt
 TODO    = TODO.txt
+BUGS    = BUGS.txt
 CVSROOT = $(shell cat CVS/Root)
 VERSION = $(shell ./pgloader.py --version |cut -d' ' -f3)
 SHORTVER= $(shell ./pgloader.py --version |cut -d' ' -f3 |cut -d '~' -f1)
@@ -20,9 +21,9 @@ libs = $(wildcard pgloader/*.py)
 refm = $(wildcard reformat/*.py)
 
 DEBDIR = /tmp/pgloader
-EXPORT = $(DEBDIR)/export/pgloader-$(SHORTVER)
+EXPORT = $(DEBDIR)/export/pgloader-$(VERSION)
 ORIG   = $(DEBDIR)/export/pgloader_$(VERSION).orig.tar.gz
-ARCHIVE= $(DEBDIR)/export/pgloader-$(SHORTVER).tar.gz
+ARCHIVE= $(DEBDIR)/export/pgloader-$(VERSION).tar.gz
 
 install:
 	install -m 755 $(pgloader) $(DESTDIR)/usr/bin/pgloader
@@ -32,11 +33,15 @@ install:
 	cp -a $(libs) $(libdir)/pgloader
 	cp -a $(refm) $(libdir)/reformat
 	cp -a $(examples) $(exdir)
+	cp -a $(TODO) $(BUGS) $(DESTDIR)/usr/share/doc/pgloader
 
 html: $(DOCS)
 	asciidoc -a toc $<
 
 todo: $(TODO)
+	asciidoc -a toc $<
+
+bugs: $(BUGS)
 	asciidoc -a toc $<
 
 site: html

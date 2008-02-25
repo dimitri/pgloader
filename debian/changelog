@@ -1,4 +1,4 @@
-pgloader (2.3.0~dev-2) unstable; urgency=low
+pgloader (2.3.0~dev2-1) unstable; urgency=low
 
   * columns = * is now supported
 
