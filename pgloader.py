@@ -478,26 +478,36 @@ def load_data():
         s = sections[current]
 
         try:
+            loader      = None
             summary [s] = []
             started [s] = threading.Event()
             finished[s] = threading.Event()
-            
-            loader     = PGLoader(s, config, sem,
+
+            try:
+                loader = PGLoader(s, config, sem,
                                   (started[s], finished[s]), summary[s])
-            if not loader.template:
-                filename       = loader.filename
-                input_encoding = loader.input_encoding
-                threads[s]     = loader
+            except PGLoader_Error, e:
+                # could not initialize properly this loader, don't
+                # ever wait for it
+                started[s] .set()
+                finished[s].set()
+                log.error(e)
 
-                # .start() will sem.aquire(), so we won't have more
-                # than max_running threads running at any time.
-                log.debug("Starting thread for %s" % s)
-                threads[s].start()
-            else:
-                log.info("Skipping section %s, which is a template" % s)
+            if loader:
+                if not loader.template:
+                    filename       = loader.filename
+                    input_encoding = loader.input_encoding
+                    threads[s]     = loader
 
-                for d in (summary, started, finished):
-                    d.pop(s)
+                    # .start() will sem.aquire(), so we won't have more
+                    # than max_running threads running at any time.
+                    log.debug("Starting thread for %s" % s)
+                    threads[s].start()
+                else:
+                    log.info("Skipping section %s, which is a template" % s)
+
+                    for d in (summary, started, finished):
+                        d.pop(s)
 
         except PGLoader_Error, e:
             if e == '':
