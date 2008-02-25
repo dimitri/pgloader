@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.13 2008-02-25 14:55:29 dim Exp $
+# $Id: Makefile,v 1.14 2008-02-25 15:47:18 dim Exp $
 #
 # Makefile for debian packaging purpose, make install not intended to work.
 
@@ -56,7 +56,7 @@ man: ${DOCS:.txt=.xml}
 deb:
 	# working copy from where to make the .orig archive
 	rm -rf $(DEBDIR)	
-	mkdir -p $(DEBDIR)/pgloader-$(SHORTVER)
+	mkdir -p $(DEBDIR)/pgloader-$(VERSION)
 	mkdir -p $(EXPORT)
 	cp -a . $(EXPORT)
 	for n in ".#*" "*~" "*.pyc" "build-stamp" "configure-stamp"; do \
@@ -67,8 +67,8 @@ deb:
 
 	# prepare the .orig without the debian/ packaging stuff
 	cp -a $(EXPORT) $(DEBDIR)
-	rm -rf $(DEBDIR)/pgloader-$(SHORTVER)/debian
-	(cd $(DEBDIR) && tar czf $(ORIG) pgloader-$(SHORTVER))
+	rm -rf $(DEBDIR)/pgloader-$(VERSION)/debian
+	(cd $(DEBDIR) && tar czf $(ORIG) pgloader-$(VERSION))
 
 	# have a copy of the $ORIG file named $ARCHIVE for non-debian packagers
 	cp $(ORIG) $(ARCHIVE)
