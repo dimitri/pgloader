@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.14 2008-02-25 15:47:18 dim Exp $
+# $Id: Makefile,v 1.15 2008-02-25 16:27:06 dim Exp $
 #
 # Makefile for debian packaging purpose, make install not intended to work.
 
@@ -59,7 +59,7 @@ deb:
 	mkdir -p $(DEBDIR)/pgloader-$(VERSION)
 	mkdir -p $(EXPORT)
 	cp -a . $(EXPORT)
-	for n in ".#*" "*~" "*.pyc" "build-stamp" "configure-stamp"; do \
+	for n in ".#*" "*~" "*.pyc" "build-stamp" "configure-stamp" "parallel.[^d]" ; do \
 	  find $(EXPORT) -name "$$n" -print0|xargs -0 echo rm -f; \
 	  find $(EXPORT) -name "$$n" -print0|xargs -0 rm -f; \
 	done

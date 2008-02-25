@@ -2,11 +2,33 @@
 
 == Multi Threaded Import ==
 
-* Terminate +split_file_reading+ behavior implementation (status: debug)
+Release-Canditate status now. See documentation and its new +PARALLEL
+LOADING+ section. Supports for both round-robin reader and split file
+reading concepts, and provides processing multiple sections at a
+time. Please test if you're interrested.
 
-* Implement 'round robin reader' behavior
+Current status::
+    Wait for user complaints, get a version at
+    http://pgloader.projects.postgresql.org/dev/[].
+
+Limits::
+   See http://docs.python.org/api/threads.html[], and consider
+   +pgloader+ is using generators, so maybe the problem won't get so
+   huga as to completely inhibit any performance benefit from
+   multi-threaded processing.
+
+Version::
+   +2.3.0+, currently in +~dev2+, which could be read 'Release Candidate'.
 
 == Constraint Exclusion support ==
+
+Current status::
+   Design seems ok enough for devel to get started anytime. Will wait
+   for +2.3.0+ to get released.
+
+Version:: 
+   Targeted for +2.4.0+, which will certainly be the next one after
+   +2.3.0+ gets released.
 
 === User level configuration
 
@@ -106,12 +128,23 @@ stop/start Threads at each new line.
 
 == Reject Behaviour ==
 
+Current status::
+   In need for design.
+
+Version::
+   After +2.4.0+, either as a minor version or a +2.5.0+ one,
+   depending on the author mood...
+
 Implement several reject behaviours for pgloader and allow users to
 configure them depending on the error we had. For example user might
 configure pgloader to load rejected data to some other table when the
 error is PK violation.
 
 == Fixed Format ==
+
+Current status::
+   Designs easy and ok, needs to get done sometime, in a minor release
+   between 'big items'
 
 Support fixed format: no separator, known length (in bytes) per
 column.
