@@ -1,0 +1,6 @@
+= PGLOADER BUGS LIST =
+
+== Multi-line without quoting
+
+The +cluttered+ example seems to be broken, I just realized this is
+the case, don't know yet how long it's been the case.
