@@ -15,7 +15,7 @@ from options import PSYCOPG_VERSION
 from tools   import PGLoader_Error
 from logger  import log
 
-log.debug('Preferred psycopg version is %d' % PSYCOPG_VERSION)
+log.debug('Preferred psycopg version is %s' % PSYCOPG_VERSION)
 
 if PSYCOPG_VERSION is None:
     # legacy import behavior
