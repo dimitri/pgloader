@@ -103,6 +103,20 @@ def parse_options():
                       default = None,
                       help    = "PATH where to find reformat python modules")
 
+    parser.add_option("-1", "--psycopg1", action = "store_true",
+                      dest    = "psycopg1",
+                      default = False,
+                      help    = "Force usage of psycopg1")
+
+    parser.add_option("-2", "--psycopg2", action = "store_true",
+                      dest    = "psycopg2",
+                      default = False,
+                      help    = "Force usage of psycopg2")
+
+    parser.add_option("--psycopg-version", dest = "psycopg_version",
+                      default = None,
+                      help    = "Force usage of given version of psycopg")
+
     (opts, args) = parser.parse_args()
 
     if opts.version:
@@ -132,6 +146,25 @@ def parse_options():
               "Error: Can't be verbose and quiet at the same time!"
         sys.exit(1)
 
+    psyco_opts = 0
+    for opt in [opts.psycopg1, opts.psycopg2, opts.psycopg_version]:
+        if opt:
+            psyco_opts += 1
+
+    if psyco_opts > 1:
+        print >>sys.stderr, \
+              "Error: please use only one of the psycopg options"
+        sys.exit(1)
+
+    if opts.psycopg_version is not None:
+        if opts.psycopg_version in ("1", "2"):
+            opts.psycopg_version = int(opts.psycopg_version)
+
+        else:
+            print >>sys.stderr, \
+                  "Error: psycopg_version can only be set to either 1 or 2"
+            sys.exit(1)
+        
     # if debug, then verbose
     if opts.debug:
         opts.verbose = True
@@ -167,6 +200,14 @@ def parse_options():
         pgloader.options.CLIENT_MIN_MESSAGES = logging.INFO
     elif opts.quiet:
         pgloader.options.CLIENT_MIN_MESSAGES = logging.ERROR
+
+
+    if opts.psycopg1:
+        pgloader.options.PSYCOPG_VERSION = 1
+    elif opts.psycopg2:
+        pgloader.options.PSYCOPG_VERSION = 2
+    else:
+        pgloader.options.PSYCOPG_VERSION = opts.psycopg_version
 
     return opts.config, args
 

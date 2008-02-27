@@ -145,6 +145,19 @@ You can't use both -F and -I at the same time.
     +/usr/share/pgloader/reformat+. See +reformat_path+ option for
     syntax and default value.
 
+-1, --psycopg1::
+
+    Force usage of psycopg version 1.
+
+-2, --psycopg2::
+
+    Force usage of psycopg version 2.
+
+--psycopg-version::
+
+    Force +pgloader+ to use given version of psycopg, either +1+ or
+    +2+.
+
 Section::
 +
 is the name of a configured Section describing some data to load

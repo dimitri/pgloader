@@ -10,15 +10,42 @@ from options import DRY_RUN, PEDANTIC, CLIENT_MIN_MESSAGES
 from options import TRUNCATE, VACUUM
 from options import INPUT_ENCODING, PG_CLIENT_ENCODING, DATESTYLE
 from options import COPY_SEP, FIELD_SEP, CLOB_SEP, NULL, EMPTY_STRING
+from options import PSYCOPG_VERSION
 
 from tools   import PGLoader_Error
 from logger  import log
 
-try:
-    import psycopg2.psycopg1 as psycopg
-except ImportError:
-    log.info('No psycopg2 module found, trying psycopg1')
-    import psycopg
+log.debug('Preferred psycopg version is %d' % PSYCOPG_VERSION)
+
+if PSYCOPG_VERSION is None:
+    # legacy import behavior
+    log.debug('Trying psycopg2 then psycopg')
+    try:
+        import psycopg2.psycopg1 as psycopg
+    except ImportError:
+        log.info('No psycopg2 module found, trying psycopg1')
+
+        try:
+            import psycopg
+        except ImportError, e:
+            log.fatal('No psycopg module found')
+            raise PGLoader_Error, e
+
+elif PSYCOPG_VERSION == 1:
+    try:
+        log.info("Loading psycopg 1")
+        import psycopg
+    except ImportError, e:
+        log.fatal("Can't load version %d of psycopg" % PSYCOPG_VERSION)
+        raise PGLoader_Error, e
+        
+elif PSYCOPG_VERSION == 2:
+    try:
+        log.info("Loading psycopg 2")
+        import psycopg2.psycopg1 as psycopg
+    except ImportError, e:
+        log.fatal("Can't load version %d of psycopg" % PSYCOPG_VERSION)
+        raise PGLoader_Error, e
 
 class db:
     """ a db connexion and utility class """
