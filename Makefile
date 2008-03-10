@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.17 2008-03-10 14:39:38 dim Exp $
+# $Id: Makefile,v 1.18 2008-03-10 15:29:45 dim Exp $
 #
 # Makefile for debian packaging purpose, make install not intended to work.
 
@@ -61,11 +61,18 @@ deb:
 	mkdir -p $(DEBDIR)/pgloader-$(VERSION)
 	mkdir -p $(EXPORT)
 	cp -a . $(EXPORT)
+
+	# get rid of temp and build files
 	for n in ".#*" "*~" "*.pyc" "build-stamp" "configure-stamp" "parallel.o*"; do \
 	  find $(EXPORT) -name "$$n" -print0|xargs -0 echo rm -f; \
 	  find $(EXPORT) -name "$$n" -print0|xargs -0 rm -f; \
 	done
-	find $(EXPORT) -type d -name CVS -print0|xargs -0 rm -rf
+
+	# get rid of CVS dirs
+	for n in "CVS" "CVSROOT"; do \
+	  find $(EXPORT) -type d -name "$$n" -print0|xargs -0 rm -rf; \
+	  find $(EXPORT) -type d -name "$$n" -print0|xargs -0 rm -rf; \
+	done
 
 	# prepare the .orig without the debian/ packaging stuff
 	cp -a $(EXPORT) $(DEBDIR)
