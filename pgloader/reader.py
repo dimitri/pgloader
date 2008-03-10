@@ -95,7 +95,7 @@ class DataReader:
                            % (option, default))
             self.__dict__[option] = default
 
-        if opt_type == 'int':
+        if opt_type == 'int' and self.__dict__[option] is not None:
             try:
                 self.__dict__[option] = int(self.__dict__[option])
             except ValueError, e:
