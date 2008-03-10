@@ -8,17 +8,13 @@ reading concepts, and provides processing multiple sections at a
 time. Please test if you're interrested.
 
 Current status::
-    Wait for user complaints, get a version at
-    http://pgloader.projects.postgresql.org/dev/[].
+   Released in pgloader +2.3.0+.
 
 Limits::
    See http://docs.python.org/api/threads.html[], and consider
    +pgloader+ is using generators, so maybe the problem won't get so
    huga as to completely inhibit any performance benefit from
    multi-threaded processing.
-
-Version::
-   +2.3.0+, currently in +~dev2+, which could be read 'Release Candidate'.
 
 == Constraint Exclusion support ==
 
@@ -139,6 +135,32 @@ Implement several reject behaviours for pgloader and allow users to
 configure them depending on the error we had. For example user might
 configure pgloader to load rejected data to some other table when the
 error is PK violation.
+
+=== Offload to error table
+
+This is a design idea where we add a new configuration parameter to
++pgloader+, namely +errors_table+. Then +pgloader+ will create the
+table with the given name as following:
+
+  CREATE TABLE mysection_errors (
+    id bigserial PRIMARY KEY,
+    first_line   bigint not null,
+    last_line    bigint,
+    sqlstate     text,
+    message      text,
+    hint         text,
+    context      text,
+    data         bytea
+  );
+
+The lines number are intended to represent input file physical line
+numbers, +last_line+ being +NULL+ when input files do not contain line
+breaks.
+
+At the implementation level, it migth be a good idea to use
++SAVEPOINTS+ (see
+http://www.postgresql.org/docs/8.3/static/sql-savepoint.html[])
+instead of plain transactions.
 
 == Fixed Format ==
 
