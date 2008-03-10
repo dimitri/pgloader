@@ -129,7 +129,7 @@ separated by comma, on the form col_name=value.
 Please notice using the --from-id option implies pgloader will try to
 get row id of each row, it being on the interval processed or
 not. This could have some performance impact, and you may end up
-prefering to use --from instead.
+preferring to use --from instead.
 +
   Example: pgloader -I col1:val1,col2:val2
 +
@@ -162,12 +162,12 @@ Section::
 +
 is the name of a configured Section describing some data to load
 +
-Section arguments are optionnal, if no section is given all configured
+Section arguments are optional, if no section is given all configured
 sections are processed.
 
 == GLOBAL CONFIGURATION SECTION ==
 
-The configuration file has a .ini file syntax, its first section has
+The configuration file has a +.ini+ file syntax, its first section has
 to be the pgsql one, defining how to access to the PostgreSQL database
 server where to load data. Then you may define any number of sections,
 each one describing a data loading task to be performed by pgloader.
@@ -176,7 +176,7 @@ The [pgsql] section has the following options, which all must be set.
 
 host::
 
-    PostgreSQL database server name, for example localhost.
+    PostgreSQL database server name, for example +localhost+.
 
 port::
 
@@ -193,23 +193,23 @@ user::
 
 pass::
 
-    The password of the user. The better is to grant a trust access privilege
-    in PostgreSQL pg_hba.conf. Then you can set this entry to whatever value
-    you want to.
+    The password of the user. The better is to grant a trust access
+    privilege in PostgreSQL +pg_hba.conf+. Then you can set this entry
+    to whatever value you want to.
 
 client_encoding::
 +
 Set this parameter to have pgloader connects to PostgreSQL using this
 encoding.
 +
-This parameter is optionnal and defaults to 'latin9'.
+This parameter is optional and defaults to 'latin9'.
 
 datestyle::
 +
 Set this parameter to have pgloader connects to PostgreSQL using this
 datestyle setting.
 +
-This parameter is optionnal and has no default value, thus pgloader will
+This parameter is optional and has no default value, thus pgloader will
 use whatever your PostgreSQL is configured to as default.
 
 copy_every::
@@ -217,19 +217,19 @@ copy_every::
 When issuing +COPY+ PostgreSQL commands, pgloader will not make a
 single big +COPY+ attempt, but copy copy_every lines at a time.
 +
-This parameter is optionnal and defaults to 10000.
+This parameter is optional and defaults to 10000.
 
 //////////////////////////////////////////
 commit_every::
 +
-PostgreSQL +COMMIT+ frequency, exprimed in +UPDATE+ orders. A good
-value is 1000, that means commiting the SQL transaction every 1000
-input lines.
+PostgreSQL +COMMIT+ frequency, in +UPDATE+ orders. A good value is
++1000+, that means committing the SQL transaction every 1000 input
+lines.
 +
 +pgloader+ issues commit every +commit_every+ updates, on connection
 closing and when a SQL error occurs.
 +
-This parameter is optionnal and defaults to 1000.
+This parameter is optional and defaults to +1000+.
 //////////////////////////////////////////
 
 copy_delimiter::
@@ -242,14 +242,14 @@ Please note PostgreSQL requires a single char properly encoded (see
 your +client_encoding+ parameter), or it abort in error and even may
 crash.
 +
-This parameter is optionnal and defaults to +field_sep+.
+This parameter is optional and defaults to +field_sep+.
 
 newline_escapes::
 +
 For parameter effect description, see below (same name, table local
 setting).
 +
-You can setup here a global escape caracter, to be considered on each
+You can setup here a global escape character, to be considered on each
 and every column of each and every text-format table defined
 thereafter.
 
@@ -258,20 +258,20 @@ null::
 You can configure here how null value is represented into your flat
 data file.
 +
-This parameter is optionnal and defaults to +''+ (that is +empty string+).
+This parameter is optional and defaults to +''+ (that is +empty string+).
 
 empty_string::
 +
 You can configure here how empty values are represented into your flat
 data file.
 +
-This parameter is optionnal and defaults to +$$'\ '$$+ (that is
+This parameter is optional and defaults to +$$'\ '$$+ (that is
 backslash followed by space).
 
 reformat_path::
 +
 When using +reformat+ option, provide here a colon separated path list
-where to look for reformating module.
+where to look for reformatting module.
 +
     reformat_path = .:/home/dim/PostgreSQL/pgfoundry/pgloader/reformat
 +
@@ -386,31 +386,31 @@ be used by the generated +COPY+ commands, thus +pgloader+ does not
 have to deal with escaping the delimiter it uses (input data has to
 have escaped it).
 +
-This parameter is optionnal and defaults to pipe char +$$'|'$$+.
+This parameter is optional and defaults to pipe char +$$'|'$$+.
 
 client_encoding::
 +
 Set this parameter to have pgloader connects to PostgreSQL using this
 encoding.
 +
-This parameter is optionnal and defaults to 'latin9'. If defined on a
-table level, this local value will overwritte the global one.
+This parameter is optional and defaults to 'latin9'. If defined on a
+table level, this local value will overwrite the global one.
 
 datestyle::
 +
 Set this parameter to have pgloader connects to PostgreSQL using this
 +datestyle+ setting.
 +
-This parameter is optionnal and has no default. If defined on a table
-level, this local value will overwritte the global one.
+This parameter is optional and has no default. If defined on a table
+level, this local value will overwrite the global one.
 
 null::
 +
 You can configure here how null value is represented into your flat
 data file.
 +
-This parameter is optionnal and defaults to +''+ (that is empty
-string). If defined on a table level, this local value will overwritte
+This parameter is optional and defaults to +''+ (that is empty
+string). If defined on a table level, this local value will overwrite
 the global one.
 
 empty_string::
@@ -418,9 +418,9 @@ empty_string::
 You can configure here how empty values are represented into your flat
 data file.
 +
-This parameter is optionnal and defaults to '\ ' (that is backslash
+This parameter is optional and defaults to '\ ' (that is backslash
 followed by space). If defined on a table level, this local value will
-overwritte the global one.
+overwrite the global one.
 
 //////////////////////////////////////////
 index::
@@ -437,7 +437,7 @@ separated by a comma.
 columns::
 +
 You can define here table columns, by giving their names and
-optionnaly column number (as found into your data file, and counting
+optionally column number (as found into your data file, and counting
 from 1) separated by a colon.
 +
     columns = x, y, a, b, d:6, c:5
@@ -524,13 +524,13 @@ section where no user column is defined.
 only_cols::
 +
 If you want to only load a part of the columns you have into the data
-file, this option let you define which columns you're interrested
+file, this option let you define which columns you're interested
 in. +only_col+ is a comma separated list of ranges or values, as in
 following example.
 +
     only_cols = 1-3, 5
 +
-This parameter is optionnal and defaults to the list of all columns
+This parameter is optional and defaults to the list of all columns
 given on the columns parameter list, in the colname order.
 +
 This option conflicts with user defined columns and +copy_columns+
@@ -538,9 +538,9 @@ option.
 
 blob_columns::
 +
-The definition of the colums where to find some blob or clob
+The definition of the columns where to find some blob or clob
 reference. This definition is composed by a table column name, a
-column number (couting from one) reference into the Informix +UNLOAD+
+column number (counting from one) reference into the Informix +UNLOAD+
 data file, and a large object type, separated by a colon. You can have
 several columns in this field, separated by a comma.
 +
@@ -555,11 +555,11 @@ Here's an example:
 reformat::
 +
 Use this option when you need to preprocess some column data with
-+pgloader+ reformating modules, or your own. The value of this option is
++pgloader+ reformatting modules, or your own. The value of this option is
 a comma separated list of columns to rewrite, which are a colon
 separated list of column name, reformat module name, reformat function
 name. Here's an example to reformat column +dt_cx+ with the
-+mysql.timestamp()+ reformating function:
++mysql.timestamp()+ reformatting function:
 +
     reformat = dt_cx:mysql:timestamp
 +
@@ -631,7 +631,7 @@ columns per tuple. Then pgloader will count columns and buffer line
 input in order to re-assemble several physical lines into one data row
 when needed.
 +
-This parameter is optionnal.
+This parameter is optional.
 
 trailing_sep::
 +
@@ -640,7 +640,7 @@ a +field_sep+ as the last character of each of its lines. With this
 option set, this last character is then not considered as a field
 separator.
 +
-This parameter is optionnal and defaults to +False+.
+This parameter is optional and defaults to +False+.
 
 newline_escapes::
 +
@@ -655,7 +655,7 @@ syntax:
 +
     newline_escapes = colname:\, other_colname:§
 +
-This parameter is optionnal, and the extra work is only done when
+This parameter is optional, and the extra work is only done when
 set. You can configure +newline_escapes+ for as many fields as
 necessary, and you may configure a different escaping character each
 time.
