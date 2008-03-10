@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.16 2008-02-25 17:26:09 dim Exp $
+# $Id: Makefile,v 1.17 2008-03-10 14:39:38 dim Exp $
 #
 # Makefile for debian packaging purpose, make install not intended to work.
 
@@ -52,6 +52,8 @@ pgloader.1.xml: $(DOCS)
 
 man: ${DOCS:.txt=.xml}
 	xmlto man $<
+
+doc: man html todo bugs
 
 deb:
 	# working copy from where to make the .orig archive

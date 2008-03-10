@@ -1,6 +1,20 @@
 = PGLOADER BUGS LIST =
 
+== Error reporting on last line when alone in its buffer
+
+When last line is alone on a +COPY+ command and its parsing ends in
+error (not enough columns read for example), no information is given
+back by +pgloader+.
+
 == Multi-line without quoting
+
+Status::
+    Appeared while preparing +2.3.0+, fixed in +~dev+ cycle (release
+    candidate), not exposed to stable releases.
+
+Details::
+    The new Reader._getopt() facility forgot to consider option types,
+    which was a pretty bad idea for TextReader.field_count option.
 
 The +cluttered+ example seems to be broken, I just realized this is
 the case, don't know yet how long it's been the case.

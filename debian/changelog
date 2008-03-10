@@ -1,3 +1,11 @@
+pgloader (2.3.0-1) unstable; urgency=low
+
+  * FIX the cluttered test case, see BUGS.txt
+  * Better release it as stable now and fix bugs when found than wait for
+    more testing of the ~dev release candidates.
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Mon, 10 Mar 2008 15:36:04 +0100
+
 pgloader (2.3.0~dev3-1) experimental; urgency=low
 
   * Add options for forcing psycopg version to use (-1, -2, --psycopg-version)

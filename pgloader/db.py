@@ -1,4 +1,4 @@
-# Author: Dimitri Fontaine <dimitri@dalibo.com>
+# Author: Dimitri Fontaine <dim@tapoueh.org>
 #
 # pgloader database connection handling
 # COPY dichotomy on error
@@ -390,14 +390,17 @@ ORDER BY attnum
 
         return ok
 
-    def save_copy_buffer(self, tablename):
+    def save_copy_buffer(self, tablename, debug = False):
         """ save copy buffer to a temporary file for further inspection """
         import tempfile
         (f, n) = tempfile.mkstemp(prefix='%s.' % tablename,
                                   suffix='.pgloader', dir='/tmp')
         os.write(f, self.buffer.getvalue())
         os.close(f)
-        self.log.warning("COPY data buffer saved in %s" % n)
+        if debug:
+            self.log.debug("COPY data buffer saved in %s" % n)
+        else:
+            self.log.warning("COPY data buffer saved in %s" % n)
         return n
 
     def copy_from(self, table, columnlist, columns, input_line,
@@ -426,7 +429,7 @@ ORDER BY attnum
                 return False
             
             if CLIENT_MIN_MESSAGES <= logging.DEBUG:
-                self.save_copy_buffer(tablename)
+                self.save_copy_buffer(tablename, debug = True)
 
             self.buffer.seek(0)
             now = time.time()

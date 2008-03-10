@@ -1,4 +1,4 @@
-# Author: Dimitri Fontaine <dimitri@dalibo.com>
+# Author: Dimitri Fontaine <dim@tapoueh.org>
 #
 # pgloader Large Object support
 

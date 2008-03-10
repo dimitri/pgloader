@@ -519,6 +519,8 @@ class PGLoader(threading.Thread):
             self.newline_escapes = [(a, NEWLINE_ESCAPES)
                                     for (a, x) in self.columns]
 
+        self.log.debug("self.newline_escapes = '%s'" % self.newline_escapes)
+
         ##
         # Parallelism knobs
         if config.has_option(name, 'section_threads'):

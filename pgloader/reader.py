@@ -78,7 +78,7 @@ class DataReader:
             
         self.log.debug("reader.readconfig field_sep: '%s'", self.field_sep)
 
-    def _getopt(self, option, config, section, template, default = None):
+    def _getopt(self, option, config, section, template, default = None, opt_type = "char"):
         """ Init given configuration option """
 
         if config.has_option(section, option):
@@ -94,6 +94,14 @@ class DataReader:
             self.log.debug("reader._getopt %s defaults to '%s'" \
                            % (option, default))
             self.__dict__[option] = default
+
+        if opt_type == 'int':
+            try:
+                self.__dict__[option] = int(self.__dict__[option])
+            except ValueError, e:
+                self.log.error('Configuration option %s.%s is not an int: %s' \
+                               % (section, option, self.__dict__[option]))
+                raise PGLoader_Error, e
 
         return self.__dict__[option]
 

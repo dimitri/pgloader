@@ -1,4 +1,4 @@
-# Author: Dimitri Fontaine <dimitri@dalibo.com>
+# Author: Dimitri Fontaine <dim@tapoueh.org>
 #
 # pgloader text format reader
 #
@@ -39,6 +39,9 @@ class TextReader(DataReader):
         if 'newline_escapes' not in self.__dict__:
             self.newline_escapes = newline_escapes
 
+        self.log.debug('reader.__init__: newline_escapes %s' \
+                       % self.newline_escapes)
+
     def readconfig(self, config, name, template):
         """ get this reader module configuration from config file """
         DataReader.readconfig(self, config, name, template)
@@ -47,7 +50,7 @@ class TextReader(DataReader):
         # have to protect ourselves against removing already read
         # configurations while in second run.
 
-        self._getopt('field_count', config, name, template, None)
+        self._getopt('field_count', config, name, template, None, 'int')
         self._getopt('trailing_sep', config, name, template, False)
         if self.trailing_sep is not False:
             self.trailing_sep = self.trailing_sep == 'True'

@@ -3,10 +3,10 @@ Mon, 13 Nov 2006 22:56:15 +0100.
 
 It was downloaded from http://pgloader.dalibo.org/
 
-Upstream Author: Dimitri Fontaine <dim@dalibo.com>
+Upstream Author: Dimitri Fontaine <dim@tapoueh.org>
 
 Copyright: 2005, Jan Wieck
-           2006, Dimitri Fontaine
+           2006, 2007, 2008 Dimitri Fontaine
 
 License:
     Redistribution and use in source and binary forms, with or without
@@ -28,5 +28,5 @@ On Debian systems, the complete text of the BSD License can be
 found in `/usr/share/common-licenses/BSD'.
 
 
-The Debian packaging is (C) 2006, Dimitri Fontaine <dim@dalibo.com> and
+The Debian packaging is (C) 2006, Dimitri Fontaine <dim@tapoueh.org> and
 is licensed under the GPL, see `/usr/share/common-licenses/GPL'.

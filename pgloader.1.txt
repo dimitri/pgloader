@@ -730,11 +730,11 @@ against data from several servers running different RDBMS softwares.
 
 == BUGS ==
 
-Please report bugs to Dimitri Fontaine <dim@tapoueh.org>.
-
-When last line is alone on a +COPY+ command and its parsing ends in
-error (not enough columns read for example), no information is given
-back by +pgloader+.
+Please report bugs to Dimitri Fontaine <dim@tapoueh.org>, and see
+current list of known bugs in the BUGS.txt distributed file (debian
+package includes it at +/usr/share/doc/pgloader/BUGS.txt+ or online at
+following url:
+http://pgloader.projects.postgresql.org/dev/BUGS.html[].
 
 == AUTHORS ==
 
