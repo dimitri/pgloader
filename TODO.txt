@@ -165,8 +165,7 @@ instead of plain transactions.
 == Fixed Format ==
 
 Current status::
-   Designs easy and ok, needs to get done sometime, in a minor release
-   between 'big items'
+  CVS, intended for 2.3.1
 
 Support fixed format: no separator, known length (in bytes) per
 column.

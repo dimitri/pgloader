@@ -596,6 +596,17 @@ class PGLoader(threading.Thread):
                                          self.input_encoding,
                                          self.table, self.columns,
                                          self.newline_escapes)
+                
+            elif self.format.lower() == 'fixed':
+                from fixedreader import FixedReader
+                self.reader = FixedReader(self.log, self.db, self.reject,
+                                          self.filename,
+                                          self.input_encoding,
+                                          self.table, self.columns)
+                
+            else:
+                self.log.error("unknown format '%s'")
+                raise PGLoader_Error, "Skipping section %s" % self.name
 
             self.log.debug('reader.readconfig()')
             self.reader.readconfig(config, name, self.tsection)

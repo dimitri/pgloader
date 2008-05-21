@@ -354,7 +354,7 @@ table::
 
 format::
 +
-The format data are to be found, either text or csv.
+The format data are to be found, either +text+, +csv+ or +fixed+.
 +
 See next sections for format specific options.
 
@@ -694,6 +694,16 @@ skipinitialspace::
 
     When +True+, whitespace immediately following the +delimiter+ is
     ignored. The default is +False+.
+
+== FIXED FORMAT CONFIGURATION PARAMETERS ==
+
+fixed_specs::
++
+This parameter allows to specify start position and byte length for
+each columns to load. Syntax is +column_name:start:len+, separated by
+comas.
++
+    fixed_specs = a:0:10, b:10:8, c:18:8, d:26:17
 
 == CONFIGURATION EXAMPLE ==
 

@@ -65,22 +65,39 @@ necessary tables:
 
  $ for sql in */*sql; do psql pgloader < $sql; done
  $ ../pgloader.py -Tsc pgloader.conf
- 
- [...]
 
- Table name        |    duration |    size |  copy rows |     errors
- ====================================================================
- clob              |      0.043s |   32 kB |          7 |          0
- cluttered         |      0.032s |   32 kB |          6 |          0
- csv               |      0.031s |   16 kB |          6 |          0
- errors            |      0.030s |   32 kB |          4 |          3
- partial           |      0.078s |   32 kB |          7 |          0
- reformat          |      0.018s |   24 kB |          4 |          1
- serial            |      0.024s |   32 kB |          7 |          0
- simple            |      0.024s |   32 kB |          7 |          0
- udc               |      0.018s |   32 kB |          5 |          0
- ====================================================================
- Total             |      0.298s |  264 kB |         53 |          4
-
+  errors       WARNING  COPY error, trying to find on which line
+  errors       WARNING  COPY data buffer saved in /tmp/errors.AhWvAv.pgloader
+  errors       WARNING  COPY error recovery done (2/3) in 0.064s
+  errors       WARNING  COPY error, trying to find on which line
+  errors       WARNING  COPY data buffer saved in /tmp/errors.BclHtj.pgloader
+  errors       WARNING  COPY error recovery done (1/1) in 0.054s
+  errors       ERROR    3 errors found into [errors] data
+  errors       ERROR    please read /tmp/errors.rej.log for errors log
+  errors       ERROR    and /tmp/errors.rej for data still to process
+  errors       ERROR    3 database errors occured
+  reformat     WARNING  COPY error, trying to find on which line
+  reformat     WARNING  COPY data buffer saved in /tmp/reformat.6P4WCD.pgloader
+  reformat     WARNING  COPY error recovery done (1/4) in 0.034s
+  reformat     ERROR    1 errors found into [reformat] data
+  reformat     ERROR    please read /tmp/reformat.rej.log for errors log
+  reformat     ERROR    and /tmp/reformat.rej for data still to process
+  reformat     ERROR    1 database errors occured
+  
+  Table name        |    duration |    size |  copy rows |     errors
+  ====================================================================
+  allcols           |      0.025s |       - |          8 |          0
+  clob              |      0.034s |       - |          7 |          0
+  cluttered         |      0.061s |       - |          6 |          0
+  csv               |      0.035s |       - |          6 |          0
+  errors            |      0.113s |       - |          4 |          3
+  fixed             |      0.045s |       - |          3 |          0
+  partial           |      0.030s |       - |          7 |          0
+  reformat          |      0.036s |       - |          4 |          1
+  serial            |      0.029s |       - |          7 |          0
+  simple            |      0.050s |       - |          7 |          0
+  udc               |      0.020s |       - |          5 |          0
+  ====================================================================
+  Total             |      0.367s |       - |         64 |          4
 
 Please note errors test should return 3 errors and reformat 1 error.
