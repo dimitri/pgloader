@@ -152,6 +152,10 @@ class PGLoader(threading.Thread):
             
         self.log.debug('%s init done' % name)
 
+    def __del__(self):
+        """ PGLoader destructor, we close the db connection """
+        self.db.close()
+
     def _dbconnect(self, config):
         """ connects to database """
         section = 'pgsql'
@@ -840,6 +844,10 @@ class PGLoader(threading.Thread):
 
     def terminate(self):
         """ Announce it's over and free the concurrency control semaphore """
+
+        # force PostgreSQL connection closing, do not wait for garbage
+        # collector
+        self.db.close()
 
         self.log.debug("releasing %s semaphore" % self.logname)
         self.sem.release()

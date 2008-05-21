@@ -89,8 +89,15 @@ class db:
             self.commits       += 1
             self.commited_rows += self.running_commands
 
+        self.close()
+
+    def close(self):
+        """ close self.dbconn PostgreSQL connection """
         if self.dbconn is not None:
+            self.log.debug('closing current connection')
             self.dbconn.close()
+
+            self.dbconn = None
 
     def set_encoding(self):
         """ set connection encoding to self.client_encoding """
@@ -195,10 +202,7 @@ ORDER BY attnum
         self.partial_coldef    = None
 
         try:
-            if self.dbconn is not None:
-                self.log.debug('Debug: closing current connection')
-                self.dbconn.close()
-
+            self.close()
             self.log.debug('Debug: connecting to dns %s', self.dsn)
 
             self.dbconn = psycopg.connect(self.dsn)
