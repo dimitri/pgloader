@@ -413,17 +413,6 @@ ORDER BY attnum
         ok = True
         if not self.copy: self.copy = True
 
-        ##
-        # build the table colomns specs from parameters
-        # ie. we always issue COPY table (col1, col2, ..., coln) commands
-        tablename = table
-        if self.all_cols:
-            table = table
-        else:
-            table = "%s (%s) " % (table, ", ".join(columnlist))
-
-        self.log.debug("COPY will use table definition: '%s'" % table)
-
         if EOF or self.running_commands == self.copy_every \
                and self.buffer is not None:
             # time to copy data to PostgreSQL table
@@ -432,6 +421,17 @@ ORDER BY attnum
                 self.log.warning("no data to COPY")
                 return False
             
+            ##
+            # build the table colomns specs from parameters
+            # ie. we always issue COPY table (col1, col2, ..., coln) commands
+            tablename = table
+            if self.all_cols:
+                table = table
+            else:
+                table = "%s (%s) " % (table, ", ".join(columnlist))
+
+            self.log.debug("COPY will use table definition: '%s'" % table)
+                
             if CLIENT_MIN_MESSAGES <= logging.DEBUG:
                 self.save_copy_buffer(tablename, debug = True)
 
