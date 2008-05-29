@@ -102,7 +102,7 @@ class PGLoader(threading.Thread):
             if config.has_option(name, 'use_template'):
                 self.tsection = config.get(name, 'use_template')
 
-        self._dbconnect(config)
+        self._dbconfig(config)
 
         if self.tsection is not None:
             self.template = config.get(name, 'use_template')
@@ -138,25 +138,14 @@ class PGLoader(threading.Thread):
             self.log.debug("Reading configuration from section [%s]", name)
             self._read_conf(name, config, db)
 
-        # Now reset database connection
-        if not DRY_RUN:
-            self.db.reset()
-
-        if not self.template and not DRY_RUN:
-            # check we have properly configured the copy separator
-            if self.db.copy_sep is None:
-                self.log.debug("%s" % self.db)
-                self.log.error("COPY sep is %s" % self.db.copy_sep)
-                msg = "BUG: pgloader couldn't configure its COPY separator"
-                raise PGLoader_Error, msg
-            
         self.log.debug('%s init done' % name)
 
     def __del__(self):
         """ PGLoader destructor, we close the db connection """
-        self.db.close()
+        if not DRY_RUN:
+            self.db.close()
 
-    def _dbconnect(self, config):
+    def _dbconfig(self, config):
         """ connects to database """
         section = 'pgsql'
     
@@ -215,6 +204,20 @@ class PGLoader(threading.Thread):
         except Exception, error:
             log.error("Could not initialize PostgreSQL connection")
             raise PGLoader_Error, error
+
+    def _postinit(self):
+        """ This has to be called while self.sem is acquired """
+        # Now reset database connection
+        if not DRY_RUN:
+            self.db.reset()
+
+        if not self.template and not DRY_RUN:
+            # check we have properly configured the copy separator
+            if self.db.copy_sep is None:
+                self.log.debug("%s" % self.db)
+                self.log.error("COPY sep is %s" % self.db.copy_sep)
+                msg = "BUG: pgloader couldn't configure its COPY separator"
+                raise PGLoader_Error, msg
         
     def _read_conf(self, name, config, db, want_template = False):
         """ init self from config section name  """
@@ -810,26 +813,35 @@ class PGLoader(threading.Thread):
         """ controling thread which dispatch the job """
 
         # care about number of threads launched
+        self.log.debug("%s.sem.acquire()" % self.logname)
         self.sem.acquire()
+        self.log.debug("%s acquired starting semaphore" % self.logname)
+
+        # postinit (will call db.reset() which will get us connected)
+        self.log.debug("%s postinit" % self.logname)
+        self._postinit()
 
         # tell parent thread we are running now
         self.started.set()
         self.init_time = time.time()        
         
         # Announce the beginning of the work
-        self.log.debug("%s processing" % self.logname)
+        self.log.info("%s processing" % self.logname)
 
         if self.section_threads == 1:
-            if 'reader' in self.__dict__ and self.reader.start is not None:
-                self.log.debug("Loading from offset %d to %d" \
-                               %  (self.reader.start, self.reader.end))
-
             try:
-                # catch worker exception
+                # when "No space left on device" where logs are sent,
+                # we want to catch the exception
+                if 'reader' in self.__dict__ and self.reader.start is not None:
+                    self.log.debug("Loading from offset %d to %d" \
+                                   %  (self.reader.start, self.reader.end))
+
                 self.prepare_processing()
                 self.process()
                 self.finish_processing()
+                
             except Exception, e:
+                # resources get freed in self.terminate()
                 self.log.error(e)
 
             self.terminate()
@@ -858,15 +870,24 @@ class PGLoader(threading.Thread):
 
         # force PostgreSQL connection closing, do not wait for garbage
         # collector
-        self.db.close()
+        if not DRY_RUN:
+            self.db.close()
 
-        self.log.debug("releasing %s semaphore" % self.logname)
+        try:
+            self.log.info("releasing %s semaphore" % self.logname)
+        except IOError, e:
+            # ignore "No space left on device" or other errors here
+            pass
+        
         self.sem.release()
         
         # tell parent thread processing is now over, here
-        self.log.debug("Announce it's over")
+        try:
+            self.log.info("Announce it's over")
+        except IOError, e:
+            pass
+        
         self.finished.set()
-
         return
 
     def split_file_read(self):

@@ -6,7 +6,7 @@ the tables it needs, then issue the pgloader command:
  $ createdb --encoding=utf-8 pgloader
  $ cd examples
  $ psql pgloader < simple/simple.sql
- $ ../pgloader.py -Tvc examples/pgloader.conf simple
+ $ ../pgloader.py -Tvc pgloader.conf simple
 
 If you want to load data from all examples, create tables for all of them
 first, then run pgloader without argument.

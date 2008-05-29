@@ -94,9 +94,13 @@ class db:
     def close(self):
         """ close self.dbconn PostgreSQL connection """
         if self.dbconn is not None:
-            self.log.debug('closing current connection')
+            try:
+                self.log.info('closing current database connection')
+            except IOError, e:
+                # Ignore no space left on device etc here
+                pass
+            
             self.dbconn.close()
-
             self.dbconn = None
 
     def set_encoding(self):

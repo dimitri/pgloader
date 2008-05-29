@@ -534,6 +534,10 @@ def load_data():
                 finished[s].set()
                 log.error(e)
 
+            except IOError, e:
+                # No space left on device?  can't log it
+                break
+
             if loader:
                 if not loader.template:
                     filename       = loader.filename
@@ -542,7 +546,7 @@ def load_data():
 
                     # .start() will sem.aquire(), so we won't have more
                     # than max_running threads running at any time.
-                    log.debug("Starting thread for %s" % s)
+                    log.debug("Starting a thread for %s" % s)
                     threads[s].start()
                 else:
                     log.info("Skipping section %s, which is a template" % s)
@@ -568,6 +572,11 @@ def load_data():
         except KeyboardInterrupt:
             interrupted = True
             log.warning("Aborting on user demand (Interrupt)")
+            break
+
+        except IOError, e:
+            # typically, No Space Left On Device, can't report nor continue
+            break
 
         current += 1
 
@@ -595,5 +604,19 @@ def load_data():
     return retcode
 
 if __name__ == "__main__":
-    sys.exit(load_data())
+    try:
+        ret = load_data()
+    except Exception, e:
+        print >>STDERR, e
+        sys.exit(1)
+
+    except IOError, e:
+        print >>STDERR, e
+        sys.exit(1)
+
+    except KeyboardInterrupt, e:
+        print >>STDERR, e
+        sys.exit(1)
+        
+    sys.exit(ret)
     

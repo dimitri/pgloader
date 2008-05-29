@@ -65,6 +65,11 @@ class DataReader:
             self.db.empty_string = parse_config_string(self.empty_string)
 
         self._getopt('field_sep', config, name, template, FIELD_SEP)
+        self.field_sep = self.field_sep.decode('string-escape')
+
+        if len(self.field_sep) != 1:
+            raise PGLoader_Error, "field_sep must be 1 char, not %d (%s)" \
+                  % (len(self.field_sep), self.field_sep)
         
         if not DRY_RUN:
             if self.db.copy_sep is None:
