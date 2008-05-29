@@ -176,7 +176,10 @@ The [pgsql] section has the following options, which all must be set.
 
 host::
 
-    PostgreSQL database server name, for example +localhost+.
+    PostgreSQL database server name, for example +localhost+. For Unix
+    Domain connection, give the directory where to find the Unix
+    Socket, e.g. +/tmp+. The +port+ will then get used to locate the
+    Unix Socket filename.
 
 port::
 
