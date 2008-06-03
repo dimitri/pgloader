@@ -1,5 +1,6 @@
 pgloader (2.3.1-1) unstable; urgency=low
 
+  * FIX: Add database opening into critical path (BoundedSemaphore)
   * FIX: close database connection as soon as possible
   * Add support for fixed format
 
