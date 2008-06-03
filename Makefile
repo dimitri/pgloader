@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.18 2008-03-10 15:29:45 dim Exp $
+# $Id: Makefile,v 1.19 2008-06-03 12:58:14 dim Exp $
 #
 # Makefile for debian packaging purpose, make install not intended to work.
 
@@ -54,6 +54,9 @@ man: ${DOCS:.txt=.xml}
 	xmlto man $<
 
 doc: man html todo bugs
+
+clean:
+	rm -f *.xml *.html *.1 *~
 
 deb:
 	# working copy from where to make the .orig archive

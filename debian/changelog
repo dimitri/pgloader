@@ -3,6 +3,7 @@ pgloader (2.3.1-1) unstable; urgency=low
   * FIX: Add database opening into critical path (BoundedSemaphore)
   * FIX: close database connection as soon as possible
   * Add support for fixed format
+  * Add support for escaped field_sep, such as \t
 
  -- Dimitri Fontaine <dim@tapoueh.org>  Wed, 21 May 2008 12:19:42 +0200
 

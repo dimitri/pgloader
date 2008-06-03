@@ -40,6 +40,7 @@ clean:
 	dh_testroot
 	rm -f build-stamp configure-stamp
 	dh_clean 
+	$(MAKE) DESTDIR=$(CURDIR)/debian/pgloader clean
 
 install: build
 	dh_testdir
