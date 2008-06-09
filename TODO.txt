@@ -183,3 +183,16 @@ Add options:
   Will allow pgloader to configure the +columns+ parameter from the
   first line of the file, and skip loading it.
 
+== XML support ==
+
+Implement XML support by allowing the user to give +pgloader+ a custom
++XSLT+ StyleSheet transforming his XML into some +CSV+ that pgloader
+can parse. Any formating option should be available for parsing the
++XSL+ output, and it should ideally be possible for pgloader to
+parallelize this processing too.
+
+Consider using http://xmlsoft.org/XSLT/python.html[].
+
+Add options allowing the user to have his +XML+ validated with a
+custom DTD or schema, if provided by the +XML+ lib.
+
