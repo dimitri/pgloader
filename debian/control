@@ -2,7 +2,7 @@ Source: pgloader
 Section: misc
 Priority: extra
 Maintainer: Dimitri Fontaine <dim@tapoueh.org>
-Build-Depends: debhelper (>= 5), docbook-to-man (>= 2.0.0), python-support (>= 0.3), xmlto
+Build-Depends: debhelper (>= 5), docbook-to-man (>= 2.0.0), python-support (>= 0.3), xmlto, asciidoc (>= 0.8.2)
 Standards-Version: 3.7.3
 Homepage: http://pgloader.projects.postgresql.org
 

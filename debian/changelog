@@ -1,3 +1,9 @@
+pgloader (2.3.1-2) unstable; urgency=low
+
+  * FIX Missing Build-Depends (Closes: #485067)
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Mon, 09 Jun 2008 15:23:56 +0200
+
 pgloader (2.3.1-1) unstable; urgency=low
 
   * FIX: Add database opening into critical path (BoundedSemaphore)
