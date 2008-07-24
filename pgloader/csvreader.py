@@ -29,8 +29,8 @@ class CSVReader(DataReader):
         """ get this reader module configuration from config file """
         DataReader.readconfig(self, config, name, template)
 
-        self._getopt('doublequote', config, name, template, False)
-        if self.doublequote is not False:
+        self._getopt('doublequote', config, name, template, True)
+        if self.doublequote is not True:
             self.doublequote = self.doublequote == 'True'
         
         self._getopt('escapechar', config, name, template, None)
@@ -72,8 +72,40 @@ class CSVReader(DataReader):
                                        start    = self.start,
                                        end      = self.end)
         
+        # don't forget COUNT and FROM_COUNT option in CSV mode
+        nb_lines     = 0
+        begin_linenb = None
+
+        ##
+        # if -F was not used, we can state that begin = 0
+        #
+        # warning: FROM_ID is ignored
+        if FROM_COUNT == 0:
+            self.log.debug('beginning on first line')
+            begin_linenb = 1
+        
         # now read the lines
         for columns in csv.reader(self.fd, dialect = 'pgloader'):
+            # we count logical lines
+            nb_lines += 1
+
+            ##
+            # if -F is used, count lines to skip, and skip them
+            if FROM_COUNT > 0:
+                if nb_lines < FROM_COUNT:
+                    continue
+
+                if nb_lines == FROM_COUNT:
+                    begin_linenb = nb_lines
+                    self.log.info('reached beginning on line %d', nb_lines)
+
+            # check if we already processed COUNT lines
+            if COUNT is not None and begin_linenb is not None \
+               and (nb_lines - begin_linenb + 1) > COUNT:
+                
+                self.log.info('reached line %d, stopping', nb_lines)
+                return
+                    
             line = self.field_sep.join(columns)
             yield line, columns
             
