@@ -183,6 +183,19 @@ Add options:
   Will allow pgloader to configure the +columns+ parameter from the
   first line of the file, and skip loading it.
 
++optional_cols+::
+
+  Allow pgloader to consider some columns optionnal, replace their
+  missing content with NULL when needed (line does not provide
+  them). Only concerns last columns of a line, by definition.
+
+Change default behaviour:
+
++only_cols+::
+
+  pgloader will only complain about missing cols when those are not
+  listed in only_cols, if this knob is used.
+
 == XML support ==
 
 Implement XML support by allowing the user to give +pgloader+ a custom
