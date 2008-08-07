@@ -75,6 +75,7 @@ class CSVReader(DataReader):
         # don't forget COUNT and FROM_COUNT option in CSV mode
         nb_lines     = 0
         begin_linenb = None
+        last_line_nb = 1
 
         ##
         # if -F was not used, we can state that begin = 0
@@ -106,7 +107,13 @@ class CSVReader(DataReader):
                 self.log.info('reached line %d, stopping', nb_lines)
                 return
                     
-            line = self.field_sep.join(columns)
-            yield line, columns
+            line         = self.field_sep.join(columns)
+            offsets      = range(last_line_nb, self.fd.line_nb)
+            last_line_nb = self.fd.line_nb
+            
+            if self.start:
+                offsets = (self.start, offsets)
+
+            yield offsets, line, columns
             
         return

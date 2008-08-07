@@ -839,10 +839,11 @@ class PGLoader(threading.Thread):
                 self.prepare_processing()
                 self.process()
                 self.finish_processing()
-                
+
             except Exception, e:
                 # resources get freed in self.terminate()
                 self.log.error(e)
+                raise
 
             self.terminate()
             return
@@ -1129,8 +1130,8 @@ class PGLoader(threading.Thread):
         """ return next line from either self.queue or self.reader """
 
         if self.queue is None:
-            for line, columns in self.reader.readlines():
-                yield line, columns
+            for offsets, line, columns in self.reader.readlines():
+                yield offsets, line, columns
 
             return
 
@@ -1139,8 +1140,8 @@ class PGLoader(threading.Thread):
 
             if len(self.queue) > 0:
                 self.log.debug("processing queue")
-                for line, columns in self.queue.readlines():
-                    yield line, columns
+                for offsets, line, columns in self.queue.readlines():
+                    yield offsets, line, columns
 
             self.lock.release()
 
@@ -1211,7 +1212,9 @@ class PGLoader(threading.Thread):
         if self.udcs:
             dudcs = dict(self.udcs)
 
-        for line, columns in self.readlines():
+        for offsets, line, columns in self.readlines():
+            self.log.debug('offsets %s', offsets)
+
             if self.blob_cols is not None:
                 columns, rowids = self.read_blob(line, columns)
 
@@ -1279,12 +1282,12 @@ class PGLoader(threading.Thread):
                     
             if not DRY_RUN:
                 self.db.copy_from(self.table, self.columnlist,
-                                  data, line, self.reject)
+                                  data, line, offsets, self.reject)
 
         if not DRY_RUN:
             # we may need a last COPY for the rest of data
             self.db.copy_from(self.table, self.columnlist,
-                              None, None, self.reject, EOF = True)
+                              None, None, None, self.reject, EOF = True)
 
         return
 

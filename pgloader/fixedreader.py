@@ -65,10 +65,7 @@ class FixedReader(DataReader):
                                        start    = self.start,
                                        end      = self.end)
 
-        line_nb = 0
-
         for line in self.fd:
-            line_nb += 1
             line     = line.strip("\n")
             llen     = len(line)
             columns  = []
@@ -77,7 +74,7 @@ class FixedReader(DataReader):
                 start, length = self.positions[cname]
 
                 if llen < (start+length):
-                    self.log.error("Line %d is too short " % line_nb +
+                    self.log.error("Line %d is too short " % self.fd.line_nb +
                                    "(column %s requires len >= %d)" \
                                    % (cname, start+length))
 
@@ -86,4 +83,7 @@ class FixedReader(DataReader):
                 
                 columns.append(line[start:start+length])
 
-            yield line, columns
+            if self.start:
+                offsets = (self.start, offsets)
+
+            yield offsets, line, columns

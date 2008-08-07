@@ -112,7 +112,13 @@ class DataReader:
 
     def readlines(self):
         """ read data from configured file, and generate (yields) for
-        each data line: line, columns and rowid """
+        each data line: offsets, line, columns and rowid 
+
+        offsets: list of line numbers where the line was read in the file
+                 tuple of (reader offset, [list, of, line, numbers])
+
+        the second case is used when in split file reading mode
+        """
         pass
 
     def set_boundaries(self, (start, end)):
@@ -142,6 +148,7 @@ class UnbufferedFileReader:
         self.end      = end
         self.fd       = None
         self.position = 0
+        self.line_nb  = 0
 
         # we don't yet force buffering, but...
         self.bufsize = -1
@@ -196,6 +203,7 @@ class UnbufferedFileReader:
         
         while line != '':
             line = self.fd.readline()
+            self.line_nb += 1
             self.position = self.fd.tell()
 
             if line == '' or last_line_read:

@@ -69,6 +69,9 @@ class TextReader(DataReader):
         begin_linenb = None
         nb_plines    = 0
 
+        tmp_offsets  = []
+        offsets      = []
+
         ##
         # if neither -I nor -F was used, we can state that begin = 0
         if FROM_ID is None and FROM_COUNT == 0:
@@ -83,6 +86,10 @@ class TextReader(DataReader):
         for line in self.fd:
             # we count real physical lines
             nb_plines += 1
+
+            # and we store them in offsets for error messages
+            tmp_offsets.append(nb_plines)
+            self.log.debug('current offset %s' % tmp_offsets)
 
             if self.input_encoding is not None:
                 # this may not be necessary, after all
@@ -128,7 +135,12 @@ class TextReader(DataReader):
                 continue
 
             # we count logical lines
-            nb_lines += 1
+            nb_lines  += 1
+            offsets    = tmp_offsets[:]
+            tmp_offsets = []
+
+            if self.start:
+                offsets = (self.start, offsets)
 
             ##
             # if -F is used, count lines to skip, and skip them
@@ -183,8 +195,7 @@ class TextReader(DataReader):
                 self.reject.log(msg, line)
                 continue
 
-            yield line, columns
-
+            yield offsets, line, columns
 
     def _split_line(self, line):
         """ split given line and returns a columns list """

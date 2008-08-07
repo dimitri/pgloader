@@ -411,7 +411,8 @@ ORDER BY attnum
             self.log.warning("COPY data buffer saved in %s" % n)
         return n
 
-    def copy_from(self, table, columnlist, columns, input_line,
+    def copy_from(self, table, columnlist,
+                  columns, input_line, offsets,
                   reject, EOF = False):
         """ Generate some COPY SQL for PostgreSQL """
         ok = True
@@ -473,8 +474,11 @@ ORDER BY attnum
 
                 # copy recovery process
                 now = time.time()
-                c, ok, ko = self.copy_from_buff(table, self.buffer,
-                                                self.running_commands, reject)
+                c, ok, ko = self.copy_from_buff(table, 
+                                                self.buffer, 
+                                                self.first_offsets,
+                                                self.running_commands, 
+                                                reject)
 
                 duration              = now - self.last_commit_time
                 self.commits         += c
@@ -495,16 +499,18 @@ ORDER BY attnum
         # prepare next run
         if self.buffer is None:
             self.buffer = StringIO()
+            self.first_offsets = offsets
 
         self.prepare_copy_data(columns, input_line, reject)
         self.running_commands += 1
         return ok
 
-    def copy_from_buff(self, table, buff, count, reject):
+    def copy_from_buff(self, table, buff, first_offsets, count, reject):
         """ If copy returned an error, try to detect wrong input line(s) """
 
         if count == 1:
-            reject.log('COPY error on this line', buff.getvalue())
+            msg = self.copy_error_message(first_offsets, 0)
+            reject.log(msg, buff.getvalue())
             buff.close()
             self.log.debug('found one more line in error')
 
@@ -558,12 +564,26 @@ ORDER BY attnum
                 # if a is only one line long, reject this line
                 if xcount == 1:
                     ko += 1
-                    reject.log('COPY error: %s' % error, x.getvalue())
+
+                    linecount = 0
+                    if x == b:
+                        linecount += m
+
+                    msg = self.copy_error_message(first_offsets, linecount)
+                    msg += '\nCOPY error: %s' % error
+                    reject.log(msg, x.getvalue())
                     self.log.debug('Notice: found one more line in error')
                     self.log.debug(x.getvalue())
 
                 else:
-                    _c, _o, _k = self.copy_from_buff(table, x, xcount, reject)
+                    new_offsets = first_offsets
+                    if x == b:
+                        new_offsets = [m + o for o in first_offsets]
+
+                    _c, _o, _k = self.copy_from_buff(table, 
+                                                     x,
+                                                     new_offsets,
+                                                     xcount, reject)
                     commits += _c
                     ok += _o
                     ko += _k
@@ -623,3 +643,19 @@ ORDER BY attnum
 
             # end of row, \n
             self.buffer.write('\n')
+
+
+    def copy_error_message(self, offsets, error_buff_offset):
+        """ Build the COPY pgloader error message with line numbers """
+        msg = 'COPY error on line'
+        if type(offsets) == type([]):
+            if len(offsets) > 1:
+                msg += 's'
+            msg += 's %s' % ' '.join([str(x + error_buff_offset)
+                                      for x in offsets])
+                
+        else:
+            # offsets is (start position (byte, ftell()), [line, numbers])
+            msg += ' '
+
+        return msg
