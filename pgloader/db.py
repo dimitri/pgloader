@@ -445,7 +445,7 @@ ORDER BY attnum
                 
             try:
                 cursor = self.dbconn.cursor()
-                r = cursor.copy_from(self.buffer, table, self.copy_sep)
+                r = self.cursor_copy_from(cursor, self.buffer, table, self.copy_sep)
                 self.dbconn.commit()
 
                 self.commits         += 1
@@ -547,7 +547,7 @@ ORDER BY attnum
         for (x, xcount) in [(a, m), (b, n-m)]:
             try:
                 x.seek(0)
-                cursor.copy_from(x, table, self.copy_sep)
+                self.cursor_copy_from(cursor, x, table, self.copy_sep)
                 self.dbconn.commit()
                 x.close()
 
@@ -589,6 +589,16 @@ ORDER BY attnum
                     ko += _k
 
         return commits, ok, ko
+
+    def cursor_copy_from(self, cursor, buffer, table, delimiter):
+        """ call psycopg copy command, in expert mode if available """
+        
+        if hasattr(cursor, 'copy_expert'):
+            self.log.debug("using copy_expert")
+            sql = "COPY %s FROM STDOUT WITH DELIMITER '%s'" % (table, delimiter)
+            return cursor.copy_expert(sql, buffer)
+        else:
+            return cursor.copy_from(buffer, table, delimiter)
 
 
     def prepare_copy_data(self, columns, input_line, reject):
