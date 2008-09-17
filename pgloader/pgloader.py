@@ -983,8 +983,13 @@ class PGLoader(threading.Thread):
         thread will read the input file and distribute the processing
         on a round-robin fashion"""
         self.prepare_processing()
+
+        try:
+            from RRRtools import RRReader
+        except ImportError, e:
+            raise PGLoader_Error, \
+                  "Please upgrade to python 2.4 or newer: %s" % e
         
-        from tools import RRReader
         queues   = {}
         locks    = {}
         sem      = threading.BoundedSemaphore(self.section_threads)
@@ -1046,7 +1051,7 @@ class PGLoader(threading.Thread):
         c = 0               # current
         p = c               # previous
         
-        for line, columns in self.reader.readlines():
+        for offsets, line, columns in self.reader.readlines():
             if p != c:
                 self.log.debug("read %d lines, queue to thread %s" % (n, c))
 
@@ -1065,7 +1070,7 @@ class PGLoader(threading.Thread):
                     self.log.debug("locks[%d].acquire" % c)
                     locks[c].acquire()
                 
-            queues[c].append((line, columns))
+            queues[c].append((offsets, line, columns))
             n += 1
             p = c
             c = (n / self.rrqueue_size) % self.section_threads
