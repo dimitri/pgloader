@@ -607,15 +607,15 @@ if __name__ == "__main__":
     try:
         ret = load_data()
     except Exception, e:
-        print >>STDERR, e
+        sys.stderr.write(str(e) + '\n')
         sys.exit(1)
 
     except IOError, e:
-        print >>STDERR, e
+        sys.stderr.write(str(e) + '\n')
         sys.exit(1)
 
     except KeyboardInterrupt, e:
-        print >>STDERR, e
+        sys.stderr.write(str(e) + '\n')
         sys.exit(1)
         
     sys.exit(ret)

@@ -4,6 +4,8 @@ pgloader (2.3.2-1) unstable; urgency=low
   * FIX fixedreader: it now know about -C
   * FIX Round Robin Reader with respect to offsets in readlines()
   * allow python 2.3 to run pgloader when it does not need collections.deque (no Round Robin Reader)
+  * change logger initialisation to support python 2.3
+  * FIX bad usage of STDERR in the code
 
  -- Dimitri Fontaine <dim@tapoueh.org>  Wed, 17 Sep 2008 17:53:53 +0200
 

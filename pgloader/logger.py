@@ -20,6 +20,14 @@ def init(client_min_messages = logging.INFO,
                             datefmt  = '%d-%m-%Y %H:%M:%S',
                             filename = filename,
                             filemode = 'w')
+    except TypeError:
+        # very old python (2.3 or such) didn't have kwargs in basicConfig
+        logfile = logging.FileHandler(filename, filemode)
+        logfile.setLevel(log_min_messages)
+        logfile_fmt = logging.Formatter(fmt, datefmt)
+        logfile.setFormatter(logfile_fmt)
+        
+        logging.getLogger('').addHandler(logfile)
     except IOError, e:
         raise PGLoader_Error, e
 
