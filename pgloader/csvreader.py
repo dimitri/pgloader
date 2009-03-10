@@ -70,43 +70,19 @@ class CSVReader(DataReader):
         self.fd = UnbufferedFileReader(self.filename, self.log,
                                        encoding = self.input_encoding,
                                        start    = self.start,
-                                       end      = self.end)
+                                       end      = self.end,
+                                       skip_head_lines = self.skip_head_lines)
         
         # don't forget COUNT and FROM_COUNT option in CSV mode
-        nb_lines     = 0
+        nb_lines     = self.skip_head_lines
         begin_linenb = None
         last_line_nb = 1
 
-        ##
-        # if -F was not used, we can state that begin = 0
-        #
-        # warning: FROM_ID is ignored
-        if FROM_COUNT == 0:
-            self.log.debug('beginning on first line')
-            begin_linenb = 1
-        
         # now read the lines
         for columns in csv.reader(self.fd, dialect = 'pgloader'):
             # we count logical lines
             nb_lines += 1
 
-            ##
-            # if -F is used, count lines to skip, and skip them
-            if FROM_COUNT > 0:
-                if nb_lines < FROM_COUNT:
-                    continue
-
-                if nb_lines == FROM_COUNT:
-                    begin_linenb = nb_lines
-                    self.log.info('reached beginning on line %d', nb_lines)
-
-            # check if we already processed COUNT lines
-            if COUNT is not None and begin_linenb is not None \
-               and (nb_lines - begin_linenb + 1) > COUNT:
-                
-                self.log.info('reached line %d, stopping', nb_lines)
-                return
-                    
             line         = self.field_sep.join(columns)
             offsets      = range(last_line_nb, self.fd.line_nb)
             last_line_nb = self.fd.line_nb

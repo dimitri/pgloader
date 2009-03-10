@@ -172,6 +172,9 @@ column. See +examples/fixed+.
 
 == Facilities ==
 
+Current status::
+  Partially implemented, +skip_head_lines+ is in CVS (2.3.2~dev1)
+
 Add options:
 
 +skip_head_lines+::

@@ -63,36 +63,19 @@ class FixedReader(DataReader):
         self.fd = UnbufferedFileReader(self.filename, self.log,
                                        encoding = self.input_encoding,
                                        start    = self.start,
-                                       end      = self.end)
+                                       end      = self.end,
+                                       skip_head_lines = self.skip_head_lines)
 
         # don't forget COUNT and FROM_COUNT option
-        nb_lines     = 0
+        nb_lines     = self.skip_head_lines
         begin_linenb = None
 
-        ##
-        # if -F was not used, we can state that begin = 0
-        #
-        # warning: FROM_ID is ignored
-        if FROM_COUNT == 0:
-            self.log.debug('beginning on first line')
-            begin_linenb = 1
-            
         for line in self.fd:
             line      = line.strip("\n")
             llen      = len(line)
             columns   = []
             offsets   = [self.fd.line_nb]
             nb_lines += 1
-
-            ##
-            # if -F is used, count lines to skip, and skip them
-            if FROM_COUNT > 0:
-                if nb_lines < FROM_COUNT:
-                    continue
-
-                if nb_lines == FROM_COUNT:
-                    begin_linenb = nb_lines
-                    self.log.info('reached beginning on line %d', nb_lines)
 
             for cname, cpos in self.columns:
                 start, length = self.positions[cname]

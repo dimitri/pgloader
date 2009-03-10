@@ -1,3 +1,5 @@
+This is a stupid useless header like you sometime find in CSV files
+id|data|date|
 1|some first row text|2006-11-11|
 2|some second row text|13/11/2006|
 3|some third row text|12-10-2006|

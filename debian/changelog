@@ -1,11 +1,14 @@
-pgloader (2.3.2-1) unstable; urgency=low
+pgloader (2.3.2~dev1-1) unstable; urgency=low
 
   * Use psycopg cursor.copy_expert() when avaiable (> 2.0.6)
   * FIX fixedreader: it now know about -C
   * FIX Round Robin Reader with respect to offsets in readlines()
-  * allow python 2.3 to run pgloader when it does not need collections.deque (no Round Robin Reader)
+  * support python 2.3 if not using RRR (not importing collections.deque)
   * change logger initialisation to support python 2.3
   * FIX bad usage of STDERR in the code
+  * Implement skip_head_lines option in configuration (superseded by -F)
+  * Do not sort() section list when it's been given on command line
+  * Catch InterfaceError when trying to close connection
 
  -- Dimitri Fontaine <dim@tapoueh.org>  Wed, 17 Sep 2008 17:53:53 +0200
 

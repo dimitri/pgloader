@@ -74,14 +74,16 @@ class TextReader(DataReader):
 
         ##
         # if neither -I nor -F was used, we can state that begin = 0
-        if FROM_ID is None and FROM_COUNT == 0:
+        if FROM_ID is None and self.skip_head_lines == 0:
             self.log.debug('beginning on first line')
             begin_linenb = 1
 
         self.fd = UnbufferedFileReader(self.filename, self.log,
-                                       encoding = self.input_encoding,
-                                       start    = self.start,
-                                       end      = self.end)
+                                       encoding        = self.input_encoding,
+                                       start           = self.start,
+                                       end             = self.end,
+                                       skip_head_lines = self.skip_head_lines,
+                                       check_count     = False)
         
         for line in self.fd:
             # we count real physical lines
@@ -143,16 +145,6 @@ class TextReader(DataReader):
                 offsets = (self.start, offsets)
 
             ##
-            # if -F is used, count lines to skip, and skip them
-            if FROM_COUNT > 0:
-                if nb_lines < FROM_COUNT:
-                    continue
-
-                if nb_lines == FROM_COUNT:
-                    begin_linenb = nb_lines
-                    self.log.info('reached beginning on line %d', nb_lines)
-
-            ##
             # check for beginning if option -I was used
             if FROM_ID is not None:
                 if columns is None:
@@ -168,7 +160,7 @@ class TextReader(DataReader):
                     # begin is set to 1 when we don't use neither -I nor -F
                     continue
 
-            if COUNT is not None and begin_linenb is not None \
+            if COUNT is not None and self.fd.reading \
                and (nb_lines - begin_linenb + 1) > COUNT:
                 
                 self.log.info('reached line %d, stopping', nb_lines)

@@ -67,6 +67,13 @@ class DataReader:
         self._getopt('field_sep', config, name, template, FIELD_SEP)
         self.field_sep = self.field_sep.decode('string-escape')
 
+        ##
+        # FROM_COUNT takes precedence over skip_head_lines
+        if FROM_COUNT is None or FROM_COUNT == 0:
+            self._getopt('skip_head_lines', config, name, template, 0, 'int')
+        else:
+            self.skip_head_lines = FROM_COUNT - 1
+
         if len(self.field_sep) != 1:
             raise PGLoader_Error, "field_sep must be 1 char, not %d (%s)" \
                   % (len(self.field_sep), self.field_sep)
@@ -82,6 +89,8 @@ class DataReader:
             self.log.debug("reader.db %s copy_sep %s" % (self.db, self.db.copy_sep))
             
         self.log.debug("reader.readconfig field_sep: '%s'", self.field_sep)
+        self.log.debug("reader.readconfig skip_head_lines: %d",
+                       self.skip_head_lines)
 
     def _getopt(self, option, config, section, template, default = None, opt_type = "char"):
         """ Init given configuration option """
@@ -138,7 +147,9 @@ class UnbufferedFileReader:
 
     def __init__(self, filename, log,
                  mode = "rb", encoding = None,
-                 start = None, end = None):
+                 start = None, end = None,
+                 skip_head_lines = 0,
+                 check_count = True):
         """ constructor """
         self.filename = filename
         self.log      = log
@@ -149,6 +160,12 @@ class UnbufferedFileReader:
         self.fd       = None
         self.position = 0
         self.line_nb  = 0
+
+        # check_count can be set to False when phisical lines and logical
+        # lines counts can diverge, like in textreader.py
+        self.check_count = check_count
+        self.skip_head_lines = skip_head_lines
+        self.reading = self.skip_head_lines == 0
 
         # we don't yet force buffering, but...
         self.bufsize = -1
@@ -206,12 +223,33 @@ class UnbufferedFileReader:
             self.line_nb += 1
             self.position = self.fd.tell()
 
+            ##
+            # if -F is used, count lines to skip, and skip them
+            if self.skip_head_lines > 0:
+                if self.line_nb <= self.skip_head_lines:
+                    continue
+
+                if self.line_nb == self.skip_head_lines + 1:
+                    self.reading = True
+                    self.log.info('reached beginning on line %d', self.line_nb)
+
+
+            # check if we already processed COUNT lines
+            if self.check_count:
+                if COUNT is not None and self.reading \
+                   and (self.line_nb - self.skip_head_lines + 1) > COUNT:
+
+                    self.log.info('reached line %d, stopping', nb_lines)
+                    return
+
+            # check EOF (real or multi-readers)
             if line == '' or last_line_read:
                 self.log.debug("FileReader stoping, offset %d >= %s" \
                                % (self.position, self.end))
                 self.fd.close()
                 return
-            
+
+            # check multi-reader boundaries
             if self.end is not None and self.fd.tell() >= self.end:
                 # we want to process current line and stop at next
                 # iteration

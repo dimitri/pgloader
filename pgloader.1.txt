@@ -425,6 +425,11 @@ This parameter is optional and defaults to '\ ' (that is backslash
 followed by space). If defined on a table level, this local value will
 overwrite the global one.
 
+skip_head_lines::
+
+  Skip the +n+ first lines of the given files (headers)
+
+
 //////////////////////////////////////////
 index::
 +

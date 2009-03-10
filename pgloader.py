@@ -493,15 +493,16 @@ def load_data():
             if s != 'pgsql':
                 sections.append(s)
 
+        # we run through sorted section list, unless we got the section list
+        # from command line
+        sections.sort()
+
     log.info('Will consider following sections:')
     for line in myprint(sections):
         log.info(line)
 
     # we count time passed from now on
     begin = time.time()
-
-    # we run through sorted section list
-    sections.sort()
 
     threads  = {}
     started  = {}

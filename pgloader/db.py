@@ -97,10 +97,14 @@ class db:
             try:
                 self.log.info('closing current database connection')
             except IOError, e:
-                # Ignore no space left on device etc here
+                # Ignore no space left on device...
                 pass
-            
-            self.dbconn.close()
+
+            try:
+                self.dbconn.close()
+            except InterfaceError, e:
+                # Ignore connection already closed
+                pass
             self.dbconn = None
 
     def set_encoding(self):
