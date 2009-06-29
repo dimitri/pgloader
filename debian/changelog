@@ -1,6 +1,7 @@
-pgloader (2.3.2~dev1-1) unstable; urgency=low
+pgloader (2.3.2-1) unstable; urgency=low
 
-  * Use psycopg cursor.copy_expert() when avaiable (> 2.0.6)
+  * Implement --from support in all readers (Closes: #531034)
+  * Use psycopg cursor.copy_expert() when available (> 2.0.6)
   * FIX fixedreader: it now know about -C
   * FIX Round Robin Reader with respect to offsets in readlines()
   * support python 2.3 if not using RRR (not importing collections.deque)
@@ -10,7 +11,7 @@ pgloader (2.3.2~dev1-1) unstable; urgency=low
   * Do not sort() section list when it's been given on command line
   * Catch InterfaceError when trying to close connection
 
- -- Dimitri Fontaine <dim@tapoueh.org>  Wed, 17 Sep 2008 17:53:53 +0200
+ -- Dimitri Fontaine <dim@tapoueh.org>  Mon, 29 Jun 2009 09:39:33 +0200
 
 pgloader (2.3.1-2) unstable; urgency=low
 
