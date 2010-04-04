@@ -1,3 +1,10 @@
+pgloader (2.3.3-1) unstable; urgency=low
+
+  * Implement -f --field-sep to overwrite the default from command line
+  * Add support for filename arguments, which use defaults
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Sun,  4 Apr 2010 19:34:39 +0200
+
 pgloader (2.3.2-1) unstable; urgency=low
 
   * Implement --from support in all readers (Closes: #531034)

@@ -95,6 +95,10 @@ def parse_options():
                       default = None,
                       help    = "wait for given id on input to begin")
 
+    parser.add_option("-f", "--field-separator", dest = "fsep",
+                      default = pgloader.options.FIELD_SEP,
+                      help    = "default field separator to use")
+
     parser.add_option("-E", "--encoding", dest = "encoding",
                       default = None,
                       help    = "input files encoding")
@@ -183,6 +187,7 @@ def parse_options():
     pgloader.options.COUNT      = opts.count
     pgloader.options.FROM_COUNT = opts.fromcount
     pgloader.options.FROM_ID    = opts.fromid
+    pgloader.options.FIELD_SEP  = opts.fsep
 
     pgloader.options.INPUT_ENCODING = opts.encoding
 
@@ -482,13 +487,30 @@ def load_data():
     sections = []
     summary  = {}
 
-    # args are meant to be configuration sections
+    # args are meant to be configuration sections, or filenames
     if len(args) > 0:
         for s in args:
             if config.has_section(s):
                 sections.append(s)
+            else:
+                log.info("Creating a section for file '%s'" % s)
+                # a filename was given, apply [pgsql] defaults
+                # set the tablename as the filename sans extension
+                # consider columns = *
+                if not os.path.exists(s):
+                    print >>sys.stderr, \
+                        "Error: '%s' does not exists as a section nor as a file" % s
+                    sys.exit(2)
+
+                config.add_section(s)
+                config.set(s, 'table', os.path.splitext(os.path.basename(s))[0])
+                config.set(s, 'filename', s)
+                config.set(s, 'columns', '*')
+                config.set(s, 'format', 'csv')
+                sections.append(s)
 
     else:
+        log.debug("No argument on CLI, will consider all sections")
         for s in config.sections():
             if s != 'pgsql':
                 sections.append(s)

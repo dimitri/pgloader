@@ -1,0 +1,12 @@
+/pgloader/__init__.pyc
+/pgloader/csvreader.pyc
+/pgloader/db.pyc
+/pgloader/fixedreader.pyc
+/pgloader/lo.pyc
+/pgloader/logger.pyc
+/pgloader/options.pyc
+/pgloader/pgloader.pyc
+/pgloader/reader.pyc
+/pgloader/textreader.pyc
+/pgloader/tools.pyc
+/pgloader.1.xml

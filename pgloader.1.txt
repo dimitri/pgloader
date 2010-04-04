@@ -11,7 +11,7 @@ pgloader [--version] [-c configuration file]
 	 [-l loglevel] [-L logfile]
          [-n dryrun] [-Cn count] [-Fn from] [-In from id]
          [-E input files encoding] [-R reformat:path]
-         [Section1 Section2]
+         [Section|Filename ...] 
 
 == DESCRIPTION ==
 
@@ -41,6 +41,28 @@ errors is issued.
 +pgloader+ is available from +pgfoundry+ at
 http://pgfoundry.org/projects/pgloader/[], where you'll find a debian
 package, a source package and an anonymous CVS.
+
+== Arguments ==
+
++pgloader+ as of version +2.3.3+ accepts two kinds of arguments, either
+section names of file names. If both a section and a file exist with the
+same name, preference is given to the section, where you can edit your
+settings rather than using default ones.
+
+Section::
++
+is the name of a configured Section describing some data to load
++
+Section arguments are optional, if no section is given all configured
+sections are processed.
+
+Filename::
+
+    The name of a file containing the data to load. +pgloader+ will
+    internally setup a +Section+ for this filename, with the default field
+    separator or the given +--field-separator+ and the +columns+ parameter
+    set to '*', and more importantly the format set to +CSV+. It's the only
+    supported format with sane enough defaults to apply here.
 
 == OPTIONS ==
 
@@ -135,6 +157,11 @@ preferring to use --from instead.
 +
 You can't use both -F and -I at the same time.
 
+-f, --field-sep::
+
+    Default field separator to use, when not set +pgloader+ will use
+    '|'. Useful when using +filename+ arguments rather than +section+ ones.
+
 -E, --encoding::
 
     Input data files encoding. Defaults to 'latin9'.
@@ -157,13 +184,6 @@ You can't use both -F and -I at the same time.
 
     Force +pgloader+ to use given version of psycopg, either +1+ or
     +2+.
-
-Section::
-+
-is the name of a configured Section describing some data to load
-+
-Section arguments are optional, if no section is given all configured
-sections are processed.
 
 == GLOBAL CONFIGURATION SECTION ==
 
