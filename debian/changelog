@@ -2,6 +2,8 @@ pgloader (2.3.3-1) unstable; urgency=low
 
   * Implement -f --field-sep to overwrite the default from command line
   * Add support for filename arguments, which use defaults
+  * Implement --reject-log and --reject-data
+  * Add support for --max-parallel-sections and --section-threads
 
  -- Dimitri Fontaine <dim@tapoueh.org>  Sun,  4 Apr 2010 19:34:39 +0200
 
