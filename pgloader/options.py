@@ -50,3 +50,5 @@ LOG_MIN_MESSAGES    = DEBUG
 DEFAULT_LOG_FILE    = "/tmp/pgloader.log"
 LOG_FILE            = None
 
+REJECT_LOG_FILE  = '%s.rej.log'
+REJECT_DATA_FILE = '%s.rej'

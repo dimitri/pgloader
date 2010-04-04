@@ -21,6 +21,7 @@ from options import COPY_SEP, FIELD_SEP, CLOB_SEP, NULL, EMPTY_STRING
 from options import NEWLINE_ESCAPES
 from options import UDC_PREFIX
 from options import REFORMAT_PATH
+from options import REJECT_LOG_FILE, REJECT_DATA_FILE
 from options import MAX_PARALLEL_SECTIONS
 from options import DEFAULT_SECTION_THREADS, SECTION_THREADS, SPLIT_FILE_READING
 from options import RRQUEUE_SIZE
@@ -242,10 +243,10 @@ class PGLoader(threading.Thread):
                 self.reject_data = config.get(name, 'reject_data')
 
             if not self.template and 'reject_log' not in self.__dict__:
-                self.reject_log = os.path.join('/tmp', '%s.rej.log' % name)
+                self.reject_log = os.path.join('/tmp', REJECT_LOG_FILE % name)
 
             if not self.template and 'reject_data' not in self.__dict__:
-                self.reject_data = os.path.join('/tmp', '%s.rej' % name)
+                self.reject_data = os.path.join('/tmp', REJECT_DATA_FILE % name)
 
             # reject logging
             if not self.template:

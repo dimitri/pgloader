@@ -58,6 +58,14 @@ def parse_options():
                       default = "/tmp/pgloader.log",
                       help    = "log file, defauts to /tmp/pgloader.log")
 
+    parser.add_option("-r", "--reject-log", dest = "reject_log",
+                      default = None,
+                      help    = "log file for rejected data error messages")
+
+    parser.add_option("-j", "--reject-data", dest = "reject_data",
+                      default = None,
+                      help    = "log file for rejected data, bad input data")
+
     parser.add_option("-s", "--summary", action = "store_true",
                       dest    = "summary",
                       default = False,
@@ -209,6 +217,30 @@ def parse_options():
         pgloader.options.REFORMAT_PATH = opts.reformat_path
 
     pgloader.options.LOG_FILE = opts.logfile
+
+    # reject file names must contain one %s which will get replaced by the
+    # section name
+    if opts.reject_log:
+        try:
+            unused = opts.reject_log % "that would be a section name"
+        except TypeError, e:
+            # TypeError: not all arguments converted during string formatting
+            # TypeError: not enough arguments for format string
+            print >>sys.stderr, \
+                "Error: reject log must contain a '%s' place holder for section name"
+            sys.exit(1)
+        pgloader.options.REJECT_LOG_FILE = opts.reject_log
+
+    if opts.reject_data:
+        try:
+            unused = opts.reject_data % "that would be a section name"
+        except TypeError, e:
+            # TypeError: not all arguments converted during string formatting
+            # TypeError: not enough arguments for format string
+            print >>sys.stderr, \
+                "Error: reject data must contain a '%s' place holder for section name"
+            sys.exit(1)
+        pgloader.options.REJECT_DATA_FILE = opts.reject_data
 
     if opts.loglevel:
         loglevel = pgloader.logger.level(opts.loglevel)

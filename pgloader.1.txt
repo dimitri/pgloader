@@ -104,6 +104,18 @@ refers to a PostgreSQL table into which some data is to be loaded.
 
     file where to log messages, see +log_min_messages+.
 
+-r, --reject-log::
+
+    Filename, with a single "%s" placeholder, where to store the bad data
+    logs (that's the error messages given by PostgreSQL). If you want to put
+    a percent in the file name, write it '%%'.
+
+-j, --reject-data::
+
+    Filename, with a single "%s" placeholder, where to store the bad data
+    (the exact lines that didn't make it from your input file).  If you want
+    to put a percent in the file name, write it '%%'.
+
 -s, --summary::
 
     makes pgloader print a 'nice' summary at the end of operations.
