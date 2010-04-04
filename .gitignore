@@ -10,3 +10,6 @@
 /pgloader/textreader.pyc
 /pgloader/tools.pyc
 /pgloader.1.xml
+/pgloader/RRRtools.pyc
+/reformat/mysql.pyc
+/reformat/pgtime.pyc

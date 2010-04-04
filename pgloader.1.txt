@@ -166,6 +166,17 @@ You can't use both -F and -I at the same time.
 
     Input data files encoding. Defaults to 'latin9'.
 
+-t, --section-threads::
+
+    How many threads per section to use, defaults to 1. The command line
+    value override the configuration file one.
+
+-m, --max-parallel-sections::
+
+    How many sections to load in parallel, defaults to 1. The command line
+    value override the configuration file one. That's a max value because
+    you will end up having less sections to load than this number.
+
 -R, --reformat_path::
 
     PATH where to find reformat python modules, defaults to

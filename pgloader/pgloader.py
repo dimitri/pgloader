@@ -22,7 +22,7 @@ from options import NEWLINE_ESCAPES
 from options import UDC_PREFIX
 from options import REFORMAT_PATH
 from options import MAX_PARALLEL_SECTIONS
-from options import SECTION_THREADS, SPLIT_FILE_READING
+from options import DEFAULT_SECTION_THREADS, SECTION_THREADS, SPLIT_FILE_READING
 from options import RRQUEUE_SIZE
 
 class PGLoader(threading.Thread):
@@ -529,11 +529,17 @@ class PGLoader(threading.Thread):
         self.log.debug("self.newline_escapes = '%s'" % self.newline_escapes)
 
         ##
-        # Parallelism knobs
-        if config.has_option(name, 'section_threads'):
+        # Parallelism knobs, give preference to command line
+        if SECTION_THREADS:
+            self.section_threads = SECTION_THREADS
+        elif config.has_option(name, 'section_threads'):
             self.section_threads = config.getint(name, 'section_threads')
         else:
-            self.section_threads = SECTION_THREADS
+            self.section_threads = DEFAULT_SECTION_THREADS
+
+        if not self.template:
+            # only log the definitive information
+            self.log.info("Loading threads: %d" % self.section_threads)
 
         if config.has_option(name, 'split_file_reading'):
             self.split_file_reading = config.get(name, 'split_file_reading') == 'True'

@@ -103,6 +103,17 @@ def parse_options():
                       default = None,
                       help    = "input files encoding")
 
+    parser.add_option("-t", "--section-threads", dest = "section_threads",
+                      default = pgloader.options.SECTION_THREADS, 
+                      type    = "int",
+                      help    = "number of threads used per sections, default is 1")
+
+    parser.add_option("-m", "--max-parallel-sections", dest = "parallel",
+                      default = pgloader.options.MAX_PARALLEL_SECTIONS,
+                      type    = "int",
+                      help    = "number of sections to load in parralel, " +\
+                          "default is 1")
+
     parser.add_option("-R", "--reformat_path", dest = "reformat_path",
                       default = None,
                       help    = "PATH where to find reformat python modules")
@@ -188,6 +199,9 @@ def parse_options():
     pgloader.options.FROM_COUNT = opts.fromcount
     pgloader.options.FROM_ID    = opts.fromid
     pgloader.options.FIELD_SEP  = opts.fsep
+
+    pgloader.options.SECTION_THREADS       = opts.section_threads
+    pgloader.options.MAX_PARALLEL_SECTIONS = opts.parallel
 
     pgloader.options.INPUT_ENCODING = opts.encoding
 
@@ -320,8 +334,9 @@ def parse_config(conffile):
             pgloader.options.REFORMAT_PATH = rpath
 
     if config.has_option(section, 'max_parallel_sections'):
-        mps = config.getint(section, 'max_parallel_sections')
-        pgloader.options.MAX_PARALLEL_SECTIONS = mps
+        if not pgloader.options.MAX_PARALLEL_SECTIONS:
+            mps = config.getint(section, 'max_parallel_sections')
+            pgloader.options.MAX_PARALLEL_SECTIONS = mps
 
     return config
 
@@ -535,6 +550,8 @@ def load_data():
     max_running = MAX_PARALLEL_SECTIONS
     if max_running == -1:
         max_running = len(sections)
+
+    log.info('Will load %d section at a time' % max_running)
 
     sem = threading.BoundedSemaphore(max_running)
     
