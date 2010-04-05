@@ -111,6 +111,9 @@ def parse_options():
                       default = None,
                       help    = "input files encoding")
 
+    parser.add_option("-o", "--pg-options", dest = "pg_options", action = "append",
+                      help    = "list of PostgreSQL options you want to SET")
+
     parser.add_option("-t", "--section-threads", dest = "section_threads",
                       default = pgloader.options.SECTION_THREADS, 
                       type    = "int",
@@ -252,6 +255,18 @@ def parse_options():
     elif opts.quiet:
         pgloader.options.CLIENT_MIN_MESSAGES = logging.ERROR
 
+    if opts.pg_options:
+        pgloader.options.PG_OPTIONS = {}
+        for o in opts.pg_options:
+            try:
+                n, v = [x.strip() for x in o.split('=')]
+                if v == "":
+                    raise ValueError
+                pgloader.options.PG_OPTIONS[n] = v
+            except ValueError, e:
+                print >>sys.stderr, \
+                    "Error: PostgreSQL options must have the form 'name=value'"
+                sys.exit(1)
 
     if opts.psycopg1:
         pgloader.options.PSYCOPG_VERSION = 1
@@ -285,6 +300,7 @@ def parse_config(conffile):
     from pgloader.options  import DRY_RUN, VERBOSE, DEBUG, PEDANTIC
     from pgloader.options  import NULL, EMPTY_STRING
     from pgloader.options  import CLIENT_MIN_MESSAGES, LOG_FILE
+    from pgloader.options  import PG_OPTIONS
     from pgloader.tools    import check_dirname
 
     # first read the logging configuration
@@ -605,6 +621,8 @@ def load_data():
                 started[s] .set()
                 finished[s].set()
                 log.error(e)
+                if DEBUG:
+                    raise
 
             except IOError, e:
                 # No space left on device?  can't log it
@@ -631,6 +649,9 @@ def load_data():
                 log.error('[%s] Please correct previous errors' % s)
             else:
                 log.error('%s' % e)
+
+            if DEBUG:
+                raise
 
             if PEDANTIC:
                 # was: threads[s].print_stats()
@@ -679,6 +700,10 @@ if __name__ == "__main__":
     try:
         ret = load_data()
     except Exception, e:
+        from pgloader.options import DEBUG
+        print DEBUG
+        if DEBUG:
+            raise
         sys.stderr.write(str(e) + '\n')
         sys.exit(1)
 

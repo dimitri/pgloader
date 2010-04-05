@@ -18,6 +18,7 @@ from options import TRUNCATE, VACUUM, TRIGGERS
 from options import COUNT, FROM_COUNT, FROM_ID
 from options import INPUT_ENCODING, PG_CLIENT_ENCODING
 from options import COPY_SEP, FIELD_SEP, CLOB_SEP, NULL, EMPTY_STRING
+from options import PG_OPTIONS
 from options import NEWLINE_ESCAPES
 from options import UDC_PREFIX
 from options import REFORMAT_PATH
@@ -163,17 +164,15 @@ class PGLoader(threading.Thread):
                          config.get(section, 'pass'),
                          connect = False)
 
-            if config.has_option(section, 'client_encoding'):
-                self.db.client_encoding = parse_config_string(
-                    config.get(section, 'client_encoding'))
+            for opt in ['client_encoding', 'datestyle', 'lc_messages']:
+                if config.has_option(section, opt):
+                    self.db.pg_options[opt] = \
+                        parse_config_string(config.get(section, opt))
 
-            if config.has_option(section, 'lc_messages'):
-                self.db.lc_messages = parse_config_string(
-                    config.get(section, 'lc_messages'))
-
-            if config.has_option(section, 'datestyle'):
-                self.db.datestyle = parse_config_string(
-                    config.get(section, 'datestyle'))
+            # PostgreSQL options
+            from tools import parse_pg_options
+            parse_pg_options(self.log, config, section, self.db.pg_options)
+            self.log.debug("_dbconfig: %s" % str(self.db.pg_options))
 
             if config.has_option(section, 'copy_every'):
                 self.db.copy_every = config.getint(section, 'copy_every')
@@ -260,29 +259,28 @@ class PGLoader(threading.Thread):
                 # needed to instanciate self.reject while in template section
                 self.reject = None
 
-        # optionnal local option client_encoding
-        if config.has_option(name, 'client_encoding'):
-            self.db.client_encoding = parse_config_string(
-                config.get(name, 'client_encoding'))
-
-        if not DRY_RUN:
-            self.log.debug("client_encoding: '%s'", self.db.client_encoding)
-
         # optionnal local option input_encoding
         self.input_encoding = INPUT_ENCODING
         if config.has_option(name, 'input_encoding'):
             self.input_encoding = parse_config_string(
                 config.get(name, 'input_encoding'))
-
         self.log.debug("input_encoding: '%s'", self.input_encoding)
 
-        # optionnal local option datestyle
-        if not DRY_RUN and config.has_option(name, 'datestyle'):
-            self.db.datestyle = parse_config_string(
-                config.get(name, 'datestyle'))
+        # optionnal local option client_encoding and datestyle
+        for opt in ['client_encoding', 'datestyle']:
+            if config.has_option(name, opt):
+                self.db.pg_options[opt] = parse_config_string(config.get(name, opt))
 
-        if not DRY_RUN:
-            self.log.debug("datestyle: '%s'", self.db.datestyle)
+                if not DRY_RUN:
+                    self.log.debug("%s: '%s'", opt, self.db.pg_options[opt])
+
+        # optionnal local pg_options
+        # precedence is given to command line parsing, which is in PG_OPTIONS
+        from tools import parse_pg_options
+        parse_pg_options(log, config, name, self.db.pg_options, overwrite=True)
+        if not self.template:
+            if PG_OPTIONS:
+                self.db.pg_options.update(PG_OPTIONS)
 
         ##
         # data filename
@@ -849,6 +847,7 @@ class PGLoader(threading.Thread):
 
             except Exception, e:
                 # resources get freed in self.terminate()
+                self.terminate()
                 self.log.error(e)
                 raise
 

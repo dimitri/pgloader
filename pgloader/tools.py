@@ -139,7 +139,25 @@ def parse_config_string(str):
 
     return str
 
-            
+
+def parse_pg_options(log, config, section, pg_options, overwrite=False):
+    """ Get all the pg_options_ prefixed options from the section"""
+    # PostgreSQL options must begin with the prefix pg_option_
+    for o in [x for x in config.options(section) 
+              if x.startswith('pg_option_')]:
+        opt = o[len('pg_option_'):]
+        val = config.get(section, o)
+
+        # hysterical raisins
+        for compat in ['client_encoding', 'lc_messages', 'datestyle']:
+            if opt == compat and config.has_option(section, compat):
+                log.warning("Ignoring %s.%s for %s.%s" \
+                                % (section, o, section, opt))
+
+        if opt not in compat and (overwrite or opt not in pg_options):
+            pg_options[opt] = val
+
+    return pg_options
     
 def read_path(strpath, log, path = [], check = True):
     """ read a path configuration element, discarding non-existing entries """

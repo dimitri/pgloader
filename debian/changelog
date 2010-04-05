@@ -4,6 +4,9 @@ pgloader (2.3.3-1) unstable; urgency=low
   * Add support for filename arguments, which use defaults
   * Implement --reject-log and --reject-data
   * Add support for --max-parallel-sections and --section-threads
+  * Support setting any PG option (-o and config file)
+  * Have --debug show a traceback
+  * Fix a bug where pgloader would freeze on early error (no such file)
 
  -- Dimitri Fontaine <dim@tapoueh.org>  Sun,  4 Apr 2010 19:34:39 +0200
 

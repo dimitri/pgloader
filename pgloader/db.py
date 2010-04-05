@@ -11,6 +11,7 @@ from options import TRUNCATE, VACUUM
 from options import INPUT_ENCODING, PG_CLIENT_ENCODING, DATESTYLE
 from options import COPY_SEP, FIELD_SEP, CLOB_SEP, NULL, EMPTY_STRING
 from options import PSYCOPG_VERSION
+from options import PG_OPTIONS
 
 from tools   import PGLoader_Error
 from logger  import log
@@ -66,11 +67,9 @@ class db:
         self.copy_sep        = COPY_SEP
         self.copy_every      = copy_every
         self.commit_every    = commit_every
-        self.client_encoding = client_encoding
-        self.datestyle       = DATESTYLE
         self.null            = NULL
         self.empty_string    = EMPTY_STRING
-        self.lc_messages     = None
+        self.pg_options      = {}
 
         # this allows to specify configuration has columns = *
         # when true, we don't include column list in COPY statements
@@ -107,51 +106,18 @@ class db:
                 pass
             self.dbconn = None
 
-    def set_encoding(self):
-        """ set connection encoding to self.client_encoding """
-        # debug only cause reconnecting happens on every
-        # configured section
-        self.log.debug('Setting client encoding to %s', self.client_encoding)
+    def set_pg_options(self):
+        """ set pg_options """
+        for opt, val in self.pg_options.items():
+            self.log.debug('Setting %s to %s', opt, val)
         
-        sql = 'set session client_encoding to %s'
-        cursor = self.dbconn.cursor()
-        try:
-            cursor.execute(sql, [self.client_encoding])
-        except psycopg.ProgrammingError, e:
-            raise PGLoader_Error, e
-        cursor.close()
-
-    def set_datestyle(self):
-        """ set session datestyle to self.datestyle """
-
-        if self.datestyle is None:
-            return
-
-        # debug only cause reconnecting happens on every
-        # configured section
-        self.log.debug('Setting datestyle to %s', self.datestyle)
-        
-        sql = 'set session datestyle to %s'
-        cursor = self.dbconn.cursor()
-        cursor.execute(sql, [self.datestyle])
-        cursor.close()
-
-    def set_lc_messages(self):
-        """ set lc_messages to self.lc_messages """
-        if self.lc_messages is None:
-            return
-        
-        # debug only cause reconnecting happens on every
-        # configured section
-        self.log.debug('Setting lc_messages to %s', self.lc_messages)
-        
-        sql = 'set session lc_messages to %s'
-        cursor = self.dbconn.cursor()
-        try:
-            cursor.execute(sql, [self.lc_messages])
-        except psycopg.ProgrammingError, e:
-            raise PGLoader_Error, e
-        cursor.close()
+            sql = 'set session %s to %%s' % opt
+            cursor = self.dbconn.cursor()
+            try:
+                cursor.execute(sql, [val])
+            except (psycopg.ProgrammingError, psycopg.DataError), e:
+                raise PGLoader_Error, e
+            cursor.close()
 
     def get_all_columns(self, tablename):
         """ select the columns name list from catalog """
@@ -214,9 +180,7 @@ ORDER BY attnum
             self.log.debug('Debug: connecting to dns %s', self.dsn)
 
             self.dbconn = psycopg.connect(self.dsn)
-            self.set_encoding()
-            self.set_datestyle()
-            self.set_lc_messages()
+            self.set_pg_options()
             
         except psycopg.OperationalError, e:
             # e.g. too many connections

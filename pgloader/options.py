@@ -8,6 +8,7 @@ PSYCOPG_VERSION = None
 
 INPUT_ENCODING     = None
 PG_CLIENT_ENCODING = 'latin9'
+PG_OPTIONS         = None
 DATESTYLE          = None
 
 COPY_SEP     = None

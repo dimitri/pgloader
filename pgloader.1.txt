@@ -42,7 +42,7 @@ errors is issued.
 http://pgfoundry.org/projects/pgloader/[], where you'll find a debian
 package, a source package and an anonymous CVS.
 
-== Arguments ==
+== ARGUMENTS ==
 
 +pgloader+ as of version +2.3.3+ accepts two kinds of arguments, either
 section names of file names. If both a section and a file exist with the
@@ -178,6 +178,14 @@ You can't use both -F and -I at the same time.
 
     Input data files encoding. Defaults to 'latin9'.
 
+-o, --pg-options::
++
+Any option to give to the PostgreSQL server by mean of the +SET+
+command. You can use this argument more than once to set more than one
+option.
++
+Example: -o standard_conforming_strings=on -o client_encoding=utf8
+
 -t, --section-threads::
 
     How many threads per section to use, defaults to 1. The command line
@@ -245,18 +253,30 @@ pass::
 
 client_encoding::
 +
-Set this parameter to have pgloader connects to PostgreSQL using this
+Set this parameter to have +pgloader+ connects to PostgreSQL using this
 encoding.
 +
 This parameter is optional and defaults to 'latin9'.
++
+As of +pgloader 2.3.3+ you can also use +pg_option_client_encoding+ which is
+the more general approach.
 
 datestyle::
 +
-Set this parameter to have pgloader connects to PostgreSQL using this
+Set this parameter to have +pgloader+ connects to PostgreSQL using this
 datestyle setting.
 +
 This parameter is optional and has no default value, thus pgloader will
 use whatever your PostgreSQL is configured to as default.
++
+As of +pgloader 2.3.3+ you can also use +pg_option_datestyle+ which is
+the more general approach.
+
+pg_option_<foo>::
+
+    Replace <foo> with any option you're allowed to setup for the session
+    only with the +SET+ command, and +pgloader+ will do just that for
+    you. Consider for example +pg_option_standard_conforming_strings = on+.
 
 copy_every::
 +
@@ -436,19 +456,30 @@ This parameter is optional and defaults to pipe char +$$'|'$$+.
 
 client_encoding::
 +
-Set this parameter to have pgloader connects to PostgreSQL using this
+Set this parameter to have +pgloader+ connects to PostgreSQL using this
 encoding.
 +
-This parameter is optional and defaults to 'latin9'. If defined on a
-table level, this local value will overwrite the global one.
+This parameter is optional and defaults to 'latin9'.
++
+As of +pgloader 2.3.3+ you can also use +pg_option_client_encoding+ which is
+the more general approach.
 
 datestyle::
 +
-Set this parameter to have pgloader connects to PostgreSQL using this
-+datestyle+ setting.
+Set this parameter to have +pgloader+ connects to PostgreSQL using this
+datestyle setting.
 +
-This parameter is optional and has no default. If defined on a table
-level, this local value will overwrite the global one.
+This parameter is optional and has no default value, thus pgloader will
+use whatever your PostgreSQL is configured to as default.
++
+As of +pgloader 2.3.3+ you can also use +pg_option_datestyle+ which is
+the more general approach.
+
+pg_option_<foo>::
+
+    Replace <foo> with any option you're allowed to setup for the session
+    only with the +SET+ command, and +pgloader+ will do just that for
+    you. Consider for example +pg_option_standard_conforming_strings = on+.
 
 null::
 +
