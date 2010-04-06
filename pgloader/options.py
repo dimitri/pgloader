@@ -2,7 +2,7 @@
 #
 # Some common options, for each module to get them
 
-PGLOADER_VERSION = '2.3.2'
+PGLOADER_VERSION = '2.3.3~dev1'
 
 PSYCOPG_VERSION = None
 

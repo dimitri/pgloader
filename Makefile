@@ -63,18 +63,12 @@ deb:
 	rm -rf $(DEBDIR)	
 	mkdir -p $(DEBDIR)/pgloader-$(VERSION)
 	mkdir -p $(EXPORT)
-	cp -a . $(EXPORT)
+	rsync -Ca . $(EXPORT)
 
 	# get rid of temp and build files
 	for n in ".#*" "*~" "*.pyc" "build-stamp" "configure-stamp" "parallel.o*"; do \
 	  find $(EXPORT) -name "$$n" -print0|xargs -0 echo rm -f; \
 	  find $(EXPORT) -name "$$n" -print0|xargs -0 rm -f; \
-	done
-
-	# get rid of CVS dirs
-	for n in "CVS" "CVSROOT"; do \
-	  find $(EXPORT) -type d -name "$$n" -print0|xargs -0 rm -rf; \
-	  find $(EXPORT) -type d -name "$$n" -print0|xargs -0 rm -rf; \
 	done
 
 	# prepare the .orig without the debian/ packaging stuff
