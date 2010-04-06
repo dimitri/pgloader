@@ -777,6 +777,13 @@ skipinitialspace::
     When +True+, whitespace immediately following the +delimiter+ is
     ignored. The default is +False+.
 
+field_size_limit::
+
+    Sets the maximum field size allowed by the python +CSV+ parser. Accepts
+    an number of bytes (integer), or a string containing a number then one
+    of those units (case sensitive): +kB+, +MB+, +GB+, +TB+. Requires a at
+    least python 2.5.
+
 == FIXED FORMAT CONFIGURATION PARAMETERS ==
 
 fixed_specs::

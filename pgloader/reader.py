@@ -32,6 +32,10 @@ class DataReader:
         self.table     = table
         self.columns   = columns
         self.reject    = reject
+        self.mem_units = {'kB': 1024,
+                          'MB': 1024*1024,
+                          'GB': 1024*1024*1024,
+                          'TB': 1024*1024*1024*1024}
 
         if self.input_encoding is None:
             if INPUT_ENCODING is not None:
@@ -114,6 +118,21 @@ class DataReader:
                 self.__dict__[option] = int(self.__dict__[option])
             except ValueError, e:
                 self.log.error('Configuration option %s.%s is not an int: %s' \
+                               % (section, option, self.__dict__[option]))
+                raise PGLoader_Error, e
+
+        elif opt_type == 'mem' and self.__dict__[option] is not None:
+            try:
+                opt = self.__dict__[option]
+                if type(opt) == type("string") \
+                       and len(opt) > 2 and opt [-2:] in self.mem_units:
+                    unit = opt[-2:]
+                    size = int(opt[:-2]) * self.mem_units[unit]
+                    self.__dict__[option] = int(size)
+                else:
+                    self.__dict__[option] = int(self.__dict__[option])
+            except ValueError, e:
+                self.log.error('Configuration option %s.%s is not a memsize: %s' \
                                % (section, option, self.__dict__[option]))
                 raise PGLoader_Error, e
 

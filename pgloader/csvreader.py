@@ -44,8 +44,10 @@ class CSVReader(DataReader):
         if self.skipinitialspace is not False:
             self.skipinitialspace = self.skipinitialspace == 'True'
 
+        self._getopt('field_size_limit', config, name, template, -1, "mem")
+
         for opt in ['doublequote', 'escapechar',
-                    'quotechar', 'skipinitialspace']:
+                    'quotechar', 'skipinitialspace', 'field_size_limit']:
             
             self.log.debug("reader.readconfig %s: '%s'" \
                            % (opt, self.__dict__[opt]))
@@ -77,6 +79,17 @@ class CSVReader(DataReader):
         nb_lines     = self.skip_head_lines
         begin_linenb = None
         last_line_nb = 1
+
+        # set the field_size_limit, from python 2.5
+        if self.field_size_limit != -1:
+            try:
+                csv.field_size_limit(self.field_size_limit)
+                self.log.debug("csv.field_size_limit(%d)" \
+                               % self.field_size_limit)
+            except AttributeError:
+                #'module' object has no attribute 'field_size_limit'
+                self.log.warning("field_size_limit is new in python version 2.5")
+                pass
 
         # now read the lines
         for columns in csv.reader(self.fd, dialect = 'pgloader'):
