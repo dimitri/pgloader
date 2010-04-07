@@ -214,6 +214,10 @@ def parse_options():
     pgloader.options.SECTION_THREADS       = opts.section_threads
     pgloader.options.MAX_PARALLEL_SECTIONS = opts.parallel
 
+    if pgloader.options.MAX_PARALLEL_SECTIONS is None:
+        from pgloader.options import DEFAULT_MAX_PARALLEL_SECTIONS
+        pgloader.options.MAX_PARALLEL_SECTIONS = DEFAULT_MAX_PARALLEL_SECTIONS
+
     pgloader.options.INPUT_ENCODING = opts.encoding
 
     if opts.reformat_path:
@@ -701,7 +705,6 @@ if __name__ == "__main__":
         ret = load_data()
     except Exception, e:
         from pgloader.options import DEBUG
-        print DEBUG
         if DEBUG:
             raise
         sys.stderr.write(str(e) + '\n')

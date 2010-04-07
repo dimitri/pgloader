@@ -58,7 +58,7 @@ doc: man html todo bugs
 clean:
 	rm -f *.xml *.html *.1 *~
 
-deb:
+prepare-deb:
 	# working copy from where to make the .orig archive
 	rm -rf $(DEBDIR)	
 	mkdir -p $(DEBDIR)/pgloader-$(VERSION)
@@ -72,14 +72,24 @@ deb:
 	done
 
 	# prepare the .orig without the debian/ packaging stuff
-	cp -a $(EXPORT) $(DEBDIR)
+	rsync -Ca $(EXPORT) $(DEBDIR)
 	rm -rf $(DEBDIR)/pgloader-$(VERSION)/debian
 	(cd $(DEBDIR) && tar czf $(ORIG) pgloader-$(VERSION))
 
 	# have a copy of the $ORIG file named $ARCHIVE for non-debian packagers
 	cp $(ORIG) $(ARCHIVE)
 
-	# build the debian package and copy them to ..
+debuild:
 	(cd $(EXPORT) && debuild)
+
+debuild-unsign:
+	(cd $(EXPORT) && debuild -us -uc)
+
+copy-package:
 	cp -a $(DEBDIR)/export/pgloader[_-]$(VERSION)* ..
 	cp -a $(ARCHIVE) ..
+
+deb: prepare-deb debuild copy-package
+
+deb-unsign: prepare-deb debuild-unsign copy-package
+

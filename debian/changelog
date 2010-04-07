@@ -1,4 +1,4 @@
-pgloader (2.3.3~dev1-1) unstable; urgency=low
+pgloader (2.3.3~dev2-1) unstable; urgency=low
 
   * Implement -f --field-sep to overwrite the default from command line
   * Add support for filename arguments, which use defaults
