@@ -56,3 +56,5 @@ REJECT_DATA_FILE = '%s.rej'
 
 LOAD_FROM_STDIN = None
 LOAD_TO_TABLE   = None
+
+FILE_BOUNDARIES = None  # (start, end) --- file positions in bytes

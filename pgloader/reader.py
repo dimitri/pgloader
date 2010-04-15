@@ -198,7 +198,6 @@ class UnbufferedFileReader:
                 else:
                     f = open(self.filename, self.mode, self.bufsize)
 
-                self.log.warning('PHOQUE "%s"', f)
                 self.fd = codecs.getreader(self.encoding)(f)
                 self.log.info("Opened '%s' with encoding '%s'" \
                               % (self.filename, self.encoding))
@@ -222,7 +221,7 @@ class UnbufferedFileReader:
             self.fd.seek(self.start)
             self.position = self.fd.tell()
 
-        self.log.debug("Opened '%s' in %s (fileno %s), ftell %d" \
+        self.log.info("Opened '%s' in %s (fileno %s), ftell %d" \
                       % (self.filename, self.fd,
                          self.fd.fileno(), self.position))
         return
@@ -285,6 +284,8 @@ class UnbufferedFileReader:
             if self.end is not None and self.fd.tell() >= self.end:
                 # we want to process current line and stop at next
                 # iteration
+                self.log.info("Reached position %d, reading last line" \
+                              % self.fd.tell())
                 last_line_read = True
 
             yield line

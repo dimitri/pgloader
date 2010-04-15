@@ -289,9 +289,14 @@ class PGLoader(threading.Thread):
                 self.log.debug('%s.%s: %s', name, opt, config.get(name, opt))
                 self.__dict__[opt] = config.get(name, opt)
             else:
-                if not self.template and not self.__dict__[opt]:
+                if not self.template and opt not in self.__dict__:
+                    msg = "Error: Please configure %s.%s" % (name, opt)
+                    raise PGLoader_Error, msg
+                
+                elif not self.template and not self.__dict__[opt]:
                     self.log.error('Error: please configure %s.%s', name, opt)
                     self.config_errors += 1
+                    
                 else:
                     # Reading Configuration Template section
                     # we want the attribute to exists for further usage

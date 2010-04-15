@@ -9,6 +9,7 @@ pgloader (2.3.3~dev2-1) unstable; urgency=low
   * Fix a bug where pgloader would freeze on early error (no such file)
   * Implement an option to set csv field size limit
   * Implement --load-from-stdin
+  * Implement --boundaries
 
  -- Dimitri Fontaine <dim@tapoueh.org>  Sun,  4 Apr 2010 19:34:39 +0200
 

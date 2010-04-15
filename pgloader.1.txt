@@ -234,6 +234,11 @@ for them.
     loading the data to, it's useful when you want to load from +stdin+ and
     avoid editing a full configuration section.
 
+--boundaries::
+
+    Allow for limiting the range of bytes to read and process, must be given
+    in the X..Y format, with X and Y integers.
+
 == GLOBAL CONFIGURATION SECTION ==
 
 The configuration file has a +.ini+ file syntax, its first section has
