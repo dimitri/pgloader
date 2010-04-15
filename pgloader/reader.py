@@ -2,6 +2,7 @@
 #
 # pgloader data reader interface and defaults
 
+import sys
 from tools    import PGLoader_Error, Reject, parse_config_string
 from db       import db
 from lo       import ifx_clob, ifx_blob
@@ -192,9 +193,13 @@ class UnbufferedFileReader:
         if self.encoding is not None:
             try:
                 import codecs
-                self.fd = codecs.open(self.filename,
-                                      encoding  = self.encoding,
-                                      buffering = self.bufsize)
+                if self.filename == 'sys.stdin':
+                    f = sys.stdin
+                else:
+                    f = open(self.filename, self.mode, self.bufsize)
+
+                self.log.warning('PHOQUE "%s"', f)
+                self.fd = codecs.getreader(self.encoding)(f)
                 self.log.info("Opened '%s' with encoding '%s'" \
                               % (self.filename, self.encoding))
             except LookupError, e:
@@ -206,7 +211,10 @@ class UnbufferedFileReader:
             
         else:
             try:
-                self.fd = open(self.filename, mode, self.bufsize)
+                if self.filename == 'sys.stdin':
+                    self.fd = sys.stdin
+                else:
+                    self.fd = open(self.filename, mode, self.bufsize)
             except IOError, error:
                 raise PGLoader_Error, error
 
@@ -240,7 +248,12 @@ class UnbufferedFileReader:
         while line != '':
             line = self.fd.readline()
             self.line_nb += 1
-            self.position = self.fd.tell()
+            try:
+                self.position = self.fd.tell()
+            except IOError, error:
+                #IOError: [Errno 29] Illegal seek --- when stdin reaches EOF
+                self.log.info(error)
+                return
 
             ##
             # if -F is used, count lines to skip, and skip them

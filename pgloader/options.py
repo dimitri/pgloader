@@ -53,3 +53,6 @@ LOG_FILE            = None
 
 REJECT_LOG_FILE  = '%s.rej.log'
 REJECT_DATA_FILE = '%s.rej'
+
+LOAD_FROM_STDIN = None
+LOAD_TO_TABLE   = None

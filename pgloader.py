@@ -143,6 +143,19 @@ def parse_options():
                       default = None,
                       help    = "Force usage of given version of psycopg")
 
+    parser.add_option("--load-from-stdin", action = "store_true",
+                      dest = "stdin",
+                      default = False,
+                      help    = "Load standard input data into given table name")
+
+    parser.add_option("--load-to-table", dest = "table",
+                      default = None,
+                      help    = "Load to given table when --load-from-stdin")
+
+    parser.add_option("--boundaries", dest = "boundaries",
+                      default = None,
+                      help    = "Load only in given boundaries, Start..End")
+
     (opts, args) = parser.parse_args()
 
     if opts.version:
@@ -214,6 +227,9 @@ def parse_options():
     pgloader.options.SECTION_THREADS       = opts.section_threads
     pgloader.options.MAX_PARALLEL_SECTIONS = opts.parallel
 
+    pgloader.options.LOAD_FROM_STDIN = opts.stdin
+    pgloader.options.LOAD_TO_TABLE   = opts.table
+
     if pgloader.options.MAX_PARALLEL_SECTIONS is None:
         from pgloader.options import DEFAULT_MAX_PARALLEL_SECTIONS
         pgloader.options.MAX_PARALLEL_SECTIONS = DEFAULT_MAX_PARALLEL_SECTIONS
@@ -278,6 +294,15 @@ def parse_options():
         pgloader.options.PSYCOPG_VERSION = 2
     else:
         pgloader.options.PSYCOPG_VERSION = opts.psycopg_version
+
+    if opts.boundaries:
+        try:
+            start, end = [int(x) for x in opts.boundaries.split("..")]
+            pgloader.options.FILE_BOUNDARIES = (start, end)
+        except ValueError, e:
+            print >>sys.stderr, \
+                  "Error: boundaries should be an integer range written X..Y"
+            sys.exit(1)
 
     return opts.config, args
 
@@ -548,14 +573,43 @@ def load_data():
     from pgloader.options  import VERBOSE, DEBUG, QUIET, SUMMARY
     from pgloader.options  import DRY_RUN, PEDANTIC, VACUUM
     from pgloader.options  import MAX_PARALLEL_SECTIONS
+    from pgloader.options  import LOAD_FROM_STDIN, LOAD_TO_TABLE
+    from pgloader.options  import FILE_BOUNDARIES
     from pgloader.pgloader import PGLoader
     from pgloader.tools    import PGLoader_Error
 
     sections = []
     summary  = {}
 
-    # args are meant to be configuration sections, or filenames
-    if len(args) > 0:
+    # args are meant to be configuration sections, or filenames, or stdin
+    if LOAD_FROM_STDIN:
+        if FILE_BOUNDARIES is not None:
+            log.warning("Can't use --boundaries on stdin")
+
+        if len(args) == 0:
+            s = '<stdin>'
+            config.add_section(s)
+            config.set(s, 'table', LOAD_TO_TABLE)
+            config.set(s, 'filename', 'sys.stdin')
+            config.set(s, 'columns', '*')
+            config.set(s, 'format', 'csv')
+            sections.append(s)
+            
+        elif len(args) == 1:
+            if config.has_section(args[0]):
+                # apply given section parameters, then load from stdin
+                config.set(args[0], 'filename', 'sys.stdin')
+                sections.append(args[0])
+            else:
+                print >>sys.stderr, \
+                      "Error: Please provide a [%s] section" % args[0]
+                sys.exit(5)
+        else:
+            print >>sys.stderr, \
+                  "Error: can't read several sections all from stdin"
+            sys.exit(5)
+
+    elif len(args) > 0:
         for s in args:
             if config.has_section(s):
                 sections.append(s)
@@ -577,14 +631,21 @@ def load_data():
                 sections.append(s)
 
     else:
-        log.debug("No argument on CLI, will consider all sections")
-        for s in config.sections():
-            if s != 'pgsql':
-                sections.append(s)
+        if not LOAD_FROM_STDIN:
+            # don't load all sections first when asked to load stdin
+            log.debug("No argument on CLI, will consider all sections")
+            for s in config.sections():
+                if s != 'pgsql':
+                    sections.append(s)
 
-        # we run through sorted section list, unless we got the section list
-        # from command line
-        sections.sort()
+            # we run through sorted section list, unless we got the section list
+            # from command line
+            sections.sort()
+
+    if FILE_BOUNDARIES is not None and len(sections) > 1:
+        print >>sys.stderr, \
+              "Error: will not apply boundaries on more than one file"
+        sys.exit(5)
 
     log.info('Will consider following sections:')
     for line in myprint(sections):
@@ -634,6 +695,8 @@ def load_data():
 
             if loader:
                 if not loader.template:
+                    if FILE_BOUNDARIES is not None and len(sections) == 1:
+                        loader.reader.set_boundaries(FILE_BOUNDARIES)
                     filename       = loader.filename
                     input_encoding = loader.input_encoding
                     threads[s]     = loader

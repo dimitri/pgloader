@@ -216,6 +216,24 @@ Example: -o standard_conforming_strings=on -o client_encoding=utf8
     Force +pgloader+ to use given version of psycopg, either +1+ or
     +2+.
 
+== INTERNAL USAGE OPTIONS ==
+
+Those have been developped for internal +pgloader+ usage only, but still
+need to be documented. Also, they are maintained and you could find an usage
+for them.
+
+--load-from-stdin::
+
+    Consider standard input as the data file. When using this function,
+    either give a section name from which to apply all the setup except for
+    the +filename+ to load from, or use +--load-to-table+.
+
+--load-to-table::
+
+    This option's argument must be the name of the PostgreSQL table you're
+    loading the data to, it's useful when you want to load from +stdin+ and
+    avoid editing a full configuration section.
+
 == GLOBAL CONFIGURATION SECTION ==
 
 The configuration file has a +.ini+ file syntax, its first section has
