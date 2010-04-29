@@ -247,12 +247,13 @@ class UnbufferedFileReader:
         while line != '':
             line = self.fd.readline()
             self.line_nb += 1
-            try:
-                self.position = self.fd.tell()
-            except IOError, error:
-                #IOError: [Errno 29] Illegal seek --- when stdin reaches EOF
-                self.log.info(error)
-                return
+
+            ## try:
+            ##     self.position = self.fd.tell()
+            ## except IOError, error:
+            ##     #IOError: [Errno 29] Illegal seek --- when stdin reaches EOF
+            ##     self.log.info(error)
+            ##     return
 
             ##
             # if -F is used, count lines to skip, and skip them
@@ -275,8 +276,15 @@ class UnbufferedFileReader:
 
             # check EOF (real or multi-readers)
             if line == '' or last_line_read:
-                self.log.debug("FileReader stoping, offset %d >= %s" \
-                               % (self.position, self.end))
+                try:
+                    self.log.debug("FileReader stoping, offset %d >= %s" \
+                                   % (self.fd.tell(), self.end))
+                except IOError, error:
+                    #IOError: [Errno 29] Illegal seek --- when stdin reaches
+                    # EOF should not happen as --load-from-stdin and
+                    # --boundaries are not accepted at the same time
+                    self.log.info(error)
+                
                 self.fd.close()
                 return
 

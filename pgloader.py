@@ -296,6 +296,11 @@ def parse_options():
         pgloader.options.PSYCOPG_VERSION = opts.psycopg_version
 
     if opts.boundaries:
+        if opts.stdin:
+            print >>sys.stderr, \
+                  "Error: You can't set the boundaries of stdin."
+            sys.exit(1)
+
         try:
             start, end = [int(x) for x in opts.boundaries.split("..")]
             pgloader.options.FILE_BOUNDARIES = (start, end)
