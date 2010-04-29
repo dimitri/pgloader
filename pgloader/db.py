@@ -148,7 +148,12 @@ ORDER BY attnum
 """
         self.log.debug("get_all_columns: %s %s %s" % (tablename, schemaname, sql))
 
-        columns = []        
+        columns = []
+
+        have_to_connect = self.dbconn is None
+        if have_to_connect:
+            self.reset()
+            
         cursor  = self.dbconn.cursor()
         try:
             cursor.execute(sql, [tablename, schemaname])
@@ -160,6 +165,9 @@ ORDER BY attnum
             raise PGLoader_Error, e
 
         cursor.close()
+
+        if have_to_connect:
+            self.close()
 
         return columns
 

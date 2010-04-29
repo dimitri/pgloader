@@ -314,8 +314,7 @@ class PGLoader(threading.Thread):
                 self.all_cols    = True
                 self.db.all_cols = True
 
-                # force db to connect now
-                self.db.reset()
+                # get column list from database
                 self.columns = self.db.get_all_columns(self.table)
                 self.log.info("columns = *, got %s", str(self.columns))
 
