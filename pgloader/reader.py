@@ -296,7 +296,10 @@ class UnbufferedFileReader:
                               % self.fd.tell())
                 last_line_read = True
 
-            yield line
+            if self.encoding is not None:
+                yield line.encode(self.encoding)
+            else:
+                yield line
 
         return
     
