@@ -271,7 +271,7 @@ class UnbufferedFileReader:
                 if COUNT is not None and self.reading \
                    and (self.line_nb - self.skip_head_lines + 1) > COUNT:
 
-                    self.log.info('reached line %d, stopping', nb_lines)
+                    self.log.info('reached line %d, stopping', self.line_nb)
                     return
 
             # check EOF (real or multi-readers)
