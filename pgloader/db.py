@@ -51,16 +51,13 @@ elif PSYCOPG_VERSION == 2:
 class db:
     """ a db connexion and utility class """
     def __init__(self,
-                 host, port, base, user, passwd,
+                 dsn,
                  client_encoding = PG_CLIENT_ENCODING,
                  copy_every = 10000, commit_every = 1000, connect = True):
         """ Connects to the specified database """
         self.log     = log
         self.dbconn  = None
-        self.dsn     = "host=%s port=%d user=%s dbname=%s password=%s" \
-                       % (host, port, user, base, passwd)
-        self.connect = "-h %s -p %s -U %s" % (host, port, user)
-        self.base    = base
+        self.dsn     = dsn
 
         # those parameters can be overwritten after db init
         # here's their default values
