@@ -775,7 +775,7 @@ if __name__ == "__main__":
     # SystemExit inherits from Exception in python < 2.5, so we have to
     # handle it separately.
     except SystemExit, e:
-	sys.exit(e.code)
+        sys.exit(e.code)
 
     except Exception, e:
         from pgloader.options import DEBUG
