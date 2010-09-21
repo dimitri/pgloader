@@ -7,9 +7,10 @@
 
 from tools import PGLoader_Error
 import logging
+from tempfile import gettempdir
 
 def init(client_min_messages = logging.INFO,
-         log_min_messages = logging.DEBUG, filename = '/tmp/pgloader.log'):
+         log_min_messages = logging.DEBUG, filename = '%s/pgloader.log' % gettempdir()):
     """ set the console logging """
 
     fmt = '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
