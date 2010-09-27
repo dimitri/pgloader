@@ -56,7 +56,7 @@ def parse_options():
                       help    = "loglevel to use: ERROR, WARNING, INFO, DEBUG")
 
     parser.add_option("-L", "--logfile", dest = "logfile",
-                      default = "%s/pgloader.log" % gettempdir(),
+                      default = os.path.join (gettempdir(), "pgloader.log"),
                       help    = "log file, defauts to $TMPDIR/pgloader.log")
 
     parser.add_option("-r", "--reject-log", dest = "reject_log",

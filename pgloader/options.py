@@ -3,6 +3,7 @@
 # Some common options, for each module to get them
 
 from tempfile import gettempdir
+import os
 
 PGLOADER_VERSION = '2.3.3~dev2'
 
@@ -50,7 +51,7 @@ RRQUEUE_SIZE          = None
 
 CLIENT_MIN_MESSAGES = None
 LOG_MIN_MESSAGES    = DEBUG
-DEFAULT_LOG_FILE    = "%s/pgloader.log" % gettempdir()
+DEFAULT_LOG_FILE    = os.path.join (gettempdir(), "pgloader.log")
 LOG_FILE            = None
 
 REJECT_LOG_FILE  = '%s.rej.log'
