@@ -5,7 +5,7 @@
 PostgreSQL data import tool, see included man page.
 """
 
-import os, sys, os.path, time, codecs, logging, threading
+import os, sys, os.path, time, codecs, logging, threading, signal
 from cStringIO import StringIO
 
 import pgloader.options
@@ -764,7 +764,6 @@ def load_data():
 
 if __name__ == "__main__":
     # Disable KeyboardInterrupt, just exit on CTRL+C
-    import signal, os
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     try:
         ret = load_data()
