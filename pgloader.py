@@ -5,7 +5,7 @@
 PostgreSQL data import tool, see included man page.
 """
 
-import os, sys, os.path, time, codecs, logging, threading
+import os, sys, os.path, time, codecs, logging, threading, signal
 from cStringIO import StringIO
 from tempfile import gettempdir
 
@@ -664,7 +664,6 @@ def load_data():
     started  = {}
     finished = {}
     current  = 0
-    interrupted = False
 
     max_running = MAX_PARALLEL_SECTIONS
     if max_running == -1:
@@ -735,11 +734,6 @@ def load_data():
             log.error("can't open '%s' with given input encoding '%s'" \
                                % (filename, input_encoding))
                                     
-        except KeyboardInterrupt:
-            interrupted = True
-            log.warning("Aborting on user demand (Interrupt)")
-            break
-
         except IOError, e:
             # typically, No Space Left On Device, can't report nor continue
             break
@@ -761,7 +755,7 @@ def load_data():
     # total duration
     td = time.time() - begin
 
-    if SUMMARY and not interrupted:
+    if SUMMARY:
         try:
             print_summary(None, sections, summary, td)
             print
@@ -775,7 +769,12 @@ def load_data():
     return 0
 
 if __name__ == "__main__":
+    # default exit value
     ret = 1
+
+    # Disable KeyboardInterrupt, just exit on CTRL+C
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
     try:
         ret = load_data()
     except Exception, e:
@@ -789,9 +788,4 @@ if __name__ == "__main__":
         sys.stderr.write(str(e) + '\n')
         sys.exit(1)
 
-    except KeyboardInterrupt, e:
-        sys.stderr.write(str(e) + '\n')
-        sys.exit(1)
-        
     sys.exit(ret)
-    
