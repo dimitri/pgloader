@@ -752,23 +752,29 @@ def load_data():
     log.info("All threads are started, wait for them to terminate")
     check_events(finished, log, "processing is over")
 
+    # check whether any thread failed
+    for section, loader in threads.iteritems():
+        if not loader.success:
+            return 1
+
     # total duration
     td = time.time() - begin
-    retcode = 0
 
     if SUMMARY and not interrupted:
         try:
-            retcode = print_summary(None, sections, summary, td)
+            print_summary(None, sections, summary, td)
             print
         except PGLoader_Error, e:
             log.error("Can't print summary: %s" % e)
+            return 1
 
         except KeyboardInterrupt:
-            pass
+            return 1
 
-    return retcode
+    return 0
 
 if __name__ == "__main__":
+    ret = 1
     try:
         ret = load_data()
     except Exception, e:

@@ -825,6 +825,13 @@ Please see the given configuration example which should be distributed in
 The example configuration file comes with example data and can be used
 a unit test of +pgloader+.
 
+== EXIT STATUS ==
+
+0:: success; including the case when some records were rejected due
+    constraint violations
+
+1:: a fatal error, such as a database connection failure, has occured
+
 == HISTORY ==
 
 +pgloader+ has first been a +tcl+ tool written by Jan Wieck and
