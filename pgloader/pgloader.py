@@ -7,6 +7,7 @@
 
 import os, sys, os.path, time, codecs, threading
 from cStringIO import StringIO
+from tempfile import gettempdir
 
 from logger   import log, getLogger
 from tools    import PGLoader_Error, Reject, parse_config_string, check_events
@@ -242,10 +243,10 @@ class PGLoader(threading.Thread):
                 self.reject_data = config.get(name, 'reject_data')
 
             if not self.template and 'reject_log' not in self.__dict__:
-                self.reject_log = os.path.join('/tmp', REJECT_LOG_FILE % name)
+                self.reject_log = os.path.join(gettempdir(), REJECT_LOG_FILE % name)
 
             if not self.template and 'reject_data' not in self.__dict__:
-                self.reject_data = os.path.join('/tmp', REJECT_DATA_FILE % name)
+                self.reject_data = os.path.join(gettempdir(), REJECT_DATA_FILE % name)
 
             # reject logging
             if not self.template:

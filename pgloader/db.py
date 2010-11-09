@@ -5,6 +5,7 @@
 
 import os, sys, os.path, time, codecs, logging
 from cStringIO import StringIO
+from tempfile import gettempdir
 
 from options import DRY_RUN, PEDANTIC, CLIENT_MIN_MESSAGES
 from options import TRUNCATE, VACUUM
@@ -378,7 +379,7 @@ ORDER BY attnum
         """ save copy buffer to a temporary file for further inspection """
         import tempfile
         (f, n) = tempfile.mkstemp(prefix='%s.' % tablename,
-                                  suffix='.pgloader', dir='/tmp')
+                                  suffix='.pgloader', dir=gettempdir())
         os.write(f, self.buffer.getvalue())
         os.close(f)
         if debug:

@@ -7,6 +7,7 @@ PostgreSQL data import tool, see included man page.
 
 import os, sys, os.path, time, codecs, logging, threading
 from cStringIO import StringIO
+from tempfile import gettempdir
 
 import pgloader.options
 import pgloader.tools
@@ -55,8 +56,8 @@ def parse_options():
                       help    = "loglevel to use: ERROR, WARNING, INFO, DEBUG")
 
     parser.add_option("-L", "--logfile", dest = "logfile",
-                      default = "/tmp/pgloader.log",
-                      help    = "log file, defauts to /tmp/pgloader.log")
+                      default = os.path.join (gettempdir(), "pgloader.log"),
+                      help    = "log file, defauts to $TMPDIR/pgloader.log")
 
     parser.add_option("-r", "--reject-log", dest = "reject_log",
                       default = None,
