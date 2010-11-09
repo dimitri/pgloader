@@ -15,7 +15,7 @@ pgloader (2.3.3~dev3-1) unstable; urgency=low
   * Fix pgloader thread error management
   * Fix exit status to be non-zero in case of known errors
 
- -- Dimitri Fontaine <dim@tapoueh.org>  Sun,  4 Apr 2010 19:34:39 +0200
+ -- Dimitri Fontaine <dim@tapoueh.org>  Tue, 09 Nov 2010 16:10:01 +0100
 
 pgloader (2.3.2-1) unstable; urgency=low
 

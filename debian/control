@@ -3,12 +3,12 @@ Section: database
 Priority: extra
 Maintainer: Dimitri Fontaine <dim@tapoueh.org>
 Build-Depends: debhelper (>= 5), docbook-to-man (>= 2.0.0), python-support (>= 0.3), xmlto, asciidoc (>= 0.8.2)
-Standards-Version: 3.8.3
+Standards-Version: 3.9.1
 Homepage: http://pgloader.projects.postgresql.org
 
 Package: pgloader
 Architecture: all
-Depends: python (>=2.4.4), python-psycopg2 | python-psycopg (<< 1.1.21) | python-psycopg (>= 1.1.21-14), python-support (>= 0.3)
+Depends: ${misc:Depends}, python (>=2.4.4), python-psycopg2 | python-psycopg (<< 1.1.21) | python-psycopg (>= 1.1.21-14), python-support (>= 0.3)
 Description: loads flat data files into PostgreSQL
  pgloader imports data from flat files and insert it into a database
  table. You have to provide a configuration file containing sections,
