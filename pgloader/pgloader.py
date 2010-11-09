@@ -158,12 +158,21 @@ class PGLoader(threading.Thread):
             return
 
         try:
-            self.db = db(config.get(section, 'host'),
-                         config.getint(section, 'port'),
-                         config.get(section, 'base'),
-                         config.get(section, 'user'),
-                         config.get(section, 'pass'),
-                         connect = False)
+            dsn = [];
+            if config.has_option(section, 'host'):
+                dsn.append ("host=%s" % config.get(section, 'host'))
+            if config.has_option(section, 'port'):
+                dsn.append ("port=%d" % config.getint(section, 'port'))
+            if config.has_option(section, 'base'):
+                dsn.append ("dbname=%s" % config.get(section, 'base'))
+            if config.has_option(section, 'user'):
+                dsn.append ("user=%s" % config.get(section, 'user'))
+            if config.has_option(section, 'pass'):
+                dsn.append ("password=%s" % config.get(section, 'pass'))
+            if config.has_option(section, 'sslmode'):
+                dsn.append ("sslmode=%s" % config.get(section, 'sslmode'))
+
+            self.db = db(" ".join (dsn), connect = False)
 
             for opt in ['client_encoding', 'datestyle', 'lc_messages']:
                 if config.has_option(section, opt):
