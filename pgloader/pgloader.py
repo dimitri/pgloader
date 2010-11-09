@@ -151,14 +151,14 @@ class PGLoader(threading.Thread):
     def _dbconfig(self, config):
         """ connects to database """
         section = 'pgsql'
-    
+
         if DRY_RUN:
             log.info("dry run mode, not connecting to database")
             self.db = None
             return
 
         try:
-            dsn = [];
+            dsn = []
             if config.has_option(section, 'host'):
                 dsn.append ("host=%s" % config.get(section, 'host'))
             if config.has_option(section, 'port'):
@@ -200,7 +200,7 @@ class PGLoader(threading.Thread):
                 self.db.copy_sep = config.get(section, 'copy_delimiter')
                 self.log.debug("got copy_sep '%s' from %s" \
                                % (self.db.copy_sep, section))
-                
+
             elif config.has_option(self.tsection, 'copy_delimiter'):
                 self.db.copy_sep = config.get(section, 'copy_delimiter')
                 self.log.debug("got copy_sep '%s' from self.copy_sep" \
