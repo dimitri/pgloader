@@ -1,4 +1,4 @@
-pgloader (2.3.3~dev2-1) unstable; urgency=low
+pgloader (2.3.3~dev3-1) unstable; urgency=low
 
   * Implement -f --field-sep to overwrite the default from command line
   * Add support for filename arguments, which use defaults
@@ -10,6 +10,10 @@ pgloader (2.3.3~dev2-1) unstable; urgency=low
   * Implement an option to set csv field size limit
   * Implement --load-from-stdin
   * Implement --boundaries
+  * use gettempdir() rather than hard-coded "/tmp"
+  * Handle C-c the default system's way
+  * Fix pgloader thread error management
+  * Fix exit status to be non-zero in case of known errors
 
  -- Dimitri Fontaine <dim@tapoueh.org>  Sun,  4 Apr 2010 19:34:39 +0200
 

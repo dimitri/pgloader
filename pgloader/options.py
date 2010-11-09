@@ -5,7 +5,7 @@
 from tempfile import gettempdir
 import os
 
-PGLOADER_VERSION = '2.3.3~dev2'
+PGLOADER_VERSION = '2.3.3~dev3'
 
 PSYCOPG_VERSION = None
 

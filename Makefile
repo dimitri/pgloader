@@ -20,7 +20,8 @@ examples = examples
 libs = $(wildcard pgloader/*.py)
 refm = $(wildcard reformat/*.py)
 
-DEBDIR = /tmp/pgloader
+TMPDIR?= /tmp
+DEBDIR = $(TMPDIR)/pgloader
 EXPORT = $(DEBDIR)/export/pgloader-$(VERSION)
 ORIG   = $(DEBDIR)/export/pgloader_$(VERSION).orig.tar.gz
 ARCHIVE= $(DEBDIR)/export/pgloader-$(VERSION).tar.gz
