@@ -777,6 +777,12 @@ if __name__ == "__main__":
 
     try:
         ret = load_data()
+
+    # SystemExit inherits from Exception in python < 2.5, so we have to
+    # handle it separately.
+    except SystemExit, e:
+        sys.exit(e.code)
+
     except Exception, e:
         from pgloader.options import DEBUG
         if DEBUG:
