@@ -441,6 +441,11 @@ table::
 
     The table name of the database where to load data.
 
+truncate::
+
+    +pgloader+ issues a +TRUNCATE <table>+ SQL command before
+    importing data.
+
 format::
 +
 The format data are to be found, either +text+, +csv+ or +fixed+.

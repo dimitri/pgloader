@@ -284,6 +284,13 @@ class PGLoader(threading.Thread):
                 if not DRY_RUN:
                     self.log.debug("%s: '%s'", opt, self.db.pg_options[opt])
 
+        # optionnal local option truncate
+        self.truncate = TRUNCATE
+        if config.has_option(name, 'truncate'):
+            self.truncate = parse_config_string(
+                config.get(name, 'truncate'))
+        self.log.debug("truncate: '%s'", self.truncate)
+
         # optionnal local pg_options
         # precedence is given to command line parsing, which is in PG_OPTIONS
         from tools import parse_pg_options
@@ -1184,7 +1191,7 @@ class PGLoader(threading.Thread):
             return
         
         if not DRY_RUN:
-            if TRUNCATE:
+            if self.truncate:
                 self.db.truncate(self.table)
                 
             if TRIGGERS:
