@@ -73,7 +73,8 @@ class CSVReader(DataReader):
                                        encoding = self.input_encoding,
                                        start    = self.start,
                                        end      = self.end,
-                                       skip_head_lines = self.skip_head_lines)
+                                       skip_head_lines = self.skip_head_lines,
+                                       client_encoding = self.client_encoding)
         
         # don't forget COUNT and FROM_COUNT option in CSV mode
         nb_lines     = self.skip_head_lines

@@ -13,6 +13,7 @@ from options import COUNT, FROM_COUNT, FROM_ID
 from options import INPUT_ENCODING, PG_CLIENT_ENCODING
 from options import COPY_SEP, FIELD_SEP, CLOB_SEP, NULL, EMPTY_STRING
 from options import NEWLINE_ESCAPES
+from options import PG_CLIENT_ENCODING
 
 class DataReader:
     """
@@ -33,6 +34,7 @@ class DataReader:
         self.table     = table
         self.columns   = columns
         self.reject    = reject
+        self.client_encoding = None
         self.mem_units = {'kB': 1024,
                           'MB': 1024*1024,
                           'GB': 1024*1024*1024,
@@ -41,6 +43,14 @@ class DataReader:
         if self.input_encoding is None:
             if INPUT_ENCODING is not None:
                 self.input_encoding = INPUT_ENCODING
+
+        #set the client encoding to encode strings with
+        if 'client_encoding' in self.db.pg_options.keys():
+            self.client_encoding = self.db.pg_options['client_encoding']
+        elif PG_CLIENT_ENCODING is not None:
+            self.client_encoding = PG_CLIENT_ENCODING
+        else:
+            self.client_encoding = self.input_encoding
 
         # (start, end) are used for split_file_reading mode
         # queue when in round_robin_read mode
@@ -169,7 +179,8 @@ class UnbufferedFileReader:
                  mode = "rb", encoding = None,
                  start = None, end = None,
                  skip_head_lines = 0,
-                 check_count = True):
+                 check_count = True,
+                 client_encoding = None):
         """ constructor """
         self.filename = filename
         self.log      = log
@@ -180,6 +191,7 @@ class UnbufferedFileReader:
         self.fd       = None
         self.position = 0
         self.line_nb  = 0
+        self.client_encoding = client_encoding or encoding
 
         # check_count can be set to False when phisical lines and logical
         # lines counts can diverge, like in textreader.py
@@ -296,8 +308,8 @@ class UnbufferedFileReader:
                               % self.fd.tell())
                 last_line_read = True
 
-            if self.encoding is not None:
-                yield line.encode(self.encoding)
+            if self.client_encoding is not None:
+                yield line.encode(self.client_encoding)
             else:
                 yield line
 
