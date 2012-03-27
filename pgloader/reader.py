@@ -13,7 +13,6 @@ from options import COUNT, FROM_COUNT, FROM_ID
 from options import INPUT_ENCODING, PG_CLIENT_ENCODING
 from options import COPY_SEP, FIELD_SEP, CLOB_SEP, NULL, EMPTY_STRING
 from options import NEWLINE_ESCAPES
-from options import PG_CLIENT_ENCODING
 
 class DataReader:
     """
@@ -47,10 +46,13 @@ class DataReader:
         #set the client encoding to encode strings with
         if 'client_encoding' in self.db.pg_options.keys():
             self.client_encoding = self.db.pg_options['client_encoding']
+            log.info('setting client_encoding to client_encoding: %s'%self.client_encoding)
         elif PG_CLIENT_ENCODING is not None:
             self.client_encoding = PG_CLIENT_ENCODING
+            log.info('setting client_encoding to PG_CLIENT_ENCODING: %s'%self.client_encoding)
         else:
             self.client_encoding = self.input_encoding
+            log.info('setting client_encoding to input_encoding: %s'%self.client_encoding)
 
         # (start, end) are used for split_file_reading mode
         # queue when in round_robin_read mode
