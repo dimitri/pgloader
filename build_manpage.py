@@ -33,10 +33,9 @@ class build_manpage(Command):
 class install_manpage(Command):
     """Install the manpage"""
 
-    description = 'Generate man page.'
+    description = 'Install man page.'
 
     user_options = [
-        ('manpagedir=','m','Location of the manpages'),
     ]
 
     def initialize_options(self):
@@ -44,14 +43,11 @@ class install_manpage(Command):
         self.manfile=self.distribution.get_name()+'.1'
 
     def finalize_options(self):
-        if self.manpagedir is None:
-            self.announce('manpagedir option not specified, skipping installation')
-        else:
-            self.announce('Installing manpage')
+        self.manpagedir='/usr/local/share/man/'
 
     def run(self):
         if self.manpagedir:
-            shutil.copyfile(self.manfile,os.path.join(self.manpagedir,self.manfile))
+            self.copy_file(self.manfile,os.path.join(self.manpagedir,self.manfile))
 
 build.sub_commands.append(('build_manpage', None))
 install.sub_commands.append(('install_manpage', None))
