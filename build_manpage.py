@@ -49,5 +49,5 @@ class install_manpage(Command):
         if self.manpagedir:
             self.copy_file(self.manfile,os.path.join(self.manpagedir,self.manfile))
 
-build.sub_commands.append(('build_manpage', None))
-install.sub_commands.append(('install_manpage', None))
+#build.sub_commands.append(('build_manpage', None))
+#install.sub_commands.append(('install_manpage', None))
