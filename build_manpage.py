@@ -43,11 +43,11 @@ class install_manpage(Command):
         self.manfile=self.distribution.get_name()+'.1'
 
     def finalize_options(self):
-        self.manpagedir='/usr/local/share/man/'
+        self.manpagedir='/usr/local/man/man1/'
 
     def run(self):
-        if self.manpagedir:
-            self.copy_file(self.manfile,os.path.join(self.manpagedir,self.manfile))
+        self.ensure_dirname('manpagedir')
+        self.copy_file(self.manfile,os.path.join(self.manpagedir,self.manfile))
 
 #build.sub_commands.append(('build_manpage', None))
 #install.sub_commands.append(('install_manpage', None))
