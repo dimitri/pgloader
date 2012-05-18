@@ -19,6 +19,7 @@ FIELD_SEP    = '|'
 CLOB_SEP     = ','
 NULL         = ''
 EMPTY_STRING = '\ '
+CSV_SKIP_EMPTY_LINES = False
 
 NEWLINE_ESCAPES = None
 
