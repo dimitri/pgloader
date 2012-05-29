@@ -1260,6 +1260,9 @@ class PGLoader(threading.Thread):
             if self.reformat:
                 refc = dict(self.reformat)
                 data = []
+                if len(columns)<len(self.columns):
+                    self.reject.log("The line %s has %s values instead of %s."%(offsets,len(columns),len(self.columns)),line)
+                    continue
                 for cname, cpos in self.columns:
                     if cname in drefc:
                         # reformat the column value
