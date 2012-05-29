@@ -5,7 +5,7 @@
 # handles configuration, parse data, then pass them to database module for
 # COPY preparation
 
-import os, sys, os.path, time, codecs, threading
+import os, sys, os.path, time, codecs, threading, traceback
 from cStringIO import StringIO
 from tempfile import gettempdir
 
@@ -857,6 +857,7 @@ class PGLoader(threading.Thread):
             
         except Exception, e:
             self.log.error(e)
+            self.log.debug(traceback.format_exc())
             self.terminate(False)
             return
 
