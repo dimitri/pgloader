@@ -298,9 +298,15 @@ class UnbufferedFileReader:
                     # EOF should not happen as --load-from-stdin and
                     # --boundaries are not accepted at the same time
                     self.log.info(error)
-                
+
                 self.fd.close()
                 return
+
+            # check for NUL bytes
+            # they don't make much sense for text files but do occur in them sometimes
+            # and make csvreader choke. So delete them since they don't contain useful data anyway.
+            if '\x00' in line:
+                line=line.replace('\x00','')
 
             # check multi-reader boundaries
             if self.end is not None and self.fd.tell() >= self.end:
@@ -316,4 +322,4 @@ class UnbufferedFileReader:
                 yield line
 
         return
-    
+
