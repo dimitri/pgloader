@@ -19,6 +19,7 @@ from options import COUNT, FROM_COUNT, FROM_ID
 from options import INPUT_ENCODING, PG_CLIENT_ENCODING
 from options import COPY_SEP, FIELD_SEP, CLOB_SEP, NULL, EMPTY_STRING
 from options import NEWLINE_ESCAPES
+from options import CSV_SKIP_EMPTY_LINES
 
 class CSVReader(DataReader):
     """
@@ -52,6 +53,8 @@ class CSVReader(DataReader):
             self.log.debug("reader.readconfig %s: '%s'" \
                            % (opt, self.__dict__[opt]))
 
+        self._getopt('csv_skip_empty_lines', config, name, template, CSV_SKIP_EMPTY_LINES)
+
     def readlines(self):
         """ read data from configured file, and generate (yields) for
         each data line: line, columns and rowid """
@@ -73,7 +76,8 @@ class CSVReader(DataReader):
                                        encoding = self.input_encoding,
                                        start    = self.start,
                                        end      = self.end,
-                                       skip_head_lines = self.skip_head_lines)
+                                       skip_head_lines = self.skip_head_lines,
+                                       client_encoding = self.client_encoding)
         
         # don't forget COUNT and FROM_COUNT option in CSV mode
         nb_lines     = self.skip_head_lines
@@ -95,6 +99,10 @@ class CSVReader(DataReader):
         for columns in csv.reader(self.fd, dialect = 'pgloader'):
             # we count logical lines
             nb_lines += 1
+
+            #skip empty lines
+            if self.csv_skip_empty_lines and columns == []:
+                continue
 
             line         = self.field_sep.join(columns)
             offsets      = range(last_line_nb, self.fd.line_nb)

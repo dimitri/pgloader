@@ -5,7 +5,7 @@
 # handles configuration, parse data, then pass them to database module for
 # COPY preparation
 
-import os, sys, os.path, time, codecs, threading
+import os, sys, os.path, time, codecs, threading, traceback
 from cStringIO import StringIO
 from tempfile import gettempdir
 
@@ -857,6 +857,7 @@ class PGLoader(threading.Thread):
             
         except Exception, e:
             self.log.error(e)
+            self.log.debug(traceback.format_exc())
             self.terminate(False)
             return
 
@@ -1259,6 +1260,9 @@ class PGLoader(threading.Thread):
             if self.reformat:
                 refc = dict(self.reformat)
                 data = []
+                if len(columns)<len(self.columns):
+                    self.reject.log("The line %s has %s values instead of %s."%(offsets,len(columns),len(self.columns)),line)
+                    continue
                 for cname, cpos in self.columns:
                     if cname in drefc:
                         # reformat the column value

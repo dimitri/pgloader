@@ -15,7 +15,7 @@ DESTDIR =
 libdir   = $(DESTDIR)/usr/share/python-support/pgloader
 exdir    = $(DESTDIR)/usr/share/doc/pgloader
 
-pgloader = pgloader.py
+pgloader = scripts/pgloader
 examples = examples
 libs = $(wildcard pgloader/*.py)
 refm = $(wildcard reformat/*.py)

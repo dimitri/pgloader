@@ -5,7 +5,7 @@
 from tempfile import gettempdir
 import os
 
-PGLOADER_VERSION = '2.3.3~dev3'
+PGLOADER_VERSION = '2.3.4~dev4'
 
 PSYCOPG_VERSION = None
 
@@ -19,6 +19,7 @@ FIELD_SEP    = '|'
 CLOB_SEP     = ','
 NULL         = ''
 EMPTY_STRING = '\ '
+CSV_SKIP_EMPTY_LINES = False
 
 NEWLINE_ESCAPES = None
 

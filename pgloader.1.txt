@@ -461,7 +461,7 @@ filename::
 
 input_encoding::
 
-    The encoding of the configured +filename+.
+    The encoding of the configured +filename+. If this is different from +client_encoding+, the file is re-encoded on the fly from +file_encoding+ to +input_encoding+.
 
 reject_log::
 
@@ -811,6 +811,11 @@ field_size_limit::
     an number of bytes (integer), or a string containing a number then one
     of those units (case sensitive): +kB+, +MB+, +GB+, +TB+. Requires a at
     least python 2.5.
+
+csv_skip_empty_lines::
+
+    When set to +True+ empty lines in the csv file will be skipped when importing. 
+    Defaults to +False+ when unset.
 
 == FIXED FORMAT CONFIGURATION PARAMETERS ==
 

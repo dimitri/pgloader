@@ -33,6 +33,7 @@ class DataReader:
         self.table     = table
         self.columns   = columns
         self.reject    = reject
+        self.client_encoding = None
         self.mem_units = {'kB': 1024,
                           'MB': 1024*1024,
                           'GB': 1024*1024*1024,
@@ -41,6 +42,17 @@ class DataReader:
         if self.input_encoding is None:
             if INPUT_ENCODING is not None:
                 self.input_encoding = INPUT_ENCODING
+
+        #set the client encoding to encode strings with
+        if 'client_encoding' in self.db.pg_options.keys():
+            self.client_encoding = self.db.pg_options['client_encoding']
+            log.info('setting client_encoding to client_encoding: %s'%self.client_encoding)
+        elif PG_CLIENT_ENCODING is not None:
+            self.client_encoding = PG_CLIENT_ENCODING
+            log.info('setting client_encoding to PG_CLIENT_ENCODING: %s'%self.client_encoding)
+        else:
+            self.client_encoding = self.input_encoding
+            log.info('setting client_encoding to input_encoding: %s'%self.client_encoding)
 
         # (start, end) are used for split_file_reading mode
         # queue when in round_robin_read mode
@@ -169,7 +181,8 @@ class UnbufferedFileReader:
                  mode = "rb", encoding = None,
                  start = None, end = None,
                  skip_head_lines = 0,
-                 check_count = True):
+                 check_count = True,
+                 client_encoding = None):
         """ constructor """
         self.filename = filename
         self.log      = log
@@ -180,6 +193,7 @@ class UnbufferedFileReader:
         self.fd       = None
         self.position = 0
         self.line_nb  = 0
+        self.client_encoding = client_encoding or encoding
 
         # check_count can be set to False when phisical lines and logical
         # lines counts can diverge, like in textreader.py
@@ -284,9 +298,15 @@ class UnbufferedFileReader:
                     # EOF should not happen as --load-from-stdin and
                     # --boundaries are not accepted at the same time
                     self.log.info(error)
-                
+
                 self.fd.close()
                 return
+
+            # check for NUL bytes
+            # they don't make much sense for text files but do occur in them sometimes
+            # and make csvreader choke. So delete them since they don't contain useful data anyway.
+            if '\x00' in line:
+                line=line.replace('\x00','')
 
             # check multi-reader boundaries
             if self.end is not None and self.fd.tell() >= self.end:
@@ -296,10 +316,10 @@ class UnbufferedFileReader:
                               % self.fd.tell())
                 last_line_read = True
 
-            if self.encoding is not None:
-                yield line.encode(self.encoding)
+            if self.client_encoding is not None:
+                yield line.encode(self.client_encoding)
             else:
                 yield line
 
         return
-    
+

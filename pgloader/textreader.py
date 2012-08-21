@@ -83,7 +83,8 @@ class TextReader(DataReader):
                                        start           = self.start,
                                        end             = self.end,
                                        skip_head_lines = self.skip_head_lines,
-                                       check_count     = False)
+                                       check_count     = False,
+                                       client_encoding = self.client_encoding)
         
         for line in self.fd:
             # we count real physical lines
