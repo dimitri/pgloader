@@ -407,7 +407,7 @@ ORDER BY attnum
             if self.all_cols:
                 table = table
             else:
-                table = "%s (%s) " % (table, ", ".join(columnlist))
+                table = "%s (%s) " % (table, ", ".join(['"%s"'%c for c in columnlist]))
 
             self.log.debug("COPY will use table definition: '%s'" % table)
                 
