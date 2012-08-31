@@ -10,7 +10,7 @@ file format with some advanced parsing options so as to be able to read
 *Informix* `UNLOAD` output.
 
 `pgloader` implements many interesting features such as column reformating
-in python, user defined constant columns, column repamming between file and
+in python, user defined constant columns, column remapping between file and
 database table, and some more: have a look at the tutorial.
 
 ## complete tutorial
