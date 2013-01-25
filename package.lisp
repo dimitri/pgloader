@@ -1,0 +1,21 @@
+;;;; package.lisp
+
+(defpackage #:galaxya-loader
+  (:use #:cl))
+
+;;;
+;;; Some package names are a little too long to my taste and don't ship with
+;;; nicknames, so use `rename-package' here to give them some new nicknames.
+;;;
+(loop for (package . nicknames)
+     in '((lparallel lp)
+	  (lparallel.queue lq)
+	  (simple-date date)
+	  (split-sequence sq))
+     do (rename-package package package nicknames))
+
+;;;
+;;; and recompile. Now you can pre-allocate the queue by passing a size to
+;;; MAKE-QUEUE. (You could pass a number before too, but it was ignored.)
+;;;
+(pushnew :lparallel.with-vector-queue *features*)
