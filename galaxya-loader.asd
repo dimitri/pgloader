@@ -2,7 +2,7 @@
 
 (asdf:defsystem #:galaxya-loader
   :serial t
-  :description "Load data from MySQL directly to PostgreSQL"
+  :description "Export data from MySQL and load it into PostgreSQL"
   :author "Dimitri Fontaine <dimitri@2ndQuadrant.fr>"
   :license "The PostgreSQL Licence"
   :depends-on (#:postmodern

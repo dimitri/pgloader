@@ -24,9 +24,14 @@
 
 (defun format-interval (seconds &optional (stream t))
   "Output the number of seconds in a human friendly way"
-  (multiple-value-bind (year month day hour minute second millisecond)
+  (multiple-value-bind (years months days hours mins secs millisecs)
       (date:decode-interval (date:encode-interval :second seconds))
-    (declare (ignore year month))
-    (when (< 0 day)  (format stream "~d days " day))
-    (when (< 0 hour) (format stream "~d hour " hour))
-    (format stream "~dm~ds.~d" minute second millisecond)))
+    (format
+     stream
+     "~:[~*~;~d years ~]~:[~*~;~d months ~]~:[~*~;~d days ~]~:[~*~;~dh~]~:[~*~;~dm~]~d.~ds"
+     (< 0 years)  years
+     (< 0 months) months
+     (< 0 days)   days
+     (< 0 hours)  hours
+     (< 0 mins)   mins
+     secs (truncate millisecs))))

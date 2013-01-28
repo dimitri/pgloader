@@ -8,9 +8,13 @@
 (defparameter *loader-kernel* (lp:make-kernel 2)
   "lparallel kernel to use for loading data in parallel")
 
-(defparameter *myconn-host* "localhost")
-(defparameter *myconn-user* "debian-sys-maint")
-(defparameter *myconn-pass* "vtmMI04yBZlFprYm")
+(defparameter *myconn-host* "gala3.galaxya.fr")
+(defparameter *myconn-user* "pg1")
+(defparameter *myconn-pass* "AFmhKERxD9PVjgQD")
+
+(setq *myconn-host* "localhost"
+      *myconn-user* "debian-sys-maint"
+      *myconn-pass* "vtmMI04yBZlFprYm")
 
 (defparameter *pgconn*
   '("gdb" "none" "localhost" :port 5432)
@@ -153,7 +157,7 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
   "Connect in parallel to MySQL and PostgreSQL and stream the data."
   (let* ((lp:*kernel* *loader-kernel*)
 	 (channel     (lp:make-channel))
-	 (dataq       (lq:make-queue)))
+	 (dataq       (lq:make-queue 4096)))
     ;; have a task fill MySQL data in the queue
     (lp:submit-task channel
 		    (lambda ()
@@ -162,12 +166,6 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
 				(mysql-map-rows
 				 dbname table-name
 				 (lambda (row)
-				   ;; buzy loop leave headroom to the consumer
-				   (loop
-				      for cycles in '(5000 10000 25000 15000)
-				      while (< 15000 (lq:queue-count dataq))
-				      do
-					(loop repeat cycles))
 				   (lq:push-queue row dataq)))))
 		      (lq:push-queue :end-of-data dataq)))
 

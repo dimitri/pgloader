@@ -1,8 +1,20 @@
+;; pg1
+;; mysql -h gala3.galaxya.fr -u pg1 -pAFmhKERxD9PVjgQD
+;; mysql -h gala4.galaxya.fr -u pg1 -pAFmhKERxD9PVjgQD
+;;
+;; pg2
+;; mysql -h gala3.galaxya.fr -u pg2 -pFhssUAVTDaQZGrLd
+;; mysql -h gala4.galaxya.fr -u pg2 -pFhssUAVTDaQZGrLd
+
 (in-package :galaxya-loader)
 
-(defparameter *myconn-host* "localhost")
-(defparameter *myconn-user* "debian-sys-maint")
-(defparameter *myconn-pass* "vtmMI04yBZlFprYm")
+(defparameter *myconn-host* "gala3.galaxya.fr")
+(defparameter *myconn-user* "pg1")
+(defparameter *myconn-pass* "AFmhKERxD9PVjgQD")
+
+(setq *myconn-host* "127.0.0.1"
+      *myconn-user* "galaxyad"
+      *myconn-pass* "gabrielghk")
 
 (defun toto ()
   (cl-mysql:connect :host *myconn-host*
