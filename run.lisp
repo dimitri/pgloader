@@ -1,14 +1,8 @@
 ;;; facility to easily run the program
 
-(ql:quickload :galaxya-loader)
+(ql:quickload :pgloader)
+(in-package :pgloader)
 
-(in-package :galaxya-loader)
-
-(let ((*pgcon*         '("galaxya" "none" "localhost" :port 5432))
-      ((csv-path-root* "/home/cyb/csv")))
-
-  ;; when we're ready we do that
-  ;; (load-all-databases))
-
-  ;; meanwhile
-  (load-database-tables "weetix"))
+(setq *myconn-host* "localhost"
+      *myconn-user* "debian-sys-maint"
+      *myconn-pass* "vtmMI04yBZlFprYm")
