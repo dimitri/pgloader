@@ -52,17 +52,17 @@
 ;;; Pretty print a report while doing bulk operations
 ;;;
 (defun report-header ()
-  (format t "~&~30@a  ~9@a  ~9@a" "table name" "rows" "time")
-  (format t "~&------------------------------  ---------  ---------"))
+  (format t "~&~30@a  ~9@a  ~9@a  ~9@a" "table name" "rows" "errors" "time")
+  (format t "~&------------------------------  ---------  ---------  ---------"))
 
 (defun report-table-name (table-name)
   (format t "~&~30@a  " table-name))
 
-(defun report-results (rows seconds)
-  (format t "~9@a  ~9@a" rows (format-interval seconds nil)))
+(defun report-results (rows errors seconds)
+  (format t "~9@a  ~9@a  ~9@a" rows errors (format-interval seconds nil)))
 
-(defun report-footer (legend rows seconds)
-  (format t "~&------------------------------  ---------  ---------")
-  (format t "~&~30@a  ~9@a  ~9@a" legend
-	  rows (format-interval seconds nil)))
+(defun report-footer (legend rows errors seconds)
+  (format t "~&------------------------------  ---------  ---------  ---------")
+  (format t "~&~30@a  ~9@a  ~9@a  ~9@a" legend
+	  rows errors (format-interval seconds nil)))
 

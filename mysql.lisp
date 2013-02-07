@@ -213,11 +213,13 @@
 
     ;; and start another task to push that data from the queue to PostgreSQL
     (lp:submit-task
-     channel (lambda ()
-	       (list :pgsql
-		     (pgloader.pgsql:copy-from-queue dbname table-name dataq
-						     :truncate truncate
-						     :date-columns date-columns))))
+     channel
+     (lambda ()
+       (list :pgsql
+	     (multiple-value-list
+	      (pgloader.pgsql:copy-from-queue dbname table-name dataq
+					      :truncate truncate
+					      :date-columns date-columns)))))
 
     ;; now wait until both the tasks are over
     (loop
@@ -233,6 +235,7 @@
   ;; get the list of tables and have at it
   (let ((mysql-tables (list-tables dbname))
 	(total-count 0)
+	(total-errors 0)
 	(total-seconds 0))
     (pgloader.utils:report-header)
     (loop
@@ -245,17 +248,21 @@
 	 (if (member table-name mysql-tables :test #'equal)
 	     (multiple-value-bind (result seconds)
 		 (pgloader.utils:timing
-		   (stream-mysql-table-in-pgsql dbname table-name
-						:truncate truncate
-						:date-columns date-columns))
-	       (when result
-		 (incf total-count result)
+		   (destructuring-bind (rows errors)
+		       (stream-mysql-table-in-pgsql dbname table-name
+						    :truncate truncate
+						    :date-columns date-columns)
+		     (incf total-count rows)
+		     (incf total-errors errors)
+		     (list rows errors)))
+	       ;; time to report
+	       (destructuring-bind (rows errors) result
 		 (incf total-seconds seconds)
-		 (pgloader.utils:report-results result seconds)))
+		 (pgloader.utils:report-results rows errors seconds)))
 	     ;; not a known mysql table
 	     (format t "skip, unknown table in MySQL database~%"))
        finally
 	 (pgloader.utils:report-footer "Total streaming time"
-				       total-count total-seconds)
+				       total-count total-errors total-seconds)
 	 (return (values total-count (float total-seconds))))))
 

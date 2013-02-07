@@ -193,7 +193,8 @@ Finally returns how many rows where read and processed."
   "Fetch data from the QUEUE until we see :end-of-data"
   (when truncate (truncate-table dbname table-name))
 
-  (let* ((conspec    (remove :port (get-connection-string dbname))))
+  (let* ((conspec (remove :port (get-connection-string dbname)))
+	 (total-errors 0))
     (loop
        for retval =
 	 (let* ((stream (cl-postgres:open-db-writer conspec table-name nil))
@@ -220,12 +221,14 @@ Finally returns how many rows where read and processed."
 	       ((or
 		 CL-POSTGRES-ERROR:UNIQUE-VIOLATION
 		 CL-POSTGRES-ERROR:DATA-EXCEPTION) (condition)
-		 (retry-batch dbname table-name (nreverse batch) batch-size)))))
+		 (incf total-errors
+		       (retry-batch dbname table-name
+				    (nreverse batch) batch-size))))))
 
        ;; the final return value is the number of row processed
        summing (if (consp retval) (cdr retval) retval) into total-rows
        while (and (consp retval) (eq (car retval) :continue))
-       finally (return total-rows))))
+       finally (return (values total-rows total-errors)))))
 
 ;;;
 ;;; When a batch has been refused by PostgreSQL with a data-exception, that
