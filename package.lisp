@@ -5,6 +5,9 @@
 
 (defpackage #:pgloader.utils
   (:use #:cl)
+  (:import-from #:pgloader.params
+		#:*reject-path-root*
+		#:*state*)
   (:export #:report-header
 	   #:report-table-name
 	   #:report-results
@@ -16,6 +19,9 @@
 	   #:pgstate-add-table
 	   #:pgstate-setf
 	   #:pgstate-incf
+	   #:pgstate-decf
+	   #:pgtable-reject-data
+	   #:pgtable-reject-logs
 	   #:report-pgtable-stats
 	   #:report-pgstate-stats))
 
@@ -26,16 +32,21 @@
 
 (defpackage #:pgloader.csv
   (:use #:cl)
+  (:import-from #:pgloader.params
+		#:*csv-path-root*)
   (:export #:*csv-path-root*
 	   #:get-pathname))
 
 (defpackage #:pgloader.mysql
   (:use #:cl)
-  (:import-from #:pgloader
+  (:import-from #:pgloader.params
+		#:*csv-path-root*
+		#:*reject-path-root*
 		#:*loader-kernel*
 		#:*myconn-host*
 		#:*myconn-user*
-		#:*myconn-pass*)
+		#:*myconn-pass*
+		#:*state*)
   (:import-from #:pgloader.utils
 		#:report-header
 		#:report-table-name
@@ -48,10 +59,9 @@
 		#:pgstate-add-table
 		#:pgstate-setf
 		#:pgstate-incf
+		#:pgstate-decf
 		#:report-pgtable-stats
 		#:report-pgstate-stats)
-  (:import-from #:pgloader
-		#:*state*)
   (:export #:map-rows
 	   #:copy-from
 	   #:list-databases
@@ -63,6 +73,11 @@
 
 (defpackage #:pgloader.pgsql
   (:use #:cl)
+  (:import-from #:pgloader.params
+		#:*csv-path-root*
+		#:*reject-path-root*
+		#:*loader-kernel*
+		#:*state*)
   (:import-from #:pgloader.utils
 		#:report-header
 		#:report-table-name
@@ -75,10 +90,11 @@
 		#:pgstate-add-table
 		#:pgstate-setf
 		#:pgstate-incf
+		#:pgstate-decf
+		#:pgtable-reject-data
+		#:pgtable-reject-logs
 		#:report-pgtable-stats
 		#:report-pgstate-stats)
-  (:import-from #:pgloader
-		#:*state*)
   (:export #:truncate-table
 	   #:copy-from-file
 	   #:copy-from-queue
@@ -89,11 +105,25 @@
 
 (defpackage #:pgloader
   (:use #:cl)
+  (:import-from #:pgloader.params
+		#:*csv-path-root*
+		#:*reject-path-root*
+		#:*loader-kernel*
+		#:*myconn-host*
+		#:*myconn-user*
+		#:*myconn-pass*
+		#:*state*)
   (:import-from #:pgloader.pgsql
 		#:copy-from-file
 		#:list-databases
 		#:list-tables)
   (:export #:*state*
+	   #:*csv-path-root*
+	   #:*reject-path-root*
+	   #:*loader-kernel*
+	   #:*myconn-host*
+	   #:*myconn-user*
+	   #:*myconn-pass*
 	   #:copy-from-file
 	   #:list-databases
 	   #:list-tables))

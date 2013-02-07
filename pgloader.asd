@@ -12,7 +12,8 @@
 	       #:split-sequence
                #:cl-csv
                #:lparallel)
-  :components ((:file "package")
+  :components ((:file "params")
+	       (:file "package" :depends-on ("params"))
 	       (:file "utils"  :depends-on ("package"))
 	       (:file "pgloader" :depends-on ("package" "utils"))
 

@@ -253,17 +253,35 @@ Finally returns how many rows where read and processed."
 ;;;   split 1000 rows in 10 batches of 100 rows
 ;;;   split  352 rows in 3 batches of 100 rows + 1 batch of 52 rows
 ;;;
+
 (defun process-bad-row (dbname table-name condition row)
-  "Process bad row"
-  ;; first, the stats.
+  "Add the row to the reject file, in PostgreSQL COPY TEXT format"
+  ;; first, update the stats.
   (pgstate-incf *state* table-name :errs 1)
+  (pgstate-decf *state* table-name :rows 1)
 
   ;; now, the bad row processing
-  (let* ((str (format nil "~a" row))
-	 (str (if (< 72 (length str)) (subseq str 0 72)
-		  str)))
-    (format t "ERROR: ~a~%" condition)
-    (format t "DATA: ~a...~%" str)))
+  (let* ((table (pgstate-get-table *state* table-name))
+	 (data  (pgtable-reject-data table))
+	 (logs  (pgtable-reject-logs table)))
+
+    ;; first log the rejected data
+    (with-open-file (reject-data-file data
+				      :direction :output
+				      :if-exists :append
+				      :if-does-not-exist :create
+				      :external-format :utf8)
+      ;; the row has already been processed when we get here
+      (pgloader.pgsql:format-row reject-data-file row))
+
+    ;; now log the condition signaled to reject the data
+    (with-open-file (reject-logs-file logs
+				      :direction :output
+				      :if-exists :append
+				      :if-does-not-exist :create
+				      :external-format :utf8)
+      ;; the row has already been processed when we get here
+      (format reject-logs-file "~a~%" condition))))
 
 ;;;
 ;;; Compute the next batch size, must be smaller than the previous one or

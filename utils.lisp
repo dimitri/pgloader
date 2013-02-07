@@ -3,9 +3,6 @@
 ;;;
 (in-package :pgloader.utils)
 
-(defparameter *reject-path-root*
-  (make-pathname :directory "/tmp"))
-
 ;;;
 ;;; Timing Macro
 ;;;
@@ -73,14 +70,14 @@
 			   (merge-pathnames
 			    (format nil "~a" dbname) *reject-path-root*))
 	       :name table-name
-	       :type "rej.dat")
+	       :type "dat")
 	      (pgtable-reject-logs table)
 	      (make-pathname
 	       :directory (pathname-directory
 			   (merge-pathnames
 			    (format nil "~a" dbname) *reject-path-root*))
 	       :name table-name
-	       :type "rej.log"))
+	       :type "log"))
 	table)))
 
 (defun pgstate-setf (pgstate name &key read rows errs secs)
@@ -100,7 +97,6 @@
     pgtable))
 
 (defun pgstate-incf (pgstate name &key rows errs secs)
-  (format t "~&pgstate-incf: ~d rows, ~d errs, ~f secs~%" rows errs secs)
   (let ((pgtable (pgstate-get-table pgstate name)))
     (when rows
       (incf (pgtable-rows pgtable) rows)
@@ -111,6 +107,19 @@
     (when secs
       (incf (pgtable-secs pgtable) secs)
       (incf (pgstate-secs pgstate) secs))
+    pgtable))
+
+(defun pgstate-decf (pgstate name &key rows errs secs)
+  (let ((pgtable (pgstate-get-table pgstate name)))
+    (when rows
+      (decf (pgtable-rows pgtable) rows)
+      (decf (pgstate-rows pgstate) rows))
+    (when errs
+      (decf (pgtable-errs pgtable) errs)
+      (decf (pgstate-errs pgstate) errs))
+    (when secs
+      (decf (pgtable-secs pgtable) secs)
+      (decf (pgstate-secs pgstate) secs))
     pgtable))
 
 (defun report-pgtable-stats (pgstate name)
