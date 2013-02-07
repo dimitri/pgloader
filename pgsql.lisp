@@ -245,17 +245,13 @@ Finally returns how many rows where read and processed."
 ;;;   split 1000 rows in 10 batches of 100 rows
 ;;;   split  352 rows in 3 batches of 100 rows + 1 batch of 52 rows
 ;;;
-
-;;;
-;;; Retry a single batch, without doing data copying: we already have the
-;;; rows inside a batch, just process a subset of it of size batch-size.
-;;;
-(defun process-bad-row (dbname table-name row)
+(defun process-bad-row (dbname table-name condition row)
   "Process bad row"
   (let* ((str (format nil "~a" row))
 	 (str (if (< 72 (length str)) (subseq str 0 72)
 		  str)))
-    (format t "BAD ROW: ~a...~%" str)))
+    (format t "ERROR: ~a~%" condition)
+    (format t "DATA: ~a...~%" str)))
 
 (defun smaller-batch-size (batch-size processed-rows)
   "How many rows should we process in next iteration?"
@@ -274,7 +270,7 @@ Finally returns how many rows where read and processed."
 	 (processed-rows 0)
 	 (total-bad-rows 0))
     (loop
-       while (<= processed-rows batch-size)
+       while (< processed-rows batch-size)
        do
 	 (let* ((current-batch current-batch-pos)
 		(current-batch-size (smaller-batch-size batch-size
@@ -300,13 +296,13 @@ Finally returns how many rows where read and processed."
 	       ((or
 		 CL-POSTGRES-ERROR:UNIQUE-VIOLATION
 		 CL-POSTGRES-ERROR:DATA-EXCEPTION) (condition)
-		 (format t "~&botched batch of ~d rows: ~a.~%"
-			 current-batch-size condition)
 		 ;; process bad data
 		 (if (= 1 current-batch-size)
 		     (progn
-		       (process-bad-row dbname table-name (car current-batch))
+		       (process-bad-row
+			dbname table-name condition (car current-batch))
 		       (incf total-bad-rows))
 		     ;; more than one line of bad data: recurse
 		     (retry-batch dbname table-name
-				  current-batch current-batch-size)))))))))
+				  current-batch current-batch-size))))))
+       finally (return total-bad-rows))))
