@@ -48,17 +48,28 @@ Some notes about what I intend to be working on next.
   - provide a better toplevel API
   - implement tests
 
-### user features
+### command & control
 
   - commands: `LOAD` and `INI` formats
   - compat with `SQL*Loader` format
 
-#### data loading
+### error management
 
-  - dichotomy, that needs a local buffer
-  - general CSV and Text source formats
+  - error management with a local buffer (done)
+  - error reporting
+
+#### data input
+
+  - import directly from MySQL, file based export/import (done)
+  - import directly from MySQL streaming (done)
+  - general CSV and Flexible Text source formats
+  - fixed cols input data format
   - compressed input (gzip, other algos)
   - fetch data from S3
+
+### data output
+
+  - PostgreSQL COPY Text format output for any supported input
 
 #### convenience
 
@@ -77,7 +88,10 @@ offer some other languages (cl-awk etc).
 
   - raw reformating, before rows are split
   - per column reformating
+     - date (zero dates)
+	 - integer and "" that should be NULL
   - user-defined columns (constants, functions of other rows)
+  - column re-ordering
 
 #### UI
 
