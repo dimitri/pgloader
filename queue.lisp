@@ -1,13 +1,6 @@
 ;;;
 ;;; Tools to handle internal queueing, using lparallel.queue
 ;;;
-
-(defpackage #:pgloader.queue
-  (:use #:cl)
-  (:export #:map-pop-queue
-	   #:map-push-queue))
-
-;; no nickname for that package, queue is far too generic
 (in-package :pgloader.queue)
 
 (defun map-pop-queue (queue process-row-fn)

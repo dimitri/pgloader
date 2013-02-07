@@ -14,19 +14,19 @@
                #:lparallel)
   :components ((:file "package")
 	       (:file "utils"  :depends-on ("package"))
-	       (:file "pgloader" :depends-on ("package"))
+	       (:file "pgloader" :depends-on ("package" "utils"))
 
 	       ;; those are one-package-per-file
-	       (:file "queue")		             ; package pgloader.queue
-	       (:file "csv")		             ; package pgloader.csv
+	       (:file "queue" :depends-on ("package")) ; package pgloader.queue
+	       (:file "csv"  :depends-on ("package"))  ; package pgloader.csv
 
 	       ;; package pgloader.pgsql
-	       (:file "pgsql" :depends-on ("queue" "utils"))
+	       (:file "pgsql" :depends-on ("package" "queue" "utils"))
 
 	       ;; mysql.lisp depends on pgsql.lisp to be able to export data
 	       ;; from MySQL in the PostgreSQL format.
 	       ;;
 	       ;; package pgloader.mysql
-	       (:file "mysql" :depends-on ("pgsql" "queue" "utils"))))
+	       (:file "mysql" :depends-on ("package" "pgsql" "queue" "utils"))))
 
 

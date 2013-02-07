@@ -15,6 +15,12 @@
 (defparameter *myconn-user* "myuser")
 (defparameter *myconn-pass* "mypass")
 
+(defparameter *state* (pgloader.utils:make-pgstate)
+  "pgloader state, global stats and per-table stats")
+
 ;;;
 ;;; TODO: define a top level API
 ;;;
+
+(defparameter *state* (pgloader.utils:make-pgstate)
+  "State of the current loading.")

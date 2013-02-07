@@ -1,7 +1,84 @@
 ;;;; package.lisp
+;;;
+;;; To avoid circular files dependencies, define all the packages here
+;;;
+
+(defpackage #:pgloader.utils
+  (:use #:cl)
+  (:export #:report-header
+	   #:report-table-name
+	   #:report-results
+	   #:report-footer
+	   #:format-interval
+	   #:timing
+	   #:make-pgstate
+	   #:pgstate-get-table
+	   #:pgstate-add-table
+	   #:pgstate-setf
+	   #:pgstate-incf
+	   #:report-pgtable-stats
+	   #:report-pgstate-stats))
+
+(defpackage #:pgloader.queue
+  (:use #:cl)
+  (:export #:map-pop-queue
+	   #:map-push-queue))
+
+(defpackage #:pgloader.csv
+  (:use #:cl)
+  (:export #:*csv-path-root*
+	   #:get-pathname))
+
+(defpackage #:pgloader.mysql
+  (:use #:cl)
+  (:import-from #:pgloader
+		#:*loader-kernel*
+		#:*myconn-host*
+		#:*myconn-user*
+		#:*myconn-pass*)
+  (:import-from #:pgloader.utils
+		#:report-header
+		#:report-table-name
+		#:report-results
+		#:report-footer
+		#:format-interval
+		#:timing
+		#:make-pgstate
+		#:pgstate-get-table
+		#:pgstate-add-table
+		#:pgstate-setf
+		#:pgstate-incf
+		#:report-pgtable-stats
+		#:report-pgstate-stats)
+  (:import-from #:pgloader
+		#:*state*)
+  (:export #:map-rows
+	   #:copy-from
+	   #:list-databases
+	   #:list-tables
+	   #:export-all-tables
+	   #:export-import-database
+	   #:stream-mysql-table-in-pgsql
+	   #:stream-database-tables))
 
 (defpackage #:pgloader.pgsql
   (:use #:cl)
+  (:import-from #:pgloader.utils
+		#:report-header
+		#:report-table-name
+		#:report-results
+		#:report-footer
+		#:format-interval
+		#:timing
+		#:make-pgstate
+		#:pgstate-get-table
+		#:pgstate-add-table
+		#:pgstate-setf
+		#:pgstate-incf
+		#:report-pgtable-stats
+		#:report-pgstate-stats)
+  (:import-from #:pgloader
+		#:*state*)
   (:export #:truncate-table
 	   #:copy-from-file
 	   #:copy-from-queue
@@ -16,7 +93,8 @@
 		#:copy-from-file
 		#:list-databases
 		#:list-tables)
-  (:export #:copy-from-file
+  (:export #:*state*
+	   #:copy-from-file
 	   #:list-databases
 	   #:list-tables))
 

@@ -190,19 +190,25 @@ Finally returns how many rows where read and processed."
 			&key
 			  (truncate t)
 			  date-columns)
-  "Fetch data from the QUEUE until we see :end-of-data"
+  "Fetch data from the QUEUE until we see :end-of-data. Update *state*"
   (when truncate (truncate-table dbname table-name))
 
-  (let* ((conspec (remove :port (get-connection-string dbname)))
-	 (total-errors 0))
+  (let* ((conspec (remove :port (get-connection-string dbname))))
     (loop
        for retval =
+	 ;; The idea is to stream the queue content directly into the
+	 ;; PostgreSQL COPY protocol stream, but COMMIT every
+	 ;; *copy-batch-size* rows.
+	 ;;
+	 ;; That allows to have to recover from a buffer of data only rather
+	 ;; than restart from scratch each time we have to find which row
+	 ;; contains erroneous data. BATCH is that buffer.
 	 (let* ((stream (cl-postgres:open-db-writer conspec table-name nil))
 		(batch  nil)
 		(batch-size 0)
 		(process-row-fn
 		 ;; build our batch aware row processing function
-		 ;; it closes over batch and stream
+		 ;; it closes over stream, batch and batch-size
 		 (lambda (row)
 		   (let ((reformated-row
 			  (reformat-row row :date-columns date-columns)))
@@ -221,14 +227,13 @@ Finally returns how many rows where read and processed."
 	       ((or
 		 CL-POSTGRES-ERROR:UNIQUE-VIOLATION
 		 CL-POSTGRES-ERROR:DATA-EXCEPTION) (condition)
-		 (incf total-errors
-		       (retry-batch dbname table-name
-				    (nreverse batch) batch-size))))))
+		 (retry-batch dbname table-name (nreverse batch) batch-size)))))
 
-       ;; the final return value is the number of row processed
-       summing (if (consp retval) (cdr retval) retval) into total-rows
-       while (and (consp retval) (eq (car retval) :continue))
-       finally (return (values total-rows total-errors)))))
+       ;; fetch how many rows we just pushed through, update stats
+       for rows = (if (consp retval) (cdr retval) retval)
+       for cont = (and (consp retval) (eq (car retval) :continue))
+       do (pgstate-incf *state* table-name :rows rows)
+       while cont)))
 
 ;;;
 ;;; When a batch has been refused by PostgreSQL with a data-exception, that
@@ -250,12 +255,20 @@ Finally returns how many rows where read and processed."
 ;;;
 (defun process-bad-row (dbname table-name condition row)
   "Process bad row"
+  ;; first, the stats.
+  (pgstate-incf *state* table-name :errs 1)
+
+  ;; now, the bad row processing
   (let* ((str (format nil "~a" row))
 	 (str (if (< 72 (length str)) (subseq str 0 72)
 		  str)))
     (format t "ERROR: ~a~%" condition)
     (format t "DATA: ~a...~%" str)))
 
+;;;
+;;; Compute the next batch size, must be smaller than the previous one or
+;;; just one row to ensure the retry-batch recursion is not infinite.
+;;;
 (defun smaller-batch-size (batch-size processed-rows)
   "How many rows should we process in next iteration?"
   (let ((remaining-rows (- batch-size processed-rows)))
@@ -265,9 +278,11 @@ Finally returns how many rows where read and processed."
 	(min remaining-rows
 	     (floor (/ batch-size *copy-batch-split*))))))
 
+;;;
+;;; The recursive retry batch function.
+;;;
 (defun retry-batch (dbname table-name batch batch-size)
-  "Batch is a list of rows containing at least one error. Return number of
-   bad rows."
+  "Batch is a list of rows containing at least one bad row. Find it."
   (let* ((conspec (remove :port (get-connection-string dbname)))
 	 (current-batch-pos batch)
 	 (processed-rows 0)
@@ -282,15 +297,11 @@ Finally returns how many rows where read and processed."
 		 (cl-postgres:open-db-writer conspec table-name nil)))
 
 	   (unwind-protect
-		(progn
-		  (dotimes (i current-batch-size)
-		    ;; rows in that batch have already been processed
-		    (cl-postgres:db-write-row stream (car current-batch-pos))
-		    (setf current-batch-pos (cdr current-batch-pos))
-		    (incf processed-rows))
-
-		  ;; function's return value: number of bad rows extracted
-		  total-bad-rows)
+		(dotimes (i current-batch-size)
+		  ;; rows in that batch have already been processed
+		  (cl-postgres:db-write-row stream (car current-batch-pos))
+		  (setf current-batch-pos (cdr current-batch-pos))
+		  (incf processed-rows))
 
 	     (handler-case
 		 (cl-postgres:close-db-writer stream)
@@ -301,11 +312,8 @@ Finally returns how many rows where read and processed."
 		 CL-POSTGRES-ERROR:DATA-EXCEPTION) (condition)
 		 ;; process bad data
 		 (if (= 1 current-batch-size)
-		     (progn
-		       (process-bad-row
-			dbname table-name condition (car current-batch))
-		       (incf total-bad-rows))
+		     (process-bad-row dbname table-name
+				      condition (car current-batch))
 		     ;; more than one line of bad data: recurse
 		     (retry-batch dbname table-name
-				  current-batch current-batch-size))))))
-       finally (return total-bad-rows))))
+				  current-batch current-batch-size)))))))))

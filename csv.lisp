@@ -2,11 +2,6 @@
 ;;; Tools to handle MySQL data fetching
 ;;;
 
-(defpackage #:pgloader.csv
-  (:use #:cl)
-  (:export #:*csv-path-root*
-	   #:get-pathname))
-
 (in-package :pgloader.csv)
 
 (defparameter *csv-path-root*

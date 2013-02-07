@@ -2,22 +2,6 @@
 ;;; Tools to handle MySQL data fetching
 ;;;
 
-(defpackage #:pgloader.mysql
-  (:use #:cl)
-  (:import-from #:pgloader
-		#:*loader-kernel*
-		#:*myconn-host*
-		#:*myconn-user*
-		#:*myconn-pass*)
-  (:export #:map-rows
-	   #:copy-from
-	   #:list-databases
-	   #:list-tables
-	   #:export-all-tables
-	   #:export-import-database
-	   #:stream-mysql-table-in-pgsql
-	   #:stream-database-tables))
-
 (in-package :pgloader.mysql)
 
 ;;;
@@ -121,7 +105,7 @@
   (let ((pgtables (pgloader.pgsql:list-tables dbname))
 	(total-count 0)
 	(total-seconds 0))
-    (pgloader.utils:report-header)
+    (report-header)
     (loop
        for table-name in (list-tables dbname
 				      :host host
@@ -131,18 +115,18 @@
        when (or (null only-tables)
 		(member table-name only-tables :test #'equal))
        do
-	 (pgloader.utils:report-table-name table-name)
+	 (report-table-name table-name)
 	 (multiple-value-bind (result seconds)
-	     (pgloader.utils:timing
+	     (timing
 	      (copy-from dbname table-name filename
 			 :date-columns (pgloader.pgsql:get-date-columns
 					table-name pgtables)))
 	   (when result
 	     (incf total-count result)
 	     (incf total-seconds seconds)
-	     (pgloader.utils:report-results result seconds)))
+	     (report-results result seconds)))
        finally
-	 (pgloader.utils:report-footer "Total export time"
+	 (report-footer "Total export time"
 				       total-count total-seconds)
 	 (return (values total-count (float total-seconds))))))
 
@@ -160,17 +144,17 @@
   (let ((mysql-tables (list-tables dbname))
 	(total-count 0)
 	(total-seconds 0))
-    (pgloader.utils:report-header)
+    (report-header)
     (loop
        for (table-name . date-columns) in (pgloader.pgsql:list-tables dbname)
        when (or (null only-tables)
 		(member table-name only-tables :test #'equal))
        do
-	 (pgloader.utils:report-table-name table-name)
+	 (report-table-name table-name)
 
 	 (if (member table-name mysql-tables :test #'equal)
 	     (multiple-value-bind (result seconds)
-		 (pgloader.utils:timing
+		 (timing
 		  (let ((filename
 			 (pgloader.csv:get-pathname dbname table-name)))
 		    ;; export from MySQL to file
@@ -182,11 +166,11 @@
 	       (when result
 		 (incf total-count result)
 		 (incf total-seconds seconds)
-		 (pgloader.utils:report-results result seconds)))
+		 (report-results result seconds)))
 	     ;; not a known mysql table
 	     (format t " skip, unknown table in MySQL database~%"))
        finally
-	 (pgloader.utils:report-footer "Total export+import time"
+	 (report-footer "Total export+import time"
 				       total-count total-seconds)
 	 (return (values total-count (float total-seconds))))))
 
@@ -205,27 +189,21 @@
 	 (dataq       (lq:make-queue 4096)))
     ;; have a task fill MySQL data in the queue
     (lp:submit-task
-     channel (lambda ()
-	       (list :mysql
-		     (pgloader.queue:map-push-queue
-		      dataq
-		      #'map-rows dbname table-name))))
+     channel
+     (lambda ()
+       (pgloader.queue:map-push-queue
+	dataq #'map-rows dbname table-name)))
 
     ;; and start another task to push that data from the queue to PostgreSQL
     (lp:submit-task
      channel
      (lambda ()
-       (list :pgsql
-	     (multiple-value-list
-	      (pgloader.pgsql:copy-from-queue dbname table-name dataq
-					      :truncate truncate
-					      :date-columns date-columns)))))
+       (pgloader.pgsql:copy-from-queue dbname table-name dataq
+				       :truncate truncate
+				       :date-columns date-columns)))
 
     ;; now wait until both the tasks are over
-    (loop
-       for tasks below 2
-       collect (lp:receive-result channel) into counts
-       finally (return (cadr (assoc :pgsql counts))))))
+    (loop for tasks below 2 do (lp:receive-result channel))))
 
 ;;;
 ;;; Work on all tables for given database
@@ -233,36 +211,30 @@
 (defun stream-database-tables (dbname &key (truncate t) only-tables)
   "Export MySQL data and Import it into PostgreSQL"
   ;; get the list of tables and have at it
-  (let ((mysql-tables (list-tables dbname))
-	(total-count 0)
-	(total-errors 0)
-	(total-seconds 0))
-    (pgloader.utils:report-header)
+  (let ((mysql-tables (list-tables dbname)))
+
+    (report-header)
+
     (loop
        for (table-name . date-columns) in (pgloader.pgsql:list-tables dbname)
        when (or (null only-tables)
 		(member table-name only-tables :test #'equal))
        do
-	 (pgloader.utils:report-table-name table-name)
+	 (pgstate-add-table *state* dbname table-name)
+	 (report-table-name table-name)
 
 	 (if (member table-name mysql-tables :test #'equal)
-	     (multiple-value-bind (result seconds)
-		 (pgloader.utils:timing
-		   (destructuring-bind (rows errors)
-		       (stream-mysql-table-in-pgsql dbname table-name
-						    :truncate truncate
-						    :date-columns date-columns)
-		     (incf total-count rows)
-		     (incf total-errors errors)
-		     (list rows errors)))
-	       ;; time to report
-	       (destructuring-bind (rows errors) result
-		 (incf total-seconds seconds)
-		 (pgloader.utils:report-results rows errors seconds)))
+	     (multiple-value-bind (res secs)
+		 (timing
+		  (stream-mysql-table-in-pgsql dbname table-name
+					       :truncate truncate
+					       :date-columns date-columns))
+	       ;; set the timing we just measured
+	       (declare (ignore res))
+	       (pgstate-incf *state* table-name :secs secs)
+	       (report-pgtable-stats *state* table-name))
 	     ;; not a known mysql table
 	     (format t "skip, unknown table in MySQL database~%"))
        finally
-	 (pgloader.utils:report-footer "Total streaming time"
-				       total-count total-errors total-seconds)
-	 (return (values total-count (float total-seconds))))))
+	 (report-pgstate-stats *state* "Total streaming time"))))
 
