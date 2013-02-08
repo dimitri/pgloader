@@ -107,8 +107,11 @@
       (incf (pgstate-secs pgstate) secs))
     pgtable))
 
-(defun pgstate-incf (pgstate name &key rows errs secs)
+(defun pgstate-incf (pgstate name &key read rows errs secs)
   (let ((pgtable (pgstate-get-table pgstate name)))
+    (when read
+      (incf (pgtable-read pgtable) read)
+      (incf (pgstate-read pgstate) read))
     (when rows
       (incf (pgtable-rows pgtable) rows)
       (incf (pgstate-rows pgstate) rows))
@@ -120,8 +123,11 @@
       (incf (pgstate-secs pgstate) secs))
     pgtable))
 
-(defun pgstate-decf (pgstate name &key rows errs secs)
+(defun pgstate-decf (pgstate name &key read rows errs secs)
   (let ((pgtable (pgstate-get-table pgstate name)))
+    (when read
+      (decf (pgtable-read pgtable) read)
+      (decf (pgstate-read pgstate) read))
     (when rows
       (decf (pgtable-rows pgtable) rows)
       (decf (pgstate-rows pgstate) rows))
@@ -133,31 +139,41 @@
       (decf (pgstate-secs pgstate) secs))
     pgtable))
 
-(defun report-pgtable-stats (pgstate name)
-  (with-slots (rows errs secs) (pgstate-get-table pgstate name)
-    (format t "~9@a  ~9@a  ~9@a" rows errs (format-interval secs nil))))
-
-(defun report-pgstate-stats (pgstate legend)
-  (with-slots (rows errs secs) pgstate
-    (format t "~&------------------------------  ---------  ---------  ---------")
-    (format t "~&~30@a  ~9@a  ~9@a  ~9@a" legend
-	    rows errs (format-interval secs nil))))
-
 ;;;
 ;;; Pretty print a report while doing bulk operations
 ;;;
+(defvar *header-line*
+  "~&------------------------------  ---------  ---------  ---------  ---------")
+
+(defvar *header-tname-format* "~&~30@a")
+(defvar *header-stats-format* "  ~9@a  ~9@a  ~9@a  ~9@a")
+(defvar *header-cols-format* (concatenate 'string *header-tname-format*
+					  *header-stats-format*))
+(defvar *header-cols-names* '("table name" "read" "imported" "errors" "time"))
+
 (defun report-header ()
-  (format t "~&~30@a  ~9@a  ~9@a  ~9@a" "table name" "rows" "errors" "time")
-  (format t "~&------------------------------  ---------  ---------  ---------"))
+  (apply #'format t *header-cols-format* *header-cols-names*)
+  (format t *header-line*))
 
 (defun report-table-name (table-name)
-  (format t "~&~30@a  " table-name))
+  (format t *header-tname-format* table-name))
 
-(defun report-results (rows errors seconds)
-  (format t "~9@a  ~9@a  ~9@a" rows errors (format-interval seconds nil)))
+(defun report-results (read rows errors seconds)
+  (format t *header-stats-format* read rows errors (format-interval seconds nil)))
 
-(defun report-footer (legend rows errors seconds)
-  (format t "~&------------------------------  ---------  ---------  ---------")
-  (format t "~&~30@a  ~9@a  ~9@a  ~9@a" legend
-	  rows errors (format-interval seconds nil)))
+(defun report-footer (legend read rows errors seconds)
+  (format t *header-line*)
+  (apply #'format t *header-cols-format*
+	 (list legend read rows errors (format-interval seconds nil))))
+
+;;;
+;;; Pretty print a report from a pgtable and pgstats counters
+;;;
+(defun report-pgtable-stats (pgstate name)
+  (with-slots (read rows errs secs) (pgstate-get-table pgstate name)
+    (report-results read rows errs secs)))
+
+(defun report-pgstate-stats (pgstate legend)
+  (with-slots (read rows errs secs) pgstate
+    (report-footer legend read rows errs secs)))
 

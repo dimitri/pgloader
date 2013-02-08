@@ -63,13 +63,13 @@
 		#:report-pgtable-stats
 		#:report-pgstate-stats)
   (:export #:map-rows
-	   #:copy-from
+	   #:copy-to
 	   #:list-databases
 	   #:list-tables
-	   #:export-all-tables
+	   #:export-database
 	   #:export-import-database
-	   #:stream-mysql-table-in-pgsql
-	   #:stream-database-tables))
+	   #:stream-table
+	   #:stream-database))
 
 (defpackage #:pgloader.pgsql
   (:use #:cl)

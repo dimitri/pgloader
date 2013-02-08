@@ -72,12 +72,12 @@
 ;;; Use mysql-map-rows and pgsql-text-copy-format to fill in a CSV file on
 ;;; disk with MySQL data in there.
 ;;;
-(defun copy-from (dbname table-name filename
-		  &key
-		    date-columns
-		    (host *myconn-host*)
-		    (user *myconn-user*)
-		    (pass *myconn-pass*))
+(defun copy-to (dbname table-name filename
+		&key
+		  date-columns
+		  (host *myconn-host*)
+		  (user *myconn-user*)
+		  (pass *myconn-pass*))
   "Extrat data from MySQL in PostgreSQL COPY TEXT format"
   (with-open-file (text-file filename
 			     :direction :output
@@ -95,16 +95,14 @@
 ;;;
 ;;; MySQL bulk export to file, in PostgreSQL COPY TEXT format
 ;;;
-(defun export-all-tables (dbname
-			  &key
-			    only-tables
-			    (host *myconn-host*)
-			    (user *myconn-user*)
-			    (pass *myconn-pass*))
+(defun export-database (dbname
+			&key
+			  only-tables
+			  (host *myconn-host*)
+			  (user *myconn-user*)
+			  (pass *myconn-pass*))
   "Export MySQL tables into as many TEXT files, in the PostgreSQL COPY format"
-  (let ((pgtables (pgloader.pgsql:list-tables dbname))
-	(total-count 0)
-	(total-seconds 0))
+  (let ((pgtables (pgloader.pgsql:list-tables dbname)))
     (report-header)
     (loop
        for table-name in (list-tables dbname
@@ -115,25 +113,26 @@
        when (or (null only-tables)
 		(member table-name only-tables :test #'equal))
        do
+	 (pgstate-add-table *state* dbname table-name)
 	 (report-table-name table-name)
-	 (multiple-value-bind (result seconds)
+	 (multiple-value-bind (rows secs)
 	     (timing
-	      (copy-from dbname table-name filename
-			 :date-columns (pgloader.pgsql:get-date-columns
-					table-name pgtables)))
-	   (when result
-	     (incf total-count result)
-	     (incf total-seconds seconds)
-	     (report-results result seconds)))
+	      ;; load data
+	      (let ((date-cols
+		     (pgloader.pgsql:get-date-columns table-name pgtables)))
+		(copy-to dbname table-name filename :date-columns date-cols)))
+	   ;; update and report stats
+	   (pgstate-incf *state* table-name :read rows :secs secs)
+	   (report-pgtable-stats *state* table-name))
        finally
-	 (report-footer "Total export time"
-				       total-count total-seconds)
-	 (return (values total-count (float total-seconds))))))
-
+	 (report-pgstate-stats *state* "Total export time"))))
 
 ;;;
-;;; Copy data for a target database from files in the PostgreSQL COPY TEXT
-;;; format
+;;; Copy data from a target database into files in the PostgreSQL COPY TEXT
+;;; format, then load those files. Useful mainly to compare timing with the
+;;; direct streaming method. If you need to pre-process the files, use
+;;; export-database, do the extra processing, then use
+;;; pgloader.pgsql:copy-from-file on each file.
 ;;;
 (defun export-import-database (dbname
 			       &key
@@ -141,63 +140,71 @@
 				 only-tables)
   "Export MySQL data and Import it into PostgreSQL"
   ;; get the list of tables and have at it
-  (let ((mysql-tables (list-tables dbname))
-	(total-count 0)
-	(total-seconds 0))
+  (let ((mysql-tables (list-tables dbname)))
     (report-header)
     (loop
        for (table-name . date-columns) in (pgloader.pgsql:list-tables dbname)
        when (or (null only-tables)
 		(member table-name only-tables :test #'equal))
        do
+	 (pgstate-add-table *state* dbname table-name)
 	 (report-table-name table-name)
 
 	 (if (member table-name mysql-tables :test #'equal)
-	     (multiple-value-bind (result seconds)
+	     (multiple-value-bind (res secs)
 		 (timing
-		  (let ((filename
-			 (pgloader.csv:get-pathname dbname table-name)))
-		    ;; export from MySQL to file
-		    (copy-from dbname table-name filename
-			       :date-columns date-columns)
-		    ;; import the file to PostgreSQL
-		    (pgloader.pgsql:copy-from-file dbname table-name filename
-						   :truncate truncate)))
-	       (when result
-		 (incf total-count result)
-		 (incf total-seconds seconds)
-		 (report-results result seconds)))
+		  (let* ((filename
+			 (pgloader.csv:get-pathname dbname table-name))
+			 (read
+			  ;; export from MySQL to file
+			  (copy-to dbname table-name filename
+				   :date-columns date-columns))
+			   ;; import the file to PostgreSQL
+			 (rows
+			  (pgloader.pgsql:copy-from-file dbname
+							 table-name
+							 filename
+							 :truncate truncate)))
+		    (pgstate-incf *state* table-name :read read :rows rows)))
+	       (declare (ignore res))
+	       (pgstate-incf *state* table-name :secs secs)
+	       (report-pgtable-stats *state* table-name))
 	     ;; not a known mysql table
 	     (format t " skip, unknown table in MySQL database~%"))
        finally
-	 (report-footer "Total export+import time"
-				       total-count total-seconds)
-	 (return (values total-count (float total-seconds))))))
+	 (report-pgstate-stats *state* "Total export+import time"))))
 
+;;;
+;;; Export MySQL data to our lparallel data queue. All the work is done in
+;;; other basic layers, simple enough function.
+;;;
+(defun copy-to-queue (dbname table-name dataq)
+  "Copy data from MySQL table DBNAME.TABLE-NAME into queue DATAQ"
+  (let ((read
+	 (pgloader.queue:map-push-queue dataq #'map-rows dbname table-name)))
+    (pgstate-incf *state* table-name :read read)))
 
 ;;;
 ;;; Direct "stream" in between mysql fetching of results and PostgreSQL COPY
 ;;; protocol
 ;;;
-(defun stream-mysql-table-in-pgsql (dbname table-name
-				    &key
-				    truncate
-				    date-columns)
+(defun stream-table (dbname table-name
+		     &key
+		       truncate
+		       date-columns)
   "Connect in parallel to MySQL and PostgreSQL and stream the data."
   (let* ((lp:*kernel* *loader-kernel*)
 	 (channel     (lp:make-channel))
 	 (dataq       (lq:make-queue 4096)))
-    ;; have a task fill MySQL data in the queue
-    (lp:submit-task
-     channel
-     (lambda ()
-       (pgloader.queue:map-push-queue
-	dataq #'map-rows dbname table-name)))
+    (lp:submit-task channel (lambda ()
+			      ;; this function update :read stats
+			      (copy-to-queue dbname table-name dataq)))
 
     ;; and start another task to push that data from the queue to PostgreSQL
     (lp:submit-task
      channel
      (lambda ()
+       ;; this function update :rows stats
        (pgloader.pgsql:copy-from-queue dbname table-name dataq
 				       :truncate truncate
 				       :date-columns date-columns)))
@@ -208,7 +215,7 @@
 ;;;
 ;;; Work on all tables for given database
 ;;;
-(defun stream-database-tables (dbname &key (truncate t) only-tables)
+(defun stream-database (dbname &key (truncate t) only-tables)
   "Export MySQL data and Import it into PostgreSQL"
   ;; get the list of tables and have at it
   (let ((mysql-tables (list-tables dbname)))
@@ -226,9 +233,10 @@
 	 (if (member table-name mysql-tables :test #'equal)
 	     (multiple-value-bind (res secs)
 		 (timing
-		  (stream-mysql-table-in-pgsql dbname table-name
-					       :truncate truncate
-					       :date-columns date-columns))
+		  ;; this will care about updating stats in *state*
+		  (stream-table dbname table-name
+				:truncate truncate
+				:date-columns date-columns))
 	       ;; set the timing we just measured
 	       (declare (ignore res))
 	       (pgstate-incf *state* table-name :secs secs)

@@ -167,7 +167,7 @@ Finally returns how many rows where read and processed."
 (defun copy-from-file (dbname table-name filename
 		       &key
 			 (truncate t))
-  "Load data from clean COPY TEXT file to PostgreSQL"
+  "Load data from clean COPY TEXT file to PostgreSQL, return how many rows."
   (when truncate (truncate-table dbname table-name))
 
   (let* ((conspec  (remove :port (get-connection-string dbname)))
