@@ -8,7 +8,7 @@
 ;;;
 ;;; Internal Parameters. The one to change are in params.lisp
 ;;;
-(defparameter *state* (pgloader.utils:make-pgstate)
+(defparameter *state* nil
   "State of the current loading.")
 
 ;;;

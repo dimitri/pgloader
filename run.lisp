@@ -7,5 +7,12 @@
       *myconn-user* "debian-sys-maint"
       *myconn-pass* "vtmMI04yBZlFprYm")
 
-;; start with a new empty state, for stats.
-(setq pgloader:*state* (pgloader.utils:make-pgstate))
+(loop
+   for test in (list #'pgloader.mysql:stream-database
+		     #'pgloader.mysql:export-database
+		     #'pgloader.mysql:export-import-database)
+   do
+     (format t "~&~%Testing ~a:~%~%" test)
+     (funcall test "yagoa" :only-tables '("membres" "sav_themes")))
+
+

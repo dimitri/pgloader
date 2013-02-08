@@ -103,6 +103,7 @@
 			  (pass *myconn-pass*))
   "Export MySQL tables into as many TEXT files, in the PostgreSQL COPY format"
   (let ((pgtables (pgloader.pgsql:list-tables dbname)))
+    (setf *state* (pgloader.utils:make-pgstate))
     (report-header)
     (loop
        for table-name in (list-tables dbname
@@ -141,6 +142,7 @@
   "Export MySQL data and Import it into PostgreSQL"
   ;; get the list of tables and have at it
   (let ((mysql-tables (list-tables dbname)))
+    (setf *state* (pgloader.utils:make-pgstate))
     (report-header)
     (loop
        for (table-name . date-columns) in (pgloader.pgsql:list-tables dbname)
@@ -219,9 +221,8 @@
   "Export MySQL data and Import it into PostgreSQL"
   ;; get the list of tables and have at it
   (let ((mysql-tables (list-tables dbname)))
-
+    (setf *state* (pgloader.utils:make-pgstate))
     (report-header)
-
     (loop
        for (table-name . date-columns) in (pgloader.pgsql:list-tables dbname)
        when (or (null only-tables)
