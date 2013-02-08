@@ -62,22 +62,33 @@
 (defun pgstate-add-table (pgstate dbname table-name)
   "Instanciate a new pgtable structure to hold our stats, and return it."
   (or (pgstate-get-table pgstate table-name)
-      (let ((table (setf (gethash table-name (pgstate-tables pgstate))
-			 (make-pgtable :name table-name))))
-	(setf (pgtable-reject-data table)
-	      (make-pathname
-	       :directory (pathname-directory
-			   (merge-pathnames
-			    (format nil "~a" dbname) *reject-path-root*))
-	       :name table-name
-	       :type "dat")
-	      (pgtable-reject-logs table)
-	      (make-pathname
-	       :directory (pathname-directory
-			   (merge-pathnames
-			    (format nil "~a" dbname) *reject-path-root*))
-	       :name table-name
-	       :type "log"))
+      (let* ((table (setf (gethash table-name (pgstate-tables pgstate))
+			  (make-pgtable :name table-name)))
+	     (reject-dir (pathname-directory
+			  (merge-pathnames
+			   (format nil "~a/" dbname) *reject-path-root*)))
+	     (data-pathname
+	      (make-pathname :directory reject-dir :name table-name :type "dat"))
+	     (logs-pathname
+	      (make-pathname :directory reject-dir :name table-name :type "log")))
+
+	;; create the per-database directory if it does not exists yet
+	(ensure-directories-exist (directory-namestring data-pathname))
+
+	;; rename the existing files if there are some
+	(with-open-file (data data-pathname
+			      :direction :output
+			      :if-exists :rename
+			      :if-does-not-exist nil))
+
+	(with-open-file (logs logs-pathname
+			      :direction :output
+			      :if-exists :rename
+			      :if-does-not-exist nil))
+
+	;; set the properties to the right pathnames
+	(setf (pgtable-reject-data table) data-pathname
+	      (pgtable-reject-logs table) logs-pathname)
 	table)))
 
 (defun pgstate-setf (pgstate name &key read rows errs secs)

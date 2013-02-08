@@ -56,7 +56,8 @@ Some notes about what I intend to be working on next.
 ### error management
 
   - error management with a local buffer (done)
-  - error reporting
+  - error reporting (done)
+  - add input line number to log file?
 
 #### data input
 

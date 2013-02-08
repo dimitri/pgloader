@@ -19,7 +19,7 @@
   (merge-pathnames "csv/" (user-homedir-pathname)))
 
 (defparameter *reject-path-root*
-  (make-pathname :directory "/tmp"))
+  (make-pathname :directory "/tmp/pgloader/"))
 
 ;;; package nicknames are only defined later, in package.lisp
 (defparameter *loader-kernel* (lparallel:make-kernel 2)

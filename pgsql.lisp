@@ -6,10 +6,10 @@
 ;;;
 ;;; Quick utilities to get rid of later.
 ;;;
-(defparameter *copy-batch-size* 10000
+(defparameter *copy-batch-size* 25000
   "How many rows to per COPY transaction")
 
-(defparameter *copy-batch-split* 10
+(defparameter *copy-batch-split* 5
   "Number of batches in which to split a batch with bad data")
 
 (defparameter *pgconn*
