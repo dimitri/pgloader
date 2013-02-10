@@ -186,6 +186,44 @@ Finally returns how many rows where read and processed."
 ;;; Pop data from a lparallel.queue queue instance, reformat it assuming
 ;;; data in there are from cl-mysql, and copy it to a PostgreSQL table.
 ;;;
+;;; First prepare the streaming function that batches the rows so that we
+;;; are able to process them in case of errors.
+;;;
+(defun make-copy-and-batch-fn (stream date-columns)
+  "Returns BATCH (List of rows), BATCH-SIZE and a function of one argument
+   ROW, as multiple values.
+
+   When called, the function returned reformats the row, adds it into the
+   PostgreSQL COPY STREAM, and push it to BATCH (a list). When batch's size
+   is up to *copy-batch-size*, throw the 'next-batch tag with its current
+   size."
+  (let ((batch nil)
+	(batch-size 0))
+    (values
+     batch
+     batch-size
+     (lambda (row)
+       (let ((reformated-row
+	      (reformat-row row :date-columns date-columns)))
+
+	 ;; maintain the current batch
+	 (push reformated-row batch)
+	 (incf batch-size 1)
+
+	 ;; send the reformated row in the PostgreSQL COPY stream
+	 (cl-postgres:db-write-row stream reformated-row)
+
+	 ;; return control in between batches
+	 (when (= batch-size *copy-batch-size*)
+	   (throw 'next-batch (cons :continue batch-size))))))))
+
+;;; The idea is to stream the queue content directly into the
+;;; PostgreSQL COPY protocol stream, but COMMIT every
+;;; *copy-batch-size* rows.
+;;;
+;;; That allows to have to recover from a buffer of data only rather
+;;; than restart from scratch each time we have to find which row
+;;; contains erroneous data. BATCH is that buffer.
 (defun copy-from-queue (dbname table-name dataq
 			&key
 			  (truncate t)
@@ -196,38 +234,19 @@ Finally returns how many rows where read and processed."
   (let* ((conspec (remove :port (get-connection-string dbname))))
     (loop
        for retval =
-	 ;; The idea is to stream the queue content directly into the
-	 ;; PostgreSQL COPY protocol stream, but COMMIT every
-	 ;; *copy-batch-size* rows.
-	 ;;
-	 ;; That allows to have to recover from a buffer of data only rather
-	 ;; than restart from scratch each time we have to find which row
-	 ;; contains erroneous data. BATCH is that buffer.
-	 (let* ((stream (cl-postgres:open-db-writer conspec table-name nil))
-		(batch  nil)
-		(batch-size 0)
-		(process-row-fn
-		 ;; build our batch aware row processing function
-		 ;; it closes over stream, batch and batch-size
-		 (lambda (row)
-		   (let ((reformated-row
-			  (reformat-row row :date-columns date-columns)))
-		     (push reformated-row batch)
-		     (incf batch-size 1)
-		     (cl-postgres:db-write-row stream reformated-row)
-		     ;; return control in between batches
-		     (when (= batch-size *copy-batch-size*)
-		       (throw 'next-batch (cons :continue batch-size)))))))
-	   (unwind-protect
-		(catch 'next-batch
-		  (pgloader.queue:map-pop-queue dataq process-row-fn))
-	     ;; in case of data-exception, split the batch and try again
-	     (handler-case
-		 (cl-postgres:close-db-writer stream)
-	       ((or
-		 CL-POSTGRES-ERROR:UNIQUE-VIOLATION
-		 CL-POSTGRES-ERROR:DATA-EXCEPTION) (condition)
-		 (retry-batch dbname table-name (nreverse batch) batch-size)))))
+	 (let ((stream (cl-postgres:open-db-writer conspec table-name nil)))
+	   (multiple-value-bind (batch batch-size process-row-fn)
+	       (make-copy-and-batch-fn stream date-columns)
+	     (unwind-protect
+		  (catch 'next-batch
+		    (pgloader.queue:map-pop-queue dataq process-row-fn))
+	       ;; in case of data-exception, split the batch and try again
+	       (handler-case
+		   (cl-postgres:close-db-writer stream)
+		 ((or
+		   CL-POSTGRES-ERROR:UNIQUE-VIOLATION
+		   CL-POSTGRES-ERROR:DATA-EXCEPTION) (condition)
+		   (retry-batch dbname table-name (nreverse batch) batch-size))))))
 
        ;; fetch how many rows we just pushed through, update stats
        for rows = (if (consp retval) (cdr retval) retval)
