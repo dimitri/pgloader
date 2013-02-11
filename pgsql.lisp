@@ -132,7 +132,7 @@ details about the format, and format specs."
 ;;; Read a file format in PostgreSQL COPY TEXT format, and call given
 ;;; function on each line.
 ;;;
-(defun map-rows (dbname table-name filename process-row-fn)
+(defun map-rows (filename process-row-fn)
   "Load data from a text file in PostgreSQL COPY TEXT format.
 
 Each row is pre-processed then PROCESS-ROW-FN is called with the row as a
@@ -161,35 +161,13 @@ Finally returns how many rows where read and processed."
 	 finally (return count)))))
 
 ;;;
-;;; Read a file in PostgreSQL COPY TEXT format and load it into a PostgreSQL
-;;; table using the COPY protocol.
-;;;
-(defun copy-from-file (dbname table-name filename
-		       &key
-			 (truncate t))
-  "Load data from clean COPY TEXT file to PostgreSQL, return how many rows."
-  (when truncate (truncate-table dbname table-name))
-
-  (let* ((conspec  (remove :port (get-connection-string dbname)))
-	 (stream
-	  (cl-postgres:open-db-writer conspec table-name nil)))
-
-    (unwind-protect
-	 ;; read csv in the file and push it directly through the db writer
-	 ;; in COPY streaming mode
-	 (map-rows dbname table-name filename
-		   (lambda (row)
-		     (cl-postgres:db-write-row stream row)))
-      (cl-postgres:close-db-writer stream))))
-
-;;;
 ;;; Pop data from a lparallel.queue queue instance, reformat it assuming
 ;;; data in there are from cl-mysql, and copy it to a PostgreSQL table.
 ;;;
 ;;; First prepare the streaming function that batches the rows so that we
 ;;; are able to process them in case of errors.
 ;;;
-(defun make-copy-and-batch-fn (stream date-columns)
+(defun make-copy-and-batch-fn (stream &key date-columns)
   "Returns BATCH (List of rows), BATCH-SIZE and a function of one argument
    ROW, as multiple values.
 
@@ -203,8 +181,9 @@ Finally returns how many rows where read and processed."
      batch
      batch-size
      (lambda (row)
-       (let ((reformated-row
-	      (reformat-row row :date-columns date-columns)))
+       (let ((reformated-row (if date-columns
+				 (reformat-row row :date-columns date-columns)
+				 row)))
 
 	 ;; maintain the current batch
 	 (push reformated-row batch)
@@ -236,7 +215,7 @@ Finally returns how many rows where read and processed."
        for retval =
 	 (let ((stream (cl-postgres:open-db-writer conspec table-name nil)))
 	   (multiple-value-bind (batch batch-size process-row-fn)
-	       (make-copy-and-batch-fn stream date-columns)
+	       (make-copy-and-batch-fn stream :date-columns date-columns)
 	     (unwind-protect
 		  (catch 'next-batch
 		    (pgloader.queue:map-pop-queue dataq process-row-fn))
@@ -245,7 +224,7 @@ Finally returns how many rows where read and processed."
 		   (cl-postgres:close-db-writer stream)
 		 ((or
 		   CL-POSTGRES-ERROR:UNIQUE-VIOLATION
-		   CL-POSTGRES-ERROR:DATA-EXCEPTION) (condition)
+		   CL-POSTGRES-ERROR:DATA-EXCEPTION) ()
 		   (retry-batch dbname table-name (nreverse batch) batch-size))))))
 
        ;; fetch how many rows we just pushed through, update stats
@@ -253,6 +232,37 @@ Finally returns how many rows where read and processed."
        for cont = (and (consp retval) (eq (car retval) :continue))
        do (pgstate-incf *state* table-name :rows rows)
        while cont)))
+
+;;;
+;;; Read a file in PostgreSQL COPY TEXT format and load it into a PostgreSQL
+;;; table using the COPY protocol. We expect PostgreSQL compatible data in
+;;; that data format, so we don't handle any reformating here.
+;;;
+(defun copy-to-queue (table-name filename dataq)
+  "Copy data from file FILENAME into lparallel.queue DATAQ"
+  (let ((read
+	 (pgloader.queue:map-push-queue dataq #'map-rows filename)))
+    (pgstate-incf *state* table-name :read read)))
+
+(defun copy-from-file (dbname table-name filename &key (truncate t))
+  "Load data from clean COPY TEXT file to PostgreSQL, return how many rows."
+  (let* ((lp:*kernel* *loader-kernel*)
+	 (channel     (lp:make-channel))
+	 (dataq       (lq:make-queue 4096)))
+    (lp:submit-task channel (lambda ()
+			      ;; this function update :read stats
+			      (copy-to-queue table-name filename dataq)))
+
+    ;; and start another task to push that data from the queue to PostgreSQL
+    (lp:submit-task
+     channel
+     (lambda ()
+       ;; this function update :rows stats
+       (pgloader.pgsql:copy-from-queue dbname table-name dataq
+				       :truncate truncate)))
+
+    ;; now wait until both the tasks are over
+    (loop for tasks below 2 do (lp:receive-result channel))))
 
 ;;;
 ;;; When a batch has been refused by PostgreSQL with a data-exception, that

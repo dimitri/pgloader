@@ -160,14 +160,12 @@
 			 (read
 			  ;; export from MySQL to file
 			  (copy-to dbname table-name filename
-				   :date-columns date-columns))
-			   ;; import the file to PostgreSQL
-			 (rows
-			  (pgloader.pgsql:copy-from-file dbname
-							 table-name
-							 filename
-							 :truncate truncate)))
-		    (pgstate-incf *state* table-name :read read :rows rows)))
+				   :date-columns date-columns)))
+		    ;; import the file to PostgreSQL
+		    (pgloader.pgsql:copy-from-file dbname
+						   table-name
+						   filename
+						   :truncate truncate)))
 	       (declare (ignore res))
 	       (pgstate-incf *state* table-name :secs secs)
 	       (report-pgtable-stats *state* table-name))
