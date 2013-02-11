@@ -36,8 +36,9 @@
 ;;;
 ;;; Map a function to each row extracted from MySQL
 ;;;
-(defun map-rows (dbname table-name process-row-fn
+(defun map-rows (dbname table-name
 		 &key
+		   process-row-fn
 		   (host *myconn-host*)
 		   (user *myconn-user*)
 		   (pass *myconn-pass*))
@@ -69,8 +70,8 @@
     (cl-mysql:disconnect)))
 
 ;;;
-;;; Use mysql-map-rows and pgsql-text-copy-format to fill in a CSV file on
-;;; disk with MySQL data in there.
+;;; Use map-rows and pgsql-text-copy-format to fill in a CSV file on disk
+;;; with MySQL data in there.
 ;;;
 (defun copy-to (dbname table-name filename
 		&key
@@ -84,9 +85,9 @@
 			     :if-exists :supersede
 			     :external-format :utf8)
     (map-rows dbname table-name
+	      :process-row-fn
 	      (lambda (row)
-		(pgloader.pgsql:format-row text-file
-					   row
+		(pgloader.pgsql:format-row text-file row
 					   :date-columns date-columns))
 	      :host host
 	      :user user

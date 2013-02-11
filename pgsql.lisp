@@ -132,7 +132,7 @@ details about the format, and format specs."
 ;;; Read a file format in PostgreSQL COPY TEXT format, and call given
 ;;; function on each line.
 ;;;
-(defun map-rows (filename process-row-fn)
+(defun map-rows (filename &key process-row-fn)
   "Load data from a text file in PostgreSQL COPY TEXT format.
 
 Each row is pre-processed then PROCESS-ROW-FN is called with the row as a

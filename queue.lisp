@@ -20,10 +20,11 @@ Returns how many rows where processed from the queue."
 row into the queue. When MAP-ROW-FN returns, push :end-of-data in the queue.
 
 Returns whatever MAP-ROW-FN did return."
-  (prog1
-      (apply map-row-fn (append initial-args
-				(list
-				 (lambda (row)
-				   (lq:push-queue row queue)))))
+  (unwind-protect
+       (apply map-row-fn (append initial-args
+				     (list
+				      :process-row-fn
+				      (lambda (row)
+					(lq:push-queue row queue)))))
+    ;; in all cases, signal the end of the producer
     (lq:push-queue :end-of-data queue)))
-

@@ -15,8 +15,9 @@
 ;;;
 ;;; Read a file format in CSV format, and call given function on each line.
 ;;;
-(defun map-rows (filename process-row-fn
+(defun map-rows (table-name filename
 		 &key
+		   process-row-fn
 		   (skip-first-p nil)
 		   (separator #\Tab)
 		   (quote cl-csv:*quote*)
@@ -32,6 +33,7 @@ Finally returns how many rows where read and processed."
       ;; we just ignore files that don't exist
       (input filename
 	     :direction :input
+	     :external-format :utf8
 	     :if-does-not-exist nil)
     (when input
       ;; read in the text file, split it into columns, process NULL columns
@@ -44,30 +46,58 @@ Finally returns how many rows where read and processed."
 		(let ((row-with-nils
 		       (mapcar (lambda (x) (if (string= null-as x) nil x)) row)))
 		  (funcall process-row-fn row-with-nils)))))
-	(cl-csv:read-csv input
-			 :row-fn reformat-then-process
-			 :skip-first-p skip-first-p
-			 :separator separator
-			 :quote quote
-			 :escape escape)
+
+	(handler-case
+	    (cl-csv:read-csv input
+			     :row-fn reformat-then-process
+			     :skip-first-p skip-first-p
+			     :separator separator
+			     :quote quote
+			     :escape escape)
+	  ((or cl-csv:csv-parse-error type-error) (condition)
+	    ;; some form of parse error did happen, TODO: log it
+	   (pgstate-setf *state* table-name :errs -1)))
+	;; return how many rows we did read
 	read))))
 
-(defun copy-to-queue (table-name filename dataq)
+(defun copy-to-queue (table-name filename dataq
+		      &key
+			(skip-first-p nil)
+			(separator #\Tab)
+			(quote cl-csv:*quote*)
+			(escape cl-csv:*quote-escape*)
+			(null-as "\\N"))
   "Copy data from CSV FILENAME into lprallel.queue DATAQ"
   (let ((read
-	 (pgloader.queue:map-push-queue dataq #'map-rows filename)))
+	 (pgloader.queue:map-push-queue dataq #'map-rows table-name filename
+					:skip-first-p skip-first-p
+					:separator separator
+					:quote quote
+					:escape escape
+					:null-as null-as)))
     (pgstate-incf *state* table-name :read read)))
 
 (defun copy-from-file (dbname table-name filename
-		       &key (truncate t) date-columns)
+		       &key
+			 (truncate t)
+			 date-columns
+			 (skip-first-p nil)
+			 (separator #\Tab)
+			 (quote cl-csv:*quote*)
+			 (escape cl-csv:*quote-escape*)
+			 (null-as "\\N"))
   "Copy data from CSV file FILENAME into PostgreSQL DBNAME.TABLE-NAME"
   (let* ((lp:*kernel* *loader-kernel*)
 	 (channel     (lp:make-channel))
 	 (dataq       (lq:make-queue 4096)))
     (lp:submit-task channel (lambda ()
 			      ;; this function update :read stats
-			      (copy-to-queue table-name filename dataq)))
-
+			      (copy-to-queue table-name filename dataq
+					     :skip-first-p skip-first-p
+					     :separator separator
+					     :quote quote
+					     :escape escape
+					     :null-as null-as)))
     ;; and start another task to push that data from the queue to PostgreSQL
     (lp:submit-task
      channel
@@ -83,6 +113,11 @@ Finally returns how many rows where read and processed."
 (defun import-database (dbname
 			&key
 			  (csv-path-root *csv-path-root*)
+			  (skip-first-p nil)
+			  (separator #\Tab)
+			  (quote cl-csv:*quote*)
+			  (escape cl-csv:*quote-escape*)
+			  (null-as "\\N")
 			  (truncate t)
 			  only-tables)
   "Export MySQL data and Import it into PostgreSQL"
@@ -102,6 +137,11 @@ Finally returns how many rows where read and processed."
 	   (timing
 	    ;; this will care about updating stats in *state*
 	    (copy-from-file dbname table-name filename
+			    :skip-first-p skip-first-p
+			    :separator separator
+			    :quote quote
+			    :escape escape
+			    :null-as null-as
 			    :truncate truncate
 			    :date-columns date-columns))
 	 ;; set the timing we just measured
