@@ -33,9 +33,29 @@
 (defpackage #:pgloader.csv
   (:use #:cl)
   (:import-from #:pgloader.params
-		#:*csv-path-root*)
+		#:*csv-path-root*
+		#:*loader-kernel*
+		#:*state*)
+  (:import-from #:pgloader.utils
+		#:report-header
+		#:report-table-name
+		#:report-results
+		#:report-footer
+		#:format-interval
+		#:timing
+		#:make-pgstate
+		#:pgstate-get-table
+		#:pgstate-add-table
+		#:pgstate-setf
+		#:pgstate-incf
+		#:pgstate-decf
+		#:report-pgtable-stats
+		#:report-pgstate-stats)
   (:export #:*csv-path-root*
-	   #:get-pathname))
+	   #:get-pathname
+	   #:copy-to-queue
+	   #:copy-from-file
+	   #:import-database))
 
 (defpackage #:pgloader.mysql
   (:use #:cl)
