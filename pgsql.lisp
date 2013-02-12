@@ -37,6 +37,7 @@
                              where datname !~ 'postgres|template'")
 	 collect dbname)))
 
+
 (defun list-tables (dbname)
   "Return an alist of tables names and list of columns to pay attention to."
   (pomo:with-connection
@@ -59,6 +60,24 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
 				for attnum across colarray
 				unless (eq attnum :NULL)
 				collect attnum)))))
+
+(defun list-tables-cols (dbname)
+  "Return an alist of tables names and number of columns."
+  (pomo:with-connection
+      (get-connection-string dbname)
+
+    (loop for (relname cols) in (pomo:query "
+    select relname, count(attnum)
+      from pg_class c
+           join pg_namespace n on n.oid = c.relnamespace
+           left join pg_attribute a on c.oid = a.attrelid
+           join pg_type t on t.oid = a.atttypid
+     where c.relkind = 'r'
+           and attnum > 0
+           and n.nspname = 'public'
+  group by relname
+")
+       collect (cons relname cols))))
 
 (defun get-date-columns (table-name pgsql-table-list)
   "Given a PGSQL-TABLE-LIST as per function list-tables, return a list of

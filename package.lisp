@@ -55,7 +55,9 @@
 	   #:get-pathname
 	   #:copy-to-queue
 	   #:copy-from-file
-	   #:import-database))
+	   #:import-database
+	   #:guess-csv-params
+	   #:guess-all-csv-params))
 
 (defpackage #:pgloader.mysql
   (:use #:cl)
@@ -120,6 +122,7 @@
 	   #:copy-from-queue
 	   #:list-databases
 	   #:list-tables
+	   #:list-tables-cols
 	   #:get-date-columns
 	   #:format-row))
 
