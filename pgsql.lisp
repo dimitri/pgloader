@@ -16,6 +16,8 @@
   '("gdb" "none" "localhost" :port 5432)
   "Connection string to the local database")
 
+;(setq *pgconn* '("dim" "none" "localhost" :port 54393))
+
 (defun get-connection-string (dbname)
   (cons dbname *pgconn*))
 
@@ -83,6 +85,11 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
   "Given a PGSQL-TABLE-LIST as per function list-tables, return a list of
    row numbers containing dates (those have to be reformated)"
   (cdr (assoc table-name pgsql-table-list)))
+
+(defun execute (dbname sql)
+  "Execute given SQL in DBNAME"
+  (pomo:with-connection (get-connection-string dbname)
+    (pomo:execute sql)))
 
 ;;;
 ;;; PostgreSQL formating tools

@@ -33,6 +33,70 @@
     ;; free resources
     (cl-mysql:disconnect)))
 
+(defun get-column-list (dbname
+		    &key
+		      (host *myconn-host*)
+		      (user *myconn-user*)
+		      (pass *myconn-pass*))
+  "Get the list of MySQL column names per table."
+  (cl-mysql:connect :host host :user user :password pass)
+
+  (unwind-protect
+       (progn
+	 (cl-mysql:use "information_schema")
+	 (loop
+	    with schema = nil
+	    for (table-name column type c-typmod n-typmod default)
+	    in
+	      (caar (cl-mysql:query (format nil "
+SELECT t.TABLE_NAME, c.COLUMN_NAME, c.DATA_TYPE,
+       c.CHARACTER_MAXIMUM_LENGTH, c.NUMERIC_PRECISION, c.COLUMN_DEFAULT
+FROM TABLES t
+JOIN COLUMNS c ON c.TABLE_NAME = t.TABLE_NAME
+WHERE t.TABLE_SCHEMA = '~a';" dbname )))
+	    do
+	      (let ((entry (assoc table-name schema :test 'equal))
+		    (col   (list column
+				 type
+				 (cond ((string= type "int") n-typmod)
+				       ((string= type "varchar") c-typmod)
+				       (t nil))
+				 default)))
+		(if entry
+		    (push col (cdr entry))
+		    (push (cons table-name (list col)) schema)))
+	    finally (return schema)))
+
+    ;; free resources
+    (cl-mysql:disconnect)))
+
+(defun cast (name type typmod default)
+  "Convert a MySQL datatype to a PostgreSQL datatype"
+  (declare (ignore default))
+  (cond
+    ;; special Galaxya
+    ((and (string= type "int") (string= name "id")) "bigserial primary key")
+    ((string= type "int") (if (and typmod (> 10 typmod)) "bigint" "int"))
+    ((string= type "varchar") "text")
+    ((string= type "datetime") "timestamptz")
+    (t type)))
+
+(defun get-create-table (table-name cols)
+  "Return a PostgreSQL CREATE TABLE statement from MySQL columns"
+  (with-output-to-string (s)
+    (format s "CREATE TABLE ~a ~%(~%" table-name)
+    (loop
+       for ((name type typmod default) . last?) on (reverse cols)
+       for pg-type = (cast name type typmod default)
+       do (format s "  ~a ~22t ~a~:[~;,~]~%" name pg-type last?))
+    (format s ");~%")))
+
+(defun create-postgresql-schema (dbname)
+  "Create all MySQL tables in database dbname in PostgreSQL"
+  (loop
+     for (table-name . cols) in (get-column-list dbname)
+     do (pgloader.pgsql:execute dbname (get-create-table table-name cols))))
+
 ;;;
 ;;; Map a function to each row extracted from MySQL
 ;;;
@@ -246,3 +310,8 @@
        finally
 	 (report-pgstate-stats *state* "Total streaming time"))))
 
+(defun copy-database (dbname &key (create-tables nil) (truncate t) only-tables)
+  "Create a PostgreSQL schema then copy data from MySQL"
+  (when create-tables
+    (create-postgresql-schema dbname))
+  (stream-database dbname :truncate truncate :only-tables only-tables))
