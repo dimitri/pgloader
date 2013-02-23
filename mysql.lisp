@@ -43,59 +43,170 @@
 
   (unwind-protect
        (progn
-	 (cl-mysql:use "information_schema")
 	 (loop
 	    with schema = nil
-	    for (table-name column type c-typmod n-typmod default)
+	    for (table-name . coldef)
 	    in
 	      (caar (cl-mysql:query (format nil "
-SELECT t.TABLE_NAME, c.COLUMN_NAME, c.DATA_TYPE,
-       c.CHARACTER_MAXIMUM_LENGTH, c.NUMERIC_PRECISION, c.COLUMN_DEFAULT
-FROM TABLES t
-JOIN COLUMNS c ON c.TABLE_NAME = t.TABLE_NAME
-WHERE t.TABLE_SCHEMA = '~a';" dbname )))
+  select table_name, column_name,
+         data_type, column_type, column_default,
+         is_nullable, extra
+    from information_schema.columns
+   where table_schema = '~a'
+order by table_name, ordinal_position" dbname)))
 	    do
-	      (let ((entry (assoc table-name schema :test 'equal))
-		    (col   (list column
-				 type
-				 (cond ((string= type "int") n-typmod)
-				       ((string= type "varchar") c-typmod)
-				       (t nil))
-				 default)))
+	      (let ((entry (assoc table-name schema :test 'equal)))
 		(if entry
-		    (push col (cdr entry))
-		    (push (cons table-name (list col)) schema)))
+		    (push coldef (cdr entry))
+		    (push (cons table-name (list coldef)) schema)))
 	    finally (return schema)))
 
     ;; free resources
     (cl-mysql:disconnect)))
 
-(defun cast (name type typmod default)
-  "Convert a MySQL datatype to a PostgreSQL datatype"
-  (declare (ignore default))
-  (cond
-    ;; special Galaxya
-    ((and (string= type "int") (string= name "id")) "bigserial primary key")
-    ((string= type "int") (if (and typmod (> 10 typmod)) "bigint" "int"))
-    ((string= type "varchar") "text")
-    ((string= type "datetime") "timestamptz")
-    (t type)))
+(defun get-index-list (dbname
+		       &key
+			 (host *myconn-host*)
+			 (user *myconn-user*)
+			 (pass *myconn-pass*))
+  "Get the list of MySQL index definitions per table."
+  (cl-mysql:connect :host host :user user :password pass)
+
+  (unwind-protect
+       (progn
+	 (cl-mysql:use "information_schema")
+	 (loop
+	    for (table-name index-name non-unique cols)
+	    in (caar (cl-mysql:query (format nil "
+  SELECT table_name, index_name, non_unique,
+         GROUP_CONCAT(column_name order by seq_in_index)
+    FROM information_schema.statistics
+   WHERE table_schema = '~a'
+GROUP BY table_name, index_name;" dbname)))
+	    collect (list table-name
+			  index-name
+			  (not (= 1 non-unique))
+			  (sq:split-sequence #\, cols))))
+
+    ;; free resources
+    (cl-mysql:disconnect)))
+
+(defun parse-column-typemod (column-type)
+  "Given int(7), returns the number 7."
+  (parse-integer (nth 1
+		      (sq:split-sequence-if (lambda (c) (member c '(#\( #\))))
+					    column-type
+					    :remove-empty-subseqs t))))
+
+(defun cast (dtype ctype nullable default extra)
+  "Convert a MySQL datatype to a PostgreSQL datatype.
+
+DYTPE is the MySQL data_type and CTYPE the MySQL column_type, for example
+that would be int and int(7) or varchar and varchar(25).
+"
+  (let* ((pgtype
+	  (cond
+	    ((and (string= dtype "int")
+		  (string= extra "auto_increment"))
+	     (if (< (parse-column-typemod ctype) 10) "serial" "bigserial"))
+
+	    ;; this time it can't be an auto_increment
+	    ((string= dtype "int")
+	     (if (< (parse-column-typemod ctype) 10) "int" "bigint"))
+
+	    ;; no support for varchar(x) yet, mostly not needed
+	    ((string= dtype "varchar") "text")
+
+	    ((string= dtype "datetime") "timestamptz")
+
+	    (t dtype)))
+
+	 ;; forget about stupid defaults
+	 (default (cond ((and (string= dtype "datetime")
+			      (string= default "0000-00-00 00:00:00"))
+			 nil)
+
+			((and (string= dtype "date")
+			      (string= default "0000-00-00"))
+			 nil)
+
+			(t default)))
+
+	 ;; force to accept NULLs when we remove stupid default values
+	 (nullable (or (and (not (string= extra "auto_increment"))
+			    (not default))
+		       (not (string= nullable "NO")))))
+
+    ;; now format the column definition and return it
+    (format nil
+	    "~a~:[ not null~;~]~:[~; default ~a~]"
+	    pgtype nullable default default)))
 
 (defun get-create-table (table-name cols)
   "Return a PostgreSQL CREATE TABLE statement from MySQL columns"
   (with-output-to-string (s)
     (format s "CREATE TABLE ~a ~%(~%" table-name)
     (loop
-       for ((name type typmod default) . last?) on (reverse cols)
-       for pg-type = (cast name type typmod default)
-       do (format s "  ~a ~22t ~a~:[~;,~]~%" name pg-type last?))
+       for ((name dtype ctype default nullable extra) . last?) on (reverse cols)
+       for pg-coldef = (cast dtype ctype nullable default extra)
+       do (format s "  ~a ~22t ~a~:[~;,~]~%" name pg-coldef last?))
     (format s ");~%")))
 
-(defun create-postgresql-schema (dbname)
+(defun get-pgsql-index-def (table-name index-name unique cols)
+  "Return a PostgreSQL CREATE INDEX statement as a string."
+  (cond ((string= index-name "PRIMARY")
+	 (format nil
+		 "ALTER TABLE ~a ADD PRIMARY KEY (~{~a~^, ~});"
+		 table-name cols))
+
+	(t
+	 (format nil
+		 "CREATE INDEX ~a_idx ON ~a (~{~a~^, ~});"
+		 index-name table-name cols))))
+
+(defun get-drop-index-if-exists (table-name index-name)
+  "Return the DROP INDEX statement for PostgreSQL"
+  (cond ((string= index-name "PRIMARY")
+	 (format nil
+		 "ALTER TABLE ~a DROP CONSTRAINT ~a_pkey;"
+		 table-name table-name))
+
+	(t
+	 (format nil
+		 "DROP INDEX IF EXISTS ~a_idx;" index-name))))
+
+(defun get-create-indexes (indexes table-name &key include-drop)
+  "Return the CREATE INDEX statements for given table name"
+  (loop
+     for (idx-table-name index-name unique cols) in indexes
+     when (string= idx-table-name table-name)
+     append (append
+	     ;; use append to avoid collecting NIL entries
+	     (when (and include-drop (not (string= index-name "PRIMARY")))
+	       ;; no need to alter table drop constraint, when include-drop
+	       ;; is true we just did drop the table and created it again
+	       ;; anyway
+	       (list (get-drop-index-if-exists table-name index-name)))
+	     (list (get-pgsql-index-def table-name index-name unique cols)))))
+
+(defun get-drop-table-if-exists (table-name)
+  "Return the PostgreSQL DROP TABLE IF EXISTS statement for TABLE-NAME."
+  (format nil "DROP TABLE IF EXISTS ~a;~%" table-name))
+
+(defun get-pgsql-create-schema (dbname &key include-drop)
+  "Return the list of create table statements to run against PostgreSQL"
+  (loop
+     with indexes = (get-index-list dbname)
+     for (table-name . cols) in (get-column-list dbname)
+     when include-drop collect (get-drop-table-if-exists table-name)
+     collect (get-create-table table-name cols)
+     append (get-create-indexes indexes table-name :include-drop include-drop)))
+
+(defun create-pgsql-schema (dbname &key include-drop)
   "Create all MySQL tables in database dbname in PostgreSQL"
   (loop
-     for (table-name . cols) in (get-column-list dbname)
-     do (pgloader.pgsql:execute dbname (get-create-table table-name cols))))
+     for sql in (get-pgsql-create-schema dbname :include-drop include-drop)
+     do (pgloader.pgsql:execute dbname sql)))
 
 ;;;
 ;;; Map a function to each row extracted from MySQL
@@ -310,8 +421,12 @@ WHERE t.TABLE_SCHEMA = '~a';" dbname )))
        finally
 	 (report-pgstate-stats *state* "Total streaming time"))))
 
-(defun copy-database (dbname &key (create-tables nil) (truncate t) only-tables)
+(defun copy-database (dbname &key
+			       (create-tables nil)
+			       (include-drop nil)
+			       (truncate t)
+			       only-tables)
   "Create a PostgreSQL schema then copy data from MySQL"
   (when create-tables
-    (create-postgresql-schema dbname))
+    (create-pgsql-schema dbname :include-drop include-drop))
   (stream-database dbname :truncate truncate :only-tables only-tables))
