@@ -162,7 +162,6 @@ that would be int and int(7) or varchar and varchar(25).
 
   (unwind-protect
        (progn
-	 (cl-mysql:use "information_schema")
 	 (loop
 	    for (table-name index-name non-unique cols)
 	    in (caar (cl-mysql:query (format nil "
