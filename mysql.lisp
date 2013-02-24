@@ -439,7 +439,8 @@ GROUP BY table_name, index_name;" dbname)))
 
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (when create-tables
-      (with-silent-timing *state* dbname "CREATE TABLES"
+      (with-silent-timing *state* dbname
+	  (format nil "~:[~;DROP then ~]CREATE TABLES" include-drop)
 	(pgsql-create-tables dbname :include-drop include-drop)))
 
     (loop
@@ -466,7 +467,8 @@ GROUP BY table_name, index_name;" dbname)))
        finally
 	 (when create-tables
 	   ;; now we have to create the indexes and primary keys
-	   (with-silent-timing *state* dbname "CREATE INDEXES"
+	   (with-silent-timing *state* dbname
+	       (format nil "~:[~;DROP then ~]CREATE INDEXES" include-drop)
 	     (pgsql-create-indexes dbname :include-drop include-drop)))
 	 ;; and report the total time spent on the operation
 	 (report-pgstate-stats *state* "Total streaming time"))))
