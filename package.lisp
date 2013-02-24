@@ -123,6 +123,7 @@
 	   #:list-databases
 	   #:list-tables
 	   #:list-tables-cols
+	   #:execute
 	   #:get-date-columns
 	   #:format-row))
 
