@@ -33,11 +33,15 @@
     ;; free resources
     (cl-mysql:disconnect)))
 
-(defun get-column-list (dbname
-		    &key
-		      (host *myconn-host*)
-		      (user *myconn-user*)
-		      (pass *myconn-pass*))
+;;;
+;;; Tools to get MySQL table and columns definitions and transform them to
+;;; PostgreSQL CREATE TABLE statements, and run those.
+;;;
+(defun list-all-columns (dbname
+			 &key
+			   (host *myconn-host*)
+			   (user *myconn-user*)
+			   (pass *myconn-pass*))
   "Get the list of MySQL column names per table."
   (cl-mysql:connect :host host :user user :password pass)
 
@@ -60,33 +64,6 @@ order by table_name, ordinal_position" dbname)))
 		    (push coldef (cdr entry))
 		    (push (cons table-name (list coldef)) schema)))
 	    finally (return schema)))
-
-    ;; free resources
-    (cl-mysql:disconnect)))
-
-(defun get-index-list (dbname
-		       &key
-			 (host *myconn-host*)
-			 (user *myconn-user*)
-			 (pass *myconn-pass*))
-  "Get the list of MySQL index definitions per table."
-  (cl-mysql:connect :host host :user user :password pass)
-
-  (unwind-protect
-       (progn
-	 (cl-mysql:use "information_schema")
-	 (loop
-	    for (table-name index-name non-unique cols)
-	    in (caar (cl-mysql:query (format nil "
-  SELECT table_name, index_name, non_unique,
-         GROUP_CONCAT(column_name order by seq_in_index)
-    FROM information_schema.statistics
-   WHERE table_schema = '~a'
-GROUP BY table_name, index_name;" dbname)))
-	    collect (list table-name
-			  index-name
-			  (not (= 1 non-unique))
-			  (sq:split-sequence #\, cols))))
 
     ;; free resources
     (cl-mysql:disconnect)))
@@ -152,6 +129,56 @@ that would be int and int(7) or varchar and varchar(25).
        do (format s "  ~a ~22t ~a~:[~;,~]~%" name pg-coldef last?))
     (format s ");~%")))
 
+(defun get-drop-table-if-exists (table-name)
+  "Return the PostgreSQL DROP TABLE IF EXISTS statement for TABLE-NAME."
+  (format nil "DROP TABLE IF EXISTS ~a;~%" table-name))
+
+(defun get-pgsql-create-tables (dbname &key include-drop)
+  "Return the list of CREATE TABLE statements to run against PostgreSQL"
+  (loop
+     for (table-name . cols) in (list-all-columns dbname)
+     when include-drop collect (get-drop-table-if-exists table-name)
+     collect (get-create-table table-name cols)))
+
+(defun pgsql-create-tables (dbname &key include-drop)
+  "Create all MySQL tables in database dbname in PostgreSQL"
+  (loop
+     for nb-tables from 0
+     for sql in (get-pgsql-create-tables dbname :include-drop include-drop)
+     do (pgloader.pgsql:execute dbname sql)
+     finally (return nb-tables)))
+
+;;;
+;;; Tools to get MySQL indexes definitions and transform them to PostgreSQL
+;;; indexes definitions, and run those statements.
+;;;
+(defun list-all-indexes (dbname
+			 &key
+			   (host *myconn-host*)
+			   (user *myconn-user*)
+			   (pass *myconn-pass*))
+  "Get the list of MySQL index definitions per table."
+  (cl-mysql:connect :host host :user user :password pass)
+
+  (unwind-protect
+       (progn
+	 (cl-mysql:use "information_schema")
+	 (loop
+	    for (table-name index-name non-unique cols)
+	    in (caar (cl-mysql:query (format nil "
+  SELECT table_name, index_name, non_unique,
+         GROUP_CONCAT(column_name order by seq_in_index)
+    FROM information_schema.statistics
+   WHERE table_schema = '~a'
+GROUP BY table_name, index_name;" dbname)))
+	    collect (list table-name
+			  index-name
+			  (not (= 1 non-unique))
+			  (sq:split-sequence #\, cols))))
+
+    ;; free resources
+    (cl-mysql:disconnect)))
+
 (defun get-pgsql-index-def (table-name index-name unique cols)
   "Return a PostgreSQL CREATE INDEX statement as a string."
   (cond ((string= index-name "PRIMARY")
@@ -175,11 +202,10 @@ that would be int and int(7) or varchar and varchar(25).
 	 (format nil
 		 "DROP INDEX IF EXISTS ~a_idx;" index-name))))
 
-(defun get-create-indexes (indexes table-name &key include-drop)
-  "Return the CREATE INDEX statements for given table name"
+(defun get-pgsql-create-indexes (indexes &key include-drop)
+  "Return the CREATE INDEX statements from given INDEXES definitions."
   (loop
-     for (idx-table-name index-name unique cols) in indexes
-     when (string= idx-table-name table-name)
+     for (table-name index-name unique cols) in indexes
      append (append
 	     ;; use append to avoid collecting NIL entries
 	     (when (and include-drop (not (string= index-name "PRIMARY")))
@@ -189,24 +215,14 @@ that would be int and int(7) or varchar and varchar(25).
 	       (list (get-drop-index-if-exists table-name index-name)))
 	     (list (get-pgsql-index-def table-name index-name unique cols)))))
 
-(defun get-drop-table-if-exists (table-name)
-  "Return the PostgreSQL DROP TABLE IF EXISTS statement for TABLE-NAME."
-  (format nil "DROP TABLE IF EXISTS ~a;~%" table-name))
-
-(defun get-pgsql-create-schema (dbname &key include-drop)
-  "Return the list of create table statements to run against PostgreSQL"
-  (loop
-     with indexes = (get-index-list dbname)
-     for (table-name . cols) in (get-column-list dbname)
-     when include-drop collect (get-drop-table-if-exists table-name)
-     collect (get-create-table table-name cols)
-     append (get-create-indexes indexes table-name :include-drop include-drop)))
-
-(defun create-pgsql-schema (dbname &key include-drop)
+(defun pgsql-create-indexes (dbname &key include-drop)
   "Create all MySQL tables in database dbname in PostgreSQL"
   (loop
-     for sql in (get-pgsql-create-schema dbname :include-drop include-drop)
-     do (pgloader.pgsql:execute dbname sql)))
+     for nb-indexes from 0
+     for sql in (get-pgsql-create-indexes (list-all-indexes dbname)
+					  :include-drop include-drop)
+     do (pgloader.pgsql:execute dbname sql)
+     finally (return nb-indexes)))
 
 ;;;
 ;;; Map a function to each row extracted from MySQL
@@ -391,12 +407,41 @@ that would be int and int(7) or varchar and varchar(25).
 ;;;
 ;;; Work on all tables for given database
 ;;;
-(defun stream-database (dbname &key (truncate t) only-tables)
+(defmacro with-silent-timing (state dbname table-name &body body)
+  "Wrap body with timing and stats reporting."
+  `(progn
+     (pgstate-add-table ,state ,dbname ,table-name)
+     (report-table-name ,table-name)
+
+     (multiple-value-bind (res secs)
+	 (timing
+	  ;; we don't want to see the warnings
+	  ;; but we still want to capture the result
+	  (let ((res))
+	    (with-output-to-string (s)
+	      (let ((*standard-output* s) (*error-output* s))
+		(setf res ,@body)))
+	    res))
+       (pgstate-incf ,state ,table-name :rows res :secs secs))
+     (report-pgtable-stats ,state ,table-name)))
+
+(defun stream-database (dbname
+			&key
+			  (create-tables nil)
+			  (include-drop nil)
+			  (truncate t)
+			  only-tables)
   "Export MySQL data and Import it into PostgreSQL"
   ;; get the list of tables and have at it
   (let ((mysql-tables (list-tables dbname)))
     (setf *state* (pgloader.utils:make-pgstate))
     (report-header)
+
+    ;; if asked, first drop/create the tables on the PostgreSQL side
+    (when create-tables
+      (with-silent-timing *state* dbname "CREATE TABLES"
+	(pgsql-create-tables dbname :include-drop include-drop)))
+
     (loop
        for (table-name . date-columns) in (pgloader.pgsql:list-tables dbname)
        when (or (null only-tables)
@@ -419,14 +464,10 @@ that would be int and int(7) or varchar and varchar(25).
 	     ;; not a known mysql table
 	     (format t "skip, unknown table in MySQL database~%"))
        finally
+	 (when create-tables
+	   ;; now we have to create the indexes and primary keys
+	   (with-silent-timing *state* dbname "CREATE INDEXES"
+	     (pgsql-create-indexes dbname :include-drop include-drop)))
+	 ;; and report the total time spent on the operation
 	 (report-pgstate-stats *state* "Total streaming time"))))
 
-(defun copy-database (dbname &key
-			       (create-tables nil)
-			       (include-drop nil)
-			       (truncate t)
-			       only-tables)
-  "Create a PostgreSQL schema then copy data from MySQL"
-  (when create-tables
-    (create-pgsql-schema dbname :include-drop include-drop))
-  (stream-database dbname :truncate truncate :only-tables only-tables))
