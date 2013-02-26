@@ -12,8 +12,8 @@
 (defparameter *copy-batch-split* 5
   "Number of batches in which to split a batch with bad data")
 
-(defparameter *pgconn*
-  '("gdb" "none" "localhost" :port 5432)
+(defvar *pgconn*
+  '("dim" "none" "localhost" :port 5432)
   "Connection string to the local database")
 
 ;(setq *pgconn* '("dim" "none" "localhost" :port 54393))
@@ -80,6 +80,51 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
   group by relname
 ")
        collect (cons relname cols))))
+
+(defun reset-all-sequences (dbname)
+  "Reset all sequences to the max value of the column they are attached to."
+  (pomo:with-connection
+      (get-connection-string dbname)
+
+    (pomo:with-transaction ()
+	;; have the processing all happen server-side
+	(pomo:execute "
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r in
+       SELECT 'select '
+               || trim(trailing ')'
+                  from replace(pg_get_expr(d.adbin, d.adrelid),
+                               'nextval', 'setval'))
+               || ', (select max(' || a.attname || ') from only '
+               || nspname || '.' || relname || '));' as sql
+         FROM pg_class c
+              JOIN pg_namespace n on n.oid = c.relnamespace
+              JOIN pg_attribute a on a.attrelid = c.oid
+              JOIN pg_attrdef d on d.adrelid = a.attrelid
+                                 and d.adnum = a.attnum
+                                 and a.atthasdef
+        WHERE relkind = 'r' and a.attnum > 0
+              and pg_get_expr(d.adbin, d.adrelid) ~ '^nextval'
+  LOOP
+    EXECUTE r.sql;
+  END LOOP;
+END;
+$$; ")
+      ;; we still insist on returning how many sequences were reset
+      (pomo:query "
+       SELECT count(*)
+         FROM pg_class c
+              JOIN pg_namespace n on n.oid = c.relnamespace
+              JOIN pg_attribute a on a.attrelid = c.oid
+              JOIN pg_attrdef d on d.adrelid = a.attrelid
+                                 and d.adnum = a.attnum
+                                 and a.atthasdef
+        WHERE relkind = 'r' and a.attnum > 0
+              and pg_get_expr(d.adbin, d.adrelid) ~ '^nextval'"
+		  :single))))
 
 (defun get-date-columns (table-name pgsql-table-list)
   "Given a PGSQL-TABLE-LIST as per function list-tables, return a list of

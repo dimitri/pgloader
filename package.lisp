@@ -123,6 +123,7 @@
 	   #:list-databases
 	   #:list-tables
 	   #:list-tables-cols
+	   #:reset-all-sequences
 	   #:execute
 	   #:get-date-columns
 	   #:format-row))

@@ -421,8 +421,11 @@ GROUP BY table_name, index_name;" dbname)))
 	      (let ((*standard-output* s) (*error-output* s))
 		(setf res ,@body)))
 	    res))
-       (pgstate-incf ,state ,table-name :rows res :secs secs))
-     (report-pgtable-stats ,state ,table-name)))
+       (pgstate-incf ,state ,table-name :rows res :secs secs)
+       (report-pgtable-stats ,state ,table-name)
+
+       ;; once those numbers are reporting, forget about them in the total
+       (pgstate-decf ,state ,table-name :rows res))))
 
 (defun stream-database (dbname
 			&key
@@ -469,6 +472,11 @@ GROUP BY table_name, index_name;" dbname)))
 	   (with-silent-timing *state* dbname
 	       (format nil "~:[~;DROP then ~]CREATE INDEXES" include-drop)
 	     (pgsql-create-indexes dbname :include-drop include-drop)))
+
+	 ;; don't forget to reset sequences
+	 (with-silent-timing *state* dbname "RESET SEQUENCES"
+	   (pgloader.pgsql:reset-all-sequences dbname))
+
 	 ;; and report the total time spent on the operation
 	 (report-pgstate-stats *state* "Total streaming time"))))
 
