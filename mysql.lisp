@@ -96,7 +96,7 @@ that would be int and int(7) or varchar and varchar(25).
 
 	    ((string= dtype "datetime") "timestamptz")
 
-	    (t dtype)))
+	    (t ctype)))
 
 	 ;; forget about stupid defaults
 	 (default (cond ((and (string= dtype "datetime")
