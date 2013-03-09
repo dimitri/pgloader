@@ -341,8 +341,12 @@ Finally returns how many rows where read and processed."
 		    :state state
 		    :truncate truncate)
 
-    ;; now wait until both the tasks are over
-    (loop for tasks below 2 do (lp:receive-result channel))
+    ;; now wait until both the tasks are over, and measure time it took'em
+    (multiple-value-bind (res secs)
+	(timing
+	 (loop for tasks below 2 do (lp:receive-result channel)))
+      (declare (ignore res))
+      (when report (pgstate-incf state table-name :secs secs)))
 
     (when report
       (report-table-name table-name)
