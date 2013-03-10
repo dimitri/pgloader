@@ -274,12 +274,13 @@ Finally returns how many rows where read and processed."
 (defun copy-from-queue (dbname table-name dataq
 			&key
 			  (truncate t)
-			  date-columns
-			  (state *state*))
+			  (state *state*)
+			  date-columns)
   "Fetch data from the QUEUE until we see :end-of-data. Update *state*"
   (when truncate (truncate-table dbname table-name))
 
-  (let* ((conspec (remove :port (get-connection-string dbname))))
+  (let* ((*state* state)
+	 (conspec (remove :port (get-connection-string dbname))))
     (loop
        for retval =
 	 (let* ((stream (cl-postgres:open-db-writer conspec table-name nil))
@@ -298,14 +299,12 @@ Finally returns how many rows where read and processed."
 	       ((or
 		 CL-POSTGRES-ERROR:UNIQUE-VIOLATION
 		 CL-POSTGRES-ERROR:DATA-EXCEPTION) (e)
-		 (retry-batch dbname table-name
-			      (nreverse *batch*) *batch-size*
-			      :state state)))))
+		 (retry-batch dbname table-name (nreverse *batch*) *batch-size*)))))
 
        ;; fetch how many rows we just pushed through, update stats
        for rows = (if (consp retval) (cdr retval) retval)
        for cont = (and (consp retval) (eq (car retval) :continue))
-       do (pgstate-incf state table-name :rows rows)
+       do (pgstate-incf *state* table-name :rows rows)
        while cont)))
 
 ;;;
@@ -313,11 +312,11 @@ Finally returns how many rows where read and processed."
 ;;; table using the COPY protocol. We expect PostgreSQL compatible data in
 ;;; that data format, so we don't handle any reformating here.
 ;;;
-(defun copy-to-queue (table-name filename dataq &key (state *state*))
+(defun copy-to-queue (table-name filename dataq &optional (*state* *state*))
   "Copy data from file FILENAME into lparallel.queue DATAQ"
   (let ((read
 	 (pgloader.queue:map-push-queue dataq #'map-rows filename)))
-    (pgstate-incf state table-name :read read)))
+    (pgstate-incf *state* table-name :read read)))
 
 (defun copy-from-file (dbname table-name filename
 		       &key
@@ -327,18 +326,18 @@ Finally returns how many rows where read and processed."
   (let* ((lp:*kernel* *loader-kernel*)
 	 (channel     (lp:make-channel))
 	 (dataq       (lq:make-queue 4096))
-	 (state       (if report (pgloader.utils:make-pgstate) *state*)))
-    (when report
-      (pgstate-add-table state dbname table-name))
+	 (*state*     (if report (pgloader.utils:make-pgstate) *state*)))
 
-    (lp:submit-task channel #'copy-to-queue
-		    table-name filename dataq :state state)
+    (when report
+      (pgstate-add-table *state* dbname table-name))
+
+    (lp:submit-task channel #'copy-to-queue table-name filename dataq *state*)
 
     ;; and start another task to push that data from the queue to PostgreSQL
     (lp:submit-task channel
 		    #'pgloader.pgsql:copy-from-queue
 		    dbname table-name dataq
-		    :state state
+		    :state *state*
 		    :truncate truncate)
 
     ;; now wait until both the tasks are over, and measure time it took'em
@@ -346,11 +345,11 @@ Finally returns how many rows where read and processed."
 	(timing
 	 (loop for tasks below 2 do (lp:receive-result channel)))
       (declare (ignore res))
-      (when report (pgstate-incf state table-name :secs secs)))
+      (when report (pgstate-incf *state* table-name :secs secs)))
 
     (when report
       (report-table-name table-name)
-      (report-pgtable-stats state table-name))))
+      (report-pgtable-stats *state* table-name))))
 
 ;;;
 ;;; When a batch has been refused by PostgreSQL with a data-exception, that
@@ -370,16 +369,14 @@ Finally returns how many rows where read and processed."
 ;;;   split 1000 rows in 10 batches of 100 rows
 ;;;   split  352 rows in 3 batches of 100 rows + 1 batch of 52 rows
 ;;;
-
-(defun process-bad-row (table-name condition row
-			&key (state *state*))
+(defun process-bad-row (table-name condition row)
   "Add the row to the reject file, in PostgreSQL COPY TEXT format"
   ;; first, update the stats.
-  (pgstate-incf state table-name :errs 1)
-  (pgstate-decf state table-name :rows 1)
+  (pgstate-incf *state* table-name :errs 1)
+  (pgstate-decf *state* table-name :rows 1)
 
   ;; now, the bad row processing
-  (let* ((table (pgstate-get-table state table-name))
+  (let* ((table (pgstate-get-table *state* table-name))
 	 (data  (pgtable-reject-data table))
 	 (logs  (pgtable-reject-logs table)))
 
@@ -417,8 +414,7 @@ Finally returns how many rows where read and processed."
 ;;;
 ;;; The recursive retry batch function.
 ;;;
-(defun retry-batch (dbname table-name batch batch-size
-		    &key (state *state*))
+(defun retry-batch (dbname table-name batch batch-size)
   "Batch is a list of rows containing at least one bad row. Find it."
   (let* ((conspec (remove :port (get-connection-string dbname)))
 	 (current-batch-pos batch)
@@ -449,9 +445,7 @@ Finally returns how many rows where read and processed."
 		 CL-POSTGRES-ERROR:DATA-EXCEPTION) (condition)
 		 ;; process bad data
 		 (if (= 1 current-batch-size)
-		     (process-bad-row table-name condition (car current-batch)
-				      :state state)
+		     (process-bad-row table-name condition (car current-batch))
 		     ;; more than one line of bad data: recurse
 		     (retry-batch dbname table-name
-				  current-batch current-batch-size
-				  :state state)))))))))
+				  current-batch current-batch-size)))))))))

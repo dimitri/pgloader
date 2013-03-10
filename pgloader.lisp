@@ -8,8 +8,6 @@
 ;;;
 ;;; Internal Parameters. The one to change are in params.lisp
 ;;;
-(defparameter *state* nil
-  "State of the current loading.")
 
 ;;;
 ;;; TODO: define a top level API

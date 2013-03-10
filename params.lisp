@@ -15,6 +15,11 @@
 
 (in-package :pgloader.params)
 
+;; we can't use pgloader.utils:make-pgstate yet because params is compiled
+;; first in the asd definition, we just make the symbol a special variable.
+(defparameter *state* nil
+  "State of the current loading.")
+
 (defparameter *csv-path-root*
   (merge-pathnames "csv/" (user-homedir-pathname)))
 
