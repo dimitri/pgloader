@@ -78,7 +78,7 @@
 	   (with-open-file (csv filename
 				:direction :output
 				:if-exists :supersede
-				:external-format :utf8)
+				:external-format :utf-8)
 	     (loop
 		for count from 1
 		for row = (cl-mysql:next-row q :type-map (make-hash-table))

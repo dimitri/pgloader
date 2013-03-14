@@ -273,7 +273,7 @@ GROUP BY table_name, index_name;" dbname)))
   (with-open-file (text-file filename
 			     :direction :output
 			     :if-exists :supersede
-			     :external-format :utf8)
+			     :external-format :utf-8)
     (map-rows dbname table-name
 	      :process-row-fn
 	      (lambda (row)

@@ -33,7 +33,7 @@ Finally returns how many rows where read and processed."
       ;; we just ignore files that don't exist
       (input filename
 	     :direction :input
-	     :external-format :utf8
+	     :external-format :utf-8
 	     :if-does-not-exist nil)
     (when input
       ;; read in the text file, split it into columns, process NULL columns
@@ -169,7 +169,7 @@ Finally returns how many rows where read and processed."
       ;; we just ignore files that don't exist
       (input filename
 	     :direction :input
-	     :external-format :utf8
+	     :external-format :utf-8
 	     :if-does-not-exist nil)
     (when input
       (loop
