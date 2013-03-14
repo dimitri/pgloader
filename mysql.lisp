@@ -140,12 +140,12 @@ that would be int and int(7) or varchar and varchar(25).
      when include-drop collect (get-drop-table-if-exists table-name)
      collect (get-create-table table-name cols)))
 
-(defun pgsql-create-tables (dbname &key include-drop)
+(defun pgsql-create-tables (dbname &key (pg-dbname dbname) include-drop)
   "Create all MySQL tables in database dbname in PostgreSQL"
   (loop
      for nb-tables from 0
      for sql in (get-pgsql-create-tables dbname :include-drop include-drop)
-     do (pgloader.pgsql:execute dbname sql)
+     do (pgloader.pgsql:execute pg-dbname sql)
      finally (return nb-tables)))
 
 ;;;
@@ -214,13 +214,13 @@ GROUP BY table_name, index_name;" dbname)))
 	       (list (get-drop-index-if-exists table-name index-name)))
 	     (list (get-pgsql-index-def table-name index-name unique cols)))))
 
-(defun pgsql-create-indexes (dbname &key include-drop)
+(defun pgsql-create-indexes (dbname &key (pg-dbname dbname) include-drop)
   "Create all MySQL tables in database dbname in PostgreSQL"
   (loop
      for nb-indexes from 0
      for sql in (get-pgsql-create-indexes (list-all-indexes dbname)
 					  :include-drop include-drop)
-     do (pgloader.pgsql:execute dbname sql)
+     do (pgloader.pgsql:execute pg-dbname sql)
      finally (return nb-indexes)))
 
 ;;;
@@ -328,6 +328,7 @@ GROUP BY table_name, index_name;" dbname)))
 ;;;
 (defun export-import-database (dbname
 			       &key
+				 (pg-dbname dbname)
 				 (truncate t)
 				 only-tables)
   "Export MySQL data and Import it into PostgreSQL"
@@ -336,7 +337,7 @@ GROUP BY table_name, index_name;" dbname)))
     (setf *state* (pgloader.utils:make-pgstate))
     (report-header)
     (loop
-       for (table-name . date-columns) in (pgloader.pgsql:list-tables dbname)
+       for (table-name . date-columns) in (pgloader.pgsql:list-tables pg-dbname)
        when (or (null only-tables)
 		(member table-name only-tables :test #'equal))
        do
@@ -347,13 +348,13 @@ GROUP BY table_name, index_name;" dbname)))
 	     (multiple-value-bind (res secs)
 		 (timing
 		  (let* ((filename
-			 (pgloader.csv:get-pathname dbname table-name))
+			  (pgloader.csv:get-pathname dbname table-name))
 			 (read
 			  ;; export from MySQL to file
 			  (copy-to dbname table-name filename
 				   :date-columns date-columns)))
 		    ;; import the file to PostgreSQL
-		    (pgloader.pgsql:copy-from-file dbname
+		    (pgloader.pgsql:copy-from-file pg-dbname
 						   table-name
 						   filename
 						   :truncate truncate)))
@@ -381,6 +382,7 @@ GROUP BY table_name, index_name;" dbname)))
 ;;;
 (defun stream-table (dbname table-name
 		     &key
+		       (pg-dbname dbname)
 		       truncate
 		       date-columns)
   "Connect in parallel to MySQL and PostgreSQL and stream the data."
@@ -396,7 +398,7 @@ GROUP BY table_name, index_name;" dbname)))
      channel
      (lambda ()
        ;; this function update :rows stats
-       (pgloader.pgsql:copy-from-queue dbname table-name dataq
+       (pgloader.pgsql:copy-from-queue pg-dbname table-name dataq
 				       :truncate truncate
 				       :date-columns date-columns)))
 
@@ -429,6 +431,7 @@ GROUP BY table_name, index_name;" dbname)))
 
 (defun stream-database (dbname
 			&key
+			  (pg-dbname dbname)
 			  (create-tables nil)
 			  (include-drop nil)
 			  (truncate t)
@@ -443,10 +446,12 @@ GROUP BY table_name, index_name;" dbname)))
     (when create-tables
       (with-silent-timing *state* dbname
 	  (format nil "~:[~;DROP then ~]CREATE TABLES" include-drop)
-	(pgsql-create-tables dbname :include-drop include-drop)))
+	(pgsql-create-tables dbname
+			     :pg-dbname pg-dbname
+			     :include-drop include-drop)))
 
     (loop
-       for (table-name . date-columns) in (pgloader.pgsql:list-tables dbname)
+       for (table-name . date-columns) in (pgloader.pgsql:list-tables pg-dbname)
        when (or (null only-tables)
 		(member table-name only-tables :test #'equal))
        do
@@ -458,6 +463,7 @@ GROUP BY table_name, index_name;" dbname)))
 		 (timing
 		  ;; this will care about updating stats in *state*
 		  (stream-table dbname table-name
+				:pg-dbname pg-dbname
 				:truncate truncate
 				:date-columns date-columns))
 	       ;; set the timing we just measured
@@ -471,11 +477,13 @@ GROUP BY table_name, index_name;" dbname)))
 	   ;; now we have to create the indexes and primary keys
 	   (with-silent-timing *state* dbname
 	       (format nil "~:[~;DROP then ~]CREATE INDEXES" include-drop)
-	     (pgsql-create-indexes dbname :include-drop include-drop)))
+	     (pgsql-create-indexes dbname
+				   :pg-dbname pg-dbname
+				   :include-drop include-drop)))
 
 	 ;; don't forget to reset sequences
 	 (with-silent-timing *state* dbname "RESET SEQUENCES"
-	   (pgloader.pgsql:reset-all-sequences dbname))
+	   (pgloader.pgsql:reset-all-sequences pg-dbname))
 
 	 ;; and report the total time spent on the operation
 	 (report-pgstate-stats *state* "Total streaming time"))))
