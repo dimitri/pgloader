@@ -90,7 +90,7 @@ Finally returns how many rows where read and processed."
   "Copy data from CSV file FILENAME into PostgreSQL DBNAME.TABLE-NAME"
   (let* ((lp:*kernel* *loader-kernel*)
 	 (channel     (lp:make-channel))
-	 (dataq       (lq:make-queue 4096)))
+	 (dataq       (lq:make-queue :fixed-capacity 4096)))
     (lp:submit-task channel (lambda ()
 			      ;; this function update :read stats
 			      (copy-to-queue table-name filename dataq

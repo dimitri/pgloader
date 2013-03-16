@@ -388,7 +388,7 @@ GROUP BY table_name, index_name;" dbname)))
   "Connect in parallel to MySQL and PostgreSQL and stream the data."
   (let* ((lp:*kernel* *loader-kernel*)
 	 (channel     (lp:make-channel))
-	 (dataq       (lq:make-queue 4096)))
+	 (dataq       (lq:make-queue :fixed-capacity 4096)))
     (lp:submit-task channel (lambda ()
 			      ;; this function update :read stats
 			      (copy-to-queue dbname table-name dataq)))

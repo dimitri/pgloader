@@ -329,7 +329,7 @@ Finally returns how many rows where read and processed."
   "Load data from clean COPY TEXT file to PostgreSQL, return how many rows."
   (let* ((lp:*kernel* *loader-kernel*)
 	 (channel     (lp:make-channel))
-	 (dataq       (lq:make-queue 4096))
+	 (dataq       (lq:make-queue :fixed-capacity 4096))
 	 (*state*     (if report (pgloader.utils:make-pgstate) *state*)))
 
     (log-message :debug "pgsql:copy-from-file: ~a ~a ~a" dbname table-name filename)
