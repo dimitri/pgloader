@@ -9,6 +9,12 @@
 	   #:*reject-path-root*
 	   #:*log-filename*
 	   #:*loader-kernel*
+	   #:*copy-batch-size*
+	   #:*copy-batch-split*
+	   #:*pgconn-host*
+	   #:*pgconn-port*
+	   #:*pgconn-user*
+	   #:*pgconn-pass*
 	   #:*myconn-host*
 	   #:*myconn-user*
 	   #:*myconn-pass*
@@ -37,7 +43,26 @@
 (defparameter *loader-kernel* (lparallel:make-kernel 2)
   "lparallel kernel to use for loading data in parallel")
 
-(defparameter *myconn-host* "myhost")
-(defparameter *myconn-user* "myuser")
-(defparameter *myconn-pass* "mypass")
+;;;
+;;; How to split batches in case of data loading errors.
+;;;
+(defparameter *copy-batch-size* 25000
+  "How many rows to per COPY transaction")
 
+(defparameter *copy-batch-split* 5
+  "Number of batches in which to split a batch with bad data")
+
+;;;
+;;; PostgreSQL Connection Credentials
+;;;
+(defparameter *pgconn-host* "localhost")
+(defparameter *pgconn-port* 5432)
+(defparameter *pgconn-user* (uiop:getenv "USER"))
+(defparameter *pgconn-pass* "pgpass")
+
+;;;
+;;; MySQL Connection Credentials
+;;;
+(defparameter *myconn-host* "localhost")
+(defparameter *myconn-user* (uiop:getenv "USER"))
+(defparameter *myconn-pass* nil)

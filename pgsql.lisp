@@ -4,46 +4,33 @@
 (in-package :pgloader.pgsql)
 
 ;;;
-;;; Quick utilities to get rid of later.
-;;;
-(defparameter *copy-batch-size* 25000
-  "How many rows to per COPY transaction")
-
-(defparameter *copy-batch-split* 5
-  "Number of batches in which to split a batch with bad data")
-
-(defvar *pgconn*
-  '("dim" "none" "localhost" :port 5432)
-  "Connection string to the local database")
-
-;(setq *pgconn* '("dim" "none" "localhost" :port 54393))
-
-(defun get-connection-string (dbname)
-  (cons dbname *pgconn*))
-
-;;;
 ;;; PostgreSQL Tools connecting to a database
 ;;;
+(defun get-connection-spec (dbname &key (with-port t))
+  (let ((conspec (list dbname *pgconn-user* *pgconn-pass* *pgconn-host*)))
+    (if with-port
+      (append conspec (list :port *pgconn-port*))
+      conspec)))
+
 (defun truncate-table (dbname table-name)
   "Truncate given TABLE-NAME in database DBNAME"
-  (pomo:with-connection (get-connection-string dbname)
+  (pomo:with-connection (get-connection-spec dbname)
     (pomo:execute (format nil "truncate ~a;" table-name))))
 
 (defun list-databases (&optional (username "postgres"))
   "Connect to a local database and get the database list"
-  (pomo:with-connection
-      (list "postgres" username "none" "localhost" :port 5432)
+  (pomo:with-connection (let ((*pgconn-user* username))
+			  (get-connection-spec "postgres"))
     (loop for (dbname) in (pomo:query
 			   "select datname
                               from pg_database
                              where datname !~ 'postgres|template'")
-	 collect dbname)))
-
+       collect dbname)))
 
 (defun list-tables (dbname)
   "Return an alist of tables names and list of columns to pay attention to."
   (pomo:with-connection
-      (get-connection-string dbname)
+      (get-connection-spec dbname)
 
     (loop for (relname colarray) in (pomo:query "
 select relname, array_agg(case when typname in ('date', 'timestamptz')
@@ -66,7 +53,7 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
 (defun list-tables-cols (dbname)
   "Return an alist of tables names and number of columns."
   (pomo:with-connection
-      (get-connection-string dbname)
+      (get-connection-spec dbname)
 
     (loop for (relname cols) in (pomo:query "
     select relname, count(attnum)
@@ -84,7 +71,7 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
 (defun reset-all-sequences (dbname)
   "Reset all sequences to the max value of the column they are attached to."
   (pomo:with-connection
-      (get-connection-string dbname)
+      (get-connection-spec dbname)
 
     (pomo:with-transaction ()
 	;; have the processing all happen server-side
@@ -133,7 +120,7 @@ $$; ")
 
 (defun execute (dbname sql)
   "Execute given SQL in DBNAME"
-  (pomo:with-connection (get-connection-string dbname)
+  (pomo:with-connection (get-connection-spec dbname)
     (pomo:execute sql)))
 
 ;;;
@@ -283,7 +270,7 @@ Finally returns how many rows where read and processed."
 
   (log-message :debug "pgsql:copy-from-queue: ~a ~a" dbname table-name)
 
-  (let* ((conspec (remove :port (get-connection-string dbname))))
+  (let* ((conspec (get-connection-spec dbname :with-port nil)))
     (loop
        for retval =
 	 (let* ((stream (cl-postgres:open-db-writer conspec table-name nil))
@@ -421,7 +408,7 @@ Finally returns how many rows where read and processed."
 ;;;
 (defun retry-batch (dbname table-name batch batch-size)
   "Batch is a list of rows containing at least one bad row. Find it."
-  (let* ((conspec (remove :port (get-connection-string dbname)))
+  (let* ((conspec (get-connection-spec dbname :with-port nil))
 	 (current-batch-pos batch)
 	 (processed-rows 0)
 	 (total-bad-rows 0))

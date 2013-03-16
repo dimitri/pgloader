@@ -5,14 +5,15 @@
   :description "Load data into PostgreSQL"
   :author "Dimitri Fontaine <dimitri@2ndQuadrant.fr>"
   :license "The PostgreSQL Licence"
-  :depends-on (#:cl-log
-	       #:postmodern
-	       #:cl-postgres
-	       #:simple-date
-	       #:cl-mysql
-	       #:split-sequence
-               #:cl-csv
-               #:lparallel)
+  :depends-on (#:uiop			; host system integration
+	       #:cl-log			; logging
+	       #:postmodern		; PostgreSQL protocol implementation
+	       #:cl-postgres		; low level bits for COPY streaming
+	       #:simple-date		; FIXME: recheck dependency
+	       #:cl-mysql		; CFFI binding to libmysqlclient-dev
+	       #:split-sequence		; some parsing is made easy
+               #:cl-csv			; full CSV reader
+               #:lparallel)		; threads, workers, queues
   :components ((:file "params")
 	       (:file "package" :depends-on ("params"))
 	       (:file "utils"  :depends-on ("package"))
