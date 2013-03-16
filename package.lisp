@@ -4,7 +4,7 @@
 ;;;
 
 (defpackage #:pgloader.utils
-  (:use #:cl)
+  (:use #:cl #:pgloader.params)
   (:import-from #:cl-log
 		#:defcategory
 		#:log-manager
@@ -13,11 +13,6 @@
 		#:ring-messenger
 		#:text-file-messenger
 		#:formatted-message)
-  (:import-from #:pgloader.params
-		#:*reject-path-root*
-		#:*log-filename*
-		#:*log-level*
-		#:*state*)
   (:export #:log-message
 	   #:report-header
 	   #:report-table-name
@@ -42,11 +37,7 @@
 	   #:map-push-queue))
 
 (defpackage #:pgloader.csv
-  (:use #:cl)
-  (:import-from #:pgloader.params
-		#:*csv-path-root*
-		#:*loader-kernel*
-		#:*state*)
+  (:use #:cl #:pgloader.params)
   (:import-from #:pgloader.utils
 		#:log-message
 		#:report-header
@@ -72,15 +63,7 @@
 	   #:guess-all-csv-params))
 
 (defpackage #:pgloader.mysql
-  (:use #:cl)
-  (:import-from #:pgloader.params
-		#:*csv-path-root*
-		#:*reject-path-root*
-		#:*loader-kernel*
-		#:*myconn-host*
-		#:*myconn-user*
-		#:*myconn-pass*
-		#:*state*)
+  (:use #:cl #:pgloader.params)
   (:import-from #:pgloader.utils
 		#:log-message
 		#:report-header
@@ -107,12 +90,7 @@
 	   #:stream-database))
 
 (defpackage #:pgloader.pgsql
-  (:use #:cl)
-  (:import-from #:pgloader.params
-		#:*csv-path-root*
-		#:*reject-path-root*
-		#:*loader-kernel*
-		#:*state*)
+  (:use #:cl #:pgloader.params)
   (:import-from #:pgloader.utils
 		#:log-message
 		#:report-header
@@ -143,15 +121,7 @@
 	   #:format-row))
 
 (defpackage #:pgloader
-  (:use #:cl)
-  (:import-from #:pgloader.params
-		#:*csv-path-root*
-		#:*reject-path-root*
-		#:*loader-kernel*
-		#:*myconn-host*
-		#:*myconn-user*
-		#:*myconn-pass*
-		#:*state*)
+  (:use #:cl #:pgloader.params)
   (:import-from #:pgloader.pgsql
 		#:copy-from-file
 		#:list-databases
