@@ -7,6 +7,7 @@
   (:use #:cl)
   (:export #:*csv-path-root*
 	   #:*reject-path-root*
+	   #:*log-filename*
 	   #:*loader-kernel*
 	   #:*myconn-host*
 	   #:*myconn-user*
@@ -25,6 +26,12 @@
 
 (defparameter *reject-path-root*
   (make-pathname :directory "/tmp/pgloader/"))
+
+(defparameter *log-filename*
+  (make-pathname :directory "/tmp/pgloader/" :name "pgloader" :type "log"))
+
+(defparameter *log-level* :notice)
+(setq *log-level* :debug)
 
 ;;; package nicknames are only defined later, in package.lisp
 (defparameter *loader-kernel* (lparallel:make-kernel 2)

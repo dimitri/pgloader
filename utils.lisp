@@ -4,6 +4,27 @@
 (in-package :pgloader.utils)
 
 ;;;
+;;; Logs
+;;;
+;;; First define the log categories
+(defcategory :critical)
+(defcategory :error   (or :error :critical))
+(defcategory :warning (or :warning :error))
+(defcategory :notice  (or :notice :warning))
+(defcategory :info    (or :info :notice))
+(defcategory :debug   (or :debug :info))
+
+;; Now define the Logger
+(setf (log-manager)
+      (make-instance 'log-manager :message-class 'formatted-message))
+
+;; And a messenger to store our message into
+(start-messenger 'text-file-messenger :filename *log-filename*)
+
+;; Announce what just happened
+(log-message :notice "Starting pgloader, log system is ready.")
+
+;;;
 ;;; Timing Macro
 ;;;
 (defun elapsed-time-since (start)

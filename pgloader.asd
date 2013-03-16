@@ -5,7 +5,8 @@
   :description "Load data into PostgreSQL"
   :author "Dimitri Fontaine <dimitri@2ndQuadrant.fr>"
   :license "The PostgreSQL Licence"
-  :depends-on (#:postmodern
+  :depends-on (#:cl-log
+	       #:postmodern
 	       #:cl-postgres
 	       #:simple-date
 	       #:cl-mysql

@@ -281,12 +281,15 @@ Finally returns how many rows where read and processed."
   "Fetch data from the QUEUE until we see :end-of-data. Update *state*"
   (when truncate (truncate-table dbname table-name))
 
+  (log-message :debug "pgsql:copy-from-queue: ~a ~a" dbname table-name)
+
   (let* ((conspec (remove :port (get-connection-string dbname))))
     (loop
        for retval =
 	 (let* ((stream (cl-postgres:open-db-writer conspec table-name nil))
 		(*batch* nil)
 		(*batch-size* 0))
+	   (log-message :debug "pgsql:copy-from-queue: starting new batch")
 	   (unwind-protect
 		(let ((process-row-fn
 		       (make-copy-and-batch-fn stream :date-columns date-columns)))
@@ -295,6 +298,7 @@ Finally returns how many rows where read and processed."
 	     ;; in case of data-exception, split the batch and try again
 	     (handler-case
 		 (progn
+		   (log-message :debug "pgsql:copy-from-queue: commit batch")
 		   (cl-postgres:close-db-writer stream))
 	       ((or
 		 CL-POSTGRES-ERROR:UNIQUE-VIOLATION
@@ -327,6 +331,8 @@ Finally returns how many rows where read and processed."
 	 (channel     (lp:make-channel))
 	 (dataq       (lq:make-queue 4096))
 	 (*state*     (if report (pgloader.utils:make-pgstate) *state*)))
+
+    (log-message :debug "pgsql:copy-from-file: ~a ~a ~a" dbname table-name filename)
 
     (when report
       (pgstate-add-table *state* dbname table-name))
@@ -422,11 +428,15 @@ Finally returns how many rows where read and processed."
     (loop
        while (< processed-rows batch-size)
        do
+	 (log-message :debug "pgsql:retry-batch: splitting current batch")
 	 (let* ((current-batch current-batch-pos)
 		(current-batch-size (smaller-batch-size batch-size
 							processed-rows))
 		(stream
 		 (cl-postgres:open-db-writer conspec table-name nil)))
+
+	   (log-message :debug "pgsql:retry-batch: current-batch-size = ~d"
+			current-batch-size)
 
 	   (unwind-protect
 		(dotimes (i current-batch-size)

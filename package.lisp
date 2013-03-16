@@ -5,10 +5,21 @@
 
 (defpackage #:pgloader.utils
   (:use #:cl)
+  (:import-from #:cl-log
+		#:defcategory
+		#:log-manager
+		#:start-messenger
+		#:log-message
+		#:ring-messenger
+		#:text-file-messenger
+		#:formatted-message)
   (:import-from #:pgloader.params
 		#:*reject-path-root*
+		#:*log-filename*
+		#:*log-level*
 		#:*state*)
-  (:export #:report-header
+  (:export #:log-message
+	   #:report-header
 	   #:report-table-name
 	   #:report-results
 	   #:report-footer
@@ -37,6 +48,7 @@
 		#:*loader-kernel*
 		#:*state*)
   (:import-from #:pgloader.utils
+		#:log-message
 		#:report-header
 		#:report-table-name
 		#:report-results
@@ -70,6 +82,7 @@
 		#:*myconn-pass*
 		#:*state*)
   (:import-from #:pgloader.utils
+		#:log-message
 		#:report-header
 		#:report-table-name
 		#:report-results
@@ -101,6 +114,7 @@
 		#:*loader-kernel*
 		#:*state*)
   (:import-from #:pgloader.utils
+		#:log-message
 		#:report-header
 		#:report-table-name
 		#:report-results
