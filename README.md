@@ -102,3 +102,7 @@ offer some other languages (cl-awk etc).
 #### crazy ideas
 
   - MySQL replication, reading from the binlog directly
+  - plproxy (re-)sharding support
+  - partitioning support
+  - remote archiving support (with (delete returning *) insert into)
+  
