@@ -70,14 +70,18 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
 
 (defun reset-all-sequences (dbname)
   "Reset all sequences to the max value of the column they are attached to."
-  (pomo:with-connection
-      (get-connection-spec dbname)
+  (let ((connection
+	 (apply #'cl-postgres:open-database
+		(remove :port (get-connection-spec dbname)))))
 
-    (pomo:with-transaction ()
-	;; have the processing all happen server-side
-	(pomo:execute "
+    (cl-postgres:exec-query connection "listen seqs")
+
+    (prog1
+	(handler-case
+	    (cl-postgres:exec-query connection "
 DO $$
 DECLARE
+  n integer := 0;
   r record;
 BEGIN
   FOR r in
@@ -96,22 +100,17 @@ BEGIN
         WHERE relkind = 'r' and a.attnum > 0
               and pg_get_expr(d.adbin, d.adrelid) ~ '^nextval'
   LOOP
+    n := n + 1;
     EXECUTE r.sql;
   END LOOP;
+
+  PERFORM pg_notify('seqs', n::text);
 END;
 $$; ")
-      ;; we still insist on returning how many sequences were reset
-      (pomo:query "
-       SELECT count(*)
-         FROM pg_class c
-              JOIN pg_namespace n on n.oid = c.relnamespace
-              JOIN pg_attribute a on a.attrelid = c.oid
-              JOIN pg_attrdef d on d.adrelid = a.attrelid
-                                 and d.adnum = a.attnum
-                                 and a.atthasdef
-        WHERE relkind = 'r' and a.attnum > 0
-              and pg_get_expr(d.adbin, d.adrelid) ~ '^nextval'"
-		  :single))))
+	  ;; now get the notification signal
+	  (cl-postgres:postgresql-notification (c)
+	    (parse-integer (cl-postgres:postgresql-notification-payload c))))
+    (cl-postgres:close-database connection))))
 
 (defun get-date-columns (table-name pgsql-table-list)
   "Given a PGSQL-TABLE-LIST as per function list-tables, return a list of
