@@ -19,6 +19,7 @@
       (make-instance 'log-manager :message-class 'formatted-message))
 
 ;; And a messenger to store our message into
+(ensure-directories-exist (directory-namestring *log-filename*))
 (start-messenger 'text-file-messenger :filename *log-filename*)
 
 ;; Announce what just happened
