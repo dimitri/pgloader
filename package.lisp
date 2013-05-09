@@ -31,6 +31,11 @@
 	   #:report-pgtable-stats
 	   #:report-pgstate-stats))
 
+(defpackage #:pgloader.parser
+  (:use #:cl #:esrap #:pgloader.params)
+  (:export #:parse-load
+	   #:parse-copy))
+
 (defpackage #:pgloader.queue
   (:use #:cl)
   (:export #:map-pop-queue

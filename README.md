@@ -53,6 +53,32 @@ Some notes about what I intend to be working on next.
   - commands: `LOAD` and `INI` formats
   - compat with `SQL*Loader` format
 
+Here's an example of the grammar to consider:
+
+    COPY cluttured
+    FROM 'cluttered/cluttered.data'
+           (a, c newline escaped by \, b)
+      AS text
+    WITH field_sep = ^, field_count = 3;
+    
+    LOAD foo
+    FROM 'path/to/file'
+      AS text
+    CASE WHEN 1:2 = "43"
+         THEN table(a, c)
+         SPEC (a sep ';',
+               b sep '=', -- field is not loaded
+               c sep ';')
+    
+         WHEN 001:003 = "HDR"
+         THEN table(a, c)
+         SPEC (a, b, c)
+         WITH field_sep = ','
+     END
+     SET maintenance_work_mem TO '128 MB';
+
+Pick one, or maybe have the two of them?
+
 ### error management
 
   - error management with a local buffer (done)
@@ -93,6 +119,20 @@ offer some other languages (cl-awk etc).
 	 - integer and "" that should be NULL
   - user-defined columns (constants, functions of other rows)
   - column re-ordering
+
+Have a try at something approaching:
+
+    WITH data AS (
+		COPY FROM ...
+		RETURNING x, y
+	)
+	SELECT foo(x), bar(y)
+	  FROM data
+	 WHERE ...
+
+A part of that needs to happen client-side, another part server-side, and
+the grammar has to make it clear what happens where. Maybe add a WHERE
+clause to the `COPY` or `LOAD` grammar for the client.
 
 #### UI
 

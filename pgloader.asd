@@ -13,13 +13,16 @@
 	       #:cl-mysql		; CFFI binding to libmysqlclient-dev
 	       #:split-sequence		; some parsing is made easy
                #:cl-csv			; full CSV reader
-               #:lparallel)		; threads, workers, queues
+               #:lparallel		; threads, workers, queues
+	       #:esrap			; parser generator
+	       )
   :components ((:file "params")
 	       (:file "package" :depends-on ("params"))
 	       (:file "utils"  :depends-on ("package"))
 	       (:file "pgloader" :depends-on ("package" "utils"))
 
 	       ;; those are one-package-per-file
+	       (:file "parser" :depends-on ("package" "params"))
 	       (:file "queue" :depends-on ("package")) ; package pgloader.queue
 	       (:file "csv"  :depends-on ("package"))  ; package pgloader.csv
 
