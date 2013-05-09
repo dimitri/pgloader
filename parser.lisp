@@ -108,9 +108,8 @@
 
 ;; parsing filename
 (defun filename-character-p (char)
-  (let ((extras (coerce "/\.-_!@#$%^&*() " 'list)))
-    (or (member char extras)
-	(alphanumericp char))))
+  (or (member char #.(quote (coerce "/\\:.-_!@#$%^&*() " 'list)))
+      (alphanumericp char)))
 
 (defrule filename (and #\'
 		       (* (filename-character-p character))
