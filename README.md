@@ -53,29 +53,74 @@ Some notes about what I intend to be working on next.
   - commands: `LOAD` and `INI` formats
   - compat with `SQL*Loader` format
 
-Here's an example of the grammar to consider:
+Here's a quick spec of the `LOAD` grammar:
 
-    COPY cluttured
-    FROM 'cluttered/cluttered.data'
-           (a, c newline escaped by \, b)
-      AS text
-    WITH field_sep = ^, field_count = 3;
+    LOAD FROM '/path/to/filename.txt'
+	          stdin
+			  http://url.to/some/file.txt
+			  mysql://[user[:pass]@][host[:port]]/dbname
+		 [ COMPRESSED WITH zip | bzip2 | gzip ]
+	
+	WITH workers = 2,
+		 batch size = 25000,
+		 batch split = 5,
+         reject file = '/tmp/pgloader/<table-name>.dat'
+		 log file = '/tmp/pgloader/pgloader.log',
+		 log level = debug | info | notice | warning | error | critical,
+		 truncate,
+         fields [ optionally ] enclosed by '"',
+         fields escaped by '\\',
+         fields terminated by '\t',
+         lines terminated by '\r\n',
+		 encoding = 'latin9',
+		 drop table,
+		 create table,
+		 create indexes,
+		 reset sequences
+		 
+	 SET guc-1 = 'value', guc-2 = 'value'
+	 
+	 PREPARE CLIENT WITH ( <lisp> )
+	 PREPARE SERVER WITH ( <sql> )
+	 
+	INTO postgresql://[user[:pass]@][host[:port]]/dbname?table-name
+	     [ WITH <options> SET <gucs> ]
+         (
+		   field-name data-type field-desc [ with column options ],
+		   ...
+		 )
+    USING (expression field-name other-field-name) as column-name,
+	      ...
     
-    LOAD foo
-    FROM 'path/to/file'
-      AS text
-    CASE WHEN 1:2 = "43"
-         THEN table(a, c)
-         SPEC (a sep ';',
-               b sep '=', -- field is not loaded
-               c sep ';')
+    INTO table-name  [ WITH <options> SET <gucs> ]
+		 (
+		   *
+		 )
+
+    WHEN 
+
+	 FINALLY ON CLIENT DO ( <lisp> )
+	         ON SERVER DO ( <lisp> )
     
-         WHEN 001:003 = "HDR"
-         THEN table(a, c)
-         SPEC (a, b, c)
-         WITH field_sep = ','
-     END
-     SET maintenance_work_mem TO '128 MB';
+    < data here if loading from stdin >
+			 
+The accepted column options are:
+
+	terminated by ':'
+    nullif { blank | zero date }
+	date format "DD-Month-YYYY"
+	
+And we need a database migration command syntax too:
+	
+    LOAD WHOLE DATABASE FROM MySQL
+	WITH drop tables,
+		 create tables,
+		 create indexes,
+		 reset sequences,
+         <options>
+	 SET guc = 'value', ...
+		 
+		 
 
 Pick one, or maybe have the two of them?
 

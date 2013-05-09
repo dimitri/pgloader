@@ -33,8 +33,7 @@
 
 (defpackage #:pgloader.parser
   (:use #:cl #:esrap #:pgloader.params)
-  (:export #:parse-load
-	   #:parse-copy))
+  (:export #:parse-load))
 
 (defpackage #:pgloader.queue
   (:use #:cl)
