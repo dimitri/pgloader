@@ -4,6 +4,7 @@
 
 (in-package :pgloader.parser)
 
+(defparameter *default-host* "localhost")
 (defparameter *default-postgresql-port* 5432)
 (defparameter *default-mysql-port* 3306)
 
@@ -64,6 +65,9 @@ Here's a quick description of the format we're parsing here:
 ;;
 ;; Some useful rules
 ;;
+(defrule keep-a-single-whitespace (+ (or #\space #\tab #\newline #\linefeed))
+  (:constant " "))
+
 (defrule whitespace (+ (or #\space #\tab #\newline #\linefeed))
   (:constant 'whitespace))
 
@@ -87,6 +91,36 @@ Here's a quick description of the format we're parsing here:
 
 (defrule trimmed-name (and ignore-whitespace name)
   (:destructure (whitespace name) (declare (ignore whitespace)) name))
+
+;;
+;; Keywords
+;;
+(defmacro def-keyword-rule (keyword)
+  (let ((rule-name (read-from-string (format nil "kw-~a" keyword)))
+	(constant  (read-from-string (format nil ":~a" keyword))))
+    `(defrule ,rule-name (and ignore-whitespace (~ ,keyword) ignore-whitespace)
+       (:constant ',constant))))
+
+(eval-when (:load-toplevel :compile-toplevel :execute)
+  (def-keyword-rule "load")
+  (def-keyword-rule "data")
+  (def-keyword-rule "from")
+  (def-keyword-rule "into")
+  (def-keyword-rule "with")
+  (def-keyword-rule "set")
+  (def-keyword-rule "database")
+  (def-keyword-rule "cast")
+  (def-keyword-rule "column")
+  (def-keyword-rule "type")
+  (def-keyword-rule "extra")
+  (def-keyword-rule "drop")
+  (def-keyword-rule "not")
+  (def-keyword-rule "to")
+  (def-keyword-rule "null")
+  (def-keyword-rule "default"))
+
+(defrule kw-auto-increment (and "auto_increment" (* (or #\Tab #\Space)))
+  (:constant :auto-increment))
 
 ;;
 ;; Parse PostgreSQL database connection strings
@@ -138,12 +172,12 @@ Here's a quick description of the format we're parsing here:
 				(? dsn-user-password)
 				(? dsn-hostname)
 				dsn-dbname
-				dsn-table-name)
+				(? dsn-table-name))
   (:lambda (uri)
     (destructuring-bind (&key type
 			      user
 			      password
-			      (host "localhost")
+			      host
 			      port
 			      dbname
 			      table-name)
@@ -151,8 +185,10 @@ Here's a quick description of the format we're parsing here:
       (list :type type
 	    :user user
 	    :password password
-	    :host host
-	    :port (or port *default-postgresql-port*)
+	    :host (or host *default-host*)
+	    :port (or port (case type
+			     (:postgresql *default-postgresql-port*)
+			     (:mysql      *default-mysql-port*)))
 	    :dbname dbname
 	    :table-name table-name))))
 
@@ -227,7 +263,147 @@ Here's a quick description of the format we're parsing here:
 		  (*pgconn-port* ,port)
 		  (*pgconn-user* ,user)
 		  (*pgconn-pass* ,password))
-	 (pgloader.pgsql:copy-from-file ,dbname ,table-name ,source)))))
+	 (pgloader.pgsql:copy-from-file ,dbname ,table-name ',source)))))
+
+(defrule database-source (and ignore-whitespace
+			      kw-load kw-database kw-from
+			      db-connection-uri)
+  (:lambda (source)
+    (destructuring-bind (nil l d f uri) source
+      (declare (ignore l d f))
+      uri)))
+
+(defun optname-char-p (char)
+  (and (or (alphanumericp char)
+	   (char= char #\-)		; support GUCs
+	   (char= char #\_))		; support GUCs
+       (not (char= char #\Space))))
+
+(defrule optname-element (* (optname-char-p character)))
+(defrule another-optname-element (and keep-a-single-whitespace optname-element))
+
+(defrule optname (and optname-element (* another-optname-element))
+  (:lambda (source)
+    (string-trim " " (text source))))
+
+(defun optvalue-char-p (char)
+  (not (member char '(#\, #\; #\=) :test #'char=)))
+
+(defrule optvalue (+ (optvalue-char-p character))
+  (:text t))
+
+(defrule equal-sign (and (* whitespace) #\= (* whitespace))
+  (:constant :equal))
+
+(defrule option (and optname (? equal-sign) (? optvalue))
+  (:lambda (source)
+    (destructuring-bind (name es value) source
+      (declare (ignore es))
+      (cons name value))))
+
+(defrule another-option (and #\, ignore-whitespace option)
+  (:lambda (source)
+    (destructuring-bind (comma ws option) source
+      (declare (ignore comma ws))
+      option)))
+
+(defrule option-list (and option (* another-option))
+  (:lambda (source)
+    (destructuring-bind (opt1 opts) source
+      (list* opt1 opts))))
+
+(defrule end-of-option-list (and ignore-whitespace
+				 #\;
+				 ignore-whitespace)
+  (:constant :eol))
+
+(defrule options (and kw-with option-list end-of-option-list)
+  (:lambda (source)
+    (destructuring-bind (w opts eol) source
+      (declare (ignore w eol))
+      opts)))
+
+(defrule gucs (and kw-set option-list end-of-option-list)
+  (:lambda (source)
+    (destructuring-bind (set gucs eol) source
+      (declare (ignore set eol))
+      gucs)))
+
+;;
+;; Now parsing CAST rules
+;;
+
+;; at the moment we only know about extra auto_increment
+(defrule cast-source-extra (and ignore-whitespace
+				kw-with kw-extra kw-auto-increment)
+  (:constant (list :auto-increment t)))
+
+(defrule cast-source (and (or kw-column kw-type)
+			  trimmed-name
+			  (? cast-source-extra)
+			  ignore-whitespace)
+  (:lambda (source)
+    (destructuring-bind (kw name opts ws) source
+      (declare (ignore ws))
+      (destructuring-bind (&key auto-increment &allow-other-keys) opts
+	(list kw name :auto-increment auto-increment)))))
+
+(defrule cast-type-name (+ (optvalue-char-p character))
+  (:text t))
+
+(defrule cast-to-type (and kw-to cast-type-name ignore-whitespace)
+  (:lambda (source)
+    (destructuring-bind (to type-name ws) source
+      (declare (ignore to ws))
+      (list :type type-name))))
+
+(defrule cast-drop-default  (and kw-drop kw-default)
+  (:constant (list :drop-default t)))
+
+(defrule cast-drop-not-null (and kw-drop kw-not kw-null)
+  (:constant (list :drop-not-null t)))
+
+(defrule cast-def (+ (or cast-to-type
+			 cast-drop-default
+			 cast-drop-not-null))
+  (:lambda (source)
+    (destructuring-bind
+	  (&key type drop-default drop-not-null &allow-other-keys)
+	(apply #'append source)
+      (list :type type :drop-default drop-default :drop-not-null drop-not-null))))
+
+(defrule cast-rule (and cast-source cast-def)
+  (:lambda (cast)
+    (destructuring-bind (source target) cast
+      (list :source source :target target))))
+
+(defrule another-cast-rule (and #\, ignore-whitespace cast-rule)
+  (:lambda (source)
+    (destructuring-bind (comma ws rule) source
+      (declare (ignore comma ws))
+      rule)))
+
+(defrule cast-rule-list (and cast-rule (* another-cast-rule))
+  (:lambda (source)
+    (destructuring-bind (rule1 rules) source
+      (list* rule1 rules))))
+
+(defrule casts (and kw-cast cast-rule-list end-of-option-list)
+  (:lambda (source)
+    (destructuring-bind (c casts eol) source
+      (declare (ignore c eol))
+      casts)))
+
+(defrule load-database (and database-source
+			    (? options)
+			    (? gucs)
+			    (? casts))
+  (:lambda (source)
+    (destructuring-bind (db-uri options gucs casts) source
+      (list :uri db-uri
+	    :opts options
+	    :gucs gucs
+	    :casts casts))))
 
 (defun parse-load (string)
   (parse 'load string))
@@ -236,3 +412,18 @@ Here's a quick description of the format we're parsing here:
   (parse-load "
 LOAD FROM http:///tapoueh.org/db.t
      INTO postgresql://localhost:6432/db?t"))
+
+(defun test-parsing-load-database ()
+  (parse 'load-database "
+    LOAD DATABASE FROM mysql://localhost:3306/dbname
+	WITH drop tables,
+		 create tables,
+		 create indexes,
+		 reset sequences;
+	 SET guc_1 = 'value', guc_2 = 'other value';
+	CAST column col1 to timestamptz drop default,
+             type varchar to text,
+             type int with extra auto_increment to bigserial,
+             type datetime to timestamptz drop default,
+             type date drop not null drop default;
+"))

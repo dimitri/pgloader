@@ -69,16 +69,16 @@ Here's a quick spec of the `LOAD` grammar:
 		 log level = debug | info | notice | warning | error | critical,
 		 truncate,
          fields [ optionally ] enclosed by '"',
-         fields escaped by '\\',
+         fields escaped by '"',
          fields terminated by '\t',
          lines terminated by '\r\n',
 		 encoding = 'latin9',
 		 drop table,
 		 create table,
 		 create indexes,
-		 reset sequences
+		 reset sequences;
 		 
-	 SET guc-1 = 'value', guc-2 = 'value'
+	 SET guc-1 = 'value', guc-2 = 'value';
 	 
 	 PREPARE CLIENT WITH ( <lisp> )
 	 PREPARE SERVER WITH ( <sql> )
@@ -112,17 +112,18 @@ The accepted column options are:
 	
 And we need a database migration command syntax too:
 	
-    LOAD WHOLE DATABASE FROM MySQL
+    LOAD DATABASE FROM mysql://localhost:3306/dbname
 	WITH drop tables,
 		 create tables,
 		 create indexes,
 		 reset sequences,
          <options>
 	 SET guc = 'value', ...
-		 
-		 
-
-Pick one, or maybe have the two of them?
+	CAST tablename.column to timestamptz drop default,
+		 varchar to text,
+		 int with extra auto_increment to bigserial,
+		 datetime to timestamptz drop default,
+		 date to date drop default
 
 ### error management
 
