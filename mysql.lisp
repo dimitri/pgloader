@@ -68,57 +68,6 @@ order by table_name, ordinal_position" dbname)))
     ;; free resources
     (cl-mysql:disconnect)))
 
-(defun parse-column-typemod (column-type)
-  "Given int(7), returns the number 7."
-  (parse-integer (nth 1
-		      (sq:split-sequence-if (lambda (c) (member c '(#\( #\))))
-					    column-type
-					    :remove-empty-subseqs t))))
-
-(defun cast (dtype ctype nullable default extra)
-  "Convert a MySQL datatype to a PostgreSQL datatype.
-
-DYTPE is the MySQL data_type and CTYPE the MySQL column_type, for example
-that would be int and int(7) or varchar and varchar(25).
-"
-  (let* ((pgtype
-	  (cond
-	    ((and (string= dtype "int")
-		  (string= extra "auto_increment"))
-	     (if (< (parse-column-typemod ctype) 10) "serial" "bigserial"))
-
-	    ;; this time it can't be an auto_increment
-	    ((string= dtype "int")
-	     (if (< (parse-column-typemod ctype) 10) "int" "bigint"))
-
-	    ;; no support for varchar(x) yet, mostly not needed
-	    ((string= dtype "varchar") "text")
-
-	    ((string= dtype "datetime") "timestamptz")
-
-	    (t ctype)))
-
-	 ;; forget about stupid defaults
-	 (default (cond ((and (string= dtype "datetime")
-			      (string= default "0000-00-00 00:00:00"))
-			 nil)
-
-			((and (string= dtype "date")
-			      (string= default "0000-00-00"))
-			 nil)
-
-			(t default)))
-
-	 ;; force to accept NULLs when we remove stupid default values
-	 (nullable (or (and (not (string= extra "auto_increment"))
-			    (not default))
-		       (not (string= nullable "NO")))))
-
-    ;; now format the column definition and return it
-    (format nil
-	    "~a~:[ not null~;~]~:[~; default ~a~]"
-	    pgtype nullable default default)))
-
 (defun get-create-table (table-name cols)
   "Return a PostgreSQL CREATE TABLE statement from MySQL columns"
   (with-output-to-string (s)

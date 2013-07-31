@@ -33,6 +33,11 @@
 	       ;; from MySQL in the PostgreSQL format.
 	       ;;
 	       ;; package pgloader.mysql
-	       (:file "mysql" :depends-on ("package" "pgsql" "queue" "utils"))))
+	       (:file "mysql-cast-rules" :depends-on ("package" "utils"))
+	       (:file "mysql" :depends-on ("package"
+					   "pgsql"
+					   "queue"
+					   "mysql-cast-rules"
+					   "utils"))))
 
 
