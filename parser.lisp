@@ -117,7 +117,8 @@ Here's a quick description of the format we're parsing here:
   (def-keyword-rule "not")
   (def-keyword-rule "to")
   (def-keyword-rule "null")
-  (def-keyword-rule "default"))
+  (def-keyword-rule "default")
+  (def-keyword-rule "using"))
 
 (defrule kw-auto-increment (and "auto_increment" (* (or #\Tab #\Space)))
   (:constant :auto-increment))
@@ -372,10 +373,23 @@ Here's a quick description of the format we're parsing here:
 	(apply #'append source)
       (list :type type :drop-default drop-default :drop-not-null drop-not-null))))
 
-(defrule cast-rule (and cast-source cast-def)
+(defun function-name-character-p (char)
+  (or (member char #.(quote (coerce "/:.-%" 'list)))
+      (alphanumericp char)))
+
+(defrule function-name (* (function-name-character-p character))
+  (:text t))
+
+(defrule cast-function (and kw-using function-name)
+  (:lambda (function)
+    (destructuring-bind (using fname) function
+      (declare (ignore using))
+      (intern (string-upcase fname) :pgloader.transforms))))
+
+(defrule cast-rule (and cast-source cast-def (? cast-function))
   (:lambda (cast)
-    (destructuring-bind (source target) cast
-      (list :source source :target target))))
+    (destructuring-bind (source target function) cast
+      (list :source source :target target :using function))))
 
 (defrule another-cast-rule (and #\, ignore-whitespace cast-rule)
   (:lambda (source)
@@ -421,9 +435,9 @@ LOAD FROM http:///tapoueh.org/db.t
 		 create indexes,
 		 reset sequences;
 	 SET guc_1 = 'value', guc_2 = 'other value';
-	CAST column col1 to timestamptz drop default,
+	CAST column col1 to timestamptz drop default using zero-dates-to-null,
              type varchar to text,
              type int with extra auto_increment to bigserial,
-             type datetime to timestamptz drop default,
-             type date drop not null drop default;
+             type datetime to timestamptz drop default using zero-dates-to-null,
+             type date drop not null drop default using zero-dates-to-null;
 "))
