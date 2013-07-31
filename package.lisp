@@ -31,6 +31,9 @@
 	   #:report-pgtable-stats
 	   #:report-pgstate-stats))
 
+(defpackage #:pgloader.transforms
+  (:use #:cl))
+
 (defpackage #:pgloader.parser
   (:use #:cl #:esrap #:pgloader.params)
   (:export #:parse-load))
