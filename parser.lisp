@@ -349,7 +349,9 @@ Here's a quick description of the format we're parsing here:
       (destructuring-bind (&key auto-increment &allow-other-keys) opts
 	(list kw name :auto-increment auto-increment)))))
 
-(defrule cast-type-name (+ (optvalue-char-p character))
+(defrule cast-type-name (and (alpha-char-p character)
+			     (* (or (alpha-char-p character)
+				    (digit-char-p character))))
   (:text t))
 
 (defrule cast-to-type (and kw-to cast-type-name ignore-whitespace)
