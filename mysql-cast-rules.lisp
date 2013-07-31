@@ -33,10 +33,12 @@
 
 (defun parse-column-typemod (column-type)
   "Given int(7), returns the number 7."
-  (parse-integer (nth 1
-		      (sq:split-sequence-if (lambda (c) (member c '(#\( #\))))
-					    column-type
-					    :remove-empty-subseqs t))))
+  (let ((splits (sq:split-sequence-if (lambda (c) (member c '(#\( #\))))
+				      column-type
+				      :remove-empty-subseqs t)))
+    (if (= 1 (length splits))
+	nil
+     (parse-integer (nth 1 splits)))))
 
 (defun typemod-expr-matches-p (rule-typemod-expr typemod)
   "Check if an expression such as (< 10) matches given typemod."
@@ -46,7 +48,8 @@
 (defun cast-rule-matches (rule source)
   "Returns the target datatype if the RULE matches the SOURCE, or nil"
   (destructuring-bind (&key ((:source rule-source))
-			    ((:target rule-target)))
+			    ((:target rule-target))
+			    using)
       rule
     (destructuring-bind
 	  (&key ((:type rule-source-type) nil t-s-p)
@@ -64,10 +67,10 @@
 	(when
 	    (and
 	     (string= type rule-source-type)
-	     (or (not tm-s-p) (typemod-expr-matches-p typemod-expr typemod))
-	     (or (not d-s-p)  (string= default rule-source-default))
-	     (or (not n-s-p)  (eq not-null rule-source-not-null))
-	     (or (not ai-s-p) (eq auto-increment rule-source-auto-increment)))
+	     (or (null tm-s-p) (typemod-expr-matches-p typemod-expr typemod))
+	     (or (null d-s-p)  (string= default rule-source-default))
+	     (or (null n-s-p)  (eq not-null rule-source-not-null))
+	     (or (null ai-s-p) (eq auto-increment rule-source-auto-increment)))
 	  rule-target)))))
 
 (defun format-pgsql-type (source target)
@@ -76,10 +79,14 @@
 			    default not-null &allow-other-keys)
       source
     (if target
-	(destructuring-bind (&key type) target
+	(destructuring-bind (&key type drop-default drop-not-null
+				  &allow-other-keys)
+	    target
 	  (format nil
 		  "~a~:[ not null~;~]~:[~; default ~a~]"
-		  type (not not-null) default default))
+		  type
+		  (and (not not-null) drop-not-null)
+		  (and default (not drop-default)) default))
 	source-type)))
 
 (defun apply-casting-rules (source &optional (rules *default-cast-rules*))
@@ -98,8 +105,44 @@ that would be int and int(7) or varchar and varchar(25)."
   (let* ((typemod        (parse-column-typemod ctype))
 	 (not-null       (string= nullable "NO"))
 	 (auto-increment (string= "auto_increment" extra)))
-    (apply-casting-rules `(:type ,dtype
-				 :typemod ,typemod
-				 :default ,default
-				 :not-null ,not-null
-				 :auto-increment ,auto-increment))))
+    (apply-casting-rules (append (list :type dtype)
+				 (when typemod (list :typemod typemod))
+				 (list :default default)
+				 (list :not-null not-null)
+				 (list :auto-increment auto-increment)))))
+
+(defun test-casts ()
+  "Just test some cases for the casts"
+  (let ((*default-cast-rules*
+	 '(;; (:SOURCE (:COLUMN "col1" :AUTO-INCREMENT NIL)
+	   ;;  :TARGET (:TYPE "timestamptz"
+	   ;; 	     :DROP-DEFAULT NIL
+	   ;; 	     :DROP-NOT-NULL NIL)
+	   ;;  :USING NIL)
+
+	   (:SOURCE (:TYPE "varchar" :AUTO-INCREMENT NIL)
+	    :TARGET (:TYPE "text" :DROP-DEFAULT NIL :DROP-NOT-NULL NIL)
+	    :USING NIL)
+
+	   (:SOURCE (:TYPE "int" :AUTO-INCREMENT T)
+	    :TARGET (:TYPE "bigserial" :DROP-DEFAULT NIL :DROP-NOT-NULL NIL)
+	    :USING NIL)
+
+	   (:SOURCE (:TYPE "datetime" :AUTO-INCREMENT NIL)
+	    :TARGET (:TYPE "timestamptz" :DROP-DEFAULT t :DROP-NOT-NULL t)
+	    :USING NIL)
+
+	   (:SOURCE (:TYPE "date" :AUTO-INCREMENT NIL)
+	    :TARGET (:TYPE "date" :DROP-DEFAULT T :DROP-NOT-NULL T)
+	    :USING PGLOADER.TRANSFORMS::ZERO-DATES-TO-NULL))))
+    (loop
+       for (dtype ctype nullable default extra)
+       in '(("int" "int(7)" nil nil "auto_increment")
+	    ("int" "int(10)" nil nil "auto_increment")
+	    ("varchar" "varchar(25)" t nil nil)
+	    ("datetime" "datetime" nil "0000-00-00 00:00:00" nil)
+	    ("date" "date" nil "0000-00-00" nil))
+       do
+	 (format t "~a~14T~a~%"
+		 ctype
+		 (cast dtype ctype nullable default extra)))))
