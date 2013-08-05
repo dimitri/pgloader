@@ -449,7 +449,7 @@ LOAD FROM http:///tapoueh.org/db.t
 
 (defun test-loading-code ()
   "Have a try at writing the code we want the parser to generate."
-  (let* ((*default-cast-rules*
+  (let* ((*cast-rules*
 	  '((:source (:column "col1" :auto-increment nil)
 	     :target (:type "timestamptz" :drop-default t :drop-not-null nil)
 	     :using pgloader.transforms::zero-dates-to-null)

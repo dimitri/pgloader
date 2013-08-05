@@ -31,6 +31,8 @@
     (:source (:type "datetime") :target (:type "timestamptz")))
   "Data Type Casting rules to migrate from MySQL to PostgreSQL")
 
+(defvar *cast-rules* nil "Specific casting rules added in the command.")
+
 (defun parse-column-typemod (column-type)
   "Given int(7), returns the number 7."
   (let ((splits (sq:split-sequence-if (lambda (c) (member c '(#\( #\))))
@@ -89,7 +91,9 @@
 		  (and default (not drop-default)) default))
 	source-type)))
 
-(defun apply-casting-rules (source &optional (rules *default-cast-rules*))
+(defun apply-casting-rules (source
+			    &optional (rules (append *cast-rules*
+						     *default-cast-rules*)))
   "Apply the given RULES to the MySQL SOURCE type definition"
   (loop
      for rule in rules
@@ -113,7 +117,7 @@ that would be int and int(7) or varchar and varchar(25)."
 
 (defun test-casts ()
   "Just test some cases for the casts"
-  (let ((*default-cast-rules*
+  (let ((*cast-rules*
 	 '(;; (:SOURCE (:COLUMN "col1" :AUTO-INCREMENT NIL)
 	   ;;  :TARGET (:TYPE "timestamptz"
 	   ;; 	     :DROP-DEFAULT NIL
