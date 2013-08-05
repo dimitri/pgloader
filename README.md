@@ -113,6 +113,7 @@ The accepted column options are:
 And we need a database migration command syntax too:
 	
     LOAD DATABASE FROM mysql://localhost:3306/dbname
+                  INTO postgresql://localhost/db
 	WITH drop tables,
 		 create tables,
 		 create indexes,

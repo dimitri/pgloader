@@ -198,9 +198,9 @@ Here's a quick description of the format we're parsing here:
 ;;
 ;;  COPY postgresql://user@localhost:5432/dbname?foo
 ;;
-(defrule target (and (~ "INTO") ignore-whitespace db-connection-uri)
-  (:destructure (into whitespace target)
-    (declare (ignore into whitespace))
+(defrule target (and kw-into db-connection-uri)
+  (:destructure (into target)
+    (declare (ignore into))
     (destructuring-bind (&key type &allow-other-keys) target
       (unless (eq type :postgresql)
 	(error "The target must be a PostgreSQL connection string."))
@@ -410,13 +410,14 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore c eol))
       casts)))
 
-(defrule load-database (and database-source
+(defrule load-database (and database-source target
 			    (? options)
 			    (? gucs)
 			    (? casts))
   (:lambda (source)
-    (destructuring-bind (db-uri options gucs casts) source
-      (list :uri db-uri
+    (destructuring-bind (my-db-uri pg-db-uri options gucs casts) source
+      (list :myconn my-db-uri
+	    :pgconn pg-db-uri
 	    :opts options
 	    :gucs gucs
 	    :casts casts))))
@@ -432,6 +433,7 @@ LOAD FROM http:///tapoueh.org/db.t
 (defun test-parsing-load-database ()
   (parse 'load-database "
     LOAD DATABASE FROM mysql://localhost:3306/dbname
+        INTO postgresql://localhost/db
 	WITH drop tables,
 		 create tables,
 		 create indexes,
@@ -443,3 +445,42 @@ LOAD FROM http:///tapoueh.org/db.t
              type datetime to timestamptz drop default using zero-dates-to-null,
              type date drop not null drop default using zero-dates-to-null;
 "))
+
+
+(defun test-loading-code ()
+  "Have a try at writing the code we want the parser to generate."
+  (let* ((*default-cast-rules*
+	  '((:source (:column "col1" :auto-increment nil)
+	     :target (:type "timestamptz" :drop-default t :drop-not-null nil)
+	     :using pgloader.transforms::zero-dates-to-null)
+	    (:source (:type "varchar" :auto-increment nil)
+	     :target (:type "text" :drop-default nil :drop-not-null nil)
+	     :using nil)
+	    (:source (:type "int" :auto-increment t)
+	     :target (:type "bigserial" :drop-default nil :drop-not-null nil)
+	     :using nil)
+	    (:source (:type "datetime" :auto-increment nil)
+	     :target (:type "timestamptz" :drop-default t :drop-not-null nil)
+	     :using pgloader.transforms::zero-dates-to-null)
+	    (:source (:type "date" :auto-increment nil)
+	     :target (:type nil :drop-default t :drop-not-null t)
+	     :using pgloader.transforms::zero-dates-to-null)))
+	 ;; MySQL Connection Parameters
+	 ;; TODO: port
+	 (*myconn-host* "localhost")
+	 (*myconn-user* nil)
+	 (*myconn-pass* nil)
+	 ;; PostgreSQL Connection Parameters
+	 ;; TODO: PostgreSQL GUCs
+	 (*pgconn-host* "localhost")
+	 (*pgconn-port* 5432)
+	 (*pgconn-user* nil)
+	 (*pgconn-pass* nil))
+    ;; TODO: arrange parsed options
+    ;; TODO: use given transform functions
+    (pgloader.mysql:stream-database "dbname"
+				    :pg-dbname "dbname"
+				    :create-tables t
+				    :include-drop t
+				    :truncate nil
+				    :reset-sequences t)))
