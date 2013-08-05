@@ -64,5 +64,6 @@
 ;;; MySQL Connection Credentials
 ;;;
 (defparameter *myconn-host* "localhost")
+(defparameter *myconn-port* 3306)
 (defparameter *myconn-user* (uiop:getenv "USER"))
 (defparameter *myconn-pass* nil)

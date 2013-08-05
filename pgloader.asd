@@ -15,6 +15,7 @@
                #:cl-csv			; full CSV reader
                #:lparallel		; threads, workers, queues
 	       #:esrap			; parser generator
+	       #:alexandria		; utils
 	       )
   :components ((:file "params")
 	       (:file "package" :depends-on ("params"))

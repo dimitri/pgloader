@@ -118,7 +118,33 @@ Here's a quick description of the format we're parsing here:
   (def-keyword-rule "to")
   (def-keyword-rule "null")
   (def-keyword-rule "default")
-  (def-keyword-rule "using"))
+  (def-keyword-rule "using")
+  ;; option for loading from a file
+  (def-keyword-rule "workers")
+  (def-keyword-rule "batch")
+  (def-keyword-rule "size")
+  (def-keyword-rule "reject")
+  (def-keyword-rule "file")
+  (def-keyword-rule "log")
+  (def-keyword-rule "level")
+  (def-keyword-rule "encoding")
+  (def-keyword-rule "truncate")
+  (def-keyword-rule "lines")
+  (def-keyword-rule "fields")
+  (def-keyword-rule "optionally")
+  (def-keyword-rule "enclosed")
+  (def-keyword-rule "by")
+  (def-keyword-rule "escaped")
+  (def-keyword-rule "terminated")
+  (def-keyword-rule "nullif")
+  (def-keyword-rule "blank")
+  ;; option for MySQL imports
+  (def-keyword-rule "drop")
+  (def-keyword-rule "create")
+  (def-keyword-rule "reset")
+  (def-keyword-rule "tables")
+  (def-keyword-rule "indexes")
+  (def-keyword-rule "sequences"))
 
 (defrule kw-auto-increment (and "auto_increment" (* (or #\Tab #\Space)))
   (:constant :auto-increment))
@@ -296,11 +322,33 @@ Here's a quick description of the format we're parsing here:
 (defrule equal-sign (and (* whitespace) #\= (* whitespace))
   (:constant :equal))
 
-(defrule option (and optname (? equal-sign) (? optvalue))
-  (:lambda (source)
-    (destructuring-bind (name es value) source
-      (declare (ignore es))
-      (cons name value))))
+(defrule option-workers (and kw-workers equal-sign (+ (digit-char-p character)))
+  (:lambda (workers)
+    (destructuring-bind (w e nb) workers
+      (declare (ignore w e))
+      (cons :workers (parse-integer (text nb))))))
+
+(defrule option-drop-tables (and kw-drop kw-tables)
+  (:constant (cons :include-drop t)))
+
+(defrule option-truncate (and kw-truncate)
+  (:constant (cons :truncate t)))
+
+(defrule option-create-tables (and kw-create kw-tables)
+  (:constant (cons :create-tables t)))
+
+(defrule option-create-indexes (and kw-create kw-indexes)
+  (:constant (cons :create-indexes t)))
+
+(defrule option-reset-sequences (and kw-reset kw-sequences)
+  (:constant (cons :reset-sequences t)))
+
+(defrule option (or option-workers
+		    option-truncate
+		    option-drop-tables
+		    option-create-tables
+		    option-create-indexes
+		    option-reset-sequences))
 
 (defrule another-option (and #\, ignore-whitespace option)
   (:lambda (source)
@@ -311,7 +359,7 @@ Here's a quick description of the format we're parsing here:
 (defrule option-list (and option (* another-option))
   (:lambda (source)
     (destructuring-bind (opt1 opts) source
-      (list* opt1 opts))))
+      (alexandria:alist-plist (list* opt1 opts)))))
 
 (defrule end-of-option-list (and ignore-whitespace
 				 #\;
@@ -324,7 +372,25 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore w eol))
       opts)))
 
-(defrule gucs (and kw-set option-list end-of-option-list)
+;; we don't validate GUCs, that's PostgreSQL job.
+(defrule generic-option (and optname (? equal-sign) (? optvalue))
+  (:lambda (source)
+    (destructuring-bind (name es value) source
+      (declare (ignore es))
+      (cons name value))))
+
+(defrule another-generic-option (and #\, ignore-whitespace generic-option)
+  (:lambda (source)
+    (destructuring-bind (comma ws option) source
+      (declare (ignore comma ws))
+      option)))
+
+(defrule generic-option-list (and generic-option (* another-generic-option))
+  (:lambda (source)
+    (destructuring-bind (opt1 opts) source
+      (alexandria:alist-plist (list* opt1 opts)))))
+
+(defrule gucs (and kw-set generic-option-list end-of-option-list)
   (:lambda (source)
     (destructuring-bind (set gucs eol) source
       (declare (ignore set eol))
@@ -416,11 +482,40 @@ Here's a quick description of the format we're parsing here:
 			    (? casts))
   (:lambda (source)
     (destructuring-bind (my-db-uri pg-db-uri options gucs casts) source
-      (list :myconn my-db-uri
-	    :pgconn pg-db-uri
-	    :opts options
-	    :gucs gucs
-	    :casts casts))))
+      (declare (ignore gucs))
+      (destructuring-bind (&key ((:host myhost))
+				((:port myport))
+				((:user myuser))
+				((:password mypass))
+				((:dbname mydb))
+				&allow-other-keys)
+	  my-db-uri
+	(destructuring-bind (&key ((:host pghost))
+				  ((:port pgport))
+				  ((:user pguser))
+				  ((:password pgpass))
+				  ((:dbname pgdb))
+				  &allow-other-keys)
+	    pg-db-uri
+	  `(lambda ()
+	     (let* ((*cast-rules* ',casts)
+		    (*myconn-host* ,myhost)
+		    (*myconn-port* ,myport)
+		    (*myconn-user* ,myuser)
+		    (*myconn-pass* ,mypass)
+		    (*pgconn-host* ,pghost)
+		    (*pgconn-port* ,pgport)
+		    (*pgconn-user* ,pguser)
+		    (*pgconn-pass* ,pgpass))
+	       (declare (special *cast-rules*
+				 *myconn-host* *myconn-port*
+				 *myconn-user* *myconn-pass*
+				 *pgconn-host* *pgconn-port*
+				 *pgconn-user* *pgconn-pass*))
+	       ;; TODO: GUCS
+	       (pgloader.mysql:stream-database ,mydb
+					       :pg-dbname ,pgdb
+					       ,@options))))))))
 
 (defun parse-load (string)
   (parse 'load string))
@@ -435,6 +530,7 @@ LOAD FROM http:///tapoueh.org/db.t
     LOAD DATABASE FROM mysql://localhost:3306/dbname
         INTO postgresql://localhost/db
 	WITH drop tables,
+		 truncate,
 		 create tables,
 		 create indexes,
 		 reset sequences;

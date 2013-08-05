@@ -383,9 +383,12 @@ GROUP BY table_name, index_name;" dbname)))
 			  (pg-dbname dbname)
 			  (create-tables nil)
 			  (include-drop nil)
+			  (create-indexes t)
+			  (reset-sequences t)
 			  (truncate t)
 			  only-tables)
   "Export MySQL data and Import it into PostgreSQL"
+  (declare (ignore create-indexes reset-sequences))
   ;; get the list of tables and have at it
   (let ((mysql-tables (list-tables dbname)))
     (setf *state* (pgloader.utils:make-pgstate))
