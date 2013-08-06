@@ -63,7 +63,11 @@ order by table_name, ordinal_position" dbname)))
 		(if entry
 		    (push coldef (cdr entry))
 		    (push (cons table-name (list coldef)) schema)))
-	    finally (return schema)))
+	    finally
+	      ;; we did push, we need to reverse here
+	      (return (loop
+			 for (name . cols) in schema
+			 collect (cons name (reverse cols))))))
 
     ;; free resources
     (cl-mysql:disconnect)))
@@ -73,7 +77,7 @@ order by table_name, ordinal_position" dbname)))
   (with-output-to-string (s)
     (format s "CREATE TABLE ~a ~%(~%" table-name)
     (loop
-       for ((name dtype ctype default nullable extra) . last?) on (reverse cols)
+       for ((name dtype ctype default nullable extra) . last?) on cols
        for pg-coldef = (cast dtype ctype nullable default extra)
        do (format s "  ~a ~22t ~a~:[~;,~]~%" name pg-coldef last?))
     (format s ");~%")))
@@ -82,18 +86,19 @@ order by table_name, ordinal_position" dbname)))
   "Return the PostgreSQL DROP TABLE IF EXISTS statement for TABLE-NAME."
   (format nil "DROP TABLE IF EXISTS ~a;~%" table-name))
 
-(defun get-pgsql-create-tables (dbname &key include-drop)
+(defun get-pgsql-create-tables (all-columns &key include-drop)
   "Return the list of CREATE TABLE statements to run against PostgreSQL"
   (loop
-     for (table-name . cols) in (list-all-columns dbname)
+     for (table-name . cols) in all-columns
      when include-drop collect (get-drop-table-if-exists table-name)
      collect (get-create-table table-name cols)))
 
-(defun pgsql-create-tables (dbname &key (pg-dbname dbname) include-drop)
+(defun pgsql-create-tables (dbname all-columns
+			    &key (pg-dbname dbname) include-drop)
   "Create all MySQL tables in database dbname in PostgreSQL"
   (loop
      for nb-tables from 0
-     for sql in (get-pgsql-create-tables dbname :include-drop include-drop)
+     for sql in (get-pgsql-create-tables all-columns :include-drop include-drop)
      do (pgloader.pgsql:execute pg-dbname sql)
      finally (return nb-tables)))
 
@@ -136,8 +141,8 @@ GROUP BY table_name, index_name;" dbname)))
 
 	(t
 	 (format nil
-		 "CREATE INDEX ~a_idx ON ~a (~{~a~^, ~});"
-		 index-name table-name cols))))
+		 "CREATE~:[~; UNIQUE~] INDEX ~a_idx ON ~a (~{~a~^, ~});"
+		 unique index-name table-name cols))))
 
 (defun get-drop-index-if-exists (table-name index-name)
   "Return the DROP INDEX statement for PostgreSQL"
@@ -297,11 +302,10 @@ GROUP BY table_name, index_name;" dbname)))
 	     (multiple-value-bind (res secs)
 		 (timing
 		  (let* ((filename
-			  (pgloader.csv:get-pathname dbname table-name))
-			 (read
+			  (pgloader.csv:get-pathname dbname table-name)))
 			  ;; export from MySQL to file
-			  (copy-to dbname table-name filename
-				   :date-columns date-columns)))
+		    (copy-to dbname table-name filename
+			     :date-columns date-columns)
 		    ;; import the file to PostgreSQL
 		    (pgloader.pgsql:copy-from-file pg-dbname
 						   table-name
@@ -388,9 +392,9 @@ GROUP BY table_name, index_name;" dbname)))
 			  (truncate t)
 			  only-tables)
   "Export MySQL data and Import it into PostgreSQL"
-  (declare (ignore create-indexes reset-sequences))
   ;; get the list of tables and have at it
-  (let ((mysql-tables (list-tables dbname)))
+  (let ((mysql-tables (list-tables dbname))
+	(all-columns  (list-all-columns dbname)))
     (setf *state* (pgloader.utils:make-pgstate))
     (report-header)
 
@@ -398,12 +402,12 @@ GROUP BY table_name, index_name;" dbname)))
     (when create-tables
       (with-silent-timing *state* dbname
 	  (format nil "~:[~;DROP then ~]CREATE TABLES" include-drop)
-	(pgsql-create-tables dbname
+	(pgsql-create-tables dbname all-columns
 			     :pg-dbname pg-dbname
 			     :include-drop include-drop)))
 
     (loop
-       for (table-name . date-columns) in (pgloader.pgsql:list-tables pg-dbname)
+       for (table-name . columns) in all-columns
        when (or (null only-tables)
 		(member table-name only-tables :test #'equal))
        do
@@ -429,13 +433,15 @@ GROUP BY table_name, index_name;" dbname)))
 	   ;; now we have to create the indexes and primary keys
 	   (with-silent-timing *state* dbname
 	       (format nil "~:[~;DROP then ~]CREATE INDEXES" include-drop)
-	     (pgsql-create-indexes dbname
-				   :pg-dbname pg-dbname
-				   :include-drop include-drop)))
+	     (when create-indexes
+	       (pgsql-create-indexes dbname
+				     :pg-dbname pg-dbname
+				     :include-drop include-drop))))
 
 	 ;; don't forget to reset sequences
-	 (with-silent-timing *state* dbname "RESET SEQUENCES"
-	   (pgloader.pgsql:reset-all-sequences pg-dbname))
+	 (when reset-sequences
+	   (with-silent-timing *state* dbname "RESET SEQUENCES"
+			       (pgloader.pgsql:reset-all-sequences pg-dbname)))
 
 	 ;; and report the total time spent on the operation
 	 (report-pgstate-stats *state* "Total streaming time"))))

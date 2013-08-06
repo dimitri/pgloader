@@ -87,7 +87,9 @@
 		#:pgstate-decf
 		#:report-pgtable-stats
 		#:report-pgstate-stats)
-  (:export #:map-rows
+  (:export #:*cast-rules*
+	   #:*default-cast-rules*
+	   #:map-rows
 	   #:copy-to
 	   #:list-databases
 	   #:list-tables

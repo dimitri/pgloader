@@ -498,7 +498,7 @@ Here's a quick description of the format we're parsing here:
 				  &allow-other-keys)
 	    pg-db-uri
 	  `(lambda ()
-	     (let* ((*cast-rules* ',casts)
+	     (let* ((pgloader.mysql:*cast-rules* ',casts)
 		    (*myconn-host* ,myhost)
 		    (*myconn-port* ,myport)
 		    (*myconn-user* ,myuser)
@@ -545,7 +545,7 @@ LOAD FROM http:///tapoueh.org/db.t
 
 (defun test-loading-code ()
   "Have a try at writing the code we want the parser to generate."
-  (let* ((*cast-rules*
+  (let* ((pgloader.mysql:*cast-rules*
 	  '((:source (:column "col1" :auto-increment nil)
 	     :target (:type "timestamptz" :drop-default t :drop-not-null nil)
 	     :using pgloader.transforms::zero-dates-to-null)

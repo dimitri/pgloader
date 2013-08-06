@@ -73,7 +73,7 @@
 	     (or (null d-s-p)  (string= default rule-source-default))
 	     (or (null n-s-p)  (eq not-null rule-source-not-null))
 	     (or (null ai-s-p) (eq auto-increment rule-source-auto-increment)))
-	  rule-target)))))
+	  (list :using using :target rule-target))))))
 
 (defun format-pgsql-type (source target)
   "Returns a string suitable for a PostgreSQL type definition"
@@ -91,62 +91,83 @@
 		  (and default (not drop-default)) default))
 	source-type)))
 
-(defun apply-casting-rules (source
+(defun apply-casting-rules (dtype ctype nullable default extra
 			    &optional (rules (append *cast-rules*
 						     *default-cast-rules*)))
   "Apply the given RULES to the MySQL SOURCE type definition"
-  (loop
-     for rule in rules
-     for target = (cast-rule-matches rule source)
-     until target
-     finally (return (format-pgsql-type source target))))
+  (let* ((typemod        (parse-column-typemod ctype))
+	 (not-null       (string= nullable "NO"))
+	 (auto-increment (string= "auto_increment" extra))
+	 (source         (append (list :type dtype)
+				 (when typemod (list :typemod typemod))
+				 (list :default default)
+				 (list :not-null not-null)
+				 (list :auto-increment auto-increment))))
+   (loop
+      for rule in rules
+      for target? = (cast-rule-matches rule source)
+      until target?
+      finally (return (destructuring-bind (&key target using &allow-other-keys)
+			  target?
+			(list :transform-fn using
+			      :pgtype (format-pgsql-type source target)))))))
+
+(defun get-transform-function (dtype ctype nullable default extra)
+  "Apply given RULES and return the tranform function needed for this column"
+  (destructuring-bind (&key transform-fn &allow-other-keys)
+      (apply-casting-rules dtype ctype nullable default extra)
+    transform-fn))
 
 (defun cast (dtype ctype nullable default extra)
   "Convert a MySQL datatype to a PostgreSQL datatype.
 
 DYTPE is the MySQL data_type and CTYPE the MySQL column_type, for example
 that would be int and int(7) or varchar and varchar(25)."
-  (let* ((typemod        (parse-column-typemod ctype))
-	 (not-null       (string= nullable "NO"))
-	 (auto-increment (string= "auto_increment" extra)))
-    (apply-casting-rules (append (list :type dtype)
-				 (when typemod (list :typemod typemod))
-				 (list :default default)
-				 (list :not-null not-null)
-				 (list :auto-increment auto-increment)))))
+  (destructuring-bind (&key pgtype &allow-other-keys)
+      (apply-casting-rules dtype ctype nullable default extra)
+    pgtype))
+
+(defun transforms (columns)
+  "Return the list of transformation functions to apply to a given table."
+  (loop
+     for (dtype ctype default nullable extra) in columns
+     collect (get-transform-function dtype ctype default nullable extra)))
 
 (defun test-casts ()
   "Just test some cases for the casts"
   (let ((*cast-rules*
-	 '(;; (:SOURCE (:COLUMN "col1" :AUTO-INCREMENT NIL)
-	   ;;  :TARGET (:TYPE "timestamptz"
-	   ;; 	     :DROP-DEFAULT NIL
-	   ;; 	     :DROP-NOT-NULL NIL)
-	   ;;  :USING NIL)
+	 '(;; (:source (:column "col1" :auto-increment nil)
+	   ;;  :target (:type "timestamptz"
+	   ;; 	     :drop-default nil
+	   ;; 	     :drop-not-null nil)
+	   ;;  :using nil)
 
-	   (:SOURCE (:TYPE "varchar" :AUTO-INCREMENT NIL)
-	    :TARGET (:TYPE "text" :DROP-DEFAULT NIL :DROP-NOT-NULL NIL)
-	    :USING NIL)
+	   (:source (:type "varchar" :auto-increment nil)
+	    :target (:type "text" :drop-default nil :drop-not-null nil)
+	    :using nil)
 
-	   (:SOURCE (:TYPE "int" :AUTO-INCREMENT T)
-	    :TARGET (:TYPE "bigserial" :DROP-DEFAULT NIL :DROP-NOT-NULL NIL)
-	    :USING NIL)
+	   (:source (:type "int" :auto-increment t)
+	    :target (:type "bigserial" :drop-default nil :drop-not-null nil)
+	    :using nil)
 
-	   (:SOURCE (:TYPE "datetime" :AUTO-INCREMENT NIL)
-	    :TARGET (:TYPE "timestamptz" :DROP-DEFAULT t :DROP-NOT-NULL t)
-	    :USING NIL)
+	   (:source (:type "datetime" :auto-increment nil)
+	    :target (:type "timestamptz" :drop-default t :drop-not-null t)
+	    :using pgloader.transforms::zero-dates-to-null)
 
-	   (:SOURCE (:TYPE "date" :AUTO-INCREMENT NIL)
-	    :TARGET (:TYPE "date" :DROP-DEFAULT T :DROP-NOT-NULL T)
-	    :USING PGLOADER.TRANSFORMS::ZERO-DATES-TO-NULL))))
+	   (:source (:type "date" :auto-increment nil)
+	    :target (:type "date" :drop-default t :drop-not-null t)
+	    :using pgloader.transforms::zero-dates-to-null)))
+
+	(columns
+	 '(("int" "int(7)" nil nil "auto_increment")
+	   ("int" "int(10)" nil nil "auto_increment")
+	   ("varchar" "varchar(25)" t nil nil)
+	   ("datetime" "datetime" nil "0000-00-00 00:00:00" nil)
+	   ("date" "date" nil "0000-00-00" nil))))
+
     (loop
-       for (dtype ctype nullable default extra)
-       in '(("int" "int(7)" nil nil "auto_increment")
-	    ("int" "int(10)" nil nil "auto_increment")
-	    ("varchar" "varchar(25)" t nil nil)
-	    ("datetime" "datetime" nil "0000-00-00 00:00:00" nil)
-	    ("date" "date" nil "0000-00-00" nil))
+       for (dtype ctype nullable default extra) in columns
+       for pgtype = (cast dtype ctype nullable default extra)
+       for fn in (transforms columns)
        do
-	 (format t "~a~14T~a~%"
-		 ctype
-		 (cast dtype ctype nullable default extra)))))
+	 (format t "~a~14T~a~45T~:[~;using ~a~]~%" ctype pgtype fn fn))))
