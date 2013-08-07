@@ -180,15 +180,13 @@ GROUP BY table_name, index_name;" dbname)))
 ;;;
 ;;; Map a function to each row extracted from MySQL
 ;;;
-(defun map-rows (dbname table-name
-		 &key
-		   process-row-fn
-		   (host *myconn-host*)
-		   (user *myconn-user*)
-		   (pass *myconn-pass*))
+(defun map-rows (dbname table-name &key process-row-fn)
   "Extract MySQL data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row."
-  (cl-mysql:connect :host host :user user :password pass)
+  (cl-mysql:connect :host *myconn-host*
+		    :port *myconn-port*
+		    :user *myconn-user*
+		    :password *myconn-pass*)
 
   (unwind-protect
        (progn
@@ -217,12 +215,7 @@ GROUP BY table_name, index_name;" dbname)))
 ;;; Use map-rows and pgsql-text-copy-format to fill in a CSV file on disk
 ;;; with MySQL data in there.
 ;;;
-(defun copy-to (dbname table-name filename
-		&key
-		  date-columns
-		  (host *myconn-host*)
-		  (user *myconn-user*)
-		  (pass *myconn-pass*))
+(defun copy-to (dbname table-name filename &key transforms)
   "Extrat data from MySQL in PostgreSQL COPY TEXT format"
   (with-open-file (text-file filename
 			     :direction :output
@@ -232,29 +225,18 @@ GROUP BY table_name, index_name;" dbname)))
 	      :process-row-fn
 	      (lambda (row)
 		(pgloader.pgsql:format-row text-file row
-					   :date-columns date-columns))
-	      :host host
-	      :user user
-	      :pass pass)))
+					   :transforms transforms)))))
 
 ;;;
 ;;; MySQL bulk export to file, in PostgreSQL COPY TEXT format
 ;;;
-(defun export-database (dbname
-			&key
-			  only-tables
-			  (host *myconn-host*)
-			  (user *myconn-user*)
-			  (pass *myconn-pass*))
+(defun export-database (dbname &key only-tables)
   "Export MySQL tables into as many TEXT files, in the PostgreSQL COPY format"
-  (let ((pgtables (pgloader.pgsql:list-tables dbname)))
+  (let ((all-columns  (list-all-columns dbname)))
     (setf *state* (pgloader.utils:make-pgstate))
     (report-header)
     (loop
-       for table-name in (list-tables dbname
-				      :host host
-				      :user user
-				      :pass pass)
+       for (table-name . cols) in all-columns
        for filename = (pgloader.csv:get-pathname dbname table-name)
        when (or (null only-tables)
 		(member table-name only-tables :test #'equal))
@@ -264,9 +246,7 @@ GROUP BY table_name, index_name;" dbname)))
 	 (multiple-value-bind (rows secs)
 	     (timing
 	      ;; load data
-	      (let ((date-cols
-		     (pgloader.pgsql:get-date-columns table-name pgtables)))
-		(copy-to dbname table-name filename :date-columns date-cols)))
+	      (copy-to dbname table-name filename :transforms (transforms cols)))
 	   ;; update and report stats
 	   (pgstate-incf *state* table-name :read rows :secs secs)
 	   (report-pgtable-stats *state* table-name))
@@ -287,35 +267,30 @@ GROUP BY table_name, index_name;" dbname)))
 				 only-tables)
   "Export MySQL data and Import it into PostgreSQL"
   ;; get the list of tables and have at it
-  (let ((mysql-tables (list-tables dbname)))
+  (let ((all-columns  (list-all-columns dbname)))
     (setf *state* (pgloader.utils:make-pgstate))
     (report-header)
     (loop
-       for (table-name . date-columns) in (pgloader.pgsql:list-tables pg-dbname)
+       for (table-name . cols) in all-columns
        when (or (null only-tables)
 		(member table-name only-tables :test #'equal))
        do
 	 (pgstate-add-table *state* dbname table-name)
 	 (report-table-name table-name)
 
-	 (if (member table-name mysql-tables :test #'equal)
-	     (multiple-value-bind (res secs)
-		 (timing
-		  (let* ((filename
-			  (pgloader.csv:get-pathname dbname table-name)))
-			  ;; export from MySQL to file
-		    (copy-to dbname table-name filename
-			     :date-columns date-columns)
-		    ;; import the file to PostgreSQL
-		    (pgloader.pgsql:copy-from-file pg-dbname
-						   table-name
-						   filename
-						   :truncate truncate)))
-	       (declare (ignore res))
-	       (pgstate-incf *state* table-name :secs secs)
-	       (report-pgtable-stats *state* table-name))
-	     ;; not a known mysql table
-	     (format t " skip, unknown table in MySQL database~%"))
+	 (multiple-value-bind (res secs)
+	     (timing
+	      (let* ((filename (pgloader.csv:get-pathname dbname table-name)))
+		;; export from MySQL to file
+		(copy-to dbname table-name filename :transforms (transforms cols))
+		;; import the file to PostgreSQL
+		(pgloader.pgsql:copy-from-file pg-dbname
+					       table-name
+					       filename
+					       :truncate truncate)))
+	   (declare (ignore res))
+	   (pgstate-incf *state* table-name :secs secs)
+	   (report-pgtable-stats *state* table-name))
        finally
 	 (report-pgstate-stats *state* "Total export+import time"))))
 
@@ -337,7 +312,7 @@ GROUP BY table_name, index_name;" dbname)))
 		     &key
 		       (pg-dbname dbname)
 		       truncate
-		       date-columns)
+		       transforms)
   "Connect in parallel to MySQL and PostgreSQL and stream the data."
   (let* ((lp:*kernel* *loader-kernel*)
 	 (channel     (lp:make-channel))
@@ -353,7 +328,7 @@ GROUP BY table_name, index_name;" dbname)))
        ;; this function update :rows stats
        (pgloader.pgsql:copy-from-queue pg-dbname table-name dataq
 				       :truncate truncate
-				       :date-columns date-columns)))
+				       :transforms transforms)))
 
     ;; now wait until both the tasks are over
     (loop for tasks below 2 do (lp:receive-result channel))))
@@ -393,18 +368,17 @@ GROUP BY table_name, index_name;" dbname)))
 			  only-tables)
   "Export MySQL data and Import it into PostgreSQL"
   ;; get the list of tables and have at it
-  (let ((mysql-tables (list-tables dbname))
-	(all-columns  (list-all-columns dbname)))
+  (let ((all-columns  (list-all-columns dbname)))
     (setf *state* (pgloader.utils:make-pgstate))
     (report-header)
 
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (when create-tables
       (with-silent-timing *state* dbname
-	  (format nil "~:[~;DROP then ~]CREATE TABLES" include-drop)
-	(pgsql-create-tables dbname all-columns
-			     :pg-dbname pg-dbname
-			     :include-drop include-drop)))
+			  (format nil "~:[~;DROP then ~]CREATE TABLES" include-drop)
+			  (pgsql-create-tables dbname all-columns
+					       :pg-dbname pg-dbname
+					       :include-drop include-drop)))
 
     (loop
        for (table-name . columns) in all-columns
@@ -414,35 +388,30 @@ GROUP BY table_name, index_name;" dbname)))
 	 (pgstate-add-table *state* dbname table-name)
 	 (report-table-name table-name)
 
-	 (if (member table-name mysql-tables :test #'equal)
-	     (multiple-value-bind (res secs)
-		 (timing
-		  ;; this will care about updating stats in *state*
-		  (stream-table dbname table-name
-				:pg-dbname pg-dbname
-				:truncate truncate
-				:date-columns date-columns))
-	       ;; set the timing we just measured
-	       (declare (ignore res))
-	       (pgstate-incf *state* table-name :secs secs)
-	       (report-pgtable-stats *state* table-name))
-	     ;; not a known mysql table
-	     (format t "skip, unknown table in MySQL database~%"))
+	 (multiple-value-bind (res secs)
+	     (timing
+	      ;; this will care about updating stats in *state*
+	      (stream-table dbname table-name
+			    :pg-dbname pg-dbname
+			    :truncate truncate
+			    :transforms (transforms columns)))
+	   ;; set the timing we just measured
+	   (declare (ignore res))
+	   (pgstate-incf *state* table-name :secs secs)
+	   (report-pgtable-stats *state* table-name))
        finally
-	 (when create-tables
-	   ;; now we have to create the indexes and primary keys
+	 (when create-indexes
 	   (with-silent-timing *state* dbname
 	       (format nil "~:[~;DROP then ~]CREATE INDEXES" include-drop)
-	     (when create-indexes
-	       (pgsql-create-indexes dbname
-				     :pg-dbname pg-dbname
-				     :include-drop include-drop))))
+	     (pgsql-create-indexes dbname
+				   :pg-dbname pg-dbname
+				   :include-drop include-drop)))
 
-	 ;; don't forget to reset sequences
+       ;; don't forget to reset sequences
 	 (when reset-sequences
 	   (with-silent-timing *state* dbname "RESET SEQUENCES"
-			       (pgloader.pgsql:reset-all-sequences pg-dbname)))
+	     (pgloader.pgsql:reset-all-sequences pg-dbname)))
 
-	 ;; and report the total time spent on the operation
+       ;; and report the total time spent on the operation
 	 (report-pgstate-stats *state* "Total streaming time"))))
 

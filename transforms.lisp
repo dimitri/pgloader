@@ -7,10 +7,6 @@
 
 (in-package :pgloader.transforms)
 
-(defun nil-to-cl-postgres-null (value)
-  "cl-mysql returns nil for NULL and cl-postgres wants :NULL"
-  (if (null value) :NULL value))
-
 (defun zero-dates-to-null (date-string)
   "MySQL accepts '0000-00-00' as a date, we want :null instead."
   (cond
@@ -30,7 +26,7 @@
 			 (:seconds 12 14))))
   "Apply this function when input date in like '20041002152952'"
   ;; only process non-zero dates
-  (if (null (transform-zero-dates-to-null date-string)) nil
+  (if (null (zero-dates-to-null date-string)) nil
       (destructuring-bind (&key year month day hour minute seconds
 				&allow-other-keys)
 	    (loop

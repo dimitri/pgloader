@@ -80,8 +80,8 @@ Finally returns how many rows where read and processed."
 
 (defun copy-from-file (dbname table-name filename
 		       &key
+			 transforms
 			 (truncate t)
-			 date-columns
 			 (skip-first-p nil)
 			 (separator #\Tab)
 			 (quote cl-csv:*quote*)
@@ -106,7 +106,7 @@ Finally returns how many rows where read and processed."
        ;; this function update :rows stats
        (pgloader.pgsql:copy-from-queue dbname table-name dataq
 				       :truncate truncate
-				       :date-columns date-columns)))
+				       :transforms transforms)))
 
     ;; now wait until both the tasks are over
     (loop for tasks below 2 do (lp:receive-result channel))))
@@ -143,8 +143,7 @@ Finally returns how many rows where read and processed."
 			    :quote quote
 			    :escape escape
 			    :null-as null-as
-			    :truncate truncate
-			    :date-columns date-columns))
+			    :truncate truncate))
 	 ;; set the timing we just measured
 	 (declare (ignore res))
 	 (pgstate-incf *state* table-name :secs secs)

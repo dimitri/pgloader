@@ -16,19 +16,24 @@
                #:lparallel		; threads, workers, queues
 	       #:esrap			; parser generator
 	       #:alexandria		; utils
+	       #:command-line-arguments	; for the main function
+	       #:uiop			; portability layer (quit, argv, etc)
 	       )
   :components ((:file "params")
 	       (:file "package" :depends-on ("params"))
 	       (:file "utils"  :depends-on ("package"))
-	       (:file "pgloader" :depends-on ("package" "utils"))
 
 	       ;; those are one-package-per-file
 	       (:file "parser" :depends-on ("package" "params"))
+	       (:file "transforms")
 	       (:file "queue" :depends-on ("package")) ; package pgloader.queue
 	       (:file "csv"  :depends-on ("package"))  ; package pgloader.csv
 
 	       ;; package pgloader.pgsql
-	       (:file "pgsql" :depends-on ("package" "queue" "utils"))
+	       (:file "pgsql" :depends-on ("package"
+					   "queue"
+					   "utils"
+					   "transforms"))
 
 	       ;; mysql.lisp depends on pgsql.lisp to be able to export data
 	       ;; from MySQL in the PostgreSQL format.
@@ -38,6 +43,7 @@
 	       (:file "mysql" :depends-on ("package"
 					   "pgsql"
 					   "queue"
+					   "transforms"
 					   "mysql-cast-rules"
 					   "utils"))))
 

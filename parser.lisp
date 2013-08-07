@@ -517,8 +517,17 @@ Here's a quick description of the format we're parsing here:
 					       :pg-dbname ,pgdb
 					       ,@options))))))))
 
-(defun parse-load (string)
-  (parse 'load string))
+(defrule command (or load load-database))
+
+(defun parse-command (command)
+  "Parse a command and return a LAMBDA form that takes no parameter."
+  (parse 'command command))
+
+(defun run-command (command)
+  "Parse given COMMAND then run it."
+  (let* ((code    (parse-command command))
+	 (func    (compile nil code)))
+    (funcall func)))
 
 (defun test-parsing ()
   (parse-load "
@@ -526,7 +535,7 @@ LOAD FROM http:///tapoueh.org/db.t
      INTO postgresql://localhost:6432/db?t"))
 
 (defun test-parsing-load-database ()
-  (parse 'load-database "
+  (parse-command "
     LOAD DATABASE FROM mysql://localhost:3306/dbname
         INTO postgresql://localhost/db
 	WITH drop tables,
@@ -542,41 +551,3 @@ LOAD FROM http:///tapoueh.org/db.t
              type date drop not null drop default using zero-dates-to-null;
 "))
 
-
-(defun test-loading-code ()
-  "Have a try at writing the code we want the parser to generate."
-  (let* ((pgloader.mysql:*cast-rules*
-	  '((:source (:column "col1" :auto-increment nil)
-	     :target (:type "timestamptz" :drop-default t :drop-not-null nil)
-	     :using pgloader.transforms::zero-dates-to-null)
-	    (:source (:type "varchar" :auto-increment nil)
-	     :target (:type "text" :drop-default nil :drop-not-null nil)
-	     :using nil)
-	    (:source (:type "int" :auto-increment t)
-	     :target (:type "bigserial" :drop-default nil :drop-not-null nil)
-	     :using nil)
-	    (:source (:type "datetime" :auto-increment nil)
-	     :target (:type "timestamptz" :drop-default t :drop-not-null nil)
-	     :using pgloader.transforms::zero-dates-to-null)
-	    (:source (:type "date" :auto-increment nil)
-	     :target (:type nil :drop-default t :drop-not-null t)
-	     :using pgloader.transforms::zero-dates-to-null)))
-	 ;; MySQL Connection Parameters
-	 ;; TODO: port
-	 (*myconn-host* "localhost")
-	 (*myconn-user* nil)
-	 (*myconn-pass* nil)
-	 ;; PostgreSQL Connection Parameters
-	 ;; TODO: PostgreSQL GUCs
-	 (*pgconn-host* "localhost")
-	 (*pgconn-port* 5432)
-	 (*pgconn-user* nil)
-	 (*pgconn-pass* nil))
-    ;; TODO: arrange parsed options
-    ;; TODO: use given transform functions
-    (pgloader.mysql:stream-database "dbname"
-				    :pg-dbname "dbname"
-				    :create-tables t
-				    :include-drop t
-				    :truncate nil
-				    :reset-sequences t)))

@@ -29,14 +29,16 @@
 	   #:pgtable-reject-data
 	   #:pgtable-reject-logs
 	   #:report-pgtable-stats
-	   #:report-pgstate-stats))
+	   #:report-pgstate-stats
+	   #:slurp-file-into-string))
 
 (defpackage #:pgloader.transforms
   (:use #:cl))
 
 (defpackage #:pgloader.parser
   (:use #:cl #:esrap #:pgloader.params)
-  (:export #:parse-load))
+  (:export #:parse-command
+	   #:run-command))
 
 (defpackage #:pgloader.queue
   (:use #:cl)
@@ -135,11 +137,17 @@
 		#:copy-from-file
 		#:list-databases
 		#:list-tables)
+  (:import-from #:pgloader.utils
+		#:slurp-file-into-string)
+  (:import-from #:pgloader.parser
+		#:run-command
+		#:parse-command)
   (:export #:*state*
 	   #:*csv-path-root*
 	   #:*reject-path-root*
 	   #:*loader-kernel*
 	   #:*myconn-host*
+	   #:*myconn-port*
 	   #:*myconn-user*
 	   #:*myconn-pass*
 	   #:copy-from-file

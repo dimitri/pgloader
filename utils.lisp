@@ -199,3 +199,19 @@
   (with-slots (read rows errs secs) pgstate
     (report-footer legend read rows errs secs)))
 
+
+;;;
+;;; File utils
+;;;
+(defun slurp-file-into-string (filename)
+  "Return given filename's whole content as a string."
+  (with-open-file (stream filename
+			  :direction :input
+			  :external-format :utf-8)
+    (let ((seq (make-array (file-length stream)
+			   :element-type 'character
+			   :fill-pointer t)))
+      ;; apparently the fastest way at that is read-sequence
+      ;; http://www.ymeme.com/slurping-a-file-common-lisp-83.html
+      (setf (fill-pointer seq) (read-sequence seq stream))
+      seq)))

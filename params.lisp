@@ -16,6 +16,7 @@
 	   #:*pgconn-user*
 	   #:*pgconn-pass*
 	   #:*myconn-host*
+	   #:*myconn-port*
 	   #:*myconn-user*
 	   #:*myconn-pass*
 	   #:*state*))

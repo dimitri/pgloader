@@ -112,11 +112,6 @@ $$; ")
 	    (parse-integer (cl-postgres:postgresql-notification-payload c))))
     (cl-postgres:close-database connection))))
 
-(defun get-date-columns (table-name pgsql-table-list)
-  "Given a PGSQL-TABLE-LIST as per function list-tables, return a list of
-   row numbers containing dates (those have to be reformated)"
-  (cdr (assoc table-name pgsql-table-list)))
-
 (defun execute (dbname sql)
   "Execute given SQL in DBNAME"
   (pomo:with-connection (get-connection-spec dbname)
@@ -125,43 +120,33 @@ $$; ")
 ;;;
 ;;; PostgreSQL formating tools
 ;;;
-(defun fix-zero-date (datestr)
-  (cond
-    ((null datestr) nil)
-    ((string= datestr "") nil)
-    ((string= datestr "0000-00-00") nil)
-    ((string= datestr "0000-00-00 00:00:00") nil)
-    (t datestr)))
+(defun apply-transform-function (fn col)
+  "Apply the tranformation function FN to the value COL."
+  (declare (inline))
+  (if fn (funcall fn col) col))
 
-(defun reformat-null-value (value)
-  "cl-mysql returns nil for NULL and cl-postgres wants :NULL"
-  (if (null value) :NULL value))
-
-(defun reformat-row (row &key date-columns)
+(defun reformat-row (row &key transforms)
   "Reformat row as given by MySQL in a format compatible with cl-postgres"
   (loop
-     for i from 1
      for col in row
-     for no-zero-date-col = (if (member i date-columns)
-				(fix-zero-date col)
-				col)
-     collect (reformat-null-value no-zero-date-col)))
+     for fn in transforms
+     for transformed-col = (apply-transform-function fn col)
+     ;; force nil values to being cl-postgres :null special value
+     collect (if (null transformed-col) :null transformed-col)))
 
 ;;;
 ;;; Format row to PostgreSQL COPY format, the TEXT variant.
 ;;;
-(defun format-row (stream row &key date-columns)
+(defun format-row (stream row &key transforms)
   "Add a ROW in the STREAM, formating ROW in PostgreSQL COPY TEXT format.
 
 See http://www.postgresql.org/docs/9.2/static/sql-copy.html#AEN66609 for
 details about the format, and format specs."
   (let* (*print-circle* *print-pretty*)
     (loop
-       for i from 1
        for (col . more?) on row
-       for preprocessed-col = (if (member i date-columns)
-				  (fix-zero-date col)
-				  col)
+       for fn in transforms
+       for preprocessed-col = (apply-transform-function fn col)
        ;; still accept postmodern :NULL in "preprocessed" data
        do (if (or (null preprocessed-col)
 		  (eq :NULL preprocessed-col))
@@ -229,7 +214,7 @@ Finally returns how many rows where read and processed."
 (defvar *batch* nil "Current batch of rows being processed.")
 (defvar *batch-size* 0 "How many rows are to be found in current *batch*.")
 
-(defun make-copy-and-batch-fn (stream &key date-columns)
+(defun make-copy-and-batch-fn (stream &key transforms)
   "Returns a function of one argument, ROW.
 
    When called, the function returned reformats the row, adds it into the
@@ -237,9 +222,7 @@ Finally returns how many rows where read and processed."
    is up to *copy-batch-size*, throw the 'next-batch tag with its current
    size."
   (lambda (row)
-    (let ((reformated-row (if date-columns
-			      (reformat-row row :date-columns date-columns)
-			      row)))
+    (let ((reformated-row (reformat-row row :transforms transforms)))
 
       ;; maintain the current batch
       (push reformated-row *batch*)
@@ -263,7 +246,7 @@ Finally returns how many rows where read and processed."
 			&key
 			  (truncate t)
 			  ((:state *state*) *state*)
-			  date-columns)
+			  transforms)
   "Fetch data from the QUEUE until we see :end-of-data. Update *state*"
   (when truncate (truncate-table dbname table-name))
 
@@ -278,7 +261,7 @@ Finally returns how many rows where read and processed."
 	   (log-message :debug "pgsql:copy-from-queue: starting new batch")
 	   (unwind-protect
 		(let ((process-row-fn
-		       (make-copy-and-batch-fn stream :date-columns date-columns)))
+		       (make-copy-and-batch-fn stream :transforms transforms)))
 		  (catch 'next-batch
 		    (pgloader.queue:map-pop-queue dataq process-row-fn)))
 	     ;; in case of data-exception, split the batch and try again
@@ -289,7 +272,10 @@ Finally returns how many rows where read and processed."
 	       ((or
 		 CL-POSTGRES-ERROR:UNIQUE-VIOLATION
 		 CL-POSTGRES-ERROR:DATA-EXCEPTION) (e)
-		 (retry-batch dbname table-name (nreverse *batch*) *batch-size*)))))
+		 (progn
+		   (log-message :debug "pgsql:copy-from-queue: ~a" e)
+		   (retry-batch dbname table-name
+				(nreverse *batch*) *batch-size*))))))
 
        ;; fetch how many rows we just pushed through, update stats
        for rows = (if (consp retval) (cdr retval) retval)
@@ -409,8 +395,7 @@ Finally returns how many rows where read and processed."
   "Batch is a list of rows containing at least one bad row. Find it."
   (let* ((conspec (get-connection-spec dbname :with-port nil))
 	 (current-batch-pos batch)
-	 (processed-rows 0)
-	 (total-bad-rows 0))
+	 (processed-rows 0))
     (loop
        while (< processed-rows batch-size)
        do

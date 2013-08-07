@@ -75,7 +75,7 @@
 	     (or (null ai-s-p) (eq auto-increment rule-source-auto-increment)))
 	  (list :using using :target rule-target))))))
 
-(defun format-pgsql-type (source target)
+(defun format-pgsql-type (source target using)
   "Returns a string suitable for a PostgreSQL type definition"
   (destructuring-bind (&key ((:type source-type))
 			    default not-null &allow-other-keys)
@@ -85,10 +85,12 @@
 				  &allow-other-keys)
 	    target
 	  (format nil
-		  "~a~:[ not null~;~]~:[~; default ~a~]"
+		  "~a~:[~; not null~]~:[~; default '~a'~]"
 		  type
-		  (and (not not-null) drop-not-null)
-		  (and default (not drop-default)) default))
+		  (and not-null (not drop-not-null))
+		  (and default (not drop-default))
+		  ;; apply the transformation function to the default value
+		  (if using (funcall using default) default)))
 	source-type)))
 
 (defun apply-casting-rules (dtype ctype nullable default extra
@@ -107,10 +109,12 @@
       for rule in rules
       for target? = (cast-rule-matches rule source)
       until target?
-      finally (return (destructuring-bind (&key target using &allow-other-keys)
-			  target?
-			(list :transform-fn using
-			      :pgtype (format-pgsql-type source target)))))))
+      finally
+	(return
+	  (destructuring-bind (&key target using &allow-other-keys)
+	      target?
+	    (list :transform-fn using
+		  :pgtype (format-pgsql-type source target using)))))))
 
 (defun get-transform-function (dtype ctype nullable default extra)
   "Apply given RULES and return the tranform function needed for this column"
@@ -130,8 +134,8 @@ that would be int and int(7) or varchar and varchar(25)."
 (defun transforms (columns)
   "Return the list of transformation functions to apply to a given table."
   (loop
-     for (dtype ctype default nullable extra) in columns
-     collect (get-transform-function dtype ctype default nullable extra)))
+     for (dtype ctype nullable default extra) in columns
+     collect (get-transform-function dtype ctype nullable default extra)))
 
 (defun test-casts ()
   "Just test some cases for the casts"
@@ -150,6 +154,10 @@ that would be int and int(7) or varchar and varchar(25)."
 	    :target (:type "bigserial" :drop-default nil :drop-not-null nil)
 	    :using nil)
 
+	   (:source (:type "tinyint" :auto-increment nil)
+	    :target (:type "boolean" :drop-default nil :drop-not-null nil)
+	    :using pgloader.transforms::tinyint-to-boolean)
+
 	   (:source (:type "datetime" :auto-increment nil)
 	    :target (:type "timestamptz" :drop-default t :drop-not-null t)
 	    :using pgloader.transforms::zero-dates-to-null)
@@ -159,11 +167,13 @@ that would be int and int(7) or varchar and varchar(25)."
 	    :using pgloader.transforms::zero-dates-to-null)))
 
 	(columns
-	 '(("int" "int(7)" nil nil "auto_increment")
-	   ("int" "int(10)" nil nil "auto_increment")
-	   ("varchar" "varchar(25)" t nil nil)
-	   ("datetime" "datetime" nil "0000-00-00 00:00:00" nil)
-	   ("date" "date" nil "0000-00-00" nil))))
+	 ;; dtype      ctype         nullable default extra
+	 '(("int"      "int(7)"      "NO" nil "auto_increment")
+	   ("int"      "int(10)"     "NO" nil "auto_increment")
+	   ("varchar"  "varchar(25)" nil  nil nil)
+	   ("tinyint"  "tinyint(1)"  nil  "0" nil)
+	   ("datetime" "datetime"    nil  "0000-00-00 00:00:00" nil)
+	   ("date"     "date"       "NO"  "0000-00-00" nil))))
 
     (loop
        for (dtype ctype nullable default extra) in columns
