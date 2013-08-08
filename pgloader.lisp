@@ -10,7 +10,7 @@
     (load quicklisp-init)))
 
 ;; now is the time to load our Quicklisp project
-(format t "Loading quicklisp and the parch project and its dependencies...")
+(format t "Loading quicklisp and the pgloader project and its dependencies...")
 (terpri)
 (with-output-to-string (*standard-output*)
   (pushnew :lparallel.with-vector-queue *features*)
@@ -35,6 +35,7 @@
 	(uiop:quit))
 
       (run-command (slurp-file-into-string file))
+      (format t "~&")
 
       (uiop:quit))))
 
