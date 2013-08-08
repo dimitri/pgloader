@@ -201,8 +201,8 @@ order by ordinal_position" dbname table-name)))
 
 (defun fix-nulls (row nulls)
   "Given a cl-mysql row result and a nulls list as from
-   get-column-list-with-is-nulls, replace empty strings with :NULL where
-   necessary.
+   get-column-list-with-is-nulls, replace NIL with empty strings with when
+   we know from the added 'foo is null' that the actual value IS NOT NULL.
 
    See http://bugs.mysql.com/bug.php?id=19564 for context."
   (loop
