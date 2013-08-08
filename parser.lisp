@@ -388,7 +388,8 @@ Here's a quick description of the format we're parsing here:
 (defrule generic-option-list (and generic-option (* another-generic-option))
   (:lambda (source)
     (destructuring-bind (opt1 opts) source
-      (alexandria:alist-plist (list* opt1 opts)))))
+      ;; here we want an alist
+      (list* opt1 opts))))
 
 (defrule gucs (and kw-set generic-option-list end-of-option-list)
   (:lambda (source)
@@ -482,7 +483,6 @@ Here's a quick description of the format we're parsing here:
 			    (? casts))
   (:lambda (source)
     (destructuring-bind (my-db-uri pg-db-uri options gucs casts) source
-      (declare (ignore gucs))
       (destructuring-bind (&key ((:host myhost))
 				((:port myport))
 				((:user myuser))
@@ -506,13 +506,13 @@ Here's a quick description of the format we're parsing here:
 		    (*pgconn-host* ,pghost)
 		    (*pgconn-port* ,pgport)
 		    (*pgconn-user* ,pguser)
-		    (*pgconn-pass* ,pgpass))
-	       (declare (special *cast-rules*
+		    (*pgconn-pass* ,pgpass)
+		    (*pg-settings* ',gucs))
+	       (declare (special pgloader.mysql:*cast-rules*
 				 *myconn-host* *myconn-port*
 				 *myconn-user* *myconn-pass*
 				 *pgconn-host* *pgconn-port*
 				 *pgconn-user* *pgconn-pass*))
-	       ;; TODO: GUCS
 	       (pgloader.mysql:stream-database ,mydb
 					       :pg-dbname ,pgdb
 					       ,@options))))))))

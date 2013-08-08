@@ -15,6 +15,7 @@
 	   #:*pgconn-port*
 	   #:*pgconn-user*
 	   #:*pgconn-pass*
+	   #:*pg-settings*
 	   #:*myconn-host*
 	   #:*myconn-port*
 	   #:*myconn-user*
@@ -54,12 +55,13 @@
   "Number of batches in which to split a batch with bad data")
 
 ;;;
-;;; PostgreSQL Connection Credentials
+;;; PostgreSQL Connection Credentials and Session Settings
 ;;;
 (defparameter *pgconn-host* "localhost")
 (defparameter *pgconn-port* 5432)
 (defparameter *pgconn-user* (uiop:getenv "USER"))
 (defparameter *pgconn-pass* "pgpass")
+(defparameter *pg-settings* nil "An alist of GUC names and values.")
 
 ;;;
 ;;; MySQL Connection Credentials

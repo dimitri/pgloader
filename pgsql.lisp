@@ -117,6 +117,12 @@ $$; ")
   (pomo:with-connection (get-connection-spec dbname)
     (pomo:execute sql)))
 
+(defun set-session-gucs (alist)
+  "Set given GUCs to given values for the current session."
+  (loop
+     for (name . value) in alist
+     do (pomo:execute (format nil "SET ~a TO ~a" name value))))
+
 ;;;
 ;;; PostgreSQL formating tools
 ;;;
@@ -259,6 +265,7 @@ Finally returns how many rows where read and processed."
 		(*batch* nil)
 		(*batch-size* 0))
 	   (log-message :debug "pgsql:copy-from-queue: starting new batch")
+	   (set-session-gucs *pg-settings*)
 	   (unwind-protect
 		(let ((process-row-fn
 		       (make-copy-and-batch-fn stream :transforms transforms)))
