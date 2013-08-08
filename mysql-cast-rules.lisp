@@ -61,11 +61,13 @@
 		((:auto-increment rule-source-auto-increment) nil ai-s-p))
 	rule-source
       (destructuring-bind (&key type
+				ctype
 				typemod
 				default
 				not-null
 				auto-increment)
 	  source
+	(declare (ignore ctype))
 	(when
 	    (and
 	     (string= type rule-source-type)
@@ -78,7 +80,10 @@
 (defun format-pgsql-type (source target using)
   "Returns a string suitable for a PostgreSQL type definition"
   (destructuring-bind (&key ((:type source-type))
-			    default not-null &allow-other-keys)
+			    ctype
+			    default
+			    not-null
+			    &allow-other-keys)
       source
     (if target
 	(destructuring-bind (&key type drop-default drop-not-null
@@ -91,16 +96,22 @@
 		  (and default (not drop-default))
 		  ;; apply the transformation function to the default value
 		  (if using (funcall using default) default)))
-	source-type)))
 
-(defun apply-casting-rules (dtype ctype nullable default extra
+	;; NO MATCH
+	;;
+	;; prefer char(24) over just char, that is the column type over the
+	;; data type.
+	ctype)))
+
+(defun apply-casting-rules (dtype ctype default nullable extra
 			    &optional (rules (append *cast-rules*
 						     *default-cast-rules*)))
   "Apply the given RULES to the MySQL SOURCE type definition"
   (let* ((typemod        (parse-column-typemod ctype))
-	 (not-null       (string= nullable "NO"))
+	 (not-null       (string-equal nullable "NO"))
 	 (auto-increment (string= "auto_increment" extra))
 	 (source         (append (list :type dtype)
+				 (list :ctype ctype)
 				 (when typemod (list :typemod typemod))
 				 (list :default default)
 				 (list :not-null not-null)
@@ -116,26 +127,26 @@
 	    (list :transform-fn using
 		  :pgtype (format-pgsql-type source target using)))))))
 
-(defun get-transform-function (dtype ctype nullable default extra)
+(defun get-transform-function (dtype ctype default nullable extra)
   "Apply given RULES and return the tranform function needed for this column"
   (destructuring-bind (&key transform-fn &allow-other-keys)
-      (apply-casting-rules dtype ctype nullable default extra)
+      (apply-casting-rules dtype ctype default nullable extra)
     transform-fn))
 
-(defun cast (dtype ctype nullable default extra)
+(defun cast (dtype ctype default nullable extra)
   "Convert a MySQL datatype to a PostgreSQL datatype.
 
 DYTPE is the MySQL data_type and CTYPE the MySQL column_type, for example
 that would be int and int(7) or varchar and varchar(25)."
   (destructuring-bind (&key pgtype &allow-other-keys)
-      (apply-casting-rules dtype ctype nullable default extra)
+      (apply-casting-rules dtype ctype default nullable extra)
     pgtype))
 
 (defun transforms (columns)
   "Return the list of transformation functions to apply to a given table."
   (loop
-     for (dtype ctype nullable default extra) in columns
-     collect (get-transform-function dtype ctype nullable default extra)))
+     for (name dtype ctype default nullable extra) in columns
+     collect (get-transform-function dtype ctype default nullable extra)))
 
 (defun test-casts ()
   "Just test some cases for the casts"
@@ -167,16 +178,16 @@ that would be int and int(7) or varchar and varchar(25)."
 	    :using pgloader.transforms::zero-dates-to-null)))
 
 	(columns
-	 ;; dtype      ctype         nullable default extra
-	 '(("int"      "int(7)"      "NO" nil "auto_increment")
-	   ("int"      "int(10)"     "NO" nil "auto_increment")
-	   ("varchar"  "varchar(25)" nil  nil nil)
-	   ("tinyint"  "tinyint(1)"  nil  "0" nil)
-	   ("datetime" "datetime"    nil  "0000-00-00 00:00:00" nil)
-	   ("date"     "date"       "NO"  "0000-00-00" nil))))
+	 ;; name dtype      ctype         default nullable extra
+	 '(("a"  "int"      "int(7)"      nil "NO" "auto_increment")
+	   ("b"  "int"      "int(10)"     nil "NO" "auto_increment")
+	   ("c"  "varchar"  "varchar(25)" nil  nil nil)
+	   ("d"  "tinyint"  "tinyint(4)"  "0" nil nil)
+	   ("e"  "datetime" "datetime"    "0000-00-00 00:00:00" nil nil)
+	   ("f"  "date"     "date"        "0000-00-00" "NO" nil))))
 
     (loop
-       for (dtype ctype nullable default extra) in columns
+       for (name dtype ctype nullable default extra) in columns
        for pgtype = (cast dtype ctype nullable default extra)
        for fn in (transforms columns)
        do

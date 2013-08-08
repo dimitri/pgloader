@@ -78,7 +78,7 @@ order by table_name, ordinal_position" dbname)))
     (format s "CREATE TABLE ~a ~%(~%" table-name)
     (loop
        for ((name dtype ctype default nullable extra) . last?) on cols
-       for pg-coldef = (cast dtype ctype nullable default extra)
+       for pg-coldef = (cast dtype ctype default nullable extra)
        do (format s "  ~a ~22t ~a~:[~;,~]~%" name pg-coldef last?))
     (format s ");~%")))
 
