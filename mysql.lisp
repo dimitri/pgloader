@@ -180,6 +180,44 @@ GROUP BY table_name, index_name;" dbname)))
 ;;;
 ;;; Map a function to each row extracted from MySQL
 ;;;
+(defun get-column-list-with-is-nulls (dbname table-name)
+  "We can't just SELECT *, we need to cater for NULLs in text columns ourselves.
+   This function assumes a valid connection to the MySQL server has been
+   established already."
+  (loop
+     for (name type) in (caar (cl-mysql:query (format nil "
+  select column_name, data_type
+    from information_schema.columns
+   where table_schema = '~a' and table_name = '~a'
+order by ordinal_position" dbname table-name)))
+     for is-null = (member type '("char" "varchar" "text"
+			 "tinytext" "mediumtext" "longtext")
+			   :test #'string-equal)
+     collect nil into nulls
+     collect name into cols
+     when is-null
+     collect (format nil "~a is null" name) into cols and collect t into nulls
+     finally (return (values cols nulls))))
+
+(defun fix-nulls (row nulls)
+  "Given a cl-mysql row result and a nulls list as from
+   get-column-list-with-is-nulls, replace empty strings with :NULL where
+   necessary.
+
+   See http://bugs.mysql.com/bug.php?id=19564 for context."
+  (loop
+     for (current-col  next-col)  on row
+     for (current-null next-null) on nulls
+     ;; next-null tells us if next column is an "is-null" col
+     ;; when next-null is true, next-col is true if current-col is actually null
+     for is-null = (and next-null (string= next-col "1"))
+     for is-empty = (and next-null (string= next-col "0") (null current-col))
+     ;; don't collect columns we added, e.g. "column_name is not null"
+     when (not current-null)
+     collect (cond (is-null :null)
+		   (is-empty "")
+		   (t current-col))))
+
 (defun map-rows (dbname table-name &key process-row-fn)
   "Extract MySQL data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row."
@@ -195,18 +233,21 @@ GROUP BY table_name, index_name;" dbname)))
 	 (cl-mysql:query "SET character_set_results = utf8;")
 	 (cl-mysql:use dbname)
 
-	 (let* ((sql (format nil "SELECT * FROM ~a;" table-name))
-		(q   (cl-mysql:query sql :store nil))
-		(rs  (cl-mysql:next-result-set q)))
-	   (declare (ignore rs))
+	 (multiple-value-bind (cols nulls)
+	     (get-column-list-with-is-nulls dbname table-name)
+	  (let* ((sql  (format nil "SELECT ~{~a~^, ~} FROM ~a;" cols table-name))
+		 (q    (cl-mysql:query sql :store nil :type-map nil))
+		 (rs   (cl-mysql:next-result-set q)))
+	    (declare (ignore rs))
 
-	   ;; Now fetch MySQL rows directly in the stream
-	   (loop
-	      for row = (cl-mysql:next-row q :type-map (make-hash-table))
-	      while row
-	      counting row into count
-	      do (funcall process-row-fn row)
-	      finally (return count))))
+	    ;; Now fetch MySQL rows directly in the stream
+	    (loop
+	       for row = (cl-mysql:next-row q :type-map (make-hash-table))
+	       while row
+	       for row-with-proper-nulls = (fix-nulls row nulls)
+	       counting row into count
+	       do (funcall process-row-fn row-with-proper-nulls)
+	       finally (return count)))))
 
     ;; free resources
     (cl-mysql:disconnect)))
