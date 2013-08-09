@@ -373,7 +373,12 @@ Here's a quick description of the format we're parsing here:
       opts)))
 
 ;; we don't validate GUCs, that's PostgreSQL job.
-(defrule generic-option (and optname (? equal-sign) (? optvalue))
+(defrule generic-optname optname-element
+  (:text t))
+
+(defrule generic-option (and generic-optname
+			     (or equal-sign kw-to)
+			     optvalue)
   (:lambda (source)
     (destructuring-bind (name es value) source
       (declare (ignore es))
