@@ -27,20 +27,32 @@ with [Quicklisp](http://www.quicklisp.org/beta/).
 	* (quicklisp-quickstart:install)
 	* (ql:add-to-init-file)
 
-Now fetch pgloader sources into `~/quicklisp/local-projects/` so that you
-can do:
+Now fetch pgloader sources using `git clone` then you can use the #! script.
+You might have to modify it because it's now hard coded to use
+`/usr/local/bin/sbcl` and you probably want to change that part then:
 
-    sbcl
-	* (ql:quickload :pgloader)
-	* (in-package :pgloader)
-	* (stream-database-tables "weetix")
+    ./pgloader.lisp --help
+
+Each time you run the `pgloader` command line, it will check that all its
+dependencies are installed and compiled and if that's not the case fetch
+them from the internet and prepare them (thanks to *Quicklisp*). So please
+be patient while that happens and make sure we can actually connect and
+download the dependencies.
 
 ## Usage
+
+Use the `--file` parameter to give pgloader a command file to parse, it will start 
+
+    ./pgloader.lisp -f <file.load>
 
 ## TODO
 
 Some notes about what I intend to be working on next.
 
+### binary distribution
+
+  - prepare an all-included binary for several platforms
+  
 ### internals & refactoring
 
   - review pgloader.pgsql:reformat-row date-columns arguments
@@ -126,6 +138,11 @@ And we need a database migration command syntax too:
 		 datetime to timestamptz drop default,
 		 date to date drop default
 
+### docs
+
+  - write proper documentation
+  - host a proper website for the tool, with use cases and a tutorial
+
 ### error management
 
   - error management with a local buffer (done)
@@ -140,6 +157,12 @@ And we need a database migration command syntax too:
   - fixed cols input data format
   - compressed input (gzip, other algos)
   - fetch data from S3
+
+### transformation and casts
+
+  - experiment with perfs and inlining the transformation functions
+  - add typemod expression to cast rules in the command language
+  - add per-column support for cast rules in the system
 
 ### data output
 
