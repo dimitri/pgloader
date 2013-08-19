@@ -9,6 +9,18 @@
       (z "/Users/dim/dev/CL/pgloader/test/lahman2012-csv.zip")
     (zip:do-zipfile-entries (name x z) (push name l))) l)
 
+(defun guess-data-type (value)
+  "Try to guess the data type we want to use for given value. Be very crude,
+   avoid being smart. Smart means you might be unable to load data because
+   of a bad guess."
+  (cond ((ppcre:scan "^[0-9]*[.]?[0-9]+$" value) "numeric")
+	((ppcre:scan "^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$" value) "date")
+	((ppcre:scan "^[0-9]{4}-[0-9]{1,2}-[0-9]{2}$" value)   "date")
+	((ppcre:scan
+	  "^[0-9]{4}-[0-9]{1,2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}"
+	  value)                                      "timestamptz")
+	(t "text")))
+
 (defun import-csv-from-zip (zip-filename
 			    &key
 			      (create-tables nil)
@@ -53,15 +65,24 @@
 		 ;; now get the column names
 		 (col-names
 		  (mapcar #'camelCase-to-colname
-			  (split-sequence:split-sequence separator header))))
+			  (sq:split-sequence separator header)))
+		 ;;
+		 ;; and the columns types: if only digits and . then it's a
+		 ;; numeric, otherwise it's a text.
+		 (data       (cl-csv:read-csv-row first-data-line
+						  :separator separator))
+		 (col-types  (mapcar #'guess-data-type data))
+		 ;;
+		 ;; build column definitions
+		 (col-defs (mapcar (lambda (name type)
+				     (format nil "~a ~a" name type))
+				   col-names col-types)))
 
 	    (format t "  separator: ~a~%    columns: ~a~%" separator col-names)
 	    (when create-tables
 	      (format t "CREATE TABLE ~a (~{~a~^, ~});~%"
-		      (pathname-name filename) col-names))
-	    (format t "first line: ~a~%" first-data-line)
-
-	    ;; then from the first line of data, guess the column data types
+		      (pathname-name filename) col-defs))
+	    (format t "first line: ~s~%" data)
 
 	    ;; now create the table schema and begin importing the data
 
