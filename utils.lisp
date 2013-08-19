@@ -215,3 +215,22 @@
       ;; http://www.ymeme.com/slurping-a-file-common-lisp-83.html
       (setf (fill-pointer seq) (read-sequence seq stream))
       seq)))
+
+;;;
+;;; Camel Case converter
+;;;
+(defun camelCase-to-colname (string)
+  "Transform input STRING into a suitable column name.
+    lahmanID        lahman_id
+    playerID        player_id
+    birthYear       birth_year"
+  (coerce
+   (loop
+      for first = t then nil
+      for char across string
+      for previous-upper-p = nil then char-upper-p
+      for char-upper-p = (eq char (char-upcase char))
+      for new-word = (and (not first) char-upper-p (not previous-upper-p))
+      when (and new-word (not (char= char #\_))) collect #\_
+      collect (char-downcase char))
+   'string))

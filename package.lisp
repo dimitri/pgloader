@@ -30,7 +30,8 @@
 	   #:pgtable-reject-logs
 	   #:report-pgtable-stats
 	   #:report-pgstate-stats
-	   #:slurp-file-into-string))
+	   #:slurp-file-into-string
+	   #:camelCase-to-colname))
 
 (defpackage #:pgloader.transforms
   (:use #:cl))
@@ -70,6 +71,27 @@
 	   #:import-database
 	   #:guess-csv-params
 	   #:guess-all-csv-params))
+
+(defpackage #:pgloader.archive
+  (:use #:cl #:pgloader.params #:pgloader.csv)
+  (:import-from #:pgloader.utils
+		#:log-message
+		#:report-header
+		#:report-table-name
+		#:report-results
+		#:report-footer
+		#:format-interval
+		#:timing
+		#:make-pgstate
+		#:pgstate-get-table
+		#:pgstate-add-table
+		#:pgstate-setf
+		#:pgstate-incf
+		#:pgstate-decf
+		#:report-pgtable-stats
+		#:report-pgstate-stats
+		#:camelCase-to-colname)
+  (:export #:import-csv-from-zip))
 
 (defpackage #:pgloader.mysql
   (:use #:cl #:pgloader.params)

@@ -16,6 +16,8 @@
                #:lparallel		; threads, workers, queues
 	       #:esrap			; parser generator
 	       #:alexandria		; utils
+	       #:zip			; support for zip archive files
+	       #:flexi-streams		; streams
 	       #:command-line-arguments	; for the main function
 	       #:uiop			; portability layer (quit, argv, etc)
 	       )
@@ -26,8 +28,9 @@
 	       ;; those are one-package-per-file
 	       (:file "parser" :depends-on ("package" "params"))
 	       (:file "transforms")
-	       (:file "queue" :depends-on ("package")) ; package pgloader.queue
-	       (:file "csv"  :depends-on ("package"))  ; package pgloader.csv
+	       (:file "queue" :depends-on ("package"))   ; pgloader.queue
+	       (:file "csv"  :depends-on ("package"))    ; pgloader.csv
+	       (:file "archive" :depends-on ("package")) ; pgloader.archive
 
 	       ;; package pgloader.pgsql
 	       (:file "pgsql" :depends-on ("package"
