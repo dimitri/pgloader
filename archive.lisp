@@ -4,11 +4,6 @@
 
 (in-package #:pgloader.archive)
 
-(let (l)
-  (zip:with-zipfile
-      (z "/Users/dim/dev/CL/pgloader/test/lahman2012-csv.zip")
-    (zip:do-zipfile-entries (name x z) (push name l))) l)
-
 (defun guess-data-type (value)
   "Try to guess the data type we want to use for given value. Be very crude,
    avoid being smart. Smart means you might be unable to load data because
