@@ -93,6 +93,12 @@
 		#:camelCase-to-colname)
   (:export #:import-csv-from-zip))
 
+(defpackage #:pgloader.syslog
+  (:use #:cl #:pgloader.params)
+  (:import-from #:pgloader.utils
+		#:log-message)
+  (:export #:start-syslog-receiver))
+
 (defpackage #:pgloader.mysql
   (:use #:cl #:pgloader.params)
   (:import-from #:pgloader.utils

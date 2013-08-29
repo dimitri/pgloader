@@ -18,6 +18,8 @@
 	       #:alexandria		; utils
 	       #:zip			; support for zip archive files
 	       #:flexi-streams		; streams
+	       #:usocket		; UDP / syslog
+	       #:local-time		; UDP date parsing
 	       #:command-line-arguments	; for the main function
 	       #:uiop			; portability layer (quit, argv, etc)
 	       )
@@ -31,6 +33,7 @@
 	       (:file "queue" :depends-on ("package"))   ; pgloader.queue
 	       (:file "csv"  :depends-on ("package"))    ; pgloader.csv
 	       (:file "archive" :depends-on ("package")) ; pgloader.archive
+	       (:file "syslog" :depends-on ("package"))	 ; pgloader.syslog
 
 	       ;; package pgloader.pgsql
 	       (:file "pgsql" :depends-on ("package"
