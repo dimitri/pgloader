@@ -147,7 +147,7 @@
 		  (read-spaces-and-number))    ; secs
 	      (maybe-read-year))	       ; year
     (setf (message-timestamp *message*)
-	  (local-time:encode-timestamp 0 secs mins hours day month year)))))
+	  (local-time:encode-timestamp 0 secs mins hours day month year))))
 
 (defun read-hostname ()
   "Any non whitespace is constituent of the HOSTNAME field."
@@ -184,7 +184,30 @@
 (defun syslog-udp-handler (buffer)
   "Handler to register to usocket:socket-server call."
   (declare (type (simple-array (unsigned-byte 8) *) buffer))
-  (let* ((*buffer* buffer)
+  (let* ((*buffer*   (map 'string #'code-char buffer))
 	 (*position* 0)
-	 (mesg (parse-message)))))
+	 (mesg      (parse-message)))
+    (format t "recv: ~a~%" mesg)))
 
+(defun start-syslog-server (&key
+			      (host nil)
+			      (port 10514))
+  "Start our syslog socket and read messages."
+  (usocket:socket-server host port #'syslog-udp-handler nil
+			 :protocol :datagram
+			 :reuse-address t
+			 :element-type '(unsigned-byte 8)))
+
+;;;
+;;; A test client, with some not-so random messages
+;;;
+(defun send-message (message
+		     &key
+		       (host "localhost")
+		       (port 10514))
+  (let ((socket (usocket:socket-connect host port :protocol :datagram)))
+    (usocket:socket-send socket message (length message))))
+
+(send-message "<165>Aug 29 00:30:12 Dimitris-MacBook-Air.local coreaudiod[215]: Enabled automatic stack shots because audio IO is inactive")
+
+(send-message "<0>Aug 31 21:38:28 Dimitris-MacBook-Air.local Google Chrome[236]: notify name \"com.apple.coregraphics.GUIConsoleSessionChanged\" has been registered 20 times - this may be a leak")
