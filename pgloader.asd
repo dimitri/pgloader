@@ -30,6 +30,7 @@
 	       ;; those are one-package-per-file
 	       (:file "parser" :depends-on ("package" "params"))
 	       (:file "transforms")
+	       (:file "lib/db3")
 	       (:file "queue" :depends-on ("package"))   ; pgloader.queue
 	       (:file "csv"  :depends-on ("package"))    ; pgloader.csv
 	       (:file "archive" :depends-on ("package")) ; pgloader.archive
