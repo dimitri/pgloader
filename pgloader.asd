@@ -26,6 +26,7 @@
   :components ((:file "params")
 	       (:file "package" :depends-on ("params"))
 	       (:file "utils"  :depends-on ("package"))
+	       (:file "abnf"  :depends-on ("package"))
 
 	       ;; those are one-package-per-file
 	       (:file "parser" :depends-on ("package" "params"))
