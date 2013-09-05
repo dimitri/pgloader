@@ -36,7 +36,7 @@
                                  ; month/year ;
    FULL-TIME       = PARTIAL-TIME TIME-OFFSET
    PARTIAL-TIME    = TIME-HOUR \":\" TIME-MINUTE \":\" TIME-SECOND
-   [TIME-SECFRAC]
+                     [TIME-SECFRAC]
    TIME-HOUR       = 2DIGIT  ; 00-23
    TIME-MINUTE     = 2DIGIT  ; 00-59
    TIME-SECOND     = 2DIGIT  ; 00-58, 00-59, 00-60 based on leap
@@ -111,7 +111,7 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
   "An alist of the usual rules needed for ABNF grammars")
 
 (defun rule-name-character-p (character)
-  (or (alpha-char-p character)
+  (or (alphanumericp character)
       (char= character #\-)))
 
 (defun vcharp (character)
@@ -125,7 +125,8 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 (defrule c-wsp (or wsp c-nl)                            (:constant :c-wsp))
 (defrule n-wsp (* c-wsp)                                (:constant :c-wsp))
 
-(defrule rule-name (+ (rule-name-character-p character))
+(defrule rule-name (and (alpha-char-p character)
+			(+ (rule-name-character-p character)))
   (:lambda (name)
     (intern (string-upcase (text name)) :keyword)))
 
@@ -151,18 +152,38 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
       (declare (ignore open close))
       (text val))))
 
-(defrule dec-val (and "d" digits)
+(defrule range-sep (or "-" ".")  (:constant :range-sep))
+
+(defrule dec-range (and digits range-sep digits)
+  (:lambda (range)
+    (destructuring-bind (min sep max) range
+      (declare (ignore sep))
+      `(:char-class (:range ,(code-char min) ,(code-char max))))))
+
+(defrule dec-val (and "d" (or dec-range digits))
   (:lambda (dv)
-    (destructuring-bind (d x) dv
+    (destructuring-bind (d val) dv
       (declare (ignore d))
-      x)))
+      val)))))
 
 (defun hexadecimal-char-p (character)
   (member character #. (quote (coerce "0123456789abcdef" 'list))))
 
-(defrule hex-val (and "x" (+ (hexadecimal-char-p character)))
+(defrule hexdigits (+ (hexadecimal-char-p character))
   (:lambda (hx)
-    (parse-integer (text hx) :start 1 :radix 16)))
+    (parse-integer (text hx) :radix 16)))
+
+(defrule hex-range (and hexdigits range-sep hexdigits)
+  (:lambda (range)
+    (destructuring-bind (min sep max) range
+      (declare (ignore sep))
+      `(:char-class (:range ,(code-char min) ,(code-char max))))))
+
+(defrule hex-val (and "x" (or hex-range digits))
+  (:lambda (dv)
+    (destructuring-bind (d val) dv
+      (declare (ignore d))
+      val)))))
 
 (defrule num-val (and "%" (or dec-val hex-val))
   (:lambda (nv)
@@ -178,23 +199,17 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 
 (defrule element (or rule-name-reference char-val num-val))
 
-(defrule repeat-option (and "*" digit)
-  (:lambda (rs)
-    (destructuring-bind (star digit) rs
-      (declare (ignore star))
-      (cons 0 digit))))
-
-(defrule repeat-var (and digits "*" digits)
+(defrule repeat-var (and (? digits) "*" (? digits))
   (:lambda (rv)
     (destructuring-bind (min star max) rv
       (declare (ignore star))
-      (cons min max))))
+      (cons (or min 0) max))))
 
 (defrule repeat-specific digits
   (:lambda (digits)
     (cons digits digits)))
 
-(defrule repeat (or repeat-option repeat-var repeat-specific))
+(defrule repeat (or repeat-var repeat-specific))
 
 (defrule repetition (and (? repeat) toplevel-element)
   (:lambda (repetition)
@@ -229,7 +244,7 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
   (:lambda (alternation)
     (destructuring-bind (c1 clist) alternation
       (if clist
-	  `(:alternation ,(list* c1 clist))
+	  `(:alternation ,@(list* c1 clist))
 	  c1))))
 
 (defrule group (and "(" n-wsp alternation n-wsp ")")
@@ -244,9 +259,9 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
       (declare (ignore open close ws1 ws2))
       `(:non-greedy-repetition 0 1 ,a))))
 
-(defrule toplevel-element (or alternation group option element))
+(defrule toplevel-element (or group option element))
 
-(defrule elements (and (+ (and toplevel-element n-wsp)) end-of-rule)
+(defrule elements (and (+ (and alternation n-wsp)) end-of-rule)
   (:lambda (elist)
     (destructuring-bind (elements eor) elist
       (declare (ignore eor))
