@@ -265,7 +265,7 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
   (:lambda (elist)
     (destructuring-bind (elements eor) elist
       (declare (ignore eor))
-      `(:sequence ,@(concatenate 'list (mapcar #'car elements))))))
+      (concatenate 'list (mapcar #'car elements)))))
 
 (defrule rule (and n-wsp rule-name equal elements)
   (:lambda (rule)
