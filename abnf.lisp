@@ -139,7 +139,7 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 
 (defrule digits (+ (digit-char-p character))
   (:lambda (digits)
-    (parse-integer (text digits))))
+    (code-char (parse-integer (text digits)))))
 
 (defun char-val-char-p (character)
   (let ((code (char-code character)))
@@ -158,7 +158,7 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
   (:lambda (range)
     (destructuring-bind (min sep max) range
       (declare (ignore sep))
-      `(:char-class (:range ,(code-char min) ,(code-char max))))))
+      `(:char-class (:range ,min ,max)))))
 
 (defrule dec-val (and "d" (or dec-range digits))
   (:lambda (dv)
@@ -171,15 +171,15 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 
 (defrule hexdigits (+ (hexadecimal-char-p character))
   (:lambda (hx)
-    (parse-integer (text hx) :radix 16)))
+    (code-char (parse-integer (text hx) :radix 16))))
 
 (defrule hex-range (and hexdigits range-sep hexdigits)
   (:lambda (range)
     (destructuring-bind (min sep max) range
       (declare (ignore sep))
-      `(:char-class (:range ,(code-char min) ,(code-char max))))))
+      `(:char-class (:range ,min ,max)))))
 
-(defrule hex-val (and "x" (or hex-range digits))
+(defrule hex-val (and "x" (or hex-range hexdigits))
   (:lambda (dv)
     (destructuring-bind (d val) dv
       (declare (ignore d))
@@ -199,15 +199,19 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 
 (defrule element (or rule-name-reference char-val num-val))
 
-(defrule repeat-var (and (? digits) "*" (? digits))
+(defrule number (+ (digit-char-p character))
+  (:lambda (number)
+    (parse-integer (text number))))
+
+(defrule repeat-var (and (? number) "*" (? number))
   (:lambda (rv)
     (destructuring-bind (min star max) rv
       (declare (ignore star))
       (cons (or min 0) max))))
 
-(defrule repeat-specific digits
-  (:lambda (digits)
-    (cons digits digits)))
+(defrule repeat-specific number
+  (:lambda (number)
+    (cons number number)))
 
 (defrule repeat (or repeat-var repeat-specific))
 
