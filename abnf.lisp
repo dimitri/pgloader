@@ -305,7 +305,7 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 			      :char-class
 			      :range
 			      :non-greedy-repetition))
-	 ;; that's a cl-ppcre scanner parse-tree
+	 ;; that's a cl-ppcre scanner parse-tree symbol
 	 definition
 
 	 ;; here we have to actually expand the symbol
