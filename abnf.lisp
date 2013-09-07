@@ -64,7 +64,7 @@
    SP              = %d32
    PRINTUSASCII    = %d33-126
    NONZERO-DIGIT   = \"1\" / \"2\" / \"3\" / \"4\" / \"5\" /
-   \"6\" / \"7\" / \"8\" / \"9\"
+                     \"6\" / \"7\" / \"8\" / \"9\"
    DIGIT           = \"0\" / NONZERO-DIGIT"
   "See http://tools.ietf.org/html/draft-ietf-syslog-protocol-15#page-10")
 
