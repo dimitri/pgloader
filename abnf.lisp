@@ -289,14 +289,20 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 ;;; to expand each symbol's definition to get a real cl-ppcre scanner parse
 ;;; tree.
 ;;;
-(defun expand-rule-definition (definition rule-set already-expanded-rules)
+(defun expand-rule-definition (definition
+			       rule-set
+			       registering-rules
+			       already-expanded-rules)
   "Expand given rule DEFINITION within given RULE-SET"
   (typecase definition
     (list
      ;; walk the definition and expand its elements
      (loop
 	for element in definition
-	collect (expand-rule-definition element rule-set already-expanded-rules)))
+	collect (expand-rule-definition element
+					rule-set
+					registering-rules
+					already-expanded-rules)))
 
     (symbol
      (if (member definition '(:sequence
@@ -316,14 +322,22 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 
 	   (destructuring-bind (rule-name rule-definition)
 	       (assoc definition rule-set)
-	     (declare (ignore rule-name))
-	     (expand-rule-definition rule-definition rule-set
-				     (cons definition already-expanded-rules))))))
+	     (let* ((already-expanded-rules
+		     (cons definition already-expanded-rules))
+
+		    (expanded-definition
+		     (expand-rule-definition rule-definition
+					     rule-set
+					     registering-rules
+					     already-expanded-rules)))
+	       (if (member rule-name registering-rules)
+		   `(:register ,expanded-definition)
+		   expanded-definition))))))
 
     ;; all other types of data are "constants" in our parse-tree
     (t definition)))
 
-(defun expand-rule (rule-name rule-set)
+(defun expand-rule (rule-name rule-set &optional registering-rules)
   "Given a rule, expand it completely removing references to other parsed
    rules"
   (let ((rule (typecase rule-name
@@ -331,7 +345,10 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 		(t      (find-symbol (string-upcase rule-name) :keyword)))))
     (destructuring-bind (rule-name definition)
 	   (assoc rule rule-set)
-      (expand-rule-definition definition rule-set (list rule-name)))))
+      (expand-rule-definition definition
+			      rule-set
+			      registering-rules
+			      (list rule-name)))))
 
 (defun parse-abnf-grammar (string &key junk-allowed)
   "Parse STRING as an ABNF grammar as defined in RFC 2234. Returns a regular
