@@ -275,6 +275,56 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 
 (defrule rule-list (+ rule))
 
+;;;
+;;; Now that we are able to transform ABNF rule set into an alist of
+;;; cl-ppcre parse trees and references to other rules in the set, we need
+;;; to expand each symbol's definition to get a real cl-ppcre scanner parse
+;;; tree.
+;;;
+(defun expand-rule-definition (definition rule-set already-expanded-rules)
+  "Expand given rule DEFINITION within given RULE-SET"
+  (typecase definition
+    (list
+     ;; walk the definition and expand its elements
+     (loop
+	for element in definition
+	collect (expand-rule-definition element rule-set already-expanded-rules)))
+
+    (symbol
+     (if (member definition '(:sequence
+			      :alternation
+			      :group
+			      :char-class
+			      :range
+			      :non-greedy-repetition))
+	 ;; that's a cl-ppcre scanner parse-tree
+	 definition
+
+	 ;; here we have to actually expand the symbol
+	 (progn
+	   ;; first protect against infinite recursion
+	   (when (member definition already-expanded-rules)
+	     (error "Can not expand recursive rule: ~S." definition))
+
+	   (destructuring-bind (rule-name rule-definition)
+	       (assoc definition rule-set)
+	     (declare (ignore rule-name))
+	     (expand-rule-definition rule-definition rule-set
+				     (cons definition already-expanded-rules))))))
+
+    ;; all other types of data are "constants" in our parse-tree
+    (t definition)))
+
+(defun expand-rule (rule-name rule-set)
+  "Given a rule, expand it completely removing references to other parsed
+   rules"
+  (let ((rule (typecase rule-name
+		(symbol rule-name)
+		(t      (find-symbol (string-upcase rule-name) :keyword)))))
+    (destructuring-bind (rule-name definition)
+	   (assoc rule rule-set)
+      (expand-rule-definition definition rule-set (list rule-name)))))
+
 (defun parse-abnf-grammar (string &key junk-allowed)
   "Parse STRING as an ABNF grammar as defined in RFC 2234. Returns a regular
    expression that will only match strings conforming to given grammar.
@@ -282,3 +332,4 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
    See http://tools.ietf.org/html/rfc2234 for details about the ABNF specs."
 
   (parse 'rule-list string :junk-allowed junk-allowed))
+
