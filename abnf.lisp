@@ -357,7 +357,23 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 
    See http://tools.ietf.org/html/rfc2234 for details about the ABNF specs."
 
-  (expand-rule top-level-rule
-	       (parse 'rule-list string :junk-allowed junk-allowed)
-	       registering-rules))
+  (cl-ppcre:create-scanner
+   (expand-rule top-level-rule
+		(parse 'rule-list string :junk-allowed junk-allowed)
+		registering-rules)))
 
+(defun test (&key (times 10000))
+  (let* ((cl-ppcre:*use-bmh-matchers* t)
+	 (cl-ppcre:*optimize-char-classes* t)
+	 (scanner
+	  (parse-abnf-grammar +abnf-rfc-syslog-draft-15+
+			      :timestamp
+			      :registering-rules '(:full-date
+						   :partial-time
+						   :time-offset))))
+   (loop
+      repeat times
+      do (cl-ppcre:register-groups-bind
+	      (date time zone)
+	    (scanner "2013-09-08T00:02:03.123456Z+02:00")
+	  (list date time zone)))))
