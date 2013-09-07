@@ -251,7 +251,11 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
   (:lambda (group)
     (destructuring-bind (open ws1 a ws2 close) group
       (declare (ignore open close ws1 ws2))
-      `(:group ,a))))
+      ;; we need the grouping when parsing the ABNF syntax, but once this
+      ;; parsing is done there's no ambiguity possible left and we don't
+      ;; need the grouping anymore in the resulting regular-expression parse
+      ;; tree.
+      a)))
 
 (defrule option (and "[" n-wsp alternation n-wsp "]")
   (:lambda (option)
