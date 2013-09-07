@@ -350,11 +350,14 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 			      registering-rules
 			      (list rule-name)))))
 
-(defun parse-abnf-grammar (string &key junk-allowed)
-  "Parse STRING as an ABNF grammar as defined in RFC 2234. Returns a regular
-   expression that will only match strings conforming to given grammar.
+(defun parse-abnf-grammar (string top-level-rule
+			   &key registering-rules junk-allowed)
+  "Parse STRING as an ABNF grammar as defined in RFC 2234. Returns a cl-ppcre
+   scanner that will only match strings conforming to given grammar.
 
    See http://tools.ietf.org/html/rfc2234 for details about the ABNF specs."
 
-  (parse 'rule-list string :junk-allowed junk-allowed))
+  (expand-rule top-level-rule
+	       (parse 'rule-list string :junk-allowed junk-allowed)
+	       registering-rules))
 
