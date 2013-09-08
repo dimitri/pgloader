@@ -208,6 +208,10 @@
   (let ((socket (usocket:socket-connect host port :protocol :datagram)))
     (usocket:socket-send socket message (length message))))
 
+#|
+
 (send-message "<165>Aug 29 00:30:12 Dimitris-MacBook-Air.local coreaudiod[215]: Enabled automatic stack shots because audio IO is inactive")
 
 (send-message "<0>Aug 31 21:38:28 Dimitris-MacBook-Air.local Google Chrome[236]: notify name \"com.apple.coregraphics.GUIConsoleSessionChanged\" has been registered 20 times - this may be a leak")
+
+|#

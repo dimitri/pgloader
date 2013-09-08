@@ -164,7 +164,7 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
   (:lambda (dv)
     (destructuring-bind (d val) dv
       (declare (ignore d))
-      val)))))
+      val)))
 
 (defun hexadecimal-char-p (character)
   (member character #. (quote (coerce "0123456789abcdef" 'list))))
@@ -183,7 +183,7 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
   (:lambda (dv)
     (destructuring-bind (d val) dv
       (declare (ignore d))
-      val)))))
+      val)))
 
 (defrule num-val (and "%" (or dec-val hex-val))
   (:lambda (nv)
