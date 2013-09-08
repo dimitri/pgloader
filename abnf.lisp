@@ -68,6 +68,63 @@
    DIGIT           = \"0\" / NONZERO-DIGIT"
   "See http://tools.ietf.org/html/draft-ietf-syslog-protocol-15#page-10")
 
+(defconstant +abnf-rfc5424-syslog-protocol+
+  "   SYSLOG-MSG      = HEADER SP STRUCTURED-DATA [SP MSG]
+
+      HEADER          = PRI VERSION SP TIMESTAMP SP HOSTNAME
+                        SP APP-NAME SP PROCID SP MSGID
+      PRI             = \"<\" PRIVAL \">\"
+      PRIVAL          = 1*3DIGIT ; range 0 .. 191
+      VERSION         = NONZERO-DIGIT 0*2DIGIT
+      HOSTNAME        = NILVALUE / 1*255PRINTUSASCII
+
+      APP-NAME        = NILVALUE / 1*48PRINTUSASCII
+      PROCID          = NILVALUE / 1*128PRINTUSASCII
+      MSGID           = NILVALUE / 1*32PRINTUSASCII
+
+      TIMESTAMP       = NILVALUE / FULL-DATE \"T\" FULL-TIME
+      FULL-DATE       = DATE-FULLYEAR \"-\" DATE-MONTH \"-\" DATE-MDAY
+      DATE-FULLYEAR   = 4DIGIT
+      DATE-MONTH      = 2DIGIT  ; 01-12
+      DATE-MDAY       = 2DIGIT  ; 01-28, 01-29, 01-30, 01-31 based on
+                                ; month/year
+      FULL-TIME       = PARTIAL-TIME TIME-OFFSET
+      PARTIAL-TIME    = TIME-HOUR \":\" TIME-MINUTE \":\" TIME-SECOND
+                        [TIME-SECFRAC]
+      TIME-HOUR       = 2DIGIT  ; 00-23
+      TIME-MINUTE     = 2DIGIT  ; 00-59
+      TIME-SECOND     = 2DIGIT  ; 00-59
+      TIME-SECFRAC    = \".\" 1*6DIGIT
+      TIME-OFFSET     = \"Z\" / TIME-NUMOFFSET
+      TIME-NUMOFFSET  = (\"+\" / \"-\") TIME-HOUR \":\" TIME-MINUTE
+
+
+      STRUCTURED-DATA = NILVALUE / 1*SD-ELEMENT
+      SD-ELEMENT      = \"[\" SD-ID *(SP SD-PARAM) \"]\"
+      SD-PARAM        = PARAM-NAME \"=\" %d34 PARAM-VALUE %d34
+      SD-ID           = SD-NAME
+      PARAM-NAME      = SD-NAME
+      PARAM-VALUE     = UTF-8-STRING ; characters '\"', '\' and
+                                     ; ']' MUST be escaped.
+      SD-NAME         = 1*32PRINTUSASCII
+                        ; except '=', SP, ']', %d34 (\")
+
+      MSG             = MSG-ANY / MSG-UTF8
+      MSG-ANY         = *OCTET ; not starting with BOM
+      MSG-UTF8        = BOM UTF-8-STRING
+      BOM             = %xEF.BB.BF
+
+      UTF-8-STRING    = *OCTET ; UTF-8 string as specified
+                        ; in RFC 3629
+
+      OCTET           = %d00-255
+      SP              = %d32
+      PRINTUSASCII    = %d33-126
+      NONZERO-DIGIT   = %d49-57
+      DIGIT           = %d48 / NONZERO-DIGIT
+      NILVALUE        = \"-\""
+  "See http://tools.ietf.org/html/rfc5424#section-6")
+
 #|
 
 This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
@@ -152,26 +209,34 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
       (declare (ignore open close))
       (text val))))
 
-(defrule range-sep (or "-" ".")  (:constant :range-sep))
+(defrule dec-string (and digits (+ (and "." digits)))
+  (:lambda (string)
+    (destructuring-bind (first rest) string
+      `(:sequence ,first ,@(mapcar #'cadr rest)))))
 
-(defrule dec-range (and digits range-sep digits)
+(defrule dec-range (and digits "-" digits)
   (:lambda (range)
     (destructuring-bind (min sep max) range
       (declare (ignore sep))
       `(:char-class (:range ,min ,max)))))
 
-(defrule dec-val (and "d" (or dec-range digits))
+(defrule dec-val (and "d" (or dec-string dec-range digits))
   (:lambda (dv)
     (destructuring-bind (d val) dv
       (declare (ignore d))
       val)))
 
 (defun hexadecimal-char-p (character)
-  (member character #. (quote (coerce "0123456789abcdef" 'list))))
+  (member character #. (quote (coerce "0123456789abcdefABCDEF" 'list))))
 
 (defrule hexdigits (+ (hexadecimal-char-p character))
   (:lambda (hx)
     (code-char (parse-integer (text hx) :radix 16))))
+
+(defrule hex-string (and hexdigits (+ (and "." hexdigits)))
+  (:lambda (string)
+    (destructuring-bind (first rest) string
+      `(:sequence ,first ,@(mapcar #'cadr rest)))))
 
 (defrule hex-range (and hexdigits range-sep hexdigits)
   (:lambda (range)
@@ -179,7 +244,7 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
       (declare (ignore sep))
       `(:char-class (:range ,min ,max)))))
 
-(defrule hex-val (and "x" (or hex-range hexdigits))
+(defrule hex-val (and "x" (or hex-string hex-range hexdigits))
   (:lambda (dv)
     (destructuring-bind (d val) dv
       (declare (ignore d))
