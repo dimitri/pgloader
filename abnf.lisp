@@ -321,7 +321,8 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 	     (error "Can not expand recursive rule: ~S." definition))
 
 	   (destructuring-bind (rule-name rule-definition)
-	       (assoc definition rule-set)
+	       (or (assoc definition rule-set)
+		   (assoc definition +abnf-default-rules+))
 	     (let* ((already-expanded-rules
 		     (cons definition already-expanded-rules))
 
