@@ -47,4 +47,12 @@
 
 (send-message "<0>Aug 31 21:38:28 Dimitris-MacBook-Air.local Google Chrome[236]: notify name \"com.apple.coregraphics.GUIConsoleSessionChanged\" has been registered 20 times - this may be a leak")
 
+
+SYSLOG> (start-syslog-server
+	 :scanners (list (abnf:parse-abnf-grammar abnf:*abnf-rsyslog*
+						  :rsyslog-msg
+						  :registering-rules '(:timestamp :app-name :data))))
+data: 
+STYLE-WARNING: redefining PGLOADER.SYSLOG::SYSLOG-UDP-HANDLER in DEFUN
+
 |#
