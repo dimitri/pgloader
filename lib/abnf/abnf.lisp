@@ -130,7 +130,9 @@
   (concatenate 'string
 	       "RSYSLOG-MSG = \"<\" PRIVAL \">\" VERSION SP TIMESTAMP
                               SP HOSTNAME SP APP-NAME SP PROCID SP MSGID
-                              SP *SD-ID SP MSG
+                              SP [SD-ID SP] DATA
+
+                DATA        = ~/.*/
 
                 PRIVAL      = 1*3DIGIT ; range 0 .. 191"
 	       '(#\Newline #\Newline)
@@ -539,12 +541,14 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
   (let ((rule (rule-name-symbol rule-name :find-symbol t)))
     (destructuring-bind (rule-name definition)
 	   (assoc rule rule-set)
-      (expand-rule-definition definition
-			      rule-set
-			      (loop
-				 for rr in registering-rules
-				 collect (rule-name-symbol rr :find-symbol t))
-			      (list rule-name)))))
+      `(:sequence
+	:start-anchor
+	,(expand-rule-definition definition
+				rule-set
+				(loop
+				   for rr in registering-rules
+				   collect (rule-name-symbol rr :find-symbol t))
+				(list rule-name))))))
 
 (defun parse-abnf-grammar (abnf-string top-level-rule
 			   &key registering-rules junk-allowed)
@@ -555,13 +559,13 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
    Added to that grammar is support for regular expression, that are
    expected in the ELEMENT production and spelled ~/regex/. The allowed
    delimiters are: ~// ~[] ~{} ~() ~<> ~\"\" ~'' ~|| and ~##."
-  (let* ((rule-set
-	  (parse 'rule-list abnf-string :junk-allowed junk-allowed))
-	 ;; in case of duplicates only keep the latest addition
-	 (rule-set
-	  (remove-duplicates rule-set :key #'car)))
-   (cl-ppcre:create-scanner
-    (expand-rule top-level-rule rule-set registering-rules))))
+  (let ((rule-set
+	 (parse 'rule-list abnf-string :junk-allowed junk-allowed)))
+    (cl-ppcre:create-scanner
+     (expand-rule top-level-rule
+		  ;; in case of duplicates only keep the latest addition
+		  (remove-duplicates rule-set :key #'car)
+		  registering-rules))))
 
 (defun test (&key (times 10000))
   "This serves as a test and an example: if you're going to use the same
