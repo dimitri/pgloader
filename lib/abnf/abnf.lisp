@@ -326,7 +326,55 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
     (destructuring-bind (rule-name nil) ref
       rule-name)))
 
-(defrule element (or rule-name-reference char-val num-val))
+;;; what about allowing regular expressions directly?
+(defun process-quoted-regex (pr)
+  "Helper function to process different kinds of quotes for regexps"
+  (destructuring-bind (open regex close) pr
+      (declare (ignore open close))
+      `(:regex ,(text regex))))
+
+(defrule single-quoted-regex (and #\' (+ (not #\')) #\')
+  (:function process-quoted-regex))
+
+(defrule double-quoted-regex (and #\" (+ (not #\")) #\")
+  (:function process-quoted-regex))
+
+(defrule parens-quoted-regex (and #\( (+ (not #\))) #\))
+  (:function process-quoted-regex))
+
+(defrule braces-quoted-regex (and #\{ (+ (not #\})) #\})
+  (:function process-quoted-regex))
+
+(defrule chevron-quoted-regex (and #\< (+ (not #\>)) #\>)
+  (:function process-quoted-regex))
+
+(defrule brackets-quoted-regex (and #\[ (+ (not #\])) #\])
+  (:function process-quoted-regex))
+
+(defrule slash-quoted-regex (and #\/ (+ (not #\/)) #\/)
+  (:function process-quoted-regex))
+
+(defrule pipe-quoted-regex (and #\| (+ (not #\|)) #\|)
+  (:function process-quoted-regex))
+
+(defrule sharp-quoted-regex (and #\# (+ (not #\#)) #\#)
+  (:function process-quoted-regex))
+
+(defrule quoted-regex (and "~" (or single-quoted-regex
+				   double-quoted-regex
+				   parens-quoted-regex
+				   braces-quoted-regex
+				   chevron-quoted-regex
+				   brackets-quoted-regex
+				   slash-quoted-regex
+				   pipe-quoted-regex
+				   sharp-quoted-regex))
+  (:lambda (qr)
+    (destructuring-bind (tilde regex) qr
+      (declare (ignore tilde))
+      regex)))
+
+(defrule element (or rule-name-reference char-val num-val quoted-regex))
 
 (defrule number (+ (digit-char-p character))
   (:lambda (number)
@@ -442,11 +490,12 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
     (symbol
      (if (member definition '(:sequence
 			      :alternation
-			      :group
+			      :regex
 			      :char-class
 			      :range
 			      :non-greedy-repetition))
 	 ;; that's a cl-ppcre scanner parse-tree symbol
+	 ;; only put in that list those cl-ppcre symbols we actually produce
 	 definition
 
 	 ;; here we have to actually expand the symbol
