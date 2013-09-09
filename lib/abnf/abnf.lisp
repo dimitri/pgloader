@@ -546,7 +546,7 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 				 collect (rule-name-symbol rr :find-symbol t))
 			      (list rule-name)))))
 
-(defun parse-abnf-grammar (string top-level-rule
+(defun parse-abnf-grammar (abnf-string top-level-rule
 			   &key registering-rules junk-allowed)
   "Parse STRING as an ABNF grammar as defined in RFC 2234. Returns a cl-ppcre
    scanner that will only match strings conforming to given grammar.
@@ -555,11 +555,13 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
    Added to that grammar is support for regular expression, that are
    expected in the ELEMENT production and spelled ~/regex/. The allowed
    delimiters are: ~// ~[] ~{} ~() ~<> ~\"\" ~'' ~|| and ~##."
-
-  (cl-ppcre:create-scanner
-   (expand-rule top-level-rule
-		(parse 'rule-list string :junk-allowed junk-allowed)
-		registering-rules)))
+  (let* ((rule-set
+	  (parse 'rule-list abnf-string :junk-allowed junk-allowed))
+	 ;; in case of duplicates only keep the latest addition
+	 (rule-set
+	  (remove-duplicates rule-set :key #'car)))
+   (cl-ppcre:create-scanner
+    (expand-rule top-level-rule rule-set registering-rules))))
 
 (defun test (&key (times 10000))
   "This serves as a test and an example: if you're going to use the same
