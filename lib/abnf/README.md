@@ -55,7 +55,7 @@ The `parse-abnf-grammar` function returns a `cl-ppcre` scanner.
 (let ((scanner (abnf:parse-abnf-grammar *timestamp-abnf*
 					:timestamp
 					:registering-rules '(:full-date))))
-  (register-groups-bind (date)
+  (cl-ppcre:register-groups-bind (date)
       (scanner "2013-09-08T00:02:03.123456Z+02:00")
     date))
 ~~~
