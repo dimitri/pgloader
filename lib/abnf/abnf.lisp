@@ -132,9 +132,8 @@
                               SP HOSTNAME SP APP-NAME SP PROCID SP MSGID
                               SP *SD-ID SP MSG
 
-                PRIVAL      = 1*3DIGIT ; range 0 .. 191
-
-"
+                PRIVAL      = 1*3DIGIT ; range 0 .. 191"
+	       '(#\Newline #\Newline)
 	       *abnf-rfc-syslog-draft-15*)
   "See http://www.rsyslog.com/doc/syslog_protocol.html")
 
@@ -552,7 +551,10 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
   "Parse STRING as an ABNF grammar as defined in RFC 2234. Returns a cl-ppcre
    scanner that will only match strings conforming to given grammar.
 
-   See http://tools.ietf.org/html/rfc2234 for details about the ABNF specs."
+   See http://tools.ietf.org/html/rfc2234 for details about the ABNF specs.
+   Added to that grammar is support for regular expression, that are
+   expected in the ELEMENT production and spelled ~/regex/. The allowed
+   delimiters are: ~// ~[] ~{} ~() ~<> ~\"\" ~'' ~|| and ~##."
 
   (cl-ppcre:create-scanner
    (expand-rule top-level-rule
