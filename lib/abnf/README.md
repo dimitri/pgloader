@@ -134,6 +134,9 @@ Here's the RFC syntax:
 
 ### Core rules
 
+Those parts of the grammar are always provided, they are the *defaults*
+rules of the ABNF definition.
+
         ALPHA          =  %x41-5A / %x61-7A   ; A-Z / a-z
 
         BIT            =  "0" / "1"
