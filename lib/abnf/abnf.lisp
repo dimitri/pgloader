@@ -6,11 +6,7 @@
 ;;; see http://tools.ietf.org/html/draft-ietf-syslog-protocol-15#page-10
 ;;; and http://tools.ietf.org/html/rfc2234
 ;;;
-
-(defpackage #:pgloader.abnf
-  (:use #:cl #:esrap))
-
-(in-package :pgloader.abnf)
+(in-package #:abnf)
 
 (defvar *abnf-rfc2234-abnf-definition*
   "     rulelist       =  1*( rule / (*c-wsp c-nl) )

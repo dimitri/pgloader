@@ -21,12 +21,11 @@
 	       #:usocket		; UDP / syslog
 	       #:local-time		; UDP date parsing
 	       #:command-line-arguments	; for the main function
-	       #:uiop			; portability layer (quit, argv, etc)
+	       #:abnf			; ABNF parser generator (for syslog)
 	       )
   :components ((:file "params")
 	       (:file "package" :depends-on ("params"))
 	       (:file "utils"  :depends-on ("package"))
-	       (:file "abnf"  :depends-on ("package"))
 
 	       ;; those are one-package-per-file
 	       (:file "parser" :depends-on ("package" "params"))
