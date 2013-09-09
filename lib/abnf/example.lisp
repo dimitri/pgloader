@@ -31,3 +31,8 @@
   (register-groups-bind (date)
       (scanner "2013-09-08T00:02:03.123456Z+02:00")
     date))
+
+(let ((scanner (parse-abnf-grammar *timestamp-abnf*
+				   :timestamp
+				   :registering-rules '(:full-date))))
+  (scan-to-strings scanner "2013-09-08T00:02:03.123456Z+02:00"))
