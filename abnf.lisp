@@ -1,4 +1,6 @@
 ;;;
+;;; Augmented BNF for Syntax Specifications: ABNF
+;;;
 ;;; Parsing ABNF syntaxes so that we can offer users to edit them
 ;;;
 ;;; see http://tools.ietf.org/html/draft-ietf-syslog-protocol-15#page-10
@@ -10,7 +12,67 @@
 
 (in-package :pgloader.abnf)
 
-(defconstant +abnf-rfc-syslog-draft-15+
+(defvar *abnf-rfc2234-abnf-definition*
+  "     rulelist       =  1*( rule / (*c-wsp c-nl) )
+
+        rule           =  rulename defined-as elements c-nl
+                               ; continues if next line starts
+                               ;  with white space
+
+        rulename       =  ALPHA *(ALPHA / DIGIT / \"-\")
+
+        defined-as     =  *c-wsp (\"=\" / \"=/\") *c-wsp
+                               ; basic rules definition and
+                               ;  incremental alternatives
+
+        elements       =  alternation *c-wsp
+
+        c-wsp          =  WSP / (c-nl WSP)
+
+        c-nl           =  comment / CRLF
+                               ; comment or newline
+
+        comment        =  \";\" *(WSP / VCHAR) CRLF
+
+        alternation    =  concatenation
+                          *(*c-wsp \"/\" *c-wsp concatenation)
+
+        concatenation  =  repetition *(1*c-wsp repetition)
+
+        repetition     =  [repeat] element
+
+        repeat         =  1*DIGIT / (*DIGIT \"*\" *DIGIT)
+
+        element        =  rulename / group / option /
+                          char-val / num-val / prose-val
+
+        group          =  \"(\" *c-wsp alternation *c-wsp \")\"
+
+        option         =  \"[\" *c-wsp alternation *c-wsp \"]\"
+
+        char-val       =  DQUOTE *(%x20-21 / %x23-7E) DQUOTE
+                               ; quoted string of SP and VCHAR without DQUOTE
+
+        num-val        =  \"%\" (bin-val / dec-val / hex-val)
+
+        bin-val        =  \"b\" 1*BIT
+                          [ 1*(\".\" 1*BIT) / (\"-\" 1*BIT) ]
+                               ; series of concatenated bit values
+                               ; or single ONEOF range
+
+        dec-val        =  \"d\" 1*DIGIT
+                          [ 1*(\".\" 1*DIGIT) / (\"-\" 1*DIGIT) ]
+
+        hex-val        =  \"x\" 1*HEXDIG
+                          [ 1*(\".\" 1*HEXDIG) / (\"-\" 1*HEXDIG) ]
+
+        prose-val      =  \"<\" *(%x20-3D / %x3F-7E) \">\"
+                               ; bracketed string of SP and VCHAR without angles
+                               ; prose description, to be used as last resort
+  "
+  "See http://tools.ietf.org/html/rfc2234#section-4")
+
+(defvar *abnf-rfc-syslog-draft-15*
   "SYSLOG-MSG      = HEADER SP STRUCTURED-DATA [SP MSG]
 
    HEADER          = VERSION SP FACILITY SP SEVERITY SP
@@ -68,7 +130,7 @@
    DIGIT           = \"0\" / NONZERO-DIGIT"
   "See http://tools.ietf.org/html/draft-ietf-syslog-protocol-15#page-10")
 
-(defconstant +abnf-rfc5424-syslog-protocol+
+(defvar *abnf-rfc5424-syslog-protocol*
   "   SYSLOG-MSG      = HEADER SP STRUCTURED-DATA [SP MSG]
 
       HEADER          = PRI VERSION SP TIMESTAMP SP HOSTNAME
@@ -147,24 +209,24 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
         WSP            =  SP / HTAB
 |#
 
-(defconstant +abnf-default-rules+
-  `((:alpha  . (:char-class (:range #\A #\Z) (:range #\a #\z)))
-    (:bit    . (:char-class #\0 #\1))
-    (:char   . (:char-class (:range ,(code-char #x1) ,(code-char #x7f))))
-    (:cr     . #\Newline)
-    (:crlf   . (:sequence #\Newline #\Return))
-    (:ctl    . (:char-class (:range ,(code-char #x0) ,(code-char #x1f))
-	 		   ,(code-char #x7f)))
-    (:digit  . (:char-class (:range #\0 #\9)))
-    (:dquote . #\")
-    (:hexdig . (:char-class (:range #\0 #\9) (:range #\A #\F)))
-    (:htab   . #\Tab)
-    (:lf     . #\Newline)
-    (:lwsp   . (:regex "\s+"))
-    (:octet  . (:char-class (:range ,(code-char #x0) ,(code-char #xff))))
-    (:sp     . #\Space)
-    (:vchar  . (:char-class (:range ,(code-char #x21) ,(code-char #x7e))))
-    (:wsp    . (:char-class #\Space #\Tab)))
+(defvar *abnf-default-rules*
+  `((:rule-alpha  (:char-class (:range #\A #\Z) (:range #\a #\z)))
+    (:rule-bit    (:char-class #\0 #\1))
+    (:rule-char   (:char-class (:range ,(code-char #x1) ,(code-char #x7f))))
+    (:rule-cr     #\Newline)
+    (:rule-crlf   (:sequence #\Newline #\Return))
+    (:rule-ctl    (:char-class (:range ,(code-char #x0) ,(code-char #x1f))
+			  ,(code-char #x7f)))
+    (:rule-digit  (:char-class (:range #\0 #\9)))
+    (:rule-dquote #\")
+    (:rule-hexdig (:char-class (:range #\0 #\9) (:range #\A #\F)))
+    (:rule-htab   #\Tab)
+    (:rule-lf     #\Newline)
+    (:rule-lwsp   (:regex "\s+"))
+    (:rule-octet  (:char-class (:range ,(code-char #x0) ,(code-char #xff))))
+    (:rule-sp     #\Space)
+    (:rule-vchar  (:char-class (:range ,(code-char #x21) ,(code-char #x7e))))
+    (:rule-wsp    (:char-class #\Space #\Tab)))
   "An alist of the usual rules needed for ABNF grammars")
 
 (defun rule-name-character-p (character)
@@ -182,10 +244,16 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 (defrule c-wsp (or wsp c-nl)                            (:constant :c-wsp))
 (defrule n-wsp (* c-wsp)                                (:constant :c-wsp))
 
+(defun rule-name-symbol (rule-name &key find-symbol)
+  "Turn the string we read in the ABNF into internal symbol."
+  (let ((symbol-fun  (if find-symbol #'find-symbol #'intern))
+	(symbol-name (string-upcase (format nil "rule-~a" rule-name))))
+    (funcall symbol-fun symbol-name :keyword)))
+
 (defrule rule-name (and (alpha-char-p character)
 			(+ (rule-name-character-p character)))
   (:lambda (name)
-    (intern (string-upcase (text name)) :keyword)))
+    (rule-name-symbol (text name))))
 
 (defrule equal (and n-wsp #\= n-wsp)       (:constant :equal))
 (defrule end-of-rule n-wsp                 (:constant :eor))
@@ -334,11 +402,17 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 
 (defrule toplevel-element (or group option element))
 
-(defrule elements (and (+ (and alternation n-wsp)) end-of-rule)
-  (:lambda (elist)
-    (destructuring-bind (elements eor) elist
+(defrule alternations (and n-wsp alternation)
+  (:lambda (alts)
+    (destructuring-bind (n-wsp alt) alts
+      (declare (ignore n-wsp))
+      alt)))
+
+(defrule elements (and (+ alternations) end-of-rule)
+  (:lambda (alist)
+    (destructuring-bind (alts eor) alist
       (declare (ignore eor))
-      (concatenate 'list (mapcar #'car elements)))))
+      alts)))
 
 (defrule rule (and n-wsp rule-name equal elements)
   (:lambda (rule)
@@ -387,7 +461,7 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 
 	   (destructuring-bind (rule-name rule-definition)
 	       (or (assoc definition rule-set)
-		   (assoc definition +abnf-default-rules+))
+		   (assoc definition *abnf-default-rules*))
 	     (let* ((already-expanded-rules
 		     (cons definition already-expanded-rules))
 
@@ -406,14 +480,14 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 (defun expand-rule (rule-name rule-set &optional registering-rules)
   "Given a rule, expand it completely removing references to other parsed
    rules"
-  (let ((rule (typecase rule-name
-		(symbol rule-name)
-		(t      (find-symbol (string-upcase rule-name) :keyword)))))
+  (let ((rule (rule-name-symbol rule-name :find-symbol t)))
     (destructuring-bind (rule-name definition)
 	   (assoc rule rule-set)
       (expand-rule-definition definition
 			      rule-set
-			      registering-rules
+			      (loop
+				 for rr in registering-rules
+				 collect (rule-name-symbol rr :find-symbol t))
 			      (list rule-name)))))
 
 (defun parse-abnf-grammar (string top-level-rule
@@ -432,7 +506,7 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
   (let* ((cl-ppcre:*use-bmh-matchers* t)
 	 (cl-ppcre:*optimize-char-classes* t)
 	 (scanner
-	  (parse-abnf-grammar +abnf-rfc-syslog-draft-15+
+	  (parse-abnf-grammar *abnf-rfc-syslog-draft-15*
 			      :timestamp
 			      :registering-rules '(:full-date
 						   :partial-time
