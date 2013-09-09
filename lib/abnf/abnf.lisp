@@ -562,6 +562,8 @@ This table comes from http://tools.ietf.org/html/rfc2234#page-11 and 12.
 		registering-rules)))
 
 (defun test (&key (times 10000))
+  "This serves as a test and an example: if you're going to use the same
+   scanner more than one, be sure to compute it only once."
   (let* ((cl-ppcre:*use-bmh-matchers* t)
 	 (cl-ppcre:*optimize-char-classes* t)
 	 (scanner
