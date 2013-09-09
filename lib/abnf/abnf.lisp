@@ -126,6 +126,18 @@
    DIGIT           = \"0\" / NONZERO-DIGIT"
   "See http://tools.ietf.org/html/draft-ietf-syslog-protocol-15#page-10")
 
+(defvar *abnf-rsyslog*
+  (concatenate 'string
+	       "RSYSLOG-MSG = \"<\" PRIVAL \">\" VERSION SP TIMESTAMP
+                              SP HOSTNAME SP APP-NAME SP PROCID SP MSGID
+                              SP *SD-ID SP MSG
+
+                PRIVAL      = 1*3DIGIT ; range 0 .. 191
+
+"
+	       *abnf-rfc-syslog-draft-15*)
+  "See http://www.rsyslog.com/doc/syslog_protocol.html")
+
 (defvar *abnf-rfc5424-syslog-protocol*
   "   SYSLOG-MSG      = HEADER SP STRUCTURED-DATA [SP MSG]
 
