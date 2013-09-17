@@ -89,9 +89,9 @@ Here's a quick spec of the `LOAD` grammar:
 		 drop table,
 		 create table,
 		 create indexes,
-		 reset sequences;
+		 reset sequences
 		 
-	 SET guc-1 = 'value', guc-2 = 'value';
+	 SET guc-1 = 'value', guc-2 = 'value'
 	 
 	 PREPARE CLIENT WITH ( <lisp> )
 	 PREPARE SERVER WITH ( <sql> )
@@ -137,7 +137,7 @@ And we need a database migration command syntax too:
 		 varchar to text,
 		 int with extra auto_increment to bigserial,
 		 datetime to timestamptz drop default,
-		 date to date drop default
+		 date to date drop default;
 
 ### docs
 

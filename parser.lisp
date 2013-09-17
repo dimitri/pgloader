@@ -92,9 +92,10 @@ Here's a quick description of the format we're parsing here:
 (defrule trimmed-name (and ignore-whitespace name)
   (:destructure (whitespace name) (declare (ignore whitespace)) name))
 
-;;
-;; Keywords
-;;
+
+;;;
+;;; Keywords
+;;;
 (defmacro def-keyword-rule (keyword)
   (let ((rule-name (read-from-string (format nil "kw-~a" keyword)))
 	(constant  (read-from-string (format nil ":~a" keyword))))
@@ -109,6 +110,9 @@ Here's a quick description of the format we're parsing here:
   (def-keyword-rule "with")
   (def-keyword-rule "set")
   (def-keyword-rule "database")
+  (def-keyword-rule "messages")
+  (def-keyword-rule "grammar")
+  (def-keyword-rule "registering")
   (def-keyword-rule "cast")
   (def-keyword-rule "column")
   (def-keyword-rule "type")
@@ -149,12 +153,22 @@ Here's a quick description of the format we're parsing here:
 (defrule kw-auto-increment (and "auto_increment" (* (or #\Tab #\Space)))
   (:constant :auto-increment))
 
+
+
+;;;
+;;; The main target parsing
+;;;
+;;;  COPY postgresql://user@localhost:5432/dbname?foo
+;;;
 ;;
 ;; Parse PostgreSQL database connection strings
 ;;
 ;;  at postgresql://[user[:password]@][netloc][:port][/dbname]?table-name
 ;;
 ;; http://www.postgresql.org/docs/9.2/static/libpq-connect.html#LIBPQ-CONNSTRING
+;;
+;; Also parse MySQL connection strings and syslog service definition
+;; strings, using the same model.
 ;;
 (defrule dsn-port (and ":" (* (digit-char-p character)))
   (:destructure (colon digits &aux (port (coerce digits 'string)))
@@ -193,6 +207,7 @@ Here's a quick description of the format we're parsing here:
     (declare (ignore c-s-s))
     (cond ((string= "postgresql" prefix) (list :type :postgresql))
 	  ((string= "mysql" prefix)      (list :type :mysql))
+	  ((string= "syslog" prefix)     (list :type :syslog))
 	  (t (list :type :unknown)))))
 
 (defrule db-connection-uri (and dsn-prefix
@@ -219,11 +234,6 @@ Here's a quick description of the format we're parsing here:
 	    :dbname dbname
 	    :table-name table-name))))
 
-;;
-;; The main target parsing
-;;
-;;  COPY postgresql://user@localhost:5432/dbname?foo
-;;
 (defrule target (and kw-into db-connection-uri)
   (:destructure (into target)
     (declare (ignore into))
@@ -232,12 +242,13 @@ Here's a quick description of the format we're parsing here:
 	(error "The target must be a PostgreSQL connection string."))
       target)))
 
-;;
-;; Source parsing
-;;
-;; Source is either a local filename, stdin, a MySQL connection with a
-;; table-name, or an http uri.
-;;
+
+;;;
+;;; Source parsing
+;;;
+;;; Source is either a local filename, stdin, a MySQL connection with a
+;;; table-name, or an http uri.
+;;;
 
 ;; parsing filename
 (defun filename-character-p (char)
@@ -274,6 +285,7 @@ Here's a quick description of the format we're parsing here:
     (declare (ignore load-from ws))
     source))
 
+
 ;;
 ;; Putting it all together, the COPY command
 ;;
@@ -300,6 +312,10 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore l d f))
       uri)))
 
+
+;;;
+;;; Parsing GUCs and WITH options for loading from MySQL and from file.
+;;;
 (defun optname-char-p (char)
   (and (or (alphanumericp char)
 	   (char= char #\-)		; support GUCs
@@ -361,24 +377,25 @@ Here's a quick description of the format we're parsing here:
     (destructuring-bind (opt1 opts) source
       (alexandria:alist-plist (list* opt1 opts)))))
 
-(defrule end-of-option-list (and ignore-whitespace
-				 #\;
-				 ignore-whitespace)
-  (:constant :eol))
-
-(defrule options (and kw-with option-list end-of-option-list)
+(defrule options (and kw-with option-list)
   (:lambda (source)
-    (destructuring-bind (w opts eol) source
-      (declare (ignore w eol))
+    (destructuring-bind (w opts) source
+      (declare (ignore w))
       opts)))
 
 ;; we don't validate GUCs, that's PostgreSQL job.
 (defrule generic-optname optname-element
   (:text t))
 
+(defrule generic-value (and #\' (* (not #\')) #\')
+  (:lambda (quoted)
+    (destructuring-bind (open value close) quoted
+      (declare (ignore open close))
+      (text value))))
+
 (defrule generic-option (and generic-optname
 			     (or equal-sign kw-to)
-			     optvalue)
+			     generic-value)
   (:lambda (source)
     (destructuring-bind (name es value) source
       (declare (ignore es))
@@ -396,15 +413,16 @@ Here's a quick description of the format we're parsing here:
       ;; here we want an alist
       (list* opt1 opts))))
 
-(defrule gucs (and kw-set generic-option-list end-of-option-list)
+(defrule gucs (and kw-set generic-option-list)
   (:lambda (source)
-    (destructuring-bind (set gucs eol) source
-      (declare (ignore set eol))
+    (destructuring-bind (set gucs) source
+      (declare (ignore set))
       gucs)))
 
-;;
-;; Now parsing CAST rules
-;;
+
+;;;
+;;; Now parsing CAST rules for migrating from MySQL
+;;;
 
 ;; at the moment we only know about extra auto_increment
 (defrule cast-source-extra (and ignore-whitespace
@@ -476,10 +494,10 @@ Here's a quick description of the format we're parsing here:
     (destructuring-bind (rule1 rules) source
       (list* rule1 rules))))
 
-(defrule casts (and kw-cast cast-rule-list end-of-option-list)
+(defrule casts (and kw-cast cast-rule-list)
   (:lambda (source)
-    (destructuring-bind (c casts eol) source
-      (declare (ignore c eol))
+    (destructuring-bind (c casts) source
+      (declare (ignore c))
       casts)))
 
 (defrule load-database (and database-source target
@@ -522,7 +540,130 @@ Here's a quick description of the format we're parsing here:
 					       :pg-dbname ,pgdb
 					       ,@options))))))))
 
-(defrule command (or load load-database))
+
+;;;
+;;; LOAD MESSAGES FROM syslog
+;;;
+#|
+    LOAD MESSAGES FROM syslog://localhost:10514/
+        INTO postgresql://localhost/db?tablename
+         SET guc_1 = 'value', guc_2 = 'other value'
+        WITH GRAMMAR = rsyslog
+             DATA = ~/.*/
+ REGISTERING timestamp, app-name, data;
+|#
+(defrule rule-name (and (alpha-char-p character)
+			(+ (abnf::rule-name-character-p character)))
+  (:lambda (name)
+    (text name)))
+
+(defrule rules (+ (not (or kw-registering
+			   kw-with
+			   kw-set)))
+  (:text t))
+
+(defrule rule-name-list (and rule-name
+			     (+ (and "," ignore-whitespace rule-name)))
+  (:lambda (list)
+    (destructuring-bind (name names) list
+      (list* name (mapcar (lambda (x)
+			    (destructuring-bind (c w n) x
+			      (declare (ignore c w))
+			      n)) names)))))
+
+(defrule syslog-grammar (and kw-with kw-grammar equal-sign rule-name rules)
+  (:lambda (grammar)
+    (destructuring-bind (w g e gram abnf) grammar
+      (declare (ignore w g e))
+      (let* ((default-abnf-grammars
+	      `(("rsyslog" . ,abnf:*abnf-rsyslog*)
+		("syslog"  . ,abnf:*abnf-rfc5424-syslog-protocol*)
+		("syslog-draft-15" . ,abnf:*abnf-rfc-syslog-draft-15*)))
+	     (grammar (cdr (assoc gram default-abnf-grammars :test #'string=))))
+	(concatenate 'string
+		     abnf
+		     '(#\Newline #\Newline)
+		     grammar)))))
+
+(defrule register-groups (and kw-registering rule-name-list)
+  (:lambda (groups)
+    (destructuring-bind (reg rule-names) groups
+      (declare (ignore reg))
+      rule-names)))
+
+(defrule syslog-connection-uri (and dsn-prefix dsn-hostname (? "/"))
+  (:lambda (syslog)
+    (destructuring-bind (prefix host-port slash) syslog
+      (declare (ignore slash))
+      (destructuring-bind (&key type host port)
+	  (append prefix host-port)
+	(list :type type
+	      :host host
+	      :port port)))))
+
+(defrule syslog-source (and ignore-whitespace
+			      kw-load kw-messages kw-from
+			      syslog-connection-uri)
+  (:lambda (source)
+    (destructuring-bind (nil l d f uri) source
+      (declare (ignore l d f))
+      uri)))
+
+(defrule load-syslog-messages (and syslog-source target
+				   (? gucs)
+				   syslog-grammar
+				   register-groups)
+  (:lambda (syslog)
+    (destructuring-bind (syslog-server pg-db-uri gucs grammar groups)
+	syslog
+      (destructuring-bind (&key ((:host syslog-host))
+				((:port syslog-port))
+				&allow-other-keys)
+	  syslog-server
+       (destructuring-bind (&key ((:host pghost))
+				 ((:port pgport))
+				 ((:user pguser))
+				 ((:password pgpass))
+				 ((:dbname pgdb))
+				 &allow-other-keys)
+	   pg-db-uri
+	 ;; FIXME: we need to use the target database name somehow
+	 (declare (ignore pgdb))
+	 `(lambda ()
+	    (let* ((*pgconn-host* ,pghost)
+		   (*pgconn-port* ,pgport)
+		   (*pgconn-user* ,pguser)
+		   (*pgconn-pass* ,pgpass)
+		   (*pg-settings* ',gucs))
+	      (pgloader.syslog:start-syslog-server
+	       :scanners (list
+			  ,(abnf:parse-abnf-grammar grammar
+						    "rsyslog-msg" ; fixme
+						    :registering-rules groups))
+	       :host ,syslog-host
+	       :port ,syslog-port))))))))
+
+
+;;;
+;;; Now the main command, one of
+;;;
+;;;  - LOAD FROM some files
+;;;  - LOAD DATABASE FROM a MySQL remote database
+;;;  - LOAD MESSAGES FROM a syslog daemon receiver we're going to start here
+;;;
+(defrule end-of-command (and ignore-whitespace #\; ignore-whitespace)
+  (:constant :eoc))
+
+(defrule command (and (or load
+			  load-database
+			  load-syslog-messages)
+		      end-of-command)
+  (:lambda (cmd)
+    (destructuring-bind (command eoc) cmd
+      (declare (ignore eoc))
+      command)))
+
+(defrule commands (+ command))
 
 (defun parse-command (command)
   "Parse a command and return a LAMBDA form that takes no parameter."
@@ -535,7 +676,7 @@ Here's a quick description of the format we're parsing here:
     (funcall func)))
 
 (defun test-parsing ()
-  (parse-load "
+  (parse-command "
 LOAD FROM http:///tapoueh.org/db.t
      INTO postgresql://localhost:6432/db?t"))
 
@@ -547,8 +688,8 @@ LOAD FROM http:///tapoueh.org/db.t
 		 truncate,
 		 create tables,
 		 create indexes,
-		 reset sequences;
-	 SET guc_1 = 'value', guc_2 = 'other value';
+		 reset sequences
+	 SET guc_1 = 'value', guc_2 = 'other value'
 	CAST column col1 to timestamptz drop default using zero-dates-to-null,
              type varchar to text,
              type int with extra auto_increment to bigserial,
@@ -556,3 +697,13 @@ LOAD FROM http:///tapoueh.org/db.t
              type date drop not null drop default using zero-dates-to-null;
 "))
 
+
+(defun test-parsing-syslog-server ()
+  (parse-command "
+    LOAD MESSAGES FROM syslog://localhost:10514/
+        INTO postgresql://localhost/db?tablename
+         SET guc_1 = 'value', guc_2 = 'other value'
+        WITH GRAMMAR = rsyslog
+             DATA = ~/.*/
+ REGISTERING timestamp, app-name, data;
+"))
