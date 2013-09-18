@@ -15,7 +15,10 @@
   (declare (type (simple-array (unsigned-byte 8) *) buffer))
   (let* ((mesg (map 'string #'code-char buffer)))
     (loop
-       for (&key parser queue &allow-other-keys) in scanners
+       for scanner in scanners
+       for (parser queue) = (destructuring-bind (&key parser queue &allow-other-keys)
+				scanner
+			      (list parser queue))
        for (match parts) = (multiple-value-list
 			    (cl-ppcre:scan-to-strings parser mesg))
        until match
@@ -32,6 +35,22 @@
 			 :reuse-address t
 			 :element-type '(unsigned-byte 8)))
 
+(defun copy-from-queue (dbname table-name queue
+			&key
+			truncate
+			transforms
+			((:host *pgconn-host*) *pgconn-host*)
+			((:port *pgconn-port*) *pgconn-port*)
+			((:user *pgconn-user*) *pgconn-user*)
+			((:pass *pgconn-pass*) *pgconn-pass*)
+			((:gucs *pg-settings*) *pg-settings*))
+  "Simple wrapper around pgloader.pgsql.copy-from-queue.
+
+   We need to set the special parameters from within the thread."
+  (pgloader.pgsql:copy-from-queue dbname table-name queue
+				  :truncate truncate
+				  :transforms transforms))
+
 (defun stream-messages (&key scanners host port truncate transforms)
   "Listen for syslog messages on given UDP PORT, and stream them to PostgreSQL"
   (let* ((nb-tasks    (+ 1 (length scanners)))
@@ -41,7 +60,8 @@
 	 (scanners    (loop
 			 for scanner in scanners
 			 for dataq = (lq:make-queue :fixed-capacity 4096)
-			 collect (append scanner (list :queue dataq)))))
+			 collect `(,@scanner :queue ,dataq))))
+
     ;; listen to syslog messages and match them against the scanners
     (lp:submit-task channel
 		    #'start-syslog-server :scanners scanners :host host :port port)
@@ -49,27 +69,25 @@
     ;; and start another task per scanner to pull that data from the queue
     ;; to PostgreSQL, each will have a specific connection and queue.
     (loop
-       for (&key target gucs queue &allow-other-keys) in scanners
-       do (destructuring-bind (&key host port user password
-				    dbname table-name
-				    &allow-other-keys)
-	      target
-	    (let* ((*pgconn-host* host)
-		   (*pgconn-port* port)
-		   (*pgconn-user* user)
-		   (*pgconn-pass* password)
-		   (*pg-settings* gucs))
-	      (declare (special *pgconn-host* *pgconn-port*
-				*pgconn-user* *pgconn-pass*
-				*pg-settings*))
+       for scanner in scanners
+       do (destructuring-bind (&key target gucs queue &allow-other-keys)
+	      scanner
+	    (destructuring-bind (&key host port user password
+				      dbname table-name
+				      &allow-other-keys)
+		target
 	      (lp:submit-task channel
 			      (lambda ()
-				(pgloader.pgsql:copy-from-queue
-				 dbname
-				 table-name
-				 queue
-				 :truncate truncate
-				 :transforms transforms))))))
+				;; beware of thread boundaries for binding
+				;; special variables: we use an helper here
+				(copy-from-queue dbname table-name queue
+						 :host host
+						 :port port
+						 :user user
+						 :pass password
+						 :gucs gucs
+						 :truncate truncate
+						 :transforms transforms))))))
 
     ;; now wait until both the tasks are over
     (loop for tasks below nb-tasks do (lp:receive-result channel))))

@@ -666,8 +666,6 @@ Here's a quick description of the format we're parsing here:
 			      match
 			    (list :target target
 				  :gucs gucs
-				  :top-level top-level
-				  :abnf grammar
 				  :parser (abnf:parse-abnf-grammar
 					    (cdr (assoc grammar grammars
 							:test #'string=))
