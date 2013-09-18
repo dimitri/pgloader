@@ -7,10 +7,12 @@
 ;;; PostgreSQL Tools connecting to a database
 ;;;
 (defun get-connection-spec (dbname &key (with-port t))
+  "pomo:with-connection and cl-postgres:open-database and open-db-writer are
+   not using the same connection spec format..."
   (let ((conspec (list dbname *pgconn-user* *pgconn-pass* *pgconn-host*)))
     (if with-port
       (append conspec (list :port *pgconn-port*))
-      conspec)))
+      (append conspec (list *pgconn-port*)))))
 
 (defun truncate-table (dbname table-name)
   "Truncate given TABLE-NAME in database DBNAME"
