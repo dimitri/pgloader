@@ -108,10 +108,12 @@ Here's a quick description of the format we're parsing here:
   (def-keyword-rule "from")
   (def-keyword-rule "into")
   (def-keyword-rule "with")
+  (def-keyword-rule "when")
   (def-keyword-rule "set")
   (def-keyword-rule "database")
   (def-keyword-rule "messages")
-  (def-keyword-rule "grammar")
+  (def-keyword-rule "matches")
+  (def-keyword-rule "in")
   (def-keyword-rule "registering")
   (def-keyword-rule "cast")
   (def-keyword-rule "column")
@@ -197,10 +199,15 @@ Here's a quick description of the format we're parsing here:
 		(declare (ignore slash))
 		(list :dbname dbname)))
 
-(defrule dsn-table-name (and "?" namestring)
-  (:destructure (qm table-name)
+(defrule qualified-table-name (and namestring "." namestring)
+  (:destructure (schema dot table)
+    (declare (ignore dot))
+    (format nil "~a.~a" (text schema) (text table))))
+
+(defrule dsn-table-name (and "?" (or qualified-table-name namestring))
+  (:destructure (qm name)
     (declare (ignore qm))
-    (list :table-name(coerce table-name 'string))))
+    (list :table-name name)))
 
 (defrule dsn-prefix (and (+ (alpha-char-p character)) "://")
   (:destructure (p c-s-s &aux (prefix (coerce p 'string)))
@@ -546,20 +553,34 @@ Here's a quick description of the format we're parsing here:
 ;;;
 #|
     LOAD MESSAGES FROM syslog://localhost:10514/
-        INTO postgresql://localhost/db?tablename
+
+        WHEN MATCHES rsyslog-msg IN apache
+         REGISTERING timestamp, ip, rest
+        INTO postgresql://localhost/db?logs.apache
          SET guc_1 = 'value', guc_2 = 'other value'
-        WITH GRAMMAR = rsyslog
-             DATA = ~/.*/
- REGISTERING timestamp, app-name, data;
+
+        WHEN MATCHES rsyslog-msg IN others
+         REGISTERING timestamp, app-name, data
+        INTO postgresql://localhost/db?logs.others
+         SET guc_1 = 'value', guc_2 = 'other value'
+
+        WITH apache = rsyslog
+             DATA   = IP REST
+             IP     = 1*3DIGIT \".\" 1*3DIGIT \".\"1*3DIGIT \".\"1*3DIGIT
+             REST   = ~/.*/
+
+        WITH others = rsyslog;
 |#
 (defrule rule-name (and (alpha-char-p character)
 			(+ (abnf::rule-name-character-p character)))
   (:lambda (name)
     (text name)))
 
-(defrule rules (+ (not (or kw-registering
+(defrule rules (* (not (or kw-registering
 			   kw-with
-			   kw-set)))
+			   kw-when
+			   kw-set
+			   end-of-command)))
   (:text t))
 
 (defrule rule-name-list (and rule-name
@@ -571,25 +592,40 @@ Here's a quick description of the format we're parsing here:
 			      (declare (ignore c w))
 			      n)) names)))))
 
-(defrule syslog-grammar (and kw-with kw-grammar equal-sign rule-name rules)
+(defrule syslog-grammar (and kw-with rule-name equal-sign rule-name rules)
   (:lambda (grammar)
-    (destructuring-bind (w g e gram abnf) grammar
-      (declare (ignore w g e))
+    (destructuring-bind (w top-level e gram abnf) grammar
+      (declare (ignore w e))
       (let* ((default-abnf-grammars
 	      `(("rsyslog" . ,abnf:*abnf-rsyslog*)
 		("syslog"  . ,abnf:*abnf-rfc5424-syslog-protocol*)
 		("syslog-draft-15" . ,abnf:*abnf-rfc-syslog-draft-15*)))
 	     (grammar (cdr (assoc gram default-abnf-grammars :test #'string=))))
-	(concatenate 'string
-		     abnf
-		     '(#\Newline #\Newline)
-		     grammar)))))
+	(cons top-level
+	      (concatenate 'string
+			   abnf
+			   '(#\Newline #\Newline)
+			   grammar))))))
 
 (defrule register-groups (and kw-registering rule-name-list)
   (:lambda (groups)
     (destructuring-bind (reg rule-names) groups
       (declare (ignore reg))
       rule-names)))
+
+(defrule syslog-match (and kw-when
+			   kw-matches rule-name kw-in rule-name
+			   register-groups
+			   target
+			   (? gucs))
+  (:lambda (matches)
+    (destructuring-bind (w m top-level i rule-name groups target gucs) matches
+      (declare (ignore w m i))
+      (list :target target
+	    :gucs gucs
+	    :top-level top-level
+	    :grammar rule-name
+	    :groups groups))))
 
 (defrule syslog-connection-uri (and dsn-prefix dsn-hostname (? "/"))
   (:lambda (syslog)
@@ -609,39 +645,39 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore l d f))
       uri)))
 
-(defrule load-syslog-messages (and syslog-source target
-				   (? gucs)
-				   syslog-grammar
-				   register-groups)
+(defrule load-syslog-messages (and syslog-source
+				   (+ syslog-match)
+				   (+ syslog-grammar))
   (:lambda (syslog)
-    (destructuring-bind (syslog-server pg-db-uri gucs grammar groups)
+    (destructuring-bind (syslog-server matches grammars)
 	syslog
       (destructuring-bind (&key ((:host syslog-host))
 				((:port syslog-port))
 				&allow-other-keys)
 	  syslog-server
-       (destructuring-bind (&key ((:host pghost))
-				 ((:port pgport))
-				 ((:user pguser))
-				 ((:password pgpass))
-				 ((:dbname pgdb))
-				 &allow-other-keys)
-	   pg-db-uri
-	 ;; FIXME: we need to use the target database name somehow
-	 (declare (ignore pgdb))
-	 `(lambda ()
-	    (let* ((*pgconn-host* ,pghost)
-		   (*pgconn-port* ,pgport)
-		   (*pgconn-user* ,pguser)
-		   (*pgconn-pass* ,pgpass)
-		   (*pg-settings* ',gucs))
-	      (pgloader.syslog:start-syslog-server
-	       :scanners (list
-			  ,(abnf:parse-abnf-grammar grammar
-						    "rsyslog-msg" ; fixme
-						    :registering-rules groups))
-	       :host ,syslog-host
-	       :port ,syslog-port))))))))
+	(let ((scanners
+	       (loop
+		  for match in matches
+		  collect (destructuring-bind (&key target
+						    gucs
+						    top-level
+						    grammar
+						    groups)
+			      match
+			    (list :target target
+				  :gucs gucs
+				  :top-level top-level
+				  :grammar (abnf:parse-abnf-grammar
+					    (cdr (assoc grammar grammars
+							:test #'string=))
+					    top-level
+					    :registering-rules groups)
+				  :groups groups)))))
+	  `(lambda ()
+	     (let ((scanners ',scanners))
+	       (pgloader.syslog:start-syslog-server :host ,syslog-host
+						    :port ,syslog-port
+						    :scanners scanners))))))))
 
 
 ;;;
@@ -675,6 +711,7 @@ Here's a quick description of the format we're parsing here:
 	 (func    (compile nil code)))
     (funcall func)))
 
+
 (defun test-parsing ()
   (parse-command "
 LOAD FROM http:///tapoueh.org/db.t
@@ -697,13 +734,24 @@ LOAD FROM http:///tapoueh.org/db.t
              type date drop not null drop default using zero-dates-to-null;
 "))
 
-
 (defun test-parsing-syslog-server ()
   (parse-command "
     LOAD MESSAGES FROM syslog://localhost:10514/
-        INTO postgresql://localhost/db?tablename
+
+        WHEN MATCHES rsyslog-msg IN apache
+         REGISTERING timestamp, ip, rest
+        INTO postgresql://localhost/db?logs.apache
          SET guc_1 = 'value', guc_2 = 'other value'
-        WITH GRAMMAR = rsyslog
-             DATA = ~/.*/
- REGISTERING timestamp, app-name, data;
+
+        WHEN MATCHES rsyslog-msg IN others
+         REGISTERING timestamp, app-name, data
+        INTO postgresql://localhost/db?logs.others
+         SET guc_1 = 'value', guc_2 = 'other value'
+
+        WITH apache = rsyslog
+             DATA   = IP REST
+             IP     = 1*3DIGIT \".\" 1*3DIGIT \".\"1*3DIGIT \".\"1*3DIGIT
+             REST   = ~/.*/
+
+        WITH others = rsyslog;
 "))
