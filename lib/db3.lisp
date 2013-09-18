@@ -130,7 +130,7 @@ The data records are layed out as follows:
 
 (defun ascii->string (array)
   (map 'string #'code-char array))
-    
+
 
 (defun load-field-descriptor (stream)
   (let ((field (make-instance 'db3-field))
@@ -156,7 +156,7 @@ The data records are layed out as follows:
     (let ((year (read-byte stream))
           (month (read-byte stream))
           (day (read-byte stream)))
-      (setf (version-number db3) version 
+      (setf (version-number db3) version
             (last-update db3) (list year month day)
             (record-count db3) (read-uint32 stream)
             (header-length db3) (read-uint16 stream)
@@ -173,7 +173,7 @@ The data records are layed out as follows:
 
 (defmethod convert-field ((type (eql #\C)) data)
   (ascii->string data))
-  
+
 
 (defmethod load-field (type length stream)
   (let ((field (make-array length)))
