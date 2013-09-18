@@ -667,7 +667,8 @@ Here's a quick description of the format we're parsing here:
 			    (list :target target
 				  :gucs gucs
 				  :top-level top-level
-				  :grammar (abnf:parse-abnf-grammar
+				  :abnf grammar
+				  :parser (abnf:parse-abnf-grammar
 					    (cdr (assoc grammar grammars
 							:test #'string=))
 					    top-level
@@ -675,9 +676,9 @@ Here's a quick description of the format we're parsing here:
 				  :groups groups)))))
 	  `(lambda ()
 	     (let ((scanners ',scanners))
-	       (pgloader.syslog:start-syslog-server :host ,syslog-host
-						    :port ,syslog-port
-						    :scanners scanners))))))))
+	       (pgloader.syslog:stream-messages :host ,syslog-host
+						:port ,syslog-port
+						:scanners scanners))))))))
 
 
 ;;;

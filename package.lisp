@@ -97,7 +97,9 @@
   (:use #:cl #:pgloader.params)
   (:import-from #:pgloader.utils
 		#:log-message)
-  (:export #:start-syslog-server))
+  (:export #:stream-messages
+	   #:start-syslog-server
+	   #:send-message))
 
 (defpackage #:pgloader.mysql
   (:use #:cl #:pgloader.params)
