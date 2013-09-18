@@ -22,25 +22,26 @@
 	       #:local-time		; UDP date parsing
 	       #:command-line-arguments	; for the main function
 	       #:abnf			; ABNF parser generator (for syslog)
+	       #:db3			; DBF version 3 file reader
 	       )
   :components ((:file "params")
 	       (:file "package" :depends-on ("params"))
-	       (:file "utils"  :depends-on ("package"))
+	       (:file "utils"   :depends-on ("package"))
 
 	       ;; those are one-package-per-file
-	       (:file "parser" :depends-on ("package" "params"))
+	       (:file "parser"  :depends-on ("package" "params"))
 	       (:file "transforms")
-	       (:file "lib/db3")
-	       (:file "queue" :depends-on ("package"))   ; pgloader.queue
-	       (:file "csv"  :depends-on ("package"))    ; pgloader.csv
+	       (:file "queue"   :depends-on ("package")) ; pgloader.queue
+	       (:file "csv"     :depends-on ("package")) ; pgloader.csv
+	       (:file "db3"     :depends-on ("package")) ; pgloader.db3
 	       (:file "archive" :depends-on ("package")) ; pgloader.archive
-	       (:file "syslog" :depends-on ("package"))	 ; pgloader.syslog
+	       (:file "syslog"  :depends-on ("package")) ; pgloader.syslog
 
 	       ;; package pgloader.pgsql
-	       (:file "pgsql" :depends-on ("package"
-					   "queue"
-					   "utils"
-					   "transforms"))
+	       (:file "pgsql"   :depends-on ("package"
+					     "queue"
+					     "utils"
+					     "transforms"))
 
 	       ;; mysql.lisp depends on pgsql.lisp to be able to export data
 	       ;; from MySQL in the PostgreSQL format.

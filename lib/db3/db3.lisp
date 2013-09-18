@@ -77,10 +77,6 @@ The data records are layed out as follows:
                     19840704 for July 4, 1984)
 
 |#
-(defpackage :db3
-  (:shadow #:type)
-  (:use :cl))
-
 (in-package :db3)
 
 
@@ -113,8 +109,8 @@ The data records are layed out as follows:
 
 
 (defclass db3-field ()
-  ((name :accessor name)
-   (type :accessor type)
+  ((name :accessor field-name)
+   (type :accessor field-type)
    (data-address :accessor data-address)
    (field-length :accessor field-length)
    (field-count :accessor field-count)))
@@ -136,8 +132,8 @@ The data records are layed out as follows:
   (let ((field (make-instance 'db3-field))
         (name (make-array 11 :element-type '(unsigned-byte 8))))
     (read-sequence name stream)
-    (setf (name field) (asciiz->string name)
-          (type field) (code-char (read-byte stream))
+    (setf (field-name field) (asciiz->string name)
+          (field-type field) (code-char (read-byte stream))
           (data-address field) (read-uint32 stream)
           (field-length field) (read-byte stream)
           (field-count field) (read-byte stream))
@@ -186,7 +182,7 @@ The data records are layed out as follows:
         for i below (field-count db3)
         for field in (fields db3)
         do (setf (svref record i)
-                 (load-field (type field) (field-length field) stream))
+                 (load-field (field-type field) (field-length field) stream))
         finally (return record)))
 
 
@@ -217,5 +213,6 @@ The data records are layed out as follows:
       (load-header db3 stream)
       (loop
 	 :repeat sample-size
-	 :do (format ostream "~s~%" (load-record db3 stream) ostream))
+	 :do (format ostream "~s~%" (load-record db3 stream)))
       db3)))
+

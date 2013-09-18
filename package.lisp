@@ -72,6 +72,29 @@
 	   #:guess-csv-params
 	   #:guess-all-csv-params))
 
+(defpackage #:pgloader.db3
+  (:use #:cl #:pgloader.params)
+  (:import-from #:pgloader.utils
+		#:log-message
+		#:report-header
+		#:report-table-name
+		#:report-results
+		#:report-footer
+		#:format-interval
+		#:timing
+		#:make-pgstate
+		#:pgstate-get-table
+		#:pgstate-add-table
+		#:pgstate-setf
+		#:pgstate-incf
+		#:pgstate-decf
+		#:report-pgtable-stats
+		#:report-pgstate-stats)
+  (:export #:map-rows
+	   #:copy-to
+	   #:copy-to-queue
+	   #:stream-file))
+
 (defpackage #:pgloader.archive
   (:use #:cl #:pgloader.params #:pgloader.csv)
   (:import-from #:pgloader.utils
