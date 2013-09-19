@@ -72,13 +72,23 @@ order by table_name, ordinal_position" dbname)))
     ;; free resources
     (cl-mysql:disconnect)))
 
+(defun get-create-type (table-name cols &key include-drop)
+  "MySQL declares ENUM types inline, PostgreSQL wants explicit CREATE TYPE."
+  (loop
+     for (name dtype ctype default nullable extra) in cols
+     when (string-equal "enum" dtype)
+     collect (when include-drop
+	       (let ((type-name (get-enum-type-name table-name name)))
+		 (format nil "DROP TYPE IF EXISTS ~a;" type-name)))
+     and collect (get-create-enum table-name name ctype)))
+
 (defun get-create-table (table-name cols)
   "Return a PostgreSQL CREATE TABLE statement from MySQL columns"
   (with-output-to-string (s)
     (format s "CREATE TABLE ~a ~%(~%" table-name)
     (loop
        for ((name dtype ctype default nullable extra) . last?) on cols
-       for pg-coldef = (cast dtype ctype default nullable extra)
+       for pg-coldef = (cast table-name name dtype ctype default nullable extra)
        do (format s "  ~a ~22t ~a~:[~;,~]~%" name pg-coldef last?))
     (format s ");~%")))
 
@@ -90,7 +100,9 @@ order by table_name, ordinal_position" dbname)))
   "Return the list of CREATE TABLE statements to run against PostgreSQL"
   (loop
      for (table-name . cols) in all-columns
+     for extra-types = (get-create-type table-name cols :include-drop include-drop)
      when include-drop collect (get-drop-table-if-exists table-name)
+     when extra-types append extra-types
      collect (get-create-table table-name cols)))
 
 (defun pgsql-create-tables (dbname all-columns

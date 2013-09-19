@@ -4,8 +4,39 @@
 
 (in-package :pgloader.mysql)
 
+;;;
+;;; Some functions to deal with ENUM types
+;;;
+(defun explode-mysql-enum (ctype)
+  "Convert MySQL ENUM expression into a list of labels."
+  ;; from: "ENUM('small', 'medium', 'large')"
+  ;;   to: ("small" "medium" "large")
+  (mapcar (lambda (x) (string-trim "' )" x))
+	  (sq:split-sequence #\, ctype  :start (position #\' ctype))))
+
+(defun get-enum-type-name (table-name column-name)
+  "Return the Type Name we're going to use in PostgreSQL."
+  (format nil "~a_~a" table-name column-name))
+
+(defun get-create-enum (table-name column-name ctype)
+  "Return a PostgreSQL CREATE ENUM TYPE statement from MySQL enum column."
+  (with-output-to-string (s)
+    (format s "CREATE TYPE ~a AS ENUM (~{'~a'~^, ~});"
+	    (get-enum-type-name table-name column-name)
+	    (explode-mysql-enum ctype))))
+
+(defun cast-enum (table-name column-name type ctype typemod)
+  "Cast MySQL inline ENUM type to using a PostgreSQL named type.
+
+   The type naming is hardcoded to be table-name_column-name"
+  (declare (ignore type ctype typemod))
+  (format nil "~a_~a" table-name column-name))
+
+;;;
+;;; The default MySQL Type Casting Rules
+;;;
 (defparameter *default-cast-rules*
-  '((:source (:type "int" :auto-increment t :typemod (< 10))
+  `((:source (:type "int" :auto-increment t :typemod (< 10))
      :target (:type "serial"))
 
     (:source (:type "int" :auto-increment t :typemod (>= 10))
@@ -28,19 +59,30 @@
     (:source (:type "date" :default "0000-00-00")
      :target (:type "date" :drop-default t))
 
-    (:source (:type "datetime") :target (:type "timestamptz")))
+    (:source (:type "datetime")
+     :target (:type "timestamptz"))
+
+    (:source (:type "enum")
+     :target (:type ,#'cast-enum)))
   "Data Type Casting rules to migrate from MySQL to PostgreSQL")
 
 (defvar *cast-rules* nil "Specific casting rules added in the command.")
 
-(defun parse-column-typemod (column-type)
-  "Given int(7), returns the number 7."
-  (let ((splits (sq:split-sequence-if (lambda (c) (member c '(#\( #\))))
-				      column-type
-				      :remove-empty-subseqs t)))
-    (if (= 1 (length splits))
-	nil
-     (parse-integer (nth 1 splits)))))
+;;;
+;;; Handling typmod in the general case, don't apply to ENUM types
+;;;
+(defun parse-column-typemod (data-type column-type)
+  "Given int(7), returns the number 7.
+
+   Beware that some data-type are using a typmod looking definition for
+   things that are not typmods at all: enum."
+  (unless (string= "enum" data-type)
+    (let ((splits (sq:split-sequence-if (lambda (c) (member c '(#\( #\))))
+					column-type
+					:remove-empty-subseqs t)))
+      (if (= 1 (length splits))
+	  nil
+	  (parse-integer (nth 1 splits))))))
 
 (defun typemod-expr-matches-p (rule-typemod-expr typemod)
   "Check if an expression such as (< 10) matches given typemod."
@@ -60,14 +102,16 @@
 		((:not-null rule-source-not-null) nil n-s-p)
 		((:auto-increment rule-source-auto-increment) nil ai-s-p))
 	rule-source
-      (destructuring-bind (&key type
+      (destructuring-bind (&key table-name
+				column-name
+				type
 				ctype
 				typemod
 				default
 				not-null
 				auto-increment)
 	  source
-	(declare (ignore ctype))
+	(declare (ignore table-name column-name ctype))
 	(when
 	    (and
 	     (string= type rule-source-type)
@@ -79,8 +123,11 @@
 
 (defun format-pgsql-type (source target using)
   "Returns a string suitable for a PostgreSQL type definition"
-  (destructuring-bind (&key ((:type source-type))
-			    ctype
+  (destructuring-bind (&key ((:table-name source-table-name))
+			    ((:column-name source-column-name))
+			    ((:type source-type))
+			    ((:ctype source-ctype))
+			    ((:typemod source-typemod))
 			    default
 			    not-null
 			    &allow-other-keys)
@@ -91,7 +138,11 @@
 	    target
 	  (format nil
 		  "~a~:[~; not null~]~:[~; default '~a'~]"
-		  type
+		  (typecase type
+		    (function (funcall type
+				       source-table-name source-column-name
+				       source-type source-ctype source-typemod))
+		    (t type))
 		  (and not-null (not drop-not-null))
 		  (and default (not drop-default))
 		  ;; apply the transformation function to the default value
@@ -101,16 +152,20 @@
 	;;
 	;; prefer char(24) over just char, that is the column type over the
 	;; data type.
-	ctype)))
+	source-ctype)))
 
 (defun apply-casting-rules (dtype ctype default nullable extra
-			    &optional (rules (append *cast-rules*
-						     *default-cast-rules*)))
+			    &key
+			      table-name column-name ; ENUM support
+			      (rules (append *cast-rules*
+					     *default-cast-rules*)))
   "Apply the given RULES to the MySQL SOURCE type definition"
-  (let* ((typemod        (parse-column-typemod ctype))
+  (let* ((typemod        (parse-column-typemod dtype ctype))
 	 (not-null       (string-equal nullable "NO"))
 	 (auto-increment (string= "auto_increment" extra))
-	 (source         (append (list :type dtype)
+	 (source         (append (list :table-name table-name)
+				 (list :column-name column-name)
+				 (list :type dtype)
 				 (list :ctype ctype)
 				 (when typemod (list :typemod typemod))
 				 (list :default default)
@@ -133,13 +188,15 @@
       (apply-casting-rules dtype ctype default nullable extra)
     transform-fn))
 
-(defun cast (dtype ctype default nullable extra)
+(defun cast (table-name column-name dtype ctype default nullable extra)
   "Convert a MySQL datatype to a PostgreSQL datatype.
 
 DYTPE is the MySQL data_type and CTYPE the MySQL column_type, for example
 that would be int and int(7) or varchar and varchar(25)."
   (destructuring-bind (&key pgtype &allow-other-keys)
-      (apply-casting-rules dtype ctype default nullable extra)
+      (apply-casting-rules dtype ctype default nullable extra
+			   :table-name table-name
+			   :column-name column-name)
     pgtype))
 
 (defun transforms (columns)
@@ -184,11 +241,12 @@ that would be int and int(7) or varchar and varchar(25)."
 	   ("c"  "varchar"  "varchar(25)" nil  nil nil)
 	   ("d"  "tinyint"  "tinyint(4)"  "0" nil nil)
 	   ("e"  "datetime" "datetime"    "0000-00-00 00:00:00" nil nil)
-	   ("f"  "date"     "date"        "0000-00-00" "NO" nil))))
+	   ("f"  "date"     "date"        "0000-00-00" "NO" nil)
+	   ("g"  "enum"     "ENUM('a', 'b')" nil nil nil))))
 
     (loop
        for (name dtype ctype nullable default extra) in columns
-       for pgtype = (cast dtype ctype nullable default extra)
+       for pgtype = (cast "table" name dtype ctype nullable default extra)
        for fn in (transforms columns)
        do
-	 (format t "~a~14T~a~45T~:[~;using ~a~]~%" ctype pgtype fn fn))))
+	 (format t "~a~18T~a~45T~:[~;using ~a~]~%" ctype pgtype fn fn))))
