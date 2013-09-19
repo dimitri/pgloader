@@ -367,9 +367,22 @@ order by ordinal_position" dbname table-name)))
 		       truncate
 		       transforms)
   "Connect in parallel to MySQL and PostgreSQL and stream the data."
-  (let* ((lp:*kernel* *loader-kernel*)
+  (let* ((lp:*kernel*
+	  (lp:make-kernel 2 :bindings
+			  `((*pgconn-host* . ,*pgconn-host*)
+			    (*pgconn-port* . ,*pgconn-port*)
+			    (*pgconn-user* . ,*pgconn-user*)
+			    (*pgconn-pass* . ,*pgconn-pass*)
+			    (*pg-settings* . ',*pg-settings*)
+			    (*myconn-host* . ,*myconn-host*)
+			    (*myconn-port* . ,*myconn-port*)
+			    (*myconn-user* . ,*myconn-user*)
+			    (*myconn-pass* . ,*myconn-pass*)
+			    (*state*       . ,*state*))))
 	 (channel     (lp:make-channel))
 	 (dataq       (lq:make-queue :fixed-capacity 4096)))
+
+    ;; read data from MySQL
     (lp:submit-task channel (lambda ()
 			      ;; this function update :read stats
 			      (copy-to-queue dbname table-name dataq)))

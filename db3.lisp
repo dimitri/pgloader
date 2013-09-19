@@ -126,12 +126,12 @@
 
   (let* ((*state*     (pgloader.utils:make-pgstate))
 	 (lp:*kernel* (lp:make-kernel 2 :bindings
-				      `((*pgconn-host* ,@*pgconn-host*)
-					(*pgconn-port* ,@*pgconn-port*)
-					(*pgconn-user* ,@*pgconn-user*)
-					(*pgconn-pass* ,@*pgconn-pass*)
-					(*pg-settings* ,@*pg-settings*)
-					(*state*       ,@*state*))))
+				      `((*pgconn-host* . ,*pgconn-host*)
+					(*pgconn-port* . ,*pgconn-port*)
+					(*pgconn-user* . ,*pgconn-user*)
+					(*pgconn-pass* . ,*pgconn-pass*)
+					(*pg-settings* . ',*pg-settings*)
+					(*state*       . ,*state*))))
 	 (channel     (lp:make-channel))
 	 (dataq       (lq:make-queue :fixed-capacity 4096)))
 
