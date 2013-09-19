@@ -36,19 +36,42 @@
 ;;; The default MySQL Type Casting Rules
 ;;;
 (defparameter *default-cast-rules*
-  `((:source (:type "int" :auto-increment t :typemod (< 10))
+  `((:source (:type "int" :auto-increment t :typemod (< (car typemod) 10))
      :target (:type "serial"))
 
-    (:source (:type "int" :auto-increment t :typemod (>= 10))
+    (:source (:type "int" :auto-increment t :typemod (<= 10 (car typemod)))
      :target (:type "bigserial"))
 
-    (:source (:type "int" :auto-increment nil :typemod (< 10))
+    (:source (:type "int" :auto-increment nil :typemod (< (car typemod) 10))
      :target (:type "int"))
 
-    (:source (:type "int" :auto-increment nil :typemod (>= 10))
+    (:source (:type "int" :auto-increment nil :typemod (<= 10 (car typemod)))
      :target (:type "bigint"))
 
-    (:source (:type "varchar")  :target (:type "text"))
+    ;; we need the following to benefit from :drop-typemod
+    (:source (:type "float")  :target (:type "float"))
+    (:source (:type "bigint") :target (:type "bigint"))
+    (:source (:type "double") :target (:type "double precision"))
+
+    (:source (:type "numeric")
+     :target (:type "numeric" :drop-typemod nil))
+
+    (:source (:type "decimal")
+     :target (:type "decimal" :drop-typemod nil))
+
+    (:source (:type "varchar")      :target (:type "text"))
+    (:source (:type "tinytext")     :target (:type "text"))
+    (:source (:type "text")         :target (:type "text"))
+    (:source (:type "mediumtext")   :target (:type "text"))
+    (:source (:type "longtexttext") :target (:type "text"))
+
+    ;; FIXME: add a transformation function to those type to escape the
+    ;;        binary values, and add rules for binary and varbinary too.
+    ;;
+    ;; (:source (:type "tinyblob")     :target (:type "bytea"))
+    ;; (:source (:type "blob")         :target (:type "bytea"))
+    ;; (:source (:type "mediumblob")   :target (:type "bytea"))
+    ;; (:source (:type "longblobblob") :target (:type "bytea"))
 
     (:source (:type "datetime" :default "0000-00-00 00:00:00" :not-null t)
      :target (:type "timestamptz" :drop-default t :drop-not-null t))
@@ -77,17 +100,18 @@
    Beware that some data-type are using a typmod looking definition for
    things that are not typmods at all: enum."
   (unless (string= "enum" data-type)
-    (let ((splits (sq:split-sequence-if (lambda (c) (member c '(#\( #\))))
-					column-type
-					:remove-empty-subseqs t)))
-      (if (= 1 (length splits))
-	  nil
-	  (parse-integer (nth 1 splits))))))
+    (let ((start-1 (position #\( column-type))	; just before start position
+	  (end     (position #\) column-type)))	; just before end position
+      (when start-1
+	(destructuring-bind (a &optional b)
+	    (mapcar #'parse-integer
+		    (sq:split-sequence #\, column-type
+				       :start (+ 1 start-1) :end end))
+	  (cons a b))))))
 
 (defun typemod-expr-matches-p (rule-typemod-expr typemod)
   "Check if an expression such as (< 10) matches given typemod."
-  (destructuring-bind (op threshold) rule-typemod-expr
-    (funcall (symbol-function op) typemod threshold)))
+  (funcall (compile nil `(lambda (typemod) ,rule-typemod-expr)) typemod))
 
 (defun cast-rule-matches (rule source)
   "Returns the target datatype if the RULE matches the SOURCE, or nil"
@@ -128,25 +152,36 @@
 			    ((:type source-type))
 			    ((:ctype source-ctype))
 			    ((:typemod source-typemod))
-			    default
-			    not-null
+			    ((:default source-default))
+			    ((:not-null source-not-null))
 			    &allow-other-keys)
       source
     (if target
-	(destructuring-bind (&key type drop-default drop-not-null
+	(destructuring-bind (&key type
+				  drop-default
+				  drop-not-null
+				  (drop-typemod t)
 				  &allow-other-keys)
 	    target
-	  (format nil
-		  "~a~:[~; not null~]~:[~; default '~a'~]"
-		  (typecase type
-		    (function (funcall type
-				       source-table-name source-column-name
-				       source-type source-ctype source-typemod))
-		    (t type))
-		  (and not-null (not drop-not-null))
-		  (and default (not drop-default))
-		  ;; apply the transformation function to the default value
-		  (if using (funcall using default) default)))
+	  (let ((type-name
+		 (typecase type
+		   (function (funcall type
+				      source-table-name source-column-name
+				      source-type source-ctype source-typemod))
+		   (t type)))
+		(pg-typemod
+		 (when source-typemod
+		   (destructuring-bind (a . b) source-typemod
+		     (format nil "(~a~:[~*~;,~a~])" a b b)))))
+	    (format nil
+		    "~a~:[~*~;~a~]~:[~; not null~]~:[~; default '~a'~]"
+		    type-name
+		    (and source-typemod (not drop-typemod))
+		    pg-typemod
+		    (and source-not-null (not drop-not-null))
+		    (and source-default (not drop-default))
+		    ;; apply the transformation function to the default value
+		    (if using (funcall using source-default) source-default))))
 
 	;; NO MATCH
 	;;
@@ -218,10 +253,6 @@ that would be int and int(7) or varchar and varchar(25)."
 	    :target (:type "text" :drop-default nil :drop-not-null nil)
 	    :using nil)
 
-	   (:source (:type "int" :auto-increment t)
-	    :target (:type "bigserial" :drop-default nil :drop-not-null nil)
-	    :using nil)
-
 	   (:source (:type "tinyint" :auto-increment nil)
 	    :target (:type "boolean" :drop-default nil :drop-not-null nil)
 	    :using pgloader.transforms::tinyint-to-boolean)
@@ -242,11 +273,17 @@ that would be int and int(7) or varchar and varchar(25)."
 	   ("d"  "tinyint"  "tinyint(4)"  "0" nil nil)
 	   ("e"  "datetime" "datetime"    "0000-00-00 00:00:00" nil nil)
 	   ("f"  "date"     "date"        "0000-00-00" "NO" nil)
-	   ("g"  "enum"     "ENUM('a', 'b')" nil nil nil))))
+	   ("g"  "enum"     "ENUM('a', 'b')"  nil nil nil)
+	   ("h"  "int"      "int(11)"         nil nil nil)
+	   ("i"  "float"    "float(12,2)"     nil nil nil)
+	   ("j"  "double"   "double unsigned" nil nil nil)
+	   ("k"  "bigint"   "bigint(20)"      nil nil nil)
+	   ("l"  "numeric"  "numeric(18,3)"   nil nil nil)
+	   ("m"  "decimal"  "decimal(15,5)"   nil nil nil))))
 
     (loop
        for (name dtype ctype nullable default extra) in columns
        for pgtype = (cast "table" name dtype ctype nullable default extra)
        for fn in (transforms columns)
        do
-	 (format t "~a~18T~a~45T~:[~;using ~a~]~%" ctype pgtype fn fn))))
+	 (format t "~a: ~a~20T~a~45T~:[~;using ~a~]~%" name ctype pgtype fn fn))))
