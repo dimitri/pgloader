@@ -267,7 +267,6 @@ Finally returns how many rows where read and processed."
 		(*batch* nil)
 		(*batch-size* 0))
 	   (log-message :debug "pgsql:copy-from-queue: starting new batch")
-	   (set-session-gucs *pg-settings*)
 	   (unwind-protect
 		(let ((process-row-fn
 		       (make-copy-and-batch-fn stream :transforms transforms)))
