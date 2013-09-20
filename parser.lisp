@@ -491,9 +491,11 @@ Here's a quick description of the format we're parsing here:
 
 (defun fix-target-type (source target)
   "When target has :type nil, steal the source :type definition."
-  (unless (getf target :type)
-    (setf (getf target :type) (getf source :type))
-    target))
+  (if (getf target :type)
+      target
+      (loop
+	 for (key value) on target by #'cddr
+	 append (list key (if (eq :type key) (getf source :type) value)))))
 
 (defrule cast-rule (and cast-source cast-def (? cast-function))
   (:lambda (cast)
