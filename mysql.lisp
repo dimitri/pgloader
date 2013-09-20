@@ -89,7 +89,7 @@ order by table_name, ordinal_position" dbname)))
     (loop
        for ((name dtype ctype default nullable extra) . last?) on cols
        for pg-coldef = (cast table-name name dtype ctype default nullable extra)
-       do (format s "  ~a ~22t ~a~:[~;,~]~%" name pg-coldef last?))
+       do (format s "  \"~a\" ~22t ~a~:[~;,~]~%" name pg-coldef last?))
     (format s ");~%")))
 
 (defun get-drop-table-if-exists (table-name)
@@ -203,12 +203,12 @@ GROUP BY table_name, index_name;" dbname)))
    where table_schema = '~a' and table_name = '~a'
 order by ordinal_position" dbname table-name)))
      for is-null = (member type '("char" "varchar" "text"
-			 "tinytext" "mediumtext" "longtext")
+				  "tinytext" "mediumtext" "longtext")
 			   :test #'string-equal)
      collect nil into nulls
-     collect name into cols
+     collect (format nil "`~a`" name) into cols
      when is-null
-     collect (format nil "~a is null" name) into cols and collect t into nulls
+     collect (format nil "`~a` is null" name) into cols and collect t into nulls
      finally (return (values cols nulls))))
 
 (defun fix-nulls (row nulls)
