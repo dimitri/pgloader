@@ -88,28 +88,56 @@ Finally returns how many rows where read and processed."
 			 (escape cl-csv:*quote-escape*)
 			 (null-as "\\N"))
   "Copy data from CSV file FILENAME into PostgreSQL DBNAME.TABLE-NAME"
-  (let* ((lp:*kernel* *loader-kernel*)
+  (let* ((report-header   (null *state*))
+	 (*state*         (or *state* (pgloader.utils:make-pgstate)))
+	 (lp:*kernel*
+	  (lp:make-kernel 2 :bindings
+			  `((*pgconn-host* . ,*pgconn-host*)
+			    (*pgconn-port* . ,*pgconn-port*)
+			    (*pgconn-user* . ,*pgconn-user*)
+			    (*pgconn-pass* . ,*pgconn-pass*)
+			    (*pg-settings* . ',*pg-settings*)
+			    (*myconn-host* . ,*myconn-host*)
+			    (*myconn-port* . ,*myconn-port*)
+			    (*myconn-user* . ,*myconn-user*)
+			    (*myconn-pass* . ,*myconn-pass*)
+			    (*state*       . ,*state*))))
 	 (channel     (lp:make-channel))
 	 (dataq       (lq:make-queue :fixed-capacity 4096)))
-    (lp:submit-task channel (lambda ()
-			      ;; this function update :read stats
-			      (copy-to-queue table-name filename dataq
-					     :skip-first-p skip-first-p
-					     :separator separator
-					     :quote quote
-					     :escape escape
-					     :null-as null-as)))
-    ;; and start another task to push that data from the queue to PostgreSQL
-    (lp:submit-task
-     channel
-     (lambda ()
-       ;; this function update :rows stats
-       (pgloader.pgsql:copy-from-queue dbname table-name dataq
-				       :truncate truncate
-				       :transforms transforms)))
 
-    ;; now wait until both the tasks are over
-    (loop for tasks below 2 do (lp:receive-result channel))))
+    ;; statistics
+    (when report-header (report-header))
+    (pgstate-add-table *state* dbname table-name)
+    (report-table-name table-name)
+
+    (multiple-value-bind (res secs)
+	(timing
+	 (lp:submit-task channel (lambda ()
+				   ;; this function update :read stats
+				   (copy-to-queue table-name filename dataq
+						  :skip-first-p skip-first-p
+						  :separator separator
+						  :quote quote
+						  :escape escape
+						  :null-as null-as)))
+
+	 ;; and start another task to push that data from the queue to PostgreSQL
+	 (lp:submit-task
+	  channel
+	  (lambda ()
+	    ;; this function update :rows stats
+	    (pgloader.pgsql:copy-from-queue dbname table-name dataq
+					    :truncate truncate
+					    :transforms transforms)))
+
+	 ;; now wait until both the tasks are over
+	 (loop for tasks below 2 do (lp:receive-result channel))
+	 (lp:end-kernel))
+
+      ;; report stats!
+      (declare (ignore res))
+      (pgstate-incf *state* table-name :secs secs)
+      (report-pgtable-stats *state* table-name))))
 
 (defun import-database (dbname
 			&key
@@ -122,35 +150,24 @@ Finally returns how many rows where read and processed."
 			  (truncate t)
 			  only-tables)
   "Export MySQL data and Import it into PostgreSQL"
-  (setf *state* (pgloader.utils:make-pgstate))
-  (report-header)
-  (loop
-     for (table-name . date-columns) in (pgloader.pgsql:list-tables dbname)
-     for filename = (get-pathname dbname table-name
-				  :csv-path-root csv-path-root)
-     when (or (null only-tables)
-	      (member table-name only-tables :test #'equal))
-     do
-       (pgstate-add-table *state* dbname table-name)
-       (report-table-name table-name)
-
-       (multiple-value-bind (res secs)
-	   (timing
-	    ;; this will care about updating stats in *state*
-	    (copy-from-file dbname table-name filename
-			    :skip-first-p skip-first-p
-			    :separator separator
-			    :quote quote
-			    :escape escape
-			    :null-as null-as
-			    :truncate truncate))
-	 ;; set the timing we just measured
-	 (declare (ignore res))
-	 (pgstate-incf *state* table-name :secs secs)
-	 (report-pgtable-stats *state* table-name))
-
-     finally
-       (report-pgstate-stats *state* "Total import time")))
+  (let ((*state* (pgloader.utils:make-pgstate)))
+    (report-header)
+    (loop
+       for (table-name . date-columns) in (pgloader.pgsql:list-tables dbname)
+       for filename = (get-pathname dbname table-name
+				    :csv-path-root csv-path-root)
+       when (or (null only-tables)
+		(member table-name only-tables :test #'equal))
+       do
+	 (copy-from-file dbname table-name filename
+			 :skip-first-p skip-first-p
+			 :separator separator
+			 :quote quote
+			 :escape escape
+			 :null-as null-as
+			 :truncate truncate)
+       finally
+	 (report-pgstate-stats *state* "Total import time"))))
 
 ;;;
 ;;; Automatic guess the CSV format parameters
