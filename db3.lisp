@@ -118,8 +118,8 @@
 		    &key
 		      dbname
 		      (table-name (pathname-name filename))
-		      (create-table t)
-		      (truncate nil))
+		      create-table
+		      truncate)
   "Open the DB3 and stream its content to a PostgreSQL database."
   (when create-table
     (pgloader.pgsql:execute dbname (db3-create-table filename)))

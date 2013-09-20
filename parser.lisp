@@ -107,6 +107,7 @@ Here's a quick description of the format we're parsing here:
   (def-keyword-rule "data")
   (def-keyword-rule "from")
   (def-keyword-rule "csv")
+  (def-keyword-rule "dbf")
   (def-keyword-rule "into")
   (def-keyword-rule "with")
   (def-keyword-rule "when")
@@ -149,6 +150,8 @@ Here's a quick description of the format we're parsing here:
   (def-keyword-rule "drop")
   (def-keyword-rule "create")
   (def-keyword-rule "reset")
+  (def-keyword-rule "table")
+  (def-keyword-rule "name")
   (def-keyword-rule "tables")
   (def-keyword-rule "indexes")
   (def-keyword-rule "sequences"))
@@ -690,6 +693,66 @@ Here's a quick description of the format we're parsing here:
 
 
 #|
+    LOAD DBF FROM '/Users/dim/Downloads/comsimp2013.dbf'
+        INTO postgresql://dim@localhost:54393/dim?comsimp2013
+        WITH truncate, create table, table name = 'comsimp2013'
+|#
+(defrule option-create-table (and kw-create kw-table)
+  (:constant (cons :create-table t)))
+
+(defrule option-table-name (and kw-table kw-name equal-sign qualified-table-name)
+  (:lambda (tn)
+    (destructuring-bind (table name e table-name) tn
+      (declare (ignore table name e))
+      (cons :table-name (text table-name)))))
+
+(defrule dbf-option (or option-truncate option-create-table option-table-name))
+
+(defrule another-dbf-option (and #\, ignore-whitespace dbf-option)
+  (:lambda (source)
+    (destructuring-bind (comma ws option) source
+      (declare (ignore comma ws))
+      option)))
+
+(defrule dbf-option-list (and dbf-option (* another-dbf-option))
+  (:lambda (source)
+    (destructuring-bind (opt1 opts) source
+      (alexandria:alist-plist `(,opt1 ,@opts)))))
+
+(defrule dbf-options (and kw-with dbf-option-list)
+  (:lambda (source)
+    (destructuring-bind (w opts) source
+      (declare (ignore w))
+      opts)))
+
+(defrule dbf-source (and kw-load kw-dbf kw-from maybe-quoted-filename)
+  (:lambda (src)
+    (destructuring-bind (load dbf from source) src
+      (declare (ignore load dbf from))
+      ;; source is (:filename #P"pathname/here")
+      (destructuring-bind (type uri) source
+	(ecase type
+	  (:filename uri))))))
+
+(defrule load-dbf-file (and dbf-source target dbf-options)
+  (:lambda (command)
+    (destructuring-bind (source pg-db-uri options) command
+      (destructuring-bind (&key host port user password dbname table-name
+				&allow-other-keys)
+	  pg-db-uri
+	`(lambda ()
+	   (let* ((*pgconn-host* ,host)
+		  (*pgconn-port* ,port)
+		  (*pgconn-user* ,user)
+		  (*pgconn-pass* ,password))
+	     (pgloader.db3:stream-file ,source
+				       :dbname ,dbname
+				       ,@(when table-name
+					       (list :table-name table-name))
+				       ,@options)))))))
+
+
+#|
     LOAD CSV FROM /Users/dim/dev/CL/pgloader/galaxya/yagoa/communaute_profil.csv
         INTO postgresql://dim@localhost:54393/yagoa?commnaute_profil
 
@@ -794,6 +857,7 @@ Here's a quick description of the format we're parsing here:
   (:constant :eoc))
 
 (defrule command (and (or load-csv-file
+			  load-dbf-file
 			  load-database
 			  load-syslog-messages)
 		      end-of-command)
@@ -869,6 +933,12 @@ LOAD FROM http:///tapoueh.org/db.t
              fields escaped by '\"',
              fields terminated by '\t';
 "))
+
+(defun test-parsing-load-from-dbf ()
+  (parse-command "
+    LOAD DBF FROM '/Users/dim/Downloads/comsimp2013.dbf'
+        INTO postgresql://dim@localhost:54393/dim?comsimp2013
+        WITH truncate, create table, table name = 'comsimp2013'; "))
 
 (defun test-parsing-lots ()
   (parse 'commands "
