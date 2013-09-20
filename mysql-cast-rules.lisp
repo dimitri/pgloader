@@ -49,9 +49,12 @@
      :target (:type "bigint"))
 
     ;; we need the following to benefit from :drop-typemod
-    (:source (:type "float")  :target (:type "float"))
-    (:source (:type "bigint") :target (:type "bigint"))
-    (:source (:type "double") :target (:type "double precision"))
+    (:source (:type "tinyint")   :target (:type "integer"))
+    (:source (:type "smallint")  :target (:type "integer"))
+    (:source (:type "mediumint") :target (:type "integer"))
+    (:source (:type "float")     :target (:type "float"))
+    (:source (:type "bigint")    :target (:type "bigint"))
+    (:source (:type "double")    :target (:type "double precision"))
 
     (:source (:type "numeric")
      :target (:type "numeric" :drop-typemod nil))
@@ -59,19 +62,23 @@
     (:source (:type "decimal")
      :target (:type "decimal" :drop-typemod nil))
 
-    (:source (:type "varchar")      :target (:type "text"))
-    (:source (:type "tinytext")     :target (:type "text"))
-    (:source (:type "text")         :target (:type "text"))
-    (:source (:type "mediumtext")   :target (:type "text"))
-    (:source (:type "longtexttext") :target (:type "text"))
+    (:source (:type "varchar")    :target (:type "text"))
+    (:source (:type "tinytext")   :target (:type "text"))
+    (:source (:type "text")       :target (:type "text"))
+    (:source (:type "mediumtext") :target (:type "text"))
+    (:source (:type "longtext")   :target (:type "text"))
 
-    ;; FIXME: add a transformation function to those type to escape the
-    ;;        binary values, and add rules for binary and varbinary too.
     ;;
-    ;; (:source (:type "tinyblob")     :target (:type "bytea"))
-    ;; (:source (:type "blob")         :target (:type "bytea"))
-    ;; (:source (:type "mediumblob")   :target (:type "bytea"))
-    ;; (:source (:type "longblobblob") :target (:type "bytea"))
+    ;; cl-mysql and postmodern are adapting binary values as a simple-array
+    ;; (or vector) of ‘(UNSIGNED-BYTE 8), so there should be no other
+    ;; explicit conversion to do here.
+    ;;
+    (:source (:type "binary")     :target (:type "bytea"))
+    (:source (:type "varbinary")  :target (:type "bytea"))
+    (:source (:type "tinyblob")   :target (:type "bytea"))
+    (:source (:type "blob")       :target (:type "bytea"))
+    (:source (:type "mediumblob") :target (:type "bytea"))
+    (:source (:type "longblob")   :target (:type "bytea"))
 
     (:source (:type "datetime" :default "0000-00-00 00:00:00" :not-null t)
      :target (:type "timestamptz" :drop-default t :drop-not-null t))
