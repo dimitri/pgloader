@@ -869,3 +869,47 @@ LOAD FROM http:///tapoueh.org/db.t
              fields escaped by '\"',
              fields terminated by '\t';
 "))
+
+(defun test-parsing-lots ()
+  (parse 'commands "
+    LOAD DATABASE FROM mysql://localhost:3306/dbname
+        INTO postgresql://localhost/db
+	WITH drop tables,
+		 truncate,
+		 create tables,
+		 create indexes,
+		 reset sequences
+	 SET guc_1 = 'value', guc_2 = 'other value'
+	CAST column col1 to timestamptz drop default using zero-dates-to-null,
+             type varchar to text,
+             type int with extra auto_increment to bigserial,
+             type datetime to timestamptz drop default using zero-dates-to-null,
+             type date drop not null drop default using zero-dates-to-null;
+
+    LOAD CSV FROM '/Users/dim/dev/CL/pgloader/galaxya/yagoa/communaute_profil.csv'
+        Into postgresql://dim@localhost:54393/yagoa?communaute_profil
+
+        WITH truncate,
+             fields optionally enclosed by '\"',
+             fields escaped by '\"',
+             fields terminated by '\t';
+
+    LOAD MESSAGES FROM syslog://localhost:10514/
+
+        WHEN MATCHES rsyslog-msg IN apache
+         REGISTERING timestamp, ip, rest
+        INTO postgresql://localhost/db?logs.apache
+         SET guc_1 = 'value', guc_2 = 'other value'
+
+        WHEN MATCHES rsyslog-msg IN others
+         REGISTERING timestamp, app-name, data
+        INTO postgresql://localhost/db?logs.others
+         SET guc_1 = 'value', guc_2 = 'other value'
+
+        WITH apache = rsyslog
+             DATA   = IP REST
+             IP     = 1*3DIGIT \".\" 1*3DIGIT \".\"1*3DIGIT \".\"1*3DIGIT
+             REST   = ~/.*/
+
+        WITH others = rsyslog;
+"))
