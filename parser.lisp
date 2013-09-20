@@ -154,7 +154,10 @@ Here's a quick description of the format we're parsing here:
   (def-keyword-rule "name")
   (def-keyword-rule "tables")
   (def-keyword-rule "indexes")
-  (def-keyword-rule "sequences"))
+  (def-keyword-rule "sequences")
+  (def-keyword-rule "downcase")
+  (def-keyword-rule "quote")
+  (def-keyword-rule "identifiers"))
 
 (defrule kw-auto-increment (and "auto_increment" (* (or #\Tab #\Space)))
   (:constant :auto-increment))
@@ -370,12 +373,19 @@ Here's a quick description of the format we're parsing here:
 (defrule option-reset-sequences (and kw-reset kw-sequences)
   (:constant (cons :reset-sequences t)))
 
+(defrule option-identifiers-case (and (or kw-downcase kw-quote) kw-identifiers)
+  (:lambda (id-case)
+    (destructuring-bind (action id) id-case
+      (declare (ignore id))
+      (cons :identifier-case action))))
+
 (defrule mysql-option (or option-workers
 			  option-truncate
 			  option-drop-tables
 			  option-create-tables
 			  option-create-indexes
-			  option-reset-sequences))
+			  option-reset-sequences
+			  option-identifiers-case))
 
 (defrule another-mysql-option (and #\, ignore-whitespace mysql-option)
   (:lambda (source)
@@ -891,10 +901,11 @@ LOAD FROM http:///tapoueh.org/db.t
     LOAD DATABASE FROM mysql://localhost:3306/dbname
         INTO postgresql://localhost/db
 	WITH drop tables,
-		 truncate,
-		 create tables,
-		 create indexes,
-		 reset sequences
+	     truncate,
+	     create tables,
+	     create indexes,
+	     reset sequences,
+             downcase identifiers
 	 SET guc_1 = 'value', guc_2 = 'other value'
 	CAST column col1 to timestamptz drop default using zero-dates-to-null,
              type varchar to text,

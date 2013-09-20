@@ -72,45 +72,65 @@ order by table_name, ordinal_position" dbname)))
     ;; free resources
     (cl-mysql:disconnect)))
 
-(defun get-create-type (table-name cols &key include-drop)
+(defun get-create-type (table-name cols &key identifier-case include-drop)
   "MySQL declares ENUM types inline, PostgreSQL wants explicit CREATE TYPE."
   (loop
      for (name dtype ctype default nullable extra) in cols
      when (string-equal "enum" dtype)
      collect (when include-drop
-	       (let ((type-name (get-enum-type-name table-name name)))
+	       (let* ((type-name
+		       (get-enum-type-name table-name name identifier-case)))
 		 (format nil "DROP TYPE IF EXISTS ~a;" type-name)))
-     and collect (get-create-enum table-name name ctype)))
+     and collect (get-create-enum table-name name ctype
+				  :identifier-case identifier-case)))
 
-(defun get-create-table (table-name cols)
+(defun get-create-table (table-name cols &key identifier-case)
   "Return a PostgreSQL CREATE TABLE statement from MySQL columns"
   (with-output-to-string (s)
-    (format s "CREATE TABLE ~a ~%(~%" table-name)
+    (let ((table-name (apply-identifier-case table-name identifier-case)))
+      (format s "CREATE TABLE ~a ~%(~%" table-name))
     (loop
        for ((name dtype ctype default nullable extra) . last?) on cols
        for pg-coldef = (cast table-name name dtype ctype default nullable extra)
-       do (format s "  \"~a\" ~22t ~a~:[~;,~]~%" name pg-coldef last?))
+       for colname = (apply-identifier-case name identifier-case)
+       do (format s "  ~a ~22t ~a~:[~;,~]~%" colname pg-coldef last?))
     (format s ");~%")))
 
-(defun get-drop-table-if-exists (table-name)
+(defun get-drop-table-if-exists (table-name &key identifier-case)
   "Return the PostgreSQL DROP TABLE IF EXISTS statement for TABLE-NAME."
-  (format nil "DROP TABLE IF EXISTS ~a;~%" table-name))
+  (let ((table-name (apply-identifier-case table-name identifier-case)))
+    (format nil "DROP TABLE IF EXISTS ~a;~%" table-name)))
 
-(defun get-pgsql-create-tables (all-columns &key include-drop)
+(defun get-pgsql-create-tables (all-columns
+				&key
+				  include-drop
+				  (identifier-case :downcase))
   "Return the list of CREATE TABLE statements to run against PostgreSQL"
   (loop
      for (table-name . cols) in all-columns
-     for extra-types = (get-create-type table-name cols :include-drop include-drop)
-     when include-drop collect (get-drop-table-if-exists table-name)
+     for extra-types = (get-create-type table-name cols
+					:identifier-case identifier-case
+					:include-drop include-drop)
+     when include-drop
+     collect (get-drop-table-if-exists table-name
+				       :identifier-case identifier-case)
+
      when extra-types append extra-types
-     collect (get-create-table table-name cols)))
+
+     collect (get-create-table table-name cols
+			       :identifier-case identifier-case)))
 
 (defun pgsql-create-tables (dbname all-columns
-			    &key (pg-dbname dbname) include-drop)
+			    &key
+			      (identifier-case :downcase)
+			      (pg-dbname dbname)
+			      include-drop)
   "Create all MySQL tables in database dbname in PostgreSQL"
   (loop
      for nb-tables from 0
-     for sql in (get-pgsql-create-tables all-columns :include-drop include-drop)
+     for sql in (get-pgsql-create-tables all-columns
+					 :identifier-case identifier-case
+					 :include-drop include-drop)
      do (pgloader.pgsql:execute pg-dbname sql)
      finally (return nb-tables)))
 
@@ -430,6 +450,7 @@ order by ordinal_position" dbname table-name)))
 			  (include-drop nil)
 			  (create-indexes t)
 			  (reset-sequences t)
+			  (identifier-case :downcase) ; or :quote
 			  (truncate t)
 			  only-tables)
   "Export MySQL data and Import it into PostgreSQL"
@@ -443,6 +464,7 @@ order by ordinal_position" dbname table-name)))
       (with-silent-timing *state* dbname
 			  (format nil "~:[~;DROP then ~]CREATE TABLES" include-drop)
 			  (pgsql-create-tables dbname all-columns
+					       :identifier-case identifier-case
 					       :pg-dbname pg-dbname
 					       :include-drop include-drop)))
 

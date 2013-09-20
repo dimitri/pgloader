@@ -7,6 +7,12 @@
 ;;;
 ;;; Some functions to deal with ENUM types
 ;;;
+(defun apply-identifier-case (identifier case)
+  "Return a SQL string to use in the output part of a MySQL query."
+  (ecase case
+    (:downcase (string-downcase identifier))
+    (:quote    (format nil "\"~a\"" identifier))))
+
 (defun explode-mysql-enum (ctype)
   "Convert MySQL ENUM expression into a list of labels."
   ;; from: "ENUM('small', 'medium', 'large')"
@@ -14,15 +20,17 @@
   (mapcar (lambda (x) (string-trim "' )" x))
 	  (sq:split-sequence #\, ctype  :start (position #\' ctype))))
 
-(defun get-enum-type-name (table-name column-name)
+(defun get-enum-type-name (table-name column-name identifier-case)
   "Return the Type Name we're going to use in PostgreSQL."
-  (format nil "~a_~a" table-name column-name))
+  (apply-identifier-case (format nil "~a_~a" table-name column-name)
+			 identifier-case))
 
-(defun get-create-enum (table-name column-name ctype)
+(defun get-create-enum (table-name column-name ctype
+			&key (identifier-case :downcase))
   "Return a PostgreSQL CREATE ENUM TYPE statement from MySQL enum column."
   (with-output-to-string (s)
     (format s "CREATE TYPE ~a AS ENUM (~{'~a'~^, ~});"
-	    (get-enum-type-name table-name column-name)
+	    (get-enum-type-name table-name column-name identifier-case)
 	    (explode-mysql-enum ctype))))
 
 (defun cast-enum (table-name column-name type ctype typemod)
