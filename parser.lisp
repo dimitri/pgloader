@@ -486,10 +486,18 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore using))
       (intern (string-upcase fname) :pgloader.transforms))))
 
+(defun fix-target-type (source target)
+  "When target has :type nil, steal the source :type definition."
+  (unless (getf target :type)
+    (setf (getf target :type) (getf source :type))
+    target))
+
 (defrule cast-rule (and cast-source cast-def (? cast-function))
   (:lambda (cast)
     (destructuring-bind (source target function) cast
-      (list :source source :target target :using function))))
+      (list :source source
+	    :target (fix-target-type source target)
+	    :using function))))
 
 (defrule another-cast-rule (and #\, ignore-whitespace cast-rule)
   (:lambda (source)
