@@ -106,6 +106,7 @@ Here's a quick description of the format we're parsing here:
   (def-keyword-rule "load")
   (def-keyword-rule "data")
   (def-keyword-rule "from")
+  (def-keyword-rule "csv")
   (def-keyword-rule "into")
   (def-keyword-rule "with")
   (def-keyword-rule "when")
@@ -366,25 +367,25 @@ Here's a quick description of the format we're parsing here:
 (defrule option-reset-sequences (and kw-reset kw-sequences)
   (:constant (cons :reset-sequences t)))
 
-(defrule option (or option-workers
-		    option-truncate
-		    option-drop-tables
-		    option-create-tables
-		    option-create-indexes
-		    option-reset-sequences))
+(defrule mysql-option (or option-workers
+			  option-truncate
+			  option-drop-tables
+			  option-create-tables
+			  option-create-indexes
+			  option-reset-sequences))
 
-(defrule another-option (and #\, ignore-whitespace option)
+(defrule another-mysql-option (and #\, ignore-whitespace mysql-option)
   (:lambda (source)
     (destructuring-bind (comma ws option) source
       (declare (ignore comma ws))
       option)))
 
-(defrule option-list (and option (* another-option))
+(defrule mysql-option-list (and mysql-option (* another-mysql-option))
   (:lambda (source)
     (destructuring-bind (opt1 opts) source
       (alexandria:alist-plist (list* opt1 opts)))))
 
-(defrule options (and kw-with option-list)
+(defrule mysql-options (and kw-with mysql-option-list)
   (:lambda (source)
     (destructuring-bind (w opts) source
       (declare (ignore w))
@@ -507,8 +508,9 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore c))
       casts)))
 
+;;; LOAD DATABASE FROM mysql://
 (defrule load-database (and database-source target
-			    (? options)
+			    (? mysql-options)
 			    (? gucs)
 			    (? casts))
   (:lambda (source)
@@ -679,6 +681,100 @@ Here's a quick description of the format we're parsing here:
 						:scanners scanners))))))))
 
 
+#|
+    LOAD CSV FROM /Users/dim/dev/CL/pgloader/galaxya/yagoa/communaute_profil.csv
+        INTO postgresql://dim@localhost:54393/yagoa?commnaute_profil
+
+        WITH truncate,
+             fields optionally enclosed by '\"',
+             fields escaped by \"\,
+             fields terminated by '\t',
+             reset sequences;
+|#
+(defun hexdigit-char-p (character)
+  (member character #. (quote (coerce "0123456789abcdefABCDEF" 'list))))
+
+(defrule hex-char-code (and "0x" (+ (hexdigit-char-p character)))
+  (:lambda (hex)
+    (destructuring-bind (prefix digits) hex
+      (declare (ignore prefix))
+      (code-char (parse-integer (text digits) :radix 16)))))
+
+(defrule tab (and #\\ #\t) (:constant #\Tab))
+
+(defrule separator (and #\' (or hex-char-code tab character ) #\')
+  (:lambda (sep)
+    (destructuring-bind (open char close) sep
+      (declare (ignore open close))
+      char)))
+
+(defrule option-fields-enclosed-by
+    (and kw-fields (? kw-optionally) kw-enclosed kw-by separator)
+  (:lambda (enc)
+    (destructuring-bind (f e o b sep) enc
+      (declare (ignore f e o b))
+      (cons :quote sep))))
+
+(defrule option-fields-escaped-by (and kw-fields kw-escaped kw-by separator)
+  (:lambda (esc)
+    (destructuring-bind (f e b sep) esc
+      (declare (ignore f e b))
+      (cons :escape sep))))
+
+(defrule option-fields-terminated-by (and kw-fields kw-terminated kw-by separator)
+  (:lambda (term)
+    (destructuring-bind (fields terminated by sep) term
+      (declare (ignore fields terminated by))
+      (cons :separator sep))))
+
+(defrule csv-option (or option-truncate
+			option-fields-enclosed-by
+			option-fields-escaped-by
+			option-fields-terminated-by))
+
+(defrule another-csv-option (and #\, ignore-whitespace csv-option)
+  (:lambda (source)
+    (destructuring-bind (comma ws option) source
+      (declare (ignore comma ws))
+      option)))
+
+(defrule csv-option-list (and csv-option (* another-csv-option))
+  (:lambda (source)
+    (destructuring-bind (opt1 opts) source
+      (alexandria:alist-plist `(,opt1 ,@opts)))))
+
+(defrule csv-options (and kw-with csv-option-list)
+  (:lambda (source)
+    (destructuring-bind (w opts) source
+      (declare (ignore w))
+      opts)))
+
+(defrule csv-source (and kw-load kw-csv kw-from maybe-quoted-filename)
+  (:lambda (src)
+    (destructuring-bind (load csv from source) src
+      (declare (ignore load csv from))
+      ;; source is (:filename #P"pathname/here")
+      (destructuring-bind (type uri) source
+	(ecase type
+	  (:filename uri))))))
+
+(defrule load-csv-file (and csv-source target csv-options)
+  (:lambda (command)
+    (destructuring-bind (source pg-db-uri options) command
+      (destructuring-bind (&key host port user password dbname table-name
+				&allow-other-keys)
+	  pg-db-uri
+	`(lambda ()
+	   (let* ((*pgconn-host* ,host)
+		  (*pgconn-port* ,port)
+		  (*pgconn-user* ,user)
+		  (*pgconn-pass* ,password))
+	     (pgloader.csv:copy-from-file ,dbname
+					  ,table-name
+					  ,source
+					  ,@options)))))))
+
+
 ;;;
 ;;; Now the main command, one of
 ;;;
@@ -689,7 +785,7 @@ Here's a quick description of the format we're parsing here:
 (defrule end-of-command (and ignore-whitespace #\; ignore-whitespace)
   (:constant :eoc))
 
-(defrule command (and (or load
+(defrule command (and (or load-csv-file
 			  load-database
 			  load-syslog-messages)
 		      end-of-command)
@@ -753,4 +849,15 @@ LOAD FROM http:///tapoueh.org/db.t
              REST   = ~/.*/
 
         WITH others = rsyslog;
+"))
+
+(defun test-parsing-load-from-csv ()
+  (parse-command "
+    LOAD CSV FROM '/Users/dim/dev/CL/pgloader/galaxya/yagoa/communaute_profil.csv'
+        Into postgresql://dim@localhost:54393/yagoa?communaute_profil
+
+        WITH truncate,
+             fields optionally enclosed by '\"',
+             fields escaped by '\"',
+             fields terminated by '\t';
 "))
