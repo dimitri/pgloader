@@ -164,30 +164,38 @@ GROUP BY table_name, index_name;" dbname)))
     ;; free resources
     (cl-mysql:disconnect)))
 
-(defun get-pgsql-index-def (table-name index-name unique cols)
+(defun get-pgsql-index-def (table-name index-name unique cols
+			    &key identifier-case)
   "Return a PostgreSQL CREATE INDEX statement as a string."
-  (cond ((string= index-name "PRIMARY")
-	 (format nil
-		 "ALTER TABLE ~a ADD PRIMARY KEY (~{~a~^, ~});"
-		 table-name cols))
+  (cond
+    ((string= index-name "PRIMARY")
+     (let* ((table-name (apply-identifier-case table-name identifier-case)))
+       (format nil
+	       "ALTER TABLE ~a ADD PRIMARY KEY (~{~a~^, ~});" table-name cols)))
 
-	(t
-	 (format nil
-		 "CREATE~:[~; UNIQUE~] INDEX ~a_idx ON ~a (~{~a~^, ~});"
-		 unique index-name table-name cols))))
+    (t
+     (let* ((table-name (apply-identifier-case table-name identifier-case))
+	    (index-name (format nil "~a_idx" index-name))
+	    (index-name (apply-identifier-case index-name identifier-case)))
+       (format nil
+	       "CREATE~:[~; UNIQUE~] INDEX ~a ON ~a (~{~a~^, ~});"
+	       unique index-name table-name cols)))))
 
-(defun get-drop-index-if-exists (table-name index-name)
+(defun get-drop-index-if-exists (table-name index-name &key identifier-case)
   "Return the DROP INDEX statement for PostgreSQL"
-  (cond ((string= index-name "PRIMARY")
-	 (format nil
-		 "ALTER TABLE ~a DROP CONSTRAINT ~a_pkey;"
-		 table-name table-name))
+  (cond
+    ((string= index-name "PRIMARY")
+     (let* ((pkey-name  (format nil "~a_pkey" table-name))
+	    (pkey-name  (apply-identifier-case pkey-name identifier-case))
+	    (table-name (apply-identifier-case table-name identifier-case)))
+       (format nil "ALTER TABLE ~a DROP CONSTRAINT ~a;" table-name pkey-name)))
 
-	(t
-	 (format nil
-		 "DROP INDEX IF EXISTS ~a_idx;" index-name))))
+    (t
+     (let* ((index-name (format nil "~a_idx" index-name))
+	    (index-name (apply-identifier-case index-name identifier-case)))
+       (format nil "DROP INDEX IF EXISTS ~a;" index-name)))))
 
-(defun get-pgsql-create-indexes (indexes &key include-drop)
+(defun get-pgsql-create-indexes (indexes &key identifier-case include-drop)
   "Return the CREATE INDEX statements from given INDEXES definitions."
   (loop
      for (table-name index-name unique cols) in indexes
@@ -197,14 +205,21 @@ GROUP BY table_name, index_name;" dbname)))
 	       ;; no need to alter table drop constraint, when include-drop
 	       ;; is true we just did drop the table and created it again
 	       ;; anyway
-	       (list (get-drop-index-if-exists table-name index-name)))
-	     (list (get-pgsql-index-def table-name index-name unique cols)))))
+	       (list (get-drop-index-if-exists table-name index-name
+					       :identifier-case identifier-case)))
+	     (list (get-pgsql-index-def table-name index-name unique cols
+					:identifier-case identifier-case)))))
 
-(defun pgsql-create-indexes (dbname &key (pg-dbname dbname) include-drop)
+(defun pgsql-create-indexes (dbname
+			     &key
+			       (pg-dbname dbname)
+			       identifier-case
+			       include-drop)
   "Create all MySQL tables in database dbname in PostgreSQL"
   (loop
      for nb-indexes from 0
      for sql in (get-pgsql-create-indexes (list-all-indexes dbname)
+					  :identifier-case identifier-case
 					  :include-drop include-drop)
      do (pgloader.pgsql:execute pg-dbname sql)
      finally (return nb-indexes)))
@@ -387,7 +402,9 @@ order by ordinal_position" dbname table-name)))
 		       truncate
 		       transforms)
   "Connect in parallel to MySQL and PostgreSQL and stream the data."
-  (let* ((lp:*kernel*
+  (let* ((report-header   (null *state*))
+	 (*state*         (or *state* (pgloader.utils:make-pgstate)))
+	 (lp:*kernel*
 	  (lp:make-kernel 2 :bindings
 			  `((*pgconn-host* . ,*pgconn-host*)
 			    (*pgconn-port* . ,*pgconn-port*)
@@ -402,22 +419,35 @@ order by ordinal_position" dbname table-name)))
 	 (channel     (lp:make-channel))
 	 (dataq       (lq:make-queue :fixed-capacity 4096)))
 
-    ;; read data from MySQL
-    (lp:submit-task channel (lambda ()
-			      ;; this function update :read stats
-			      (copy-to-queue dbname table-name dataq)))
+    ;; statistics
+    (when report-header (report-header))
+    (pgstate-add-table *state* dbname table-name)
+    (report-table-name table-name)
 
-    ;; and start another task to push that data from the queue to PostgreSQL
-    (lp:submit-task
-     channel
-     (lambda ()
-       ;; this function update :rows stats
-       (pgloader.pgsql:copy-from-queue pg-dbname table-name dataq
-				       :truncate truncate
-				       :transforms transforms)))
+    (multiple-value-bind (res secs)
+	(timing
+	 ;; read data from MySQL
+	 (lp:submit-task channel (lambda ()
+				   ;; this function update :read stats
+				   (copy-to-queue dbname table-name dataq)))
 
-    ;; now wait until both the tasks are over
-    (loop for tasks below 2 do (lp:receive-result channel))))
+	 ;; and start another task to push that data from the queue to PostgreSQL
+	 (lp:submit-task
+	  channel
+	  (lambda ()
+	    ;; this function update :rows stats
+	    (pgloader.pgsql:copy-from-queue pg-dbname table-name dataq
+					    :truncate truncate
+					    :transforms transforms)))
+
+	 ;; now wait until both the tasks are over
+	 (loop for tasks below 2 do (lp:receive-result channel)
+	    finally (lp:end-kernel)))
+
+      ;; report stats!
+      (declare (ignore res))
+      (pgstate-incf *state* table-name :secs secs)
+      (report-pgtable-stats *state* table-name))))
 
 ;;;
 ;;; Work on all tables for given database
@@ -446,6 +476,7 @@ order by ordinal_position" dbname table-name)))
 (defun stream-database (dbname
 			&key
 			  (pg-dbname dbname)
+			  (schema-only nil)
 			  (create-tables nil)
 			  (include-drop nil)
 			  (create-indexes t)
@@ -462,44 +493,38 @@ order by ordinal_position" dbname table-name)))
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (when create-tables
       (with-silent-timing *state* dbname
-			  (format nil "~:[~;DROP then ~]CREATE TABLES" include-drop)
-			  (pgsql-create-tables dbname all-columns
-					       :identifier-case identifier-case
-					       :pg-dbname pg-dbname
-					       :include-drop include-drop)))
+	  (format nil "~:[~;DROP then ~]CREATE TABLES" include-drop)
+	(pgsql-create-tables dbname all-columns
+			     :identifier-case identifier-case
+			     :pg-dbname pg-dbname
+			     :include-drop include-drop)))
 
-    (loop
-       for (table-name . columns) in all-columns
-       when (or (null only-tables)
-		(member table-name only-tables :test #'equal))
-       do
-	 (pgstate-add-table *state* dbname table-name)
-	 (report-table-name table-name)
+    (unless schema-only
+      (loop
+	 for (table-name . columns) in all-columns
+	 when (or (null only-tables)
+		  (member table-name only-tables :test #'equal))
+	 do
+	   (stream-table dbname table-name
+			 :pg-dbname pg-dbname
+			 :truncate truncate
+			 :transforms (transforms columns))))
 
-	 (multiple-value-bind (res secs)
-	     (timing
-	      ;; this will care about updating stats in *state*
-	      (stream-table dbname table-name
-			    :pg-dbname pg-dbname
-			    :truncate truncate
-			    :transforms (transforms columns)))
-	   ;; set the timing we just measured
-	   (declare (ignore res))
-	   (pgstate-incf *state* table-name :secs secs)
-	   (report-pgtable-stats *state* table-name))
-       finally
-	 (when create-indexes
-	   (with-silent-timing *state* dbname
-	       (format nil "~:[~;DROP then ~]CREATE INDEXES" include-drop)
-	     (pgsql-create-indexes dbname
-				   :pg-dbname pg-dbname
-				   :include-drop include-drop)))
+    ;; building the indexes once all the data are there is more efficient.
+    (when create-indexes
+      (with-silent-timing *state* dbname
+	  (format nil "~:[~;DROP then ~]CREATE INDEXES" include-drop)
+	(pgsql-create-indexes dbname
+			      :identifier-case identifier-case
+			      :pg-dbname pg-dbname
+			      :include-drop include-drop)))
 
-       ;; don't forget to reset sequences
-	 (when reset-sequences
-	   (with-silent-timing *state* dbname "RESET SEQUENCES"
-	     (pgloader.pgsql:reset-all-sequences pg-dbname)))
+    ;; don't forget to reset sequences, but only when we did actually import
+    ;; the data.
+    (when (and (not schema-only) reset-sequences)
+      (with-silent-timing *state* dbname "RESET SEQUENCES"
+	(pgloader.pgsql:reset-all-sequences pg-dbname)))
 
-       ;; and report the total time spent on the operation
-	 (report-pgstate-stats *state* "Total streaming time"))))
+    ;; and report the total time spent on the operation
+    (report-pgstate-stats *state* "Total streaming time")))
 

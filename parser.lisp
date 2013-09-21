@@ -147,6 +147,8 @@ Here's a quick description of the format we're parsing here:
   (def-keyword-rule "nullif")
   (def-keyword-rule "blank")
   ;; option for MySQL imports
+  (def-keyword-rule "schema")
+  (def-keyword-rule "only")
   (def-keyword-rule "drop")
   (def-keyword-rule "create")
   (def-keyword-rule "reset")
@@ -364,6 +366,9 @@ Here's a quick description of the format we're parsing here:
 (defrule option-truncate (and kw-truncate)
   (:constant (cons :truncate t)))
 
+(defrule option-schema-only (and kw-schema kw-only)
+  (:constant (cons :schema-only t)))
+
 (defrule option-create-tables (and kw-create kw-tables)
   (:constant (cons :create-tables t)))
 
@@ -381,6 +386,7 @@ Here's a quick description of the format we're parsing here:
 
 (defrule mysql-option (or option-workers
 			  option-truncate
+			  option-schema-only
 			  option-drop-tables
 			  option-create-tables
 			  option-create-indexes
