@@ -8,6 +8,8 @@
   (:export #:*csv-path-root*
 	   #:*reject-path-root*
 	   #:*log-filename*
+	   #:*client-min-messages*
+	   #:*log-min-messages*
 	   #:*copy-batch-size*
 	   #:*copy-batch-split*
 	   #:*pgconn-host*
@@ -37,8 +39,8 @@
 (defparameter *log-filename*
   (make-pathname :directory "/tmp/pgloader/" :name "pgloader" :type "log"))
 
-(defparameter *log-level* :notice)
-(setq *log-level* :debug)
+(defparameter *client-min-messages* :notice)
+(defparameter *log-min-messages* :info)
 
 ;;;
 ;;; How to split batches in case of data loading errors.

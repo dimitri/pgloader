@@ -76,6 +76,7 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
 	 (apply #'cl-postgres:open-database
 		(remove :port (get-connection-spec dbname)))))
 
+    (cl-postgres:exec-query connection "set client_min_messages to warning;")
     (cl-postgres:exec-query connection "listen seqs")
 
     (prog1
@@ -114,9 +115,12 @@ $$; ")
 	    (parse-integer (cl-postgres:postgresql-notification-payload c))))
     (cl-postgres:close-database connection))))
 
-(defun execute (dbname sql)
+(defun execute (dbname sql &key ((:client-min-messages level)))
   "Execute given SQL in DBNAME"
   (pomo:with-connection (get-connection-spec dbname)
+    (when level
+      (pomo:execute
+       (format nil "SET client_min_messages TO ~a;" (symbol-name level))))
     (pomo:execute sql)))
 
 (defun set-session-gucs (alist)

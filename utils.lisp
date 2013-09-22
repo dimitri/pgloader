@@ -18,12 +18,41 @@
 (setf (log-manager)
       (make-instance 'log-manager :message-class 'formatted-message))
 
-;; And a messenger to store our message into
-(ensure-directories-exist (directory-namestring *log-filename*))
-(start-messenger 'text-file-messenger :filename *log-filename*)
+;; Start a messenger to store our message into
+(defun start-logger (&key (log-filename *log-filename*))
+  "Start the parch log manager and messenger."
+  (let ((log-pathname (typecase log-filename
+			(string (pathname log-filename))
+			(t      log-filename))))
+    (ensure-directories-exist (directory-namestring log-filename))
+    (cl-log:start-messenger 'text-file-messenger
+			    :filter *log-min-messages*
+			    :filename log-filename)
+    (cl-log:start-messenger 'text-stream-messenger
+			    :filter *client-min-messages*
+			    :stream *standard-output*)
+    (format t "~&Now logging in '~a'.~%" log-pathname)
+    (log-message :notice "Starting pgloader, log system is ready.")))
 
-;; Announce what just happened
-(log-message :notice "Starting pgloader, log system is ready.")
+;; monkey patch the print-object method for cl-log timestamp
+(defconstant +nsec+ (* 1000 1000 1000)
+  "How many nanoseconds do you find in a second")
+
+(defun fraction-to-nsecs (fraction)
+  "FRACTION is a number of internal-time-units-per-second, return nsecs"
+  (declare (inline fraction-to-nsecs) (fixnum fraction))
+  (floor (/ (* fraction +nsec+) internal-time-units-per-second)))
+
+(defmethod print-object ((self cl-log:timestamp) stream)
+  "we want to print human readable timestamps"
+  (let ((log-local-time
+	 (local-time:universal-to-timestamp
+	  (cl-log:timestamp-universal-time self)
+	  :nsec (fraction-to-nsecs (cl-log:timestamp-fraction self)))))
+    (local-time:format-timestring stream log-local-time)))
+
+;; Start the logger
+(start-logger)
 
 ;;;
 ;;; Timing Macro
@@ -199,6 +228,39 @@
   (with-slots (read rows errs secs) pgstate
     (report-footer legend read rows errs secs)))
 
+;;;
+;;; Pretty print the whole summary from a state
+;;;
+(defun report-summary (&key ((:state pgstate) *state*) (header t) footer)
+  "Report a whole summary."
+  (when header (report-header))
+  (loop
+     for table-name being the hash-keys in (pgstate-tables pgstate)
+     using (hash-value pgtable)
+     do
+       (with-slots (read rows errs secs) pgtable
+	 (format t *header-cols-format* table-name read rows errs secs))
+     finally (when footer
+	       (report-pgstate-stats pgstate footer))))
+
+(defmacro with-stats-collection ((dbname table-name
+					 &key
+					 summary
+					 use-result-as-rows
+					 ((:state pgstate) *state*))
+				 &body forms)
+  "Measure time spent in running BODY into STATE, accounting the seconds to
+   given DBNAME and TABLE-NAME"
+  (let ((result (gensym "result"))
+	(secs   (gensym "secs")))
+    `(progn
+       (pgstate-add-table ,pgstate ,dbname ,table-name)
+       (multiple-value-bind (,result ,secs)
+	   (timing ,@forms)
+	 (if ,use-result-as-rows
+	     (pgstate-incf ,pgstate ,table-name :rows ,result :secs ,secs)
+	     (pgstate-incf ,pgstate ,table-name :secs ,secs)))
+       (when ,summary (report-summary)))))
 
 ;;;
 ;;; File utils
@@ -234,3 +296,21 @@
       when (and new-word (not (char= char #\_))) collect #\_
       collect (char-downcase char))
    'string))
+
+;;;
+;;; lparallel
+;;;
+(defun make-kernel (worker-count
+		    &key (bindings
+			  `((*pgconn-host* . ,*pgconn-host*)
+			    (*pgconn-port* . ,*pgconn-port*)
+			    (*pgconn-user* . ,*pgconn-user*)
+			    (*pgconn-pass* . ,*pgconn-pass*)
+			    (*pg-settings* . ',*pg-settings*)
+			    (*myconn-host* . ,*myconn-host*)
+			    (*myconn-port* . ,*myconn-port*)
+			    (*myconn-user* . ,*myconn-user*)
+			    (*myconn-pass* . ,*myconn-pass*)
+			    (*state*       . ,*state*))))
+  "Wrapper around lparallel:make-kernel that sets our usual bindings."
+  (lp:make-kernel worker-count :bindings bindings))

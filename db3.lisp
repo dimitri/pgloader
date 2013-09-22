@@ -122,41 +122,35 @@
 		      truncate)
   "Open the DB3 and stream its content to a PostgreSQL database."
   (when create-table
-    (pgloader.pgsql:execute dbname (db3-create-table filename)))
+    (let ((create-table-sql (db3-create-table filename)))
+      (log-message :notice "Create table \"~a\"" table-name)
+      (log-message :info "~a" create-table-sql)
+      (pgloader.pgsql:execute dbname create-table-sql)))
 
-  (let* ((*state*     (pgloader.utils:make-pgstate))
-	 (lp:*kernel* (lp:make-kernel 2 :bindings
-				      `((*pgconn-host* . ,*pgconn-host*)
-					(*pgconn-port* . ,*pgconn-port*)
-					(*pgconn-user* . ,*pgconn-user*)
-					(*pgconn-pass* . ,*pgconn-pass*)
-					(*pg-settings* . ',*pg-settings*)
-					(*state*       . ,*state*))))
+  (when truncate
+    (let ((truncate-sql  (format nil "TRUNCATE ~a;" table-name)))
+      (log-message :notice "~a" truncate-sql)
+      (pgloader.pgsql:execute dbname truncate-sql)))
+
+  (let* ((*state*     (make-pgstate))
+	 (lp:*kernel* (make-kernel 2))
 	 (channel     (lp:make-channel))
 	 (dataq       (lq:make-queue :fixed-capacity 4096)))
 
-    ;; statistics
-    (report-header)
-    (pgstate-add-table *state* dbname table-name)
-    (report-table-name table-name)
+    (with-stats-collection (dbname table-name :state *state* :summary t)
+      (log-message :notice "COPY \"~a\" from '~a'" table-name filename)
+      (lp:submit-task channel #'copy-to-queue filename dataq table-name)
 
-    (multiple-value-bind (res secs)
-	(timing
-	 (lp:submit-task channel #'copy-to-queue filename dataq table-name)
+      ;; and start another task to push that data from the queue to PostgreSQL
+      (lp:submit-task channel
+		      #'pgloader.pgsql:copy-from-queue
+		      dbname table-name dataq
+		      :truncate truncate
+		      :transforms (transforms filename))
 
-	 ;; and start another task to push that data from the queue to PostgreSQL
-	 (lp:submit-task channel
-			 #'pgloader.pgsql:copy-from-queue
-			 dbname table-name dataq
-			 :truncate truncate
-			 :transforms (transforms filename))
-
-	 ;; now wait until both the tasks are over, and kill the kernel
-	 (loop for tasks below 2 do (lp:receive-result channel))
-	 (lp:end-kernel))
-
-      ;; report stats!
-      (declare (ignore res))
-      (pgstate-incf *state* table-name :secs secs)
-      (report-pgtable-stats *state* table-name))))
+      ;; now wait until both the tasks are over, and kill the kernel
+      (loop for tasks below 2 do (lp:receive-result channel)
+	 finally
+	   (log-message :info "COPY \"~a\" done." table-name)
+	   (lp:end-kernel)))))
 

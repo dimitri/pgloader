@@ -12,6 +12,7 @@
 		#:log-message
 		#:ring-messenger
 		#:text-file-messenger
+		#:text-stream-messenger
 		#:formatted-message)
   (:export #:log-message
 	   #:report-header
@@ -30,8 +31,11 @@
 	   #:pgtable-reject-logs
 	   #:report-pgtable-stats
 	   #:report-pgstate-stats
+	   #:report-summary
+	   #:with-stats-collection
 	   #:slurp-file-into-string
-	   #:camelCase-to-colname))
+	   #:camelCase-to-colname
+	   #:make-kernel))
 
 (defpackage #:pgloader.transforms
   (:use #:cl))
@@ -47,23 +51,7 @@
 	   #:map-push-queue))
 
 (defpackage #:pgloader.csv
-  (:use #:cl #:pgloader.params)
-  (:import-from #:pgloader.utils
-		#:log-message
-		#:report-header
-		#:report-table-name
-		#:report-results
-		#:report-footer
-		#:format-interval
-		#:timing
-		#:make-pgstate
-		#:pgstate-get-table
-		#:pgstate-add-table
-		#:pgstate-setf
-		#:pgstate-incf
-		#:pgstate-decf
-		#:report-pgtable-stats
-		#:report-pgstate-stats)
+  (:use #:cl #:pgloader.params #:pgloader.utils)
   (:export #:*csv-path-root*
 	   #:get-pathname
 	   #:copy-to-queue
@@ -73,75 +61,24 @@
 	   #:guess-all-csv-params))
 
 (defpackage #:pgloader.db3
-  (:use #:cl #:pgloader.params)
-  (:import-from #:pgloader.utils
-		#:log-message
-		#:report-header
-		#:report-table-name
-		#:report-results
-		#:report-footer
-		#:format-interval
-		#:timing
-		#:make-pgstate
-		#:pgstate-get-table
-		#:pgstate-add-table
-		#:pgstate-setf
-		#:pgstate-incf
-		#:pgstate-decf
-		#:report-pgtable-stats
-		#:report-pgstate-stats)
+  (:use #:cl #:pgloader.params #:pgloader.utils)
   (:export #:map-rows
 	   #:copy-to
 	   #:copy-to-queue
 	   #:stream-file))
 
 (defpackage #:pgloader.archive
-  (:use #:cl #:pgloader.params #:pgloader.csv)
-  (:import-from #:pgloader.utils
-		#:log-message
-		#:report-header
-		#:report-table-name
-		#:report-results
-		#:report-footer
-		#:format-interval
-		#:timing
-		#:make-pgstate
-		#:pgstate-get-table
-		#:pgstate-add-table
-		#:pgstate-setf
-		#:pgstate-incf
-		#:pgstate-decf
-		#:report-pgtable-stats
-		#:report-pgstate-stats
-		#:camelCase-to-colname)
+  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.csv)
   (:export #:import-csv-from-zip))
 
 (defpackage #:pgloader.syslog
-  (:use #:cl #:pgloader.params)
-  (:import-from #:pgloader.utils
-		#:log-message)
+  (:use #:cl #:pgloader.params #:pgloader.utils)
   (:export #:stream-messages
 	   #:start-syslog-server
 	   #:send-message))
 
 (defpackage #:pgloader.mysql
-  (:use #:cl #:pgloader.params)
-  (:import-from #:pgloader.utils
-		#:log-message
-		#:report-header
-		#:report-table-name
-		#:report-results
-		#:report-footer
-		#:format-interval
-		#:timing
-		#:make-pgstate
-		#:pgstate-get-table
-		#:pgstate-add-table
-		#:pgstate-setf
-		#:pgstate-incf
-		#:pgstate-decf
-		#:report-pgtable-stats
-		#:report-pgstate-stats)
+  (:use #:cl #:pgloader.params #:pgloader.utils)
   (:export #:*cast-rules*
 	   #:*default-cast-rules*
 	   #:map-rows
@@ -154,25 +91,7 @@
 	   #:stream-database))
 
 (defpackage #:pgloader.pgsql
-  (:use #:cl #:pgloader.params)
-  (:import-from #:pgloader.utils
-		#:log-message
-		#:report-header
-		#:report-table-name
-		#:report-results
-		#:report-footer
-		#:format-interval
-		#:timing
-		#:make-pgstate
-		#:pgstate-get-table
-		#:pgstate-add-table
-		#:pgstate-setf
-		#:pgstate-incf
-		#:pgstate-decf
-		#:pgtable-reject-data
-		#:pgtable-reject-logs
-		#:report-pgtable-stats
-		#:report-pgstate-stats)
+  (:use #:cl #:pgloader.params #:pgloader.utils)
   (:export #:truncate-table
 	   #:copy-from-file
 	   #:copy-from-queue
@@ -185,19 +104,22 @@
 	   #:format-row))
 
 (defpackage #:pgloader
-  (:use #:cl #:pgloader.params)
+  (:use #:cl #:pgloader.params #:pgloader.utils)
   (:import-from #:pgloader.pgsql
 		#:copy-from-file
 		#:list-databases
 		#:list-tables)
-  (:import-from #:pgloader.utils
-		#:slurp-file-into-string)
   (:import-from #:pgloader.parser
 		#:run-command
 		#:parse-command)
   (:export #:*state*
 	   #:*csv-path-root*
 	   #:*reject-path-root*
+	   #:*pgconn-host*
+	   #:*pgconn-port*
+	   #:*pgconn-user*
+	   #:*pgconn-pass*
+	   #:*pg-settings*
 	   #:*myconn-host*
 	   #:*myconn-port*
 	   #:*myconn-user*
