@@ -8,7 +8,6 @@
   (:export #:*csv-path-root*
 	   #:*reject-path-root*
 	   #:*log-filename*
-	   #:*loader-kernel*
 	   #:*copy-batch-size*
 	   #:*copy-batch-split*
 	   #:*pgconn-host*
@@ -40,10 +39,6 @@
 
 (defparameter *log-level* :notice)
 (setq *log-level* :debug)
-
-;;; package nicknames are only defined later, in package.lisp
-(defparameter *loader-kernel* (lparallel:make-kernel 2)
-  "lparallel kernel to use for loading data in parallel")
 
 ;;;
 ;;; How to split batches in case of data loading errors.

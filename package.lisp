@@ -198,7 +198,6 @@
   (:export #:*state*
 	   #:*csv-path-root*
 	   #:*reject-path-root*
-	   #:*loader-kernel*
 	   #:*myconn-host*
 	   #:*myconn-port*
 	   #:*myconn-user*

@@ -307,10 +307,17 @@ Finally returns how many rows where read and processed."
 			 (truncate t)
 			 (report nil))
   "Load data from clean COPY TEXT file to PostgreSQL, return how many rows."
-  (let* ((lp:*kernel* *loader-kernel*)
+  (let* ((*state*     (if report (pgloader.utils:make-pgstate) *state*))
+	 (lp:*kernel*
+	  (lp:make-kernel 2 :bindings
+			  `((*pgconn-host* . ,*pgconn-host*)
+			    (*pgconn-port* . ,*pgconn-port*)
+			    (*pgconn-user* . ,*pgconn-user*)
+			    (*pgconn-pass* . ,*pgconn-pass*)
+			    (*pg-settings* . ',*pg-settings*)
+			    (*state*       . ,*state*))))
 	 (channel     (lp:make-channel))
-	 (dataq       (lq:make-queue :fixed-capacity 4096))
-	 (*state*     (if report (pgloader.utils:make-pgstate) *state*)))
+	 (dataq       (lq:make-queue :fixed-capacity 4096)))
 
     (log-message :debug "pgsql:copy-from-file: ~a ~a ~a" dbname table-name filename)
 
