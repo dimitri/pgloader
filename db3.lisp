@@ -121,16 +121,18 @@
 		      create-table
 		      truncate)
   "Open the DB3 and stream its content to a PostgreSQL database."
-  (when create-table
-    (let ((create-table-sql (db3-create-table filename)))
-      (log-message :notice "Create table \"~a\"" table-name)
-      (log-message :info "~a" create-table-sql)
-      (pgloader.pgsql:execute dbname create-table-sql)))
+  (with-pgsql-transaction (dbname)
+    (when create-table
+      (let ((create-table-sql (db3-create-table filename)))
+	(log-message :notice "Create table \"~a\"" table-name)
+	(log-message :info "~a" create-table-sql)
+	(pgsql-execute create-table-sql)))
 
-  (when truncate
-    (let ((truncate-sql  (format nil "TRUNCATE ~a;" table-name)))
-      (log-message :notice "~a" truncate-sql)
-      (pgloader.pgsql:execute dbname truncate-sql)))
+    (when (and truncate (not create-table))
+      ;; we don't TRUNCATE a table we just CREATEd
+      (let ((truncate-sql  (format nil "TRUNCATE ~a;" table-name)))
+	(log-message :notice "~a" truncate-sql)
+	(pgsql-execute truncate-sql))))
 
   (let* ((*state*     (make-pgstate))
 	 (lp:*kernel* (make-kernel 2))

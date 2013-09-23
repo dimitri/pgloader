@@ -50,6 +50,25 @@
   (:export #:map-pop-queue
 	   #:map-push-queue))
 
+(defpackage #:pgloader.pgsql
+  (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:export #:with-pgsql-transaction
+	   #:pgsql-execute
+	   #:truncate-table
+	   #:copy-from-file
+	   #:copy-from-queue
+	   #:list-databases
+	   #:list-tables
+	   #:list-tables-cols
+	   #:reset-all-sequences
+	   #:execute
+	   #:get-date-columns
+	   #:format-row))
+
+
+;;
+;; Specific source handling
+;;
 (defpackage #:pgloader.csv
   (:use #:cl #:pgloader.params #:pgloader.utils)
   (:export #:*csv-path-root*
@@ -62,6 +81,9 @@
 
 (defpackage #:pgloader.db3
   (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:import-from #:pgloader.pgsql
+		#:with-pgsql-transaction
+		#:pgsql-execute)
   (:export #:map-rows
 	   #:copy-to
 	   #:copy-to-queue
@@ -69,16 +91,25 @@
 
 (defpackage #:pgloader.archive
   (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.csv)
+  (:import-from #:pgloader.pgsql
+		#:with-pgsql-transaction
+		#:pgsql-execute)
   (:export #:import-csv-from-zip))
 
 (defpackage #:pgloader.syslog
   (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:import-from #:pgloader.pgsql
+		#:with-pgsql-transaction
+		#:pgsql-execute)
   (:export #:stream-messages
 	   #:start-syslog-server
 	   #:send-message))
 
 (defpackage #:pgloader.mysql
   (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:import-from #:pgloader.pgsql
+		#:with-pgsql-transaction
+		#:pgsql-execute)
   (:export #:*cast-rules*
 	   #:*default-cast-rules*
 	   #:map-rows
@@ -90,19 +121,10 @@
 	   #:stream-table
 	   #:stream-database))
 
-(defpackage #:pgloader.pgsql
-  (:use #:cl #:pgloader.params #:pgloader.utils)
-  (:export #:truncate-table
-	   #:copy-from-file
-	   #:copy-from-queue
-	   #:list-databases
-	   #:list-tables
-	   #:list-tables-cols
-	   #:reset-all-sequences
-	   #:execute
-	   #:get-date-columns
-	   #:format-row))
-
+
+;;
+;; Main package
+;;
 (defpackage #:pgloader
   (:use #:cl #:pgloader.params #:pgloader.utils)
   (:import-from #:pgloader.pgsql

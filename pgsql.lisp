@@ -14,6 +14,38 @@
       (append conspec (list :port *pgconn-port*))
       (append conspec (list *pgconn-port*)))))
 
+(defun set-session-gucs (alist &key transaction database)
+  "Set given GUCs to given values for the current session."
+  (let ((pomo:*database* (or database pomo:*database*)))
+    (loop
+       for (name . value) in alist
+       do (pomo:execute
+	   (format nil "SET~@[ LOCAL~] ~a TO '~a'" transaction name value)))))
+
+(defmacro with-pgsql-transaction ((dbname &key database) &body forms)
+  "Run FORMS within a PostgreSQL transaction to DBNAME, reusing DATABASE if
+   given. To get the connection spec from the DBNAME, use `get-connection-spec'."
+  (if database
+      `(let ((pomo:*database* database))
+	 (pomo:with-transaction ()
+	   (set-session-gucs *pg-settings* :transaction t)
+	   (progn ,@forms)))
+      ;; no database given, create a new database connection
+      `(pomo:with-connection (get-connection-spec ,dbname)
+	 (set-session-gucs *pg-settings*)
+	 (pomo:with-transaction ()
+	   (progn ,@forms)))))
+
+(defun pgsql-execute (sql &key ((:client-min-messages level)))
+  "Execute given SQL in current transaction"
+  (when level
+    (pomo:execute
+     (format nil "SET LOCAL client_min_messages TO ~a;" (symbol-name level))))
+
+  (pomo:execute sql)
+
+  (when level (pomo:execute (format nil "RESET client_min_messages;"))))
+
 (defun truncate-table (dbname table-name)
   "Truncate given TABLE-NAME in database DBNAME"
   (pomo:with-connection (get-connection-spec dbname)
@@ -72,16 +104,12 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
 
 (defun reset-all-sequences (dbname)
   "Reset all sequences to the max value of the column they are attached to."
-  (let ((connection
-	 (apply #'cl-postgres:open-database
-		(remove :port (get-connection-spec dbname)))))
+  (pomo:with-connection (get-connection-spec dbname)
+    (pomo:execute "set client_min_messages to warning;")
+    (pomo:execute "listen seqs")
 
-    (cl-postgres:exec-query connection "set client_min_messages to warning;")
-    (cl-postgres:exec-query connection "listen seqs")
-
-    (prog1
-	(handler-case
-	    (cl-postgres:exec-query connection "
+    (handler-case
+	(pomo:execute "
 DO $$
 DECLARE
   n integer := 0;
@@ -110,24 +138,9 @@ BEGIN
   PERFORM pg_notify('seqs', n::text);
 END;
 $$; ")
-	  ;; now get the notification signal
-	  (cl-postgres:postgresql-notification (c)
-	    (parse-integer (cl-postgres:postgresql-notification-payload c))))
-    (cl-postgres:close-database connection))))
-
-(defun execute (dbname sql &key ((:client-min-messages level)))
-  "Execute given SQL in DBNAME"
-  (pomo:with-connection (get-connection-spec dbname)
-    (when level
-      (pomo:execute
-       (format nil "SET client_min_messages TO ~a;" (symbol-name level))))
-    (pomo:execute sql)))
-
-(defun set-session-gucs (alist)
-  "Set given GUCs to given values for the current session."
-  (loop
-     for (name . value) in alist
-     do (pomo:execute (format nil "SET ~a TO ~a" name value))))
+      ;; now get the notification signal
+      (cl-postgres:postgresql-notification (c)
+	(parse-integer (cl-postgres:postgresql-notification-payload c))))))
 
 ;;;
 ;;; PostgreSQL formating tools
@@ -267,20 +280,24 @@ Finally returns how many rows where read and processed."
   (let* ((conspec (get-connection-spec dbname :with-port nil)))
     (loop
        for retval =
-	 (let* ((stream (cl-postgres:open-db-writer conspec table-name nil))
+	 (let* ((copier (cl-postgres:open-db-writer conspec table-name nil
+						    :initialize nil))
 		(*batch* nil)
 		(*batch-size* 0))
 	   (log-message :debug "pgsql:copy-from-queue: starting new batch")
+	   (set-session-gucs *pg-settings*
+			     :database (cl-postgres::copier-database copier))
+	   (cl-postgres::initialize-copier copier)
 	   (unwind-protect
 		(let ((process-row-fn
-		       (make-copy-and-batch-fn stream :transforms transforms)))
+		       (make-copy-and-batch-fn copier :transforms transforms)))
 		  (catch 'next-batch
 		    (pgloader.queue:map-pop-queue dataq process-row-fn)))
 	     ;; in case of data-exception, split the batch and try again
 	     (handler-case
 		 (progn
 		   (log-message :debug "pgsql:copy-from-queue: commit batch")
-		   (cl-postgres:close-db-writer stream))
+		   (cl-postgres:close-db-writer copier))
 	       ((or
 		 CL-POSTGRES-ERROR:UNIQUE-VIOLATION
 		 CL-POSTGRES-ERROR:DATA-EXCEPTION) (e)

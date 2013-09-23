@@ -120,10 +120,9 @@ order by table_name, ordinal_position" dbname)))
      collect (get-create-table table-name cols
 			       :identifier-case identifier-case)))
 
-(defun pgsql-create-tables (dbname all-columns
+(defun pgsql-create-tables (all-columns
 			    &key
 			      (identifier-case :downcase)
-			      (pg-dbname dbname)
 			      include-drop)
   "Create all MySQL tables in database dbname in PostgreSQL"
   (loop
@@ -131,7 +130,7 @@ order by table_name, ordinal_position" dbname)))
      for sql in (get-pgsql-create-tables all-columns
 					 :identifier-case identifier-case
 					 :include-drop include-drop)
-     do (pgloader.pgsql:execute pg-dbname sql :client-min-messages :warning)
+     do (pgsql-execute sql :client-min-messages :warning)
      finally (return nb-tables)))
 
 
@@ -454,7 +453,7 @@ order by ordinal_position" dbname table-name)))
 (defun execute-with-timing (dbname label sql state &key (count 1))
   "Execute given SQL and resgister its timing into STATE."
   (multiple-value-bind (res secs)
-      (timing (pgloader.pgsql:execute dbname sql))
+      (timing (with-pgsql-transaction (dbname) (pgsql-execute sql)))
     (declare (ignore res))
     (pgstate-incf state label :rows count :secs secs)))
 
@@ -477,7 +476,8 @@ order by ordinal_position" dbname table-name)))
 	   for sql in drop-indexes
 	   do
 	     (log-message :notice "~a" sql)
-	     (lp:submit-task drop-channel #'pgloader.pgsql:execute dbname sql))
+	     (lp:submit-task drop-channel
+			     #'execute-with-timing dbname label sql state))
 
 	;; wait for the DROP INDEX to be done before issuing CREATE INDEX
 	(loop for idx in drop-indexes do (lp:receive-result drop-channel))))
@@ -517,10 +517,10 @@ order by ordinal_position" dbname table-name)))
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (when create-tables
       (log-message :notice "~:[~;DROP then ~]CREATE TABLES" include-drop)
-      (pgsql-create-tables dbname all-columns
-			   :identifier-case identifier-case
-			   :pg-dbname pg-dbname
-			   :include-drop include-drop))
+      (with-pgsql-transaction (dbname)
+	(pgsql-create-tables all-columns
+			     :identifier-case identifier-case
+			     :include-drop include-drop)))
 
     (loop
        for (table-name . columns) in all-columns

@@ -32,16 +32,18 @@
 	       (:file "parser"  :depends-on ("package" "params"))
 	       (:file "transforms")
 	       (:file "queue"   :depends-on ("package")) ; pgloader.queue
-	       (:file "csv"     :depends-on ("package")) ; pgloader.csv
-	       (:file "db3"     :depends-on ("package")) ; pgloader.db3
-	       (:file "archive" :depends-on ("package")) ; pgloader.archive
-	       (:file "syslog"  :depends-on ("package")) ; pgloader.syslog
 
 	       ;; package pgloader.pgsql
 	       (:file "pgsql"   :depends-on ("package"
 					     "queue"
 					     "utils"
 					     "transforms"))
+
+	       ;; Source format specific implementations
+	       (:file "csv"     :depends-on ("package" "pgsql"))
+	       (:file "db3"     :depends-on ("package" "pgsql"))
+	       (:file "archive" :depends-on ("package" "pgsql"))
+	       (:file "syslog"  :depends-on ("package" "pgsql"))
 
 	       ;; mysql.lisp depends on pgsql.lisp to be able to export data
 	       ;; from MySQL in the PostgreSQL format.
