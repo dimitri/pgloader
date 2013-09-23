@@ -560,17 +560,12 @@ order by ordinal_position" dbname table-name)))
 
     ;; now end the kernels
     (let ((lp:*kernel* idx-kernel))  (lp:end-kernel))
-    (let ((lp:*kernel* copy-kernel)
-	  (label       "index build completion"))
+    (let ((lp:*kernel* copy-kernel))
       ;; wait until the indexes are done being built...
       ;; don't forget accounting for that waiting time.
-      (multiple-value-bind (res secs)
-	  (timing
-	   (loop for idx in all-indexes do (lp:receive-result idx-channel)))
-	(declare (ignore res))
-	(pgstate-add-table *state* dbname label)
-	(pgstate-incf *state* label :secs secs)
-	(lp:end-kernel)))
+      (with-stats-collection (dbname "index build completion" :state *state*)
+	(loop for idx in all-indexes do (lp:receive-result idx-channel)))
+      (lp:end-kernel))
 
     ;; and report the total time spent on the operation
     (report-summary)
