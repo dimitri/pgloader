@@ -28,11 +28,11 @@ with [Quicklisp](http://www.quicklisp.org/beta/).
 	* (quicklisp-quickstart:install)
 	* (ql:add-to-init-file)
 
-The current version of the code depends on a patched version of Postmodern,
-so you need to install the specific branch here:
+The current version of the code depends on a recent version of Postmodern
+not found in Quicklisp yet at the time of this writing:
 
     cd ~/quicklisp/local-projects/
-	git clone -b open-db-writer https://github.com/dimitri/Postmodern.git
+	git clone https://github.com/marijnh/Postmodern.git
 
 Now fetch pgloader sources using `git clone` then you can use the #! script.
 You might have to modify it because it's now hard coded to use
