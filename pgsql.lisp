@@ -277,17 +277,14 @@ Finally returns how many rows where read and processed."
 
   (log-message :debug "pgsql:copy-from-queue: ~a ~a" dbname table-name)
 
-  (let* ((conspec (get-connection-spec dbname :with-port nil)))
+  (with-pgsql-transaction (dbname)
+    (set-session-gucs *pg-settings*)
     (loop
        for retval =
-	 (let* ((copier (cl-postgres:open-db-writer conspec table-name nil
-						    :initialize nil))
+	 (let* ((copier (cl-postgres:open-db-writer pomo:*database* table-name nil))
 		(*batch* nil)
 		(*batch-size* 0))
 	   (log-message :debug "pgsql:copy-from-queue: starting new batch")
-	   (set-session-gucs *pg-settings*
-			     :database (cl-postgres::copier-database copier))
-	   (cl-postgres::initialize-copier copier)
 	   (unwind-protect
 		(let ((process-row-fn
 		       (make-copy-and-batch-fn copier :transforms transforms)))
