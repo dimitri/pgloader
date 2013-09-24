@@ -172,11 +172,63 @@ Here's a quick description of the format we're parsing here:
   (def-keyword-rule "before")
   (def-keyword-rule "finally")
   (def-keyword-rule "and")
-  (def-keyword-rule "do"))
+  (def-keyword-rule "do")
+  (def-keyword-rule "filename")
+  (def-keyword-rule "matching"))
 
 (defrule kw-auto-increment (and "auto_increment" (* (or #\Tab #\Space)))
   (:constant :auto-increment))
 
+
+;;;
+;;; Regular Expression support, quoted as-you-like
+;;;
+(defun process-quoted-regex (pr)
+  "Helper function to process different kinds of quotes for regexps"
+  (destructuring-bind (open regex close) pr
+      (declare (ignore open close))
+      `(:regex ,(text regex))))
+
+(defrule single-quoted-regex (and #\' (+ (not #\')) #\')
+  (:function process-quoted-regex))
+
+(defrule double-quoted-regex (and #\" (+ (not #\")) #\")
+  (:function process-quoted-regex))
+
+(defrule parens-quoted-regex (and #\( (+ (not #\))) #\))
+  (:function process-quoted-regex))
+
+(defrule braces-quoted-regex (and #\{ (+ (not #\})) #\})
+  (:function process-quoted-regex))
+
+(defrule chevron-quoted-regex (and #\< (+ (not #\>)) #\>)
+  (:function process-quoted-regex))
+
+(defrule brackets-quoted-regex (and #\[ (+ (not #\])) #\])
+  (:function process-quoted-regex))
+
+(defrule slash-quoted-regex (and #\/ (+ (not #\/)) #\/)
+  (:function process-quoted-regex))
+
+(defrule pipe-quoted-regex (and #\| (+ (not #\|)) #\|)
+  (:function process-quoted-regex))
+
+(defrule sharp-quoted-regex (and #\# (+ (not #\#)) #\#)
+  (:function process-quoted-regex))
+
+(defrule quoted-regex (and "~" (or single-quoted-regex
+				   double-quoted-regex
+				   parens-quoted-regex
+				   braces-quoted-regex
+				   chevron-quoted-regex
+				   brackets-quoted-regex
+				   slash-quoted-regex
+				   pipe-quoted-regex
+				   sharp-quoted-regex))
+  (:lambda (qr)
+    (destructuring-bind (tilde regex) qr
+      (declare (ignore tilde))
+      regex)))
 
 
 ;;;
@@ -860,11 +912,11 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore fields ))
       sep)))
 
-(defrule csv-option (and (or option-truncate
-			     option-skip-header
-			     option-fields-enclosed-by
-			     option-fields-escaped-by
-			     option-fields-terminated-by)))
+(defrule csv-option (or option-truncate
+			option-skip-header
+			option-fields-enclosed-by
+			option-fields-escaped-by
+			option-fields-terminated-by))
 
 (defrule another-csv-option (and #\, ignore-whitespace csv-option)
   (:lambda (source)
@@ -893,7 +945,7 @@ Here's a quick description of the format we're parsing here:
       (cons :date-format date-format))))
 
 (defrule option-null-if-blanks (and kw-null kw-if kw-blanks)
-  (:constant (cons :null-if-blanks t)))
+  (:constant (cons :null-as :blanks)))
 
 (defrule csv-field-option (or option-terminated-by
 			      option-date-format
@@ -950,13 +1002,9 @@ Here's a quick description of the format we're parsing here:
   (or (alphanumericp character)
       (member character '(#\_ #\-))))
 
-(defun intern-transforms-symbol (symbol-name)
-  (intern (string-upcase symbol-name)
-	  (find-package "PGLOADER.TRANSFORMS")))
-
 (defrule sexp-symbol (+ (symbol-character-p character))
   (:lambda (schars)
-    (intern-transforms-symbol (text schars))))
+    (pgloader.transforms:intern-symbol (text schars))))
 
 (defrule sexp-string-char (or (not-doublequote character) (and #\\ #\")))
 
@@ -1020,14 +1068,23 @@ Here's a quick description of the format we're parsing here:
 ;;
 ;; The main command parsing
 ;;
-(defrule csv-source (and kw-load kw-csv kw-from maybe-quoted-filename)
+(defrule filename-matching (and kw-filename kw-matching quoted-regex)
+  (:lambda (fm)
+    (destructuring-bind (filename matching regex) fm
+      (declare (ignore filename matching))
+      regex)))
+
+(defrule filename-or-regex (or filename-matching maybe-quoted-filename))
+
+(defrule csv-source (and kw-load kw-csv kw-from filename-or-regex)
   (:lambda (src)
     (destructuring-bind (load csv from source) src
       (declare (ignore load csv from))
       ;; source is (:filename #P"pathname/here")
       (destructuring-bind (type uri) source
 	(ecase type
-	  (:filename uri))))))
+	  (:filename source)
+	  (:regex    source))))))
 
 (defun list-symbols (expression &optional s)
   "Return a list of the symbols used in EXPRESSION."
@@ -1036,22 +1093,6 @@ Here's a quick description of the format we're parsing here:
     (list    (loop for e in expression for s = (list-symbols e s)
 		finally (return (reverse s))))
     (t       s)))
-
-(defun col-expr-to-lambda (fields cols)
-  "Transform expression into proper lambda definitions."
-  (loop
-     with args = (mapcar
-		  (lambda (field) (intern-transforms-symbol (car field)))
-		  fields)
-     for (name type expression) in cols
-     for fun = (when expression
-		 (let ((args-not-used
-			(set-difference args (list-symbols expression))))
-		   (compile nil `(lambda (,@args)
-				   ;; avoid warnings when compiling the command
-				   (declare (ignore ,@args-not-used))
-				   ,expression))))
-     collect (list name type fun)))
 
 (defrule load-csv-file (and csv-source (? csv-source-field-list)
 			    target (? csv-target-column-list)
@@ -1068,10 +1109,9 @@ Here's a quick description of the format we're parsing here:
 		  (*pgconn-pass* ,password))
 	     (pgloader.csv:copy-from-file ,dbname
 					  ,table-name
-					  ,source
+					  ',source
 					  :fields ',fields
-					  :cols ',(funcall #'col-expr-to-lambda
-							   fields columns)
+					  :columns ',columns
 					  ,@options)))))))
 
 
@@ -1106,14 +1146,6 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore finally do))
       quoted)))
 
-(defrule archive-source (and kw-in kw-archive http-uri)
-  (:lambda (src)
-    (destructuring-bind (in archive source) src
-      (declare (ignore in archive))
-      (destructuring-bind (type url) source
-	(ecase type
-	  (:http url))))))
-
 (defrule archive-command (or load-csv-file
 			     load-dbf-file))
 
@@ -1128,20 +1160,37 @@ Here's a quick description of the format we're parsing here:
     (destructuring-bind (col1 cols) source
       (list* col1 cols))))
 
-(defrule in-archive (and archive-source
-			 before-load-do
-			 archive-command-list
-			 finally-do)
+(defrule archive-source (and kw-load kw-from kw-archive http-uri)
+  (:lambda (src)
+    (destructuring-bind (load from archive source) src
+      (declare (ignore load from archive))
+      (destructuring-bind (type url) source
+	(ecase type
+	  (:http url))))))
+
+(defrule load-from-archive (and archive-source
+				target
+				before-load-do
+				archive-command-list
+				finally-do)
   (:lambda (archive)
-    (destructuring-bind (source before commands finally) archive
-      `(lambda ()
-	 (let* ((archive-file    (pgloader.archive:http-fetch-file ,source))
-		(*csv-root-file* (pgloader.archive:expand-archive archive-file)))
-	   (progn
-	     (pgsql-execute ,before :client-min-messages :error)
-	     ,@(loop for command in commands
-		  collect `(funcall ,command))
-	     (pgsql-execute ,finally :client-min-messages :error)))))))
+    (destructuring-bind (source pg-db-uri before commands finally) archive
+      (destructuring-bind (&key host port user password dbname &allow-other-keys)
+	  pg-db-uri
+	`(lambda ()
+	   (let* ((archive-file    (pgloader.archive:http-fetch-file ,source))
+		  (*csv-path-root* (pgloader.archive:expand-archive archive-file))
+		  (*pgconn-host* ,host)
+		  (*pgconn-port* ,port)
+		  (*pgconn-user* ,user)
+		  (*pgconn-pass* ,password))
+	     (progn
+	       (with-pgsql-transaction (,dbname)
+		 (pgsql-execute ,before :client-min-messages :error))
+	       ,@(loop for command in commands
+		    collect `(funcall ,command))
+	       (with-pgsql-transaction (,dbname)
+		 (pgsql-execute ,finally :client-min-messages :error)))))))))
 
 
 ;;;
@@ -1154,7 +1203,7 @@ Here's a quick description of the format we're parsing here:
 (defrule end-of-command (and ignore-whitespace #\; ignore-whitespace)
   (:constant :eoc))
 
-(defrule command (and (or in-archive
+(defrule command (and (or load-from-archive
 			  load-csv-file
 			  load-dbf-file
 			  load-database
@@ -1258,9 +1307,10 @@ LOAD FROM http:///tapoueh.org/db.t
                  fields terminated by '\t';
 "))
 
-(defun test-parsing-in-archive ()
+(defun test-parsing-load-from-archive ()
   (parse-command "
-    IN ARCHIVE http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV/GeoLiteCity-latest.zip
+    LOAD FROM ARCHIVE http://pgsql.tapoueh.org/temp/foo.zip
+       INTO postgresql://dim@localhost:54393/dim
 
        BEFORE LOAD DO
        $$
@@ -1284,7 +1334,7 @@ LOAD FROM http:///tapoueh.org/db.t
          );
        $$
 
-        LOAD CSV FROM '*/GeoLiteCity-Blocks.csv'
+        LOAD CSV FROM FILENAME MATCHING ~/GeoLiteCity-Blocks.csv/
                  (
                     startIpNum, endIpNum, locId
                  )
@@ -1299,7 +1349,7 @@ LOAD FROM http:///tapoueh.org/db.t
                  fields escaped by '\"',
                  fields terminated by '\\t'
 
-    AND LOAD CSV FROM '*/GeoLiteCity-Location.csv'
+    AND LOAD CSV FROM FILENAME MATCHING ~/GeoLiteCity-Location.csv/
                  (
                     locId,country,region,city,postalCode,
                     latitude,longitude,metroCode,areaCode

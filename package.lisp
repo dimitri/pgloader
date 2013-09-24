@@ -37,14 +37,6 @@
 	   #:camelCase-to-colname
 	   #:make-kernel))
 
-(defpackage #:pgloader.parser
-  (:use #:cl #:esrap #:pgloader.params)
-  (:import-from #:pgloader.pgsql
-		#:with-pgsql-transaction
-		#:pgsql-execute)
-  (:export #:parse-command
-	   #:run-command))
-
 (defpackage #:pgloader.queue
   (:use #:cl)
   (:export #:map-pop-queue
@@ -64,6 +56,14 @@
 	   #:execute
 	   #:get-date-columns
 	   #:format-row))
+
+(defpackage #:pgloader.parser
+  (:use #:cl #:esrap #:pgloader.params)
+  (:import-from #:pgloader.pgsql
+		#:with-pgsql-transaction
+		#:pgsql-execute)
+  (:export #:parse-command
+	   #:run-command))
 
 
 ;;
@@ -97,6 +97,7 @@
   (:export #:*default-tmpdir*
 	   #:http-fetch-file
 	   #:expand-archive
+	   #:get-matching-filenames
 	   #:import-csv-from-zip))
 
 (defpackage #:pgloader.syslog

@@ -12,13 +12,67 @@
    :name table-name
    :type "csv"))
 
+(defun get-absolute-pathname (pathname-or-regex &key (root *csv-path-root*))
+  "PATHNAME-OR-REGEX is expected to be either (:regexp expression)
+   or (:filename pathname). In the first case, this fonction check if the
+   pathname is absolute or relative and returns an absolute pathname given
+   current working directory of ROOT.
+
+   In the second case, walk the ROOT directory and return the first pathname
+   that matches the regex. TODO: consider signaling a condition when we have
+   more than one match."
+  (destructuring-bind (type part) pathname-or-regex
+    (ecase type
+      (:regex    (first (pgloader.archive:get-matching-filenames root part)))
+      (:filename (if (fad:pathname-absolute-p part) part
+		     (merge-pathnames part root))))))
+
+;;;
+;;; Project fields into columns
+;;;
+(defun project-fields (&key fields columns null-as)
+  "The simplest projection happens when both FIELDS and COLS are nil: in
+   this case the projection is an identity, we simply return what we got --
+   still with some basic processing.
+
+   Other forms of projections consist of forming columns with the result of
+   applying a transformation function. In that case a cols entry is a list
+   of '(colname type expression), the expression being the (already
+   compiled) function to use here."
+
+  (let ((null-as (if (eq null-as :blanks)
+		     (lambda (col)
+		       (every (lambda (char) (char= char #\Space)) col))
+		     `(lambda (col)
+			(if (string= ,null-as col) nil col)))))
+
+    (if (or (null fields) (null columns))
+	`(lambda (row)
+	   (mapcar ,null-as row))
+
+	(let* ((args
+		(mapcar
+		 (lambda (field)
+		   (pgloader.transforms:intern-symbol (car field))) fields))
+	       (newrow
+		(loop for (name type fn) in columns
+		   collect (or fn
+			       (let ((binding
+				      (pgloader.transforms:intern-symbol name)))
+				 `(funcall ,null-as ,binding))))))
+	  `(lambda (row)
+	     (destructuring-bind (,@args) row
+	       (list ,@newrow)))))))
+
 ;;;
 ;;; Read a file format in CSV format, and call given function on each line.
 ;;;
 (defun map-rows (table-name filename
 		 &key
 		   process-row-fn
-		   (skip-first-p nil)
+		   fields
+		   columns
+		   (skip-lines nil)
 		   (separator #\Tab)
 		   (quote cl-csv:*quote*)
 		   (escape cl-csv:*quote-escape*)
@@ -41,16 +95,23 @@ Finally returns how many rows where read and processed."
 
       (let* ((read 0)
 	     (reformat-then-process
-	      (lambda (row)
-		(incf read)
-		(let ((row-with-nils
-		       (mapcar (lambda (x) (if (string= null-as x) nil x)) row)))
-		  (funcall process-row-fn row-with-nils)))))
+	      (compile nil
+		       (lambda (row)
+			 (incf read)
+			 (let* ((processing (project-fields :fields fields
+							    :columns columns
+							    :null-as null-as))
+				(processed-row (funcall processing row)))
+			   (funcall process-row-fn processed-row))))))
+
+	;; we handle skipping more than one line here, as cl-csv only knows
+	;; about skipping the first line
+	(when (and skip-lines (< 0 skip-lines))
+	  (loop repeat skip-lines do (read-line input nil nil)))
 
 	(handler-case
 	    (cl-csv:read-csv input
 			     :row-fn reformat-then-process
-			     :skip-first-p skip-first-p
 			     :separator separator
 			     :quote quote
 			     :escape escape)
@@ -63,7 +124,9 @@ Finally returns how many rows where read and processed."
 
 (defun copy-to-queue (table-name filename dataq
 		      &key
-			(skip-first-p nil)
+			fields
+			columns
+			skip-lines
 			(separator #\Tab)
 			(quote cl-csv:*quote*)
 			(escape cl-csv:*quote-escape*)
@@ -71,39 +134,33 @@ Finally returns how many rows where read and processed."
   "Copy data from CSV FILENAME into lprallel.queue DATAQ"
   (let ((read
 	 (pgloader.queue:map-push-queue dataq #'map-rows table-name filename
-					:skip-first-p skip-first-p
+					:fields fields
+					:columns columns
+					:skip-lines skip-lines
 					:separator separator
 					:quote quote
 					:escape escape
 					:null-as null-as)))
     (pgstate-incf *state* table-name :read read)))
 
-(defun copy-from-file (dbname table-name filename
+(defun copy-from-file (dbname table-name filename-or-regex
 		       &key
+			 fields
+			 columns
 			 transforms
 			 (truncate t)
-			 (skip-first-p nil)
+			 skip-lines
 			 (separator #\Tab)
 			 (quote cl-csv:*quote*)
 			 (escape cl-csv:*quote-escape*)
 			 (null-as "\\N"))
   "Copy data from CSV file FILENAME into PostgreSQL DBNAME.TABLE-NAME"
-  (let* ((report-header   (null *state*))
-	 (*state*         (or *state* (pgloader.utils:make-pgstate)))
-	 (lp:*kernel*
-	  (lp:make-kernel 2 :bindings
-			  `((*pgconn-host* . ,*pgconn-host*)
-			    (*pgconn-port* . ,*pgconn-port*)
-			    (*pgconn-user* . ,*pgconn-user*)
-			    (*pgconn-pass* . ,*pgconn-pass*)
-			    (*pg-settings* . ',*pg-settings*)
-			    (*myconn-host* . ,*myconn-host*)
-			    (*myconn-port* . ,*myconn-port*)
-			    (*myconn-user* . ,*myconn-user*)
-			    (*myconn-pass* . ,*myconn-pass*)
-			    (*state*       . ,*state*))))
-	 (channel     (lp:make-channel))
-	 (dataq       (lq:make-queue :fixed-capacity 4096)))
+  (let* ((report-header  (null *state*))
+	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
+	 (lp:*kernel*    (make-kernel 2))
+	 (channel        (lp:make-channel))
+	 (dataq          (lq:make-queue :fixed-capacity 4096))
+	 (filename       (get-absolute-pathname filename-or-regex)))
 
     ;; statistics
     (when report-header (report-header))
@@ -112,23 +169,23 @@ Finally returns how many rows where read and processed."
 
     (multiple-value-bind (res secs)
 	(timing
-	 (lp:submit-task channel (lambda ()
-				   ;; this function update :read stats
-				   (copy-to-queue table-name filename dataq
-						  :skip-first-p skip-first-p
-						  :separator separator
-						  :quote quote
-						  :escape escape
-						  :null-as null-as)))
+	 (lp:submit-task channel
+			 ;; this function update :read stats
+			 #'copy-to-queue table-name filename dataq
+			 :fields fields
+			 :columns columns
+			 :skip-lines skip-lines
+			 :separator separator
+			 :quote quote
+			 :escape escape
+			 :null-as null-as)
 
 	 ;; and start another task to push that data from the queue to PostgreSQL
-	 (lp:submit-task
-	  channel
-	  (lambda ()
-	    ;; this function update :rows stats
-	    (pgloader.pgsql:copy-from-queue dbname table-name dataq
-					    :truncate truncate
-					    :transforms transforms)))
+	 (lp:submit-task channel
+			 ;; this function update :rows stats
+			 #'pgloader.pgsql:copy-from-queue dbname table-name dataq
+			 :truncate truncate
+			 :transforms transforms)
 
 	 ;; now wait until both the tasks are over
 	 (loop for tasks below 2 do (lp:receive-result channel))

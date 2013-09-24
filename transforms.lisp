@@ -6,9 +6,14 @@
 ;;; syntax for transformations.
 
 (defpackage #:pgloader.transforms
-  (:use #:cl))
+  (:use #:cl)
+  (:export #:intern-symbol))
 
 (in-package :pgloader.transforms)
+
+(defun intern-symbol (symbol-name)
+  (intern (string-upcase symbol-name)
+	  (find-package "PGLOADER.TRANSFORMS")))
 
 (defun zero-dates-to-null (date-string)
   "MySQL accepts '0000-00-00' as a date, we want :null instead."

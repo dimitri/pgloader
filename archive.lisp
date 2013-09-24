@@ -13,7 +13,35 @@
 (defun http-fetch-file (url &key (tmpdir *default-tmpdir*))
   "Download a file from URL into TMPDIR."
   (ensure-directories-exist tmpdir)
-  (drakma:http-request url :force-binary t))
+  (let ((archive-filename (make-pathname :directory (namestring tmpdir)
+					 :name (pathname-name url)
+					 :type (pathname-type url))))
+    (multiple-value-bind (http-stream
+			  status-code
+			  headers
+			  uri
+			  stream
+			  should-close
+			  status)
+	(drakma:http-request url :force-binary t :want-stream t)
+      ;; TODO: check the status-code
+      (declare (ignore status-code uri stream status))
+      (let* ((source-stream   (flexi-streams:flexi-stream-stream http-stream))
+	     (content-length
+	      (parse-integer (cdr (assoc :content-length headers)))))
+	(with-open-file (archive-stream archive-filename
+					:direction :output
+					:element-type '(unsigned-byte 8)
+					:if-exists :supersede
+					:if-does-not-exist :create)
+	  (let ((seq (make-array content-length
+				 :element-type '(unsigned-byte 8)
+				 :fill-pointer t)))
+	    (setf (fill-pointer seq) (read-sequence seq source-stream))
+	    (write-sequence seq archive-stream)))
+	(when should-close (close source-stream))))
+    ;; return the pathname where we just downloaded the file
+    archive-filename))
 
 (defun expand-archive (archive-file &key (tmpdir *default-tmpdir*))
   "Expand given ARCHIVE-FILE in TMPDIR/(pathname-name ARCHIVE-FILE). Return
@@ -25,8 +53,20 @@
 	  (fad:pathname-as-directory (merge-pathnames archive-name tmpdir))))
     (ensure-directories-exist expand-directory)
     (ecase archive-type
-      (:zip (zip:unzip archive-file expand-directory)))))
+      (:zip (zip:unzip archive-file expand-directory)))
+    ;; return the pathname where we did expand the archive
+    expand-directory))
 
+(defun get-matching-filenames (directory regex)
+  "Apply given REGEXP to the DIRECTORY contents and return the list of
+   matching files."
+  (let ((matches nil)
+	(start   (length (namestring directory))))
+    (flet ((push-matches (pathname)
+	     (when (cl-ppcre:scan regex (namestring pathname) :start start)
+	       (push pathname matches))))
+      (fad:walk-directory directory #'push-matches))
+    matches))
 
 
 ;;;
