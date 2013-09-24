@@ -16,6 +16,7 @@
                #:lparallel		; threads, workers, queues
 	       #:esrap			; parser generator
 	       #:alexandria		; utils
+	       #:drakma			; http client, download archives
 	       #:zip			; support for zip archive files
 	       #:flexi-streams		; streams
 	       #:usocket		; UDP / syslog
@@ -29,8 +30,8 @@
 	       (:file "utils"   :depends-on ("package"))
 
 	       ;; those are one-package-per-file
-	       (:file "parser"  :depends-on ("package" "params"))
 	       (:file "transforms")
+	       (:file "parser"  :depends-on ("package" "params" "transforms"))
 	       (:file "queue"   :depends-on ("package")) ; pgloader.queue
 
 	       ;; package pgloader.pgsql

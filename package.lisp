@@ -37,11 +37,11 @@
 	   #:camelCase-to-colname
 	   #:make-kernel))
 
-(defpackage #:pgloader.transforms
-  (:use #:cl))
-
 (defpackage #:pgloader.parser
   (:use #:cl #:esrap #:pgloader.params)
+  (:import-from #:pgloader.pgsql
+		#:with-pgsql-transaction
+		#:pgsql-execute)
   (:export #:parse-command
 	   #:run-command))
 
@@ -94,7 +94,10 @@
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
 		#:pgsql-execute)
-  (:export #:import-csv-from-zip))
+  (:export #:*default-tmpdir*
+	   #:http-fetch-file
+	   #:expand-archive
+	   #:import-csv-from-zip))
 
 (defpackage #:pgloader.syslog
   (:use #:cl #:pgloader.params #:pgloader.utils)

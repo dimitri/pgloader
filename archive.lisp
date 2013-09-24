@@ -4,6 +4,40 @@
 
 (in-package #:pgloader.archive)
 
+(defparameter *default-tmpdir*
+  (let* ((tmpdir (uiop:getenv "TMPDIR"))
+	 (tmpdir (or (probe-file tmpdir) "/tmp")))
+    (fad:pathname-as-directory (merge-pathnames "pgloader" tmpdir)))
+  "Place where to fetch and expand archives on-disk.")
+
+(defun http-fetch-file (url &key (tmpdir *default-tmpdir*))
+  "Download a file from URL into TMPDIR."
+  (ensure-directories-exist tmpdir)
+  (drakma:http-request url :force-binary t))
+
+(defun expand-archive (archive-file &key (tmpdir *default-tmpdir*))
+  "Expand given ARCHIVE-FILE in TMPDIR/(pathname-name ARCHIVE-FILE). Return
+   the pathname where we did expand the archive file."
+  (let* ((archive-name (pathname-name archive-file))
+	 (archive-type
+	  (intern (string-upcase (pathname-type archive-file)) :keyword))
+	 (expand-directory
+	  (fad:pathname-as-directory (merge-pathnames archive-name tmpdir))))
+    (ensure-directories-exist expand-directory)
+    (ecase archive-type
+      (:zip (zip:unzip archive-file expand-directory)))))
+
+
+
+;;;
+;;; Attempts at DWIM implementation when given an archive, including auto
+;;; discovering the contents and guessing the column names of the CSV files
+;;; therein from the header (expected first line) then guessing the data
+;;; types of each column from regexps.
+;;;
+;;; Quite adventurous and WIP.
+;;;
+
 (defun guess-data-type (value)
   "Try to guess the data type we want to use for given value. Be very crude,
    avoid being smart. Smart means you might be unable to load data because

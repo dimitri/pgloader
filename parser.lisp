@@ -146,6 +146,13 @@ Here's a quick description of the format we're parsing here:
   (def-keyword-rule "terminated")
   (def-keyword-rule "nullif")
   (def-keyword-rule "blank")
+  (def-keyword-rule "skip")
+  (def-keyword-rule "header")
+  (def-keyword-rule "null")
+  (def-keyword-rule "if")
+  (def-keyword-rule "blanks")
+  (def-keyword-rule "date")
+  (def-keyword-rule "format")
   ;; option for MySQL imports
   (def-keyword-rule "schema")
   (def-keyword-rule "only")
@@ -159,7 +166,13 @@ Here's a quick description of the format we're parsing here:
   (def-keyword-rule "sequences")
   (def-keyword-rule "downcase")
   (def-keyword-rule "quote")
-  (def-keyword-rule "identifiers"))
+  (def-keyword-rule "identifiers")
+  ;; option for loading from an archive
+  (def-keyword-rule "archive")
+  (def-keyword-rule "before")
+  (def-keyword-rule "finally")
+  (def-keyword-rule "and")
+  (def-keyword-rule "do"))
 
 (defrule kw-auto-increment (and "auto_increment" (* (or #\Tab #\Space)))
   (:constant :auto-increment))
@@ -779,6 +792,21 @@ Here's a quick description of the format we're parsing here:
              fields escaped by \"\,
              fields terminated by '\t',
              reset sequences;
+
+    LOAD CSV FROM '*/GeoLiteCity-Blocks.csv'
+             (
+                startIpNum, endIpNum, locId
+             )
+        INTO postgresql://dim@localhost:54393/dim?geolite.blocks
+             (
+                iprange ip4r using (ip-range startIpNum endIpNum),
+                locId
+             )
+        WITH truncate,
+             skip header = 2,
+             fields optionally enclosed by '\"',
+             fields escaped by '\"',
+             fields terminated by '\t';
 |#
 (defun hexdigit-char-p (character)
   (member character #. (quote (coerce "0123456789abcdefABCDEF" 'list))))
@@ -797,6 +825,16 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore open close))
       char)))
 
+;;
+;; Main CSV options (WITH ... in the command grammar)
+;;
+(defrule option-skip-header (and kw-skip kw-header equal-sign
+				 (+ (digit-char-p character)))
+  (:lambda (osh)
+    (destructuring-bind (skip header eqs digits) osh
+      (declare (ignore skip header eqs))
+      (cons :skip-lines (parse-integer (text digits))))))
+
 (defrule option-fields-enclosed-by
     (and kw-fields (? kw-optionally) kw-enclosed kw-by separator)
   (:lambda (enc)
@@ -810,16 +848,23 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore f e b))
       (cons :escape sep))))
 
-(defrule option-fields-terminated-by (and kw-fields kw-terminated kw-by separator)
+(defrule option-terminated-by (and kw-terminated kw-by separator)
   (:lambda (term)
-    (destructuring-bind (fields terminated by sep) term
-      (declare (ignore fields terminated by))
+    (destructuring-bind (terminated by sep) term
+      (declare (ignore terminated by))
       (cons :separator sep))))
 
-(defrule csv-option (or option-truncate
-			option-fields-enclosed-by
-			option-fields-escaped-by
-			option-fields-terminated-by))
+(defrule option-fields-terminated-by (and kw-fields option-terminated-by)
+  (:lambda (term)
+    (destructuring-bind (fields sep) term
+      (declare (ignore fields ))
+      sep)))
+
+(defrule csv-option (and (or option-truncate
+			     option-skip-header
+			     option-fields-enclosed-by
+			     option-fields-escaped-by
+			     option-fields-terminated-by)))
 
 (defrule another-csv-option (and #\, ignore-whitespace csv-option)
   (:lambda (source)
@@ -838,6 +883,143 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore w))
       opts)))
 
+;;
+;; CSV per-field reading options
+;;
+(defrule option-date-format (and kw-date kw-format quoted-namestring)
+  (:lambda (df)
+    (destructuring-bind (date format date-format) df
+      (declare (ignore date format))
+      (cons :date-format date-format))))
+
+(defrule option-null-if-blanks (and kw-null kw-if kw-blanks)
+  (:constant (cons :null-if-blanks t)))
+
+(defrule csv-field-option (or option-terminated-by
+			      option-date-format
+			      option-null-if-blanks))
+
+(defrule csv-field-options (* csv-field-option)
+  (:lambda (options)
+    (alexandria:alist-plist options)))
+
+(defrule csv-field-name (and (alpha-char-p character)
+			     (* (or (alpha-char-p character)
+				    (digit-char-p character)
+				    #\_)))
+  (:text t))
+
+(defrule csv-source-field (and csv-field-name csv-field-options)
+  (:destructure (name opts)
+    `(,name ,@opts)))
+
+(defrule another-csv-source-field (and #\, ignore-whitespace csv-source-field)
+  (:lambda (source)
+    (destructuring-bind (comma ws field) source
+      (declare (ignore comma ws))
+      field)))
+
+(defrule csv-source-fields (and csv-source-field (* another-csv-source-field))
+  (:lambda (source)
+    (destructuring-bind (field1 fields) source
+      (list* field1 fields))))
+
+(defrule open-paren (and ignore-whitespace #\( ignore-whitespace)
+  (:constant :open-paren))
+(defrule close-paren (and ignore-whitespace #\) ignore-whitespace)
+  (:constant :close-paren))
+
+(defrule csv-source-field-list (and open-paren csv-source-fields close-paren)
+  (:lambda (source)
+    (destructuring-bind (open field-defs close) source
+      (declare (ignore open close))
+      field-defs)))
+
+;;
+;; csv-target-column-list
+;;
+;;      iprange ip4r using (ip-range startIpNum endIpNum),
+;;
+(defrule column-name csv-field-name)	; same rules here
+(defrule column-type csv-field-name)	; again, same rules, names only
+
+(defun not-doublequote (char)
+  (not (eql #\" char)))
+
+(defun symbol-character-p (character)
+  (or (alphanumericp character)
+      (member character '(#\_ #\-))))
+
+(defun intern-transforms-symbol (symbol-name)
+  (intern (string-upcase symbol-name)
+	  (find-package "PGLOADER.TRANSFORMS")))
+
+(defrule sexp-symbol (+ (symbol-character-p character))
+  (:lambda (schars)
+    (intern-transforms-symbol (text schars))))
+
+(defrule sexp-string-char (or (not-doublequote character) (and #\\ #\")))
+
+(defrule sexp-string (and #\" (* sexp-string-char) #\")
+  (:destructure (q1 string q2)
+    (declare (ignore q1 q2))
+    (text string)))
+
+(defrule sexp-integer (+ (or "0" "1" "2" "3" "4" "5" "6" "7" "8" "9"))
+  (:lambda (list)
+    (parse-integer (text list) :radix 10)))
+
+(defrule sexp-list (and open-paren sexp (* sexp) close-paren)
+  (:destructure (open car cdr close)
+    (declare (ignore open close))
+    (cons car cdr)))
+
+(defrule sexp-atom (and ignore-whitespace
+			(or sexp-string sexp-integer sexp-symbol))
+  (:lambda (atom)
+    (destructuring-bind (ws a) atom
+      (declare (ignore ws))
+      a)))
+
+(defrule sexp (or sexp-atom sexp-list))
+
+(defrule column-expression (and kw-using sexp)
+  (:lambda (expr)
+    (destructuring-bind (using sexp) expr
+      (declare (ignore using))
+      sexp)))
+
+(defrule csv-target-column (and column-name
+				(? (and ignore-whitespace column-type
+					column-expression)))
+  (:lambda (col)
+    (destructuring-bind (name opts) col
+      (if opts
+	  (destructuring-bind (ws type expr) opts
+	    (declare (ignore ws))
+	    (list name type expr))
+	  (list name nil nil)))))
+
+(defrule another-csv-target-column (and #\, ignore-whitespace csv-target-column)
+  (:lambda (source)
+    (destructuring-bind (comma ws col) source
+      (declare (ignore comma ws))
+      col)))
+
+(defrule csv-target-columns (and csv-target-column
+				 (* another-csv-target-column))
+  (:lambda (source)
+    (destructuring-bind (col1 cols) source
+      (list* col1 cols))))
+
+(defrule csv-target-column-list (and open-paren csv-target-columns close-paren)
+  (:lambda (source)
+    (destructuring-bind (open columns close) source
+      (declare (ignore open close))
+      columns)))
+;;
+;; The main command parsing
+;;
 (defrule csv-source (and kw-load kw-csv kw-from maybe-quoted-filename)
   (:lambda (src)
     (destructuring-bind (load csv from source) src
@@ -847,9 +1029,35 @@ Here's a quick description of the format we're parsing here:
 	(ecase type
 	  (:filename uri))))))
 
-(defrule load-csv-file (and csv-source target csv-options)
+(defun list-symbols (expression &optional s)
+  "Return a list of the symbols used in EXPRESSION."
+  (typecase expression
+    (symbol  (pushnew expression s))
+    (list    (loop for e in expression for s = (list-symbols e s)
+		finally (return (reverse s))))
+    (t       s)))
+
+(defun col-expr-to-lambda (fields cols)
+  "Transform expression into proper lambda definitions."
+  (loop
+     with args = (mapcar
+		  (lambda (field) (intern-transforms-symbol (car field)))
+		  fields)
+     for (name type expression) in cols
+     for fun = (when expression
+		 (let ((args-not-used
+			(set-difference args (list-symbols expression))))
+		   (compile nil `(lambda (,@args)
+				   ;; avoid warnings when compiling the command
+				   (declare (ignore ,@args-not-used))
+				   ,expression))))
+     collect (list name type fun)))
+
+(defrule load-csv-file (and csv-source (? csv-source-field-list)
+			    target (? csv-target-column-list)
+			    csv-options)
   (:lambda (command)
-    (destructuring-bind (source pg-db-uri options) command
+    (destructuring-bind (source fields pg-db-uri columns options) command
       (destructuring-bind (&key host port user password dbname table-name
 				&allow-other-keys)
 	  pg-db-uri
@@ -861,7 +1069,79 @@ Here's a quick description of the format we're parsing here:
 	     (pgloader.csv:copy-from-file ,dbname
 					  ,table-name
 					  ,source
+					  :fields ',fields
+					  :cols ',(funcall #'col-expr-to-lambda
+							   fields columns)
 					  ,@options)))))))
+
+
+#|
+    IN ARCHIVE http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV/GeoLiteCity-latest.zip
+
+       BEFORE LOAD DO $$ sql $$
+
+        LOAD CSV FROM '*/GeoLiteCity-Blocks.csv'      ...
+        LOAD DBF FROM '*/GeoLiteCity-Location.csv'    ...
+
+       FINALLY DO     $$ sql $$;
+|#
+(defrule double-dollar (and ignore-whitespace #\$ #\$ ignore-whitespace)
+  (:constant :double-dollars))
+
+(defrule dollar-quoted (and double-dollar (* (not double-dollar)) double-dollar)
+  (:lambda (dq)
+    (destructuring-bind (open quoted close) dq
+      (declare (ignore open close))
+      (text quoted))))
+
+(defrule before-load-do (and kw-before kw-load kw-do dollar-quoted)
+  (:lambda (bld)
+    (destructuring-bind (before load do quoted) bld
+      (declare (ignore before load do))
+      quoted)))
+
+(defrule finally-do (and kw-finally kw-do dollar-quoted)
+  (:lambda (fd)
+    (destructuring-bind (finally do quoted) fd
+      (declare (ignore finally do))
+      quoted)))
+
+(defrule archive-source (and kw-in kw-archive http-uri)
+  (:lambda (src)
+    (destructuring-bind (in archive source) src
+      (declare (ignore in archive))
+      (destructuring-bind (type url) source
+	(ecase type
+	  (:http url))))))
+
+(defrule archive-command (or load-csv-file
+			     load-dbf-file))
+
+(defrule another-archive-command (and kw-and archive-command)
+  (:lambda (source)
+    (destructuring-bind (and col) source
+      (declare (ignore and))
+      col)))
+
+(defrule archive-command-list (and archive-command (* another-archive-command))
+  (:lambda (source)
+    (destructuring-bind (col1 cols) source
+      (list* col1 cols))))
+
+(defrule in-archive (and archive-source
+			 before-load-do
+			 archive-command-list
+			 finally-do)
+  (:lambda (archive)
+    (destructuring-bind (source before commands finally) archive
+      `(lambda ()
+	 (let* ((archive-file    (pgloader.archive:http-fetch-file ,source))
+		(*csv-root-file* (pgloader.archive:expand-archive archive-file)))
+	   (progn
+	     (pgsql-execute ,before :client-min-messages :error)
+	     ,@(loop for command in commands
+		  collect `(funcall ,command))
+	     (pgsql-execute ,finally :client-min-messages :error)))))))
 
 
 ;;;
@@ -874,7 +1154,8 @@ Here's a quick description of the format we're parsing here:
 (defrule end-of-command (and ignore-whitespace #\; ignore-whitespace)
   (:constant :eoc))
 
-(defrule command (and (or load-csv-file
+(defrule command (and (or in-archive
+			  load-csv-file
 			  load-dbf-file
 			  load-database
 			  load-syslog-messages)
@@ -959,22 +1240,90 @@ LOAD FROM http:///tapoueh.org/db.t
         INTO postgresql://dim@localhost:54393/dim?comsimp2013
         WITH truncate, create table, table name = 'comsimp2013'; "))
 
+(defun test-parsing-load-from-csv-full ()
+  (parse-command "
+        LOAD CSV FROM '*/GeoLiteCity-Blocks.csv'
+                 (
+                    startIpNum, endIpNum, locId
+                 )
+            INTO postgresql://dim@localhost:54393/dim?geolite.blocks
+                 (
+                    iprange ip4r using (ip-range startIpNum endIpNum),
+                    locId
+                 )
+            WITH truncate,
+                 skip header = 2,
+                 fields optionally enclosed by '\"',
+                 fields escaped by '\"',
+                 fields terminated by '\t';
+"))
+
+(defun test-parsing-in-archive ()
+  (parse-command "
+    IN ARCHIVE http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV/GeoLiteCity-latest.zip
+
+       BEFORE LOAD DO
+       $$
+         create schema if not exists geolite;
+         create table if not exists geolite.location
+         (
+            locid      integer primary key,
+            country    text,
+            region     text,
+            city       text,
+            postalcode text,
+            location   point,
+            metrocode  text,
+            areacode   text
+         );
+
+         create table if not exists geolite.blocks
+         (
+            iprange    ip4r,
+            locid      integer references geolite.location(locid)
+         );
+       $$
+
+        LOAD CSV FROM '*/GeoLiteCity-Blocks.csv'
+                 (
+                    startIpNum, endIpNum, locId
+                 )
+            INTO postgresql://dim@localhost:54393/dim?geolite.blocks
+                 (
+                    iprange ip4r using (ip-range startIpNum endIpNum),
+                    locId
+                 )
+            WITH truncate,
+                 skip header = 2,
+                 fields optionally enclosed by '\"',
+                 fields escaped by '\"',
+                 fields terminated by '\\t'
+
+    AND LOAD CSV FROM '*/GeoLiteCity-Location.csv'
+                 (
+                    locId,country,region,city,postalCode,
+                    latitude,longitude,metroCode,areaCode
+                 )
+            INTO postgresql://dim@localhost:54393/dim?geolite.location
+                 (
+                    locid,country,region,city,postalCode,
+                    location point using (format nil \"(~a,~a)\" longitude latitude),
+                    metroCode,areaCode
+                 )
+            WITH truncate,
+                 skip header = 2,
+                 fields optionally enclosed by '\"',
+                 fields escaped by '\"',
+                 fields terminated by '\\t'
+
+       FINALLY DO
+       $$
+         create index on geolite.blocks using gist(iprange);
+       $$;
+"))
+
 (defun test-parsing-lots ()
   (parse 'commands "
-    LOAD DATABASE FROM mysql://localhost:3306/dbname
-        INTO postgresql://localhost/db
-	WITH drop tables,
-		 truncate,
-		 create tables,
-		 create indexes,
-		 reset sequences
-	 SET guc_1 = 'value', guc_2 = 'other value'
-	CAST column col1 to timestamptz drop default using zero-dates-to-null,
-             type varchar to text,
-             type int with extra auto_increment to bigserial,
-             type datetime to timestamptz drop default using zero-dates-to-null,
-             type date drop not null drop default using zero-dates-to-null;
-
     LOAD CSV FROM '/Users/dim/dev/CL/pgloader/galaxya/yagoa/communaute_profil.csv'
         Into postgresql://dim@localhost:54393/yagoa?communaute_profil
 
@@ -1001,4 +1350,33 @@ LOAD FROM http:///tapoueh.org/db.t
              REST   = ~/.*/
 
         WITH others = rsyslog;
+
+        LOAD CSV FROM '*/GeoLiteCity-Blocks.csv'
+                 (
+                    startIpNum, endIpNum, locId
+                 )
+            INTO postgresql://dim@localhost:54393/dim?geolite.blocks
+                 (
+                    iprange ip4r using (ip-range startIpNum endIpNum),
+                    locId
+                 )
+            WITH truncate,
+                 skip header = 2,
+                 fields optionally enclosed by '\"',
+                 fields escaped by '\"',
+                 fields terminated by '\\t';
+
+    LOAD DATABASE FROM mysql://localhost:3306/dbname
+        INTO postgresql://localhost/db
+	WITH drop tables,
+		 truncate,
+		 create tables,
+		 create indexes,
+		 reset sequences
+	 SET guc_1 = 'value', guc_2 = 'other value'
+	CAST column col1 to timestamptz drop default using zero-dates-to-null,
+             type varchar to text,
+             type int with extra auto_increment to bigserial,
+             type datetime to timestamptz drop default using zero-dates-to-null,
+             type date drop not null drop default using zero-dates-to-null;
 "))

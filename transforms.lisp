@@ -5,6 +5,9 @@
 ;;; up in the pgloader.transforms package, when using the default USING
 ;;; syntax for transformations.
 
+(defpackage #:pgloader.transforms
+  (:use #:cl))
+
 (in-package :pgloader.transforms)
 
 (defun zero-dates-to-null (date-string)
@@ -39,3 +42,16 @@
    tinyiny that are either 0 (false) or 1 (true). Of course PostgreSQL wants
    'f' and 't', respectively."
   (if (string= "0" integer-string) "f" "t"))
+
+(defun ip-range (start-integer-string end-integer-string)
+  "Transform a couple of integers to an IP4R ip range notation."
+  (flet ((integer-to-ip-string (int)
+	   "see http://dev.maxmind.com/geoip/legacy/csv/"
+	   (format nil "~a.~a.~a.~a"
+		   (mod (truncate int #. (expt 2 24)) 256)
+		   (mod (truncate int #. (expt 2 16)) 256)
+		   (mod (truncate int #. (expt 2 8)) 256)
+		   (mod int 256))))
+    (let ((ip-start (integer-to-ip-string (parse-integer start-integer-string)))
+	  (ip-end   (integer-to-ip-string (parse-integer end-integer-string))))
+      (format nil "~a-~a" ip-start ip-end))))
