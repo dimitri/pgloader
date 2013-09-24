@@ -27,7 +27,7 @@
     (with-output-to-string (s)
       (let ((db3 (make-instance 'db3:db3)))
 	(db3:load-header db3 stream)
-	(format s "create table ~a (~%" table-name)
+	(format s "create table if not exists ~a (~%" table-name)
 	(loop
 	   for (field . more?) on (db3::fields db3)
 	   for (name type) =
