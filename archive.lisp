@@ -6,7 +6,7 @@
 
 (defparameter *default-tmpdir*
   (let* ((tmpdir (uiop:getenv "TMPDIR"))
-	 (tmpdir (or (probe-file tmpdir) "/tmp")))
+	 (tmpdir (or (and tmpdir (probe-file tmpdir)) "/tmp")))
     (fad:pathname-as-directory (merge-pathnames "pgloader" tmpdir)))
   "Place where to fetch and expand archives on-disk.")
 
