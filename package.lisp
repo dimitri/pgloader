@@ -58,7 +58,7 @@
 	   #:format-row))
 
 (defpackage #:pgloader.parser
-  (:use #:cl #:esrap #:pgloader.params)
+  (:use #:cl #:esrap #:pgloader.params #:pgloader.utils)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
 		#:pgsql-execute)

@@ -894,7 +894,13 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore f e o b))
       (cons :quote sep))))
 
-(defrule option-fields-escaped-by (and kw-fields kw-escaped kw-by separator)
+(defrule quote-quote     "double-quote"   (:constant "\"\""))
+(defrule backslash-quote "backslash-quote" (:constant "\\\""))
+(defrule escaped-quote-name    (or quote-quote backslash-quote))
+(defrule escaped-quote-literal (or (and #\" #\") (and #\\ #\")) (:text t))
+(defrule escaped-quote         (or escaped-quote-literal escaped-quote-name))
+
+(defrule option-fields-escaped-by (and kw-fields kw-escaped kw-by escaped-quote)
   (:lambda (esc)
     (destructuring-bind (f e b sep) esc
       (declare (ignore f e b))
@@ -1134,13 +1140,24 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore open close))
       (text quoted))))
 
-(defrule before-load-do (and kw-before kw-load kw-do dollar-quoted)
+(defrule another-dollar-quoted (and ignore-whitespace #\, dollar-quoted)
+  (:lambda (source)
+    (destructuring-bind (ws comma quoted) source
+      (declare (ignore ws comma))
+      quoted)))
+
+(defrule dollar-quoted-list (and dollar-quoted (* another-dollar-quoted))
+  (:lambda (source)
+    (destructuring-bind (dq1 dqs) source
+      (list* dq1 dqs))))
+
+(defrule before-load-do (and kw-before kw-load kw-do dollar-quoted-list)
   (:lambda (bld)
     (destructuring-bind (before load do quoted) bld
       (declare (ignore before load do))
       quoted)))
 
-(defrule finally-do (and kw-finally kw-do dollar-quoted)
+(defrule finally-do (and kw-finally kw-do dollar-quoted-list)
   (:lambda (fd)
     (destructuring-bind (finally do quoted) fd
       (declare (ignore finally do))
@@ -1183,14 +1200,30 @@ Here's a quick description of the format we're parsing here:
 		  (*pgconn-host* ,host)
 		  (*pgconn-port* ,port)
 		  (*pgconn-user* ,user)
-		  (*pgconn-pass* ,password))
+		  (*pgconn-pass* ,password)
+		  (*state* (pgloader.utils:make-pgstate)))
 	     (progn
+	       ;; before block
 	       (with-pgsql-transaction (,dbname)
-		 (pgsql-execute ,before :client-min-messages :error))
+		 (loop for command in ',before
+		    do
+		      (log-message :notice command)
+		      (pgsql-execute command :client-min-messages :error)))
+
+	       ;; import from files block
+	       (report-header)
 	       ,@(loop for command in commands
 		    collect `(funcall ,command))
+	       (report-pgstate-stats *state* "Total import time")
+
+	       ;; finally block
 	       (with-pgsql-transaction (,dbname)
-		 (pgsql-execute ,finally :client-min-messages :error)))))))))
+		 (loop for command in ',finally
+		    for first = t then nil
+		    when first do (format t "~&")
+		    do
+		      (log-message :notice command)
+		      (pgsql-execute command :client-min-messages :error))))))))))
 
 
 ;;;
@@ -1279,7 +1312,7 @@ LOAD FROM http:///tapoueh.org/db.t
 
         WITH truncate,
              fields optionally enclosed by '\"',
-             fields escaped by '\"',
+             fields escaped by double-quote,
              fields terminated by '\t';
 "))
 
@@ -1303,7 +1336,7 @@ LOAD FROM http:///tapoueh.org/db.t
             WITH truncate,
                  skip header = 2,
                  fields optionally enclosed by '\"',
-                 fields escaped by '\"',
+                 fields escaped by backslash-quote,
                  fields terminated by '\t';
 "))
 
@@ -1313,9 +1346,8 @@ LOAD FROM http:///tapoueh.org/db.t
        INTO postgresql://dim@localhost:54393/dim
 
        BEFORE LOAD DO
-       $$
-         create schema if not exists geolite;
-         create table if not exists geolite.location
+       $$ create schema if not exists geolite; $$,
+       $$ create table if not exists geolite.location
          (
             locid      integer primary key,
             country    text,
@@ -1326,30 +1358,17 @@ LOAD FROM http:///tapoueh.org/db.t
             metrocode  text,
             areacode   text
          );
-
-         create table if not exists geolite.blocks
+       $$,
+       $$ create table if not exists geolite.blocks
          (
             iprange    ip4r,
             locid      integer references geolite.location(locid)
          );
+       $$,
+       $$ truncate table geolite.blocks, geolite.location cascade;
        $$
 
-        LOAD CSV FROM FILENAME MATCHING ~/GeoLiteCity-Blocks.csv/
-                 (
-                    startIpNum, endIpNum, locId
-                 )
-            INTO postgresql://dim@localhost:54393/dim?geolite.blocks
-                 (
-                    iprange ip4r using (ip-range startIpNum endIpNum),
-                    locId
-                 )
-            WITH truncate,
-                 skip header = 2,
-                 fields optionally enclosed by '\"',
-                 fields escaped by '\"',
-                 fields terminated by '\\t'
-
-    AND LOAD CSV FROM FILENAME MATCHING ~/GeoLiteCity-Location.csv/
+        LOAD CSV FROM FILENAME MATCHING ~/GeoLiteCity-Location.csv/
                  (
                     locId,country,region,city,postalCode,
                     latitude,longitude,metroCode,areaCode
@@ -1360,11 +1379,24 @@ LOAD FROM http:///tapoueh.org/db.t
                     location point using (format nil \"(~a,~a)\" longitude latitude),
                     metroCode,areaCode
                  )
-            WITH truncate,
-                 skip header = 2,
+            WITH skip header = 2,
                  fields optionally enclosed by '\"',
-                 fields escaped by '\"',
-                 fields terminated by '\\t'
+                 fields escaped by double-quote,
+                 fields terminated by ','
+
+    AND LOAD CSV FROM FILENAME MATCHING ~/GeoLiteCity-Blocks.csv/
+                 (
+                    startIpNum, endIpNum, locId
+                 )
+            INTO postgresql://dim@localhost:54393/dim?geolite.blocks
+                 (
+                    iprange ip4r using (ip-range startIpNum endIpNum),
+                    locId
+                 )
+            WITH skip header = 2,
+                 fields optionally enclosed by '\"',
+                 fields escaped by double-quote,
+                 fields terminated by ','
 
        FINALLY DO
        $$

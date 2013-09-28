@@ -53,7 +53,7 @@
 	  (fad:pathname-as-directory (merge-pathnames archive-name tmpdir))))
     (ensure-directories-exist expand-directory)
     (ecase archive-type
-      (:zip (zip:unzip archive-file expand-directory)))
+      (:zip (zip:unzip archive-file expand-directory :if-exists :supersede)))
     ;; return the pathname where we did expand the archive
     expand-directory))
 

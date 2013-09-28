@@ -39,30 +39,32 @@
    applying a transformation function. In that case a cols entry is a list
    of '(colname type expression), the expression being the (already
    compiled) function to use here."
+  (let* ((null-as
+	  (if (eq null-as :blanks)
+	      (lambda (col)
+		(every (lambda (char) (char= char #\Space)) col))
+	      `(lambda (col)
+		 (if (string= ,null-as col) nil col))))
 
-  (let ((null-as (if (eq null-as :blanks)
-		     (lambda (col)
-		       (every (lambda (char) (char= char #\Space)) col))
-		     `(lambda (col)
-			(if (string= ,null-as col) nil col)))))
+	 (projection
+	  (if (or (null fields) (null columns))
+	      `(lambda (row)
+		 (mapcar ,null-as row))
 
-    (if (or (null fields) (null columns))
-	`(lambda (row)
-	   (mapcar ,null-as row))
-
-	(let* ((args
-		(mapcar
-		 (lambda (field)
-		   (pgloader.transforms:intern-symbol (car field))) fields))
-	       (newrow
-		(loop for (name type fn) in columns
-		   collect (or fn
-			       (let ((binding
-				      (pgloader.transforms:intern-symbol name)))
-				 `(funcall ,null-as ,binding))))))
-	  `(lambda (row)
-	     (destructuring-bind (,@args) row
-	       (list ,@newrow)))))))
+	      (let* ((args
+		      (mapcar
+		       (lambda (field)
+			 (pgloader.transforms:intern-symbol (car field))) fields))
+		     (newrow
+		      (loop for (name type fn) in columns
+			 collect (or fn
+				     (let ((binding
+					    (pgloader.transforms:intern-symbol name)))
+				       `(funcall ,null-as ,binding))))))
+		`(lambda (row)
+		   (destructuring-bind (,@args) row
+		     (list ,@newrow)))))))
+    (compile nil projection)))
 
 ;;;
 ;;; Read a file format in CSV format, and call given function on each line.
@@ -90,24 +92,22 @@ Finally returns how many rows where read and processed."
 	     :external-format :utf-8
 	     :if-does-not-exist nil)
     (when input
+      ;; we handle skipping more than one line here, as cl-csv only knows
+      ;; about skipping the first line
+      (when (and skip-lines (< 0 skip-lines))
+	(loop repeat skip-lines do (read-line input nil nil)))
+
       ;; read in the text file, split it into columns, process NULL columns
       ;; the way postmodern expects them, and call PROCESS-ROW-FN on them
-
       (let* ((read 0)
+	     (processing-fn (project-fields :fields fields
+					    :columns columns
+					    :null-as null-as))
 	     (reformat-then-process
-	      (compile nil
-		       (lambda (row)
-			 (incf read)
-			 (let* ((processing (project-fields :fields fields
-							    :columns columns
-							    :null-as null-as))
-				(processed-row (funcall processing row)))
-			   (funcall process-row-fn processed-row))))))
-
-	;; we handle skipping more than one line here, as cl-csv only knows
-	;; about skipping the first line
-	(when (and skip-lines (< 0 skip-lines))
-	  (loop repeat skip-lines do (read-line input nil nil)))
+	      (lambda (row)
+		(incf read)
+		(let ((projected-row (funcall processing-fn row)))
+		  (funcall process-row-fn projected-row)))))
 
 	(handler-case
 	    (cl-csv:read-csv input
@@ -117,8 +117,9 @@ Finally returns how many rows where read and processed."
 			     :escape escape)
 	  ((or cl-csv:csv-parse-error type-error) (condition)
 	    ;; some form of parse error did happen, TODO: log it
-	    (format t "~&~a~%" condition)
-	   (pgstate-setf *state* table-name :errs -1)))
+	    (progn
+	      (log-message :error "~a" condition)
+	      (pgstate-setf *state* table-name :errs -1))))
 	;; return how many rows we did read
 	read))))
 
@@ -133,7 +134,9 @@ Finally returns how many rows where read and processed."
 			(null-as "\\N"))
   "Copy data from CSV FILENAME into lprallel.queue DATAQ"
   (let ((read
-	 (pgloader.queue:map-push-queue dataq #'map-rows table-name filename
+	 (pgloader.queue:map-push-queue dataq
+					#'map-rows
+					table-name filename
 					:fields fields
 					:columns columns
 					:skip-lines skip-lines
@@ -147,8 +150,8 @@ Finally returns how many rows where read and processed."
 		       &key
 			 fields
 			 columns
-			 transforms
-			 (truncate t)
+			 (transforms (loop for c in columns collect nil))
+			 truncate
 			 skip-lines
 			 (separator #\Tab)
 			 (quote cl-csv:*quote*)
@@ -171,7 +174,7 @@ Finally returns how many rows where read and processed."
 	(timing
 	 (lp:submit-task channel
 			 ;; this function update :read stats
-			 #'copy-to-queue table-name filename dataq
+			 #'pgloader.csv:copy-to-queue table-name filename dataq
 			 :fields fields
 			 :columns columns
 			 :skip-lines skip-lines
@@ -199,7 +202,7 @@ Finally returns how many rows where read and processed."
 (defun import-database (dbname
 			&key
 			  (csv-path-root *csv-path-root*)
-			  (skip-first-p nil)
+			  (skip-lines 0)
 			  (separator #\Tab)
 			  (quote cl-csv:*quote*)
 			  (escape cl-csv:*quote-escape*)
@@ -217,7 +220,7 @@ Finally returns how many rows where read and processed."
 		(member table-name only-tables :test #'equal))
        do
 	 (copy-from-file dbname table-name filename
-			 :skip-first-p skip-first-p
+			 :skip-lines skip-lines
 			 :separator separator
 			 :quote quote
 			 :escape escape
