@@ -30,41 +30,84 @@
 ;;;
 ;;; Project fields into columns
 ;;;
-(defun project-fields (&key fields columns null-as)
+(defun project-fields (&key fields columns null-as (compile t))
   "The simplest projection happens when both FIELDS and COLS are nil: in
    this case the projection is an identity, we simply return what we got --
-   still with some basic processing.
+   transforming NULL-AS values into nil while at it.
 
    Other forms of projections consist of forming columns with the result of
    applying a transformation function. In that case a cols entry is a list
    of '(colname type expression), the expression being the (already
    compiled) function to use here."
-  (let* ((null-as
-	  (if (eq null-as :blanks)
-	      (lambda (col)
-		(every (lambda (char) (char= char #\Space)) col))
-	      `(lambda (col)
-		 (if (string= ,null-as col) nil col))))
+  (labels ((null-as-processing-fn (null-as)
+	     "return a lambda form that will process a value given NULL-AS."
+	     (if (eq null-as :blanks)
+		 (lambda (col)
+		   (if (every (lambda (char) (char= char #\Space)) col)
+		       nil
+		       col))
+		 (lambda (col)
+		   (if (string= null-as col) nil col))))
 
-	 (projection
-	  (if (or (null fields) (null columns))
-	      `(lambda (row)
-		 (mapcar ,null-as row))
+	   (generic-null-as (col)
+	     "return a lambda form that will process a value given the
+              generic NULL-AS value"
+	     (funcall (null-as-processing-fn null-as) col))
 
-	      (let* ((args
-		      (mapcar
-		       (lambda (field)
-			 (pgloader.transforms:intern-symbol (car field))) fields))
-		     (newrow
-		      (loop for (name type fn) in columns
-			 collect (or fn
-				     (let ((binding
-					    (pgloader.transforms:intern-symbol name)))
-				       `(funcall ,null-as ,binding))))))
-		`(lambda (row)
-		   (destructuring-bind (,@args) row
-		     (list ,@newrow)))))))
-    (compile nil projection)))
+	   (field-name-as-symbol (field-name-or-list)
+	     "we need to deal with symbols as we generate code"
+	     (typecase field-name-or-list
+	       (list (pgloader.transforms:intern-symbol (car field-name-or-list)))
+	       (t    (pgloader.transforms:intern-symbol field-name-or-list))))
+
+	   (field-process-null-fn (field-name-or-list)
+	     "Given a field entry, return a function dealing with nulls for it"
+	     (destructuring-bind (&key null-as date-format)
+		 (typecase field-name-or-list
+		   (list (cdr field-name-or-list))
+		   (t    (cdr (assoc field-name-or-list fields :test #'string=))))
+	       (declare (ignore date-format)) ; TODO
+	       (if (null null-as)
+		   (function generic-null-as)
+		   (null-as-processing-fn null-as)))))
+
+    (let* ((projection
+	    (cond
+	      ;; when no specific information has been given on FIELDS and
+	      ;; COLUMNS, just apply generic NULL-AS processing
+	      ((and (null fields) (null columns))
+	       `(lambda (row)
+		  (mapcar (function generic-null-as) row)))
+
+	      ((null columns)
+	       ;; when no specific information has been given on COLUMNS,
+	       ;; use the information given for FIELDS and apply per-field
+	       ;; null-as, or the generic one if none has been given for
+	       ;; that field.
+	       `(lambda (row)
+		  (loop
+		     for col in row
+		     for fn in ,(mapcar (function field-process-null-fn) fields)
+		     collect (funcall fn col))))
+
+	      (t
+	       ;; project some number of FIELDS into a possibly different
+	       ;; number of COLUMNS, using given transformation functions,
+	       ;; processing NULL-AS represented values.
+	       (let* ((args  (mapcar (function field-name-as-symbol) fields))
+		      (newrow
+		       (loop for (name type fn) in columns
+			  collect
+			  ;; we expect the name of a COLUMN to be the same
+			  ;; as the name of its derived FIELD when we
+			  ;; don't have any transformation function
+			    (or fn `(funcall ,(field-process-null-fn name)
+					     ,(field-name-as-symbol name))))))
+		 `(lambda (row)
+		    (destructuring-bind (,@args) row
+		      (list ,@newrow))))))))
+      ;; allow for some debugging
+      (if compile (compile nil projection) projection))))
 
 ;;;
 ;;; Read a file format in CSV format, and call given function on each line.
@@ -100,18 +143,18 @@ Finally returns how many rows where read and processed."
       ;; read in the text file, split it into columns, process NULL columns
       ;; the way postmodern expects them, and call PROCESS-ROW-FN on them
       (let* ((read 0)
-	     (processing-fn (project-fields :fields fields
-					    :columns columns
-					    :null-as null-as))
+	     (projection (project-fields :fields fields
+					 :columns columns
+					 :null-as null-as))
 	     (reformat-then-process
 	      (lambda (row)
 		(incf read)
-		(let ((projected-row (funcall processing-fn row)))
+		(let ((projected-row (funcall projection row)))
 		  (funcall process-row-fn projected-row)))))
 
 	(handler-case
 	    (cl-csv:read-csv input
-			     :row-fn reformat-then-process
+			     :row-fn (compile nil reformat-then-process)
 			     :separator separator
 			     :quote quote
 			     :escape escape)

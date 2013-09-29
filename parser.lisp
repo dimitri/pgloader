@@ -944,18 +944,29 @@ Here's a quick description of the format we're parsing here:
 ;;
 ;; CSV per-field reading options
 ;;
-(defrule option-date-format (and kw-date kw-format quoted-namestring)
+(defrule quoted-string (and #\' (* (not #\')) #\')
+  (:lambda (qs)
+    (destructuring-bind (open string close) qs
+      (declare (ignore open close))
+      (text string))))
+
+(defrule option-date-format (and kw-date kw-format quoted-string)
   (:lambda (df)
     (destructuring-bind (date format date-format) df
       (declare (ignore date format))
       (cons :date-format date-format))))
 
-(defrule option-null-if-blanks (and kw-null kw-if kw-blanks)
-  (:constant (cons :null-as :blanks)))
+(defrule blanks kw-blanks (:constant :blanks))
+
+(defrule option-null-if (and kw-null kw-if (or blanks quoted-string))
+  (:lambda (nullif)
+    (destructuring-bind (null if opt) nullif
+      (declare (ignore null if))
+      (list :null-as opt))))
 
 (defrule csv-field-option (or option-terminated-by
 			      option-date-format
-			      option-null-if-blanks))
+			      option-null-if))
 
 (defrule csv-field-options (* csv-field-option)
   (:lambda (options)
@@ -1370,8 +1381,15 @@ LOAD FROM http:///tapoueh.org/db.t
 
         LOAD CSV FROM FILENAME MATCHING ~/GeoLiteCity-Location.csv/
                  (
-                    locId,country,region,city,postalCode,
-                    latitude,longitude,metroCode,areaCode
+                    locId,
+                    country,
+                    region     null if blanks,
+                    city       null if blanks,
+                    postalCode null if blanks,
+                    latitude,
+                    longitude,
+                    metroCode  null if blanks,
+                    areaCode   null if blanks
                  )
             INTO postgresql://dim@localhost:54393/dim?geolite.location
                  (
