@@ -117,6 +117,7 @@
 		   process-row-fn
 		   fields
 		   columns
+		   (encoding :utf-8)
 		   (skip-lines nil)
 		   (separator #\Tab)
 		   (quote cl-csv:*quote*)
@@ -132,7 +133,7 @@ Finally returns how many rows where read and processed."
       ;; we just ignore files that don't exist
       (input filename
 	     :direction :input
-	     :external-format :utf-8
+	     :external-format encoding
 	     :if-does-not-exist nil)
     (when input
       ;; we handle skipping more than one line here, as cl-csv only knows
@@ -170,6 +171,7 @@ Finally returns how many rows where read and processed."
 		      &key
 			fields
 			columns
+			encoding
 			skip-lines
 			(separator #\Tab)
 			(quote cl-csv:*quote*)
@@ -182,6 +184,7 @@ Finally returns how many rows where read and processed."
 					table-name filename
 					:fields fields
 					:columns columns
+					:encoding encoding
 					:skip-lines skip-lines
 					:separator separator
 					:quote quote
@@ -196,6 +199,7 @@ Finally returns how many rows where read and processed."
 			 (transforms (loop for c in columns collect nil))
 			 truncate
 			 skip-lines
+			 (encoding :utf-8)
 			 (separator #\Tab)
 			 (quote cl-csv:*quote*)
 			 (escape cl-csv:*quote-escape*)
@@ -220,6 +224,7 @@ Finally returns how many rows where read and processed."
 			 #'pgloader.csv:copy-to-queue table-name filename dataq
 			 :fields fields
 			 :columns columns
+			 :encoding encoding
 			 :skip-lines skip-lines
 			 :separator separator
 			 :quote quote

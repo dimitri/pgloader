@@ -165,7 +165,8 @@
    in '((lparallel lp)
 	(lparallel.queue lq)
 	(simple-date date)
-	(split-sequence sq))
+	(split-sequence sq)
+	(com.informatimago.clext.character-sets charsets))
    do (rename-package package package nicknames))
 
 ;;;

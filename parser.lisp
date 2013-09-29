@@ -1085,6 +1085,28 @@ Here's a quick description of the format we're parsing here:
 ;;
 ;; The main command parsing
 ;;
+(defun find-encoding-by-name-or-alias (encoding)
+  "charsets::*lisp-encodings* is an a-list of (NAME . ALIASES)..."
+  (loop for (name . aliases) in charsets::*lisp-encodings*
+     for encoding-name = (when (or (string-equal name encoding)
+				   (member encoding aliases :test #'string-equal))
+			   name)
+     until encoding-name
+     finally (if encoding-name (return encoding-name)
+		 (error "The encoding '~a' is unknown" encoding))))
+
+(defrule encoding namestring
+  (:lambda (encoding)
+    (charsets:make-external-format (find-encoding-by-name-or-alias encoding))))
+
+(defrule file-encoding (? (and kw-with kw-encoding encoding))
+  (:lambda (enc)
+    (if enc
+	(destructuring-bind (with kw-encoding encoding) enc
+	  (declare (ignore with kw-encoding))
+	  encoding)
+	:utf-8)))
+
 (defrule filename-matching (and kw-filename kw-matching quoted-regex)
   (:lambda (fm)
     (destructuring-bind (filename matching regex) fm
@@ -1099,6 +1121,7 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore load csv from))
       ;; source is (:filename #P"pathname/here")
       (destructuring-bind (type uri) source
+	(declare (ignore uri))
 	(ecase type
 	  (:filename source)
 	  (:regex    source))))))
@@ -1111,11 +1134,11 @@ Here's a quick description of the format we're parsing here:
 		finally (return (reverse s))))
     (t       s)))
 
-(defrule load-csv-file (and csv-source (? csv-source-field-list)
+(defrule load-csv-file (and csv-source (? file-encoding) (? csv-source-field-list)
 			    target (? csv-target-column-list)
 			    csv-options)
   (:lambda (command)
-    (destructuring-bind (source fields pg-db-uri columns options) command
+    (destructuring-bind (source encoding fields pg-db-uri columns options) command
       (destructuring-bind (&key host port user password dbname table-name
 				&allow-other-keys)
 	  pg-db-uri
@@ -1127,6 +1150,7 @@ Here's a quick description of the format we're parsing here:
 	     (pgloader.csv:copy-from-file ,dbname
 					  ,table-name
 					  ',source
+					  :encoding ,encoding
 					  :fields ',fields
 					  :columns ',columns
 					  ,@options)))))))
@@ -1188,13 +1212,13 @@ Here's a quick description of the format we're parsing here:
     (destructuring-bind (col1 cols) source
       (list* col1 cols))))
 
-(defrule archive-source (and kw-load kw-from kw-archive http-uri)
+(defrule filename-or-http-uri (or http-uri maybe-quoted-filename))
+
+(defrule archive-source (and kw-load kw-from kw-archive filename-or-http-uri)
   (:lambda (src)
     (destructuring-bind (load from archive source) src
       (declare (ignore load from archive))
-      (destructuring-bind (type url) source
-	(ecase type
-	  (:http url))))))
+      source)))
 
 (defrule load-from-archive (and archive-source
 				target
@@ -1206,7 +1230,11 @@ Here's a quick description of the format we're parsing here:
       (destructuring-bind (&key host port user password dbname &allow-other-keys)
 	  pg-db-uri
 	`(lambda ()
-	   (let* ((archive-file    (pgloader.archive:http-fetch-file ,source))
+	   (let* ((archive-file
+		   ,(destructuring-bind (kind url) source
+		     (ecase kind
+		       (:http     `(pgloader.archive:http-fetch-file ,url))
+		       (:filename url))))
 		  (*csv-path-root* (pgloader.archive:expand-archive archive-file))
 		  (*pgconn-host* ,host)
 		  (*pgconn-port* ,port)
@@ -1336,6 +1364,7 @@ LOAD FROM http:///tapoueh.org/db.t
 (defun test-parsing-load-from-csv-full ()
   (parse-command "
         LOAD CSV FROM '*/GeoLiteCity-Blocks.csv'
+        WITH ENCODING iso-646-us
                  (
                     startIpNum, endIpNum, locId
                  )
@@ -1353,7 +1382,7 @@ LOAD FROM http:///tapoueh.org/db.t
 
 (defun test-parsing-load-from-archive ()
   (parse-command "
-    LOAD FROM ARCHIVE http://pgsql.tapoueh.org/temp/foo.zip
+    LOAD FROM ARCHIVE /Users/dim/Downloads/GeoLiteCity-latest.zip
        INTO postgresql://dim@localhost:54393/dim
 
        BEFORE LOAD DO
@@ -1380,6 +1409,7 @@ LOAD FROM http:///tapoueh.org/db.t
        $$
 
         LOAD CSV FROM FILENAME MATCHING ~/GeoLiteCity-Location.csv/
+                 WITH ENCODING iso-8859-1
                  (
                     locId,
                     country,
@@ -1403,6 +1433,7 @@ LOAD FROM http:///tapoueh.org/db.t
                  fields terminated by ','
 
     AND LOAD CSV FROM FILENAME MATCHING ~/GeoLiteCity-Blocks.csv/
+                 WITH ENCODING iso-8859-1
                  (
                     startIpNum, endIpNum, locId
                  )
