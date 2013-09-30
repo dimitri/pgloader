@@ -151,6 +151,12 @@ Finally returns how many rows where read and processed."
 	      (lambda (row)
 		(incf read)
 		(let ((projected-row (funcall projection row)))
+		  (when nil		; debug every 100 input lines
+		    (when (= 0 (multiple-value-bind (q r)
+				   (truncate (- read 1) 100)
+				 r))
+		      (log-message :notice "< ~s" row)
+		      (log-message :notice "> ~s" projected-row)))
 		  (funcall process-row-fn projected-row)))))
 
 	(handler-case
