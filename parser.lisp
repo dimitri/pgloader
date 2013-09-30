@@ -1273,9 +1273,10 @@ Here's a quick description of the format we're parsing here:
 	       (report-summary :state state-before :footer nil)
 	       (format t pgloader.utils::*header-line*)
 	       (report-summary :state *state* :header nil :footer nil)
-	       (format t pgloader.utils::*header-line*)
 	       ,@(when finally
-		  `(report-summary :state state-finally :header nil :footer nil))
+		  `(progn
+		     (format t pgloader.utils::*header-line*)
+		     (report-summary :state state-finally :header nil :footer nil)))
 	       ;; add to the grand total the other sections
 	       (incf (pgloader.utils::pgstate-secs *state*)
 		     (+ (pgloader.utils::pgstate-secs state-before)
