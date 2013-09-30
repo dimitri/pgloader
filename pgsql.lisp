@@ -84,12 +84,13 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
 				unless (eq attnum :NULL)
 				collect attnum)))))
 
-(defun list-tables-cols (dbname)
+(defun list-tables-cols (dbname &key (schema "public") table-name-list)
   "Return an alist of tables names and number of columns."
   (pomo:with-connection
       (get-connection-spec dbname)
 
-    (loop for (relname cols) in (pomo:query "
+    (loop for (relname cols)
+       in (pomo:query (format nil "
     select relname, count(attnum)
       from pg_class c
            join pg_namespace n on n.oid = c.relnamespace
@@ -97,10 +98,25 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
            join pg_type t on t.oid = a.atttypid
      where c.relkind = 'r'
            and attnum > 0
-           and n.nspname = 'public'
+           and n.nspname = '~a'
+           ~@[~{and relname = '~a'~^ ~}~]
   group by relname
-")
+" schema table-name-list))
        collect (cons relname cols))))
+
+(defun list-columns (dbname table-name &key schema)
+  "Return a list of column names for given TABLE-NAME."
+  (pomo:with-connection
+      (get-connection-spec dbname)
+
+    (pomo:query (format nil "
+    select attname
+      from pg_class c
+           join pg_namespace n on n.oid = c.relnamespace
+           left join pg_attribute a on c.oid = a.attrelid
+           join pg_type t on t.oid = a.atttypid
+     where c.oid = '~:[~*~a~;~a.~a~]'::regclass and attnum > 0
+  order by attnum" schema schema table-name) :column)))
 
 (defun reset-all-sequences (dbname)
   "Reset all sequences to the max value of the column they are attached to."

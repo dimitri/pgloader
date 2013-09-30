@@ -76,8 +76,8 @@
 	      ;; when no specific information has been given on FIELDS and
 	      ;; COLUMNS, just apply generic NULL-AS processing
 	      ((and (null fields) (null columns))
-	       `(lambda (row)
-		  (mapcar (function generic-null-as) row)))
+	       (lambda (row)
+		 (mapcar (function generic-null-as) row)))
 
 	      ((null columns)
 	       ;; when no specific information has been given on COLUMNS,
@@ -196,7 +196,11 @@ Finally returns how many rows where read and processed."
 		       &key
 			 fields
 			 columns
-			 (transforms (loop for c in columns collect nil))
+			 (transforms
+			  (loop for c
+			     in (or columns
+				    (pgloader.pgsql:list-columns dbname table-name))
+			     collect nil))
 			 truncate
 			 skip-lines
 			 (encoding :utf-8)

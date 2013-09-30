@@ -962,7 +962,7 @@ Here's a quick description of the format we're parsing here:
   (:lambda (nullif)
     (destructuring-bind (null if opt) nullif
       (declare (ignore null if))
-      (list :null-as opt))))
+      (cons :null-as opt))))
 
 (defrule csv-field-option (or option-terminated-by
 			      option-date-format
@@ -1222,9 +1222,9 @@ Here's a quick description of the format we're parsing here:
 
 (defrule load-from-archive (and archive-source
 				target
-				before-load-do
+				(? before-load-do)
 				archive-command-list
-				finally-do)
+				(? finally-do))
   (:lambda (archive)
     (destructuring-bind (source pg-db-uri before commands finally) archive
       (destructuring-bind (&key host port user password dbname &allow-other-keys)
@@ -1261,23 +1261,25 @@ Here's a quick description of the format we're parsing here:
 		    collect `(funcall ,command))
 
 	       ;; finally block
-	       (with-stats-collection (,dbname "finally" :state state-finally)
-		(with-pgsql-transaction (,dbname)
-		  (loop for command in ',finally
-		     do
-		       (log-message :notice command)
-		       (pgsql-execute command :client-min-messages :error))))
+	       ,@(when finally
+		 `(with-stats-collection (,dbname "finally" :state state-finally)
+		    (with-pgsql-transaction (,dbname)
+		      (loop for command in ',finally
+			 do
+			   (log-message :notice command)
+			   (pgsql-execute command :client-min-messages :error)))))
 
 	       ;; reporting
 	       (report-summary :state state-before :footer nil)
 	       (format t pgloader.utils::*header-line*)
 	       (report-summary :state *state* :header nil :footer nil)
 	       (format t pgloader.utils::*header-line*)
-	       (report-summary :state state-finally :header nil :footer nil)
+	       ,@(when finally
+		  `(report-summary :state state-finally :header nil :footer nil))
 	       ;; add to the grand total the other sections
 	       (incf (pgloader.utils::pgstate-secs *state*)
 		     (+ (pgloader.utils::pgstate-secs state-before)
-			(pgloader.utils::pgstate-secs state-finally)))
+			(if ,finally (pgloader.utils::pgstate-secs state-finally) 0)))
 	       ;; and report the Grand Total
 	       (report-pgstate-stats *state* "Total import time"))))))))
 
@@ -1470,6 +1472,70 @@ LOAD FROM http:///tapoueh.org/db.t
        $$
          create index on geolite.blocks using gist(iprange);
        $$;
+"))
+
+(defun test-parsing-load-from-archive-noprojection ()
+  "Use either http://pgsql.tapoueh.org/temp/foo.zip
+           or /Users/dim/Downloads/GeoLiteCity-latest.zip"
+  (parse-command "
+    LOAD FROM ARCHIVE /Users/dim/Downloads/GeoLiteCity-latest.zip
+       INTO postgresql://dim@localhost:54393/dim
+
+       BEFORE LOAD DO
+       $$ create schema if not exists geonumip; $$,
+       $$ create table if not exists geonumip.location
+         (
+            locid      integer primary key,
+            country    text,
+            region     text,
+            city       text,
+            postalcode text,
+            location   point,
+            metrocode  text,
+            areacode   text
+         );
+       $$,
+       $$ create table if not exists geonumip.blocks
+         (
+            startip    bigint,
+            endip      bigint,
+            locid      integer references geonumip.location(locid)
+         );
+       $$,
+       $$ truncate table geonumip.blocks, geonumip.location cascade;
+       $$
+
+        LOAD CSV FROM FILENAME MATCHING ~/GeoLiteCity-Location.csv/
+                 WITH ENCODING iso-8859-1
+                 (
+                    locId,
+                    country,
+                    region     null if blanks,
+                    city       null if blanks,
+                    postalCode null if blanks,
+                    latitude,
+                    longitude,
+                    metroCode  null if blanks,
+                    areaCode   null if blanks
+                 )
+            INTO postgresql://dim@localhost:54393/dim?geonumip.location
+                 (
+                    locid,country,region,city,postalCode,
+                    location point using (format nil \"(~a,~a)\" longitude latitude),
+                    metroCode,areaCode
+                 )
+            WITH skip header = 2,
+                 fields optionally enclosed by '\"',
+                 fields escaped by double-quote,
+                 fields terminated by ','
+
+    AND LOAD CSV FROM FILENAME MATCHING ~/GeoLiteCity-Blocks.csv/
+                 WITH ENCODING iso-8859-1
+            INTO postgresql://dim@localhost:54393/dim?geonumip.blocks
+            WITH skip header = 2,
+                 fields optionally enclosed by '\"',
+                 fields escaped by double-quote,
+                 fields terminated by ',';
 "))
 
 (defun test-parsing-lots ()

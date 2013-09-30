@@ -51,6 +51,7 @@
 	   #:copy-from-queue
 	   #:list-databases
 	   #:list-tables
+	   #:list-columns
 	   #:list-tables-cols
 	   #:reset-all-sequences
 	   #:execute
