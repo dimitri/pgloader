@@ -410,23 +410,17 @@ order by ordinal_position" dbname table-name)))
 		       truncate
 		       transforms)
   "Connect in parallel to MySQL and PostgreSQL and stream the data."
-  (let* ((summary         (null *state*))
-	 (*state*         (or *state* (pgloader.utils:make-pgstate)))
-	 (lp:*kernel*
-	  (or kernel
-	      (lp:make-kernel 2 :bindings
-			      `((*pgconn-host* . ,*pgconn-host*)
-				(*pgconn-port* . ,*pgconn-port*)
-				(*pgconn-user* . ,*pgconn-user*)
-				(*pgconn-pass* . ,*pgconn-pass*)
-				(*pg-settings* . ',*pg-settings*)
-				(*myconn-host* . ,*myconn-host*)
-				(*myconn-port* . ,*myconn-port*)
-				(*myconn-user* . ,*myconn-user*)
-				(*myconn-pass* . ,*myconn-pass*)
-				(*state*       . ,*state*)))))
+  (let* ((summary     (null *state*))
+	 (*state*     (or *state* (pgloader.utils:make-pgstate)))
+	 (lp:*kernel* (or kernel (make-kernel 2)))
 	 (channel     (lp:make-channel))
-	 (dataq       (lq:make-queue :fixed-capacity 4096)))
+	 (dataq       (lq:make-queue :fixed-capacity 4096))
+	 (transforms  (or transforms
+			  (let* ((all-columns (list-all-columns dbname))
+				 (our-columns
+				  (cdr (assoc table-name all-columns
+					      :test #'string=))))
+			    (loop for col in our-columns collect nil)))))
 
     (with-stats-collection (dbname table-name :state *state* :summary summary)
       (log-message :notice "COPY ~a.~a" dbname table-name)
