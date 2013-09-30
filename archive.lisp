@@ -44,6 +44,14 @@
     ;; return the pathname where we just downloaded the file
     archive-filename))
 
+(defun unzip (archive-file expand-directory)
+  "Unzip an archive"
+  ;; TODO: fallback to the following if the unzip command is not found
+  ;; (zip:unzip archive-file expand-directory :if-exists :supersede)
+  (let ((command (format nil "unzip -o ~a -d ~a" archive-file expand-directory)))
+    (log-message :notice "~a" command)
+    (uiop:run-program command)))
+
 (defun expand-archive (archive-file &key (tmpdir *default-tmpdir*))
   "Expand given ARCHIVE-FILE in TMPDIR/(pathname-name ARCHIVE-FILE). Return
    the pathname where we did expand the archive file."
@@ -55,7 +63,7 @@
 	  (fad:pathname-as-directory (merge-pathnames archive-name tmpdir))))
     (ensure-directories-exist expand-directory)
     (ecase archive-type
-      (:zip (zip:unzip archive-file expand-directory :if-exists :supersede)))
+      (:zip (unzip archive-file expand-directory)))
     ;; return the pathname where we did expand the archive
     expand-directory))
 
