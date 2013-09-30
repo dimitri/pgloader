@@ -50,8 +50,12 @@
 
 (defun ip-range (start-integer-string end-integer-string)
   "Transform a couple of integers to an IP4R ip range notation."
+  (declare (inline)
+	   (optimize speed)
+	   (type string start-integer-string end-integer-string))
   (flet ((integer-to-ip-string (int)
 	   "see http://dev.maxmind.com/geoip/legacy/csv/"
+	   (declare (inline) (optimize speed) (type fixnum int))
 	   (format nil "~a.~a.~a.~a"
 		   (mod (truncate int #. (expt 2 24)) 256)
 		   (mod (truncate int #. (expt 2 16)) 256)
