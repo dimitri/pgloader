@@ -420,7 +420,7 @@ order by ordinal_position" dbname table-name)))
 				 (our-columns
 				  (cdr (assoc table-name all-columns
 					      :test #'string=))))
-			    (loop for col in our-columns collect nil)))))
+			    (transforms our-columns)))))
 
     (with-stats-collection (dbname table-name :state *state* :summary summary)
       (log-message :notice "COPY ~a.~a" dbname table-name)
