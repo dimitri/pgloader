@@ -19,7 +19,7 @@
 	       #:drakma			; http client, download archives
 	       #:zip			; support for zip archive files
 	       #:flexi-streams		; streams
-	       #:com.informatigo.clext	; portable character-sets listings
+	       #:com.informatimago.clext ; portable character-sets listings
 	       #:usocket		; UDP / syslog
 	       #:local-time		; UDP date parsing
 	       #:command-line-arguments	; for the main function
