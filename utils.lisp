@@ -253,13 +253,14 @@
    given DBNAME and TABLE-NAME"
   (let ((result (gensym "result"))
 	(secs   (gensym "secs")))
-    `(progn
-       (pgstate-add-table ,pgstate ,dbname ,table-name)
-       (multiple-value-bind (,result ,secs)
-	   (timing ,@forms)
-	 (if ,use-result-as-rows
-	     (pgstate-incf ,pgstate ,table-name :rows ,result :secs ,secs)
-	     (pgstate-incf ,pgstate ,table-name :secs ,secs)))
+    `(prog2
+	 (pgstate-add-table ,pgstate ,dbname ,table-name)
+	 (multiple-value-bind (,result ,secs)
+	     (timing ,@forms)
+	   (if ,use-result-as-rows
+	       (pgstate-incf ,pgstate ,table-name :rows ,result :secs ,secs)
+	       (pgstate-incf ,pgstate ,table-name :secs ,secs))
+	   ,result)
        (when ,summary (report-summary)))))
 
 ;;;

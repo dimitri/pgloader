@@ -1230,39 +1230,56 @@ Here's a quick description of the format we're parsing here:
       (destructuring-bind (&key host port user password dbname &allow-other-keys)
 	  pg-db-uri
 	`(lambda ()
-	   (let* ((archive-file
+	   (let* ((state-before  (pgloader.utils:make-pgstate))
+		  (*state*       (pgloader.utils:make-pgstate))
+		  (state-finally (pgloader.utils:make-pgstate))
+		  (archive-file
 		   ,(destructuring-bind (kind url) source
 		     (ecase kind
-		       (:http     `(pgloader.archive:http-fetch-file ,url))
+		       (:http     `(with-stats-collection
+				       (,dbname "download" :state state-before)
+				     (pgloader.archive:http-fetch-file ,url)))
 		       (:filename url))))
-		  (*csv-path-root* (pgloader.archive:expand-archive archive-file))
+		  (*csv-path-root*
+		   (with-stats-collection (,dbname "extract" :state state-before)
+		     (pgloader.archive:expand-archive archive-file)))
 		  (*pgconn-host* ,host)
 		  (*pgconn-port* ,port)
 		  (*pgconn-user* ,user)
-		  (*pgconn-pass* ,password)
-		  (*state* (pgloader.utils:make-pgstate)))
+		  (*pgconn-pass* ,password))
 	     (progn
 	       ;; before block
-	       (with-pgsql-transaction (,dbname)
-		 (loop for command in ',before
-		    do
-		      (log-message :notice command)
-		      (pgsql-execute command :client-min-messages :error)))
+	       (with-stats-collection (,dbname "before load" :state state-before)
+		 (with-pgsql-transaction (,dbname)
+		   (loop for command in ',before
+		      do
+			(log-message :notice command)
+			(pgsql-execute command :client-min-messages :error))))
 
 	       ;; import from files block
-	       (report-header)
 	       ,@(loop for command in commands
 		    collect `(funcall ,command))
-	       (report-pgstate-stats *state* "Total import time")
 
 	       ;; finally block
-	       (with-pgsql-transaction (,dbname)
-		 (loop for command in ',finally
-		    for first = t then nil
-		    when first do (format t "~&")
-		    do
-		      (log-message :notice command)
-		      (pgsql-execute command :client-min-messages :error))))))))))
+	       (with-stats-collection (,dbname "finally" :state state-finally)
+		(with-pgsql-transaction (,dbname)
+		  (loop for command in ',finally
+		     do
+		       (log-message :notice command)
+		       (pgsql-execute command :client-min-messages :error))))
+
+	       ;; reporting
+	       (report-summary :state state-before :footer nil)
+	       (format t pgloader.utils::*header-line*)
+	       (report-summary :state *state* :header nil :footer nil)
+	       (format t pgloader.utils::*header-line*)
+	       (report-summary :state state-finally :header nil :footer nil)
+	       ;; add to the grand total the other sections
+	       (incf (pgloader.utils::pgstate-secs *state*)
+		     (+ (pgloader.utils::pgstate-secs state-before)
+			(pgloader.utils::pgstate-secs state-finally)))
+	       ;; and report the Grand Total
+	       (report-pgstate-stats *state* "Total import time"))))))))
 
 
 ;;;
@@ -1381,6 +1398,8 @@ LOAD FROM http:///tapoueh.org/db.t
 "))
 
 (defun test-parsing-load-from-archive ()
+  "Use either http://pgsql.tapoueh.org/temp/foo.zip
+           or /Users/dim/Downloads/GeoLiteCity-latest.zip"
   (parse-command "
     LOAD FROM ARCHIVE /Users/dim/Downloads/GeoLiteCity-latest.zip
        INTO postgresql://dim@localhost:54393/dim
