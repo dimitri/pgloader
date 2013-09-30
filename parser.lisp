@@ -1261,7 +1261,7 @@ Here's a quick description of the format we're parsing here:
 		    collect `(funcall ,command))
 
 	       ;; finally block
-	       ,@(when finally
+	       ,(when finally
 		 `(with-stats-collection (,dbname "finally" :state state-finally)
 		    (with-pgsql-transaction (,dbname)
 		      (loop for command in ',finally
@@ -1273,14 +1273,15 @@ Here's a quick description of the format we're parsing here:
 	       (report-summary :state state-before :footer nil)
 	       (format t pgloader.utils::*header-line*)
 	       (report-summary :state *state* :header nil :footer nil)
-	       ,@(when finally
+	       ,(when finally
 		  `(progn
 		     (format t pgloader.utils::*header-line*)
 		     (report-summary :state state-finally :header nil :footer nil)))
 	       ;; add to the grand total the other sections
 	       (incf (pgloader.utils::pgstate-secs *state*)
 		     (+ (pgloader.utils::pgstate-secs state-before)
-			(if ,finally (pgloader.utils::pgstate-secs state-finally) 0)))
+			(if ,(null finally) 0
+			    (pgloader.utils::pgstate-secs state-finally))))
 	       ;; and report the Grand Total
 	       (report-pgstate-stats *state* "Total import time"))))))))
 
@@ -1402,7 +1403,8 @@ LOAD FROM http:///tapoueh.org/db.t
 
 (defun test-parsing-load-from-archive ()
   "Use either http://pgsql.tapoueh.org/temp/foo.zip
-           or /Users/dim/Downloads/GeoLiteCity-latest.zip"
+           or /Users/dim/Downloads/GeoLiteCity-latest.zip
+           or http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV/GeoLiteCity-latest.zip"
   (parse-command "
     LOAD FROM ARCHIVE /Users/dim/Downloads/GeoLiteCity-latest.zip
        INTO postgresql://dim@localhost:54393/dim
@@ -1424,9 +1426,10 @@ LOAD FROM http:///tapoueh.org/db.t
        $$ create table if not exists geolite.blocks
          (
             iprange    ip4r,
-            locid      integer references geolite.location(locid)
+            locid      integer
          );
        $$,
+       $$ drop index if exists geolite.blocks_ip4r_idx; $$,
        $$ truncate table geolite.blocks, geolite.location cascade;
        $$
 
@@ -1471,13 +1474,14 @@ LOAD FROM http:///tapoueh.org/db.t
 
        FINALLY DO
        $$
-         create index on geolite.blocks using gist(iprange);
+         create index blocks_ip4r_idx on geolite.blocks using gist(iprange);
        $$;
 "))
 
 (defun test-parsing-load-from-archive-noprojection ()
   "Use either http://pgsql.tapoueh.org/temp/foo.zip
-           or /Users/dim/Downloads/GeoLiteCity-latest.zip"
+           or /Users/dim/Downloads/GeoLiteCity-latest.zip
+           or http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV/GeoLiteCity-latest.zip"
   (parse-command "
     LOAD FROM ARCHIVE /Users/dim/Downloads/GeoLiteCity-latest.zip
        INTO postgresql://dim@localhost:54393/dim
@@ -1500,7 +1504,7 @@ LOAD FROM http:///tapoueh.org/db.t
          (
             startip    bigint,
             endip      bigint,
-            locid      integer references geonumip.location(locid)
+            locid      integer
          );
        $$,
        $$ truncate table geonumip.blocks, geonumip.location cascade;
