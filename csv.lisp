@@ -30,10 +30,9 @@
 ;;;
 ;;; Project fields into columns
 ;;;
-(defun project-fields (&key fields columns null-as (compile t))
+(defun project-fields (&key fields columns (compile t))
   "The simplest projection happens when both FIELDS and COLS are nil: in
-   this case the projection is an identity, we simply return what we got --
-   transforming NULL-AS values into nil while at it.
+   this case the projection is an identity, we simply return what we got.
 
    Other forms of projections consist of forming columns with the result of
    applying a transformation function. In that case a cols entry is a list
@@ -43,16 +42,13 @@
 	     "return a lambda form that will process a value given NULL-AS."
 	     (if (eq null-as :blanks)
 		 (lambda (col)
+		   (declare (inline) (optimize speed))
 		   (if (every (lambda (char) (char= char #\Space)) col)
 		       nil
 		       col))
 		 (lambda (col)
+		   (declare (inline) (optimize speed))
 		   (if (string= null-as col) nil col))))
-
-	   (generic-null-as (col)
-	     "return a lambda form that will process a value given the
-              generic NULL-AS value"
-	     (funcall (null-as-processing-fn null-as) col))
 
 	   (field-name-as-symbol (field-name-or-list)
 	     "we need to deal with symbols as we generate code"
@@ -68,7 +64,7 @@
 		   (t    (cdr (assoc field-name-or-list fields :test #'string=))))
 	       (declare (ignore date-format)) ; TODO
 	       (if (null null-as)
-		   (function generic-null-as)
+		   #'identity
 		   (null-as-processing-fn null-as)))))
 
     (let* ((projection
@@ -76,8 +72,7 @@
 	      ;; when no specific information has been given on FIELDS and
 	      ;; COLUMNS, just apply generic NULL-AS processing
 	      ((and (null fields) (null columns))
-	       (lambda (row)
-		 (mapcar (function generic-null-as) row)))
+	       (lambda (row) row))
 
 	      ((null columns)
 	       ;; when no specific information has been given on COLUMNS,
@@ -104,6 +99,7 @@
 			    (or fn `(funcall ,(field-process-null-fn name)
 					     ,(field-name-as-symbol name))))))
 		 `(lambda (row)
+		    (declare (inline) (optimize speed) (type list row))
 		    (destructuring-bind (,@args) row
 		      (list ,@newrow))))))))
       ;; allow for some debugging
@@ -121,14 +117,14 @@
 		   (skip-lines nil)
 		   (separator #\Tab)
 		   (quote cl-csv:*quote*)
-		   (escape cl-csv:*quote-escape*)
-		   (null-as "\\N"))
-  "Load data from a text file in PostgreSQL COPY TEXT format.
+		   (escape cl-csv:*quote-escape*))
+  "Load data from a text file in CSV format, with support for advanced
+   projecting capabilities. See `project-fields' for details.
 
-Each row is pre-processed then PROCESS-ROW-FN is called with the row as a
-list as its only parameter.
+   Each row is pre-processed then PROCESS-ROW-FN is called with the row as a
+   list as its only parameter.
 
-Finally returns how many rows where read and processed."
+   Finally returns how many rows where read and processed."
   (with-open-file
       ;; we just ignore files that don't exist
       (input filename
@@ -145,8 +141,7 @@ Finally returns how many rows where read and processed."
       ;; the way postmodern expects them, and call PROCESS-ROW-FN on them
       (let* ((read 0)
 	     (projection (project-fields :fields fields
-					 :columns columns
-					 :null-as null-as))
+					 :columns columns))
 	     (reformat-then-process
 	      (lambda (row)
 		(incf read)
@@ -181,8 +176,7 @@ Finally returns how many rows where read and processed."
 			skip-lines
 			(separator #\Tab)
 			(quote cl-csv:*quote*)
-			(escape cl-csv:*quote-escape*)
-			(null-as "\\N"))
+			(escape cl-csv:*quote-escape*))
   "Copy data from CSV FILENAME into lprallel.queue DATAQ"
   (let ((read
 	 (pgloader.queue:map-push-queue dataq
@@ -194,8 +188,7 @@ Finally returns how many rows where read and processed."
 					:skip-lines skip-lines
 					:separator separator
 					:quote quote
-					:escape escape
-					:null-as null-as)))
+					:escape escape)))
     (pgstate-incf *state* table-name :read read)))
 
 (defun copy-from-file (dbname table-name filename-or-regex
@@ -212,8 +205,7 @@ Finally returns how many rows where read and processed."
 			 (encoding :utf-8)
 			 (separator #\Tab)
 			 (quote cl-csv:*quote*)
-			 (escape cl-csv:*quote-escape*)
-			 (null-as "\\N"))
+			 (escape cl-csv:*quote-escape*))
   "Copy data from CSV file FILENAME into PostgreSQL DBNAME.TABLE-NAME"
   (let* ((summary        (null *state*))
 	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
@@ -233,8 +225,7 @@ Finally returns how many rows where read and processed."
 		      :skip-lines skip-lines
 		      :separator separator
 		      :quote quote
-		      :escape escape
-		      :null-as null-as)
+		      :escape escape)
 
       ;; and start another task to push that data from the queue to PostgreSQL
       (lp:submit-task channel
@@ -254,7 +245,6 @@ Finally returns how many rows where read and processed."
 			  (separator #\Tab)
 			  (quote cl-csv:*quote*)
 			  (escape cl-csv:*quote-escape*)
-			  (null-as "\\N")
 			  (truncate t)
 			  only-tables)
   "Export MySQL data and Import it into PostgreSQL"
@@ -272,7 +262,6 @@ Finally returns how many rows where read and processed."
 			 :separator separator
 			 :quote quote
 			 :escape escape
-			 :null-as null-as
 			 :truncate truncate)
        finally
 	 (report-pgstate-stats *state* "Total import time"))))
