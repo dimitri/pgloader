@@ -181,7 +181,10 @@ GROUP BY table_name, index_name;" dbname)))
   "Return a PostgreSQL CREATE INDEX statement as a string."
   (let* ((index-name (format nil "~a_~a_idx" table-name index-name))
 	 (table-name (apply-identifier-case table-name identifier-case))
-	 (index-name (apply-identifier-case index-name identifier-case)))
+	 (index-name (apply-identifier-case index-name identifier-case))
+	 (cols
+	  (mapcar
+	   (lambda (col) (apply-identifier-case col identifier-case)) cols)))
     (cond
       ((string= index-name "PRIMARY")
        (format nil

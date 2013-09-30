@@ -10,7 +10,8 @@
 (defun apply-identifier-case (identifier case)
   "Return a SQL string to use in the output part of a MySQL query."
   (ecase case
-    (:downcase (string-downcase identifier))
+    (:downcase (cl-ppcre:regex-replace-all
+		"[^a-zA-Z0-9]" (string-downcase identifier) "_"))
     (:quote    (format nil "\"~a\"" identifier))))
 
 (defun explode-mysql-enum (ctype)
