@@ -176,10 +176,10 @@ GROUP BY table_name, index_name;" dbname)))
     ;; free resources
     (cl-mysql:disconnect)))
 
-(defun get-pgsql-index-def (table-name index-name unique cols
+(defun get-pgsql-index-def (table-name table-oid index-name unique cols
 			    &key identifier-case)
   "Return a PostgreSQL CREATE INDEX statement as a string."
-  (let* ((index-name (format nil "~a_~a_idx" table-name index-name))
+  (let* ((index-name (format nil "idx_~a_~a" table-oid index-name))
 	 (table-name (apply-identifier-case table-name identifier-case))
 	 (index-name (apply-identifier-case index-name identifier-case))
 	 (cols
@@ -195,7 +195,8 @@ GROUP BY table_name, index_name;" dbname)))
 	       "CREATE~:[~; UNIQUE~] INDEX ~a ON ~a (~{~a~^, ~});"
 	       unique index-name table-name cols)))))
 
-(defun get-drop-index-if-exists (table-name index-name &key identifier-case)
+(defun get-drop-index-if-exists (table-name table-oid index-name
+				 &key identifier-case)
   "Return the DROP INDEX statement for PostgreSQL"
   (cond
     ((string= index-name "PRIMARY")
@@ -205,11 +206,11 @@ GROUP BY table_name, index_name;" dbname)))
        (format nil "ALTER TABLE ~a DROP CONSTRAINT ~a;" table-name pkey-name)))
 
     (t
-     (let* ((index-name (format nil "~a_idx" index-name))
+     (let* ((index-name (format nil "idx_~a_~a" table-oid index-name))
 	    (index-name (apply-identifier-case index-name identifier-case)))
        (format nil "DROP INDEX IF EXISTS ~a;" index-name)))))
 
-(defun get-pgsql-drop-indexes (table-name indexes &key identifier-case)
+(defun get-pgsql-drop-indexes (table-name table-oid indexes &key identifier-case)
   "Return the DROP INDEX statements for given INDEXES definitions."
   (loop
      for (index-name unique cols) in indexes
@@ -217,15 +218,15 @@ GROUP BY table_name, index_name;" dbname)))
      ;; is true we just did drop the table and created it again
      ;; anyway
      unless (string= index-name "PRIMARY")
-     collect (get-drop-index-if-exists table-name index-name
+     collect (get-drop-index-if-exists table-name table-oid index-name
 				       :identifier-case identifier-case)))
 
-(defun get-pgsql-create-indexes (table-name indexes
-				 &key identifier-case include-drop)
+(defun get-pgsql-create-indexes (table-name table-oid indexes
+				 &key identifier-case)
   "Return the CREATE INDEX statements from given INDEXES definitions."
   (loop
      for (index-name unique cols) in indexes
-     collect (get-pgsql-index-def table-name index-name unique cols
+     collect (get-pgsql-index-def table-name table-oid index-name unique cols
 				  :identifier-case identifier-case)))
 
 
@@ -461,13 +462,17 @@ order by ordinal_position" dbname table-name)))
   "Create indexes for given table in dbname, using given lparallel KERNEL
    and CHANNEL so that the index build happen in concurrently with the data
    copying."
-  (let* ((lp:*kernel* kernel))
+  (let* ((lp:*kernel* kernel)
+	 (table-oid
+	  (with-pgsql-transaction ("pmsi")
+	    (pomo:query
+	     (format nil "select '~a'::regclass::oid" table-name) :single))))
     (pgstate-add-table state dbname label)
 
     (when include-drop
       (let ((drop-channel (lp:make-channel))
 	    (drop-indexes
-	     (get-pgsql-drop-indexes table-name indexes
+	     (get-pgsql-drop-indexes table-name table-oid indexes
 				     :identifier-case identifier-case)))
 	(loop
 	   for sql in drop-indexes
@@ -480,9 +485,8 @@ order by ordinal_position" dbname table-name)))
 	(loop for idx in drop-indexes do (lp:receive-result drop-channel))))
 
     (loop
-       for sql in (get-pgsql-create-indexes table-name indexes
-					    :identifier-case identifier-case
-					    :include-drop include-drop)
+       for sql in (get-pgsql-create-indexes table-name table-oid indexes
+					    :identifier-case identifier-case)
        do
 	 (log-message :notice "~a" sql)
 	 (lp:submit-task channel #'execute-with-timing dbname label sql state))))
