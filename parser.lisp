@@ -1407,9 +1407,10 @@ LOAD FROM http:///tapoueh.org/db.t
            or http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV/GeoLiteCity-latest.zip"
   (parse-command "
     LOAD FROM ARCHIVE /Users/dim/Downloads/GeoLiteCity-latest.zip
-       INTO postgresql://dim@localhost:54393/dim
+       INTO postgresql://dim@localhost:54393/ip4r
 
        BEFORE LOAD DO
+       $$ create extension if not exists ip4r; $$,
        $$ create schema if not exists geolite; $$,
        $$ create table if not exists geolite.location
          (
@@ -1446,7 +1447,7 @@ LOAD FROM http:///tapoueh.org/db.t
                     metroCode  null if blanks,
                     areaCode   null if blanks
                  )
-            INTO postgresql://dim@localhost:54393/dim?geolite.location
+            INTO postgresql://dim@localhost:54393/ip4r?geolite.location
                  (
                     locid,country,region,city,postalCode,
                     location point using (format nil \"(~a,~a)\" longitude latitude),
@@ -1462,7 +1463,7 @@ LOAD FROM http:///tapoueh.org/db.t
                  (
                     startIpNum, endIpNum, locId
                  )
-            INTO postgresql://dim@localhost:54393/dim?geolite.blocks
+            INTO postgresql://dim@localhost:54393/ip4r?geolite.blocks
                  (
                     iprange ip4r using (ip-range startIpNum endIpNum),
                     locId
