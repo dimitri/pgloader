@@ -48,19 +48,33 @@
    'f' and 't', respectively."
   (if (string= "0" integer-string) "f" "t"))
 
+(declaim (inline int-to-ip))
+(defun int-to-ip (int)
+  "Transform an IP as integer into its dotted notation, optimised code from
+   stassats."
+  (declare (optimize speed)
+           (type (unsigned-byte 32) int))
+  (let ((table (load-time-value
+                (let ((vec (make-array (+ 1 #xFFFF))))
+                  (loop for i to #xFFFF
+		     do (setf (aref vec i)
+			      (coerce (format nil "~a.~a"
+					      (ldb (byte 8 8) i)
+					      (ldb (byte 8 0) i))
+				      'simple-base-string)))
+                  vec)
+                t)))
+    (declare (type (simple-array simple-base-string (*)) table))
+    (concatenate 'simple-base-string
+		 (aref table (ldb (byte 16 16) int))
+		 "."
+		 (aref table (ldb (byte 16 0) int)))))
+
+(declaim (inline ip-range))
 (defun ip-range (start-integer-string end-integer-string)
   "Transform a couple of integers to an IP4R ip range notation."
-  (declare (inline)
-	   (optimize speed)
+  (declare (optimize speed)
 	   (type string start-integer-string end-integer-string))
-  (flet ((integer-to-ip-string (int)
-	   "see http://dev.maxmind.com/geoip/legacy/csv/"
-	   (declare (inline) (optimize speed) (type fixnum int))
-	   (format nil "~a.~a.~a.~a"
-		   (mod (truncate int #. (expt 2 24)) 256)
-		   (mod (truncate int #. (expt 2 16)) 256)
-		   (mod (truncate int #. (expt 2 8)) 256)
-		   (mod int 256))))
-    (let ((ip-start (integer-to-ip-string (parse-integer start-integer-string)))
-	  (ip-end   (integer-to-ip-string (parse-integer end-integer-string))))
-      (format nil "~a-~a" ip-start ip-end))))
+  (let ((ip-start (int-to-ip (parse-integer start-integer-string)))
+	(ip-end   (int-to-ip (parse-integer end-integer-string))))
+    (concatenate 'simple-base-string ip-start "-" ip-end)))
