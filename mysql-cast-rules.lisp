@@ -98,8 +98,10 @@
     (:source (:type "date" :default "0000-00-00")
      :target (:type "date" :drop-default t))
 
-    (:source (:type "datetime")
-     :target (:type "timestamptz"))
+    ;; date types without strange defaults
+    (:source (:type "date")     :target (:type "date"))
+    (:source (:type "datetime") :target (:type "timestamptz"))
+    (:source (:type "year")     :target (:type "integer"))
 
     (:source (:type "enum")
      :target (:type ,#'cast-enum)))
