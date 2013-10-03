@@ -295,7 +295,8 @@ order by ordinal_position" dbname table-name)))
 
 	    ;; Now fetch MySQL rows directly in the stream
 	    (loop
-	       for row = (cl-mysql:next-row q :type-map (make-hash-table))
+	       with type-map = (make-hash-table)
+	       for row = (cl-mysql:next-row q :type-map type-map)
 	       while row
 	       for row-with-proper-nulls = (fix-nulls row nulls)
 	       counting row into count
