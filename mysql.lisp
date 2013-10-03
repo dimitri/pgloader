@@ -517,7 +517,8 @@ order by ordinal_position" dbname table-name)))
          (all-indexes   (list-all-indexes dbname))
          (max-indexes   (loop for (table . indexes) in all-indexes
                            maximizing (length indexes)))
-         (idx-kernel    (make-kernel max-indexes))
+         (idx-kernel    (when max-indexes
+			  (make-kernel max-indexes)))
          (idx-channel   (let ((lp:*kernel* idx-kernel))
                           (lp:make-channel))))
 
