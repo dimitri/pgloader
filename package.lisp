@@ -152,6 +152,9 @@
 	   #:*myconn-port*
 	   #:*myconn-user*
 	   #:*myconn-pass*
+	   #:run-command
+	   #:parse-command
+	   #:slurp-file-into-string
 	   #:copy-from-file
 	   #:list-databases
 	   #:list-tables))

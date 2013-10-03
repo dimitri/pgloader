@@ -1319,6 +1319,8 @@ Here's a quick description of the format we're parsing here:
 	 (typecase command
 	   (function command)
 	   (list     (compile nil command))
+	   (pathname (compile nil (parse-command
+				   (slurp-file-into-string command))))
 	   (t        (compile nil (parse-command command))))))
 
     ;; Start the logger
