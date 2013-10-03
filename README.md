@@ -46,6 +46,10 @@ them from the internet and prepare them (thanks to *Quicklisp*). So please
 be patient while that happens and make sure we can actually connect and
 download the dependencies.
 
+## Compile into a self-contained binary file
+
+    ./buildapp --logfile /tmp/build.log --manifest-file ./manifest.ql --asdf-path ~/quicklisp/local-projects/Postmodern/ --asdf-tree ~/quicklisp/dists --load-system pgloader --entry pgloader:main --load pgloader/main.lisp --output pgloader.exe
+
 ## Usage
 
 Use the `--file` parameter to give pgloader a command file to parse, it will start 
