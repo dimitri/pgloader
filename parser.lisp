@@ -1315,8 +1315,16 @@ Here's a quick description of the format we're parsing here:
 
 (defun run-command (command)
   "Parse given COMMAND then run it."
-  (let* ((code    (parse-command command))
-	 (func    (compile nil code)))
+  (let ((func
+	 (typecase command
+	   (function command)
+	   (list     (compile nil command))
+	   (t        (compile nil (parse-command command))))))
+
+    ;; Start the logger
+    (start-logger)
+
+    ;; run the command
     (funcall func)))
 
 

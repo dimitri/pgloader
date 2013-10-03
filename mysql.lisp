@@ -451,7 +451,12 @@ order by ordinal_position" dbname table-name)))
 (defun execute-with-timing (dbname label sql state &key (count 1))
   "Execute given SQL and resgister its timing into STATE."
   (multiple-value-bind (res secs)
-      (timing (with-pgsql-transaction (dbname) (pgsql-execute sql)))
+      (timing
+       (with-pgsql-transaction (dbname)
+	 (handler-case
+	     (pgsql-execute sql)
+	   (condition (e)
+	     (log-message :error "~a" e)))))
     (declare (ignore res))
     (pgstate-incf state label :rows count :secs secs)))
 

@@ -51,9 +51,6 @@
 	  :nsec (fraction-to-nsecs (cl-log:timestamp-fraction self)))))
     (local-time:format-timestring stream log-local-time)))
 
-;; Start the logger
-(start-logger)
-
 ;;;
 ;;; Timing Macro
 ;;;

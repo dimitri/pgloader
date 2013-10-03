@@ -14,7 +14,8 @@
 		#:text-file-messenger
 		#:text-stream-messenger
 		#:formatted-message)
-  (:export #:log-message
+  (:export #:start-logger
+	   #:log-message
 	   #:report-header
 	   #:report-table-name
 	   #:report-results

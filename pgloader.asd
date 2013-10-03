@@ -13,6 +13,7 @@
 	       #:cl-mysql		; CFFI binding to libmysqlclient-dev
 	       #:split-sequence		; some parsing is made easy
                #:cl-csv			; full CSV reader
+	       #:cl-fad			; file and directories
                #:lparallel		; threads, workers, queues
 	       #:esrap			; parser generator
 	       #:alexandria		; utils
@@ -57,6 +58,16 @@
 					   "queue"
 					   "transforms"
 					   "mysql-cast-rules"
-					   "utils"))))
+					   "utils"))
+
+	       ;; the main entry file, used when building a stand-alone
+	       ;; executable image
+	       (:file "main" :depends-on ("package"
+					  "parser"
+					  "csv"
+					  "db3"
+					  "archive"
+					  "syslog"
+					  "mysql"))))
 
 
