@@ -1329,6 +1329,27 @@ Here's a quick description of the format we're parsing here:
     ;; run the command
     (funcall func)))
 
+(defmacro with-database-uri ((database-uri) &body body)
+  "Run the BODY forms with the connection parameters set to proper values
+   from the DATABASE-URI. For a MySQL connection string, that's
+   *myconn-user* and all, for a PostgreSQL connection string, *pgconn-user*
+   and all."
+  (destructuring-bind (&key type user password host port &allow-other-keys)
+      (parse 'db-connection-uri database-uri)
+    (ecase type
+      (:mysql
+       `(let* ((*myconn-host* ,host)
+	       (*myconn-port* ,port)
+	       (*myconn-user* ,user)
+	       (*myconn-pass* ,password))
+	  ,@body))
+      (:postgresql
+       `(let* ((*pgconn-host* ,host)
+	       (*pgconn-port* ,port)
+	       (*pgconn-user* ,user)
+	       (*pgconn-pass* ,password))
+	  ,@body)))))
+
 
 (defun test-parsing ()
   (parse-command "

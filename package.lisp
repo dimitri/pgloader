@@ -65,7 +65,8 @@
 		#:with-pgsql-transaction
 		#:pgsql-execute)
   (:export #:parse-command
-	   #:run-command))
+	   #:run-command
+	   #:with-database-uri))
 
 
 ;;
@@ -139,7 +140,8 @@
 		#:list-tables)
   (:import-from #:pgloader.parser
 		#:run-command
-		#:parse-command)
+		#:parse-command
+		#:with-database-uri)
   (:export #:*state*
 	   #:*csv-path-root*
 	   #:*reject-path-root*
@@ -154,6 +156,7 @@
 	   #:*myconn-pass*
 	   #:run-command
 	   #:parse-command
+	   #:with-database-uri
 	   #:slurp-file-into-string
 	   #:copy-from-file
 	   #:list-databases
