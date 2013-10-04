@@ -313,7 +313,8 @@ Finally returns how many rows where read and processed."
 		   (cl-postgres:close-db-writer copier))
 	       ((or
 		 CL-POSTGRES-ERROR:UNIQUE-VIOLATION
-		 CL-POSTGRES-ERROR:DATA-EXCEPTION) (e)
+		 CL-POSTGRES-ERROR:DATA-EXCEPTION
+		 CL-POSTGRES::PROTOCOL-ERROR) (e)
 		 (progn
 		   (log-message :debug "pgsql:copy-from-queue: ~a" e)
 		   (retry-batch dbname table-name
@@ -471,7 +472,8 @@ Finally returns how many rows where read and processed."
 	       ;; the batch didn't make it, recurse
 	       ((or
 		 CL-POSTGRES-ERROR:UNIQUE-VIOLATION
-		 CL-POSTGRES-ERROR:DATA-EXCEPTION) (condition)
+		 CL-POSTGRES-ERROR:DATA-EXCEPTION
+		 CL-POSTGRES::PROTOCOL-ERROR) (condition)
 		 ;; process bad data
 		 (if (= 1 current-batch-size)
 		     (process-bad-row table-name condition (car current-batch))
