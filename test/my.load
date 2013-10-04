@@ -1,0 +1,11 @@
+load database from mysql://localhost/adv
+              into postgresql://dim@localhost/adv
+
+with drop tables, truncate, create tables, create indexes,
+     reset sequences,
+     downcase identifiers
+ set work_mem to '128MB', maintenance_work_mem to '512 MB'
+
+cast type datetime to timestamptz drop default using zero-dates-to-null,
+     type date drop not null drop default using zero-dates-to-null,
+     type tinyint to boolean using tinyint-to-boolean;
