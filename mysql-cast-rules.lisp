@@ -102,13 +102,20 @@
     (:source (:type "datetime" :default "0000-00-00 00:00:00")
      :target (:type "timestamptz" :drop-default t))
 
+    (:source (:type "timestamp" :default "0000-00-00 00:00:00" :not-null t)
+     :target (:type "timestamptz" :drop-default t :drop-not-null t))
+
+    (:source (:type "timestamp" :default "0000-00-00 00:00:00")
+     :target (:type "timestamptz" :drop-default t))
+
     (:source (:type "date" :default "0000-00-00")
      :target (:type "date" :drop-default t))
 
     ;; date types without strange defaults
-    (:source (:type "date")     :target (:type "date"))
-    (:source (:type "datetime") :target (:type "timestamptz"))
-    (:source (:type "year")     :target (:type "integer"))
+    (:source (:type "date")      :target (:type "date"))
+    (:source (:type "datetime")  :target (:type "timestamptz"))
+    (:source (:type "timestamp") :target (:type "timestamptz"))
+    (:source (:type "year")      :target (:type "integer"))
 
     (:source (:type "enum")
      :target (:type ,#'cast-enum)))
@@ -170,6 +177,16 @@
 	     (or (null ai-s-p) (eq auto-increment rule-source-auto-increment)))
 	  (list :using using :target rule-target))))))
 
+(defun format-pgsql-default-value (default using-cast-fn)
+  "Returns suitably quoted default value for CREATE TABLE command."
+  (cond
+    ((string= "NULL" default) default)
+    ((string= "CURRENT_TIMESTAMP" default) default)
+    (t
+     (format nil "'~a'"
+	     ;; apply the transformation function to the default value
+	     (if using-cast-fn (funcall using-cast-fn default) default)))))
+
 (defun format-pgsql-type (source target using)
   "Returns a string suitable for a PostgreSQL type definition"
   (destructuring-bind (&key ((:table-name source-table-name))
@@ -199,14 +216,13 @@
 		   (destructuring-bind (a . b) source-typemod
 		     (format nil "(~a~:[~*~;,~a~])" a b b)))))
 	    (format nil
-		    "~a~:[~*~;~a~]~:[~; not null~]~:[~; default '~a'~]"
+		    "~a~:[~*~;~a~]~:[~; not null~]~:[~; default ~a~]"
 		    type-name
 		    (and source-typemod (not drop-typemod))
 		    pg-typemod
 		    (and source-not-null (not drop-not-null))
 		    (and source-default (not drop-default))
-		    ;; apply the transformation function to the default value
-		    (if using (funcall using source-default) source-default))))
+		    (format-pgsql-default-value source-default using))))
 
 	;; NO MATCH
 	;;
@@ -286,25 +302,30 @@ that would be int and int(7) or varchar and varchar(25)."
 	    :target (:type "timestamptz" :drop-default t :drop-not-null t)
 	    :using pgloader.transforms::zero-dates-to-null)
 
+	   (:source (:type "timestamp" :auto-increment nil)
+	    :target (:type "timestamptz" :drop-default nil :drop-not-null t)
+	    :using pgloader.transforms::zero-dates-to-null)
+
 	   (:source (:type "date" :auto-increment nil)
 	    :target (:type "date" :drop-default t :drop-not-null t)
 	    :using pgloader.transforms::zero-dates-to-null)))
 
 	(columns
-	 ;; name dtype      ctype         default nullable extra
-	 '(("a"  "int"      "int(7)"      nil "NO" "auto_increment")
-	   ("b"  "int"      "int(10)"     nil "NO" "auto_increment")
-	   ("c"  "varchar"  "varchar(25)" nil  nil nil)
-	   ("d"  "tinyint"  "tinyint(4)"  "0" nil nil)
-	   ("e"  "datetime" "datetime"    "0000-00-00 00:00:00" nil nil)
-	   ("f"  "date"     "date"        "0000-00-00" "NO" nil)
-	   ("g"  "enum"     "ENUM('a', 'b')"  nil nil nil)
-	   ("h"  "int"      "int(11)"         nil nil nil)
-	   ("i"  "float"    "float(12,2)"     nil nil nil)
-	   ("j"  "double"   "double unsigned" nil nil nil)
-	   ("k"  "bigint"   "bigint(20)"      nil nil nil)
-	   ("l"  "numeric"  "numeric(18,3)"   nil nil nil)
-	   ("m"  "decimal"  "decimal(15,5)"   nil nil nil))))
+	 ;; name dtype       ctype         default nullable extra
+	 '(("a"  "int"       "int(7)"      nil "NO" "auto_increment")
+	   ("b"  "int"       "int(10)"     nil "NO" "auto_increment")
+	   ("c"  "varchar"   "varchar(25)" nil  nil nil)
+	   ("d"  "tinyint"   "tinyint(4)"  "0" nil nil)
+	   ("e"  "datetime"  "datetime"    "0000-00-00 00:00:00" nil nil)
+	   ("f"  "date"      "date"        "0000-00-00" "NO" nil)
+	   ("g"  "enum"      "ENUM('a', 'b')"  nil nil nil)
+	   ("h"  "int"       "int(11)"         nil nil nil)
+	   ("i"  "float"     "float(12,2)"     nil nil nil)
+	   ("j"  "double"    "double unsigned" nil nil nil)
+	   ("k"  "bigint"    "bigint(20)"      nil nil nil)
+	   ("l"  "numeric"   "numeric(18,3)"   nil nil nil)
+	   ("m"  "decimal"   "decimal(15,5)"   nil nil nil)
+	   ("n"  "timestamp" "timestamp" "CURRENT_TIMESTAMP" "NO" "on update CURRENT_TIMESTAMP"))))
 
     (loop
        for (name dtype ctype nullable default extra) in columns
