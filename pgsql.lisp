@@ -118,6 +118,11 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
      where c.oid = '~:[~*~a~;~a.~a~]'::regclass and attnum > 0
   order by attnum" schema schema table-name) :column)))
 
+(defun list-reserved-keywords (dbname)
+  "Connect to PostgreSQL DBNAME and fetch reserved keywords."
+  (with-pgsql-transaction (dbname)
+    (pomo:query "select word from pg_get_keywords() where catcode = 'R'" :column)))
+
 (defun reset-all-sequences (dbname)
   "Reset all sequences to the max value of the column they are attached to."
   (pomo:with-connection (get-connection-spec dbname)

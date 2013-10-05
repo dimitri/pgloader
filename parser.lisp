@@ -625,6 +625,8 @@ Here's a quick description of the format we're parsing here:
 	    pg-db-uri
 	  `(lambda ()
 	     (let* ((pgloader.mysql:*cast-rules* ',casts)
+		    (pgloader.mysql::*pgsql-reserved-keywords*
+		     (pgloader.pgsql:list-reserved-keywords ,pgdb))
 		    (*myconn-host* ,myhost)
 		    (*myconn-port* ,myport)
 		    (*myconn-user* ,myuser)

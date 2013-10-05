@@ -54,6 +54,7 @@
 	   #:list-tables
 	   #:list-columns
 	   #:list-tables-cols
+	   #:list-reserved-keywords
 	   #:reset-all-sequences
 	   #:execute
 	   #:get-date-columns

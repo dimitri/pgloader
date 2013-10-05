@@ -4,15 +4,22 @@
 
 (in-package :pgloader.mysql)
 
+(defvar *pgsql-reserved-keywords* nil
+  "We need to always quote PostgreSQL reserved keywords")
+
 ;;;
 ;;; Some functions to deal with ENUM types
 ;;;
 (defun apply-identifier-case (identifier case)
   "Return a SQL string to use in the output part of a MySQL query."
-  (ecase case
-    (:downcase (cl-ppcre:regex-replace-all
-		"[^a-zA-Z0-9]" (string-downcase identifier) "_"))
-    (:quote    (format nil "\"~a\"" identifier))))
+  (let ((case
+	    (if (member identifier *pgsql-reserved-keywords* :test #'string=)
+		:quote
+		case)))
+   (ecase case
+     (:downcase (cl-ppcre:regex-replace-all
+		 "[^a-zA-Z0-9]" (string-downcase identifier) "_"))
+     (:quote    (format nil "\"~a\"" identifier)))))
 
 (defun explode-mysql-enum (ctype)
   "Convert MySQL ENUM expression into a list of labels."
