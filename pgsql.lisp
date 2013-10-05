@@ -167,12 +167,13 @@ $$; " only-tables)
 ;;;
 ;;; PostgreSQL formating tools
 ;;;
+(declaim (inline apply-transform-function apply-transforms))
+
 (defun apply-transform-function (fn col)
   "Apply the tranformation function FN to the value COL."
-  (declare (inline))
   (if fn (funcall fn col) col))
 
-(defun reformat-row (row &key transforms)
+(defun apply-transforms (row &key transforms)
   "Reformat row as given by MySQL in a format compatible with cl-postgres"
   (loop
      for col in row
@@ -269,7 +270,7 @@ Finally returns how many rows where read and processed."
    is up to *copy-batch-size*, throw the 'next-batch tag with its current
    size."
   (lambda (row)
-    (let ((reformated-row (reformat-row row :transforms transforms)))
+    (let ((reformated-row (apply-transforms row :transforms transforms)))
 
       ;; maintain the current batch
       (push reformated-row *batch*)

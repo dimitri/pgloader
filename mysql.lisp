@@ -253,6 +253,8 @@ order by ordinal_position" dbname table-name)))
      collect (format nil "`~a` is null" name) into cols and collect t into nulls
      finally (return (values cols nulls))))
 
+(declaim (inline fix-nulls))
+
 (defun fix-nulls (row nulls)
   "Given a cl-mysql row result and a nulls list as from
    get-column-list-with-is-nulls, replace NIL with empty strings with when

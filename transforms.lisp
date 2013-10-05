@@ -11,6 +11,13 @@
 
 (in-package :pgloader.transforms)
 
+(declaim (inline intern-symbol
+		 zero-dates-to-null
+		 date-with-no-separator
+		 tinyint-to-boolean
+		 int-to-ip
+		 ip-range))
+
 (defun intern-symbol (symbol-name)
   (intern (string-upcase symbol-name)
 	  (find-package "PGLOADER.TRANSFORMS")))
@@ -48,7 +55,6 @@
    'f' and 't', respectively."
   (if (string= "0" integer-string) "f" "t"))
 
-(declaim (inline int-to-ip))
 (defun int-to-ip (int)
   "Transform an IP as integer into its dotted notation, optimised code from
    stassats."
@@ -70,7 +76,6 @@
 		 "."
 		 (aref table (ldb (byte 16 0) int)))))
 
-(declaim (inline ip-range))
 (defun ip-range (start-integer-string end-integer-string)
   "Transform a couple of integers to an IP4R ip range notation."
   (declare (optimize speed)
