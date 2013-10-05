@@ -39,6 +39,7 @@
 ;;;
 (defun list-all-columns (dbname
 			 &key
+			   only-tables
 			   (host *myconn-host*)
 			   (user *myconn-user*)
 			   (pass *myconn-pass*))
@@ -56,8 +57,8 @@
          data_type, column_type, column_default,
          is_nullable, extra
     from information_schema.columns
-   where table_schema = '~a'
-order by table_name, ordinal_position" dbname)))
+   where table_schema = '~a' ~@[and table_name in (~{~a~^,~})~]
+order by table_name, ordinal_position" dbname only-tables)))
 	    do
 	      (let ((entry (assoc table-name schema :test 'equal)))
 		(if entry
@@ -513,7 +514,7 @@ order by ordinal_position" dbname table-name)))
   (let* ((*state*       (make-pgstate))
 	 (idx-state     (make-pgstate))
          (copy-kernel   (make-kernel 2))
-         (all-columns   (list-all-columns dbname))
+         (all-columns   (list-all-columns dbname :only-tables only-tables))
          (all-indexes   (list-all-indexes dbname))
          (max-indexes   (loop for (table . indexes) in all-indexes
                            maximizing (length indexes)))
@@ -564,7 +565,11 @@ order by ordinal_position" dbname table-name)))
     ;; don't forget to reset sequences, but only when we did actually import
     ;; the data.
     (when (and (not schema-only) reset-sequences)
-      (pgloader.pgsql:reset-all-sequences pg-dbname))
+      (let ((only-tables
+	     (mapcar
+	      (lambda (name) (apply-identifier-case name identifier-case))
+	      only-tables)))
+       (pgloader.pgsql:reset-all-sequences pg-dbname :only-tables only-tables)))
 
     ;; now end the kernels
     (let ((lp:*kernel* idx-kernel))  (lp:end-kernel))

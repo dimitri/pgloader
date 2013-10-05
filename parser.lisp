@@ -614,6 +614,7 @@ Here's a quick description of the format we're parsing here:
 				((:user myuser))
 				((:password mypass))
 				((:dbname mydb))
+				table-name
 				&allow-other-keys)
 	  my-db-uri
 	(destructuring-bind (&key ((:host pghost))
@@ -642,6 +643,8 @@ Here's a quick description of the format we're parsing here:
 				 *pgconn-host* *pgconn-port*
 				 *pgconn-user* *pgconn-pass*))
 	       (pgloader.mysql:stream-database ,mydb
+					       ,@(when table-name
+						 `(:only-tables ',(list table-name)))
 					       :pg-dbname ,pgdb
 					       ,@options))))))))
 

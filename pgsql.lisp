@@ -123,7 +123,7 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
   (with-pgsql-transaction (dbname)
     (pomo:query "select word from pg_get_keywords() where catcode = 'R'" :column)))
 
-(defun reset-all-sequences (dbname)
+(defun reset-all-sequences (dbname &key only-tables)
   "Reset all sequences to the max value of the column they are attached to."
   (pomo:with-connection (get-connection-spec dbname)
     (pomo:execute "set client_min_messages to warning;")
@@ -151,6 +151,7 @@ BEGIN
                                  and a.atthasdef
         WHERE relkind = 'r' and a.attnum > 0
               and pg_get_expr(d.adbin, d.adrelid) ~ '^nextval'
+              ~@[and ~{~a~^, ~}~]
   LOOP
     n := n + 1;
     EXECUTE r.sql;
@@ -158,7 +159,7 @@ BEGIN
 
   PERFORM pg_notify('seqs', n::text);
 END;
-$$; ")
+$$; " only-tables)
       ;; now get the notification signal
       (cl-postgres:postgresql-notification (c)
 	(parse-integer (cl-postgres:postgresql-notification-payload c))))))
