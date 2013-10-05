@@ -470,7 +470,7 @@ order by ordinal_position" dbname table-name)))
    copying."
   (let* ((lp:*kernel* kernel)
 	 (table-oid
-	  (with-pgsql-transaction ("pmsi")
+	  (with-pgsql-transaction (dbname)
 	    (pomo:query
 	     (format nil "select '~a'::regclass::oid" table-name) :single))))
     (pgstate-add-table state dbname label)
