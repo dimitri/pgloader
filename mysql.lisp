@@ -57,7 +57,7 @@
          data_type, column_type, column_default,
          is_nullable, extra
     from information_schema.columns
-   where table_schema = '~a' ~@[and table_name in (~{~a~^,~})~]
+   where table_schema = '~a' ~@[and table_name in (~{'~a'~^,~})~]
 order by table_name, ordinal_position" dbname only-tables)))
 	    do
 	      (let ((entry (assoc table-name schema :test 'equal)))
