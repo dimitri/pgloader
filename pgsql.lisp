@@ -130,7 +130,7 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
     (pomo:execute "listen seqs")
 
     (handler-case
-	(pomo:execute "
+	(pomo:execute (format nil "
 DO $$
 DECLARE
   n integer := 0;
@@ -150,8 +150,8 @@ BEGIN
                                  and d.adnum = a.attnum
                                  and a.atthasdef
         WHERE relkind = 'r' and a.attnum > 0
-              and pg_get_expr(d.adbin, d.adrelid) ~ '^nextval'
-              ~@[and ~{~a~^, ~}~]
+              and pg_get_expr(d.adbin, d.adrelid) ~~ '^nextval'
+              ~@[and c.oid in ~{'~a'::regclass~^, ~}~]
   LOOP
     n := n + 1;
     EXECUTE r.sql;
@@ -159,7 +159,7 @@ BEGIN
 
   PERFORM pg_notify('seqs', n::text);
 END;
-$$; " only-tables)
+$$; " only-tables))
       ;; now get the notification signal
       (cl-postgres:postgresql-notification (c)
 	(parse-integer (cl-postgres:postgresql-notification-payload c))))))

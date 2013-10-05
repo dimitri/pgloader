@@ -520,10 +520,11 @@ order by ordinal_position" dbname table-name)))
          (all-indexes   (list-all-indexes dbname))
          (max-indexes   (loop for (table . indexes) in all-indexes
                            maximizing (length indexes)))
-         (idx-kernel    (when max-indexes
+         (idx-kernel    (when (and max-indexes (< 0 max-indexes))
 			  (make-kernel max-indexes)))
-         (idx-channel   (let ((lp:*kernel* idx-kernel))
-                          (lp:make-channel))))
+         (idx-channel   (when idx-kernel
+			  (let ((lp:*kernel* idx-kernel))
+			    (lp:make-channel)))))
 
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (when create-tables
