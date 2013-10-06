@@ -33,6 +33,28 @@
     ;; free resources
     (cl-mysql:disconnect)))
 
+(defun list-views (dbname
+		   &key
+		     only-tables
+		     (host *myconn-host*)
+		     (user *myconn-user*)
+		     (pass *myconn-pass*))
+  "Return a flat list of all the view names and definitions known in given DBNAME"
+  (cl-mysql:connect :host host :user user :password pass)
+
+  (unwind-protect
+       (progn
+	 (cl-mysql:use dbname)
+	 ;; that returns a pretty weird format, process it
+	 (caar (cl-mysql:query (format nil "
+  select table_name, view_definition
+    from information_schema.views
+   where table_schema = '~a'
+         ~@[and table_name in (~{'~a'~^,~})~]
+order by table_name" dbname only-tables))))
+    ;; free resources
+    (cl-mysql:disconnect)))
+
 ;;;
 ;;; Tools to get MySQL table and columns definitions and transform them to
 ;;; PostgreSQL CREATE TABLE statements, and run those.
