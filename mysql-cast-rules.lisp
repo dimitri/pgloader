@@ -64,6 +64,9 @@
     (:source (:type "int" :auto-increment nil :typemod (<= 10 (car typemod)))
      :target (:type "bigint"))
 
+    ;; bigint with auto_increment always are bigserial
+    (:source (:type "bigint" :auto-increment t) :target (:type "bigserial"))
+
     ;; we need the following to benefit from :drop-typemod
     (:source (:type "tinyint")   :target (:type "integer"))
     (:source (:type "smallint")  :target (:type "integer"))
