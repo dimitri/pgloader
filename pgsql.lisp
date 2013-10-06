@@ -151,7 +151,7 @@ BEGIN
                                  and a.atthasdef
         WHERE relkind = 'r' and a.attnum > 0
               and pg_get_expr(d.adbin, d.adrelid) ~~ '^nextval'
-              ~@[and c.oid in ~{'~a'::regclass~^, ~}~]
+              ~@[and c.oid in (~{'~a'::regclass~^, ~})~]
   LOOP
     n := n + 1;
     EXECUTE r.sql;

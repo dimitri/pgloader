@@ -572,7 +572,8 @@ order by ordinal_position" dbname table-name)))
 	     (mapcar
 	      (lambda (name) (apply-identifier-case name identifier-case))
 	      only-tables)))
-       (pgloader.pgsql:reset-all-sequences pg-dbname :only-tables only-tables)))
+	(log-message :notice "Resetting all sequences")
+	(pgloader.pgsql:reset-all-sequences pg-dbname :only-tables only-tables)))
 
     ;; now end the kernels
     (let ((lp:*kernel* idx-kernel))  (lp:end-kernel))
