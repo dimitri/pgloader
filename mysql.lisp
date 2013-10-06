@@ -258,6 +258,15 @@ GROUP BY table_name, index_name;" dbname)))
 ;;;
 ;;; Map a function to each row extracted from MySQL
 ;;;
+(defun get-column-sql-expression (name type)
+  "Return per-TYPE SQL expression to use given a column NAME.
+
+   Mostly we just use the name, but in case of POINT we need to use
+   astext(name)."
+  (case (intern (string-upcase type) "KEYWORD")
+    (:point  (format nil "astext(`~a`) as `~a`" name name))
+    (t       (format nil "`~a`" name))))
+
 (defun get-column-list-with-is-nulls (dbname table-name)
   "We can't just SELECT *, we need to cater for NULLs in text columns ourselves.
    This function assumes a valid connection to the MySQL server has been
@@ -272,7 +281,7 @@ order by ordinal_position" dbname table-name)))
 				  "tinytext" "mediumtext" "longtext")
 			   :test #'string-equal)
      collect nil into nulls
-     collect (format nil "`~a`" name) into cols
+     collect (get-column-sql-expression name type) into cols
      when is-null
      collect (format nil "`~a` is null" name) into cols and collect t into nulls
      finally (return (values cols nulls))))

@@ -121,7 +121,12 @@
     (:source (:type "year")      :target (:type "integer"))
 
     (:source (:type "enum")
-     :target (:type ,#'cast-enum)))
+     :target (:type ,#'cast-enum))
+
+    ;; geometric data types, just POINT for now
+    (:source (:type "point")
+     :target (:type "point")
+     :using pgloader.transforms::convert-mysql-point))
   "Data Type Casting rules to migrate from MySQL to PostgreSQL")
 
 (defvar *cast-rules* nil "Specific casting rules added in the command.")
@@ -328,7 +333,8 @@ that would be int and int(7) or varchar and varchar(25)."
 	   ("k"  "bigint"    "bigint(20)"      nil nil nil)
 	   ("l"  "numeric"   "numeric(18,3)"   nil nil nil)
 	   ("m"  "decimal"   "decimal(15,5)"   nil nil nil)
-	   ("n"  "timestamp" "timestamp" "CURRENT_TIMESTAMP" "NO" "on update CURRENT_TIMESTAMP"))))
+	   ("n"  "timestamp" "timestamp" "CURRENT_TIMESTAMP" "NO" "on update CURRENT_TIMESTAMP")
+	   ("o"  "point"     "point"     nil "YES" nil))))
 
     (loop
        for (name dtype ctype nullable default extra) in columns
