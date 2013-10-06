@@ -53,11 +53,13 @@
 	    for (table-name . coldef)
 	    in
 	      (caar (cl-mysql:query (format nil "
-  select table_name, column_name,
-         data_type, column_type, column_default,
-         is_nullable, extra
-    from information_schema.columns
-   where table_schema = '~a' ~@[and table_name in (~{'~a'~^,~})~]
+  select c.table_name, c.column_name,
+         c.data_type, c.column_type, c.column_default,
+         c.is_nullable, c.extra
+    from information_schema.columns c
+         join information_schema.tables t using(table_schema, table_name)
+   where c.table_schema = '~a' and t.table_type = 'BASE TABLE'
+         ~@[and table_name in (~{'~a'~^,~})~]
 order by table_name, ordinal_position" dbname only-tables)))
 	    do
 	      (let ((entry (assoc table-name schema :test 'equal)))
