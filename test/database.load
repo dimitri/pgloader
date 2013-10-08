@@ -1,0 +1,18 @@
+LOAD DATABASE
+    FROM mysql://localhost:3306/dbname
+    INTO postgresql://localhost/db
+
+    WITH drop tables,
+         truncate,
+         create tables,
+         create indexes,
+         reset sequences,
+         downcase identifiers
+
+     SET guc_1 = 'value', guc_2 = 'other value'
+
+    CAST column col1 to timestamptz drop default using zero-dates-to-null,
+         type varchar to text,
+         type int with extra auto_increment to bigserial,
+         type datetime to timestamptz drop default using zero-dates-to-null,
+         type date drop not null drop default using zero-dates-to-null;

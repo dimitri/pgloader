@@ -1,0 +1,34 @@
+load database from mysql://localhost/adv
+              into postgresql://dim@localhost/adv
+
+with drop tables, truncate, create tables, create indexes,
+     reset sequences,
+     downcase identifiers
+ set work_mem to '128MB', maintenance_work_mem to '512 MB'
+
+cast type datetime to timestamptz drop default using zero-dates-to-null,
+     type date drop not null drop default using zero-dates-to-null,
+     type tinyint to boolean using tinyint-to-boolean;
+
+
+LOAD DBF
+    FROM '/Users/dim/Downloads/comsimp2013.dbf'
+    INTO postgresql://dim@localhost:54393/dim?comsimp2013
+    WITH truncate, create table, table name = 'comsimp2013';
+
+
+LOAD CSV
+    FROM '*/GeoLiteCity-Blocks.csv' WITH ENCODING iso-646-us
+         (
+            startIpNum, endIpNum, locId
+         )
+    INTO postgresql://dim@localhost:54393/dim?geolite.blocks
+         (
+            iprange ip4r using (ip-range startIpNum endIpNum),
+            locId
+         )
+    WITH truncate,
+         skip header = 2,
+         fields optionally enclosed by '"',
+         fields escaped by backslash-quote,
+         fields terminated by '\t';

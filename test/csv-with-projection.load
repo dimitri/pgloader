@@ -1,0 +1,15 @@
+LOAD CSV
+    FROM '*/GeoLiteCity-Blocks.csv' WITH ENCODING iso-646-us
+         (
+            startIpNum, endIpNum, locId
+         )
+    INTO postgresql://dim@localhost:54393/dim?geolite.blocks
+         (
+            iprange ip4r using (ip-range startIpNum endIpNum),
+            locId
+         )
+    WITH truncate,
+         skip header = 2,
+         fields optionally enclosed by '"',
+         fields escaped by backslash-quote,
+         fields terminated by '\t';

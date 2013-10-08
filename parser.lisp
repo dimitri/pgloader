@@ -788,7 +788,13 @@ Here's a quick description of the format we're parsing here:
 (defrule option-create-table (and kw-create kw-table)
   (:constant (cons :create-table t)))
 
-(defrule option-table-name (and kw-table kw-name equal-sign qualified-table-name)
+(defrule quoted-table-name (and #\' (or qualified-table-name namestring) #\')
+  (:lambda (qtn)
+    (destructuring-bind (open name close) qtn
+      (declare (ignore open close))
+      name)))
+
+(defrule option-table-name (and kw-table kw-name equal-sign quoted-table-name)
   (:lambda (tn)
     (destructuring-bind (table name e table-name) tn
       (declare (ignore table name e))
@@ -1219,17 +1225,17 @@ Here's a quick description of the format we're parsing here:
 
 (defrule filename-or-http-uri (or http-uri maybe-quoted-filename))
 
-(defrule archive-source (and kw-load kw-from kw-archive filename-or-http-uri)
+(defrule archive-source (and kw-load kw-archive kw-from filename-or-http-uri)
   (:lambda (src)
     (destructuring-bind (load from archive source) src
       (declare (ignore load from archive))
       source)))
 
-(defrule load-from-archive (and archive-source
-				target
-				(? before-load-do)
-				archive-command-list
-				(? finally-do))
+(defrule load-archive (and archive-source
+			   target
+			   (? before-load-do)
+			   archive-command-list
+			   (? finally-do))
   (:lambda (archive)
     (destructuring-bind (source pg-db-uri before commands finally) archive
       (destructuring-bind (&key host port user password dbname &allow-other-keys)
@@ -1301,7 +1307,7 @@ Here's a quick description of the format we're parsing here:
 (defrule end-of-command (and ignore-whitespace #\; ignore-whitespace)
   (:constant :eoc))
 
-(defrule command (and (or load-from-archive
+(defrule command (and (or load-archive
 			  load-csv-file
 			  load-dbf-file
 			  load-database
@@ -1314,25 +1320,31 @@ Here's a quick description of the format we're parsing here:
 
 (defrule commands (+ command))
 
-(defun parse-command (command)
+(defun parse-commands (commands)
   "Parse a command and return a LAMBDA form that takes no parameter."
-  (parse 'command command))
+  (parse 'commands commands))
 
-(defun run-command (command)
-  "Parse given COMMAND then run it."
-  (let ((func
-	 (typecase command
-	   (function command)
-	   (list     (compile nil command))
-	   (pathname (compile nil (parse-command
-				   (slurp-file-into-string command))))
-	   (t        (compile nil (parse-command command))))))
+(defun run-commands (source)
+  "SOURCE can be a function, which is run, a list, which is compiled as CL
+   code then run, a pathname containing one or more commands that are parsed
+   then run, or a commands string that is then parsed and each command run."
+  (let* ((funcs
+	  (typecase source
+	    (function (list source))
+
+	    (list     (list (compile nil source)))
+
+	    (pathname (mapcar (lambda (expr) (compile nil expr))
+			      (parse-commands (slurp-file-into-string source))))
+
+	    (t        (mapcar (lambda (expr) (compile nil expr))
+			      (parse-commands source))))))
 
     ;; Start the logger
     (start-logger)
 
-    ;; run the command
-    (funcall func)))
+    ;; run the commands
+    (loop for func in funcs do (funcall func))))
 
 (defmacro with-database-uri ((database-uri) &body body)
   "Run the BODY forms with the connection parameters set to proper values
@@ -1356,285 +1368,27 @@ Here's a quick description of the format we're parsing here:
 	  ,@body)))))
 
 
-(defun test-parsing ()
-  (parse-command "
-LOAD FROM http:///tapoueh.org/db.t
-     INTO postgresql://localhost:6432/db?t"))
+;;;
+;;; Some testing
+;;;
+(defun test-parsing (&rest tests)
+  "Try parsing the command(s) from the file test/TEST.load"
+  (let* ((tdir  (directory-namestring
+		 (asdf:system-relative-pathname :pgloader "test/")))
+	 (tests (or (remove-if #'null tests) (fad:list-directory tdir))))
+    (loop
+       for test in tests
+       for filename =
+	 (if (fad:pathname-relative-p test)
+	     (make-pathname :directory tdir :name test :type "load")
+	     test)
+       collect
+	 (cons filename
+	       (ignore-errors
+		 (parse-commands (slurp-file-into-string filename)))))))
 
-(defun test-parsing-load-database ()
-  (parse-command "
-    LOAD DATABASE FROM mysql://localhost:3306/dbname
-        INTO postgresql://localhost/db
-	WITH drop tables,
-	     truncate,
-	     create tables,
-	     create indexes,
-	     reset sequences,
-             downcase identifiers
-	 SET guc_1 = 'value', guc_2 = 'other value'
-	CAST column col1 to timestamptz drop default using zero-dates-to-null,
-             type varchar to text,
-             type int with extra auto_increment to bigserial,
-             type datetime to timestamptz drop default using zero-dates-to-null,
-             type date drop not null drop default using zero-dates-to-null;
-"))
+(defun list-failing-tests (&rest tests)
+  "Return the list of test files we can't parse."
+  (loop for (name . code) in (test-parsing tests) unless code collect name))
 
-(defun test-parsing-syslog-server ()
-  (parse-command "
-    LOAD MESSAGES FROM syslog://localhost:10514/
 
-        WHEN MATCHES rsyslog-msg IN apache
-         REGISTERING timestamp, ip, rest
-        INTO postgresql://localhost/db?logs.apache
-         SET guc_1 = 'value', guc_2 = 'other value'
-
-        WHEN MATCHES rsyslog-msg IN others
-         REGISTERING timestamp, app-name, data
-        INTO postgresql://localhost/db?logs.others
-         SET guc_1 = 'value', guc_2 = 'other value'
-
-        WITH apache = rsyslog
-             DATA   = IP REST
-             IP     = 1*3DIGIT \".\" 1*3DIGIT \".\"1*3DIGIT \".\"1*3DIGIT
-             REST   = ~/.*/
-
-        WITH others = rsyslog;
-"))
-
-(defun test-parsing-load-from-csv ()
-  (parse-command "
-    LOAD CSV FROM '/Users/dim/dev/CL/pgloader/galaxya/yagoa/communaute_profil.csv'
-        Into postgresql://dim@localhost:54393/yagoa?communaute_profil
-
-        WITH truncate,
-             fields optionally enclosed by '\"',
-             fields escaped by double-quote,
-             fields terminated by '\t';
-"))
-
-(defun test-parsing-load-from-dbf ()
-  (parse-command "
-    LOAD DBF FROM '/Users/dim/Downloads/comsimp2013.dbf'
-        INTO postgresql://dim@localhost:54393/dim?comsimp2013
-        WITH truncate, create table, table name = 'comsimp2013'; "))
-
-(defun test-parsing-load-from-csv-full ()
-  (parse-command "
-        LOAD CSV FROM '*/GeoLiteCity-Blocks.csv'
-        WITH ENCODING iso-646-us
-                 (
-                    startIpNum, endIpNum, locId
-                 )
-            INTO postgresql://dim@localhost:54393/dim?geolite.blocks
-                 (
-                    iprange ip4r using (ip-range startIpNum endIpNum),
-                    locId
-                 )
-            WITH truncate,
-                 skip header = 2,
-                 fields optionally enclosed by '\"',
-                 fields escaped by backslash-quote,
-                 fields terminated by '\t';
-"))
-
-(defun test-parsing-load-from-archive ()
-  "Use either http://pgsql.tapoueh.org/temp/foo.zip
-           or /Users/dim/Downloads/GeoLiteCity-latest.zip
-           or http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV/GeoLiteCity-latest.zip"
-  (parse-command "
-    LOAD FROM ARCHIVE /Users/dim/Downloads/GeoLiteCity-latest.zip
-       INTO postgresql://dim@localhost:54393/ip4r
-
-       BEFORE LOAD DO
-       $$ create extension if not exists ip4r; $$,
-       $$ create schema if not exists geolite; $$,
-       $$ create table if not exists geolite.location
-         (
-            locid      integer primary key,
-            country    text,
-            region     text,
-            city       text,
-            postalcode text,
-            location   point,
-            metrocode  text,
-            areacode   text
-         );
-       $$,
-       $$ create table if not exists geolite.blocks
-         (
-            iprange    ip4r,
-            locid      integer
-         );
-       $$,
-       $$ drop index if exists geolite.blocks_ip4r_idx; $$,
-       $$ truncate table geolite.blocks, geolite.location cascade;
-       $$
-
-        LOAD CSV FROM FILENAME MATCHING ~/GeoLiteCity-Location.csv/
-                 WITH ENCODING iso-8859-1
-                 (
-                    locId,
-                    country,
-                    region     null if blanks,
-                    city       null if blanks,
-                    postalCode null if blanks,
-                    latitude,
-                    longitude,
-                    metroCode  null if blanks,
-                    areaCode   null if blanks
-                 )
-            INTO postgresql://dim@localhost:54393/ip4r?geolite.location
-                 (
-                    locid,country,region,city,postalCode,
-                    location point using (format nil \"(~a,~a)\" longitude latitude),
-                    metroCode,areaCode
-                 )
-            WITH skip header = 2,
-                 fields optionally enclosed by '\"',
-                 fields escaped by double-quote,
-                 fields terminated by ','
-
-    AND LOAD CSV FROM FILENAME MATCHING ~/GeoLiteCity-Blocks.csv/
-                 WITH ENCODING iso-8859-1
-                 (
-                    startIpNum, endIpNum, locId
-                 )
-            INTO postgresql://dim@localhost:54393/ip4r?geolite.blocks
-                 (
-                    iprange ip4r using (ip-range startIpNum endIpNum),
-                    locId
-                 )
-            WITH skip header = 2,
-                 fields optionally enclosed by '\"',
-                 fields escaped by double-quote,
-                 fields terminated by ','
-
-       FINALLY DO
-       $$
-         create index blocks_ip4r_idx on geolite.blocks using gist(iprange);
-       $$;
-"))
-
-(defun test-parsing-load-from-archive-noprojection ()
-  "Use either http://pgsql.tapoueh.org/temp/foo.zip
-           or /Users/dim/Downloads/GeoLiteCity-latest.zip
-           or http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV/GeoLiteCity-latest.zip"
-  (parse-command "
-    LOAD FROM ARCHIVE /Users/dim/Downloads/GeoLiteCity-latest.zip
-       INTO postgresql://dim@localhost:54393/dim
-
-       BEFORE LOAD DO
-       $$ create schema if not exists geonumip; $$,
-       $$ create table if not exists geonumip.location
-         (
-            locid      integer primary key,
-            country    text,
-            region     text,
-            city       text,
-            postalcode text,
-            location   point,
-            metrocode  text,
-            areacode   text
-         );
-       $$,
-       $$ create table if not exists geonumip.blocks
-         (
-            startip    bigint,
-            endip      bigint,
-            locid      integer
-         );
-       $$,
-       $$ truncate table geonumip.blocks, geonumip.location cascade;
-       $$
-
-        LOAD CSV FROM FILENAME MATCHING ~/GeoLiteCity-Location.csv/
-                 WITH ENCODING iso-8859-1
-                 (
-                    locId,
-                    country,
-                    region     null if blanks,
-                    city       null if blanks,
-                    postalCode null if blanks,
-                    latitude,
-                    longitude,
-                    metroCode  null if blanks,
-                    areaCode   null if blanks
-                 )
-            INTO postgresql://dim@localhost:54393/dim?geonumip.location
-                 (
-                    locid,country,region,city,postalCode,
-                    location point using (format nil \"(~a,~a)\" longitude latitude),
-                    metroCode,areaCode
-                 )
-            WITH skip header = 2,
-                 fields optionally enclosed by '\"',
-                 fields escaped by double-quote,
-                 fields terminated by ','
-
-    AND LOAD CSV FROM FILENAME MATCHING ~/GeoLiteCity-Blocks.csv/
-                 WITH ENCODING iso-8859-1
-            INTO postgresql://dim@localhost:54393/dim?geonumip.blocks
-            WITH skip header = 2,
-                 fields optionally enclosed by '\"',
-                 fields escaped by double-quote,
-                 fields terminated by ',';
-"))
-
-(defun test-parsing-lots ()
-  (parse 'commands "
-    LOAD CSV FROM '/Users/dim/dev/CL/pgloader/galaxya/yagoa/communaute_profil.csv'
-        Into postgresql://dim@localhost:54393/yagoa?communaute_profil
-
-        WITH truncate,
-             fields optionally enclosed by '\"',
-             fields escaped by '\"',
-             fields terminated by '\t';
-
-    LOAD MESSAGES FROM syslog://localhost:10514/
-
-        WHEN MATCHES rsyslog-msg IN apache
-         REGISTERING timestamp, ip, rest
-        INTO postgresql://localhost/db?logs.apache
-         SET guc_1 = 'value', guc_2 = 'other value'
-
-        WHEN MATCHES rsyslog-msg IN others
-         REGISTERING timestamp, app-name, data
-        INTO postgresql://localhost/db?logs.others
-         SET guc_1 = 'value', guc_2 = 'other value'
-
-        WITH apache = rsyslog
-             DATA   = IP REST
-             IP     = 1*3DIGIT \".\" 1*3DIGIT \".\"1*3DIGIT \".\"1*3DIGIT
-             REST   = ~/.*/
-
-        WITH others = rsyslog;
-
-        LOAD CSV FROM '*/GeoLiteCity-Blocks.csv'
-                 (
-                    startIpNum, endIpNum, locId
-                 )
-            INTO postgresql://dim@localhost:54393/dim?geolite.blocks
-                 (
-                    iprange ip4r using (ip-range startIpNum endIpNum),
-                    locId
-                 )
-            WITH truncate,
-                 skip header = 2,
-                 fields optionally enclosed by '\"',
-                 fields escaped by '\"',
-                 fields terminated by '\\t';
-
-    LOAD DATABASE FROM mysql://localhost:3306/dbname
-        INTO postgresql://localhost/db
-	WITH drop tables,
-		 truncate,
-		 create tables,
-		 create indexes,
-		 reset sequences
-	 SET guc_1 = 'value', guc_2 = 'other value'
-	CAST column col1 to timestamptz drop default using zero-dates-to-null,
-             type varchar to text,
-             type int with extra auto_increment to bigserial,
-             type datetime to timestamptz drop default using zero-dates-to-null,
-             type date drop not null drop default using zero-dates-to-null;
-"))

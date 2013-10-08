@@ -1,0 +1,8 @@
+LOAD CSV
+    FROM '/Users/dim/dev/CL/pgloader/galaxya/yagoa/communaute_profil.csv'
+    INTO postgresql://dim@localhost:54393/yagoa?communaute_profil
+
+ WITH truncate,
+      fields optionally enclosed by '"',
+      fields escaped by double-quote,
+      fields terminated by '\t';

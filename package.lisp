@@ -65,8 +65,8 @@
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
 		#:pgsql-execute)
-  (:export #:parse-command
-	   #:run-command
+  (:export #:parse-commands
+	   #:run-commands
 	   #:with-database-uri))
 
 
@@ -140,10 +140,11 @@
 		#:list-databases
 		#:list-tables)
   (:import-from #:pgloader.parser
-		#:run-command
-		#:parse-command
+		#:run-commands
+		#:parse-commands
 		#:with-database-uri)
-  (:export #:*state*
+  (:export #:*version-string*
+	   #:*state*
 	   #:*csv-path-root*
 	   #:*reject-path-root*
 	   #:*pgconn-host*
@@ -155,8 +156,8 @@
 	   #:*myconn-port*
 	   #:*myconn-user*
 	   #:*myconn-pass*
-	   #:run-command
-	   #:parse-command
+	   #:run-commands
+	   #:parse-commands
 	   #:with-database-uri
 	   #:slurp-file-into-string
 	   #:copy-from-file

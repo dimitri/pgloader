@@ -1,0 +1,4 @@
+LOAD DBF
+    FROM '/Users/dim/Downloads/comsimp2013.dbf'
+    INTO postgresql://dim@localhost:54393/dim?comsimp2013
+    WITH truncate, create table, table name = 'comsimp2013';

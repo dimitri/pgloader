@@ -1,0 +1,11 @@
+load database
+     from      mysql://root@localhost:3306/goeuro
+     into postgresql://dim@localhost:54393/goeuro
+
+ WITH drop tables, create tables, create indexes, reset sequences
+
+ CAST type datetime to timestamptz drop default drop not null using zero-dates-to-null,
+      type date drop not null drop default using zero-dates-to-null,
+      type tinyint to boolean using tinyint-to-boolean,
+      type year to integer,
+      type timestamp to timestamptz drop not null using zero-dates-to-null;

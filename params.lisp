@@ -5,7 +5,8 @@
 
 (defpackage #:pgloader.params
   (:use #:cl)
-  (:export #:*csv-path-root*
+  (:export #:*version-string*
+	   #:*csv-path-root*
 	   #:*reject-path-root*
 	   #:*log-filename*
 	   #:*client-min-messages*
@@ -24,6 +25,9 @@
 	   #:*state*))
 
 (in-package :pgloader.params)
+
+(defparameter *version-string* "3.0.50.1"
+  "pgloader version strings, following Emacs versionning model.")
 
 ;; we can't use pgloader.utils:make-pgstate yet because params is compiled
 ;; first in the asd definition, we just make the symbol a special variable.

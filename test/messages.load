@@ -1,0 +1,19 @@
+LOAD MESSAGES
+    FROM syslog://localhost:10514/
+
+ WHEN MATCHES rsyslog-msg IN apache
+     REGISTERING timestamp, ip, rest
+    INTO postgresql://localhost/db?logs.apache
+     SET guc_1 = 'value', guc_2 = 'other value'
+
+ WHEN MATCHES rsyslog-msg IN others
+     REGISTERING timestamp, app-name, data
+    INTO postgresql://localhost/db?logs.others
+     SET guc_1 = 'value', guc_2 = 'other value'
+
+ WITH apache = rsyslog
+         DATA   = IP REST
+         IP     = 1*3DIGIT "." 1*3DIGIT "."1*3DIGIT "."1*3DIGIT
+         REST   = ~/.*/
+
+ WITH others = rsyslog;
