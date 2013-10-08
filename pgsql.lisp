@@ -301,7 +301,6 @@ Finally returns how many rows where read and processed."
   (log-message :debug "pgsql:copy-from-queue: ~a ~a" dbname table-name)
 
   (with-pgsql-transaction (dbname)
-    (set-session-gucs *pg-settings*)
     (loop
        for retval =
 	 (let* ((copier (cl-postgres:open-db-writer pomo:*database* table-name nil))
