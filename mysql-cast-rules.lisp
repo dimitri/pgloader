@@ -68,8 +68,8 @@
     (:source (:type "bigint" :auto-increment t) :target (:type "bigserial"))
 
     ;; we need the following to benefit from :drop-typemod
-    (:source (:type "tinyint")   :target (:type "integer"))
-    (:source (:type "smallint")  :target (:type "integer"))
+    (:source (:type "tinyint")   :target (:type "smallint"))
+    (:source (:type "smallint")  :target (:type "smallint"))
     (:source (:type "mediumint") :target (:type "integer"))
     (:source (:type "float")     :target (:type "float"))
     (:source (:type "bigint")    :target (:type "bigint"))
