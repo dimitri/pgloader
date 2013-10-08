@@ -48,16 +48,26 @@ download the dependencies.
 
 ## Compile into a self-contained binary file
 
-If you just installed SBCL and Quicklisp to use pgloader, that command
+If you just installed *SBCL* and *Quicklisp* to use pgloader, that command
 should do it:
 
-    ./buildapp --logfile /tmp/build.log --manifest-file ./manifest.ql --asdf-path ~/quicklisp/local-projects/Postmodern/ --asdf-tree ~/quicklisp/dists --load-system pgloader --entry pgloader:main --load pgloader/main.lisp --output pgloader.exe
+    ./buildapp --logfile /tmp/build.log        \
+			   --asdf-tree ~/quicklisp/dists   \
+			   --load-system pgloader          \
+			   --entry pgloader:main           \
+			   --output pgloader.exe
 
 When you're a Common Lisp developper or otherwise already using Quicklisp
 with some *local-projects* and a local source registry setup for *asdf*, use
 a command line like this:
 
-    ./buildapp --logfile /tmp/build.log --asdf-path ~/quicklisp/local-projects/Postmodern/ --manifest-file ./manifest.ql --asdf-tree ~/quicklisp/dists --load-system pgloader --entry pgloader:main --load pgloader/main.lisp --output pgloader.exe
+    ./buildapp --logfile /tmp/build.log                           \
+	           --asdf-path ~/quicklisp/local-projects/Postmodern/ \
+			   --manifest-file ./manifest.ql                      \
+			   --asdf-tree ~/quicklisp/dists                      \
+			   --load-system pgloader                             \
+			   --entry pgloader:main                              \
+			   --output pgloader.exe
 	
 That command requires a `manifest.ql` file that you can obtain with the lisp
 command:
