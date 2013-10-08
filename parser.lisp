@@ -905,6 +905,9 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore f e o b))
       (cons :quote sep))))
 
+(defrule option-fields-not-enclosed (and kw-fields kw-not kw-enclosed)
+  (:constant (cons :quote nil)))
+
 (defrule quote-quote     "double-quote"   (:constant "\"\""))
 (defrule backslash-quote "backslash-quote" (:constant "\\\""))
 (defrule escaped-quote-name    (or quote-quote backslash-quote))
@@ -931,6 +934,7 @@ Here's a quick description of the format we're parsing here:
 
 (defrule csv-option (or option-truncate
 			option-skip-header
+			option-fields-not-enclosed
 			option-fields-enclosed-by
 			option-fields-escaped-by
 			option-fields-terminated-by))
