@@ -1,0 +1,30 @@
+LOAD CSV
+    FROM '/Users/dim/dev/CL/pgloader/test/GeoLiteCity-Blocks.csv'
+         WITH ENCODING iso-8859-1
+         (
+            startIpNum, endIpNum, locId
+         )
+    INTO postgresql://dim@localhost:54393/ip4r?csv.blocks
+         (
+            iprange ip4r using (ip-range startIpNum endIpNum),
+            locId
+         )
+    WITH skip header = 2,
+         fields optionally enclosed by '"',
+         fields escaped by double-quote,
+         fields terminated by ','
+
+  BEFORE LOAD DO
+   $$ create extension if not exists ip4r; $$,
+   $$ create schema if not exists csv; $$,
+   $$ create table if not exists csv.blocks
+     (
+        iprange    ip4r,
+        locid      integer
+     );
+   $$,
+   $$ drop index if exists csv.blocks_ip4r_idx; $$,
+   $$ truncate table csv.blocks; $$
+
+  AFTER LOAD DO
+   $$ create index blocks_ip4r_idx on csv.blocks using gist(iprange); $$;

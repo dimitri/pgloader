@@ -170,6 +170,7 @@ Here's a quick description of the format we're parsing here:
   ;; option for loading from an archive
   (def-keyword-rule "archive")
   (def-keyword-rule "before")
+  (def-keyword-rule "after")
   (def-keyword-rule "finally")
   (def-keyword-rule "and")
   (def-keyword-rule "do")
@@ -337,6 +338,7 @@ Here's a quick description of the format we're parsing here:
       (alphanumericp char)))
 
 (defrule stdin (~ "stdin") (:constant (list :filename :stdin)))
+(defrule inline (~ "inline") (:constant (list :filename :inline)))
 
 (defrule filename (* (filename-character-p character))
   (:lambda (f)
@@ -847,6 +849,53 @@ Here's a quick description of the format we're parsing here:
 
 
 #|
+       BEFORE LOAD DO $$ sql $$
+
+        LOAD CSV FROM '*/GeoLiteCity-Blocks.csv'      ...
+        LOAD DBF FROM '*/GeoLiteCity-Location.csv'    ...
+
+       FINALLY DO     $$ sql $$;
+|#
+(defrule double-dollar (and ignore-whitespace #\$ #\$ ignore-whitespace)
+  (:constant :double-dollars))
+
+(defrule dollar-quoted (and double-dollar (* (not double-dollar)) double-dollar)
+  (:lambda (dq)
+    (destructuring-bind (open quoted close) dq
+      (declare (ignore open close))
+      (text quoted))))
+
+(defrule another-dollar-quoted (and ignore-whitespace #\, dollar-quoted)
+  (:lambda (source)
+    (destructuring-bind (ws comma quoted) source
+      (declare (ignore ws comma))
+      quoted)))
+
+(defrule dollar-quoted-list (and dollar-quoted (* another-dollar-quoted))
+  (:lambda (source)
+    (destructuring-bind (dq1 dqs) source
+      (list* dq1 dqs))))
+
+(defrule before-load-do (and kw-before kw-load kw-do dollar-quoted-list)
+  (:lambda (bld)
+    (destructuring-bind (before load do quoted) bld
+      (declare (ignore before load do))
+      quoted)))
+
+(defrule finally-do (and kw-finally kw-do dollar-quoted-list)
+  (:lambda (fd)
+    (destructuring-bind (finally do quoted) fd
+      (declare (ignore finally do))
+      quoted)))
+
+(defrule after-load-do (and kw-after kw-load kw-do dollar-quoted-list)
+  (:lambda (fd)
+    (destructuring-bind (after load do quoted) fd
+      (declare (ignore after load do))
+      quoted)))
+
+
+#|
     LOAD CSV FROM /Users/dim/dev/CL/pgloader/galaxya/yagoa/communaute_profil.csv
         INTO postgresql://dim@localhost:54393/yagoa?commnaute_profil
 
@@ -1128,9 +1177,12 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore filename matching))
       regex)))
 
-(defrule filename-or-regex (or filename-matching maybe-quoted-filename))
+(defrule csv-file-source (or stdin
+			     inline
+			     filename-matching
+			     maybe-quoted-filename))
 
-(defrule csv-source (and kw-load kw-csv kw-from filename-or-regex)
+(defrule csv-source (and kw-load kw-csv kw-from csv-file-source)
   (:lambda (src)
     (destructuring-bind (load csv from source) src
       (declare (ignore load csv from))
@@ -1151,68 +1203,59 @@ Here's a quick description of the format we're parsing here:
 
 (defrule load-csv-file (and csv-source (? file-encoding) (? csv-source-field-list)
 			    target (? csv-target-column-list)
-			    csv-options)
+			    csv-options
+			    (? before-load-do)
+			    (? after-load-do))
   (:lambda (command)
-    (destructuring-bind (source encoding fields pg-db-uri columns options) command
+    (destructuring-bind (source encoding fields pg-db-uri
+				columns options before after) command
       (destructuring-bind (&key host port user password dbname table-name
 				&allow-other-keys)
 	  pg-db-uri
 	`(lambda ()
-	   (let* ((*pgconn-host* ,host)
+	   (let* ((state-before  (when ',before (pgloader.utils:make-pgstate)))
+		  (summary       (null *state*))
+		  (*state*       (or *state* (pgloader.utils:make-pgstate)))
+		  (state-after   (when ',after (pgloader.utils:make-pgstate)))
+		  (*pgconn-host* ,host)
 		  (*pgconn-port* ,port)
 		  (*pgconn-user* ,user)
 		  (*pgconn-pass* ,password))
+
+	     ;; before block
+	     ,(when before
+	       `(with-stats-collection (,dbname "before load" :state state-before)
+		  (with-pgsql-transaction (,dbname)
+		    (loop for command in ',before
+		       do
+			 (log-message :notice command)
+			 (pgsql-execute command :client-min-messages :error)))))
+
 	     (pgloader.csv:copy-from-file ,dbname
 					  ,table-name
 					  ',source
 					  :encoding ,encoding
 					  :fields ',fields
 					  :columns ',columns
-					  ,@options)))))))
+					  ,@options)
+	     ;; finally block
+	     ,(when after
+	       `(with-stats-collection (,dbname "finally" :state state-after)
+		  (with-pgsql-transaction (,dbname)
+		    (loop for command in ',after
+		       do
+			 (log-message :notice command)
+			 (pgsql-execute command :client-min-messages :error)))))
+
+	     ;; reporting
+	     (when summary
+	       (report-full-summary *state* state-before state-after
+				    "Total import time"))))))))
 
 
-#|
-    IN ARCHIVE http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV/GeoLiteCity-latest.zip
-
-       BEFORE LOAD DO $$ sql $$
-
-        LOAD CSV FROM '*/GeoLiteCity-Blocks.csv'      ...
-        LOAD DBF FROM '*/GeoLiteCity-Location.csv'    ...
-
-       FINALLY DO     $$ sql $$;
-|#
-(defrule double-dollar (and ignore-whitespace #\$ #\$ ignore-whitespace)
-  (:constant :double-dollars))
-
-(defrule dollar-quoted (and double-dollar (* (not double-dollar)) double-dollar)
-  (:lambda (dq)
-    (destructuring-bind (open quoted close) dq
-      (declare (ignore open close))
-      (text quoted))))
-
-(defrule another-dollar-quoted (and ignore-whitespace #\, dollar-quoted)
-  (:lambda (source)
-    (destructuring-bind (ws comma quoted) source
-      (declare (ignore ws comma))
-      quoted)))
-
-(defrule dollar-quoted-list (and dollar-quoted (* another-dollar-quoted))
-  (:lambda (source)
-    (destructuring-bind (dq1 dqs) source
-      (list* dq1 dqs))))
-
-(defrule before-load-do (and kw-before kw-load kw-do dollar-quoted-list)
-  (:lambda (bld)
-    (destructuring-bind (before load do quoted) bld
-      (declare (ignore before load do))
-      quoted)))
-
-(defrule finally-do (and kw-finally kw-do dollar-quoted-list)
-  (:lambda (fd)
-    (destructuring-bind (finally do quoted) fd
-      (declare (ignore finally do))
-      quoted)))
-
+;;;
+;;; LOAD ARCHIVE ...
+;;;
 (defrule archive-command (or load-csv-file
 			     load-dbf-file))
 
@@ -1245,9 +1288,11 @@ Here's a quick description of the format we're parsing here:
       (destructuring-bind (&key host port user password dbname &allow-other-keys)
 	  pg-db-uri
 	`(lambda ()
-	   (let* ((state-before  (pgloader.utils:make-pgstate))
-		  (*state*       (pgloader.utils:make-pgstate))
-		  (state-finally (pgloader.utils:make-pgstate))
+	   (let* ((state-before  (when ',before
+				   (pgloader.utils:make-pgstate)))
+		  (*state*        (pgloader.utils:make-pgstate))
+		  (state-finally  (when ',finally
+				    (pgloader.utils:make-pgstate)))
 		  (archive-file
 		   ,(destructuring-bind (kind url) source
 		     (ecase kind
@@ -1264,12 +1309,13 @@ Here's a quick description of the format we're parsing here:
 		  (*pgconn-pass* ,password))
 	     (progn
 	       ;; before block
-	       (with-stats-collection (,dbname "before load" :state state-before)
-		 (with-pgsql-transaction (,dbname)
-		   (loop for command in ',before
-		      do
-			(log-message :notice command)
-			(pgsql-execute command :client-min-messages :error))))
+	       ,(when before
+		 `(with-stats-collection (,dbname "before load" :state state-before)
+		    (with-pgsql-transaction (,dbname)
+		      (loop for command in ',before
+			 do
+			   (log-message :notice command)
+			   (pgsql-execute command :client-min-messages :error)))))
 
 	       ;; import from files block
 	       ,@(loop for command in commands
@@ -1285,20 +1331,8 @@ Here's a quick description of the format we're parsing here:
 			   (pgsql-execute command :client-min-messages :error)))))
 
 	       ;; reporting
-	       (report-summary :state state-before :footer nil)
-	       (format t pgloader.utils::*header-line*)
-	       (report-summary :state *state* :header nil :footer nil)
-	       ,(when finally
-		  `(progn
-		     (format t pgloader.utils::*header-line*)
-		     (report-summary :state state-finally :header nil :footer nil)))
-	       ;; add to the grand total the other sections
-	       (incf (pgloader.utils::pgstate-secs *state*)
-		     (+ (pgloader.utils::pgstate-secs state-before)
-			(if ,(null finally) 0
-			    (pgloader.utils::pgstate-secs state-finally))))
-	       ;; and report the Grand Total
-	       (report-pgstate-stats *state* "Total import time"))))))))
+	       (report-full-summary *state* state-before state-finally
+				    "Total import time"))))))))
 
 
 ;;;
@@ -1342,7 +1376,9 @@ Here's a quick description of the format we're parsing here:
 			      (parse-commands (slurp-file-into-string source))))
 
 	    (t        (mapcar (lambda (expr) (compile nil expr))
-			      (parse-commands source))))))
+			      (parse-commands
+			       (if (probe-file source)
+				   (slurp-file-into-string source) source)))))))
 
     ;; Start the logger
     (start-logger)

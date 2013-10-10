@@ -33,6 +33,7 @@
 	   #:report-pgtable-stats
 	   #:report-pgstate-stats
 	   #:report-summary
+	   #:report-full-summary
 	   #:with-stats-collection
 	   #:slurp-file-into-string
 	   #:camelCase-to-colname

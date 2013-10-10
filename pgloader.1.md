@@ -209,6 +209,22 @@ The `csv` format command accepts the following clauses and options:
 	    This character is used as the *field separator* when reading the
 	    `CSV` data.
 
+  - *BEFORE LOAD DO*
+
+	 You can run SQL queries against the database before loading the data
+	 from the `CSV` file. Most common SQL queries are `CREATE TABLE IF NOT
+	 EXISTS` so that the data can be loaded.
+	 
+	 Each command must be *dollar-quoted*: it must begin and end with a
+	 double dollar sign, `$$`. Dollar-quoted queries are then comma
+	 separated. No extra punctuation is expected after the last SQL query.
+  
+  - *AFTER LOAD DO*
+
+	Same format as *BEFORE LOAD DO*, the dollar-quoted queries found in that
+	section are executed once the load is done. That's the right time to
+	create indexes and constraints, or re-enable triggers.
+
 ## LOAD DBF
 
 This command instructs pgloader to load data from a `DBF` file. Here's an

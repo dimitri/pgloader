@@ -23,6 +23,7 @@
    more than one match."
   (destructuring-bind (type part) pathname-or-regex
     (ecase type
+      (:stdin    *standard-input*)
       (:regex    (first (pgloader.archive:get-matching-filenames root part)))
       (:filename (if (fad:pathname-absolute-p part) part
 		     (merge-pathnames part root))))))
@@ -150,8 +151,8 @@
 		    (when (= 0 (multiple-value-bind (q r)
 				   (truncate (- read 1) 100)
 				 r))
-		      (log-message :notice "< ~s" row)
-		      (log-message :notice "> ~s" projected-row)))
+		      (log-message :debug "< ~s" row)
+		      (log-message :debug "> ~s" projected-row)))
 		  (funcall process-row-fn projected-row)))))
 
 	(handler-case
