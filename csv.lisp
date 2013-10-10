@@ -23,6 +23,7 @@
    more than one match."
   (destructuring-bind (type part) pathname-or-regex
     (ecase type
+      (:inline   part)
       (:stdin    *standard-input*)
       (:regex    (first (pgloader.archive:get-matching-filenames root part)))
       (:filename (if (fad:pathname-absolute-p part) part
@@ -109,7 +110,7 @@
 ;;;
 ;;; Read a file format in CSV format, and call given function on each line.
 ;;;
-(defun map-rows (table-name filename
+(defun map-rows (table-name filespec
 		 &key
 		   process-row-fn
 		   fields
@@ -125,49 +126,58 @@
    Each row is pre-processed then PROCESS-ROW-FN is called with the row as a
    list as its only parameter.
 
+   FILESPEC is either a filename or a pair (filename . position) where
+   position is the number of bytes to skip in the file before getting to the
+   data. That's used to handle the INLINE data loading.
+
    Finally returns how many rows where read and processed."
-  (with-open-file
-      ;; we just ignore files that don't exist
-      (input filename
-	     :direction :input
-	     :external-format encoding
-	     :if-does-not-exist nil)
-    (when input
-      ;; we handle skipping more than one line here, as cl-csv only knows
-      ;; about skipping the first line
-      (when (and skip-lines (< 0 skip-lines))
-	(loop repeat skip-lines do (read-line input nil nil)))
+  (let ((filename (if (consp filespec) (car filespec) filespec)))
+   (with-open-file
+       ;; we just ignore files that don't exist
+       (input filename
+	      :direction :input
+	      :external-format encoding
+	      :if-does-not-exist nil)
+     (when input
+       ;; first go to given inline position when filename is a consp
+       (when (consp filespec)
+	 (loop repeat (cdr filespec) do (read-char input)))
 
-      ;; read in the text file, split it into columns, process NULL columns
-      ;; the way postmodern expects them, and call PROCESS-ROW-FN on them
-      (let* ((read 0)
-	     (projection (project-fields :fields fields
-					 :columns columns))
-	     (reformat-then-process
-	      (lambda (row)
-		(incf read)
-		(let ((projected-row (funcall projection row)))
-		  (when nil		; debug every 100 input lines
-		    (when (= 0 (multiple-value-bind (q r)
-				   (truncate (- read 1) 100)
-				 r))
-		      (log-message :debug "< ~s" row)
-		      (log-message :debug "> ~s" projected-row)))
-		  (funcall process-row-fn projected-row)))))
+       ;; we handle skipping more than one line here, as cl-csv only knows
+       ;; about skipping the first line
+       (when (and skip-lines (< 0 skip-lines))
+	 (loop repeat skip-lines do (read-line input nil nil)))
 
-	(handler-case
-	    (cl-csv:read-csv input
-			     :row-fn (compile nil reformat-then-process)
-			     :separator separator
-			     :quote quote
-			     :escape escape)
-	  ((or cl-csv:csv-parse-error type-error) (condition)
-	    ;; some form of parse error did happen, TODO: log it
-	    (progn
-	      (log-message :error "~a" condition)
-	      (pgstate-setf *state* table-name :errs -1))))
-	;; return how many rows we did read
-	read))))
+       ;; read in the text file, split it into columns, process NULL columns
+       ;; the way postmodern expects them, and call PROCESS-ROW-FN on them
+       (let* ((read 0)
+	      (projection (project-fields :fields fields
+					  :columns columns))
+	      (reformat-then-process
+	       (lambda (row)
+		 (incf read)
+		 (let ((projected-row (funcall projection row)))
+		   (when nil		; debug every 100 input lines
+		     (when (= 0 (multiple-value-bind (q r)
+				    (truncate (- read 1) 100)
+				  r))
+		       (log-message :debug "< ~s" row)
+		       (log-message :debug "> ~s" projected-row)))
+		   (funcall process-row-fn projected-row)))))
+
+	 (handler-case
+	     (cl-csv:read-csv input
+			      :row-fn (compile nil reformat-then-process)
+			      :separator separator
+			      :quote quote
+			      :escape escape)
+	   ((or cl-csv:csv-parse-error type-error) (condition)
+	     ;; some form of parse error did happen, TODO: log it
+	     (progn
+	       (log-message :error "~a" condition)
+	       (pgstate-setf *state* table-name :errs -1))))
+	 ;; return how many rows we did read
+	 read)))))
 
 (defun copy-to-queue (table-name filename dataq
 		      &key

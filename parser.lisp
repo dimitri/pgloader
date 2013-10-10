@@ -8,6 +8,9 @@
 (defparameter *default-postgresql-port* 5432)
 (defparameter *default-mysql-port* 3306)
 
+(defvar *data-expected-inline* nil
+  "Set to :inline when parsing an INLINE keyword in a FROM clause.")
+
 #|
 Here's a quick description of the format we're parsing here:
 
@@ -337,8 +340,12 @@ Here's a quick description of the format we're parsing here:
   (or (member char #.(quote (coerce "/\\:.-_!@#$%^&*()" 'list)))
       (alphanumericp char)))
 
-(defrule stdin (~ "stdin") (:constant (list :filename :stdin)))
-(defrule inline (~ "inline") (:constant (list :filename :inline)))
+(defrule stdin (~ "stdin") (:constant (list :stdin nil)))
+(defrule inline (~ "inline")
+  (:lambda (i)
+    (declare (ignore i))
+    (setf *data-expected-inline* :inline)
+    (list :inline nil)))
 
 (defrule filename (* (filename-character-p character))
   (:lambda (f)
@@ -1190,6 +1197,8 @@ Here's a quick description of the format we're parsing here:
       (destructuring-bind (type uri) source
 	(declare (ignore uri))
 	(ecase type
+	  (:stdin    source)
+	  (:inline   source)
 	  (:filename source)
 	  (:regex    source))))))
 
@@ -1240,7 +1249,7 @@ Here's a quick description of the format we're parsing here:
 					  ,@options)
 	     ;; finally block
 	     ,(when after
-	       `(with-stats-collection (,dbname "finally" :state state-after)
+	       `(with-stats-collection (,dbname "after load" :state state-after)
 		  (with-pgsql-transaction (,dbname)
 		    (loop for command in ',after
 		       do
@@ -1362,6 +1371,53 @@ Here's a quick description of the format we're parsing here:
   "Parse a command and return a LAMBDA form that takes no parameter."
   (parse 'commands commands))
 
+(defun inject-inline-data-position (command position)
+  "We have '(:inline nil) somewhere in command, have '(:inline position) instead."
+  (loop
+     for s-exp in command
+     when (and (listp s-exp) (= 2 (length s-exp)) (eq :inline (first s-exp)))
+     collect (list :inline position)
+     else collect (if (listp s-exp)
+		      (inject-inline-data-position s-exp position)
+		      s-exp)))
+
+(defun parse-commands-from-file (filename)
+  "The command could be using from :inline, in which case we want to parse
+   as much as possible then use the command against an already opened stream
+   where we moved at the beginning of the data."
+  (let ((*data-expected-inline* nil)
+	(content (slurp-file-into-string filename)))
+    (multiple-value-bind (commands end-commands-position)
+	(parse 'commands content :junk-allowed t)
+
+      ;; INLINE is only allowed where we have a single command in the file
+      (if *data-expected-inline*
+	  (progn
+	    (when (= 0 end-commands-position)
+	      ;; didn't find any command, leave error reporting to esrap
+	      (parse 'commands content))
+
+	    (when (and *data-expected-inline*
+		       (null end-commands-position))
+	      (error "Inline data not found in '~a'." filename))
+
+	    (when (and *data-expected-inline* (not (= 1 (length commands))))
+	      (error (concatenate 'string
+				  "Too many commands found in '~a'.~%"
+				  "To use inline data, use a single command.")
+		     filename))
+
+	    ;; now we should have a single command and inline data after that
+	    ;; replace the (:inline nil) found in the first (and only) command
+	    ;; with a (:inline position) instead
+	    (list
+	     (inject-inline-data-position
+	      (first commands) (cons filename end-commands-position))))
+
+	  ;; There was no INLINE magic found in the file, reparse it so that
+	  ;; normal error processing happen
+	  (parse 'commands content)))))
+
 (defun run-commands (source)
   "SOURCE can be a function, which is run, a list, which is compiled as CL
    code then run, a pathname containing one or more commands that are parsed
@@ -1373,12 +1429,12 @@ Here's a quick description of the format we're parsing here:
 	    (list     (list (compile nil source)))
 
 	    (pathname (mapcar (lambda (expr) (compile nil expr))
-			      (parse-commands (slurp-file-into-string source))))
+			      (parse-commands-from-file source)))
 
 	    (t        (mapcar (lambda (expr) (compile nil expr))
-			      (parse-commands
-			       (if (probe-file source)
-				   (slurp-file-into-string source) source)))))))
+			      (if (probe-file source)
+				  (parse-commands-from-file source)
+				  (parse-commands source)))))))
 
     ;; Start the logger
     (start-logger)
@@ -1386,6 +1442,10 @@ Here's a quick description of the format we're parsing here:
     ;; run the commands
     (loop for func in funcs do (funcall func))))
 
+
+;;;
+;;; Interactive tool
+;;;
 (defmacro with-database-uri ((database-uri) &body body)
   "Run the BODY forms with the connection parameters set to proper values
    from the DATABASE-URI. For a MySQL connection string, that's

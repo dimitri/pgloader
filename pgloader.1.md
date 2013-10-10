@@ -105,7 +105,20 @@ The `csv` format command accepts the following clauses and options:
     Filename where to load the data from. Accepts an *ENCODING* option. Use
     the `--list-encodings` option to know which encoding names are
     supported.
+
+	The filename may be enclosed by single quotes, and could be one of the
+	following special values:
 	
+	  - *inline*
+
+        The data is found after the end of the parsed commands. Any number
+        of empty lines between the end of the commands and the beginning of
+        the data is accepted.
+
+	  - *stdin*
+	  
+	    Reads the data from the standard input stream.
+
 	The *FROM* option also supports an optional comma separated list of
 	*field* names describing what is expected in the `CSV` data file.
 	

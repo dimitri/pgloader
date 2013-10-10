@@ -60,7 +60,7 @@
 
 	(loop for filename in arguments
 	   do
-	     (run-commands (pathname filename))
+	     (run-commands filename)
 	     (format t "~&"))
 
 	(uiop:quit)))))
