@@ -30,7 +30,10 @@ pgloader operates from commands which are read from files:
 :   Show pgloader version string and exit.
 
 -v, \--verbose
-:   Show more detailed output.
+:   Be verbose.
+
+-q, \--quiet
+:   Be quiet.
 
 -d, \--debug
 :   Show debug level information messages.

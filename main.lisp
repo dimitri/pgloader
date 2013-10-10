@@ -17,6 +17,7 @@
     (("version" #\V) :type boolean
      :documentation "Displays pgloader version and exit.")
 
+    (("quiet" #\q)   :type boolean :documentation "Be quiet")
     (("verbose" #\v) :type boolean :documentation "Be verbose")
     (("debug"   #\d) :type boolean :documentation "Diplay debug level information.")
 
@@ -32,7 +33,8 @@
     (multiple-value-bind (options arguments)
 	(command-line-arguments:process-command-line-options *opt-spec* args)
 
-      (destructuring-bind (&key help version verbose debug list-encodings load)
+      (destructuring-bind (&key help version quiet verbose debug
+				list-encodings load)
 	  options
 
 	(when version
@@ -47,10 +49,10 @@
 	  (list-encodings)
 	  (uiop:quit))
 
-	(if debug
-	    (setf *client-min-messages* :debug)
-	    (when verbose
-	      (setf *client-min-messages* :info)))
+	(setf *client-min-messages* (cond (debug   :debug)
+					  (verbose :info)
+					  (quiet   :warning)
+					  (t       :notice)))
 
 	(when load
 	  (loop for filename in load
