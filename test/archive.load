@@ -1,5 +1,5 @@
 LOAD ARCHIVE
-   FROM /Users/dim/Downloads/GeoLiteCity-latest.zip
+   FROM http://pgsql.tapoueh.org/temp/foo.zip
    INTO postgresql://dim@localhost:54393/ip4r
 
    BEFORE LOAD DO
