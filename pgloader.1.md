@@ -8,7 +8,7 @@ pgloader - PostgreSQL data loader
 
 # SYNOPSIS
 
-pandoc [*options*] [*command-file*]...
+pgloader [*options*] [*command-file*]...
 
 # DESCRIPTION
 
