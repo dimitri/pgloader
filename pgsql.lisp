@@ -292,18 +292,20 @@ Finally returns how many rows where read and processed."
 ;;; contains erroneous data. BATCH is that buffer.
 (defun copy-from-queue (dbname table-name dataq
 			&key
+			  columns
 			  (truncate t)
 			  ((:state *state*) *state*)
 			  transforms)
   "Fetch data from the QUEUE until we see :end-of-data. Update *state*"
   (when truncate (truncate-table dbname table-name))
 
-  (log-message :debug "pgsql:copy-from-queue: ~a ~a" dbname table-name)
+  (log-message :debug "pgsql:copy-from-queue: ~a ~a ~a" dbname table-name columns)
 
   (with-pgsql-transaction (dbname)
     (loop
        for retval =
-	 (let* ((copier (cl-postgres:open-db-writer pomo:*database* table-name nil))
+	 (let* ((copier
+		 (cl-postgres:open-db-writer pomo:*database* table-name columns))
 		(*batch* nil)
 		(*batch-size* 0))
 	   (log-message :debug "pgsql:copy-from-queue: starting new batch")
@@ -326,6 +328,7 @@ Finally returns how many rows where read and processed."
 				table-name
 				(nreverse *batch*)
 				*batch-size*
+				:columns columns
 				:transforms transforms))))))
 
        ;; fetch how many rows we just pushed through, update stats
@@ -452,7 +455,7 @@ Finally returns how many rows where read and processed."
 ;;;
 ;;; The recursive retry batch function.
 ;;;
-(defun retry-batch (dbname table-name batch batch-size &key transforms)
+(defun retry-batch (dbname table-name batch batch-size &key columns transforms)
   "Batch is a list of rows containing at least one bad row. Find it."
   (let* ((conspec (get-connection-spec dbname :with-port nil))
 	 (current-batch-pos batch)
@@ -465,7 +468,7 @@ Finally returns how many rows where read and processed."
 		(current-batch-size (smaller-batch-size batch-size
 							processed-rows))
 		(stream
-		 (cl-postgres:open-db-writer conspec table-name nil)))
+		 (cl-postgres:open-db-writer conspec table-name )))
 
 	   (log-message :debug "pgsql:retry-batch: current-batch-size = ~d"
 			current-batch-size)
@@ -493,4 +496,5 @@ Finally returns how many rows where read and processed."
 				  table-name
 				  current-batch
 				  current-batch-size
+				  :columns columns
 				  :transforms transforms)))))))))

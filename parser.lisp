@@ -1015,11 +1015,19 @@ Here's a quick description of the format we're parsing here:
 ;;
 ;; CSV per-field reading options
 ;;
-(defrule quoted-string (and #\' (* (not #\')) #\')
+(defrule single-quoted-string (and #\' (* (not #\')) #\')
   (:lambda (qs)
     (destructuring-bind (open string close) qs
       (declare (ignore open close))
       (text string))))
+
+(defrule double-quoted-string (and #\" (* (not #\")) #\")
+  (:lambda (qs)
+    (destructuring-bind (open string close) qs
+      (declare (ignore open close))
+      (text string))))
+
+(defrule quoted-string (or single-quoted-string double-quoted-string))
 
 (defrule option-date-format (and kw-date kw-format quoted-string)
   (:lambda (df)

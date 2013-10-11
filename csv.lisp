@@ -44,12 +44,12 @@
 	     "return a lambda form that will process a value given NULL-AS."
 	     (if (eq null-as :blanks)
 		 (lambda (col)
-		   (declare (inline) (optimize speed))
+		   (declare (optimize speed))
 		   (if (every (lambda (char) (char= char #\Space)) col)
 		       nil
 		       col))
 		 (lambda (col)
-		   (declare (inline) (optimize speed))
+		   (declare (optimize speed))
 		   (if (string= null-as col) nil col))))
 
 	   (field-name-as-symbol (field-name-or-list)
@@ -81,17 +81,22 @@
 	       ;; use the information given for FIELDS and apply per-field
 	       ;; null-as, or the generic one if none has been given for
 	       ;; that field.
-	       `(lambda (row)
-		  (loop
-		     for col in row
-		     for fn in ,(mapcar (function field-process-null-fn) fields)
-		     collect (funcall fn col))))
+	       (let ((process-nulls
+		      (mapcar (function field-process-null-fn) fields)))
+		 `(lambda (row)
+		   (loop
+		      :for col :in row
+		      :for fn :in ',process-nulls
+		      :collect (funcall fn col)))))
 
 	      (t
 	       ;; project some number of FIELDS into a possibly different
 	       ;; number of COLUMNS, using given transformation functions,
 	       ;; processing NULL-AS represented values.
-	       (let* ((args  (mapcar (function field-name-as-symbol) fields))
+	       (let* ((args
+		       (if fields
+			   (mapcar (function field-name-as-symbol) fields)
+			   (mapcar (function field-name-as-symbol) columns)))
 		      (newrow
 		       (loop for (name type fn) in columns
 			  collect
@@ -101,7 +106,7 @@
 			    (or fn `(funcall ,(field-process-null-fn name)
 					     ,(field-name-as-symbol name))))))
 		 `(lambda (row)
-		    (declare (inline) (optimize speed) (type list row))
+		    (declare (optimize speed) (type list row))
 		    (destructuring-bind (,@args) row
 		      (list ,@newrow))))))))
       ;; allow for some debugging
@@ -156,14 +161,15 @@
 	      (reformat-then-process
 	       (lambda (row)
 		 (incf read)
-		 (let ((projected-row (funcall projection row)))
-		   (when nil		; debug every 100 input lines
-		     (when (= 0 (multiple-value-bind (q r)
-				    (truncate (- read 1) 100)
-				  r))
-		       (log-message :debug "< ~s" row)
-		       (log-message :debug "> ~s" projected-row)))
-		   (funcall process-row-fn projected-row)))))
+		 (let ((projected-row
+			(handler-case
+			    (funcall projection row)
+			  (condition (e)
+			    (pgstate-incf *state* table-name :errs 1)
+			    (log-message :error
+					 "Could not read line ~d: ~a" read e)))))
+		   (when projected-row
+		     (funcall process-row-fn projected-row))))))
 
 	 (handler-case
 	     (cl-csv:read-csv input
@@ -242,6 +248,8 @@
       (lp:submit-task channel
 		      ;; this function update :rows stats
 		      #'pgloader.pgsql:copy-from-queue dbname table-name dataq
+		      ;; we only are interested into the column names here
+		      :columns (when columns (mapcar #'car columns))
 		      :truncate truncate
 		      :transforms transforms)
 
