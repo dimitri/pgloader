@@ -901,6 +901,17 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore after load do))
       quoted)))
 
+
+(defun sql-code-block (dbname state commands label)
+  "Return lisp code to run COMMANDS against DBNAME, updating STATE."
+  (when commands
+    `(with-stats-collection (,dbname ,label :state ,state)
+       (with-pgsql-transaction (,dbname)
+	 (loop for command in ',commands
+	    do
+	      (log-message :notice command)
+	      (pgsql-execute command :client-min-messages :error))))))
+
 
 #|
     LOAD CSV FROM /Users/dim/dev/CL/pgloader/galaxya/yagoa/communaute_profil.csv
@@ -1240,14 +1251,7 @@ Here's a quick description of the format we're parsing here:
 		  (*pgconn-pass* ,password))
 
 	     (progn
-	       ;; before block
-	       ,(when before
-		 `(with-stats-collection (,dbname "before load" :state state-before)
-		    (with-pgsql-transaction (,dbname)
-		      (loop for command in ',before
-			 do
-			   (log-message :notice command)
-			   (pgsql-execute command :client-min-messages :error)))))
+	       ,(sql-code-block dbname 'state-before before "before load")
 
 	       (pgloader.csv:copy-from-file ,dbname
 					    ,table-name
@@ -1256,14 +1260,8 @@ Here's a quick description of the format we're parsing here:
 					    :fields ',fields
 					    :columns ',columns
 					    ,@options)
-	       ;; after block
-	       ,(when after
-		 `(with-stats-collection (,dbname "after load" :state state-after)
-		    (with-pgsql-transaction (,dbname)
-		      (loop for command in ',after
-			 do
-			   (log-message :notice command)
-			   (pgsql-execute command :client-min-messages :error)))))
+
+	       ,(sql-code-block dbname 'state-after after "after load")
 
 	       ;; reporting
 	       (when summary
@@ -1326,27 +1324,13 @@ Here's a quick description of the format we're parsing here:
 		  (*pgconn-user* ,user)
 		  (*pgconn-pass* ,password))
 	     (progn
-	       ;; before block
-	       ,(when before
-		 `(with-stats-collection (,dbname "before load" :state state-before)
-		    (with-pgsql-transaction (,dbname)
-		      (loop for command in ',before
-			 do
-			   (log-message :notice command)
-			   (pgsql-execute command :client-min-messages :error)))))
+	       ,(sql-code-block dbname 'state-before before "before load")
 
 	       ;; import from files block
 	       ,@(loop for command in commands
 		    collect `(funcall ,command))
 
-	       ;; finally block
-	       ,(when finally
-		 `(with-stats-collection (,dbname "finally" :state state-finally)
-		    (with-pgsql-transaction (,dbname)
-		      (loop for command in ',finally
-			 do
-			   (log-message :notice command)
-			   (pgsql-execute command :client-min-messages :error)))))
+	       ,(sql-code-block dbname 'state-finally finally "finally")
 
 	       ;; reporting
 	       (report-full-summary *state* state-before state-finally
