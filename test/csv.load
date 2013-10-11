@@ -4,4 +4,6 @@ LOAD CSV
 
  WITH truncate,
       fields not enclosed,
-      fields terminated by '\t';
+      fields terminated by '\t'
+
+  SET work_mem to '32 MB', maintenance_work_mem to '64 MB';

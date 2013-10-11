@@ -83,20 +83,22 @@ This command instructs pgloader to load data from a `CSV` file. Here's an
 example:
 
     LOAD CSV
-	    FROM 'GeoLiteCity-Blocks.csv' WITH ENCODING iso-646-us
-             (
-                startIpNum, endIpNum, locId
-             )
-        INTO postgresql://dim@localhost:54393/dim?geolite.blocks
-             (
-                iprange ip4r using (ip-range startIpNum endIpNum),
-                locId
-             )
-        WITH truncate,
-             skip header = 2,
-             fields optionally enclosed by '"',
-             fields escaped by backslash-quote,
-             fields terminated by '\t';
+       FROM 'GeoLiteCity-Blocks.csv' WITH ENCODING iso-646-us
+            (
+               startIpNum, endIpNum, locId
+            )
+       INTO postgresql://dim@localhost:54393/dim?geolite.blocks
+            (
+               iprange ip4r using (ip-range startIpNum endIpNum),
+               locId
+            )
+       WITH truncate,
+            skip header = 2,
+            fields optionally enclosed by '"',
+            fields escaped by backslash-quote,
+            fields terminated by '\t'
+	
+        SET work_mem to '32 MB', maintenance_work_mem to '64 MB';
 
 The `csv` format command accepts the following clauses and options:
 
@@ -221,6 +223,15 @@ The `csv` format command accepts the following clauses and options:
 
 	    This character is used as the *field separator* when reading the
 	    `CSV` data.
+
+  - *SET*
+ 
+	This clause allows to specify session parameters to be set for all the
+    sessions opened by pgloader. It expects a list of parameter name, the
+    equal sign, then the single-quoted value as a comma separated list.
+ 	
+ 	The names and values of the parameters are not validated by pgloader,
+ 	they are given as-is to PostgreSQL.
 
   - *BEFORE LOAD DO*
 

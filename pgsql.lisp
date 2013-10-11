@@ -19,8 +19,10 @@
   (let ((pomo:*database* (or database pomo:*database*)))
     (loop
        for (name . value) in alist
-       do (pomo:execute
-	   (format nil "SET~@[ LOCAL~] ~a TO '~a'" transaction name value)))))
+       for set = (format nil "SET~@[ LOCAL~] ~a TO '~a'" transaction name value)
+       do
+	 (log-message :debug set)
+	 (pomo:execute set))))
 
 (defmacro with-pgsql-transaction ((dbname &key database) &body forms)
   "Run FORMS within a PostgreSQL transaction to DBNAME, reusing DATABASE if

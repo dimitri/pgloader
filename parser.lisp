@@ -1232,11 +1232,12 @@ Here's a quick description of the format we're parsing here:
 (defrule load-csv-file (and csv-source (? file-encoding) (? csv-source-field-list)
 			    target (? csv-target-column-list)
 			    csv-options
+			    (? gucs)
 			    (? before-load-do)
 			    (? after-load-do))
   (:lambda (command)
     (destructuring-bind (source encoding fields pg-db-uri
-				columns options before after) command
+				columns options gucs before after) command
       (destructuring-bind (&key host port user password dbname table-name
 				&allow-other-keys)
 	  pg-db-uri
@@ -1248,7 +1249,8 @@ Here's a quick description of the format we're parsing here:
 		  (*pgconn-host* ,host)
 		  (*pgconn-port* ,port)
 		  (*pgconn-user* ,user)
-		  (*pgconn-pass* ,password))
+		  (*pgconn-pass* ,password)
+		  (*pg-settings* ',gucs))
 
 	     (progn
 	       ,(sql-code-block dbname 'state-before before "before load")
@@ -1368,9 +1370,8 @@ Here's a quick description of the format we're parsing here:
   "We have '(:inline nil) somewhere in command, have '(:inline position) instead."
   (loop
      for s-exp in command
-     when (and (listp s-exp) (= 2 (length s-exp)) (eq :inline (first s-exp)))
-     collect (list :inline position)
-     else collect (if (listp s-exp)
+     when (equal '(:inline nil) s-exp) collect (list :inline position)
+     else collect (if (and (consp s-exp) (listp (cdr s-exp)))
 		      (inject-inline-data-position s-exp position)
 		      s-exp)))
 

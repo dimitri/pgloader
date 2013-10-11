@@ -13,6 +13,8 @@ LOAD CSV
          fields escaped by double-quote,
          fields terminated by ','
 
+     SET work_mem to '32 MB', maintenance_work_mem to '64 MB'
+
   BEFORE LOAD DO
    $$ create extension if not exists ip4r; $$,
    $$ create schema if not exists csv; $$,
