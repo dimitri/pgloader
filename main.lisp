@@ -58,9 +58,18 @@
 	  (loop for filename in load
 	     do (load (compile-file filename :verbose nil :print nil))))
 
-	(loop for filename in arguments
-	   do
-	     (run-commands filename)
-	     (format t "~&"))
+	(when arguments
+	  ;; Start the logger
+	  (start-logger)
+
+	  ;; process the files
+	  (handler-case
+	      (loop for filename in arguments
+		 do
+		   (log-message :notice "Processing ~s~%" filename)
+		   (run-commands filename)
+		   (format t "~&"))
+	    (condition (e)
+	      (if debug (error e) (format *standard-output* "~a" e)))))
 
 	(uiop:quit)))))
