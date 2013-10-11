@@ -1230,44 +1230,45 @@ Here's a quick description of the format we're parsing here:
 				&allow-other-keys)
 	  pg-db-uri
 	`(lambda ()
-	   (let* ((state-before  (when ',before (pgloader.utils:make-pgstate)))
+	   (let* ((state-before  ,(when before `(pgloader.utils:make-pgstate)))
 		  (summary       (null *state*))
 		  (*state*       (or *state* (pgloader.utils:make-pgstate)))
-		  (state-after   (when ',after (pgloader.utils:make-pgstate)))
+		  (state-after   ,(when after `(pgloader.utils:make-pgstate)))
 		  (*pgconn-host* ,host)
 		  (*pgconn-port* ,port)
 		  (*pgconn-user* ,user)
 		  (*pgconn-pass* ,password))
 
-	     ;; before block
-	     ,(when before
-	       `(with-stats-collection (,dbname "before load" :state state-before)
-		  (with-pgsql-transaction (,dbname)
-		    (loop for command in ',before
-		       do
-			 (log-message :notice command)
-			 (pgsql-execute command :client-min-messages :error)))))
+	     (progn
+	       ;; before block
+	       ,(when before
+		 `(with-stats-collection (,dbname "before load" :state state-before)
+		    (with-pgsql-transaction (,dbname)
+		      (loop for command in ',before
+			 do
+			   (log-message :notice command)
+			   (pgsql-execute command :client-min-messages :error)))))
 
-	     (pgloader.csv:copy-from-file ,dbname
-					  ,table-name
-					  ',source
-					  :encoding ,encoding
-					  :fields ',fields
-					  :columns ',columns
-					  ,@options)
-	     ;; finally block
-	     ,(when after
-	       `(with-stats-collection (,dbname "after load" :state state-after)
-		  (with-pgsql-transaction (,dbname)
-		    (loop for command in ',after
-		       do
-			 (log-message :notice command)
-			 (pgsql-execute command :client-min-messages :error)))))
+	       (pgloader.csv:copy-from-file ,dbname
+					    ,table-name
+					    ',source
+					    :encoding ,encoding
+					    :fields ',fields
+					    :columns ',columns
+					    ,@options)
+	       ;; after block
+	       ,(when after
+		 `(with-stats-collection (,dbname "after load" :state state-after)
+		    (with-pgsql-transaction (,dbname)
+		      (loop for command in ',after
+			 do
+			   (log-message :notice command)
+			   (pgsql-execute command :client-min-messages :error)))))
 
-	     ;; reporting
-	     (when summary
-	       (report-full-summary *state* state-before state-after
-				    "Total import time"))))))))
+	       ;; reporting
+	       (when summary
+		 (report-full-summary *state* state-before state-after
+				      "Total import time")))))))))
 
 
 ;;;
@@ -1443,9 +1444,6 @@ Here's a quick description of the format we're parsing here:
 			      (if (probe-file source)
 				  (parse-commands-from-file source)
 				  (parse-commands source)))))))
-
-    ;; Start the logger
-    (start-logger)
 
     ;; run the commands
     (loop for func in funcs do (funcall func))))
