@@ -33,10 +33,13 @@ not found in Quicklisp yet at the time of this writing:
 
     cd ~/quicklisp/local-projects/
 	git clone https://github.com/marijnh/Postmodern.git
+	git clone -b empty-strings-and-nil  https://github.com/dimitri/cl-csv.git
+	git clone http://git.tapoueh.org/git/pgloader.git
 
-Now fetch pgloader sources using `git clone` then you can use the #! script.
-You might have to modify it because it's now hard coded to use
-`/usr/local/bin/sbcl` and you probably want to change that part then:
+Now you can use the `#!` script or build a self-contained binary executable
+file, as shown below. You might have to modify it the `pgloader.lisp` script
+because it's now hard coded to use `/usr/local/bin/sbcl` and you probably
+want to change that part then:
 
     ./pgloader.lisp --help
 
@@ -48,6 +51,15 @@ download the dependencies.
 
 ## Compile into a self-contained binary file
 
+First, make sure you have downloaded all the required Common Lisp
+dependencies that pgloader uses, and install the
+[buildapp](http://www.xach.com/lisp/buildapp/) application:
+
+    $ sbcl
+	* (ql:quickload "pgloader")
+	* (ql:quickload "buildapp")
+	* (buildapp:build-buildapp "./buildapp")
+
 If you just installed *SBCL* and *Quicklisp* to use pgloader, that command
 should do it:
 
@@ -55,7 +67,11 @@ should do it:
 			   --asdf-tree ~/quicklisp/dists   \
 			   --load-system pgloader          \
 			   --entry pgloader:main           \
+			   --dynamic-space-size 4096       \
 			   --output pgloader.exe
+
+You can also use the option `--compress-core` if your platform supports it,
+so has to reduce the size of the generated binary.
 
 When you're a Common Lisp developper or otherwise already using Quicklisp
 with some *local-projects* and a local source registry setup for *asdf*, use
@@ -67,6 +83,7 @@ a command line like this:
 			   --asdf-tree ~/quicklisp/dists                      \
 			   --load-system pgloader                             \
 			   --entry pgloader:main                              \
+			   --dynamic-space-size 4096                          \
 			   --output pgloader.exe
 	
 That command requires a `manifest.ql` file that you can obtain with the lisp
@@ -76,9 +93,16 @@ command:
 
 ## Usage
 
-Use the `--file` parameter to give pgloader a command file to parse, it will start 
+Give as many command files that you need to pgloader:
 
-    ./pgloader.lisp -f <file.load>
+    ./pgloader.lisp <file.load>
+	
+See the documentation file `pgloader.1.md` for details. You can compile that
+file into a manual page or an HTML page thanks to the `pandoc` application:
+
+    $ apt-get install pandoc
+	$ pandoc pgloader.1.md -o pgloader.1
+	$ pandoc pgloader.1.md -o pgloader.html
 
 ## TODO
 

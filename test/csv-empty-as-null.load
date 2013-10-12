@@ -1,5 +1,5 @@
 LOAD CSV
-    FROM INLINE (f1, f2 null if "", f3)
+    FROM INLINE
     INTO postgresql://dim@localhost:54393/dim?nulls (f1, f2, f3)
     WITH truncate,
          fields optionally enclosed by '"',
@@ -10,9 +10,10 @@ LOAD CSV
    $$ drop table if exists nulls; $$,
    $$ create table if not exists nulls (id serial, f1 text, f2 text, f3 text); $$;
 
-"quoted empty string","","should be empty string when the CSV parser is improved"
-"empty string",,"should be null"
+"quoted empty string","","should be empty string"
+"no value between separators",,"should be null"
 "quoted blanks","    ","should be blanks"
-"blanks",    ,"should be null"
+"unquoted blanks between separators",    ,"should be null"
+"unquoted string",no quote,"should be 'no quote'"
 "quoted separator","a,b,c","should be 'a,b,c'"
 
