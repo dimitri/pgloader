@@ -124,7 +124,8 @@
 		   (skip-lines nil)
 		   (separator #\Tab)
 		   (quote cl-csv:*quote*)
-		   (escape cl-csv:*quote-escape*))
+		   (escape cl-csv:*quote-escape*)
+		   (trim-blanks cl-csv:*trim-blanks*))
   "Load data from a text file in CSV format, with support for advanced
    projecting capabilities. See `project-fields' for details.
 
@@ -176,7 +177,8 @@
 			      :row-fn (compile nil reformat-then-process)
 			      :separator separator
 			      :quote quote
-			      :escape escape)
+			      :escape escape
+			      :trim-blanks trim-blanks)
 	   ((or cl-csv:csv-parse-error type-error) (condition)
 	     ;; some form of parse error did happen, TODO: log it
 	     (progn
@@ -193,7 +195,8 @@
 			skip-lines
 			(separator #\Tab)
 			(quote cl-csv:*quote*)
-			(escape cl-csv:*quote-escape*))
+			(escape cl-csv:*quote-escape*)
+			(trim-blanks cl-csv:*trim-blanks*))
   "Copy data from CSV FILENAME into lprallel.queue DATAQ"
   (let ((read
 	 (pgloader.queue:map-push-queue dataq
@@ -205,7 +208,8 @@
 					:skip-lines skip-lines
 					:separator separator
 					:quote quote
-					:escape escape)))
+					:escape escape
+					:trim-blanks trim-blanks)))
     (pgstate-incf *state* table-name :read read)))
 
 (defun copy-from-file (dbname table-name filename-or-regex
@@ -222,7 +226,8 @@
 			 (encoding :utf-8)
 			 (separator #\Tab)
 			 (quote cl-csv:*quote*)
-			 (escape cl-csv:*quote-escape*))
+			 (escape cl-csv:*quote-escape*)
+			 (trim-blanks cl-csv:*trim-blanks*))
   "Copy data from CSV file FILENAME into PostgreSQL DBNAME.TABLE-NAME"
   (let* ((summary        (null *state*))
 	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
@@ -242,7 +247,8 @@
 		      :skip-lines skip-lines
 		      :separator separator
 		      :quote quote
-		      :escape escape)
+		      :escape escape
+		      :trim-blanks trim-blanks)
 
       ;; and start another task to push that data from the queue to PostgreSQL
       (lp:submit-task channel

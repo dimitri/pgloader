@@ -156,6 +156,9 @@ Here's a quick description of the format we're parsing here:
   (def-keyword-rule "blanks")
   (def-keyword-rule "date")
   (def-keyword-rule "format")
+  (def-keyword-rule "keep")
+  (def-keyword-rule "trim")
+  (def-keyword-rule "unquoted")
   ;; option for MySQL imports
   (def-keyword-rule "schema")
   (def-keyword-rule "only")
@@ -999,12 +1002,20 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore fields ))
       sep)))
 
+(defrule option-keep-unquoted-blanks (and kw-keep kw-unquoted kw-blanks)
+  (:constant (cons :trim-blanks nil)))
+
+(defrule option-trim-unquoted-blanks (and kw-trim kw-unquoted kw-blanks)
+  (:constant (cons :trim-blanks t)))
+
 (defrule csv-option (or option-truncate
 			option-skip-header
 			option-fields-not-enclosed
 			option-fields-enclosed-by
 			option-fields-escaped-by
-			option-fields-terminated-by))
+			option-fields-terminated-by
+			option-trim-unquoted-blanks
+			option-keep-unquoted-blanks))
 
 (defrule another-csv-option (and #\, ignore-whitespace csv-option)
   (:lambda (source)

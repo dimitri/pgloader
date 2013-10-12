@@ -2,6 +2,7 @@ LOAD CSV
     FROM INLINE
     INTO postgresql://dim@localhost:54393/dim?nulls (f1, f2, f3)
     WITH truncate,
+    	 keep unquoted blanks,
          fields optionally enclosed by '"',
          fields escaped by double-quote,
          fields terminated by ','
@@ -13,7 +14,7 @@ LOAD CSV
 "quoted empty string","","should be empty string"
 "no value between separators",,"should be null"
 "quoted blanks","    ","should be blanks"
-"unquoted blanks between separators",    ,"should be null"
+"unquoted blanks",    ,"should be null"
 "unquoted string",no quote,"should be 'no quote'"
 "quoted separator","a,b,c","should be 'a,b,c'"
-
+"keep extra blanks",  test string  , "should be '  test string  '"
