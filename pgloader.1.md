@@ -197,6 +197,17 @@ The `csv` format command accepts the following clauses and options:
 	    Takes a numeric value as argument. Instruct pgloader to skip that
 	    many lines at the beginning of the input file.
 
+      - *trim unquoted blanks*
+	  
+	    When reading unquoted values in the `CSV` file, remove the blanks
+	    found in between the separator and the value. That behaviour is the
+	    default.
+
+      - *keep unquoted blanks*
+
+        When reading unquoted values in the `CSV` file, keep blanks found in
+        between the separator and the value.
+
       - *fields optionally enclosed by*
 	  
 	    Takes a single character as argument, which must be found inside
