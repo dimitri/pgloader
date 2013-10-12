@@ -1196,7 +1196,7 @@ Here's a quick description of the format we're parsing here:
      finally (if encoding-name (return encoding-name)
 		 (error "The encoding '~a' is unknown" encoding))))
 
-(defrule encoding namestring
+(defrule encoding (or namestring single-quoted-string)
   (:lambda (encoding)
     (charsets:make-external-format (find-encoding-by-name-or-alias encoding))))
 

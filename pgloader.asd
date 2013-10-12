@@ -26,6 +26,7 @@
 	       #:command-line-arguments	; for the main function
 	       #:abnf			; ABNF parser generator (for syslog)
 	       #:db3			; DBF version 3 file reader
+	       #:py-configparser	; Read old-style INI config files
 	       )
   :components ((:file "params")
 	       (:file "package" :depends-on ("params"))
@@ -33,8 +34,9 @@
 
 	       ;; those are one-package-per-file
 	       (:file "transforms")
-	       (:file "parser"  :depends-on ("package" "params" "transforms"))
-	       (:file "queue"   :depends-on ("package")) ; pgloader.queue
+	       (:file "parser"    :depends-on ("package" "params" "transforms"))
+	       (:file "parse-ini" :depends-on ("package" "params"))
+	       (:file "queue"     :depends-on ("package")) ; pgloader.queue
 
 	       ;; package pgloader.pgsql
 	       (:file "pgsql"   :depends-on ("package"

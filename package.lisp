@@ -61,6 +61,18 @@
 	   #:get-date-columns
 	   #:format-row))
 
+(defpackage #:pgloader.ini
+  (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:import-from #:pgloader.pgsql
+		#:list-columns
+		#:with-pgsql-transaction
+		#:pgsql-execute)
+  (:export #:read-ini-file
+	   #:parse-ini-file
+	   #:write-command-to-string
+	   #:convert-ini-into-commands
+	   #:convert-ini-into-files))
+
 (defpackage #:pgloader.parser
   (:use #:cl #:esrap #:pgloader.params #:pgloader.utils)
   (:import-from #:pgloader.pgsql
@@ -177,7 +189,8 @@
 	(lparallel.queue lq)
 	(simple-date date)
 	(split-sequence sq)
-	(com.informatimago.clext.character-sets charsets))
+	(com.informatimago.clext.character-sets charsets)
+	(py-configparser ini))
    do (rename-package package package nicknames))
 
 ;;;
