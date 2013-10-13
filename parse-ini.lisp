@@ -96,6 +96,20 @@
      for (name pos) = (sq:split-sequence #\: colspec)
      collect (cons name (or (when pos (parse-integer pos)) count))))
 
+(defmacro with-database-connection ((config section) &body body)
+  "Execute given SQL in a PostgreSQL connection suitable for CONFIG, SECTION."
+  `(destructuring-bind (&key host port user pass dbname table-name)
+       (get-connection-params ,config ,section)
+     (let ((*pgconn-host* host)
+	   (*pgconn-port* (typecase port
+				     (integer port)
+				     (string  (parse-integer port))))
+	   (*pgconn-user* user)
+	   (*pgconn-pass* pass)
+	   (dbname        dbname)
+	   (table-name    table-name))
+       ,@body)))
+
 (defun get-pgsql-column-specs (config section)
   "Connect to PostgreSQL to get the column specs."
   (with-database-connection (config section)
@@ -219,19 +233,23 @@
 
 (defun get-connection-params (config section)
   "Return a property list with connection parameters for SECTION."
-  (loop
-     for (param option section default)
-     in `((:host   "host"   ,*global-section* ,*pgconn-host*)
-	  (:port   "port"   ,*global-section* ,*pgconn-port*)
-	  (:user   "user"   ,*global-section* ,*pgconn-user*)
-	  (:pass   "pass"   ,*global-section* ,*pgconn-pass*)
-	  (:dbname "base"   ,*global-section* nil)
-	  (:table-name "table" ,section nil))
-     append
-       (list param
-	     (coerce
-	      (read-value-for-param config section option :default default)
-	      'simple-string))))
+  (append
+   (loop
+      for (param option section default)
+      in `((:host   "host"   ,*global-section* ,*pgconn-host*)
+	   (:port   "port"   ,*global-section* ,*pgconn-port*)
+	   (:user   "user"   ,*global-section* ,*pgconn-user*)
+	   (:pass   "pass"   ,*global-section* ,*pgconn-pass*)
+	   (:dbname "base"   ,*global-section* nil))
+      append
+	(list param
+	      (coerce
+	       (read-value-for-param config section option :default default)
+	       'simple-string)))
+   ;; fetch table name from current section or its template maybe
+   (let ((template (read-value-for-param config section "use_template")))
+     (list :table-name
+	   (read-value-for-param config section "table" :template template)))))
 
 (defun get-connection-string (config section)
   "Return the connection parameters as a postgresql:// string."
@@ -239,20 +257,6 @@
       (get-connection-params config section)
     (format nil "postgresql://~a:~a@~a:~a/~a?~a"
 	    user pass host port dbname table-name)))
-
-(defmacro with-database-connection ((config section) &body body)
-  "Execute given SQL in a PostgreSQL connection suitable for CONFIG, SECTION."
-  `(destructuring-bind (&key host port user pass dbname table-name)
-       (get-connection-params ,config ,section)
-     (let ((*pgconn-host* host)
-	   (*pgconn-port* (typecase port
-				     (integer port)
-				     (string  (parse-integer port))))
-	   (*pgconn-user* user)
-	   (*pgconn-pass* pass)
-	   (dbname        dbname)
-	   (table-name    table-name))
-       ,@body)))
 
 (defun read-ini-file (filename)
   (let ((config (ini:make-config)))
