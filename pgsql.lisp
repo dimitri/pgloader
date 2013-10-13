@@ -470,7 +470,7 @@ Finally returns how many rows where read and processed."
 		(current-batch-size (smaller-batch-size batch-size
 							processed-rows))
 		(stream
-		 (cl-postgres:open-db-writer conspec table-name )))
+		 (cl-postgres:open-db-writer conspec table-name columns)))
 
 	   (log-message :debug "pgsql:retry-batch: current-batch-size = ~d"
 			current-batch-size)
