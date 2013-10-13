@@ -39,7 +39,12 @@ pgloader operates from commands which are read from files:
 :   Show debug level information messages.
 
 -E, \--list-encodings
-:   List known encodings in this version of pgloader
+:   List known encodings in this version of pgloader.
+
+-U, \--upgrade-config
+:   Parse given files in the command line as `pgloader.conf` files with the
+    `INI` syntax that was in use in pgloader versions 2.x, and output the
+    new command syntax for pgloader on standard output.
 
 -l *FILE*, \--load *FILE*
 :   Specify a lisp *FILE* to compile and load into the pgloader image before
