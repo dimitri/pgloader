@@ -831,31 +831,53 @@ Here's a quick description of the format we're parsing here:
       (declare (ignore w))
       opts)))
 
-(defrule dbf-source (and kw-load kw-dbf kw-from maybe-quoted-filename)
+(defrule dbf-source (and kw-load kw-dbf kw-from filename-or-http-uri)
   (:lambda (src)
     (destructuring-bind (load dbf from source) src
       (declare (ignore load dbf from))
-      ;; source is (:filename #P"pathname/here")
-      (destructuring-bind (type uri) source
-	(ecase type
-	  (:filename uri))))))
+      source)))
 
-(defrule load-dbf-file (and dbf-source target dbf-options)
+(defrule load-dbf-file (and dbf-source target dbf-options (? gucs))
   (:lambda (command)
-    (destructuring-bind (source pg-db-uri options) command
+    (destructuring-bind (source pg-db-uri options gucs) command
       (destructuring-bind (&key host port user password dbname table-name
 				&allow-other-keys)
 	  pg-db-uri
 	`(lambda ()
-	   (let* ((*pgconn-host* ,host)
+	   (let* ((state-before   (pgloader.utils:make-pgstate))
+		  (*state*        (pgloader.utils:make-pgstate))
+		  (source
+		   ,(destructuring-bind (kind url) source
+		     (ecase kind
+		       (:http     `(with-stats-collection
+				       (,dbname "download" :state state-before)
+				     (pgloader.archive:http-fetch-file ,url)))
+		       (:filename url))))
+		  (source
+		   (if (string= "zip" (pathname-type source))
+		       (progn
+			 (with-stats-collection (,dbname "extract"
+							 :state state-before)
+			   (let ((d (pgloader.archive:expand-archive source)))
+			     (merge-pathnames
+			      (make-pathname :name (pathname-name source)
+					     :type "dbf")
+			      d))))
+		       source))
+		  (*pgconn-host* ,host)
 		  (*pgconn-port* ,port)
 		  (*pgconn-user* ,user)
-		  (*pgconn-pass* ,password))
-	     (pgloader.db3:stream-file ,source
+		  (*pgconn-pass* ,password)
+		  (*pg-settings* ',gucs))
+	     (pgloader.db3:stream-file source
+				       :state-before state-before
 				       :dbname ,dbname
 				       ,@(when table-name
 					       (list :table-name table-name))
-				       ,@options)))))))
+				       ,@options)
+
+	     (report-full-summary *state* state-before nil
+				  "Total import time")))))))
 
 
 #|

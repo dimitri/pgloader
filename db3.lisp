@@ -117,42 +117,47 @@
 (defun stream-file (filename
 		    &key
 		      dbname
+		      state-before
 		      (table-name (pathname-name filename))
 		      create-table
 		      truncate)
   "Open the DB3 and stream its content to a PostgreSQL database."
-  (with-pgsql-transaction (dbname)
-    (when create-table
-      (let ((create-table-sql (db3-create-table filename)))
-	(log-message :notice "Create table \"~a\"" table-name)
-	(log-message :info "~a" create-table-sql)
-	(pgsql-execute create-table-sql)))
+  (let* ((summary     (null *state*))
+	 (*state*     (or *state* (make-pgstate))))
 
-    (when (and truncate (not create-table))
-      ;; we don't TRUNCATE a table we just CREATEd
-      (let ((truncate-sql  (format nil "TRUNCATE ~a;" table-name)))
-	(log-message :notice "~a" truncate-sql)
-	(pgsql-execute truncate-sql))))
+    (with-stats-collection (dbname "create, truncate"
+				   :state state-before
+				   :summary summary)
+      (with-pgsql-transaction (dbname)
+	(when create-table
+	  (let ((create-table-sql (db3-create-table filename)))
+	    (log-message :notice "Create table \"~a\"" table-name)
+	    (log-message :info "~a" create-table-sql)
+	    (pgsql-execute create-table-sql)))
 
-  (let* ((*state*     (make-pgstate))
-	 (lp:*kernel* (make-kernel 2))
-	 (channel     (lp:make-channel))
-	 (dataq       (lq:make-queue :fixed-capacity 4096)))
+	(when (and truncate (not create-table))
+	  ;; we don't TRUNCATE a table we just CREATEd
+	  (let ((truncate-sql  (format nil "TRUNCATE ~a;" table-name)))
+	    (log-message :notice "~a" truncate-sql)
+	    (pgsql-execute truncate-sql)))))
 
-    (with-stats-collection (dbname table-name :state *state* :summary t)
-      (log-message :notice "COPY \"~a\" from '~a'" table-name filename)
-      (lp:submit-task channel #'copy-to-queue filename dataq table-name)
+    (let* ((lp:*kernel* (make-kernel 2))
+	   (channel     (lp:make-channel))
+	   (dataq       (lq:make-queue :fixed-capacity 4096)))
 
-      ;; and start another task to push that data from the queue to PostgreSQL
-      (lp:submit-task channel
-		      #'pgloader.pgsql:copy-from-queue
-		      dbname table-name dataq
-		      :truncate truncate
-		      :transforms (transforms filename))
+      (with-stats-collection (dbname table-name :state *state* :summary summary)
+	(log-message :notice "COPY \"~a\" from '~a'" table-name filename)
+	(lp:submit-task channel #'copy-to-queue filename dataq table-name)
 
-      ;; now wait until both the tasks are over, and kill the kernel
-      (loop for tasks below 2 do (lp:receive-result channel)
-	 finally
-	   (log-message :info "COPY \"~a\" done." table-name)
-	   (lp:end-kernel)))))
+	;; and start another task to push that data from the queue to PostgreSQL
+	(lp:submit-task channel
+			#'pgloader.pgsql:copy-from-queue
+			dbname table-name dataq
+			:truncate truncate
+			:transforms (transforms filename))
 
+	;; now wait until both the tasks are over, and kill the kernel
+	(loop for tasks below 2 do (lp:receive-result channel)
+	   finally
+	     (log-message :info "COPY \"~a\" done." table-name)
+	     (lp:end-kernel))))))

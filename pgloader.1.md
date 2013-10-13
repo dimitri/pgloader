@@ -266,20 +266,22 @@ This command instructs pgloader to load data from a `DBF` file. Here's an
 example:
 
     LOAD DBF
-	    FROM '/Users/dim/Downloads/comsimp2013.dbf'
-        INTO postgresql://dim@localhost:54393/dim?comsimp2013
-        WITH truncate, create table, table name = 'comsimp2013'; 
+	    FROM http://www.insee.fr/fr/methodes/nomenclatures/cog/telechargement/2013/dbf/reg2013.dbf
+        INTO postgresql://dim@localhost:54393/dim
+        WITH truncate, create table; 
 
-The `csv` format command accepts the following clauses and options:
+The `dbf` format command accepts the following clauses and options:
 
   - *FROM*
 
-    Filename where to load the data from.
+    Filename where to load the data from. This support local files, HTTP
+    URLs and zip files containing a single dbf file of the same name. Fetch
+    such a zip file from an HTTP address is of course supported.
 
   - *INTO*
   
-  	The PostgreSQL connection URI must contains the possibly qualified name
-	of the target table where to load the data into.
+  	The PostgreSQL connection URI. If it doesn't have a table name in the
+  	target, then the name part of the filename will be used as a table name.
 
   - *WITH*
   
@@ -301,6 +303,15 @@ The `csv` format command accepts the following clauses and options:
 	  
 	    This options expects as its value the possibly qualified name of the
 	    table to create.
+
+  - *SET*
+ 
+	This clause allows to specify session parameters to be set for all the
+    sessions opened by pgloader. It expects a list of parameter name, the
+    equal sign, then the single-quoted value as a comma separated list.
+ 	
+ 	The names and values of the parameters are not validated by pgloader,
+ 	they are given as-is to PostgreSQL.
 
 ## LOAD ARCHIVE
 
