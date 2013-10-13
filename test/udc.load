@@ -1,0 +1,34 @@
+LOAD CSV
+     FROM inline WITH ENCODING latin1
+        (d, b, x, y)
+     INTO postgresql://dim:pgpass@localhost:54393/pgloader?udc
+        (
+          b,
+          c text using "constant value",
+          d
+        )
+
+     WITH fields optionally enclosed by '"',
+          fields escaped by double-quote,
+          fields terminated by '%'
+
+      SET client_encoding to 'latin1',
+          work_mem to '12MB',
+          standard_conforming_strings to 'on'
+
+   BEFORE LOAD DO
+   $$ create table if not exists udc (
+       b integer primary key,
+       c text,
+       d integer
+      );
+   $$;
+
+
+
+
+1%5%foo%bar
+2%10%bar%toto
+3%4%toto%titi
+4%18%titi%baz
+5%2%baz%foo

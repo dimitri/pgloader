@@ -57,14 +57,14 @@
 					     :template template)))
 	 (datestyle  (read-value-for-param config section "datestyle"
 					   :template template)))
-
     (setf (params-gucs params)
 	  (append
 	   (when encoding  (list (cons "client_encoding" encoding)))
 	   (when datestyle (list (cons "datestyle" datestyle)))
-	   (get-gucs config section)
-	   (when template (get-gucs config template))
-	   (get-gucs config *global-section*)))))
+	   (merge-gucs
+	    (get-gucs config section)
+	    (when template (get-gucs config template))
+	    (get-gucs config *global-section*))))))
 
 (defun get-gucs (config section)
   "Get PostgreSQL settings from SECTION."
@@ -72,6 +72,14 @@
      for (option . value) in (ini:items config section)
      when (and (< 10 (length option)) (string= "pg_option_" option :end2 10))
      collect (cons (subseq option 10) value)))
+
+(defun merge-gucs (&rest gucs)
+  "Merge several guc lists into a consolidated one. When the same GUC is
+   found more than once, we keep the one found first."
+  (remove-duplicates (apply #'append gucs)
+		     :from-end t
+		     :key #'car
+		     :test #'string=))
 
 (defun user-defined-columns (config section)
   "Fetch all option that begin with udc_ as user defined columns"
@@ -96,7 +104,7 @@
        for name in (list-columns dbname table-name)
        collect (cons name pos))))
 
-(defun parse-columns-spec (string config section)
+(defun parse-columns-spec (string config section &key trailing-sep)
   "Parse old-style columns specification, such as:
     *                             -->  nil
     x, y, a, b, d:6, c:5          -->  \"x, y, a, b, d, c\"
@@ -107,7 +115,9 @@
 	  (if (string= string "*")
 	      (get-pgsql-column-specs config section)
 	      (split-columns-specs string))))
-    (values (mapcar #'car (sort (copy-list colspecs) #'< :key #'cdr))
+    (values (append
+	     (mapcar #'car (sort (copy-list colspecs) #'< :key #'cdr))
+	     (when trailing-sep '("trailing")))
 	    (mapcar #'car colspecs))))
 
 (defun parse-only-cols (columns only-cols)
@@ -181,6 +191,8 @@
 
     ;; now parse fields and columns
     (let* ((template       (params-use-template params))
+	   (trailing-sep   (read-value-for-param config section "trailing_sep"
+						 :template template))
 	   (columns        (read-value-for-param config section "columns"
 						 :template template))
 	   (user-defined   (append
@@ -195,11 +207,14 @@
 
       ;; make sense of the old cruft
       (multiple-value-bind (fields columns)
-	  (parse-columns-spec columns config section)
-	(setf (params-fields params) fields)
-	(setf (params-columns params)
-	      (compute-columns columns only-cols copy-columns user-defined
-			       config section))))
+	  (parse-columns-spec columns config section :trailing-sep trailing-sep)
+	(setf (params-fields params)  fields)
+	(setf (params-columns params) (compute-columns columns
+						       only-cols
+						       copy-columns
+						       user-defined
+						       config
+						       section))))
     params))
 
 (defun get-connection-params (config section)
@@ -265,8 +280,12 @@
       (skip-lines    (when value
 		       (format nil "skip header = ~a" value))))))
 
-(defun write-command-to-string (config section &key with-data-inline)
-  "Return the new syntax for the command found in SECTION."
+(defun write-command-to-string (config section
+				&key with-data-inline (end-command t))
+  "Return the new syntax for the command found in SECTION.
+
+   When WITH-DATA-INLINE is true, instead of using the SECTION's filename
+   option, use the constant INLINE in the command."
   (let ((params (parse-section config section)))
     (when (and (params-filename params)
 	       (params-separator params))
@@ -290,9 +309,12 @@
 		   when option collect it))
 
 	;; GUCs
-	(format s "~%      SET ~{~a~^,~&~10T~};"
+	(format s "~%      SET ~{~a~^,~&~10T~}"
 		(loop for (name . setting) in (params-gucs params)
-		   collect (format nil "~a to '~a'" name setting)))))))
+		   collect (format nil "~a to '~a'" name setting)))
+
+	;; End the command with a semicolon, unless asked not to
+	(format s "~@[;~]" end-command)))))
 
 (defun convert-ini-into-commands (filename)
   "Read the INI file at FILENAME and convert each section of it to a command
@@ -303,9 +325,21 @@
 	       for command = (write-command-to-string config section)
 	       when command collect it))))
 
-(defun convert-ini-into-files (filename target-directory &key with-data-inline)
+(defun convert-ini-into-files (filename target-directory
+			       &key
+				 with-data-inline
+				 include-sql-file)
   "Reads the INI file at FILENAME and creates files names <section>.load for
-   each section in the INI file, in TARGET-DIRECTORY."
+   each section in the INI file, in TARGET-DIRECTORY.
+
+   When WITH-DATA-INLINE is true, read the CSV file listed as the section's
+   filename and insert its content in the command itself, as inline data.
+
+   When INCLUDE-SQL-FILE is :if-exists, try to find a sibling file to the
+   data file, with the same name and with the \"sql\" type, and use its
+   content in a BEFORE LOAD DO clause.
+
+   When INCLUDE-SQL-FILE is t, not finding the SQL file is an error."
   (let ((config (read-ini-file filename)))
 
     ;; first mkdir -p
@@ -317,7 +351,8 @@
 				   :name section
 				   :type "load")
        for command = (write-command-to-string config section
-					      :with-data-inline with-data-inline)
+					      :with-data-inline with-data-inline
+					      :end-command nil)
        when command
        do (with-open-file (c target
 			     :direction :output
@@ -325,11 +360,41 @@
 			     :if-does-not-exist :create
 			     :external-format :utf-8)
 	    (format c "~a" command)
-	    (when with-data-inline
-	      (let* ((params   (parse-section config section))
-		     (datafile
-		      (merge-pathnames (params-filename params)
-				       (directory-namestring filename))))
-		(format c "~%~%~%~%~a"
-			(slurp-file-into-string datafile)))))
+
+	    (let* ((params   (parse-section config section))
+		   (datafile
+		    (merge-pathnames (params-filename params)
+				     (directory-namestring filename)))
+		   (sqlfile
+		    (make-pathname :directory (directory-namestring datafile)
+				   :name (pathname-name datafile)
+				   :type "sql"))
+		   (sql-file-exists (probe-file sqlfile))
+		   (sql-commands    (when sql-file-exists
+				      (slurp-file-into-string sqlfile))))
+	      ;; First
+	      (if include-sql-file
+		  (if sql-file-exists
+		      (progn
+			(format c "~%~%   BEFORE LOAD DO")
+			(format c "~{~&~3T$$ ~a; $$~^,~};~%"
+				(remove-if
+				 (lambda (x)
+				   (string= ""
+					    (string-trim '(#\Space
+							   #\Return
+							   #\Linefeed) x)))
+				 (sq:split-sequence #\; sql-commands))))
+		      (unless (eq sql-file-exists :if-exists)
+			(error "File not found: ~s" sqlfile)))
+		  ;; don't include sql file
+		  (format c ";~%"))
+
+	      (when with-data-inline
+		(let* ((params   (parse-section config section))
+		       (datafile
+			(merge-pathnames (params-filename params)
+					 (directory-namestring filename))))
+		  (format c "~%~%~%~%~a"
+			  (slurp-file-into-string datafile))))))
        and collect target)))

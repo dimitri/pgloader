@@ -1,0 +1,33 @@
+LOAD CSV
+     FROM inline (a, b, c, d, e)
+     INTO postgresql://dim:pgpass@localhost:54393/pgloader?partial
+        (a, b, c, e)
+
+     WITH fields optionally enclosed by '"',
+          fields escaped by double-quote,
+          fields terminated by '%'
+
+      SET client_encoding to 'latin1',
+          work_mem to '12MB',
+          standard_conforming_strings to 'on'
+
+   BEFORE LOAD DO
+   $$ create table if not exists partial (
+       a integer primary key,
+       b text,
+       c text,
+       d text,
+       e text
+      );
+   $$;
+
+
+
+
+1%foo%bar%baz%hop
+2%foo%bar%baz%hop
+3%foo%bar%baz%hop
+4%foo%bar%baz%hop
+5%foo%bar%baz%hop
+6%foo%bar%baz%hop
+7%foo%bar%baz%hop

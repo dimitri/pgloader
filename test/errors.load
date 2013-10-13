@@ -1,0 +1,31 @@
+LOAD CSV
+     FROM inline (a, c, b, trailing)
+     INTO postgresql://dim:pgpass@localhost:54393/pgloader?errors
+        (a, b, c)
+
+     WITH fields optionally enclosed by '"',
+          fields escaped by double-quote,
+          fields terminated by '|'
+
+      SET client_encoding to 'latin1',
+          work_mem to '12MB',
+          standard_conforming_strings to 'on'
+
+   BEFORE LOAD DO
+     $$ create table if not exists errors (
+         a integer primary key,
+         b date,
+         c text
+        );
+     $$;
+
+
+
+
+1|some first row text|2006-13-11|
+2|some second row text|2006-11-11|
+3|some third row text|2006-10-12|
+4|\ |2006-16-4|
+5|some fifth row text|2006-5-12|
+6|some sixth row text|2006-13-10|
+7|some null date to play with||

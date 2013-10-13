@@ -1,0 +1,31 @@
+LOAD CSV
+     FROM inline (c, b)
+     INTO postgresql://dim:pgpass@localhost:54393/pgloader?serial
+        (b, c)
+
+     WITH fields optionally enclosed by '"',
+          fields escaped by double-quote,
+          fields terminated by ';'
+
+      SET client_encoding to 'latin1',
+          work_mem to '12MB',
+          standard_conforming_strings to 'on'
+
+   BEFORE LOAD DO
+   $$ create table if not exists serial (
+       a serial primary key,
+       b date,
+       c text
+      );
+   $$;
+
+
+
+
+some first row text;2006-11-11
+some second row text;2006-11-11
+some third row text;2006-10-12
+\ ;2006-10-4
+some fifth row text;2006-5-12
+some sixth row text;2006-7-10
+some null date to play with;

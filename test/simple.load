@@ -1,0 +1,36 @@
+LOAD CSV
+     FROM inline (a, c, b, trailing)
+     INTO postgresql://dim:pgpass@localhost:54393/pgloader?simple
+        (a, b, c)
+
+     WITH truncate,
+          skip header = 2,
+          fields optionally enclosed by '"',
+          fields escaped by double-quote,
+          fields terminated by '|'
+
+      SET client_encoding to 'latin1',
+          datestyle to 'dmy',
+          work_mem to '12MB',
+          standard_conforming_strings to 'on'
+
+   BEFORE LOAD DO
+   $$ CREATE TABLE if not exists simple (
+       a integer primary key,
+       b date,
+       c text
+      );
+   $$;
+
+
+
+
+This is a stupid useless header like you sometime find in CSV files
+id|data|date|
+1|some first row text|2006-11-11|
+2|some second row text|13/11/2006|
+3|some third row text|12-10-2006|
+4|\ |2006-10-4|
+5|some fifth row text|2006-5-12|
+6|some sixth row text|10/7/6|
+7|some null date to play with||

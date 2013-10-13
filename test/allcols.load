@@ -1,0 +1,32 @@
+LOAD CSV
+     FROM inline (a, b, c)
+     INTO postgresql://dim:pgpass@localhost:54393/pgloader?allcols
+        (a, b, c)
+
+     WITH fields optionally enclosed by '"',
+          fields escaped by double-quote,
+          fields terminated by ':'
+
+      SET client_encoding to 'latin1',
+          work_mem to '14MB',
+          standard_conforming_strings to 'on'
+
+   BEFORE LOAD DO
+     $$ create table if not exists allcols (
+         a integer primary key,
+         b date,
+         c text
+        );
+     $$;
+
+
+
+
+1:2008-02-18:first entry
+2:2008-02-19:second one
+3:2008-02-20:another
+4:2008-02-21:still running
+5:2008-02-22:well, some more
+6:2008-02-23:antepenultima
+7:2008-02-24:next to last
+8:2008-02-25:hey, it's today!

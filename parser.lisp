@@ -1423,7 +1423,9 @@ Here's a quick description of the format we're parsing here:
 	  ;; normal error processing happen
 	  (parse 'commands content)))))
 
-(defun run-commands (source)
+(defun run-commands (source
+		     &key
+		       ((:client-min-messages *client-min-messages*) *client-min-messages*))
   "SOURCE can be a function, which is run, a list, which is compiled as CL
    code then run, a pathname containing one or more commands that are parsed
    then run, or a commands string that is then parsed and each command run."

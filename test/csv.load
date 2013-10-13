@@ -1,9 +1,46 @@
 LOAD CSV
-    FROM '/Users/dim/dev/CL/pgloader/galaxya/yagoa/communaute_profil.csv'
-    INTO postgresql://dim@localhost:54393/yagoa?communaute_profil
+     FROM inline 
+        (
+          x,
+          y,
+          a,
+          b,
+          c,
+          d
+        )
+     INTO postgresql://dim:pgpass@localhost:54393/pgloader?csv
+        (
+          a,
+          b,
+          d,
+          c
+        )
 
- WITH truncate,
-      fields not enclosed,
-      fields terminated by '\t'
+     WITH truncate,
+          skip header = 1,
+          fields optionally enclosed by '"',
+          fields escaped by double-quote,
+          fields terminated by ','
 
-  SET work_mem to '32 MB', maintenance_work_mem to '64 MB';
+      SET client_encoding to 'latin1',
+          work_mem to '12MB',
+          standard_conforming_strings to 'on'
+
+   BEFORE LOAD DO
+   $$ CREATE TABLE csv (
+ a bigint,
+ b bigint,
+ c char(2),
+ d text
+); $$;
+
+
+
+
+Stupid useless header with a © sign
+"2.6.190.56","2.6.190.63","33996344","33996351","GB","United Kingdom"
+"3.0.0.0","4.17.135.31","50331648","68257567","US","United States"
+"4.17.135.32","4.17.135.63","68257568","68257599","CA","Canada"
+"4.17.135.64","4.17.142.255","68257600","68259583","US","United States"
+"4.17.143.0","4.17.143.15","68259584","68259599","CA","Canada"
+"4.17.143.16","4.18.32.71","68259600","68296775","US","United States"

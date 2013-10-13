@@ -1,0 +1,9 @@
+LOAD CSV
+    FROM '/Users/dim/dev/CL/pgloader/galaxya/yagoa/communaute_profil.csv'
+    INTO postgresql://dim@localhost:54393/yagoa?communaute_profil
+
+ WITH truncate,
+      fields not enclosed,
+      fields terminated by '\t'
+
+  SET work_mem to '32 MB', maintenance_work_mem to '64 MB';

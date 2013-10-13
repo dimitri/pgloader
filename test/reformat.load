@@ -1,0 +1,31 @@
+LOAD CSV
+     FROM inline (id, timestamp)
+     INTO postgresql://dim:pgpass@localhost:54393/pgloader?reformat
+        (
+          id,
+          timestamp timestamptz using (date-with-no-separator timestamp)
+        )
+
+     WITH fields optionally enclosed by '"',
+          fields escaped by double-quote,
+          fields terminated by '|'
+
+      SET client_encoding to 'latin1',
+          work_mem to '12MB',
+          standard_conforming_strings to 'on'
+
+   BEFORE LOAD DO
+   $$ create table if not exists reformat (
+       id integer primary key,
+       timestamp timestamp with time zone
+      );
+   $$;
+
+
+
+
+1|20071119150718
+2|20041002153048
+3|20060111060850
+4|20060111060958
+5|00000000000000
