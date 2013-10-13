@@ -21,6 +21,9 @@
     (("verbose" #\v) :type boolean :documentation "Be verbose")
     (("debug"   #\d) :type boolean :documentation "Diplay debug level information.")
 
+    (("upgrade-config" #\U) :type boolean
+     :documentation "Output the command(s) corresponding to .conf file for v2.x")
+
     (("list-encodings" #\E) :type boolean
      :documentation "List pgloader known encodings and exit.")
 
@@ -34,7 +37,7 @@
 	(command-line-arguments:process-command-line-options *opt-spec* args)
 
       (destructuring-bind (&key help version quiet verbose debug
-				list-encodings load)
+				list-encodings upgrade-config load)
 	  options
 
 	(when version
@@ -47,6 +50,13 @@
 
 	(when list-encodings
 	  (list-encodings)
+	  (uiop:quit))
+
+	(when upgrade-config
+	  (loop for filename in arguments
+	     do
+	       (pgloader.ini:convert-ini-into-commands filename)
+	       (format t "~%~%"))
 	  (uiop:quit))
 
 	(setf *client-min-messages* (cond (debug   :debug)
