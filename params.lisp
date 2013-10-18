@@ -59,7 +59,7 @@
 ;;; PostgreSQL Connection Credentials and Session Settings
 ;;;
 (defparameter *pgconn-host* "localhost")
-(defparameter *pgconn-port* 5432)
+(defparameter *pgconn-port* (or (uiop:getenv "PGPORT") 5432))
 (defparameter *pgconn-user* (uiop:getenv "USER"))
 (defparameter *pgconn-pass* "pgpass")
 (defparameter *pg-settings* nil "An alist of GUC names and values.")
