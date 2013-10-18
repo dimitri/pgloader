@@ -1,3 +1,12 @@
+/*
+ * Loading from a ZIP archive containing CSV files. The full test can be
+ * done with using the archive found at
+ * http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV/GeoLiteCity-latest.zip
+ *
+ * And a very light version of this data set is found at
+ * http://pgsql.tapoueh.org/temp/foo.zip for quick testing.
+ */
+
 LOAD ARCHIVE
    FROM http://pgsql.tapoueh.org/temp/foo.zip
    INTO postgresql://dim@localhost:54393/ip4r

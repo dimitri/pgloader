@@ -1,3 +1,16 @@
+/*
+ * This test is ported from pgloader 2.x where it was defined as:
+ *
+ * [allcols]
+ * table     = allcols
+ * format    = csv
+ * filename  = allcols/allcols.data
+ * field_sep = :
+ * columns   = *
+ * pg_option_work_mem = 14MB
+ *
+ */
+
 LOAD CSV
      FROM inline (a, b, c)
      INTO postgresql://dim:pgpass@localhost:54393/pgloader?allcols

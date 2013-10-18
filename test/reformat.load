@@ -1,3 +1,17 @@
+/*
+ * This test is ported from pgloader 2.x where it was defined as:
+ *
+ * [reformat]
+ * table           = reformat
+ * format          = text
+ * filename        = reformat/reformat.data
+ * field_sep       = |
+ * columns         = id, timestamp
+ * reformat        = timestamp:mysql:timestamp
+ *
+ */
+
+
 LOAD CSV
      FROM inline (id, timestamp)
      INTO postgresql://dim:pgpass@localhost:54393/pgloader?reformat

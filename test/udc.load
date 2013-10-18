@@ -1,3 +1,18 @@
+/*
+ * This test is ported from pgloader 2.x where it was defined as:
+ *
+ * [udc]
+ * table           = udc
+ * format          = text
+ * filename        = udc/udc.data
+ * input_encoding  = 'latin1'
+ * field_sep       = %
+ * columns         = b:2, d:1, x:3, y:4
+ * udc_c           = constant value
+ * copy_columns    = b, c, d
+ *
+ */
+
 LOAD CSV
      FROM inline WITH ENCODING latin1
         (d, b, x, y)

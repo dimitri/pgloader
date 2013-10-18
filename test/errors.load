@@ -1,3 +1,16 @@
+/*
+ * This test is ported from pgloader 2.x where it was defined as:
+ *
+ * [errors]
+ * table        = errors
+ * format       = text
+ * filename     = errors/errors.data
+ * field_sep    = |
+ * trailing_sep = True
+ * columns      = a:1, b:3, c:2
+ *
+ */
+
 LOAD CSV
      FROM inline (a, c, b, trailing)
      INTO postgresql://dim:pgpass@localhost:54393/pgloader?errors

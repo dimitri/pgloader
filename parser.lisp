@@ -11,67 +11,21 @@
 (defvar *data-expected-inline* nil
   "Set to :inline when parsing an INLINE keyword in a FROM clause.")
 
-#|
-Here's a quick description of the format we're parsing here:
-
-    LOAD FROM '/path/to/filename.txt'
-               stdin
-               http://url.to/some/file.txt
-               mysql://[user[:pass]@][host[:port]]/dbname?table-name
-               postgresql://[user[:pass]@][host[:port]]/dbname?table-name
-
-        [ COMPRESSED WITH zip | bzip2 | gzip ]
-
-    WITH workers = 2,
-         batch size = 25000,
-         batch split = 5,
-         reject file = '/tmp/pgloader/<table-name>.dat'
-         log file = '/tmp/pgloader/pgloader.log',
-         log level = debug | info | notice | warning | error | critical,
-         truncate,
-         fields [ optionally ] enclosed by '"',
-         fields escaped by '\\',
-         fields terminated by '\t',
-         lines terminated by '\r\n',
-         encoding = 'latin9',
-         drop table,
-         create table,
-         create indexes,
-         reset sequences
-
-     SET guc-1 = 'value', guc-2 = 'value'
-
-     PREPARE CLIENT WITH ( <lisp> )
-     PREPARE SERVER WITH ( <sql> )
-
-     INTO table-name [ WITH <options> SET <gucs> ]
-          (
-               field-name data-type field-desc [ with column options ],
-               ...
-          )
-    USING (expression field-name other-field-name) as column-name,
-          ...
-
-    INTO table-name  [ WITH <options> SET <gucs> ]
-         (
-           *
-         )
-
-    TODO WHEN
-
-    FINALLY ON CLIENT DO ( <lisp> )
-            ON SERVER DO ( <lisp> )
-
-    < data here if loading from stdin >
-|#
-
 ;;
 ;; Some useful rules
 ;;
+(defrule single-line-comment (and "--" (+ (not #\Newline)) #\Newline)
+  (:constant :comment))
+
+(defrule multi-line-comment (and "/*" (+ (not "*/")) "*/")
+  (:constant :comment))
+
+(defrule comments (or single-line-comment multi-line-comment))
+
 (defrule keep-a-single-whitespace (+ (or #\space #\tab #\newline #\linefeed))
   (:constant " "))
 
-(defrule whitespace (+ (or #\space #\tab #\newline #\linefeed))
+(defrule whitespace (+ (or #\space #\tab #\newline #\linefeed comments))
   (:constant 'whitespace))
 
 (defrule ignore-whitespace (* whitespace)

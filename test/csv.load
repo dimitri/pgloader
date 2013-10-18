@@ -1,3 +1,20 @@
+/*
+ * This test is ported from pgloader 2.x where it was defined as:
+ *
+ * [csv]
+ * table            = csv
+ * format           = csv
+ * filename         = csv/csv.data
+ * field_size_limit = 512kB
+ * field_sep        = ,
+ * quotechar        = "
+ * columns          = x, y, a, b, d:6, c:5
+ * only_cols        = 3-6
+ * skip_head_lines  = 1
+ * truncate         = True
+ *
+ */
+
 LOAD CSV
      FROM inline 
         (
