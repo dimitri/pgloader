@@ -13,8 +13,7 @@
 
 LOAD CSV
      FROM inline (a, b, c)
-     INTO postgresql://dim:pgpass@localhost:54393/pgloader?allcols
-        (a, b, c)
+     INTO postgresql:///pgloader?allcols (a, b, c)
 
      WITH fields optionally enclosed by '"',
           fields escaped by double-quote,
@@ -25,7 +24,8 @@ LOAD CSV
           standard_conforming_strings to 'on'
 
    BEFORE LOAD DO
-     $$ create table if not exists allcols (
+     $$ drop table if exists allcols; $$,
+     $$ create table allcols (
          a integer primary key,
          b date,
          c text

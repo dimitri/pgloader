@@ -12,8 +12,7 @@
  */
 LOAD CSV
      FROM inline (a, b, c, d, e)
-     INTO postgresql://dim:pgpass@localhost:54393/pgloader?partial
-        (a, b, c, e)
+     INTO postgresql:///pgloader?partial (a, b, c, e)
 
      WITH fields optionally enclosed by '"',
           fields escaped by double-quote,
@@ -24,7 +23,8 @@ LOAD CSV
           standard_conforming_strings to 'on'
 
    BEFORE LOAD DO
-   $$ create table if not exists partial (
+   $$ drop table if exists partial; $$,
+   $$ create table partial (
        a integer primary key,
        b text,
        c text,

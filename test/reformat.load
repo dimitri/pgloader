@@ -14,7 +14,7 @@
 
 LOAD CSV
      FROM inline (id, timestamp)
-     INTO postgresql://dim:pgpass@localhost:54393/pgloader?reformat
+     INTO postgresql:///pgloader?reformat
         (
           id,
           timestamp timestamptz using (date-with-no-separator timestamp)
@@ -29,7 +29,8 @@ LOAD CSV
           standard_conforming_strings to 'on'
 
    BEFORE LOAD DO
-   $$ create table if not exists reformat (
+   $$ drop table if exists reformat; $$,
+   $$ create table reformat (
        id integer primary key,
        timestamp timestamp with time zone
       );

@@ -13,8 +13,7 @@
 
 LOAD CSV
      FROM inline (a, c, b, trailing)
-     INTO postgresql://dim:pgpass@localhost:54393/pgloader?errors
-        (a, b, c)
+     INTO postgresql:///pgloader?errors (a, b, c)
 
      WITH fields optionally enclosed by '"',
           fields escaped by double-quote,
@@ -25,7 +24,8 @@ LOAD CSV
           standard_conforming_strings to 'on'
 
    BEFORE LOAD DO
-     $$ create table if not exists errors (
+     $$ drop table if exists errors; $$,
+     $$ create table errors (
          a integer primary key,
          b date,
          c text

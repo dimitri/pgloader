@@ -4,7 +4,7 @@ LOAD CSV
          (
             startIpNum, endIpNum, locId
          )
-    INTO postgresql://dim@localhost:54393/ip4r?csv.blocks
+    INTO postgresql:///pgloader?csv.blocks
          (
             iprange ip4r using (ip-range startIpNum endIpNum),
             locId

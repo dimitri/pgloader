@@ -4,9 +4,10 @@
 
 (in-package :pgloader.parser)
 
-(defparameter *default-host* "localhost")
-(defparameter *default-postgresql-port* 5432)
-(defparameter *default-mysql-port* 3306)
+(defun getenv-default (name &optional default)
+  "Return the value of the NAME variable as found in the environment, or
+     DEFAULT if that variable isn't set"
+  (or (uiop:getenv name) default))
 
 (defvar *data-expected-inline* nil
   "Set to :inline when parsing an INLINE keyword in a FROM clause.")
@@ -229,7 +230,7 @@
   (:destructure (hostname &optional port)
 		(append (list :host hostname) port)))
 
-(defrule dsn-dbname (and "/" namestring)
+(defrule dsn-dbname (and "/" (? namestring))
   (:destructure (slash dbname)
 		(declare (ignore slash))
 		(list :dbname dbname)))
@@ -266,15 +267,34 @@
 			      dbname
 			      table-name)
 	(apply #'append uri)
-      (list :type type
-	    :user user
-	    :password password
-	    :host (or host *default-host*)
-	    :port (or port (case type
-			     (:postgresql *default-postgresql-port*)
-			     (:mysql      *default-mysql-port*)))
-	    :dbname dbname
-	    :table-name table-name))))
+      ;;
+      ;; Default to environment variables as described in
+      ;;  http://www.postgresql.org/docs/9.3/static/app-psql.html
+      ;;  http://dev.mysql.com/doc/refman/5.0/en/environment-variables.html
+      ;;
+      (let ((user
+	     (or user
+		 (case type
+		   (:postgresql (getenv-default "PGUSER" (getenv-default "USER")))
+		   (:mysql      (getenv-default "USER"))))))
+       (list :type type
+	     :user user
+	     :password password
+	     :host (or host
+		       (case type
+			 (:postgresql (getenv-default "PGHOST" "localhost"))
+			 (:mysql      (getenv-default "MYSQL_HOST" "localhost"))))
+	     :port (or port
+		       (parse-integer
+			;; avoid a NIL is not a STRING style warning by
+			;; using ecase here
+			(ecase type
+			  (:postgresql (getenv-default "PGPORT" "5432"))
+			  (:mysql      (getenv-default "MYSQL_TCP_PORT" "3306")))))
+	     :dbname (or dbname
+			 (case type
+			   (:postgresql (getenv-default "PGDATABASE" user))))
+	     :table-name table-name)))))
 
 (defrule target (and kw-into db-connection-uri)
   (:destructure (into target)

@@ -16,22 +16,8 @@
  */
 
 LOAD CSV
-     FROM inline 
-        (
-          x,
-          y,
-          a,
-          b,
-          c,
-          d
-        )
-     INTO postgresql://dim:pgpass@localhost:54393/pgloader?csv
-        (
-          a,
-          b,
-          d,
-          c
-        )
+     FROM inline (x, y, a, b, c, d)
+     INTO postgresql:///pgloader?csv (a, b, d, c)
 
      WITH truncate,
           skip header = 1,
@@ -44,13 +30,14 @@ LOAD CSV
           standard_conforming_strings to 'on'
 
    BEFORE LOAD DO
-   $$ CREATE TABLE csv (
- a bigint,
- b bigint,
- c char(2),
- d text
-); $$;
-
+    $$ drop table if exists csv; $$,
+    $$ create table csv (
+        a bigint,
+        b bigint,
+        c char(2),
+        d text
+       );
+    $$;
 
 
 

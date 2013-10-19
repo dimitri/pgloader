@@ -1,6 +1,6 @@
 LOAD CSV
     FROM INLINE
-    INTO postgresql://dim@localhost:54393/dim?nulls (f1, f2, f3)
+    INTO postgresql:///pgloader?nulls (f1, f2, f3)
     WITH truncate,
     	 keep unquoted blanks,
          fields optionally enclosed by '"',

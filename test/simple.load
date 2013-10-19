@@ -22,8 +22,7 @@
 
 LOAD CSV
      FROM inline (a, c, b, trailing)
-     INTO postgresql://dim:pgpass@localhost:54393/pgloader?simple
-        (a, b, c)
+     INTO postgresql:///pgloader?simple (a, b, c)
 
      WITH truncate,
           skip header = 2,
@@ -37,7 +36,8 @@ LOAD CSV
           standard_conforming_strings to 'on'
 
    BEFORE LOAD DO
-   $$ CREATE TABLE if not exists simple (
+   $$ drop table if exists simple; $$,
+   $$ create table simple (
        a integer primary key,
        b date,
        c text

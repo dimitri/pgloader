@@ -9,7 +9,7 @@
 
 LOAD ARCHIVE
    FROM http://pgsql.tapoueh.org/temp/foo.zip
-   INTO postgresql://dim@localhost:54393/ip4r
+   INTO postgresql:///pgloader
 
    BEFORE LOAD DO
      $$ create extension if not exists ip4r; $$,
@@ -49,7 +49,7 @@ LOAD ARCHIVE
                 metroCode  null if blanks,
                 areaCode   null if blanks
              )
-        INTO postgresql://dim@localhost:54393/ip4r?geolite.location
+        INTO postgresql:///pgloader?geolite.location
              (
                 locid,country,region,city,postalCode,
                 location point using (format nil "(~a,~a)" longitude latitude),
@@ -66,7 +66,7 @@ LOAD ARCHIVE
              (
                 startIpNum, endIpNum, locId
              )
-        INTO postgresql://dim@localhost:54393/ip4r?geolite.blocks
+        INTO postgresql:///pgloader?geolite.blocks
              (
                 iprange ip4r using (ip-range startIpNum endIpNum),
                 locId

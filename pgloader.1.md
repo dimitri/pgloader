@@ -82,6 +82,15 @@ The main clauses are the `LOAD`, `FROM`, `INTO` and `WITH` clauses that each
 command implements. Some command then implement the `SET` command, or some
 specific clauses such as the `CAST` clause.
 
+The `<source-url>` parameter is expected to be given as a *Connection URI*
+as documented in the PostgreSQL documentation at
+http://www.postgresql.org/docs/9.3/static/libpq-connect.html#LIBPQ-CONNSTRING.
+
+    postgresql://[user[:password]@][netloc][:port][/dbname][?schema.table]
+
+The connection string in pgloader only accepts a single optionnal parameter
+which should be a possibly qualified table name.
+
 ## LOAD CSV
 
 This command instructs pgloader to load data from a `CSV` file. Here's an
@@ -92,7 +101,7 @@ example:
             (
                startIpNum, endIpNum, locId
             )
-       INTO postgresql://dim@localhost:54393/dim?geolite.blocks
+       INTO postgresql://user@localhost:54393/dbname?geolite.blocks
             (
                iprange ip4r using (ip-range startIpNum endIpNum),
                locId
@@ -272,7 +281,7 @@ example:
 
     LOAD DBF
 	    FROM http://www.insee.fr/fr/methodes/nomenclatures/cog/telechargement/2013/dbf/reg2013.dbf
-        INTO postgresql://dim@localhost:54393/dim
+        INTO postgresql://user@localhost/dbname
         WITH truncate, create table; 
 
 The `dbf` format command accepts the following clauses and options:
@@ -328,7 +337,7 @@ Here's an example:
 
     LOAD ARCHIVE
        FROM /Users/dim/Downloads/GeoLiteCity-latest.zip
-       INTO postgresql://dim@localhost:54393/ip4r
+       INTO postgresql:///ip4r
     
        BEFORE LOAD DO
          $$ create extension if not exists ip4r; $$,
@@ -368,7 +377,7 @@ Here's an example:
                     metroCode  null if blanks,
                     areaCode   null if blanks
                  )
-            INTO postgresql://dim@localhost:54393/ip4r?geolite.location
+            INTO postgresql:///ip4r?geolite.location
                  (
                     locid,country,region,city,postalCode,
                     location point using (format nil "(~a,~a)" longitude latitude),
@@ -385,7 +394,7 @@ Here's an example:
                  (
                     startIpNum, endIpNum, locId
                  )
-            INTO postgresql://dim@localhost:54393/ip4r?geolite.blocks
+            INTO postgresql:///ip4r?geolite.blocks
                  (
                     iprange ip4r using (ip-range startIpNum endIpNum),
                     locId
@@ -454,7 +463,7 @@ Here's an example:
 
     load database
 	   from mysql://localhost/adv
-       into postgresql://dim@localhost/adv
+       into postgresql:///adv
     
     with drop tables, truncate, create tables, create indexes,
          reset sequences,

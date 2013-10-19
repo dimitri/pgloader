@@ -16,7 +16,7 @@
 LOAD CSV
      FROM inline WITH ENCODING latin1
         (d, b, x, y)
-     INTO postgresql://dim:pgpass@localhost:54393/pgloader?udc
+     INTO postgresql:///pgloader?udc
         (
           b,
           c text using "constant value",
@@ -32,7 +32,8 @@ LOAD CSV
           standard_conforming_strings to 'on'
 
    BEFORE LOAD DO
-   $$ create table if not exists udc (
+   $$ drop table if exists udc; $$,
+   $$ create table udc (
        b integer primary key,
        c text,
        d integer

@@ -1,5 +1,5 @@
 LOAD DBF
     FROM http://www.insee.fr/fr/methodes/nomenclatures/cog/telechargement/2013/dbf/reg2013.dbf
-    INTO postgresql://dim@localhost:54393/dim
+    INTO postgresql:///pgloader
     WITH truncate, create table
      SET client_encoding TO 'latin1';

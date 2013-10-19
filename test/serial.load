@@ -12,8 +12,7 @@
 
 LOAD CSV
      FROM inline (c, b)
-     INTO postgresql://dim:pgpass@localhost:54393/pgloader?serial
-        (b, c)
+     INTO postgresql:///pgloader?serial (b, c)
 
      WITH fields optionally enclosed by '"',
           fields escaped by double-quote,
@@ -24,7 +23,8 @@ LOAD CSV
           standard_conforming_strings to 'on'
 
    BEFORE LOAD DO
-   $$ create table if not exists serial (
+   $$ drop table if exists serial; $$,
+   $$ create table serial (
        a serial primary key,
        b date,
        c text
