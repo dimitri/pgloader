@@ -1,4 +1,4 @@
-#! /usr/local/bin/sbcl --script
+#! /usr/bin/sbcl --script
 
 ;;; load the necessary components then parse the command line
 ;;; and launch the work

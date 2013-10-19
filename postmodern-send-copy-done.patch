@@ -1,0 +1,29 @@
+diff --git a/cl-postgres/bulk-copy.lisp b/cl-postgres/bulk-copy.lisp
+index f8efdb3..0f020d6 100644
+--- a/cl-postgres/bulk-copy.lisp
++++ b/cl-postgres/bulk-copy.lisp
+@@ -120,13 +120,18 @@
+   (with-syncing
+     (copy-done-message socket)
+     (force-output socket)
+-    (message-case socket
+-      (#\C (let* ((command-tag (read-str socket))
+-		  (space (position #\Space command-tag :from-end t)))
+-	     (when space
+-	       (parse-integer command-tag :junk-allowed t :start (1+ space))))))
++    (handler-case
++	(message-case socket
++	    (#\C (let* ((command-tag (read-str socket))
++			(space (position #\Space command-tag :from-end t)))
++		   (when space
++		     (parse-integer command-tag :junk-allowed t :start (1+ space))))))
++      (condition (e)
++	;; In case of error in the COPY stream we need to wait for an
++	;; explicit ReadyForQuery message. Then we re-signal the error.
++	(message-case socket (#\Z (read-uint1 socket)))
++	(error e)))
+     (loop (message-case socket
+ 	    (#\Z (read-uint1 socket)
+ 		 (return-from send-copy-done))
+ 	    (t :skip)))))
+-
