@@ -7,5 +7,8 @@ VAGRANTFILE_API_VERSION = "2"
 Vagrant.configure("2") do |config|
   config.vm.box = "wheezy64"
 
-  config.vm.provision :shell, :path => "bootstrap.sh"
+  config.vm.provision "shell" do |s|
+    s.path = "bootstrap.sh"
+    s.privileged = false
+  end
 end
