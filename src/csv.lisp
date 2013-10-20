@@ -108,6 +108,7 @@
 		 `(lambda (row)
 		    (declare (optimize speed) (type list row))
 		    (destructuring-bind (,@args) row
+		      (declare (ignorable ,@args))
 		      (list ,@newrow))))))))
       ;; allow for some debugging
       (if compile (compile nil projection) projection))))
