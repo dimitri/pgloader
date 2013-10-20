@@ -4,6 +4,11 @@ POMO_PATCH = $(realpath patches/postmodern-send-copy-done.patch)
 ASDF_CONFD = ~/.config/common-lisp/source-registry.conf.d
 ASDF_CONF  = $(ASDF_CONFD)/projects.conf
 
+LIBS       = build/libs.stamp
+BUILDAPP   = build/buildapp
+MANIFEST   = build/manifest.ql
+PGLOADER   = build/pgloader.exe
+
 docs:
 	pandoc pgloader.1.md -o pgloader.1
 	pandoc pgloader.1.md -o pgloader.html
@@ -34,24 +39,26 @@ $(ASDF_CONF):
 
 asdf-config: $(ASDF_CONF) ;
 
-libs: quicklisp $(ASDF_CONF) postmodern cl-csv
-	# Quicklisp Install needed Common Lisp libs
+$(LIBS): quicklisp $(ASDF_CONF) postmodern cl-csv
 	sbcl --load ~/quicklisp/setup.lisp                             \
              --eval '(ql:quickload "pgloader")'                        \
              --eval '(quit)'
+	touch $@
 
-./build/manifest.ql: libs
+libs: $(LIBS) ;
+
+$(MANIFEST): libs
 	sbcl --load ~/quicklisp/setup.lisp                                 \
              --eval '(ql:write-asdf-manifest-file "./build/manifest.ql")'  \
              --eval '(quit)'
 
-./build/buildapp: quicklisp
+$(BUILDAPP): quicklisp
 	sbcl --load ~/quicklisp/setup.lisp                          \
              --eval '(ql:quickload "buildapp")'                     \
              --eval '(buildapp:build-buildapp "./build/buildapp")'  \
              --eval '(quit)'
 
-./build/pgloader.exe: ./build/buildapp ./build/manifest.ql
+$(PGLOADER): $(MANIFEST) $(BUILDAPP)
 	./build/buildapp --logfile /tmp/build.log                \
                          --asdf-tree ~/quicklisp/local-projects  \
                          --manifest-file ./build/manifest.ql     \
@@ -63,7 +70,11 @@ libs: quicklisp $(ASDF_CONF) postmodern cl-csv
                          --compress-core                         \
                          --output build/pgloader.exe
 
-test: ./build/pgloader.exe
-	$(MAKE) PGLOADER=$(realpath ./build/pgloader.exe) -C test all
+pgloader: $(PGLOADER) ;
+
+test:
+	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) -C test all
 
 check: test ;
+
+.PHONY: test
