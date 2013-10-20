@@ -31,7 +31,7 @@ git clone -b empty-strings-and-nil https://github.com/dimitri/cl-csv.git
 git clone https://github.com/marijnh/Postmodern.git
 
 cd ~/quicklisp/local-projects/Postmodern/
-patch -p1 < /vagrant/postmodern-send-copy-done.patch
+patch -p1 < /vagrant/patches/postmodern-send-copy-done.patch
 
 cd ~
 
@@ -55,7 +55,7 @@ echo "(:tree \"/vagrant/\")" > $REGISTRY/projects.conf
 #                        --load-system pgloader          \
 #                        --entry pgloader:main           \
 #                        --dynamic-space-size 4096       \
-#                        --output pgloader.exe
+#                        --output /home/vagrant/pgloader.exe
 
 echo "TESTING"
 
@@ -63,7 +63,8 @@ echo "TESTING"
 
 for test in /vagrant/test/*.load
 do
-    echo "               TEST: $test"
+    echo "# TEST: $test"
+    echo
     /vagrant/pgloader.lisp $test
     echo
 done

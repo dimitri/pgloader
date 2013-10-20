@@ -1,34 +1,37 @@
 ;;;; pgloader.asd
 
 (asdf:defsystem #:pgloader
-  :serial t
-  :description "Load data into PostgreSQL"
-  :author "Dimitri Fontaine <dimitri@2ndQuadrant.fr>"
-  :license "The PostgreSQL Licence"
-  :depends-on (#:uiop			; host system integration
-	       #:cl-log			; logging
-	       #:postmodern		; PostgreSQL protocol implementation
-	       #:cl-postgres		; low level bits for COPY streaming
-	       #:simple-date		; FIXME: recheck dependency
-	       #:cl-mysql		; CFFI binding to libmysqlclient-dev
-	       #:split-sequence		; some parsing is made easy
-               #:cl-csv			; full CSV reader
-	       #:cl-fad			; file and directories
-               #:lparallel		; threads, workers, queues
-	       #:esrap			; parser generator
-	       #:alexandria		; utils
-	       #:drakma			; http client, download archives
-	       #:zip			; support for zip archive files
-	       #:flexi-streams		; streams
-	       #:com.informatimago.clext ; portable character-sets listings
-	       #:usocket		; UDP / syslog
-	       #:local-time		; UDP date parsing
-	       #:command-line-arguments	; for the main function
-	       #:abnf			; ABNF parser generator (for syslog)
-	       #:db3			; DBF version 3 file reader
-	       #:py-configparser	; Read old-style INI config files
-	       )
-  :components ((:file "params")
+    :serial t
+    :description "Load data into PostgreSQL"
+    :author "Dimitri Fontaine <dimitri@2ndQuadrant.fr>"
+    :license "The PostgreSQL Licence"
+    :depends-on (#:uiop			; host system integration
+		 #:cl-log			; logging
+		 #:postmodern		; PostgreSQL protocol implementation
+		 #:cl-postgres		; low level bits for COPY streaming
+		 #:simple-date		; FIXME: recheck dependency
+		 #:cl-mysql		; CFFI binding to libmysqlclient-dev
+		 #:split-sequence		; some parsing is made easy
+		 #:cl-csv			; full CSV reader
+		 #:cl-fad			; file and directories
+		 #:lparallel		; threads, workers, queues
+		 #:esrap			; parser generator
+		 #:alexandria		; utils
+		 #:drakma			; http client, download archives
+		 #:zip			; support for zip archive files
+		 #:flexi-streams		; streams
+		 #:com.informatimago.clext ; portable character-sets listings
+		 #:usocket		; UDP / syslog
+		 #:local-time		; UDP date parsing
+		 #:command-line-arguments	; for the main function
+		 #:abnf			; ABNF parser generator (for syslog)
+		 #:db3			; DBF version 3 file reader
+		 #:py-configparser	; Read old-style INI config files
+		 )
+    :components
+    ((:module "src"
+	      :components
+	      ((:file "params")
 	       (:file "package" :depends-on ("params"))
 	       (:file "utils"   :depends-on ("package"))
 
@@ -70,6 +73,6 @@
 					  "db3"
 					  "archive"
 					  "syslog"
-					  "mysql"))))
+					  "mysql"))))))
 
 

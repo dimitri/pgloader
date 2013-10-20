@@ -42,6 +42,7 @@
 			 (:seconds 12 14))))
   "Apply this function when input date in like '20041002152952'"
   ;; only process non-zero dates
+  (declare (type string date-string))
   (if (null (zero-dates-to-null date-string)) nil
       (destructuring-bind (&key year month day hour minute seconds
 				&allow-other-keys)
