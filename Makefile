@@ -64,6 +64,6 @@ libs: quicklisp $(ASDF_CONF) postmodern cl-csv
                          --output build/pgloader.exe
 
 test: ./build/pgloader.exe
-	$(MAKE) PGLOADER=build/pgloader.exe -C test all
+	$(MAKE) PGLOADER=$(realpath ./build/pgloader.exe) -C test all
 
 check: test ;
