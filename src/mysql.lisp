@@ -492,8 +492,10 @@ order by ordinal_position" dbname table-name)))
        (with-pgsql-transaction (dbname)
 	 (handler-case
 	     (pgsql-execute sql)
-	   (condition (e)
-	     (log-message :error "~a" e)))))
+	   (cl-postgres:database-error (e)
+	     (log-message :error "~a" e))
+	   (cl-postgres:postgresql-warning (w)
+	     (log-message :warning "~a" w)))))
     (declare (ignore res))
     (pgstate-incf state label :rows count :secs secs)))
 
