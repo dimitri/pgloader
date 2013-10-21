@@ -542,7 +542,7 @@ order by ordinal_position" dbname table-name)))
 			  (create-indexes t)
 			  (reset-sequences t)
 			  (identifier-case :downcase) ; or :quote
-			  (truncate t)
+			  (truncate nil)
 			  only-tables)
   "Export MySQL data and Import it into PostgreSQL"
   ;; get the list of tables and have at it
@@ -562,7 +562,7 @@ order by ordinal_position" dbname table-name)))
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (when create-tables
       (log-message :notice "~:[~;DROP then ~]CREATE TABLES" include-drop)
-      (with-pgsql-transaction (dbname)
+      (with-pgsql-transaction (pg-dbname)
 	(pgsql-create-tables all-columns
 			     :identifier-case identifier-case
 			     :include-drop include-drop)))
@@ -592,7 +592,7 @@ order by ordinal_position" dbname table-name)))
 	   (when create-indexes
 	     (let* ((indexes
 		     (cdr (assoc table-name all-indexes :test #'string=))))
-	       (create-indexes-in-kernel dbname table-name indexes
+	       (create-indexes-in-kernel pg-dbname table-name indexes
 					 idx-kernel idx-channel
 					 :state idx-state
 					 :include-drop include-drop
@@ -613,7 +613,7 @@ order by ordinal_position" dbname table-name)))
     (let ((lp:*kernel* copy-kernel))
       ;; wait until the indexes are done being built...
       ;; don't forget accounting for that waiting time.
-      (with-stats-collection (dbname "index build completion" :state *state*)
+      (with-stats-collection (pg-dbname "index build completion" :state *state*)
 	(loop for idx in all-indexes do (lp:receive-result idx-channel)))
       (lp:end-kernel))
 
