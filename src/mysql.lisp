@@ -548,6 +548,7 @@ order by ordinal_position" dbname table-name)))
   ;; get the list of tables and have at it
   (let* ((*state*       (make-pgstate))
 	 (idx-state     (make-pgstate))
+	 (seq-state     (make-pgstate))
          (copy-kernel   (make-kernel 2))
          (all-columns   (list-all-columns dbname :only-tables only-tables))
          (all-indexes   (list-all-indexes dbname))
@@ -601,12 +602,16 @@ order by ordinal_position" dbname table-name)))
     ;; don't forget to reset sequences, but only when we did actually import
     ;; the data.
     (when (and (not schema-only) reset-sequences)
-      (let ((only-tables
+      (let ((tables
 	     (mapcar
 	      (lambda (name) (apply-identifier-case name identifier-case))
-	      only-tables)))
-	(log-message :notice "Resetting all sequences")
-	(pgloader.pgsql:reset-all-sequences pg-dbname :only-tables only-tables)))
+	      (or only-tables
+		  (mapcar #'car all-columns)))))
+	(log-message :notice "Reset sequences")
+	(with-stats-collection (pg-dbname "reset sequences"
+					  :use-result-as-rows t
+					  :state seq-state)
+	  (pgloader.pgsql:reset-all-sequences pg-dbname :tables tables))))
 
     ;; now end the kernels
     (let ((lp:*kernel* idx-kernel))  (lp:end-kernel))
@@ -621,5 +626,9 @@ order by ordinal_position" dbname table-name)))
     (report-summary)
     (format t pgloader.utils::*header-line*)
     (report-summary :state idx-state :header nil :footer nil)
+    (report-summary :state seq-state :header nil :footer nil)
+    ;; don't forget to add up the RESET SEQUENCES timings
+    (incf (pgloader.utils::pgstate-secs *state*)
+	  (pgloader.utils::pgstate-secs seq-state))
     (report-pgstate-stats *state* "Total streaming time")))
 

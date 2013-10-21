@@ -1,6 +1,6 @@
 load database
      from      mysql://root@localhost:3306/goeuro
-     into postgresql://dim@localhost:54393/goeuro
+     into postgresql://dim@localhost:54393/godollar
 
  WITH drop tables, create tables, create indexes, reset sequences
 
