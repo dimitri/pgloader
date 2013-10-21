@@ -42,10 +42,17 @@
 	       (:file "queue"     :depends-on ("package")) ; pgloader.queue
 
 	       ;; package pgloader.pgsql
+	       (:file "pgsql-copy-format" :depends-on ("package"
+						       "params"
+						       "queue"
+						       "utils"))
+	       (:file "pgsql-queries" :depends-on ("package" "params"))
 	       (:file "pgsql"   :depends-on ("package"
 					     "queue"
 					     "utils"
-					     "transforms"))
+					     "transforms"
+					     "pgsql-copy-format"
+					     "pgsql-queries"))
 
 	       ;; Source format specific implementations
 	       (:file "csv"     :depends-on ("package" "pgsql"))
