@@ -14,16 +14,23 @@ docs:
 	pandoc pgloader.1.md -o pgloader.html
 	pandoc pgloader.1.md -o pgloader.pdf
 
+~/quicklisp/local-projects/cl-abnf:
+	git clone https://github.com/dimitri/cl-abnf.git $@
+
+~/quicklisp/local-projects/cl-db3:
+	git clone https://github.com/dimitri/cl-db3.git $@
+
 ~/quicklisp/local-projects/Postmodern:
 	git clone https://github.com/marijnh/Postmodern.git $@
 	cd ~/quicklisp/local-projects/Postmodern/ && patch -p1 < $(POMO_PATCH)
 
-postmodern: ~/quicklisp/local-projects/Postmodern ;
-
 ~/quicklisp/local-projects/cl-csv:
 	git clone -b empty-strings-and-nil https://github.com/dimitri/cl-csv.git $@
 
+cl-abnf: ~/quicklisp/local-projects/cl-abnf ;
+cl-db3: ~/quicklisp/local-projects/cl-db3 ;
 cl-csv: ~/quicklisp/local-projects/cl-csv ;
+postmodern: ~/quicklisp/local-projects/Postmodern ;
 
 ~/quicklisp/setup.lisp:
 	curl -o ~/quicklisp.lisp http://beta.quicklisp.org/quicklisp.lisp
@@ -39,7 +46,7 @@ $(ASDF_CONF):
 
 asdf-config: $(ASDF_CONF) ;
 
-$(LIBS): quicklisp $(ASDF_CONF) postmodern cl-csv
+$(LIBS): quicklisp $(ASDF_CONF) cl-abnf cl-db3 postmodern cl-csv
 	sbcl --load ~/quicklisp/setup.lisp                             \
              --eval '(ql:quickload "pgloader")'                        \
              --eval '(quit)'
