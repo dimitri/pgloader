@@ -48,6 +48,7 @@
   (:use #:cl #:pgloader.params #:pgloader.utils)
   (:export #:with-pgsql-transaction
 	   #:pgsql-execute
+	   #:pgsql-execute-with-timing
 	   #:truncate-table
 	   #:copy-from-file
 	   #:copy-from-queue
@@ -57,9 +58,11 @@
 	   #:list-tables-cols
 	   #:list-reserved-keywords
 	   #:reset-all-sequences
-	   #:execute
 	   #:get-date-columns
-	   #:format-row))
+	   #:format-row
+	   #:apply-identifier-case
+	   #:create-tables
+	   #:format-pgsql-column))
 
 (defpackage #:pgloader.ini
   (:use #:cl #:pgloader.params #:pgloader.utils)
@@ -130,7 +133,9 @@
   (:use #:cl #:pgloader.params #:pgloader.utils)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
-		#:pgsql-execute)
+		#:pgsql-execute
+		#:pgsql-execute-with-timing
+		#:apply-identifier-case)
   (:export #:*cast-rules*
 	   #:*default-cast-rules*
 	   #:map-rows
@@ -139,6 +144,21 @@
 	   #:list-tables
 	   #:export-database
 	   #:export-import-database
+	   #:stream-table
+	   #:stream-database))
+
+(defpackage #:pgloader.sqlite
+  (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:import-from #:pgloader.pgsql
+		#:with-pgsql-transaction
+		#:pgsql-execute
+		#:pgsql-execute-with-timing
+		#:apply-identifier-case
+		#:create-tables
+		#:format-pgsql-column)
+  (:export #:map-rows
+	   #:copy-to
+	   #:list-tables
 	   #:stream-table
 	   #:stream-database))
 

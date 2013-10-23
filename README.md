@@ -22,7 +22,7 @@ pgloader is now a Common Lisp program, tested using the
 with [Quicklisp](http://www.quicklisp.org/beta/).
 
     apt-get install sbcl
-    apt-get install libmysqlclient-dev
+    apt-get install libmysqlclient-dev libsqlite3-dev
 	wget http://beta.quicklisp.org/quicklisp.lisp
 	sbcl --load quicklisp.lisp
 	* (quicklisp-quickstart:install)

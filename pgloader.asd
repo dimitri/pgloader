@@ -6,27 +6,28 @@
     :author "Dimitri Fontaine <dimitri@2ndQuadrant.fr>"
     :license "The PostgreSQL Licence"
     :depends-on (#:uiop			; host system integration
-		 #:cl-log			; logging
+		 #:cl-log		; logging
 		 #:postmodern		; PostgreSQL protocol implementation
 		 #:cl-postgres		; low level bits for COPY streaming
 		 #:simple-date		; FIXME: recheck dependency
 		 #:cl-mysql		; CFFI binding to libmysqlclient-dev
-		 #:split-sequence		; some parsing is made easy
-		 #:cl-csv			; full CSV reader
-		 #:cl-fad			; file and directories
+		 #:split-sequence	; some parsing is made easy
+		 #:cl-csv		; full CSV reader
+		 #:cl-fad		; file and directories
 		 #:lparallel		; threads, workers, queues
-		 #:esrap			; parser generator
+		 #:esrap		; parser generator
 		 #:alexandria		; utils
-		 #:drakma			; http client, download archives
+		 #:drakma		; http client, download archives
 		 #:zip			; support for zip archive files
-		 #:flexi-streams		; streams
+		 #:flexi-streams	; streams
 		 #:com.informatimago.clext ; portable character-sets listings
 		 #:usocket		; UDP / syslog
 		 #:local-time		; UDP date parsing
-		 #:command-line-arguments	; for the main function
+		 #:command-line-arguments ; for the main function
 		 #:abnf			; ABNF parser generator (for syslog)
 		 #:db3			; DBF version 3 file reader
 		 #:py-configparser	; Read old-style INI config files
+		 #:sqlite		; Query a SQLite file
 		 )
     :components
     ((:module "src"
@@ -47,16 +48,19 @@
 						       "queue"
 						       "utils"))
 	       (:file "pgsql-queries" :depends-on ("package" "params"))
+	       (:file "pgsql-schema"  :depends-on ("package" "params"))
 	       (:file "pgsql"   :depends-on ("package"
 					     "queue"
 					     "utils"
 					     "transforms"
 					     "pgsql-copy-format"
-					     "pgsql-queries"))
+					     "pgsql-queries"
+					     "pgsql-schema"))
 
 	       ;; Source format specific implementations
 	       (:file "csv"     :depends-on ("package" "pgsql"))
 	       (:file "db3"     :depends-on ("package" "pgsql"))
+	       (:file "sqlite"  :depends-on ("package" "pgsql"))
 	       (:file "archive" :depends-on ("package" "pgsql"))
 	       (:file "syslog"  :depends-on ("package" "pgsql"))
 

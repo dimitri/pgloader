@@ -11,7 +11,7 @@ sudo apt-get install -y postgresql-9.3 postgresql-contrib-9.3 \
                         postgresql-9.3-ip4r                   \
                         sbcl                                  \
                         git patch unzip                       \
-                        libmysqlclient-dev
+                        libmysqlclient-dev libsqlite3-dev
 
 HBA=/etc/postgresql/9.3/main/pg_hba.conf
 echo "local all all trust"              | sudo tee $HBA

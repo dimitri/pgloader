@@ -485,20 +485,6 @@ order by ordinal_position" dbname table-name)))
 ;;;
 ;;; Work on all tables for given database
 ;;;
-(defun execute-with-timing (dbname label sql state &key (count 1))
-  "Execute given SQL and resgister its timing into STATE."
-  (multiple-value-bind (res secs)
-      (timing
-       (with-pgsql-transaction (dbname)
-	 (handler-case
-	     (pgsql-execute sql)
-	   (cl-postgres:database-error (e)
-	     (log-message :error "~a" e))
-	   (cl-postgres:postgresql-warning (w)
-	     (log-message :warning "~a" w)))))
-    (declare (ignore res))
-    (pgstate-incf state label :rows count :secs secs)))
-
 (defun create-indexes-in-kernel (dbname table-name indexes kernel channel
 				 &key
 				   identifier-case include-drop
@@ -523,7 +509,8 @@ order by ordinal_position" dbname table-name)))
 	   do
 	     (log-message :notice "~a" sql)
 	     (lp:submit-task drop-channel
-			     #'execute-with-timing dbname label sql state))
+			     #'pgsql-execute-with-timing
+			     dbname label sql state))
 
 	;; wait for the DROP INDEX to be done before issuing CREATE INDEX
 	(loop for idx in drop-indexes do (lp:receive-result drop-channel))))
@@ -533,7 +520,8 @@ order by ordinal_position" dbname table-name)))
 					    :identifier-case identifier-case)
        do
 	 (log-message :notice "~a" sql)
-	 (lp:submit-task channel #'execute-with-timing dbname label sql state))))
+	 (lp:submit-task channel #'psql-execute-with-timing
+			 dbname label sql state))))
 
 (defun stream-database (dbname
 			&key

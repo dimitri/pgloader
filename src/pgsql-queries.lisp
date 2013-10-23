@@ -38,6 +38,20 @@
 	 (log-message :debug set)
 	 (pomo:execute set))))
 
+(defun pgsql-execute-with-timing (dbname label sql state &key (count 1))
+  "Execute given SQL and resgister its timing into STATE."
+  (multiple-value-bind (res secs)
+      (timing
+       (with-pgsql-transaction (dbname)
+	 (handler-case
+	     (pgsql-execute sql)
+	   (cl-postgres:database-error (e)
+	     (log-message :error "~a" e))
+	   (cl-postgres:postgresql-warning (w)
+	     (log-message :warning "~a" w)))))
+    (declare (ignore res))
+    (pgstate-incf state label :rows count :secs secs)))
+
 ;;;
 ;;; PostgreSQL queries
 ;;;
