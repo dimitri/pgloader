@@ -102,8 +102,7 @@
 			  (let ((cols (list-columns table-name db)))
 			    (loop for col in cols
 			       if (string-equal "float" (coldef-type col))
-			       collect (lambda (f)
-					 (format nil "~f" f))
+			       collect #'pgloader.transforms::float-to-string
 			       else
 			       collect nil)))))
 

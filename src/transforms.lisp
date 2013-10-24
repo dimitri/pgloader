@@ -17,7 +17,8 @@
 		 tinyint-to-boolean
 		 int-to-ip
 		 ip-range
-		 convert-mysql-point))
+		 convert-mysql-point
+		 float-to-string))
 
 (defun intern-symbol (symbol-name)
   (intern (string-upcase symbol-name)
@@ -96,3 +97,10 @@
     (let* ((point (subseq mysql-point-as-string 5)))
       (setf (aref point (position #\Space point)) #\,)
       point)))
+
+(defun float-to-string (float)
+  "Transform a Common Lisp float value into its string representation as
+   accepted by PostgreSQL, that is 100.0 rather than 100.0d0."
+  (declare (type float float))
+  (let ((*read-default-float-format* 'double-float))
+    (princ-to-string float)))
