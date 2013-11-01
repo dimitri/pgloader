@@ -101,7 +101,8 @@ order by table_name, ordinal_position" dbname only-tables)))
   "MySQL declares ENUM types inline, PostgreSQL wants explicit CREATE TYPE."
   (loop
      for (name dtype ctype default nullable extra) in cols
-     when (string-equal "enum" dtype)
+     when (or (string-equal "enum" dtype)
+	      (string-equal "set" dtype)) ; a SET is an Array of ENUMs
      collect (when include-drop
 	       (let* ((type-name
 		       (get-enum-type-name table-name name identifier-case)))
@@ -520,7 +521,7 @@ order by ordinal_position" dbname table-name)))
 					    :identifier-case identifier-case)
        do
 	 (log-message :notice "~a" sql)
-	 (lp:submit-task channel #'psql-execute-with-timing
+	 (lp:submit-task channel #'pgsql-execute-with-timing
 			 dbname label sql state))))
 
 (defun stream-database (dbname

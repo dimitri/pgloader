@@ -34,6 +34,13 @@
   (declare (ignore type ctype typemod))
   (format nil "~a_~a" table-name column-name))
 
+(defun cast-set (table-name column-name type ctype typemod)
+  "Cast MySQL inline SET type to using a PostgreSQL ENUM Array.
+
+   The ENUM data type name is hardcoded to be table-name_column-name"
+  (declare (ignore type ctype typemod))
+  (format nil "~a_~a[]" table-name column-name))
+
 ;;;
 ;;; The default MySQL Type Casting Rules
 ;;;
@@ -106,8 +113,13 @@
     (:source (:type "timestamp") :target (:type "timestamptz"))
     (:source (:type "year")      :target (:type "integer"))
 
+    ;; Inline MySQL "interesting" datatype
     (:source (:type "enum")
      :target (:type ,#'cast-enum))
+
+    (:source (:type "set")
+     :target (:type ,#'cast-set)
+     :using pgloader.transforms::set-to-enum-array)
 
     ;; geometric data types, just POINT for now
     (:source (:type "point")
@@ -125,7 +137,8 @@
 
    Beware that some data-type are using a typmod looking definition for
    things that are not typmods at all: enum."
-  (unless (string= "enum" data-type)
+  (unless (or (string= "enum" data-type)
+	      (string= "set" data-type))
     (let ((start-1 (position #\( column-type))	; just before start position
 	  (end     (position #\) column-type)))	; just before end position
       (when start-1
@@ -313,14 +326,15 @@ that would be int and int(7) or varchar and varchar(25)."
 	   ("e"  "datetime"  "datetime"    "0000-00-00 00:00:00" nil nil)
 	   ("f"  "date"      "date"        "0000-00-00" "NO" nil)
 	   ("g"  "enum"      "ENUM('a', 'b')"  nil nil nil)
-	   ("h"  "int"       "int(11)"         nil nil nil)
-	   ("i"  "float"     "float(12,2)"     nil nil nil)
-	   ("j"  "double"    "double unsigned" nil nil nil)
-	   ("k"  "bigint"    "bigint(20)"      nil nil nil)
-	   ("l"  "numeric"   "numeric(18,3)"   nil nil nil)
-	   ("m"  "decimal"   "decimal(15,5)"   nil nil nil)
-	   ("n"  "timestamp" "timestamp" "CURRENT_TIMESTAMP" "NO" "on update CURRENT_TIMESTAMP")
-	   ("o"  "point"     "point"     nil "YES" nil))))
+	   ("h"  "set"       "SET('a', 'b')"   nil nil nil)
+	   ("i"  "int"       "int(11)"         nil nil nil)
+	   ("j"  "float"     "float(12,2)"     nil nil nil)
+	   ("k"  "double"    "double unsigned" nil nil nil)
+	   ("l"  "bigint"    "bigint(20)"      nil nil nil)
+	   ("m"  "numeric"   "numeric(18,3)"   nil nil nil)
+	   ("n"  "decimal"   "decimal(15,5)"   nil nil nil)
+	   ("o"  "timestamp" "timestamp" "CURRENT_TIMESTAMP" "NO" "on update CURRENT_TIMESTAMP")
+	   ("p"  "point"     "point"     nil "YES" nil))))
 
     (loop
        for (name dtype ctype nullable default extra) in columns

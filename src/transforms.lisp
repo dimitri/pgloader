@@ -18,7 +18,8 @@
 		 int-to-ip
 		 ip-range
 		 convert-mysql-point
-		 float-to-string))
+		 float-to-string
+		 set-to-enum-array))
 
 (defun intern-symbol (symbol-name)
   (intern (string-upcase symbol-name)
@@ -104,3 +105,7 @@
   (declare (type float float))
   (let ((*read-default-float-format* 'double-float))
     (princ-to-string float)))
+
+(defun set-to-enum-array (set-string)
+  "Transform a MySQL SET value into a PostgreSQL ENUM Array"
+  (format nil "{~a}" set-string))
