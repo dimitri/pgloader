@@ -621,7 +621,7 @@
 		    (*pgconn-user* ,pguser)
 		    (*pgconn-pass* ,pgpass)
 		    (*pg-settings* ',gucs)
-		    (pgloader.mysql::*pgsql-reserved-keywords*
+		    (pgloader.pgsql::*pgsql-reserved-keywords*
 		     (pgloader.pgsql:list-reserved-keywords ,pgdb)))
 	       (declare (special pgloader.mysql:*cast-rules*
 				 *myconn-host* *myconn-port*
