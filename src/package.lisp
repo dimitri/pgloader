@@ -119,7 +119,11 @@
   (:use #:cl #:pgloader.params #:pgloader.utils)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
-		#:pgsql-execute)
+		#:pgsql-execute
+		#:pgsql-execute-with-timing
+		#:apply-identifier-case
+		#:create-tables
+		#:format-pgsql-column)
   (:export #:map-rows
 	   #:copy-to
 	   #:copy-to-queue

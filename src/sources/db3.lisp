@@ -11,45 +11,47 @@
     ("D" . "date")			; no TimeZone in DB3 files
     ("M" . "text")))			; not handled yet
 
-(defun convert-db3-type-to-pgsql (type length)
-  "Convert a DB3 field type into a PostgreSQL data type."
-  ;; we just ignore the length as we use text here
-  (declare (ignore length))
-  (cdr (assoc type *db3-pgsql-type-mapping* :test #'string=)))
+(defstruct (db3-field
+	     (:constructor make-db3-field (name type length)))
+  name type length)
 
-(defun db3-create-table (input
-			 &optional (table-name (pathname-name input)))
-  "Return a CREATE TABLE suitable for PostgreSQL from reading the given db3
-   file headers"
-  (with-open-file (stream input
+(defmethod format-pgsql-column ((col db3-field) &key identifier-case)
+  "Return a string representing the PostgreSQL column definition."
+  (let* ((column-name
+	  (apply-identifier-case (db3-field-name col) identifier-case))
+	 (type-definition
+	  (cdr (assoc (db3-type col) *db3-pgsql-type-mapping* :test #'string=))))
+    (format nil "~a ~22t ~a" column-name type-definition)))
+
+(defun list-all-columns (db3-file-name
+			 &optional (table-name (pathname-name db3-file-name)))
+  "Return the list of columns for the given DB3-FILE-NAME."
+  (with-open-file (stream db3-file-name
 			  :direction :input
                           :element-type '(unsigned-byte 8))
-    (with-output-to-string (s)
-      (let ((db3 (make-instance 'db3:db3)))
-	(db3:load-header db3 stream)
-	(format s "create table if not exists ~a (~%" table-name)
-	(loop
-	   for (field . more?) on (db3::fields db3)
-	   for (name type) =
-	     (list (db3::field-name field)
-		   (convert-db3-type-to-pgsql (db3::field-type field)
-					      (db3::field-length field)))
-	   do (format s "~4T~a ~25T~a~:[~;,~]~%" name type more?))
-	(format s ");")))))
+    (let ((db3 (make-instance 'db3:db3)))
+      (db3:load-header db3 stream)
+      (cons table-name
+	    (loop
+	       for field in (db3::fields db3)
+	       collect (make-db3-field (db3::field-name field)
+				       (db3::field-type field)
+				       (db3::field-length field)))))))
+
+(declaim (inline logical-to-boolean
+		 db3-trim-string
+		 db3-date-to-pgsql-date))
 
 (defun logical-to-boolean (value)
   "Convert a DB3 logical value to a PostgreSQL boolean."
-  (declare (inline))
   (if (string= value "?") nil value))
 
 (defun db3-trim-string (value)
   "DB3 Strings a right padded with spaces, fix that."
-  (declare (inline))
   (string-right-trim '(#\Space) value))
 
 (defun db3-date-to-pgsql-date (value)
   "Convert a DB3 date to a PostgreSQL date."
-  (declare (inline))
   (let ((year  (subseq value 0 4))
 	(month (subseq value 4 6))
 	(day   (subseq value 6 8)))
@@ -130,10 +132,9 @@
 				   :summary summary)
       (with-pgsql-transaction (dbname)
 	(when create-table
-	  (let ((create-table-sql (db3-create-table filename)))
-	    (log-message :notice "Create table \"~a\"" table-name)
-	    (log-message :info "~a" create-table-sql)
-	    (pgsql-execute create-table-sql)))
+	  (log-message :notice "Create table \"~a\"" table-name)
+	  (log-message :info "~a" create-table-sql)
+	  (create-tables (list-all-columns filename table-name)))
 
 	(when (and truncate (not create-table))
 	  ;; we don't TRUNCATE a table we just CREATEd
