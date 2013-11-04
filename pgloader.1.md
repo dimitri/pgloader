@@ -62,6 +62,8 @@ pgloader support the following commands:
 
   - `LOAD CSV`
   - `LOAD DBF`
+  - `LOAD SQLite`
+  - `LOAD MYSQL`
   - `LOAD ARCHIVE`
   - `LOAD DATABASE`
   - `LOAD MESSAGES`
