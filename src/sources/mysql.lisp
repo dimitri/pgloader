@@ -4,484 +4,144 @@
 
 (in-package :pgloader.mysql)
 
-;;;
-;;; MySQL tools connecting to a database
-;;;
-(defun list-databases (&key
-			 (host *myconn-host*)
-			 (user *myconn-user*)
-			 (pass *myconn-pass*))
-  "Connect to a local database and get the database list"
-  (cl-mysql:connect :host host :user user :password pass)
-  (unwind-protect
-       (mapcan #'identity (caar (cl-mysql:query "show databases")))
-    (cl-mysql:disconnect)))
+(defclass copy-mysql (copy) ()
+  (:documentation "pgloader MySQL Data Source"))
 
-(defun list-tables (dbname
-		    &key
-		      (host *myconn-host*)
-		      (user *myconn-user*)
-		      (pass *myconn-pass*))
-  "Return a flat list of all the tables names known in given DATABASE"
-  (cl-mysql:connect :host host :user user :password pass)
+(defmethod initialize-instance :after ((source copy-mysql) &key)
+  "Add a default value for transforms in case it's not been provided."
+  (let* ((source-db  (slot-value source 'source-db))
+	 (table-name (when (slot-boundp source 'source)
+		       (slot-value source 'source)))
+	 (fields     (or (and (slot-boundp source 'fields)
+			      (slot-value source 'fields))
+			 (when table-name
+			   (let* ((all-columns (list-all-columns source-db)))
+			     (cdr (assoc table-name all-columns
+					 :test #'string=))))))
+	 (transforms (when (slot-boundp source 'transforms)
+		       (slot-value source 'transforms))))
 
-  (unwind-protect
-       (progn
-	 (cl-mysql:use dbname)
-	 ;; that returns a pretty weird format, process it
-	 (mapcan #'identity (caar (cl-mysql:list-tables))))
-    ;; free resources
-    (cl-mysql:disconnect)))
+    ;; default to using the same database name as source and target
+    (when (and source-db
+	       (or (not (slot-boundp source 'target-db))
+		   (not (slot-value source 'target-db))))
+      (setf (slot-value source 'target-db) source-db))
 
-(defun list-views (dbname
-		   &key
-		     only-tables
-		     (host *myconn-host*)
-		     (user *myconn-user*)
-		     (pass *myconn-pass*))
-  "Return a flat list of all the view names and definitions known in given DBNAME"
-  (cl-mysql:connect :host host :user user :password pass)
+    ;; default to using the same table-name as source and target
+    (when (and table-name
+	       (or (not (slot-boundp source 'target))
+		   (slot-value source 'target)))
+      (setf (slot-value source 'target) table-name))
 
-  (unwind-protect
-       (progn
-	 (cl-mysql:use dbname)
-	 ;; that returns a pretty weird format, process it
-	 (caar (cl-mysql:query (format nil "
-  select table_name, view_definition
-    from information_schema.views
-   where table_schema = '~a'
-         ~@[and table_name in (~{'~a'~^,~})~]
-order by table_name" dbname only-tables))))
-    ;; free resources
-    (cl-mysql:disconnect)))
+    (when fields
+      (unless (slot-boundp source 'fields)
+	(setf (slot-value source 'fields) fields))
 
-;;;
-;;; Tools to get MySQL table and columns definitions and transform them to
-;;; PostgreSQL CREATE TABLE statements, and run those.
-;;;
-(defun list-all-columns (dbname
-			 &key
-			   only-tables
-			   (host *myconn-host*)
-			   (user *myconn-user*)
-			   (pass *myconn-pass*))
-  "Get the list of MySQL column names per table."
-  (cl-mysql:connect :host host :user user :password pass)
-
-  (unwind-protect
-       (progn
-	 (loop
-	    with schema = nil
-	    for (table-name . coldef)
-	    in
-	      (caar (cl-mysql:query (format nil "
-  select c.table_name, c.column_name,
-         c.data_type, c.column_type, c.column_default,
-         c.is_nullable, c.extra
-    from information_schema.columns c
-         join information_schema.tables t using(table_schema, table_name)
-   where c.table_schema = '~a' and t.table_type = 'BASE TABLE'
-         ~@[and table_name in (~{'~a'~^,~})~]
-order by table_name, ordinal_position" dbname only-tables)))
-	    do
-	      (let ((entry (assoc table-name schema :test 'equal)))
-		(if entry
-		    (push coldef (cdr entry))
-		    (push (cons table-name (list coldef)) schema)))
-	    finally
-	      ;; we did push, we need to reverse here
-	      (return (loop
-			 for (name . cols) in schema
-			 collect (cons name (reverse cols))))))
-
-    ;; free resources
-    (cl-mysql:disconnect)))
-
-(defun get-create-type (table-name cols &key identifier-case include-drop)
-  "MySQL declares ENUM types inline, PostgreSQL wants explicit CREATE TYPE."
-  (loop
-     for (name dtype ctype default nullable extra) in cols
-     when (or (string-equal "enum" dtype)
-	      (string-equal "set" dtype)) ; a SET is an Array of ENUMs
-     collect (when include-drop
-	       (let* ((type-name
-		       (get-enum-type-name table-name name identifier-case)))
-		 (format nil "DROP TYPE IF EXISTS ~a;" type-name)))
-     and collect (get-create-enum table-name name ctype
-				  :identifier-case identifier-case)))
-
-(defun get-create-table (table-name cols &key identifier-case)
-  "Return a PostgreSQL CREATE TABLE statement from MySQL columns"
-  (with-output-to-string (s)
-    (let ((table-name (apply-identifier-case table-name identifier-case)))
-      (format s "CREATE TABLE ~a ~%(~%" table-name))
-    (loop
-       for ((name dtype ctype default nullable extra) . last?) on cols
-       for pg-coldef = (cast table-name name dtype ctype default nullable extra)
-       for colname = (apply-identifier-case name identifier-case)
-       do (format s "  ~a ~22t ~a~:[~;,~]~%" colname pg-coldef last?))
-    (format s ");~%")))
-
-(defun get-drop-table-if-exists (table-name &key identifier-case)
-  "Return the PostgreSQL DROP TABLE IF EXISTS statement for TABLE-NAME."
-  (let ((table-name (apply-identifier-case table-name identifier-case)))
-    (format nil "DROP TABLE IF EXISTS ~a;~%" table-name)))
-
-(defun get-pgsql-create-tables (all-columns
-				&key
-				  include-drop
-				  (identifier-case :downcase))
-  "Return the list of CREATE TABLE statements to run against PostgreSQL"
-  (loop
-     for (table-name . cols) in all-columns
-     for extra-types = (get-create-type table-name cols
-					:identifier-case identifier-case
-					:include-drop include-drop)
-     when include-drop
-     collect (get-drop-table-if-exists table-name
-				       :identifier-case identifier-case)
-
-     when extra-types append extra-types
-
-     collect (get-create-table table-name cols
-			       :identifier-case identifier-case)))
-
-(defun pgsql-create-tables (all-columns
-			    &key
-			      (identifier-case :downcase)
-			      include-drop)
-  "Create all MySQL tables in database dbname in PostgreSQL"
-  (loop
-     for nb-tables from 0
-     for sql in (get-pgsql-create-tables all-columns
-					 :identifier-case identifier-case
-					 :include-drop include-drop)
-     do (pgsql-execute sql :client-min-messages :warning)
-     finally (return nb-tables)))
+      (unless transforms
+	(setf (slot-value source 'transforms) (list-transforms fields))))))
 
 
 ;;;
-;;; Tools to get MySQL indexes definitions and transform them to PostgreSQL
-;;; indexes definitions, and run those statements.
+;;; Implement the specific methods
 ;;;
-(defun list-all-indexes (dbname
-			 &key
-			   (host *myconn-host*)
-			   (user *myconn-user*)
-			   (pass *myconn-pass*))
-  "Get the list of MySQL index definitions per table."
-  (cl-mysql:connect :host host :user user :password pass)
-
-  (unwind-protect
-       (progn
-	 (loop
-	    with schema = nil
-	    for (table-name . index-def)
-	    in (caar (cl-mysql:query (format nil "
-  SELECT table_name, index_name, non_unique,
-         GROUP_CONCAT(column_name order by seq_in_index)
-    FROM information_schema.statistics
-   WHERE table_schema = '~a'
-GROUP BY table_name, index_name;" dbname)))
-	    do (let ((entry (assoc table-name schema :test 'equal))
-		     (index-def
-		      (destructuring-bind (index-name non-unique cols)
-			  index-def
-			(list index-name
-			      (not (= 1 non-unique))
-			      (sq:split-sequence #\, cols)))))
-		 (if entry
-		     (push index-def (cdr entry))
-		     (push (cons table-name (list index-def)) schema)))
-	    finally
-	      ;; we did push, we need to reverse here
-	      (return (reverse (loop
-			  for (name . indexes) in schema
-			  collect (cons name (reverse indexes)))))))
-
-    ;; free resources
-    (cl-mysql:disconnect)))
-
-(defun get-pgsql-index-def (table-name table-oid index-name unique cols
-			    &key identifier-case)
-  "Return a PostgreSQL CREATE INDEX statement as a string."
-  (let* ((index-name (format nil "idx_~a_~a" table-oid index-name))
-	 (table-name (apply-identifier-case table-name identifier-case))
-	 (index-name (apply-identifier-case index-name identifier-case))
-	 (cols
-	  (mapcar
-	   (lambda (col) (apply-identifier-case col identifier-case)) cols)))
-    (cond
-      ((string= index-name "PRIMARY")
-       (format nil
-	       "ALTER TABLE ~a ADD PRIMARY KEY (~{~a~^, ~});" table-name cols))
-
-      (t
-       (format nil
-	       "CREATE~:[~; UNIQUE~] INDEX ~a ON ~a (~{~a~^, ~});"
-	       unique index-name table-name cols)))))
-
-(defun get-drop-index-if-exists (table-name table-oid index-name
-				 &key identifier-case)
-  "Return the DROP INDEX statement for PostgreSQL"
-  (cond
-    ((string= index-name "PRIMARY")
-     (let* ((pkey-name  (format nil "~a_pkey" table-name))
-	    (pkey-name  (apply-identifier-case pkey-name identifier-case))
-	    (table-name (apply-identifier-case table-name identifier-case)))
-       (format nil "ALTER TABLE ~a DROP CONSTRAINT ~a;" table-name pkey-name)))
-
-    (t
-     (let* ((index-name (format nil "idx_~a_~a" table-oid index-name))
-	    (index-name (apply-identifier-case index-name identifier-case)))
-       (format nil "DROP INDEX IF EXISTS ~a;" index-name)))))
-
-(defun get-pgsql-drop-indexes (table-name table-oid indexes &key identifier-case)
-  "Return the DROP INDEX statements for given INDEXES definitions."
-  (loop
-     for (index-name unique cols) in indexes
-     ;; no need to alter table drop constraint, when include-drop
-     ;; is true we just did drop the table and created it again
-     ;; anyway
-     unless (string= index-name "PRIMARY")
-     collect (get-drop-index-if-exists table-name table-oid index-name
-				       :identifier-case identifier-case)))
-
-(defun get-pgsql-create-indexes (table-name table-oid indexes
-				 &key identifier-case)
-  "Return the CREATE INDEX statements from given INDEXES definitions."
-  (loop
-     for (index-name unique cols) in indexes
-     collect (get-pgsql-index-def table-name table-oid index-name unique cols
-				  :identifier-case identifier-case)))
-
-
-;;;
-;;; Map a function to each row extracted from MySQL
-;;;
-(defun get-column-sql-expression (name type)
-  "Return per-TYPE SQL expression to use given a column NAME.
-
-   Mostly we just use the name, but in case of POINT we need to use
-   astext(name)."
-  (case (intern (string-upcase type) "KEYWORD")
-    (:point  (format nil "astext(`~a`) as `~a`" name name))
-    (t       (format nil "`~a`" name))))
-
-(defun get-column-list-with-is-nulls (dbname table-name)
-  "We can't just SELECT *, we need to cater for NULLs in text columns ourselves.
-   This function assumes a valid connection to the MySQL server has been
-   established already."
-  (loop
-     for (name type) in (caar (cl-mysql:query (format nil "
-  select column_name, data_type
-    from information_schema.columns
-   where table_schema = '~a' and table_name = '~a'
-order by ordinal_position" dbname table-name)))
-     for is-null = (member type '("char" "varchar" "text"
-				  "tinytext" "mediumtext" "longtext")
-			   :test #'string-equal)
-     collect nil into nulls
-     collect (get-column-sql-expression name type) into cols
-     when is-null
-     collect (format nil "`~a` is null" name) into cols and collect t into nulls
-     finally (return (values cols nulls))))
-
-(declaim (inline fix-nulls))
-
-(defun fix-nulls (row nulls)
-  "Given a cl-mysql row result and a nulls list as from
-   get-column-list-with-is-nulls, replace NIL with empty strings with when
-   we know from the added 'foo is null' that the actual value IS NOT NULL.
-
-   See http://bugs.mysql.com/bug.php?id=19564 for context."
-  (loop
-     for (current-col  next-col)  on row
-     for (current-null next-null) on nulls
-     ;; next-null tells us if next column is an "is-null" col
-     ;; when next-null is true, next-col is true if current-col is actually null
-     for is-null = (and next-null (string= next-col "1"))
-     for is-empty = (and next-null (string= next-col "0") (null current-col))
-     ;; don't collect columns we added, e.g. "column_name is not null"
-     when (not current-null)
-     collect (cond (is-null :null)
-		   (is-empty "")
-		   (t current-col))))
-
-(defun map-rows (dbname table-name &key process-row-fn)
+(defmethod map-rows ((mysql copy-mysql) &key process-row-fn)
   "Extract MySQL data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row."
-  (cl-mysql:connect :host *myconn-host*
-		    :port *myconn-port*
-		    :user *myconn-user*
-		    :password *myconn-pass*)
+  (let ((dbname     (source-db mysql))
+	(table-name (source mysql)))
 
-  (unwind-protect
-       (progn
-	 ;; Ensure we're talking utf-8 and connect to DBNAME in MySQL
-	 (cl-mysql:query "SET NAMES 'utf8'")
-	 (cl-mysql:query "SET character_set_results = utf8;")
-	 (cl-mysql:use dbname)
+    (cl-mysql:connect :host *myconn-host*
+		      :port *myconn-port*
+		      :user *myconn-user*
+		      :password *myconn-pass*)
 
-	 (multiple-value-bind (cols nulls)
-	     (get-column-list-with-is-nulls dbname table-name)
-	  (let* ((sql  (format nil "SELECT ~{~a~^, ~} FROM ~a;" cols table-name))
-		 (q    (cl-mysql:query sql :store nil :type-map nil))
-		 (rs   (cl-mysql:next-result-set q)))
-	    (declare (ignore rs))
+    (unwind-protect
+	 (progn
+	   ;; Ensure we're talking utf-8 and connect to DBNAME in MySQL
+	   (cl-mysql:query "SET NAMES 'utf8'")
+	   (cl-mysql:query "SET character_set_results = utf8;")
+	   (cl-mysql:use dbname)
 
-	    ;; Now fetch MySQL rows directly in the stream
-	    (loop
-	       with type-map = (make-hash-table)
-	       for row = (cl-mysql:next-row q :type-map type-map)
-	       while row
-	       for row-with-proper-nulls = (fix-nulls row nulls)
-	       counting row into count
-	       do (funcall process-row-fn row-with-proper-nulls)
-	       finally (return count)))))
+	   (multiple-value-bind (cols nulls)
+	       (get-column-list-with-is-nulls dbname table-name)
+	     (let* ((sql  (format nil "SELECT ~{~a~^, ~} FROM ~a;" cols table-name))
+		    (q    (cl-mysql:query sql :store nil :type-map nil))
+		    (rs   (cl-mysql:next-result-set q)))
+	       (declare (ignore rs))
 
-    ;; free resources
-    (cl-mysql:disconnect)))
+	       ;; Now fetch MySQL rows directly in the stream
+	       (loop
+		  with type-map = (make-hash-table)
+		  for row = (cl-mysql:next-row q :type-map type-map)
+		  while row
+		  for row-with-proper-nulls = (fix-nulls row nulls)
+		  counting row into count
+		  do (funcall process-row-fn row-with-proper-nulls)
+		  finally (return count)))))
 
-
+      ;; free resources
+      (cl-mysql:disconnect))))
+
 ;;;
 ;;; Use map-rows and pgsql-text-copy-format to fill in a CSV file on disk
 ;;; with MySQL data in there.
 ;;;
-(defun copy-to (dbname table-name filename &key transforms)
+(defmethod copy-to ((mysql copy-mysql) filename)
   "Extract data from MySQL in PostgreSQL COPY TEXT format"
   (with-open-file (text-file filename
 			     :direction :output
 			     :if-exists :supersede
 			     :external-format :utf-8)
-    (map-rows dbname table-name
+    (map-rows mysql
 	      :process-row-fn
 	      (lambda (row)
 		(pgloader.pgsql:format-row text-file row
-					   :transforms transforms)))))
-
-;;;
-;;; MySQL bulk export to file, in PostgreSQL COPY TEXT format
-;;;
-(defun export-database (dbname &key only-tables)
-  "Export MySQL tables into as many TEXT files, in the PostgreSQL COPY format"
-  (let ((all-columns  (list-all-columns dbname)))
-    (setf *state* (pgloader.utils:make-pgstate))
-    (report-header)
-    (loop
-       for (table-name . cols) in all-columns
-       for filename = (pgloader.csv:get-pathname dbname table-name)
-       when (or (null only-tables)
-		(member table-name only-tables :test #'equal))
-       do
-	 (pgstate-add-table *state* dbname table-name)
-	 (report-table-name table-name)
-	 (multiple-value-bind (rows secs)
-	     (timing
-	      ;; load data
-	      (copy-to dbname table-name filename :transforms (transforms cols)))
-	   ;; update and report stats
-	   (pgstate-incf *state* table-name :read rows :secs secs)
-	   (report-pgtable-stats *state* table-name))
-       finally
-	 (report-pgstate-stats *state* "Total export time"))))
-
-;;;
-;;; Copy data from a target database into files in the PostgreSQL COPY TEXT
-;;; format, then load those files. Useful mainly to compare timing with the
-;;; direct streaming method. If you need to pre-process the files, use
-;;; export-database, do the extra processing, then use
-;;; pgloader.pgsql:copy-from-file on each file.
-;;;
-(defun export-import-database (dbname
-			       &key
-				 (pg-dbname dbname)
-				 (truncate t)
-				 only-tables)
-  "Export MySQL data and Import it into PostgreSQL"
-  ;; get the list of tables and have at it
-  (let ((all-columns  (list-all-columns dbname)))
-    (setf *state* (pgloader.utils:make-pgstate))
-    (report-header)
-    (loop
-       for (table-name . cols) in all-columns
-       when (or (null only-tables)
-		(member table-name only-tables :test #'equal))
-       do
-	 (pgstate-add-table *state* dbname table-name)
-	 (report-table-name table-name)
-
-	 (multiple-value-bind (res secs)
-	     (timing
-	      (let* ((filename (pgloader.csv:get-pathname dbname table-name)))
-		;; export from MySQL to file
-		(copy-to dbname table-name filename :transforms (transforms cols))
-		;; import the file to PostgreSQL
-		(pgloader.pgsql:copy-from-file pg-dbname
-					       table-name
-					       filename
-					       :truncate truncate)))
-	   (declare (ignore res))
-	   (pgstate-incf *state* table-name :secs secs)
-	   (report-pgtable-stats *state* table-name))
-       finally
-	 (report-pgstate-stats *state* "Total export+import time"))))
+					   :transforms (transforms mysql))))))
 
 ;;;
 ;;; Export MySQL data to our lparallel data queue. All the work is done in
 ;;; other basic layers, simple enough function.
 ;;;
-(defun copy-to-queue (dbname table-name dataq)
+(defmethod copy-to-queue ((mysql copy-mysql) dataq)
   "Copy data from MySQL table DBNAME.TABLE-NAME into queue DATAQ"
-  (let ((read
-	 (pgloader.queue:map-push-queue dataq #'map-rows dbname table-name)))
-    (pgstate-incf *state* table-name :read read)))
+  (let ((read (pgloader.queue:map-push-queue dataq #'map-rows mysql)))
+    (pgstate-incf *state* (target mysql) :read read)))
 
 
 ;;;
 ;;; Direct "stream" in between mysql fetching of results and PostgreSQL COPY
 ;;; protocol
 ;;;
-(defun stream-table (dbname table-name
-		     &key
-		       (kernel nil k-s-p)
-		       (pg-dbname dbname)
-		       truncate
-		       transforms)
+(defmethod copy-from ((mysql copy-mysql) &key (kernel nil k-s-p) truncate)
   "Connect in parallel to MySQL and PostgreSQL and stream the data."
   (let* ((summary     (null *state*))
 	 (*state*     (or *state* (pgloader.utils:make-pgstate)))
 	 (lp:*kernel* (or kernel (make-kernel 2)))
 	 (channel     (lp:make-channel))
 	 (dataq       (lq:make-queue :fixed-capacity 4096))
-	 (transforms  (or transforms
-			  (let* ((all-columns (list-all-columns dbname))
-				 (our-columns
-				  (cdr (assoc table-name all-columns
-					      :test #'string=))))
-			    (transforms our-columns)))))
+	 (dbname      (source-db mysql))
+	 (table-name  (source mysql)))
 
     (with-stats-collection (dbname table-name :state *state* :summary summary)
       (log-message :notice "COPY ~a.~a" dbname table-name)
       ;; read data from MySQL
-      (lp:submit-task channel (lambda ()
-				;; this function update :read stats
-				(copy-to-queue dbname table-name dataq)))
+      (lp:submit-task channel #'copy-to-queue mysql dataq)
 
       ;; and start another task to push that data from the queue to PostgreSQL
-      (lp:submit-task
-       channel
-       (lambda ()
-	 ;; this function update :rows stats
-	 (pgloader.pgsql:copy-from-queue pg-dbname table-name dataq
-					 :truncate truncate
-					 :transforms transforms)))
+      (lp:submit-task channel
+		      #'pgloader.pgsql:copy-from-queue
+		      (target-db mysql)
+		      (target mysql)
+		      dataq
+		      :truncate truncate
+		      :transforms (transforms mysql))
 
       ;; now wait until both the tasks are over
       (loop for tasks below 2 do (lp:receive-result channel)
 	 finally
 	   (log-message :info "COPY ~a.~a done." dbname table-name)
 	   (unless k-s-p (lp:end-kernel))))))
+
 
 ;;;
 ;;; Work on all tables for given database
@@ -503,8 +163,8 @@ order by ordinal_position" dbname table-name)))
     (when include-drop
       (let ((drop-channel (lp:make-channel))
 	    (drop-indexes
-	     (get-pgsql-drop-indexes table-name table-oid indexes
-				     :identifier-case identifier-case)))
+	     (drop-index-sql-list table-name table-oid indexes
+				  :identifier-case identifier-case)))
 	(loop
 	   for sql in drop-indexes
 	   do
@@ -517,30 +177,30 @@ order by ordinal_position" dbname table-name)))
 	(loop for idx in drop-indexes do (lp:receive-result drop-channel))))
 
     (loop
-       for sql in (get-pgsql-create-indexes table-name table-oid indexes
-					    :identifier-case identifier-case)
+       for sql in (create-index-sql-list table-name table-oid indexes
+					 :identifier-case identifier-case)
        do
 	 (log-message :notice "~a" sql)
 	 (lp:submit-task channel #'pgsql-execute-with-timing
 			 dbname label sql state))))
 
-(defun stream-database (dbname
-			&key
-			  (pg-dbname dbname)
-			  (schema-only nil)
-			  (create-tables nil)
-			  (include-drop nil)
-			  (create-indexes t)
-			  (reset-sequences t)
-			  (identifier-case :downcase) ; or :quote
-			  (truncate nil)
-			  only-tables)
+(defmethod copy-database ((mysql copy-mysql)
+			  &key
+			    truncate
+			    schema-only
+			    create-tables
+			    include-drop
+			    create-indexes
+			    reset-sequences
+			    (identifier-case :downcase) ; or :quote
+			    only-tables)
   "Export MySQL data and Import it into PostgreSQL"
-  ;; get the list of tables and have at it
   (let* ((*state*       (make-pgstate))
 	 (idx-state     (make-pgstate))
 	 (seq-state     (make-pgstate))
          (copy-kernel   (make-kernel 2))
+	 (dbname        (source-db mysql))
+	 (pg-dbname     (target-db mysql))
          (all-columns   (list-all-columns dbname :only-tables only-tables))
          (all-indexes   (list-all-indexes dbname))
          (max-indexes   (loop for (table . indexes) in all-indexes
@@ -555,23 +215,25 @@ order by ordinal_position" dbname table-name)))
     (when create-tables
       (log-message :notice "~:[~;DROP then ~]CREATE TABLES" include-drop)
       (with-pgsql-transaction (pg-dbname)
-	(pgsql-create-tables all-columns
-			     :identifier-case identifier-case
-			     :include-drop include-drop)))
+	(create-tables all-columns
+		       :identifier-case identifier-case
+		       :include-drop include-drop)))
 
     (loop
        for (table-name . columns) in all-columns
        when (or (null only-tables)
 		(member table-name only-tables :test #'equal))
        do
-	 (progn
+	 (let ((table-source
+		(make-instance 'copy-mysql
+			       :source-db  dbname
+			       :target-db  pg-dbname
+			       :source     table-name
+			       :target     table-name
+			       :fields     columns)))
 	   ;; first COPY the data from MySQL to PostgreSQL, using copy-kernel
 	   (unless schema-only
-	     (stream-table dbname table-name
-			   :kernel copy-kernel
-			   :pg-dbname pg-dbname
-			   :truncate truncate
-			   :transforms (transforms columns)))
+	     (copy-from table-source :kernel copy-kernel :truncate truncate))
 
 	   ;; Create the indexes for that table in parallel with the next
 	   ;; COPY, and all at once in concurrent threads to benefit from
@@ -623,3 +285,80 @@ order by ordinal_position" dbname table-name)))
 	  (pgloader.utils::pgstate-secs seq-state))
     (report-pgstate-stats *state* "Total streaming time")))
 
+
+;;;
+;;; MySQL bulk export to file, in PostgreSQL COPY TEXT format
+;;;
+(defun export-database (dbname &key only-tables)
+  "Export MySQL tables into as many TEXT files, in the PostgreSQL COPY format"
+  (let ((all-columns  (list-all-columns dbname)))
+    (setf *state* (pgloader.utils:make-pgstate))
+    (report-header)
+    (loop
+       for (table-name . cols) in all-columns
+       for filename = (pgloader.csv:get-pathname dbname table-name)
+       when (or (null only-tables)
+		(member table-name only-tables :test #'equal))
+       do
+	 (pgstate-add-table *state* dbname table-name)
+	 (report-table-name table-name)
+	 (multiple-value-bind (rows secs)
+	     (timing
+	      ;; load data
+	      (let ((source
+		     (make-instance 'copy-mysql
+				    :source-db dbname
+				    :source table-name
+				    :fields cols)))
+		(copy-to source filename)))
+	   ;; update and report stats
+	   (pgstate-incf *state* table-name :read rows :secs secs)
+	   (report-pgtable-stats *state* table-name))
+       finally
+	 (report-pgstate-stats *state* "Total export time"))))
+
+;;;
+;;; Copy data from a target database into files in the PostgreSQL COPY TEXT
+;;; format, then load those files. Useful mainly to compare timing with the
+;;; direct streaming method. If you need to pre-process the files, use
+;;; export-database, do the extra processing, then use
+;;; pgloader.pgsql:copy-from-file on each file.
+;;;
+(defun export-import-database (dbname
+			       &key
+				 (pg-dbname dbname)
+				 (truncate t)
+				 only-tables)
+  "Export MySQL data and Import it into PostgreSQL"
+  ;; get the list of tables and have at it
+  (let ((all-columns  (list-all-columns dbname)))
+    (setf *state* (pgloader.utils:make-pgstate))
+    (report-header)
+    (loop
+       for (table-name . cols) in all-columns
+       when (or (null only-tables)
+		(member table-name only-tables :test #'equal))
+       do
+	 (pgstate-add-table *state* dbname table-name)
+	 (report-table-name table-name)
+
+	 (multiple-value-bind (res secs)
+	     (timing
+	      (let* ((filename (pgloader.csv:get-pathname dbname table-name)))
+		;; export from MySQL to file
+		(let ((source
+		       (make-instance 'copy-mysql
+				      :source-db dbname
+				      :source table-name
+				      :fields cols)))
+		  (copy-to source filename))
+		;; import the file to PostgreSQL
+		(pgloader.pgsql:copy-from-file pg-dbname
+					       table-name
+					       filename
+					       :truncate truncate)))
+	   (declare (ignore res))
+	   (pgstate-incf *state* table-name :secs secs)
+	   (report-pgtable-stats *state* table-name))
+       finally
+	 (report-pgstate-stats *state* "Total export+import time"))))

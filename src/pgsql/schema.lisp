@@ -6,21 +6,6 @@
 (defvar *pgsql-reserved-keywords* nil
   "We need to always quote PostgreSQL reserved keywords")
 
-(defstruct pgsql-column name type-name type-mod nullable default)
-
-(defmethod format-pgsql-column ((col pgsql-column) &key identifier-case)
-  "Return a string representing the PostgreSQL column definition."
-  (let* ((column-name
-	  (apply-identifier-case (pgsql-column-type-name col) identifier-case))
-	 (type-definition
-	  (format nil
-		  "~a~@[~a~]~:[~; not null~]~@[ default ~a~]"
-		  (pgsql-column-type-name col)
-		  (pgsql-column-type-mod col)
-		  (pgsql-column-nullable col)
-		  (pgsql-column-default col))))
-    (format nil "~a ~22t ~a" column-name type-definition)))
-
 (defun apply-identifier-case (identifier case)
   "Return given IDENTIFIER with CASE handled to be PostgreSQL compatible."
   (let ((case
@@ -31,6 +16,42 @@
      (:downcase (cl-ppcre:regex-replace-all
 		 "[^a-zA-Z0-9]" (string-downcase identifier) "_"))
      (:quote    (format nil "\"~a\"" identifier)))))
+
+;;;
+;;; Some parts of the logic here needs to be specialized depending on the
+;;; source type, such as SQLite or MySQL. To do so, sources must define
+;;; their own column struct and may implement the methods
+;;; `format-pgsql-column' and `format-extra-type' on those.
+;;;
+(defstruct pgsql-column name type-name type-mod nullable default)
+
+(defgeneric format-pgsql-column (col &key identifier-case)
+  (:documentation
+   "Return the PostgreSQL column definition (type, default, not null, ...)"))
+
+(defgeneric format-extra-type (col &key identifier-case include-drop)
+  (:documentation
+   "Return a list of PostgreSQL commands to create an extra type for given
+    column, or nil of none is required. If no special extra type is ever
+    needed, it's allowed not to specialize this generic into a method."))
+
+(defmethod format-pgsql-column ((col pgsql-column) &key identifier-case)
+  "Return a string representing the PostgreSQL column definition."
+  (let* ((column-name
+	  (apply-identifier-case (pgsql-column-name col) identifier-case))
+	 (type-definition
+	  (format nil
+		  "~a~@[~a~]~:[~; not null~]~@[ default ~a~]"
+		  (pgsql-column-type-name col)
+		  (pgsql-column-type-mod col)
+		  (pgsql-column-nullable col)
+		  (pgsql-column-default col))))
+    (format nil "~a ~22t ~a" column-name type-definition)))
+
+(defmethod format-extra-type ((col T) &key identifier-case include-drop)
+  "The default `format-extra-type' implementation returns an empty list."
+  (declare (ignorable identifier-case include-drop))
+  nil)
 
 (defun create-table-sql (table-name cols &key if-not-exists identifier-case)
   "Return a PostgreSQL CREATE TABLE statement from given COLS.
@@ -66,9 +87,16 @@
    `format-pgsql-column' generic function, such as `pgsql-column'."
   (loop
      for (table-name . cols) in all-columns
+     for extra-types = (loop for col in cols
+			  append (format-extra-type col
+						    :identifier-case identifier-case
+						    :include-drop include-drop))
+
      when include-drop
      collect (drop-table-if-exists-sql table-name
 				       :identifier-case identifier-case)
+
+     when extra-types append extra-types
 
      collect (create-table-sql table-name cols
 			       :if-not-exists if-not-exists

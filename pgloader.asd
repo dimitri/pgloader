@@ -63,7 +63,9 @@
 			 (:file "sqlite"  :depends-on ("sources"))
 			 (:file "syslog"  :depends-on ("sources"))
 			 (:file "mysql-cast-rules")
-			 (:file "mysql" :depends-on ("mysql-cast-rules"))))
+			 (:file "mysql-schema")
+			 (:file "mysql" :depends-on ("mysql-cast-rules"
+						     "mysql-schema"))))
 
 	       ;; the main entry file, used when building a stand-alone
 	       ;; executable image

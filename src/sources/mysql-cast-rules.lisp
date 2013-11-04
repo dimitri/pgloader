@@ -282,11 +282,12 @@ that would be int and int(7) or varchar and varchar(25)."
 			   :column-name column-name)
     pgtype))
 
-(defun transforms (columns)
+(defun list-transforms (columns)
   "Return the list of transformation functions to apply to a given table."
   (loop
-     for (name dtype ctype default nullable extra) in columns
-     collect (get-transform-function dtype ctype default nullable extra)))
+     for col in columns
+     collect (with-slots (name dtype ctype default nullable extra) col
+	       (get-transform-function dtype ctype default nullable extra))))
 
 (defun test-casts ()
   "Just test some cases for the casts"

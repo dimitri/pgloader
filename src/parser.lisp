@@ -622,17 +622,20 @@
 		    (*pgconn-pass* ,pgpass)
 		    (*pg-settings* ',gucs)
 		    (pgloader.pgsql::*pgsql-reserved-keywords*
-		     (pgloader.pgsql:list-reserved-keywords ,pgdb)))
-	       (declare (special pgloader.mysql:*cast-rules*
-				 *myconn-host* *myconn-port*
-				 *myconn-user* *myconn-pass*
-				 *pgconn-host* *pgconn-port*
-				 *pgconn-user* *pgconn-pass*))
-	       (pgloader.mysql:stream-database ,mydb
-					       ,@(when table-name
-						 `(:only-tables ',(list table-name)))
-					       :pg-dbname ,pgdb
-					       ,@options))))))))
+		     (pgloader.pgsql:list-reserved-keywords ,pgdb))
+		    (source
+		     (make-instance 'pgloader.mysql::copy-mysql
+				    :target-db ,pgdb
+				    :source-db ,mydb)))
+	       ;; (declare (special pgloader.mysql:*cast-rules*
+	       ;; 			 *myconn-host* *myconn-port*
+	       ;; 			 *myconn-user* *myconn-pass*
+	       ;; 			 *pgconn-host* *pgconn-port*
+	       ;; 			 *pgconn-user* *pgconn-pass*))
+	       (pgloader.mysql:copy-database source
+					     ,@(when table-name
+					       `(:only-tables ',(list table-name)))
+					     ,@options))))))))
 
 
 ;;;

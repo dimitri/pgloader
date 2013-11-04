@@ -62,7 +62,10 @@
 	   #:format-row
 	   #:apply-identifier-case
 	   #:create-tables
-	   #:format-pgsql-column))
+	   #:format-pgsql-column
+	   #:format-extra-type
+	   #:drop-index-sql-list
+	   #:create-index-sql-list))
 
 (defpackage #:pgloader.ini
   (:use #:cl #:pgloader.params #:pgloader.utils)
@@ -131,43 +134,29 @@
 	   #:copy-to-queue
 	   #:stream-file))
 
-(defpackage #:pgloader.archive
-  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.csv)
-  (:import-from #:pgloader.pgsql
-		#:with-pgsql-transaction
-		#:pgsql-execute)
-  (:export #:*default-tmpdir*
-	   #:http-fetch-file
-	   #:expand-archive
-	   #:get-matching-filenames
-	   #:import-csv-from-zip))
-
-(defpackage #:pgloader.syslog
-  (:use #:cl #:pgloader.params #:pgloader.utils)
-  (:import-from #:pgloader.pgsql
-		#:with-pgsql-transaction
-		#:pgsql-execute)
-  (:export #:stream-messages
-	   #:start-syslog-server
-	   #:send-message))
-
 (defpackage #:pgloader.mysql
-  (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.sources)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
-		#:apply-identifier-case)
-  (:export #:*cast-rules*
+		#:apply-identifier-case
+		#:create-tables
+		#:format-pgsql-column
+		#:format-extra-type
+		#:drop-index-sql-list
+		#:create-index-sql-list)
+  (:export #:copy-mysql
+	   #:*cast-rules*
 	   #:*default-cast-rules*
 	   #:map-rows
 	   #:copy-to
+	   #:copy-from
+	   #:copy-database
 	   #:list-databases
 	   #:list-tables
 	   #:export-database
-	   #:export-import-database
-	   #:stream-table
-	   #:stream-database))
+	   #:export-import-database))
 
 (defpackage #:pgloader.sqlite
   (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.sources)
@@ -181,9 +170,34 @@
   (:export #:copy-sqlite
 	   #:map-rows
 	   #:copy-to
-	   #:list-tables
-	   #:stream-table
-	   #:stream-database))
+	   #:copy-from
+	   #:copy-database
+	   #:list-tables))
+
+(defpackage #:pgloader.syslog
+  (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:import-from #:pgloader.pgsql
+		#:with-pgsql-transaction
+		#:pgsql-execute)
+  (:export #:stream-messages
+	   #:start-syslog-server
+	   #:send-message))
+
+
+;;
+;; Not really a source, more a util package to deal with http and zip
+;;
+(defpackage #:pgloader.archive
+  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.csv)
+  (:import-from #:pgloader.pgsql
+		#:with-pgsql-transaction
+		#:pgsql-execute)
+  (:export #:*default-tmpdir*
+	   #:http-fetch-file
+	   #:expand-archive
+	   #:get-matching-filenames
+	   #:import-csv-from-zip))
+
 
 
 ;;
