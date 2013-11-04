@@ -449,7 +449,7 @@ The `archive` command accepts the following clauses and options:
    
 	 SQL Queries to run once the data is loaded, such as `CREATE INDEX`.
 
-## LOAD DATABASE
+## LOAD MYSQL DATABASE
 
 This command instructs pgloader to load data from a database connection. The
 only supported database source is currently *MySQL*, and pgloader supports
@@ -697,6 +697,86 @@ same order.
 When the source type definition is not matched in the default casting rules
 nor in the casting rules provided in the command, then the type name with
 the typemod is used.
+
+## LOAD SQLite DATABASE
+
+This command instructs pgloader to load data from a SQLite file. Automatic
+discovery of the schema is supported, including build of the indexes.
+
+Here's an example:
+
+    load database
+         from sqlite:///Users/dim/Downloads/lastfm_tags.db
+         into postgresql:///tags
+    
+     with drop tables, create tables, create indexes, reset sequences
+    
+      set work_mem to '16MB', maintenance_work_mem to '512 MB';
+
+The `sqlite` command accepts the following clauses and options:
+
+  - *FROM*
+
+    Path or HTTP URL to a SQLite file, might be a `.zip` file.
+	
+  - *INTO*
+
+  	The target PostgreSQL connection URI. If that URL containst a
+  	*table-name* element, then that single table will get migrated.
+
+  - *WITH*
+
+    When loading from a `SQLite` database, the following options are
+    supported:
+
+      - *drop table*
+
+		When this option is listed, pgloader drop in the PostgreSQL
+		connection all the table whose names have been found in the SQLite
+		database. This option allows for using the same command several
+		times in a row until you figure out all the options, starting
+		automatically from a clean environment.
+
+	  - *truncate*
+
+        When this option is listed, pgloader issue the `TRUNCATE` command
+        against each PostgreSQL table just before loading data into it.
+
+	  - *create tables*
+
+		When this option is listed, pgloader creates the table using the
+		meta data found in the `SQLite` file, which must contain a list of
+		fields with their data type. A standard data type conversion from
+		DBF to PostgreSQL is done.
+
+	  - *create indexes*
+	  
+	     When this option is listed, pgloader gets the definitions of all
+	     the indexes found in the SQLite database and create the same set of
+	     index definitions against the PostgreSQL database.
+		  
+	  - *reset sequences*
+
+        When this option is listed, at the end of the data loading and after
+        the indexes have all been created, pgloader resets all the
+        PostgreSQL sequences created to the current maximum value of the
+        column they are attached to.
+
+	  - *schema only*
+	  
+	     When this option is listed pgloader will refrain from migrating the
+	     data over. Note that the schema in this context includes the
+	     indexes when the option *create indexes* has been listed.
+
+  - *SET*
+
+    This clause allows to specify session parameters to be set for all the
+    sessions opened by pgloader. It expects a list of parameter name, the
+    equal sign, then the single-quoted value as a comma separated list.
+	
+	The names and values of the parameters are not validated by pgloader,
+	they are given as-is to PostgreSQL.
+
 
 ## TRANSFORMATION FUNCTIONS
 
