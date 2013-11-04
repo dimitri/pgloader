@@ -834,6 +834,21 @@ The provided transformation functions are:
         In:  "POINT(48.5513589 7.6926827)"
         Out: "(48.5513589,7.6926827)"
 
+  - *float-to-string*
+  
+    Converts a Common Lisp float into a string suitable for a PostgreSQL float:
+	
+	    In:  100.0d0
+		Out: "100.0"
+		
+  - *set-to-enum-array*
+  
+    Converts a string representing a MySQL SET into a PostgreSQL Array of
+    Enum values from the set.
+	
+	    In: "foo,bar"
+	    Out: "{foo,bar}"
+
 ## LOAD MESSAGES
 
 This command is still experimental and allows to receive messages in UDP
