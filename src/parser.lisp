@@ -212,7 +212,8 @@
 (defrule doubled-at-sign (and "@@") (:constant "@"))
 (defrule doubled-colon   (and "::") (:constant ":"))
 (defrule password (+ (or (not "@") doubled-at-sign)) (:text t))
-(defrule username (+ (or (not ":") doubled-colon))   (:text t))
+(defrule username (+ (or (not (or ":" "@")) doubled-at-sign doubled-colon))
+  (:text t))
 
 (defrule dsn-user-password (and username
 				(? (and ":" (? password)))

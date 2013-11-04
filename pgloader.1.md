@@ -95,7 +95,7 @@ Where:
   - *user*
   
     Can contain any character, including colon (`:`) which must then be
-    doubled (`::`).
+    doubled (`::`) and at-sign (`@`) which must then be doubled (`@@`).
 	
   - *password*
   
