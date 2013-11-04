@@ -4,6 +4,9 @@
 
 (in-package :pgloader.csv)
 
+;;
+;; Some basic tools
+;;
 (defun get-pathname (dbname table-name &key (csv-path-root *csv-path-root*))
   "Return a pathname where to read or write the file data"
   (make-pathname
@@ -113,20 +116,50 @@
       ;; allow for some debugging
       (if compile (compile nil projection) projection))))
 
+
+;;;
+;;; Implementing the pgloader source API
+;;;
+(defclass copy-csv (copy)
+  ((encoding    :accessor encoding	  ; file encoding
+	        :initarg :encoding)	  ;
+   (skip-lines  :accessor skip-lines	  ; CSV headers
+	        :initarg :skip-lines	  ;
+		:initform 0)		  ;
+   (separator   :accessor csv-separator	  ; CSV separator
+	        :initarg :separator	  ;
+	        :initform #\Tab)	  ;
+   (quote       :accessor csv-quote	  ; CSV quoting
+	        :initarg :quote		  ;
+	        :initform cl-csv:*quote*) ;
+   (escape      :accessor csv-escape	  ; CSV quote escaping
+	        :initarg :escape	  ;
+	        :initform cl-csv:*quote-escape*)
+   (trim-blanks :accessor csv-trim-blanks ; CSV blank and NULLs
+		:initarg :trim-blanks	  ;
+		:initform cl-csv:*trim-blanks*))
+  (:documentation "pgloader CSV Data Source"))
+
+(defmethod initialize-instance :after ((csv copy-csv) &key)
+  "Compute the real source definition from the given source parameter, and
+   set the transforms function list as needed too."
+  (let ((source (slot-value csv 'source)))
+    (setf (slot-value csv 'source) (get-absolute-pathname source)))
+
+  (let ((transforms (when (slot-boundp csv 'transforms)
+		      (slot-value csv 'transforms)))
+	(columns
+	 (or (slot-value csv 'columns)
+	     (pgloader.pgsql:list-columns (slot-value csv 'target-db)
+					  (slot-value csv 'target)))))
+    (unless transforms
+      (setf (slot-value csv 'transforms)
+	    (loop for c in columns collect nil)))))
+
 ;;;
 ;;; Read a file format in CSV format, and call given function on each line.
 ;;;
-(defun map-rows (table-name filespec
-		 &key
-		   process-row-fn
-		   fields
-		   columns
-		   (encoding :utf-8)
-		   (skip-lines nil)
-		   (separator #\Tab)
-		   (quote cl-csv:*quote*)
-		   (escape cl-csv:*quote-escape*)
-		   (trim-blanks cl-csv:*trim-blanks*))
+(defmethod map-rows ((csv copy-csv) &key process-row-fn)
   "Load data from a text file in CSV format, with support for advanced
    projecting capabilities. See `project-fields' for details.
 
@@ -138,12 +171,13 @@
    data. That's used to handle the INLINE data loading.
 
    Finally returns how many rows where read and processed."
-  (let ((filename (if (consp filespec) (car filespec) filespec)))
+  (let* ((filespec   (source csv))
+	 (filename   (if (consp filespec) (car filespec) filespec)))
    (with-open-file
        ;; we just ignore files that don't exist
        (input filename
 	      :direction :input
-	      :external-format encoding
+	      :external-format (encoding csv)
 	      :if-does-not-exist nil)
      (when input
        ;; first go to given inline position when filename is a consp
@@ -152,14 +186,13 @@
 
        ;; we handle skipping more than one line here, as cl-csv only knows
        ;; about skipping the first line
-       (when (and skip-lines (< 0 skip-lines))
-	 (loop repeat skip-lines do (read-line input nil nil)))
+       (loop repeat (skip-lines csv) do (read-line input nil nil))
 
        ;; read in the text file, split it into columns, process NULL columns
        ;; the way postmodern expects them, and call PROCESS-ROW-FN on them
        (let* ((read 0)
-	      (projection (project-fields :fields fields
-					  :columns columns))
+	      (projection (project-fields :fields  (fields csv)
+					  :columns (columns csv)))
 	      (reformat-then-process
 	       (lambda (row)
 		 (incf read)
@@ -167,7 +200,7 @@
 			(handler-case
 			    (funcall projection row)
 			  (condition (e)
-			    (pgstate-incf *state* table-name :errs 1)
+			    (pgstate-incf *state* (target csv) :errs 1)
 			    (log-message :error
 					 "Could not read line ~d: ~a" read e)))))
 		   (when projected-row
@@ -176,94 +209,57 @@
 	 (handler-case
 	     (cl-csv:read-csv input
 			      :row-fn (compile nil reformat-then-process)
-			      :separator separator
-			      :quote quote
-			      :escape escape
-			      :trim-blanks trim-blanks)
+			      :separator (csv-separator csv)
+			      :quote (csv-quote csv)
+			      :escape (csv-escape csv)
+			      :trim-blanks (csv-trim-blanks csv))
 	   ((or cl-csv:csv-parse-error type-error) (condition)
-	     ;; some form of parse error did happen, TODO: log it
 	     (progn
 	       (log-message :error "~a" condition)
-	       (pgstate-setf *state* table-name :errs -1))))
+	       (pgstate-setf *state* (target csv) :errs -1))))
 	 ;; return how many rows we did read
 	 read)))))
 
-(defun copy-to-queue (table-name filename dataq
-		      &key
-			fields
-			columns
-			encoding
-			skip-lines
-			(separator #\Tab)
-			(quote cl-csv:*quote*)
-			(escape cl-csv:*quote-escape*)
-			(trim-blanks cl-csv:*trim-blanks*))
-  "Copy data from CSV FILENAME into lprallel.queue DATAQ"
-  (let ((read
-	 (pgloader.queue:map-push-queue dataq
-					#'map-rows
-					table-name filename
-					:fields fields
-					:columns columns
-					:encoding encoding
-					:skip-lines skip-lines
-					:separator separator
-					:quote quote
-					:escape escape
-					:trim-blanks trim-blanks)))
-    (pgstate-incf *state* table-name :read read)))
+(defmethod copy-to-queue ((csv copy-csv) dataq)
+  "Copy data from given CSV definition into lparallel.queue DATAQ"
+  (let ((read (pgloader.queue:map-push-queue dataq #'map-rows csv)))
+    (pgstate-incf *state* (target csv) :read read)))
 
-(defun copy-from-file (dbname table-name filename-or-regex
-		       &key
-			 fields
-			 columns
-			 (transforms
-			  (loop for c
-			     in (or columns
-				    (pgloader.pgsql:list-columns dbname table-name))
-			     collect nil))
-			 truncate
-			 skip-lines
-			 (encoding :utf-8)
-			 (separator #\Tab)
-			 (quote cl-csv:*quote*)
-			 (escape cl-csv:*quote-escape*)
-			 (trim-blanks cl-csv:*trim-blanks*))
-  "Copy data from CSV file FILENAME into PostgreSQL DBNAME.TABLE-NAME"
+(defmethod copy-from ((csv copy-csv) &key truncate)
+  "Copy data from given CSV file definition into its PostgreSQL target table."
   (let* ((summary        (null *state*))
 	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
 	 (lp:*kernel*    (make-kernel 2))
 	 (channel        (lp:make-channel))
 	 (dataq          (lq:make-queue :fixed-capacity 4096))
-	 (filename       (get-absolute-pathname filename-or-regex)))
+	 (dbname         (target-db csv))
+	 (table-name     (target csv)))
 
     (with-stats-collection (dbname table-name :state *state* :summary summary)
       (log-message :notice "COPY ~a.~a" dbname table-name)
-      (lp:submit-task channel
-		      ;; this function update :read stats
-		      #'pgloader.csv:copy-to-queue table-name filename dataq
-		      :fields fields
-		      :columns columns
-		      :encoding encoding
-		      :skip-lines skip-lines
-		      :separator separator
-		      :quote quote
-		      :escape escape
-		      :trim-blanks trim-blanks)
+      (lp:submit-task channel #'copy-to-queue csv dataq)
 
       ;; and start another task to push that data from the queue to PostgreSQL
       (lp:submit-task channel
 		      ;; this function update :rows stats
 		      #'pgloader.pgsql:copy-from-queue dbname table-name dataq
 		      ;; we only are interested into the column names here
-		      :columns (when columns (mapcar #'car columns))
+		      :columns (let ((cols (columns csv)))
+				 (when cols (mapcar #'car cols)))
 		      :truncate truncate
-		      :transforms transforms)
+		      :transforms (transforms csv))
 
       ;; now wait until both the tasks are over
       (loop for tasks below 2 do (lp:receive-result channel)
 	 finally (lp:end-kernel)))))
 
+;;;
+;;; When you exported a whole database as a bunch of CSV files to be found
+;;; in the same directory, each file name being the name of the target
+;;; table, then this function allows to import them all at once.
+;;;
+;;; TODO: expose it from the command language, and test it.
+;;;
 (defun import-database (dbname
 			&key
 			  (csv-path-root *csv-path-root*)

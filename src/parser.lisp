@@ -1257,18 +1257,24 @@
 		  (*pgconn-port* ,port)
 		  (*pgconn-user* ,user)
 		  (*pgconn-pass* ,password)
-		  (*pg-settings* ',gucs))
+		  (*pg-settings* ',gucs)
+		  (source
+		   (make-instance 'pgloader.csv:copy-csv
+				  :target-db ,dbname
+				  :source ',source
+				  :target ,table-name
+				  :encoding ,encoding
+				  :fields ',fields
+				  :columns ',columns
+				  ,@(loop for (k v) on options by #'cddr
+				       unless (eq k :truncate)
+				       append (list k v)))))
 
 	     (progn
 	       ,(sql-code-block dbname 'state-before before "before load")
 
-	       (pgloader.csv:copy-from-file ,dbname
-					    ,table-name
-					    ',source
-					    :encoding ,encoding
-					    :fields ',fields
-					    :columns ',columns
-					    ,@options)
+	       (pgloader.sources:copy-from source
+					   :truncate (getf ',options :truncate))
 
 	       ,(sql-code-block dbname 'state-after after "after load")
 

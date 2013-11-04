@@ -349,7 +349,7 @@ order by ordinal_position" dbname table-name)))
 ;;; with MySQL data in there.
 ;;;
 (defun copy-to (dbname table-name filename &key transforms)
-  "Extrat data from MySQL in PostgreSQL COPY TEXT format"
+  "Extract data from MySQL in PostgreSQL COPY TEXT format"
   (with-open-file (text-file filename
 			     :direction :output
 			     :if-exists :supersede

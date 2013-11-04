@@ -40,50 +40,33 @@
 	       (:file "transforms")
 	       (:file "parser"    :depends-on ("package" "params" "transforms"))
 	       (:file "parse-ini" :depends-on ("package" "params"))
-	       (:file "queue"     :depends-on ("package")) ; pgloader.queue
+	       (:file "queue"     :depends-on ("package"))
+	       (:file "archive"   :depends-on ("sources" "pgsql"))
 
 	       ;; package pgloader.pgsql
-	       (:file "pgsql-copy-format" :depends-on ("package"
-						       "params"
-						       "queue"
-						       "utils"))
-	       (:file "pgsql-queries" :depends-on ("package" "params"))
-	       (:file "pgsql-schema"  :depends-on ("package" "params"))
-	       (:file "pgsql"   :depends-on ("package"
-					     "queue"
-					     "utils"
-					     "transforms"
-					     "pgsql-copy-format"
-					     "pgsql-queries"
-					     "pgsql-schema"))
+	       (:module pgsql
+			:depends-on ("package" "params" "queue" "utils")
+			:components
+			((:file "copy-format")
+			 (:file "queries")
+			 (:file "schema")
+			 (:file "pgsql"
+				:depends-on ("copy-format" "queries" "schema"))))
 
 	       ;; Source format specific implementations
-	       (:file "csv"     :depends-on ("package" "pgsql"))
-	       (:file "db3"     :depends-on ("package" "pgsql"))
-	       (:file "sqlite"  :depends-on ("package" "pgsql"))
-	       (:file "archive" :depends-on ("package" "pgsql"))
-	       (:file "syslog"  :depends-on ("package" "pgsql"))
-
-	       ;; mysql.lisp depends on pgsql.lisp to be able to export data
-	       ;; from MySQL in the PostgreSQL format.
-	       ;;
-	       ;; package pgloader.mysql
-	       (:file "mysql-cast-rules" :depends-on ("package" "utils"))
-	       (:file "mysql" :depends-on ("package"
-					   "pgsql"
-					   "queue"
-					   "transforms"
-					   "mysql-cast-rules"
-					   "utils"))
+	       (:module sources
+			:depends-on ("package" "pgsql" "utils" "queue" "transforms")
+			:components
+			((:file "sources")
+			 (:file "csv"     :depends-on ("sources"))
+			 (:file "db3"     :depends-on ("sources"))
+			 (:file "sqlite"  :depends-on ("sources"))
+			 (:file "syslog"  :depends-on ("sources"))
+			 (:file "mysql-cast-rules")
+			 (:file "mysql" :depends-on ("mysql-cast-rules"))))
 
 	       ;; the main entry file, used when building a stand-alone
 	       ;; executable image
-	       (:file "main" :depends-on ("package"
-					  "parser"
-					  "csv"
-					  "db3"
-					  "archive"
-					  "syslog"
-					  "mysql"))))))
+	       (:file "main" :depends-on ("package" "parser" "sources"))))))
 
 

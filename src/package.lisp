@@ -89,12 +89,28 @@
 ;;
 ;; Specific source handling
 ;;
-(defpackage #:pgloader.csv
+(defpackage #:pgloader.sources
   (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:export #:copy
+	   #:source-db
+	   #:target-db
+	   #:source
+	   #:target
+	   #:fields
+	   #:columns
+	   #:transforms
+	   #:map-rows
+	   #:copy-from
+	   #:copy-to-queue
+	   #:copy-to))
+
+(defpackage #:pgloader.csv
+  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.sources)
   (:export #:*csv-path-root*
 	   #:get-pathname
+	   #:copy-csv
 	   #:copy-to-queue
-	   #:copy-from-file
+	   #:copy-from
 	   #:import-database
 	   #:guess-csv-params
 	   #:guess-all-csv-params))
