@@ -627,11 +627,6 @@
 		     (make-instance 'pgloader.mysql::copy-mysql
 				    :target-db ,pgdb
 				    :source-db ,mydb)))
-	       ;; (declare (special pgloader.mysql:*cast-rules*
-	       ;; 			 *myconn-host* *myconn-port*
-	       ;; 			 *myconn-user* *myconn-pass*
-	       ;; 			 *pgconn-host* *pgconn-port*
-	       ;; 			 *pgconn-user* *pgconn-pass*))
 	       (pgloader.mysql:copy-database source
 					     ,@(when table-name
 					       `(:only-tables ',(list table-name)))
