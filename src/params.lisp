@@ -22,7 +22,8 @@
 	   #:*myconn-port*
 	   #:*myconn-user*
 	   #:*myconn-pass*
-	   #:*state*))
+	   #:*state*
+	   #:getenv-default))
 
 (in-package :pgloader.params)
 
