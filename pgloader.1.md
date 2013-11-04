@@ -88,8 +88,30 @@ http://www.postgresql.org/docs/9.3/static/libpq-connect.html#LIBPQ-CONNSTRING.
 
     postgresql://[user[:password]@][netloc][:port][/dbname][?schema.table]
 
-The connection string in pgloader only accepts a single optionnal parameter
-which should be a possibly qualified table name.
+Where:
+
+  - *user*
+  
+    Can contain any character, including colon (`:`) which must then be
+    doubled (`::`).
+	
+  - *password*
+  
+	Can contain any character, including that at sign (`@`) which must then
+	be doubled (`@@`). To leave the password empty, when the *user* name
+	ends with at at sign, you then have to use the syntax user:@.
+	
+  - *netloc*
+  
+    Can be either a hostname in dotted notation, or an ipv4.
+
+  - *dbname*
+  
+	Should be a proper identifier (letter followed by a mix of letters,
+	digits and the punctuation signs comma (`,`), dash (`-`) and underscore
+	(`_`).
+
+  - The only optionnal parameter should be a possibly qualified table name.
 
 ## LOAD CSV
 

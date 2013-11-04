@@ -209,8 +209,13 @@
 		(list :port (if (null digits) digits
 				(parse-integer port)))))
 
-(defrule dsn-user-password (and namestring
-				(? (and ":" (? namestring)))
+(defrule doubled-at-sign (and "@@") (:constant "@"))
+(defrule doubled-colon   (and "::") (:constant ":"))
+(defrule password (+ (or (not "@") doubled-at-sign)) (:text t))
+(defrule username (+ (or (not ":") doubled-colon))   (:text t))
+
+(defrule dsn-user-password (and username
+				(? (and ":" (? password)))
 				"@")
   (:lambda (args)
     (destructuring-bind (username &optional password)
@@ -218,7 +223,17 @@
       ;; password looks like '(":" "password")
       (list :user username :password (cadr password)))))
 
-(defrule hostname (and namestring (? (and "." hostname)))
+(defun hexdigit-char-p (character)
+  (member character #. (quote (coerce "0123456789abcdefABCDEF" 'list))))
+
+(defrule ipv4-part (and (digit-char-p character)
+			(? (digit-char-p character))
+			(? (digit-char-p character))))
+
+(defrule ipv4 (and ipv4-part "." ipv4-part "." ipv4-part "." ipv4-part)
+  (:text t))
+
+(defrule hostname (or ipv4 (and namestring (? (and "." hostname))))
   (:text t))
 
 (defrule dsn-hostname (and hostname (? dsn-port))
@@ -1030,9 +1045,6 @@ load database
              fields escaped by '\"',
              fields terminated by '\t';
 |#
-(defun hexdigit-char-p (character)
-  (member character #. (quote (coerce "0123456789abcdefABCDEF" 'list))))
-
 (defrule hex-char-code (and "0x" (+ (hexdigit-char-p character)))
   (:lambda (hex)
     (destructuring-bind (prefix digits) hex
