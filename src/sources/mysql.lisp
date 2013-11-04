@@ -203,7 +203,12 @@
 	 (pg-dbname     (target-db mysql))
          (all-columns   (list-all-columns dbname :only-tables only-tables))
          (all-indexes   (list-all-indexes dbname))
-         (max-indexes   (loop for (table . indexes) in all-indexes
+         (our-indexes   (if only-tables
+			    (loop for (table . indexes) in all-indexes
+			       when (member table only-tables :test #'string=)
+			       collect (cons table indexes))
+			    all-indexes))
+         (max-indexes   (loop for (table . indexes) in our-indexes
                            maximizing (length indexes)))
          (idx-kernel    (when (and max-indexes (< 0 max-indexes))
 			  (make-kernel max-indexes)))
@@ -245,7 +250,7 @@
 	   ;; will get built in parallel --- not a big problem.
 	   (when create-indexes
 	     (let* ((indexes
-		     (cdr (assoc table-name all-indexes :test #'string=))))
+		     (cdr (assoc table-name our-indexes :test #'string=))))
 	       (create-indexes-in-kernel pg-dbname table-name indexes
 					 idx-kernel idx-channel
 					 :state idx-state
@@ -267,12 +272,12 @@
 	  (pgloader.pgsql:reset-all-sequences pg-dbname :tables tables))))
 
     ;; now end the kernels
-    (let ((lp:*kernel* idx-kernel))  (lp:end-kernel))
-    (let ((lp:*kernel* copy-kernel))
+    (let ((lp:*kernel* copy-kernel))  (lp:end-kernel))
+    (let ((lp:*kernel* idx-kernel))
       ;; wait until the indexes are done being built...
       ;; don't forget accounting for that waiting time.
       (with-stats-collection (pg-dbname "index build completion" :state *state*)
-	(loop for idx in all-indexes do (lp:receive-result idx-channel)))
+	(loop for idx in our-indexes do (lp:receive-result idx-channel)))
       (lp:end-kernel))
 
     ;; and report the total time spent on the operation
