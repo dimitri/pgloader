@@ -127,7 +127,7 @@
 
 (defmethod copy-from ((sqlite copy-sqlite) &key (kernel nil k-s-p) truncate)
   "Stream the contents from a SQLite database table down to PostgreSQL."
-  (let* ((summary  (null *state*))
+  (let* ((summary     (null *state*))
 	 (*state*     (or *state* (pgloader.utils:make-pgstate)))
 	 (lp:*kernel* (or kernel (make-kernel 2)))
 	 (channel     (lp:make-channel))
@@ -187,6 +187,7 @@
 
 (defmethod copy-database ((sqlite copy-sqlite)
 			  &key
+			    state-before
 			    truncate
 			    schema-only
 			    create-tables
@@ -195,7 +196,9 @@
 			    reset-sequences
 			    only-tables)
   "Stream the given SQLite database down to PostgreSQL."
-  (let* ((*state*       (make-pgstate))
+  (let* ((summary       (null *state*))
+	 (*state*       (or *state* (make-pgstate)))
+	 (state-before  (or state-before (make-pgstate)))
 	 (idx-state     (make-pgstate))
 	 (seq-state     (make-pgstate))
          (copy-kernel   (make-kernel 2))
@@ -213,8 +216,11 @@
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (when create-tables
       (log-message :notice "~:[~;DROP then ~]CREATE TABLES" include-drop)
-      (with-pgsql-transaction (pg-dbname)
-	(create-tables all-columns :include-drop include-drop)))
+      (with-stats-collection (pg-dbname "create, truncate"
+					:state state-before
+					:summary summary)
+	(with-pgsql-transaction (pg-dbname)
+	  (create-tables all-columns :include-drop include-drop))))
 
     (loop
        for (table-name . columns) in all-columns
@@ -270,7 +276,8 @@
       (lp:end-kernel))
 
     ;; and report the total time spent on the operation
-    (report-summary)
+    (report-summary :state state-before)
+    (report-summary :header nil :footer nil)
     (format t pgloader.utils::*header-line*)
     (report-summary :state idx-state :header nil :footer nil)
     (report-summary :state seq-state :header nil :footer nil)

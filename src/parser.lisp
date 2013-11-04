@@ -371,11 +371,10 @@
 		  (*pgconn-pass* ,password))
 	 (pgloader.pgsql:copy-from-file ,dbname ,table-name ',source)))))
 
-(defrule database-source (and ignore-whitespace
-			      kw-load kw-database kw-from
+(defrule database-source (and kw-load kw-database kw-from
 			      db-connection-uri)
   (:lambda (source)
-    (destructuring-bind (nil l d f uri) source
+    (destructuring-bind (l d f uri) source
       (declare (ignore l d f))
       uri)))
 
@@ -589,10 +588,10 @@
       casts)))
 
 ;;; LOAD DATABASE FROM mysql://
-(defrule load-database (and database-source target
-			    (? mysql-options)
-			    (? gucs)
-			    (? casts))
+(defrule load-mysql-database (and database-source target
+				  (? mysql-options)
+				  (? gucs)
+				  (? casts))
   (:lambda (source)
     (destructuring-bind (my-db-uri pg-db-uri options gucs casts) source
       (destructuring-bind (&key ((:host myhost))
@@ -631,6 +630,104 @@
 					     ,@(when table-name
 					       `(:only-tables ',(list table-name)))
 					     ,@options))))))))
+
+
+;;;
+;;; LOAD DATABASE FROM SQLite
+;;;
+#|
+load database
+     from sqlite:///Users/dim/Downloads/lastfm_tags.db
+     into postgresql:///tags
+
+ with drop tables, create tables, create indexes, reset sequences
+
+  set work_mem to '16MB', maintenance_work_mem to '512 MB';
+|#
+(defrule sqlite-option (or option-truncate
+			  option-schema-only
+			  option-drop-tables
+			  option-create-tables
+			  option-create-indexes
+			  option-reset-sequences))
+
+(defrule another-sqlite-option (and #\, ignore-whitespace sqlite-option)
+  (:lambda (source)
+    (destructuring-bind (comma ws option) source
+      (declare (ignore comma ws))
+      option)))
+
+(defrule sqlite-option-list (and sqlite-option (* another-sqlite-option))
+  (:lambda (source)
+    (destructuring-bind (opt1 opts) source
+      (alexandria:alist-plist (list* opt1 opts)))))
+
+(defrule sqlite-options (and kw-with sqlite-option-list)
+  (:lambda (source)
+    (destructuring-bind (w opts) source
+      (declare (ignore w))
+      opts)))
+
+(defrule sqlite-db-uri (and "sqlite://" filename)
+  (:lambda (source)
+    (destructuring-bind (prefix filename) source
+      (declare (ignore prefix))
+      (destructuring-bind (type path) filename
+	(declare (ignore type))
+	(list :sqlite path)))))
+
+(defrule sqlite-uri (or sqlite-db-uri http-uri))
+(defrule sqlite-source (and kw-load kw-database kw-from sqlite-uri)
+  (:destructure (l d f u)
+		(declare (ignore l d f))
+		u))
+
+(defrule load-sqlite-database (and sqlite-source target
+				   (? sqlite-options)
+				   (? gucs))
+  (:lambda (source)
+    (destructuring-bind (sqlite-uri pg-db-uri options gucs) source
+      (destructuring-bind (&key host port user password dbname table-name
+				&allow-other-keys)
+	  pg-db-uri
+	`(lambda ()
+	   (let* ((state-before   (pgloader.utils:make-pgstate))
+		  (*state*        (pgloader.utils:make-pgstate))
+		  (db
+		   ,(destructuring-bind (kind url) sqlite-uri
+		     (ecase kind
+		       (:http     `(with-stats-collection
+				       (,dbname "download" :state state-before)
+				     (pgloader.archive:http-fetch-file ,url)))
+		       (:sqlite url))))
+		  (db
+		   (if (string= "zip" (pathname-type db))
+		       (progn
+			 (with-stats-collection (,dbname "extract"
+							 :state state-before)
+			   (let ((d (pgloader.archive:expand-archive db)))
+			     (merge-pathnames
+			      (make-pathname :name (pathname-name db)
+					     :type "db")
+			      d))))
+		       db))
+		  (*pgconn-host* ,host)
+		  (*pgconn-port* ,port)
+		  (*pgconn-user* ,user)
+		  (*pgconn-pass* ,password)
+		  (*pg-settings* ',gucs)
+		  (pgloader.pgsql::*pgsql-reserved-keywords*
+		   (pgloader.pgsql:list-reserved-keywords ,dbname))
+		  (source
+		   (make-instance 'pgloader.sqlite::copy-sqlite
+				  :target-db ,dbname
+				  :source-db db)))
+	     (pgloader.sqlite:copy-database source
+					    :state-before state-before
+					   ,@(when table-name
+					     `(:only-tables ',(list table-name)))
+					   ,@options)))))))
+
 
 
 ;;;
@@ -1366,7 +1463,8 @@
 (defrule command (and (or load-archive
 			  load-csv-file
 			  load-dbf-file
-			  load-database
+			  load-mysql-database
+			  load-sqlite-database
 			  load-syslog-messages)
 		      end-of-command)
   (:lambda (cmd)
