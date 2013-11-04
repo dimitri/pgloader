@@ -4,11 +4,6 @@
 
 (in-package :pgloader.parser)
 
-(defun getenv-default (name &optional default)
-  "Return the value of the NAME variable as found in the environment, or
-     DEFAULT if that variable isn't set"
-  (or (uiop:getenv name) default))
-
 (defvar *data-expected-inline* nil
   "Set to :inline when parsing an INLINE keyword in a FROM clause.")
 

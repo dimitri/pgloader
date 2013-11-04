@@ -56,10 +56,19 @@
   "Number of batches in which to split a batch with bad data")
 
 ;;;
+;;; We need that to setup our default connection parameters
+;;;
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun getenv-default (name &optional default)
+    "Return the value of the NAME variable as found in the environment, or
+     DEFAULT if that variable isn't set"
+    (or (uiop:getenv name) default)))
+
+;;;
 ;;; PostgreSQL Connection Credentials and Session Settings
 ;;;
 (defparameter *pgconn-host* "localhost")
-(defparameter *pgconn-port* (or (parse-integer (uiop:getenv "PGPORT")) 5432))
+(defparameter *pgconn-port* (parse-integer (getenv-default "PGPORT" "5432")))
 (defparameter *pgconn-user* (uiop:getenv "USER"))
 (defparameter *pgconn-pass* "pgpass")
 (defparameter *pg-settings* nil "An alist of GUC names and values.")
