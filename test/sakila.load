@@ -1,0 +1,10 @@
+load database
+     from      mysql://root@localhost/sakila
+     into postgresql:///sakila
+
+ WITH drop tables, create tables, create indexes, reset sequences
+
+ CAST type datetime to timestamptz drop default drop not null using zero-dates-to-null,
+      type date drop not null drop default using zero-dates-to-null,
+      -- type tinyint to boolean using tinyint-to-boolean,
+      type year to integer;
