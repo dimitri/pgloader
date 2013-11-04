@@ -42,7 +42,7 @@
   (:documentation
    "Copy data as read in DATAQ into the source S target definition."))
 
-(defgeneric copy-from (source &key)
+(defgeneric copy-from (source &key truncate)
   (:documentation
    "Read data from source and concurrently stream it down to PostgreSQL"))
 
@@ -53,3 +53,25 @@
 (defgeneric copy-to (source filename)
   (:documentation
    "Extract data from source S into FILENAME, wth PostgreSQL COPY TEXT format."))
+
+;; The next generic function is only to get instanciated for sources
+;; actually containing more than a single source item (tables, collections,
+;; etc)
+
+(defgeneric copy-database (source
+			   &key
+			     truncate
+			     schema-only
+			     create-tables
+			     include-drop
+			     create-indexes
+			     reset-sequences
+			     only-tables)
+  (:documentation
+   "Auto-discover source schema, convert it to PostgreSQL, migrate the data
+    from the source definition to PostgreSQL for all the discovered
+    items (tables, collections, etc), then reset the PostgreSQL sequences
+    created by SERIAL columns in the first step.
+
+    The target tables are automatically discovered, the only-tables
+    parameter allows to filter them out."))

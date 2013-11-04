@@ -60,7 +60,7 @@
 	(day   (subseq value 6 8)))
     (format nil "~a-~a-~a" year month day)))
 
-(defun transforms (input)
+(defun list-transforms (input)
   "Return the list of transforms to apply to each row of data in order to
    convert values to PostgreSQL format"
   (with-open-file (stream input
@@ -105,7 +105,7 @@
 			     :direction :output
 			     :if-exists :supersede
 			     :external-format :utf-8)
-    (let ((transforms (transforms (source db3))))
+    (let ((transforms (list-transforms (source db3))))
       (map-rows db3
 		:process-row-fn
 		(lambda (row)
@@ -159,7 +159,7 @@
 			#'pgloader.pgsql:copy-from-queue
 			dbname table-name dataq
 			:truncate truncate
-			:transforms (transforms (source db3)))
+			:transforms (list-transforms (source db3)))
 
 	;; now wait until both the tasks are over, and kill the kernel
 	(loop for tasks below 2 do (lp:receive-result channel)

@@ -42,7 +42,7 @@
 (defun list-all-columns (&optional (db *sqlite-db*))
   "Get the list of SQLite column definitions per table."
   (loop for table-name in (list-tables db)
-     collect (cons table-name (list-columns table-name))))
+     collect (cons table-name (list-columns table-name db))))
 
 (defun list-all-indexes (&optional (db *sqlite-db*))
   "Get the list of SQLite index definitions per table."
@@ -59,15 +59,55 @@
 
 
 ;;;
+;;; Integration with the pgloader Source API
+;;;
+(defclass copy-sqlite (copy)
+  ((db :accessor db :initarg :db))
+  (:documentation "pgloader SQLite Data Source"))
+
+(defmethod initialize-instance :after ((source copy-sqlite) &key)
+  "Add a default value for transforms in case it's not been provided."
+  (let* ((source-db  (slot-value source 'source-db))
+	 (db         (sqlite:connect source-db))
+	 (table-name (when (slot-boundp source 'source)
+		       (slot-value source 'source)))
+	 (fields     (or (and (slot-boundp source 'fields)
+			      (slot-value source 'fields))
+			 (when table-name
+			   (list-columns table-name db))))
+	 (transforms (when (slot-boundp source 'transforms)
+		       (slot-value source 'transforms))))
+
+    ;; we will reuse the same SQLite database handler that we just opened
+    (setf (slot-value source 'db) db)
+
+    ;; default to using the same table-name as source and target
+    (when (and table-name
+	       (or (not (slot-boundp source 'target))
+		   (slot-value source 'target)))
+      (setf (slot-value source 'target) table-name))
+
+    (when fields
+      (unless (slot-boundp source 'fields)
+	(setf (slot-value source 'fields) fields))
+
+      (unless transforms
+	(setf (slot-value source 'transforms)
+	      (loop for field in fields
+		 if (string-equal "float" (coldef-type field))
+		 collect #'pgloader.transforms::float-to-string
+		 else
+		 collect nil))))))
+
+;;;
 ;;; Map a function to each row extracted from SQLite
 ;;;
-
-(defun map-rows (db table-name &key process-row-fn)
+(defmethod map-rows ((sqlite copy-sqlite) &key process-row-fn)
   "Extract SQLite data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row"
-  (let ((sql (format nil "SELECT * FROM ~a" table-name)))
+  (let ((sql (format nil "SELECT * FROM ~a" (source sqlite))))
    (loop
-      with statement = (sqlite:prepare-statement db sql)
+      with statement = (sqlite:prepare-statement (db sqlite) sql)
       with column-numbers =
 	(loop for i from 0
 	   for name in (sqlite:statement-column-names statement)
@@ -80,43 +120,32 @@
       finally (sqlite:finalize-statement statement))))
 
 
-(defun copy-to-queue (db table-name dataq)
+(defmethod copy-to-queue ((sqlite copy-sqlite) dataq)
   "Copy data from SQLite table TABLE-NAME within connection DB into queue DATAQ"
-  (let ((read
-	 (pgloader.queue:map-push-queue dataq #'map-rows db table-name)))
-    (pgstate-incf *state* table-name :read read)))
+  (let ((read (pgloader.queue:map-push-queue dataq #'map-rows sqlite)))
+    (pgstate-incf *state* (target sqlite) :read read)))
 
-(defun stream-table (db table-name
-		     &key
-		       (kernel nil k-s-p)
-		       pg-dbname
-		       truncate
-		       transforms)
-  "Stream the contents of TABLE-NAME in SQLite down to PostgreSQL."
+(defmethod copy-from ((sqlite copy-sqlite) &key (kernel nil k-s-p) truncate)
+  "Stream the contents from a SQLite database table down to PostgreSQL."
   (let* ((summary  (null *state*))
 	 (*state*     (or *state* (pgloader.utils:make-pgstate)))
 	 (lp:*kernel* (or kernel (make-kernel 2)))
 	 (channel     (lp:make-channel))
 	 (dataq       (lq:make-queue :fixed-capacity 4096))
-	 (transforms  (or transforms
-			  (let ((cols (list-columns table-name db)))
-			    (loop for col in cols
-			       if (string-equal "float" (coldef-type col))
-			       collect #'pgloader.transforms::float-to-string
-			       else
-			       collect nil)))))
+	 (table-name  (target sqlite))
+	 (pg-dbname   (target-db sqlite)))
 
     (with-stats-collection (pg-dbname table-name :state *state* :summary summary)
       (log-message :notice "COPY ~a" table-name)
       ;; read data from SQLite
-      (lp:submit-task channel #'copy-to-queue db table-name dataq)
+      (lp:submit-task channel #'copy-to-queue sqlite dataq)
 
       ;; and start another task to push that data from the queue to PostgreSQL
       (lp:submit-task channel
 		      #'pgloader.pgsql:copy-from-queue
 		      pg-dbname table-name dataq
 		      :truncate truncate
-		      :transforms transforms)
+		      :transforms (transforms sqlite))
 
       ;; now wait until both the tasks are over
       (loop for tasks below 2 do (lp:receive-result channel)
@@ -156,31 +185,30 @@
 			 #'pgsql-execute-with-timing
 			 dbname label sql state))))
 
-(defun stream-database (filename
-			&key
-			  pg-dbname
-			  (schema-only nil)
-			  (create-tables nil)
-			  (include-drop nil)
-			  (create-indexes t)
-			  (reset-sequences t)
-			  (truncate nil)
-			  only-tables)
-  "Export SQLite data and Import it into PostgreSQL"
-  (let* ((*sqlite-db*   (sqlite:connect filename))
-	 (*state*       (make-pgstate))
+(defmethod copy-database ((sqlite copy-sqlite)
+			  &key
+			    truncate
+			    schema-only
+			    create-tables
+			    include-drop
+			    create-indexes
+			    reset-sequences
+			    only-tables)
+  "Stream the given SQLite database down to PostgreSQL."
+  (let* ((*state*       (make-pgstate))
 	 (idx-state     (make-pgstate))
 	 (seq-state     (make-pgstate))
          (copy-kernel   (make-kernel 2))
-         (all-columns   (list-all-columns))
-         (all-indexes   (list-all-indexes))
+         (all-columns   (list-all-columns (db sqlite)))
+         (all-indexes   (list-all-indexes (db sqlite)))
          (max-indexes   (loop for (table . indexes) in all-indexes
                            maximizing (length indexes)))
          (idx-kernel    (when (and max-indexes (< 0 max-indexes))
 			  (make-kernel max-indexes)))
          (idx-channel   (when idx-kernel
 			  (let ((lp:*kernel* idx-kernel))
-			    (lp:make-channel)))))
+			    (lp:make-channel))))
+	 (pg-dbname     (target-db sqlite)))
 
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (when create-tables
@@ -193,13 +221,17 @@
        when (or (null only-tables)
 		(member table-name only-tables :test #'equal))
        do
-	 (progn
+	 (let ((table-source
+		(make-instance 'copy-sqlite
+			       :db         (db sqlite)
+			       :source-db  (source-db sqlite)
+			       :target-db  pg-dbname
+			       :source     table-name
+			       :target     table-name
+			       :fields     columns)))
 	   ;; first COPY the data from SQLite to PostgreSQL, using copy-kernel
 	   (unless schema-only
-	     (stream-table *sqlite-db* table-name
-			   :kernel copy-kernel
-			   :pg-dbname pg-dbname
-			   :truncate truncate))
+	     (copy-from table-source :kernel copy-kernel :truncate truncate))
 
 	   ;; Create the indexes for that table in parallel with the next
 	   ;; COPY, and all at once in concurrent threads to benefit from
@@ -246,3 +278,4 @@
     (incf (pgloader.utils::pgstate-secs *state*)
 	  (pgloader.utils::pgstate-secs seq-state))
     (report-pgstate-stats *state* "Total streaming time")))
+

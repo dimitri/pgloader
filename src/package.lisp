@@ -102,7 +102,8 @@
 	   #:map-rows
 	   #:copy-from
 	   #:copy-to-queue
-	   #:copy-to))
+	   #:copy-to
+	   #:copy-database))
 
 (defpackage #:pgloader.csv
   (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.sources)
@@ -169,7 +170,7 @@
 	   #:stream-database))
 
 (defpackage #:pgloader.sqlite
-  (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.sources)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
 		#:pgsql-execute
@@ -177,7 +178,8 @@
 		#:apply-identifier-case
 		#:create-tables
 		#:format-pgsql-column)
-  (:export #:map-rows
+  (:export #:copy-sqlite
+	   #:map-rows
 	   #:copy-to
 	   #:list-tables
 	   #:stream-table
