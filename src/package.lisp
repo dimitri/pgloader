@@ -116,7 +116,7 @@
 	   #:guess-all-csv-params))
 
 (defpackage #:pgloader.db3
-  (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.sources)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
 		#:pgsql-execute
@@ -124,7 +124,8 @@
 		#:apply-identifier-case
 		#:create-tables
 		#:format-pgsql-column)
-  (:export #:map-rows
+  (:export #:copy-db3
+	   #:map-rows
 	   #:copy-to
 	   #:copy-to-queue
 	   #:stream-file))

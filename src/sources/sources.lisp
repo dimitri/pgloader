@@ -27,11 +27,12 @@
 
 (defmethod initialize-instance :after ((source copy) &key)
   "Add a default value for transforms in case it's not been provided."
-  (let ((transforms (when (slot-boundp source 'transforms)
-		      (slot-value source 'transforms))))
-    (unless transforms
-      (setf (slot-value source 'transforms)
-	    (loop for c in (slot-value source 'columns) collect nil)))))
+  (when (slot-boundp source 'columns)
+    (let ((transforms (when (slot-boundp source 'transforms)
+			(slot-value source 'transforms))))
+      (unless transforms
+	(setf (slot-value source 'transforms)
+	      (loop for c in (slot-value source 'columns) collect nil))))))
 
 (defgeneric map-rows (source &key process-row-fn)
   (:documentation

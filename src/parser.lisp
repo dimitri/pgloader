@@ -842,13 +842,16 @@
 		  (*pgconn-port* ,port)
 		  (*pgconn-user* ,user)
 		  (*pgconn-pass* ,password)
-		  (*pg-settings* ',gucs))
-	     (pgloader.db3:stream-file source
-				       :state-before state-before
-				       :dbname ,dbname
-				       ,@(when table-name
-					       (list :table-name table-name))
-				       ,@options)
+		  (*pg-settings* ',gucs)
+		  (source
+		   (make-instance 'pgloader.db3:copy-db3
+				  :target-db ,dbname
+				  :source source
+				  :target ,table-name)))
+
+	     (pgloader.sources:copy-from source
+					 :state-before state-before
+					 ,@options)
 
 	     (report-full-summary *state* state-before nil
 				  "Total import time")))))))

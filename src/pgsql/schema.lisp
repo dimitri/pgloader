@@ -32,14 +32,16 @@
 		 "[^a-zA-Z0-9]" (string-downcase identifier) "_"))
      (:quote    (format nil "\"~a\"" identifier)))))
 
-(defun create-table-sql (table-name cols &key identifier-case)
+(defun create-table-sql (table-name cols &key if-not-exists identifier-case)
   "Return a PostgreSQL CREATE TABLE statement from given COLS.
 
    Each element of the COLS list is expected to be of a type handled by the
    `format-pgsql-column' generic function."
   (with-output-to-string (s)
     (let ((table-name (apply-identifier-case table-name identifier-case)))
-      (format s "CREATE TABLE ~a ~%(~%" table-name))
+      (format s "CREATE TABLE~:[~; IF NOT EXISTS~] ~a ~%(~%"
+	      if-not-exists
+	      table-name))
     (loop
        for (col . last?) on cols
        for pg-coldef = (format-pgsql-column col :identifier-case identifier-case)
@@ -53,6 +55,7 @@
 
 (defun create-table-sql-list (all-columns
 			      &key
+				if-not-exists
 				include-drop
 				(identifier-case :downcase))
   "Return the list of CREATE TABLE statements to run against PostgreSQL.
@@ -68,10 +71,12 @@
 				       :identifier-case identifier-case)
 
      collect (create-table-sql table-name cols
+			       :if-not-exists if-not-exists
 			       :identifier-case identifier-case)))
 
 (defun create-tables (all-columns
 		      &key
+			if-not-exists
 			(identifier-case :downcase)
 			include-drop
 			(client-min-messages :notice))
@@ -84,6 +89,7 @@
   (loop
      for nb-tables from 0
      for sql in (create-table-sql-list all-columns
+				       :if-not-exists if-not-exists
 				       :identifier-case identifier-case
 				       :include-drop include-drop)
      do (pgsql-execute sql :client-min-messages client-min-messages)
