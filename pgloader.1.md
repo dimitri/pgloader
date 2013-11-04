@@ -510,7 +510,7 @@ The `database` command accepts the following clauses and options:
 	  - *create tables*
 
 		When this option is listed, pgloader creates the table using the
-		meta data found in the `DBF` file, which must contain a list of
+		meta data found in the `MySQL` file, which must contain a list of
 		fields with their data type. A standard data type conversion from
 		DBF to PostgreSQL is done.
 
