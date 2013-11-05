@@ -792,11 +792,12 @@ load database
   set work_mem to '16MB', maintenance_work_mem to '512 MB';
 |#
 (defrule sqlite-option (or option-truncate
-			  option-schema-only
-			  option-include-drop
-			  option-create-tables
-			  option-create-indexes
-			  option-reset-sequences))
+			   option-data-only
+			   option-schema-only
+			   option-include-drop
+			   option-create-tables
+			   option-create-indexes
+			   option-reset-sequences))
 
 (defrule another-sqlite-option (and #\, ignore-whitespace sqlite-option)
   (:lambda (source)
