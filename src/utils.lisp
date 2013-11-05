@@ -195,7 +195,7 @@
   "~&------------------------------  ---------  ---------  ---------  ---------")
 
 (defvar *header-tname-format* "~&~30@a")
-(defvar *header-stats-format* "  ~9@a  ~9@a  ~9@a  ~9@a")
+(defvar *header-stats-format* "  ~9@a  ~9@a  ~9@a  ~14@a")
 (defvar *header-cols-format* (concatenate 'string *header-tname-format*
 					  *header-stats-format*))
 (defvar *header-cols-names* '("table name" "read" "imported" "errors" "time"))
