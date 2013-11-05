@@ -121,6 +121,8 @@
   (def-keyword-rule "tables")
   (def-keyword-rule "indexes")
   (def-keyword-rule "sequences")
+  (def-keyword-rule "foreign")
+  (def-keyword-rule "keys")
   (def-keyword-rule "downcase")
   (def-keyword-rule "quote")
   (def-keyword-rule "identifiers")
@@ -442,6 +444,9 @@
 (defrule option-reset-sequences (and kw-reset kw-sequences)
   (:constant (cons :reset-sequences t)))
 
+(defrule option-foreign-keys (and kw-foreign kw-keys)
+  (:constant (cons :foreign-keys t)))
+
 (defrule option-identifiers-case (and (or kw-downcase kw-quote) kw-identifiers)
   (:lambda (id-case)
     (destructuring-bind (action id) id-case
@@ -455,6 +460,7 @@
 			  option-create-tables
 			  option-create-indexes
 			  option-reset-sequences
+			  option-foreign-keys
 			  option-identifiers-case))
 
 (defrule another-mysql-option (and #\, ignore-whitespace mysql-option)

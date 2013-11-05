@@ -2,7 +2,7 @@ load database
      from      mysql://root@localhost/sakila
      into postgresql://localhost:54393/sakila
 
- WITH drop tables, create tables, create indexes, reset sequences
+ WITH drop tables, create tables, create indexes, reset sequences, foreign keys
 
   SET maintenance_work_mem to '128MB', work_mem to '12MB', search_path to 'sakila'
 

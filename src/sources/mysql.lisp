@@ -195,6 +195,7 @@
 			    include-drop
 			    create-indexes
 			    reset-sequences
+			    foreign-keys
 			    (identifier-case :downcase) ; or :quote
 			    only-tables
 			    including
@@ -212,9 +213,9 @@
 					    :including including
 					    :excluding excluding))
 	 (all-fkeys    (filter-column-list (list-all-fkeys dbname)
-					    :only-tables only-tables
-					    :including including
-					    :excluding excluding))
+					   :only-tables only-tables
+					   :including including
+					   :excluding excluding))
          (all-indexes   (filter-column-list (list-all-indexes dbname)
 					    :only-tables only-tables
 					    :including including
@@ -233,16 +234,17 @@
       (with-stats-collection (pg-dbname "create, drop"
 					:use-result-as-rows t
 					:state state-before)
-       (with-pgsql-transaction (pg-dbname)
-	 ;; we need to first drop the Foreign Key Constraints, so that we
-	 ;; can DROP TABLE when asked
-	 (when include-drop
-	   (drop-fkeys all-fkeys :identifier-case identifier-case))
+	(with-pgsql-transaction (pg-dbname)
+	  ;; we need to first drop the Foreign Key Constraints, so that we
+	  ;; can DROP TABLE when asked
+	  (when (and foreign-keys include-drop)
+	    (drop-fkeys all-fkeys
+			:identifier-case identifier-case))
 
-	 ;; now drop then create tables and types, etc
-	 (create-tables all-columns
-			:identifier-case identifier-case
-			:include-drop include-drop))))
+	  ;; now drop then create tables and types, etc
+	  (create-tables all-columns
+			 :identifier-case identifier-case
+			 :include-drop include-drop))))
 
     (loop
        for (table-name . columns) in all-columns
@@ -299,17 +301,18 @@
     ;; tables to be able to build the foreign keys, so wait until all tables
     ;; and indexes are imported before doing that.
     ;;
-    (create-fkeys all-fkeys
-		  :dbname pg-dbname
-		  :state state-after
-		  :identifier-case identifier-case)
+    (when foreign-keys
+      (create-fkeys all-fkeys
+		    :dbname pg-dbname
+		    :state state-after
+		    :identifier-case identifier-case))
 
     ;; and report the total time spent on the operation
     (when summary
-     (report-full-summary "Total streaming time" *state*
-			  :before   state-before
-			  :finally  state-after
-			  :parallel idx-state))))
+      (report-full-summary "Total streaming time" *state*
+			   :before   state-before
+			   :finally  state-after
+			   :parallel idx-state))))
 
 
 ;;;
