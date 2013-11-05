@@ -126,6 +126,17 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
 " schema table-name-list))
        collect (cons relname cols))))
 
+(defun list-tables-and-fkeys (&optional schema)
+  "Yet another table listing query."
+  (loop for (relname fkeys) in (pomo:query (format nil "
+  select relname, array_to_string(array_agg(conname), ',')
+    from pg_class c
+         join pg_namespace n on n.oid = c.relnamespace
+         left join pg_constraint co on c.oid = co.conrelid
+    where contype = 'f' and nspname = ~:[current_schema()~;'~a'~]
+ group by relname;" schema schema))
+     collect (cons relname (sq:split-sequence #\, fkeys))))
+
 (defun list-columns (dbname table-name &key schema)
   "Return a list of column names for given TABLE-NAME."
   (pomo:with-connection

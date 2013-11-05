@@ -239,6 +239,7 @@
 	  ;; can DROP TABLE when asked
 	  (when (and foreign-keys include-drop)
 	    (drop-fkeys all-fkeys
+			:dbname pg-dbname
 			:identifier-case identifier-case))
 
 	  ;; now drop then create tables and types, etc

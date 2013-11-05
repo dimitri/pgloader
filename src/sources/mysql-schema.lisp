@@ -232,13 +232,19 @@ GROUP BY table_name, index_name;" dbname)))
     ;; free resources
     (cl-mysql:disconnect)))
 
-(defun drop-fkeys (all-fkeys &key identifier-case)
+(defun drop-fkeys (all-fkeys &key dbname identifier-case)
   "Drop all Foreign Key Definitions given, to prepare for a clean run."
-  (loop for (table-name . fkeys) in all-fkeys
-     do
-       (loop for fkey in fkeys
-	  for sql = (format-pgsql-drop-fkey fkey :identifier-case identifier-case)
-	  do (pgsql-execute sql))))
+  (let ((all-pgsql-fkeys (list-tables-and-fkeys dbname)))
+    (loop for (table-name . fkeys) in all-fkeys
+       do
+	 (loop for fkey in fkeys
+	    for sql = (format-pgsql-drop-fkey fkey
+					      :all-pgsql-fkeys all-pgsql-fkeys
+					      :identifier-case identifier-case)
+	    when sql
+	    do
+	      (log-message :notice "~a;" sql)
+	      (pgsql-execute sql)))))
 
 (defun create-fkeys (all-fkeys
 		     &key
@@ -251,7 +257,7 @@ GROUP BY table_name, index_name;" dbname)))
 	   for sql =
 	     (format-pgsql-create-fkey fkey :identifier-case identifier-case)
 	   do
-	     (log-message :notice "~a" sql)
+	     (log-message :notice "~a;" sql)
 	     (pgsql-execute-with-timing dbname "Foreign Keys" sql state))))
 
 
