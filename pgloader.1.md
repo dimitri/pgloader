@@ -593,10 +593,16 @@ The `database` command accepts the following clauses and options:
 
 	  - *create indexes*
 	  
-	     When this option is listed, pgloader gets the definitions of all
-	     the indexes found in the MySQL database and create the same set of
-	     index definitions against the PostgreSQL database.
-		  
+	    When this option is listed, pgloader gets the definitions of all the
+	    indexes found in the MySQL database and create the same set of index
+	    definitions against the PostgreSQL database.
+
+      - *foreign keys*
+	  
+	    When this option is listed, pgloader gets the definitions of all the
+	    foreign keys found in the MySQL database and create the same set of
+	    foreign key definitions against the PostgreSQL database.
+
 	  - *reset sequences*
 
         When this option is listed, at the end of the data loading and after
@@ -615,15 +621,15 @@ The `database` command accepts the following clauses and options:
 
 	  - *quote identifiers*
 	  
-		 When this option is listed, pgloader quotes all MySQL identifiers
-		 so that their case is respected. Note that you will then have to do
-		 the same thing in your application code queries.
+		When this option is listed, pgloader quotes all MySQL identifiers so
+		that their case is respected. Note that you will then have to do the
+		same thing in your application code queries.
 		 
 	  - *schema only*
 	  
-	     When this option is listed pgloader will refrain from migrating the
-	     data over. Note that the schema in this context includes the
-	     indexes when the option *create indexes* has been listed.
+	    When this option is listed pgloader will refrain from migrating the
+	    data over. Note that the schema in this context includes the indexes
+	    when the option *create indexes* has been listed.
 
   - *SET*
 
