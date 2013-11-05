@@ -64,6 +64,9 @@
 	   #:create-tables
 	   #:format-pgsql-column
 	   #:format-extra-type
+	   #:make-pgsql-fkey
+	   #:format-pgsql-create-fkey
+	   #:format-pgsql-drop-fkey
 	   #:drop-index-sql-list
 	   #:create-index-sql-list))
 
@@ -145,6 +148,9 @@
 		#:create-tables
 		#:format-pgsql-column
 		#:format-extra-type
+		#:make-pgsql-fkey
+		#:format-pgsql-create-fkey
+		#:format-pgsql-drop-fkey
 		#:drop-index-sql-list
 		#:create-index-sql-list)
   (:export #:copy-mysql

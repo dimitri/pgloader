@@ -149,7 +149,7 @@
 (defun create-indexes-in-kernel (dbname table-name indexes kernel channel
 				 &key
 				   identifier-case include-drop
-				   state (label "create index"))
+				   state (label "Create Indexes"))
   "Create indexes for given table in dbname, using given lparallel KERNEL
    and CHANNEL so that the index build happen in concurrently with the data
    copying."
@@ -203,11 +203,15 @@
   (let* ((summary       (null *state*))
 	 (*state*       (or *state*       (make-pgstate)))
 	 (idx-state     (or state-indexes (make-pgstate)))
-	 (seq-state     (or state-after   (make-pgstate)))
+	 (state-after   (or state-after   (make-pgstate)))
          (copy-kernel   (make-kernel 2))
 	 (dbname        (source-db mysql))
 	 (pg-dbname     (target-db mysql))
          (all-columns   (filter-column-list (list-all-columns dbname)
+					    :only-tables only-tables
+					    :including including
+					    :excluding excluding))
+	 (all-fkeys    (filter-column-list (list-all-fkeys dbname)
 					    :only-tables only-tables
 					    :including including
 					    :excluding excluding))
@@ -230,6 +234,12 @@
 					:use-result-as-rows t
 					:state state-before)
        (with-pgsql-transaction (pg-dbname)
+	 ;; we need to first drop the Foreign Key Constraints, so that we
+	 ;; can DROP TABLE when asked
+	 (when include-drop
+	   (drop-fkeys all-fkeys :identifier-case identifier-case))
+
+	 ;; now drop then create tables and types, etc
 	 (create-tables all-columns
 			:identifier-case identifier-case
 			:include-drop include-drop))))
@@ -268,31 +278,37 @@
     ;; don't forget to reset sequences, but only when we did actually import
     ;; the data.
     (when (and (not schema-only) reset-sequences)
-      (let ((tables
-	     (mapcar
-	      (lambda (name) (apply-identifier-case name identifier-case))
-	      (or only-tables
-		  (mapcar #'car all-columns)))))
-	(log-message :notice "Reset sequences")
-	(with-stats-collection (pg-dbname "reset sequences"
-					  :use-result-as-rows t
-					  :state seq-state)
-	  (pgloader.pgsql:reset-all-sequences pg-dbname :tables tables))))
+      (reset-sequences all-columns
+		       :dbname pg-dbname
+		       :state state-after
+		       :identifier-case identifier-case))
 
     ;; now end the kernels
     (let ((lp:*kernel* copy-kernel))  (lp:end-kernel))
     (let ((lp:*kernel* idx-kernel))
       ;; wait until the indexes are done being built...
       ;; don't forget accounting for that waiting time.
-      (with-stats-collection (pg-dbname "index build completion" :state *state*)
+      (with-stats-collection (pg-dbname "Index Build Completion" :state *state*)
 	(loop for idx in all-indexes do (lp:receive-result idx-channel)))
       (lp:end-kernel))
+
+    ;;
+    ;; Foreign Key Constraints
+    ;;
+    ;; We need to have finished loading both the reference and the refering
+    ;; tables to be able to build the foreign keys, so wait until all tables
+    ;; and indexes are imported before doing that.
+    ;;
+    (create-fkeys all-fkeys
+		  :dbname pg-dbname
+		  :state state-after
+		  :identifier-case identifier-case)
 
     ;; and report the total time spent on the operation
     (when summary
      (report-full-summary "Total streaming time" *state*
 			  :before   state-before
-			  :finally  seq-state
+			  :finally  state-after
 			  :parallel idx-state))))
 
 

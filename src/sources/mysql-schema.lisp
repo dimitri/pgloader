@@ -181,6 +181,97 @@ GROUP BY table_name, index_name;" dbname)))
 
 
 ;;;
+;;; MySQL Foreign Keys
+;;;
+(defun list-all-fkeys (dbname
+			 &key
+			   (host *myconn-host*)
+			   (user *myconn-user*)
+			   (pass *myconn-pass*))
+  "Get the list of MySQL Foreign Keys definitions per table."
+  (cl-mysql:connect :host host :user user :password pass)
+
+  (unwind-protect
+       (progn
+	 (loop
+	    with schema = nil
+	    for (table-name name ftable cols fcols)
+	    in (caar (cl-mysql:query (format nil "
+    SELECT i.table_name, i.constraint_name, k.referenced_table_name ft,
+
+           group_concat(         k.column_name
+                        order by k.ordinal_position) as cols,
+
+           group_concat(         k.referenced_column_name
+                        order by k.position_in_unique_constraint) as fcols
+
+      FROM information_schema.table_constraints i
+      LEFT JOIN information_schema.key_column_usage k
+          USING (table_schema, table_name, constraint_name)
+
+    WHERE     i.table_schema = '~a'
+          AND k.referenced_table_schema = '~a'
+          AND i.constraint_type = 'FOREIGN KEY'
+
+ GROUP BY table_name, constraint_name, ft;" dbname dbname)))
+	    do (let ((entry (assoc table-name schema :test 'equal))
+		     (fk    (make-pgsql-fkey :name name
+					     :table-name table-name
+					     :columns cols
+					     :foreign-table ftable
+					     :foreign-columns fcols)))
+		 (if entry
+		     (push fk (cdr entry))
+		     (push (cons table-name (list fk)) schema)))
+	    finally
+	      ;; we did push, we need to reverse here
+	      (return (reverse (loop
+			  for (name . fks) in schema
+			  collect (cons name (reverse fks)))))))
+
+    ;; free resources
+    (cl-mysql:disconnect)))
+
+(defun drop-fkeys (all-fkeys &key identifier-case)
+  "Drop all Foreign Key Definitions given, to prepare for a clean run."
+  (loop for (table-name . fkeys) in all-fkeys
+     do
+       (loop for fkey in fkeys
+	  for sql = (format-pgsql-drop-fkey fkey :identifier-case identifier-case)
+	  do (pgsql-execute sql))))
+
+(defun create-fkeys (all-fkeys
+		     &key
+		       dbname state identifier-case (label "Foreign Keys"))
+  "Actually create the Foreign Key References that where declared in the
+   MySQL database"
+  (pgstate-add-table state dbname label)
+  (loop for (table-name . fkeys) in all-fkeys
+     do (loop for fkey in fkeys
+	   for sql =
+	     (format-pgsql-create-fkey fkey :identifier-case identifier-case)
+	   do
+	     (log-message :notice "~a" sql)
+	     (pgsql-execute-with-timing dbname "Foreign Keys" sql state))))
+
+
+;;;
+;;; Sequences
+;;;
+(defun reset-sequences (all-columns &key dbname state identifier-case)
+  "Reset all sequences created during this MySQL migration."
+  (let ((tables
+	 (mapcar
+	  (lambda (name) (apply-identifier-case name identifier-case))
+	  (mapcar #'car all-columns))))
+    (log-message :notice "Reset sequences")
+    (with-stats-collection (dbname "Reset Sequences"
+				   :use-result-as-rows t
+				   :state state)
+      (pgloader.pgsql:reset-all-sequences dbname :tables tables))))
+
+
+;;;
 ;;; Tools to handle row queries, issuing separate is null statements and
 ;;; handling of geometric data types.
 ;;;

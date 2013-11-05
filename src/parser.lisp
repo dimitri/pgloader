@@ -725,7 +725,7 @@
 	     (let* ((state-before  ,(when before `(pgloader.utils:make-pgstate)))
 		    (*state*       (or *state* (pgloader.utils:make-pgstate)))
 		    (state-idx     (pgloader.utils:make-pgstate))
-		    (state-after   ,(when after `(pgloader.utils:make-pgstate)))
+		    (state-after   (pgloader.utils:make-pgstate))
 		    (pgloader.mysql:*cast-rules* ',casts)
 		    (*myconn-host* ,myhost)
 		    (*myconn-port* ,myport)

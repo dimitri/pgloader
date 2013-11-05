@@ -53,6 +53,52 @@
   (declare (ignorable identifier-case include-drop))
   nil)
 
+
+
+;;;
+;;; API for Foreign Keys
+;;;
+(defstruct pgsql-fkey
+  name table-name columns foreign-table foreign-columns)
+
+(defgeneric format-pgsql-create-fkey (fkey &key identifier-case)
+  (:documentation
+   "Return the PostgreSQL command to define a Foreign Key Constraint."))
+
+(defgeneric format-pgsql-drop-fkey (fkey &key identifier-case)
+  (:documentation
+   "Return the PostgreSQL command to DROP a Foreign Key Constraint."))
+
+(defmethod format-pgsql-create-fkey ((fk pgsql-fkey) &key identifier-case)
+  "Generate the PostgreSQL statement to rebuild a MySQL Foreign Key"
+  (let* ((constraint-name
+	  (apply-identifier-case (pgsql-fkey-name fk) identifier-case))
+	 (table-name
+	  (apply-identifier-case (pgsql-fkey-table-name fk) identifier-case))
+	 (foreign-table
+	  (apply-identifier-case (pgsql-fkey-foreign-table fk) identifier-case)))
+    (format nil
+	    "ALTER TABLE ~a ADD CONSTRAINT ~a FOREIGN KEY(~a) REFERENCES ~a(~a)"
+	    table-name
+	    constraint-name
+	    (pgsql-fkey-columns fk)
+	    foreign-table
+	    (pgsql-fkey-foreign-columns fk))))
+
+(defmethod format-pgsql-drop-fkey ((fk pgsql-fkey) &key identifier-case)
+  "Generate the PostgreSQL statement to rebuild a MySQL Foreign Key"
+  (let* ((constraint-name
+	  (apply-identifier-case (pgsql-fkey-name fk) identifier-case))
+	 (table-name
+	  (apply-identifier-case (pgsql-fkey-table-name fk) identifier-case)))
+    ;; beware, IF EXISTS is only supported from 9.0 onward...
+    (format nil "alter table ~a drop constraint if exists ~a"
+	    table-name constraint-name)))
+
+
+;;;
+;;; Table schema rewriting support
+;;;
 (defun create-table-sql (table-name cols &key if-not-exists identifier-case)
   "Return a PostgreSQL CREATE TABLE statement from given COLS.
 
