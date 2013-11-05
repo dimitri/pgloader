@@ -84,6 +84,8 @@ The main clauses are the `LOAD`, `FROM`, `INTO` and `WITH` clauses that each
 command implements. Some command then implement the `SET` command, or some
 specific clauses such as the `CAST` clause.
 
+### Connection String
+
 The `<source-url>` parameter is expected to be given as a *Connection URI*
 as documented in the PostgreSQL documentation at
 http://www.postgresql.org/docs/9.3/static/libpq-connect.html#LIBPQ-CONNSTRING.
@@ -114,6 +116,38 @@ Where:
 	(`_`).
 
   - The only optionnal parameter should be a possibly qualified table name.
+
+### Regular Expressions
+
+Several clauses listed in the following accept *regular expressions* with
+the following input rules:
+
+  - A regular expression begins with a tilde sign (`~`),
+  
+  - is then followed with an opening sign,
+  
+  - then any character is allowed and considered part of the regular
+    expression, except for the closing sign,
+	
+  - then a closing sign is expected.
+
+The opening and closing sign are allowed by pair, here's the complete list
+of allowed delimiters:
+
+    ~//
+	~[]
+	~{}
+	~()
+	~<>
+	~""
+	~''
+	~||
+	~##
+
+Pick the set of delimiters that don't collide with the *regular expression*
+you're trying to input. If your expression is such that none of the
+solutions allow you to enter it, the places where such expressions are
+allowed should allow for a list of expressions.
 
 ## LOAD CSV
 
@@ -609,6 +643,23 @@ The `database` command accepts the following clauses and options:
 	    This option takes as its single argument the name of a function to
 	    be found un the `pgloader.transforms` Common Lisp package. See above
 	    for details.
+
+  - *INCLUDING ONLY TABLE NAMES MATCHING*
+  
+	Introduce a comma separated list of table names or *regular expression*
+	used to limit the tables to migrate to a sublist.
+
+    Example:
+	
+	    INCLUDING ONLY TABLE NAMES MATCHING ~/film/, 'actor'
+
+  - *EXCLUDING TABLE NAMES MATCHING*
+  
+    Introduce a comma separated list of table names or *rugular expression*
+    used to exclude table names from the migration. This filter only applies
+    to the result of the *INCLUDING* filter.
+	
+	    EXCLUDING TABLE NAMES MATCHING ~<ory>
 
 ### LIMITATIONS
 

@@ -193,7 +193,9 @@
 			    create-indexes
 			    reset-sequences
 			    (identifier-case :downcase) ; or :quote
-			    only-tables)
+			    only-tables
+			    including
+			    excluding)
   "Export MySQL data and Import it into PostgreSQL"
   (let* ((*state*       (make-pgstate))
 	 (idx-state     (make-pgstate))
@@ -201,14 +203,15 @@
          (copy-kernel   (make-kernel 2))
 	 (dbname        (source-db mysql))
 	 (pg-dbname     (target-db mysql))
-         (all-columns   (list-all-columns dbname :only-tables only-tables))
-         (all-indexes   (list-all-indexes dbname))
-         (our-indexes   (if only-tables
-			    (loop for (table . indexes) in all-indexes
-			       when (member table only-tables :test #'string=)
-			       collect (cons table indexes))
-			    all-indexes))
-         (max-indexes   (loop for (table . indexes) in our-indexes
+         (all-columns   (filter-column-list (list-all-columns dbname)
+					    :only-tables only-tables
+					    :including including
+					    :excluding excluding))
+         (all-indexes   (filter-column-list (list-all-indexes dbname)
+					    :only-tables only-tables
+					    :including including
+					    :excluding excluding))
+         (max-indexes   (loop for (table . indexes) in all-indexes
                            maximizing (length indexes)))
          (idx-kernel    (when (and max-indexes (< 0 max-indexes))
 			  (make-kernel max-indexes)))
@@ -226,8 +229,6 @@
 
     (loop
        for (table-name . columns) in all-columns
-       when (or (null only-tables)
-		(member table-name only-tables :test #'equal))
        do
 	 (let ((table-source
 		(make-instance 'copy-mysql
@@ -250,7 +251,7 @@
 	   ;; will get built in parallel --- not a big problem.
 	   (when create-indexes
 	     (let* ((indexes
-		     (cdr (assoc table-name our-indexes :test #'string=))))
+		     (cdr (assoc table-name all-indexes :test #'string=))))
 	       (create-indexes-in-kernel pg-dbname table-name indexes
 					 idx-kernel idx-channel
 					 :state idx-state
@@ -277,7 +278,7 @@
       ;; wait until the indexes are done being built...
       ;; don't forget accounting for that waiting time.
       (with-stats-collection (pg-dbname "index build completion" :state *state*)
-	(loop for idx in our-indexes do (lp:receive-result idx-channel)))
+	(loop for idx in all-indexes do (lp:receive-result idx-channel)))
       (lp:end-kernel))
 
     ;; and report the total time spent on the operation

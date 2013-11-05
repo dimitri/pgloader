@@ -117,12 +117,15 @@
   (def-keyword-rule "reset")
   (def-keyword-rule "table")
   (def-keyword-rule "name")
+  (def-keyword-rule "names")
   (def-keyword-rule "tables")
   (def-keyword-rule "indexes")
   (def-keyword-rule "sequences")
   (def-keyword-rule "downcase")
   (def-keyword-rule "quote")
   (def-keyword-rule "identifiers")
+  (def-keyword-rule "including")
+  (def-keyword-rule "excluding")
   ;; option for loading from an archive
   (def-keyword-rule "archive")
   (def-keyword-rule "before")
@@ -597,14 +600,49 @@
     (destructuring-bind (c casts) source
       (declare (ignore c))
       casts)))
+
+;;;
+;;; Including only some tables or excluding some others
+;;;
+(defrule namestring-or-regex (or quoted-namestring quoted-regex))
 
+(defrule another-namestring-or-regex (and ignore-whitespace
+					  #\,
+					  ignore-whitespace
+					  namestring-or-regex)
+  (:lambda (source)
+    (destructuring-bind (w1 comma w2 re) source
+      (declare (ignore w1 comma w2))
+      re)))
+
+(defrule filter-list (and namestring-or-regex (* another-namestring-or-regex))
+  (:lambda (source)
+    (destructuring-bind (filter1 filters) source
+      (list* filter1 filters))))
+
+(defrule including (and kw-including kw-only kw-table kw-names kw-matching
+			filter-list)
+  (:lambda (source)
+    (destructuring-bind (i o table n m filter-list) source
+      (declare (ignore i o table n m))
+      filter-list)))
+
+(defrule excluding (and kw-excluding kw-table kw-names kw-matching filter-list)
+  (:lambda (source)
+    (destructuring-bind (e table n m filter-list) source
+      (declare (ignore e table n m))
+      filter-list)))
+
+
 ;;; LOAD DATABASE FROM mysql://
 (defrule load-mysql-database (and database-source target
 				  (? mysql-options)
 				  (? gucs)
-				  (? casts))
+				  (? casts)
+				  (? including)
+				  (? excluding))
   (:lambda (source)
-    (destructuring-bind (my-db-uri pg-db-uri options gucs casts) source
+    (destructuring-bind (my-db-uri pg-db-uri options gucs casts incl excl) source
       (destructuring-bind (&key ((:host myhost))
 				((:port myport))
 				((:user myuser))
@@ -640,6 +678,8 @@
 	       (pgloader.mysql:copy-database source
 					     ,@(when table-name
 					       `(:only-tables ',(list table-name)))
+					     :including ',incl
+					     :excluding ',excl
 					     ,@options))))))))
 
 

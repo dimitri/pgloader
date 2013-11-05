@@ -106,7 +106,8 @@
 	   #:copy-from
 	   #:copy-to-queue
 	   #:copy-to
-	   #:copy-database))
+	   #:copy-database
+	   #:filter-column-list))
 
 (defpackage #:pgloader.csv
   (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.sources)
