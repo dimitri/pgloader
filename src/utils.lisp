@@ -76,15 +76,16 @@
   "Output the number of seconds in a human friendly way"
   (multiple-value-bind (years months days hours mins secs millisecs)
       (date:decode-interval (date:encode-interval :second seconds))
+    (declare (ignore millisecs))
     (format
      stream
-     "~:[~*~;~d years ~]~:[~*~;~d months ~]~:[~*~;~d days ~]~:[~*~;~dh~]~:[~*~;~dm~]~d.~ds"
+     "~:[~*~;~d years ~]~:[~*~;~d months ~]~:[~*~;~d days ~]~:[~*~;~dh~]~:[~*~;~dm~]~5,3fs"
      (< 0 years)  years
      (< 0 months) months
      (< 0 days)   days
      (< 0 hours)  hours
      (< 0 mins)   mins
-     secs (truncate millisecs))))
+     (+ secs (- seconds secs)))))
 
 ;;;
 ;;; Data Structures to maintain information about loading state
@@ -236,7 +237,8 @@
      using (hash-value pgtable)
      do
        (with-slots (read rows errs secs) pgtable
-	 (format t *header-cols-format* table-name read rows errs secs))
+	 (format t *header-cols-format*
+		 table-name read rows errs (format-interval secs nil)))
      finally (when footer
 	       (report-pgstate-stats pgstate footer))))
 
