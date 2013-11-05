@@ -852,6 +852,22 @@ The `sqlite` command accepts the following clauses and options:
 	The names and values of the parameters are not validated by pgloader,
 	they are given as-is to PostgreSQL.
 
+  - *INCLUDING ONLY TABLE NAMES MATCHING*
+  
+	Introduce a comma separated list of table names or *regular expression*
+	used to limit the tables to migrate to a sublist.
+
+    Example:
+	
+	    INCLUDING ONLY TABLE NAMES MATCHING ~/film/, 'actor'
+
+  - *EXCLUDING TABLE NAMES MATCHING*
+  
+    Introduce a comma separated list of table names or *rugular expression*
+    used to exclude table names from the migration. This filter only applies
+    to the result of the *INCLUDING* filter.
+	
+	    EXCLUDING TABLE NAMES MATCHING ~<ory>
 
 ## TRANSFORMATION FUNCTIONS
 

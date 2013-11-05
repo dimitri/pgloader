@@ -735,9 +735,11 @@ load database
 
 (defrule load-sqlite-database (and sqlite-source target
 				   (? sqlite-options)
-				   (? gucs))
+				   (? gucs)
+				   (? including)
+				   (? excluding))
   (:lambda (source)
-    (destructuring-bind (sqlite-uri pg-db-uri options gucs) source
+    (destructuring-bind (sqlite-uri pg-db-uri options gucs incl excl) source
       (destructuring-bind (&key host port user password dbname table-name
 				&allow-other-keys)
 	  pg-db-uri
@@ -777,6 +779,8 @@ load database
 					    :state-before state-before
 					   ,@(when table-name
 					     `(:only-tables ',(list table-name)))
+					   :including ',incl
+					   :excluding ',excl
 					   ,@options)))))))
 
 

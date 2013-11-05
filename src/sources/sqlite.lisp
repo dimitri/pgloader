@@ -194,7 +194,9 @@
 			    include-drop
 			    create-indexes
 			    reset-sequences
-			    only-tables)
+			    only-tables
+			    including
+			    excluding)
   "Stream the given SQLite database down to PostgreSQL."
   (let* ((summary       (null *state*))
 	 (*state*       (or *state* (make-pgstate)))
@@ -202,14 +204,15 @@
 	 (idx-state     (make-pgstate))
 	 (seq-state     (make-pgstate))
          (copy-kernel   (make-kernel 2))
-         (all-columns   (list-all-columns (db sqlite)))
-         (all-indexes   (list-all-indexes (db sqlite)))
-	 (our-indexes   (if only-tables
-			    (loop for (table . indexes) in all-indexes
-			       when (member table only-tables :test #'string=)
-			       collect (cons table indexes))
-			    all-indexes))
-         (max-indexes   (loop for (table . indexes) in our-indexes
+         (all-columns   (filter-column-list (list-all-columns (db sqlite))
+					    :only-tables only-tables
+					    :including including
+					    :excluding excluding))
+         (all-indexes   (filter-column-list (list-all-indexes (db sqlite))
+					    :only-tables only-tables
+					    :including including
+					    :excluding excluding))
+         (max-indexes   (loop for (table . indexes) in all-indexes
                            maximizing (length indexes)))
          (idx-kernel    (when (and max-indexes (< 0 max-indexes))
 			  (make-kernel max-indexes)))
@@ -254,7 +257,7 @@
 	   ;; will get built in parallel --- not a big problem.
 	   (when create-indexes
 	     (let* ((indexes
-		     (cdr (assoc table-name our-indexes :test #'string=))))
+		     (cdr (assoc table-name all-indexes :test #'string=))))
 	       (create-indexes-in-kernel pg-dbname indexes
 					 idx-kernel idx-channel
 					 :state idx-state
@@ -277,7 +280,7 @@
       ;; wait until the indexes are done being built...
       ;; don't forget accounting for that waiting time.
       (with-stats-collection (pg-dbname "index build completion" :state *state*)
-	(loop for idx in our-indexes do (lp:receive-result idx-channel)))
+	(loop for idx in all-indexes do (lp:receive-result idx-channel)))
       (lp:end-kernel))
 
     ;; and report the total time spent on the operation
