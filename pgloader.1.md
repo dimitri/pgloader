@@ -156,8 +156,8 @@ Any command may contain comments, following those input rules:
   - the `--` delimiter begins a comment that ends with the end of the
     current line,
 	
-  - the delimiters `/*` and `/*/` respectively start and end a comment,
-    which can be found in the middle of a command or span several lines.
+  - the delimiters `/*` and `*/` respectively start and end a comment, which
+    can be found in the middle of a command or span several lines.
 
 Any place where you could enter a *whitespace* will accept a comment too.
 
