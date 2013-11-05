@@ -61,6 +61,7 @@
 (defgeneric copy-database (source
 			   &key
 			     truncate
+			     data-only
 			     schema-only
 			     create-tables
 			     include-drop

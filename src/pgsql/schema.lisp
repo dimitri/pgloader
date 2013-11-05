@@ -170,6 +170,7 @@
 				       :if-not-exists if-not-exists
 				       :identifier-case identifier-case
 				       :include-drop include-drop)
+     when sql
      do (pgsql-execute sql :client-min-messages client-min-messages)
      finally (return nb-tables)))
 

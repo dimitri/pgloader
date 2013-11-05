@@ -66,7 +66,9 @@
 			  ((:state *state*) *state*)
 			  transforms)
   "Fetch data from the QUEUE until we see :end-of-data. Update *state*"
-  (when truncate (truncate-table dbname table-name))
+  (when truncate
+    (log-message :notice "TRUNCATE ~a.~a;" dbname table-name)
+    (truncate-table dbname table-name))
 
   (log-message :debug "pgsql:copy-from-queue: ~a ~a ~a" dbname table-name columns)
 

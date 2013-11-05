@@ -190,6 +190,7 @@
 			    state-after
 			    state-indexes
 			    truncate
+			    data-only
 			    schema-only
 			    create-tables
 			    include-drop
@@ -229,7 +230,7 @@
 			    (lp:make-channel)))))
 
     ;; if asked, first drop/create the tables on the PostgreSQL side
-    (when create-tables
+    (when (and (or create-tables schema-only) (not data-only))
       (log-message :notice "~:[~;DROP then ~]CREATE TABLES" include-drop)
       (with-stats-collection (pg-dbname "create, drop"
 					:use-result-as-rows t
@@ -269,7 +270,7 @@
 	   ;; index build requires much more time than the others our
 	   ;; index build might get unsync: indexes for different tables
 	   ;; will get built in parallel --- not a big problem.
-	   (when create-indexes
+	   (when (and create-indexes (not data-only))
 	     (let* ((indexes
 		     (cdr (assoc table-name all-indexes :test #'string=))))
 	       (create-indexes-in-kernel pg-dbname table-name indexes
@@ -278,22 +279,27 @@
 					 :include-drop include-drop
 					 :identifier-case identifier-case)))))
 
-    ;; don't forget to reset sequences, but only when we did actually import
-    ;; the data.
-    (when (and (not schema-only) reset-sequences)
-      (reset-sequences all-columns
-		       :dbname pg-dbname
-		       :state state-after
-		       :identifier-case identifier-case))
-
     ;; now end the kernels
     (let ((lp:*kernel* copy-kernel))  (lp:end-kernel))
     (let ((lp:*kernel* idx-kernel))
       ;; wait until the indexes are done being built...
       ;; don't forget accounting for that waiting time.
-      (with-stats-collection (pg-dbname "Index Build Completion" :state *state*)
-	(loop for idx in all-indexes do (lp:receive-result idx-channel)))
+      (when (and create-indexes (not data-only))
+	(with-stats-collection (pg-dbname "Index Build Completion" :state *state*)
+	  (loop for idx in all-indexes do (lp:receive-result idx-channel))))
       (lp:end-kernel))
+
+    ;;
+    ;; Now Reset Sequences, the good time to do that is once the whole data
+    ;; has been imported and once we have the indexes in place, as max() is
+    ;; able to benefit from the indexes. In particular avoid doing that step
+    ;; while CREATE INDEX statements are in flight (avoid locking).
+    ;;
+    (when reset-sequences
+      (reset-sequences all-columns
+		       :dbname pg-dbname
+		       :state state-after
+		       :identifier-case identifier-case))
 
     ;;
     ;; Foreign Key Constraints
@@ -302,7 +308,7 @@
     ;; tables to be able to build the foreign keys, so wait until all tables
     ;; and indexes are imported before doing that.
     ;;
-    (when foreign-keys
+    (when (and foreign-keys (not data-only))
       (create-fkeys all-fkeys
 		    :dbname pg-dbname
 		    :state state-after

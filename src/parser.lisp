@@ -74,9 +74,11 @@
   (def-keyword-rule "column")
   (def-keyword-rule "type")
   (def-keyword-rule "extra")
+  (def-keyword-rule "include")
   (def-keyword-rule "drop")
   (def-keyword-rule "not")
   (def-keyword-rule "to")
+  (def-keyword-rule "no")
   (def-keyword-rule "null")
   (def-keyword-rule "default")
   (def-keyword-rule "using")
@@ -426,26 +428,33 @@
       (declare (ignore w e))
       (cons :workers (parse-integer (text nb))))))
 
-(defrule option-drop-tables (and kw-drop kw-tables)
-  (:constant (cons :include-drop t)))
+(defmacro make-option-rule (name rule &optional option)
+  "Generates a rule named NAME to parse RULE and return OPTION."
+  (let* ((bindings
+	  (loop for element in rule
+	     unless (member element '(and or))
+	     collect (if (and (typep element 'list)
+			      (eq '? (car element))) 'no (gensym))))
+	 (ignore (loop for b in bindings unless (eq 'no b) collect b))
+	 (option-name (intern (string-upcase (format nil "option-~a" name))))
+	 (option      (or option (intern (symbol-name name) :keyword))))
+    `(defrule ,option-name ,rule
+       (:destructure ,bindings
+		     (declare (ignore ,@ignore))
+		     (cons ,option (null no))))))
 
-(defrule option-truncate (and kw-truncate)
-  (:constant (cons :truncate t)))
+(make-option-rule include-drop    (and kw-include (? kw-no) kw-drop))
+(make-option-rule truncate        (and (? kw-no) kw-truncate))
+(make-option-rule create-tables   (and kw-create (? kw-no) kw-tables))
+(make-option-rule create-indexes  (and kw-create (? kw-no) kw-indexes))
+(make-option-rule reset-sequences (and kw-reset  (? kw-no) kw-sequences))
+(make-option-rule foreign-keys    (and (? kw-no) kw-foreign kw-keys))
 
 (defrule option-schema-only (and kw-schema kw-only)
   (:constant (cons :schema-only t)))
 
-(defrule option-create-tables (and kw-create kw-tables)
-  (:constant (cons :create-tables t)))
-
-(defrule option-create-indexes (and kw-create kw-indexes)
-  (:constant (cons :create-indexes t)))
-
-(defrule option-reset-sequences (and kw-reset kw-sequences)
-  (:constant (cons :reset-sequences t)))
-
-(defrule option-foreign-keys (and kw-foreign kw-keys)
-  (:constant (cons :foreign-keys t)))
+(defrule option-data-only (and kw-data kw-only)
+  (:constant (cons :data-only t)))
 
 (defrule option-identifiers-case (and (or kw-downcase kw-quote) kw-identifiers)
   (:lambda (id-case)
@@ -455,8 +464,9 @@
 
 (defrule mysql-option (or option-workers
 			  option-truncate
+			  option-data-only
 			  option-schema-only
-			  option-drop-tables
+			  option-include-drop
 			  option-create-tables
 			  option-create-indexes
 			  option-reset-sequences
@@ -783,7 +793,7 @@ load database
 |#
 (defrule sqlite-option (or option-truncate
 			  option-schema-only
-			  option-drop-tables
+			  option-include-drop
 			  option-create-tables
 			  option-create-indexes
 			  option-reset-sequences))

@@ -571,7 +571,7 @@ The `database` command accepts the following clauses and options:
     When loading from a `MySQL` database, the following options are
     supported:
 
-      - *drop table*
+      - *include drop*
 
 		When this option is listed, pgloader drop in the PostgreSQL
 		connection all the table whose names have been found in the MySQL
@@ -579,10 +579,19 @@ The `database` command accepts the following clauses and options:
 		times in a row until you figure out all the options, starting
 		automatically from a clean environment.
 
+      - *include no drop*
+	  
+	    When this option is listed, pgloader will not include any `DROP`
+	    statement when loading the data.
+
 	  - *truncate*
 
         When this option is listed, pgloader issue the `TRUNCATE` command
         against each PostgreSQL table just before loading data into it.
+		
+	  - *no truncate*
+	  
+		When this topion is listed, pgloader issues no `TRUNCATE` command.
 
 	  - *create tables*
 
@@ -591,11 +600,20 @@ The `database` command accepts the following clauses and options:
 		fields with their data type. A standard data type conversion from
 		DBF to PostgreSQL is done.
 
+      - *create no tables*
+	  
+	    When this option is listed, pgloader skips the creation of table
+	    before lading data, target tables must then already exist.
+
 	  - *create indexes*
 	  
 	    When this option is listed, pgloader gets the definitions of all the
 	    indexes found in the MySQL database and create the same set of index
 	    definitions against the PostgreSQL database.
+
+      - *create no indexes*
+	  
+	    When this option is listed, pgloader skips the creating indexes.
 
       - *foreign keys*
 	  
@@ -603,12 +621,27 @@ The `database` command accepts the following clauses and options:
 	    foreign keys found in the MySQL database and create the same set of
 	    foreign key definitions against the PostgreSQL database.
 
+      - *no foreign keys*
+	  
+	    When this option is listed, pgloader skips creating foreign keys.
+
 	  - *reset sequences*
 
         When this option is listed, at the end of the data loading and after
         the indexes have all been created, pgloader resets all the
         PostgreSQL sequences created to the current maximum value of the
         column they are attached to.
+		
+		The options *schema-only* and *data-ony* have no effects on this
+		option.
+
+      - *reset no sequences*
+	  
+	    When this option is listed, pgloader skips resetting sequences after
+	    the load.
+
+		The options *schema-only* and *data-ony* have no effects on this
+		option.
 
 	  - *downcase identifiers*
 
@@ -627,9 +660,14 @@ The `database` command accepts the following clauses and options:
 		 
 	  - *schema only*
 	  
-	    When this option is listed pgloader will refrain from migrating the
-	    data over. Note that the schema in this context includes the indexes
-	    when the option *create indexes* has been listed.
+	    When this option is listed pgloader refrains from migrating the data
+	    over. Note that the schema in this context includes the indexes when
+	    the option *create indexes* has been listed.
+		
+	  - *data-only*
+	  
+	    When this option is listed pgloader only issues the `COPY`
+	    statements, without doing any other processing.
 
   - *SET*
 
@@ -846,7 +884,7 @@ The `sqlite` command accepts the following clauses and options:
     When loading from a `SQLite` database, the following options are
     supported:
 
-      - *drop table*
+      - *include drop*
 
 		When this option is listed, pgloader drop in the PostgreSQL
 		connection all the table whose names have been found in the SQLite
@@ -854,10 +892,19 @@ The `sqlite` command accepts the following clauses and options:
 		times in a row until you figure out all the options, starting
 		automatically from a clean environment.
 
+      - *include no drop*
+	  
+	    When this option is listed, pgloader will not include any `DROP`
+	    statement when loading the data.
+
 	  - *truncate*
 
         When this option is listed, pgloader issue the `TRUNCATE` command
         against each PostgreSQL table just before loading data into it.
+
+	  - *no truncate*
+	  
+		When this topion is listed, pgloader issues no `TRUNCATE` command.
 
 	  - *create tables*
 
@@ -866,12 +913,21 @@ The `sqlite` command accepts the following clauses and options:
 		fields with their data type. A standard data type conversion from
 		DBF to PostgreSQL is done.
 
+      - *create no tables*
+	  
+	    When this option is listed, pgloader skips the creation of table
+	    before lading data, target tables must then already exist.
+
 	  - *create indexes*
 	  
 	     When this option is listed, pgloader gets the definitions of all
 	     the indexes found in the SQLite database and create the same set of
 	     index definitions against the PostgreSQL database.
 		  
+      - *create no indexes*
+	  
+	    When this option is listed, pgloader skips the creating indexes.
+		
 	  - *reset sequences*
 
         When this option is listed, at the end of the data loading and after
@@ -879,11 +935,24 @@ The `sqlite` command accepts the following clauses and options:
         PostgreSQL sequences created to the current maximum value of the
         column they are attached to.
 
+      - *reset no sequences*
+	  
+	    When this option is listed, pgloader skips resetting sequences after
+	    the load.
+
+		The options *schema-only* and *data-ony* have no effects on this
+		option.
+
 	  - *schema only*
 	  
 	     When this option is listed pgloader will refrain from migrating the
 	     data over. Note that the schema in this context includes the
 	     indexes when the option *create indexes* has been listed.
+
+	  - *data-only*
+	  
+	    When this option is listed pgloader only issues the `COPY`
+	    statements, without doing any other processing.
 
   - *SET*
 

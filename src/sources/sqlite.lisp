@@ -189,6 +189,7 @@
 			  &key
 			    state-before
 			    truncate
+			    data-only
 			    schema-only
 			    create-tables
 			    include-drop
@@ -222,7 +223,7 @@
 	 (pg-dbname     (target-db sqlite)))
 
     ;; if asked, first drop/create the tables on the PostgreSQL side
-    (when create-tables
+    (when (and (or create-tables schema-only) (not data-only))
       (log-message :notice "~:[~;DROP then ~]CREATE TABLES" include-drop)
       (with-stats-collection (pg-dbname "create, truncate"
 					:state state-before
@@ -232,8 +233,6 @@
 
     (loop
        for (table-name . columns) in all-columns
-       when (or (null only-tables)
-		(member table-name only-tables :test #'equal))
        do
 	 (let ((table-source
 		(make-instance 'copy-sqlite
@@ -255,7 +254,7 @@
 	   ;; index build requires much more time than the others our
 	   ;; index build might get unsync: indexes for different tables
 	   ;; will get built in parallel --- not a big problem.
-	   (when create-indexes
+	   (when (and create-indexes (not data-only))
 	     (let* ((indexes
 		     (cdr (assoc table-name all-indexes :test #'string=))))
 	       (create-indexes-in-kernel pg-dbname indexes
@@ -265,7 +264,7 @@
 
     ;; don't forget to reset sequences, but only when we did actually import
     ;; the data.
-    (when (and (not schema-only) reset-sequences)
+    (when reset-sequences
       (let ((tables (or only-tables
 			(mapcar #'car all-columns))))
 	(log-message :notice "Reset sequences")
@@ -279,8 +278,9 @@
     (let ((lp:*kernel* idx-kernel))
       ;; wait until the indexes are done being built...
       ;; don't forget accounting for that waiting time.
-      (with-stats-collection (pg-dbname "index build completion" :state *state*)
-	(loop for idx in all-indexes do (lp:receive-result idx-channel)))
+      (when (and create-indexes (not data-only))
+	(with-stats-collection (pg-dbname "index build completion" :state *state*)
+	 (loop for idx in all-indexes do (lp:receive-result idx-channel))))
       (lp:end-kernel))
 
     ;; and report the total time spent on the operation

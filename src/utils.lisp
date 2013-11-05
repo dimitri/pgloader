@@ -85,7 +85,11 @@
      (< 0 days)   days
      (< 0 hours)  hours
      (< 0 mins)   mins
-     (+ secs (- seconds secs)))))
+     (+ secs (- (multiple-value-bind (r q)
+		    (truncate seconds 60)
+		  (declare (ignore r))
+		  q)
+		secs)))))
 
 ;;;
 ;;; Data Structures to maintain information about loading state
@@ -192,7 +196,7 @@
 ;;; Pretty print a report while doing bulk operations
 ;;;
 (defvar *header-line*
-  "~&------------------------------  ---------  ---------  ---------  ---------")
+  "~&------------------------------  ---------  ---------  ---------  --------------")
 
 (defvar *header-tname-format* "~&~30@a")
 (defvar *header-stats-format* "  ~9@a  ~9@a  ~9@a  ~14@a")
@@ -286,6 +290,14 @@
   (incf (pgloader.utils::pgstate-secs state)
 	(+ (if before  (pgloader.utils::pgstate-secs before)  0)
 	   (if finally (pgloader.utils::pgstate-secs finally) 0)))
+
+  ;; if the parallel tasks took longer than the rest cumulated, the total
+  ;; waiting time actually was parallel - before
+  (when (< (pgloader.utils::pgstate-secs state)
+	   (pgloader.utils::pgstate-secs parallel))
+    (setf (pgloader.utils::pgstate-secs state)
+	  (- (pgloader.utils::pgstate-secs parallel)
+	     (pgloader.utils::pgstate-secs before))))
 
   ;; and report the Grand Total
   (report-pgstate-stats state legend))
