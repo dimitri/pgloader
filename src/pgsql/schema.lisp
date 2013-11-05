@@ -171,7 +171,7 @@
 
 
 ;;;
-;;; Index support: TODO
+;;; Index support
 ;;;
 (defun create-index-sql (table-name table-oid index-name unique cols
 			 &key identifier-case)
@@ -227,6 +227,11 @@
      collect (create-index-sql table-name table-oid index-name unique cols
 			       :identifier-case identifier-case)))
 
+
+;;;
+;;; TODO: see if that's general enough now to be used in SQLite and MySQL
+;;; database sources
+;;;
 (defun create-indexes-in-kernel (dbname table-name indexes kernel channel
 				 &key
 				   identifier-case include-drop
