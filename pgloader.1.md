@@ -149,6 +149,18 @@ you're trying to input. If your expression is such that none of the
 solutions allow you to enter it, the places where such expressions are
 allowed should allow for a list of expressions.
 
+### Comments
+
+Any command may contain comments, following those input rules:
+
+  - the `--` delimiter begins a comment that ends with the end of the
+    current line,
+	
+  - the delimiters `/*` and `/*/` respectively start and end a comment,
+    which can be found in the middle of a command or span several lines.
+
+Any place where you could enter a *whitespace* will accept a comment too.
+
 ## LOAD CSV
 
 This command instructs pgloader to load data from a `CSV` file. Here's an
@@ -519,19 +531,26 @@ appended to by the command.
 
 Here's an example:
 
-    load database
-	   from mysql://localhost/adv
-       into postgresql:///adv
+    LOAD DATABASE
+         FROM      mysql://root@localhost/sakila
+         INTO postgresql://localhost:54393/sakila
     
-    with drop tables, truncate, create tables, create indexes,
-         reset sequences,
-         downcase identifiers
+     WITH drop tables, create tables, create indexes, reset sequences
     
-     set work_mem to '128MB', maintenance_work_mem to '512 MB'
+      SET maintenance_work_mem to '128MB',
+          work_mem to '12MB',
+          search_path to 'sakila'
     
-    cast type datetime to timestamptz drop default using zero-dates-to-null,
-         type date drop not null drop default using zero-dates-to-null,
-         type tinyint to boolean using tinyint-to-boolean;
+     CAST type datetime to timestamptz drop default drop not null using zero-dates-to-null,
+          type date drop not null drop default using zero-dates-to-null,
+          -- type tinyint to boolean using tinyint-to-boolean,
+          type year to integer
+    
+     -- INCLUDING ONLY TABLE NAMES MATCHING ~/film/, 'actor'
+     -- EXCLUDING TABLE NAMES MATCHING ~<ory>
+    
+     BEFORE LOAD DO
+     $$ create schema if not exists sakila; $$;
 
 The `database` command accepts the following clauses and options:
 
@@ -660,6 +679,23 @@ The `database` command accepts the following clauses and options:
     to the result of the *INCLUDING* filter.
 	
 	    EXCLUDING TABLE NAMES MATCHING ~<ory>
+
+  - *BEFORE LOAD DO*
+
+	 You can run SQL queries against the database before loading the data
+	 from the `MySQL` database. You can use that clause to execute a `CREATE
+	 SCHEMA IF NOT EXISTS` command in case you want to load your data into
+	 some specific schema. To ensure your load happens in the right schema,
+	 consider setting the `search_path` in the *SET* clause.
+	 
+	 Each command must be *dollar-quoted*: it must begin and end with a
+	 double dollar sign, `$$`. Dollar-quoted queries are then comma
+	 separated. No extra punctuation is expected after the last SQL query.
+  
+  - *AFTER LOAD DO*
+
+	Same format as *BEFORE LOAD DO*, the dollar-quoted queries found in that
+	section are executed once the load is done.
 
 ### LIMITATIONS
 

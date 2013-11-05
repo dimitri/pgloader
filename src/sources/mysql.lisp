@@ -186,6 +186,9 @@
 
 (defmethod copy-database ((mysql copy-mysql)
 			  &key
+			    state-before
+			    state-after
+			    state-indexes
 			    truncate
 			    schema-only
 			    create-tables
@@ -197,9 +200,10 @@
 			    including
 			    excluding)
   "Export MySQL data and Import it into PostgreSQL"
-  (let* ((*state*       (make-pgstate))
-	 (idx-state     (make-pgstate))
-	 (seq-state     (make-pgstate))
+  (let* ((summary       (null *state*))
+	 (*state*       (or *state*       (make-pgstate)))
+	 (idx-state     (or state-indexes (make-pgstate)))
+	 (seq-state     (or state-after   (make-pgstate)))
          (copy-kernel   (make-kernel 2))
 	 (dbname        (source-db mysql))
 	 (pg-dbname     (target-db mysql))
@@ -222,10 +226,13 @@
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (when create-tables
       (log-message :notice "~:[~;DROP then ~]CREATE TABLES" include-drop)
-      (with-pgsql-transaction (pg-dbname)
-	(create-tables all-columns
-		       :identifier-case identifier-case
-		       :include-drop include-drop)))
+      (with-stats-collection (pg-dbname "create, drop"
+					:use-result-as-rows t
+					:state state-before)
+       (with-pgsql-transaction (pg-dbname)
+	 (create-tables all-columns
+			:identifier-case identifier-case
+			:include-drop include-drop))))
 
     (loop
        for (table-name . columns) in all-columns
@@ -282,14 +289,11 @@
       (lp:end-kernel))
 
     ;; and report the total time spent on the operation
-    (report-summary)
-    (format t pgloader.utils::*header-line*)
-    (report-summary :state idx-state :header nil :footer nil)
-    (report-summary :state seq-state :header nil :footer nil)
-    ;; don't forget to add up the RESET SEQUENCES timings
-    (incf (pgloader.utils::pgstate-secs *state*)
-	  (pgloader.utils::pgstate-secs seq-state))
-    (report-pgstate-stats *state* "Total streaming time")))
+    (when summary
+     (report-full-summary "Total streaming time" *state*
+			  :before   state-before
+			  :finally  seq-state
+			  :parallel idx-state))))
 
 
 ;;;

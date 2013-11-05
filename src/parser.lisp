@@ -511,6 +511,63 @@
       gucs)))
 
 
+#|
+       BEFORE LOAD DO $$ sql $$
+
+        LOAD CSV FROM '*/GeoLiteCity-Blocks.csv'      ...
+        LOAD DBF FROM '*/GeoLiteCity-Location.csv'    ...
+
+       FINALLY DO     $$ sql $$;
+|#
+(defrule double-dollar (and ignore-whitespace #\$ #\$ ignore-whitespace)
+  (:constant :double-dollars))
+
+(defrule dollar-quoted (and double-dollar (* (not double-dollar)) double-dollar)
+  (:lambda (dq)
+    (destructuring-bind (open quoted close) dq
+      (declare (ignore open close))
+      (text quoted))))
+
+(defrule another-dollar-quoted (and ignore-whitespace #\, dollar-quoted)
+  (:lambda (source)
+    (destructuring-bind (ws comma quoted) source
+      (declare (ignore ws comma))
+      quoted)))
+
+(defrule dollar-quoted-list (and dollar-quoted (* another-dollar-quoted))
+  (:lambda (source)
+    (destructuring-bind (dq1 dqs) source
+      (list* dq1 dqs))))
+
+(defrule before-load-do (and kw-before kw-load kw-do dollar-quoted-list)
+  (:lambda (bld)
+    (destructuring-bind (before load do quoted) bld
+      (declare (ignore before load do))
+      quoted)))
+
+(defrule finally-do (and kw-finally kw-do dollar-quoted-list)
+  (:lambda (fd)
+    (destructuring-bind (finally do quoted) fd
+      (declare (ignore finally do))
+      quoted)))
+
+(defrule after-load-do (and kw-after kw-load kw-do dollar-quoted-list)
+  (:lambda (fd)
+    (destructuring-bind (after load do quoted) fd
+      (declare (ignore after load do))
+      quoted)))
+
+(defun sql-code-block (dbname state commands label)
+  "Return lisp code to run COMMANDS against DBNAME, updating STATE."
+  (when commands
+    `(with-stats-collection (,dbname ,label :state ,state)
+       (with-pgsql-transaction (,dbname)
+	 (loop for command in ',commands
+	    do
+	      (log-message :notice command)
+	      (pgsql-execute command :client-min-messages :error))))))
+
+
 ;;;
 ;;; Now parsing CAST rules for migrating from MySQL
 ;;;
@@ -640,9 +697,15 @@
 				  (? gucs)
 				  (? casts)
 				  (? including)
-				  (? excluding))
+				  (? excluding)
+				  (? before-load-do)
+				  (? after-load-do))
   (:lambda (source)
-    (destructuring-bind (my-db-uri pg-db-uri options gucs casts incl excl) source
+    (destructuring-bind (my-db-uri pg-db-uri options
+				   gucs casts
+				   incl excl
+				   before after)
+	source
       (destructuring-bind (&key ((:host myhost))
 				((:port myport))
 				((:user myuser))
@@ -659,7 +722,11 @@
 				  &allow-other-keys)
 	    pg-db-uri
 	  `(lambda ()
-	     (let* ((pgloader.mysql:*cast-rules* ',casts)
+	     (let* ((state-before  ,(when before `(pgloader.utils:make-pgstate)))
+		    (*state*       (or *state* (pgloader.utils:make-pgstate)))
+		    (state-idx     (pgloader.utils:make-pgstate))
+		    (state-after   ,(when after `(pgloader.utils:make-pgstate)))
+		    (pgloader.mysql:*cast-rules* ',casts)
 		    (*myconn-host* ,myhost)
 		    (*myconn-port* ,myport)
 		    (*myconn-user* ,myuser)
@@ -675,12 +742,25 @@
 		     (make-instance 'pgloader.mysql::copy-mysql
 				    :target-db ,pgdb
 				    :source-db ,mydb)))
+
+	       ,(sql-code-block pgdb 'state-before before "before load")
+
 	       (pgloader.mysql:copy-database source
 					     ,@(when table-name
 					       `(:only-tables ',(list table-name)))
 					     :including ',incl
 					     :excluding ',excl
-					     ,@options))))))))
+					     :state-before state-before
+					     :state-after state-after
+					     :state-indexes state-idx
+					     ,@options)
+
+	       ,(sql-code-block pgdb 'state-after after "after load")
+
+	       (report-full-summary "Total import time" *state*
+				    :before   state-before
+				    :finally  state-after
+				    :parallel state-idx))))))))
 
 
 ;;;
@@ -1003,66 +1083,8 @@ load database
 					 :state-before state-before
 					 ,@options)
 
-	     (report-full-summary *state* state-before nil
-				  "Total import time")))))))
-
-
-#|
-       BEFORE LOAD DO $$ sql $$
-
-        LOAD CSV FROM '*/GeoLiteCity-Blocks.csv'      ...
-        LOAD DBF FROM '*/GeoLiteCity-Location.csv'    ...
-
-       FINALLY DO     $$ sql $$;
-|#
-(defrule double-dollar (and ignore-whitespace #\$ #\$ ignore-whitespace)
-  (:constant :double-dollars))
-
-(defrule dollar-quoted (and double-dollar (* (not double-dollar)) double-dollar)
-  (:lambda (dq)
-    (destructuring-bind (open quoted close) dq
-      (declare (ignore open close))
-      (text quoted))))
-
-(defrule another-dollar-quoted (and ignore-whitespace #\, dollar-quoted)
-  (:lambda (source)
-    (destructuring-bind (ws comma quoted) source
-      (declare (ignore ws comma))
-      quoted)))
-
-(defrule dollar-quoted-list (and dollar-quoted (* another-dollar-quoted))
-  (:lambda (source)
-    (destructuring-bind (dq1 dqs) source
-      (list* dq1 dqs))))
-
-(defrule before-load-do (and kw-before kw-load kw-do dollar-quoted-list)
-  (:lambda (bld)
-    (destructuring-bind (before load do quoted) bld
-      (declare (ignore before load do))
-      quoted)))
-
-(defrule finally-do (and kw-finally kw-do dollar-quoted-list)
-  (:lambda (fd)
-    (destructuring-bind (finally do quoted) fd
-      (declare (ignore finally do))
-      quoted)))
-
-(defrule after-load-do (and kw-after kw-load kw-do dollar-quoted-list)
-  (:lambda (fd)
-    (destructuring-bind (after load do quoted) fd
-      (declare (ignore after load do))
-      quoted)))
-
-
-(defun sql-code-block (dbname state commands label)
-  "Return lisp code to run COMMANDS against DBNAME, updating STATE."
-  (when commands
-    `(with-stats-collection (,dbname ,label :state ,state)
-       (with-pgsql-transaction (,dbname)
-	 (loop for command in ',commands
-	    do
-	      (log-message :notice command)
-	      (pgsql-execute command :client-min-messages :error))))))
+	     (report-full-summary "Total import time" *state*
+				  :before state-before)))))))
 
 
 #|
@@ -1430,8 +1452,9 @@ load database
 
 	       ;; reporting
 	       (when summary
-		 (report-full-summary *state* state-before state-after
-				      "Total import time")))))))))
+		 (report-full-summary "Total import time" *state*
+				      :before  state-before
+				      :finally state-after)))))))))
 
 
 ;;;
@@ -1498,8 +1521,9 @@ load database
 	       ,(sql-code-block dbname 'state-finally finally "finally")
 
 	       ;; reporting
-	       (report-full-summary *state* state-before state-finally
-				    "Total import time"))))))))
+	       (report-full-summary "Total import time" *state*
+				    :before state-before
+				    :finally state-finally))))))))
 
 
 ;;;

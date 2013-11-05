@@ -260,31 +260,30 @@
 	   ,result)
        (when ,summary (report-summary)))))
 
-(defun report-full-summary (state state-before state-finally legend)
+(defun report-full-summary (legend state
+			    &key before finally parallel)
   "Report the full story when given three different sections of reporting."
 
   ;; BEFORE
-  (if state-before
+  (if before
     (progn
-      (report-summary :state state-before :footer nil)
+      (report-summary :state before :footer nil)
       (format t pgloader.utils::*header-line*)
       (report-summary :state state :header nil :footer nil))
     ;; no state before
     (report-summary :state state :footer nil))
 
-  (when state-finally
-    (progn
-      (format t pgloader.utils::*header-line*)
-      (report-summary :state state-finally :header nil :footer nil)))
+  (when (or finally parallel)
+    (format t pgloader.utils::*header-line*)
+    (when parallel
+      (report-summary :state parallel :header nil :footer nil))
+    (when finally
+      (report-summary :state finally :header nil :footer nil)))
 
-  ;; add to the grand total the other sections
+  ;; add to the grand total the other sections, except for the parallel one
   (incf (pgloader.utils::pgstate-secs state)
-	(+ (if state-before
-	       (pgloader.utils::pgstate-secs state-before)
-	       0)
-	   (if state-finally
-	       (pgloader.utils::pgstate-secs state-finally)
-	       0)))
+	(+ (if before  (pgloader.utils::pgstate-secs before)  0)
+	   (if finally (pgloader.utils::pgstate-secs finally) 0)))
 
   ;; and report the Grand Total
   (report-pgstate-stats state legend))
