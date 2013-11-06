@@ -535,7 +535,7 @@ Here's an example:
          FROM      mysql://root@localhost/sakila
          INTO postgresql://localhost:54393/sakila
     
-     WITH drop tables, create tables, create indexes, reset sequences
+     WITH include drop, create tables, create indexes, reset sequences
     
       SET maintenance_work_mem to '128MB',
           work_mem to '12MB',
@@ -758,10 +758,6 @@ the following limitations:
   
 	The difficulty of doing so is not yet assessed.
 	
-  - Foreign Keys are not migrated
-  
-    It's on the roadmap, it's just not done yet.
-  
   - `ON UPDATE CURRENT_TIMESTAMP` is currently not migrated
   
 	It's simple enough to implement, just not on the priority list yet.
