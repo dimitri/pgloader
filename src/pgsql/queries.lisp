@@ -15,10 +15,14 @@
 	   (set-session-gucs *pg-settings* :transaction t)
 	   (progn ,@forms)))
       ;; no database given, create a new database connection
-      `(pomo:with-connection (get-connection-spec ,dbname)
-	 (set-session-gucs *pg-settings*)
-	 (pomo:with-transaction ()
-	   (progn ,@forms)))))
+      `(handler-case
+	   (pomo:with-connection (get-connection-spec ,dbname)
+	     (set-session-gucs *pg-settings*)
+	     (pomo:with-transaction ()
+	       (progn ,@forms)))
+	 (CL-POSTGRES:DATABASE-CONNECTION-LOST (e)
+	   (log-message :error "PostgreSQL Error: ~a" e)
+	   (error e)))))
 
 (defun get-connection-spec (dbname &key (with-port t))
   "pomo:with-connection and cl-postgres:open-database and open-db-writer are
