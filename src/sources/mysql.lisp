@@ -238,6 +238,10 @@
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (when (and (or create-tables schema-only) (not data-only))
       (log-message :notice "~:[~;DROP then ~]CREATE TABLES" include-drop)
+      (log-message :debug  (if include-drop
+			       "drop then create ~d tables with ~d indexes."
+			       "create ~d tables with ~d indexes.")
+		   (length all-columns) (length all-indexes))
       (with-stats-collection (pg-dbname "create, drop"
 					:use-result-as-rows t
 					:state state-before)

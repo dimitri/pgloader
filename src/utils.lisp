@@ -8,31 +8,50 @@
 ;;;
 ;;; First define the log categories
 (defcategory :critical)
-(defcategory :error   (or :error :critical))
+(defcategory :log     (or :log :critical))
+(defcategory :error   (or :error :log))
 (defcategory :warning (or :warning :error))
 (defcategory :notice  (or :notice :warning))
 (defcategory :info    (or :info :notice))
 (defcategory :debug   (or :debug :info))
 
-;; Now define the Logger
-(setf (log-manager)
-      (make-instance 'log-manager :message-class 'formatted-message))
+(defvar *log-messengers* nil
+  "Currently active log-messengers")
 
 ;; Start a messenger to store our message into
-(defun start-logger (&key (log-filename *log-filename*))
-  "Start the parch log manager and messenger."
-  (let ((log-pathname (typecase log-filename
-			(string (pathname log-filename))
-			(t      log-filename))))
-    (ensure-directories-exist (directory-namestring log-filename))
-    (cl-log:start-messenger 'text-file-messenger
-			    :filter *log-min-messages*
-			    :filename log-filename)
-    (cl-log:start-messenger 'text-stream-messenger
-			    :filter *client-min-messages*
-			    :stream *standard-output*)
-    (format t "~&Now logging in '~a'.~%" log-pathname)
-    (log-message :notice "Starting pgloader, log system is ready.")))
+(defun start-logger (&key
+		       (log-filename *log-filename*)
+		       ((:log-min-messages *log-min-messages*) *log-min-messages*)
+		       ((:client-min-messages *client-min-messages*) *client-min-messages*))
+  "Start the pgloader log manager and messenger."
+
+  (setf (log-manager)
+	(make-instance 'log-manager
+		       :message-class 'formatted-message))
+
+  ;; we need an existing place where to log our messages
+  (ensure-directories-exist (directory-namestring log-filename))
+
+  (push (cl-log:start-messenger 'text-file-messenger
+				:name "logfile"
+				:filter *log-min-messages*
+				:filename log-filename)
+	*log-messengers*)
+
+  (push (cl-log:start-messenger 'text-stream-messenger
+				:name "client"
+				:filter *client-min-messages*
+				:stream *standard-output*)
+	*log-messengers*)
+
+  (log-message :log "Starting pgloader, log system is ready."))
+
+(defun stop-logger ()
+  "Stop the pgloader manager and messengers."
+
+  (loop for messenger = (pop *log-messengers*)
+     while messenger
+     do (cl-log:stop-messenger messenger)))
 
 ;; monkey patch the print-object method for cl-log timestamp
 (defconstant +nsec+ (* 1000 1000 1000)

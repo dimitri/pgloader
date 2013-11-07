@@ -1718,6 +1718,8 @@ load database
   "The command could be using from :inline, in which case we want to parse
    as much as possible then use the command against an already opened stream
    where we moved at the beginning of the data."
+  (log-message :notice "Parsing commands from file '~s'~%" filename)
+
   (let ((*data-expected-inline* nil)
 	(content (slurp-file-into-string filename)))
     (multiple-value-bind (commands end-commands-position)
@@ -1753,10 +1755,17 @@ load database
 
 (defun run-commands (source
 		     &key
+		       ((:log-filename *log-filename*) *log-filename*)
+		       ((:log-min-messages *log-min-messages*) *log-min-messages*)
 		       ((:client-min-messages *client-min-messages*) *client-min-messages*))
   "SOURCE can be a function, which is run, a list, which is compiled as CL
    code then run, a pathname containing one or more commands that are parsed
    then run, or a commands string that is then parsed and each command run."
+
+  (start-logger :log-filename *log-filename*
+		:log-min-messages *log-min-messages*
+		:client-min-messages *client-min-messages*)
+
   (let* ((funcs
 	  (typecase source
 	    (function (list source))
@@ -1772,7 +1781,10 @@ load database
 				  (parse-commands source)))))))
 
     ;; run the commands
-    (loop for func in funcs do (funcall func))))
+    (loop for func in funcs do (funcall func))
+
+    ;; close the logs
+    (stop-logger)))
 
 
 ;;;
