@@ -153,7 +153,7 @@ order by table_name, ordinal_position" dbname only-tables)))
        (progn
 	 (loop
 	    with schema = nil
-	    for (table-name . index-def)
+	    for (table-name name non-unique cols)
 	    in (caar (cl-mysql:query (format nil "
   SELECT table_name, index_name, non_unique,
          GROUP_CONCAT(column_name order by seq_in_index)
@@ -161,15 +161,15 @@ order by table_name, ordinal_position" dbname only-tables)))
    WHERE table_schema = '~a'
 GROUP BY table_name, index_name;" dbname)))
 	    do (let ((entry (assoc table-name schema :test 'equal))
-		     (index-def
-		      (destructuring-bind (index-name non-unique cols)
-			  index-def
-			(list index-name
-			      (not (= 1 non-unique))
-			      (sq:split-sequence #\, cols)))))
+		     (index
+		      (make-pgsql-index :name name
+					:primary (string= name "PRIMARY")
+					:table-name table-name
+					:unique (not (= 1 non-unique))
+					:columns (sq:split-sequence #\, cols))))
 		 (if entry
-		     (push index-def (cdr entry))
-		     (push (cons table-name (list index-def)) schema)))
+		     (push index (cdr entry))
+		     (push (cons table-name (list index)) schema)))
 	    finally
 	      ;; we did push, we need to reverse here
 	      (return (reverse (loop

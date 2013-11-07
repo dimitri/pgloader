@@ -151,44 +151,6 @@
 ;;;
 ;;; Work on all tables for given database
 ;;;
-(defun create-indexes-in-kernel (dbname table-name indexes kernel channel
-				 &key
-				   identifier-case include-drop
-				   state (label "Create Indexes"))
-  "Create indexes for given table in dbname, using given lparallel KERNEL
-   and CHANNEL so that the index build happen in concurrently with the data
-   copying."
-  (let* ((lp:*kernel* kernel)
-	 (table-oid
-	  (with-pgsql-transaction (dbname)
-	    (pomo:query
-	     (format nil "select '~a'::regclass::oid" table-name) :single))))
-    (pgstate-add-table state dbname label)
-
-    (when include-drop
-      (let ((drop-channel (lp:make-channel))
-	    (drop-indexes
-	     (drop-index-sql-list table-name table-oid indexes
-				  :identifier-case identifier-case)))
-	(loop
-	   for sql in drop-indexes
-	   do
-	     (log-message :notice "~a" sql)
-	     (lp:submit-task drop-channel
-			     #'pgsql-execute-with-timing
-			     dbname label sql state))
-
-	;; wait for the DROP INDEX to be done before issuing CREATE INDEX
-	(loop for idx in drop-indexes do (lp:receive-result drop-channel))))
-
-    (loop
-       for sql in (create-index-sql-list table-name table-oid indexes
-					 :identifier-case identifier-case)
-       do
-	 (log-message :notice "~a" sql)
-	 (lp:submit-task channel #'pgsql-execute-with-timing
-			 dbname label sql state))))
-
 (defmethod copy-database ((mysql copy-mysql)
 			  &key
 			    state-before
@@ -219,10 +181,10 @@
 					    :only-tables only-tables
 					    :including including
 					    :excluding excluding))
-	 (all-fkeys    (filter-column-list (list-all-fkeys dbname)
-					   :only-tables only-tables
-					   :including including
-					   :excluding excluding))
+	 (all-fkeys     (filter-column-list (list-all-fkeys dbname)
+					    :only-tables only-tables
+					    :including including
+					    :excluding excluding))
          (all-indexes   (filter-column-list (list-all-indexes dbname)
 					    :only-tables only-tables
 					    :including including
@@ -284,10 +246,10 @@
 	   (when (and create-indexes (not data-only))
 	     (let* ((indexes
 		     (cdr (assoc table-name all-indexes :test #'string=))))
-	       (create-indexes-in-kernel pg-dbname table-name indexes
+	       (create-indexes-in-kernel pg-dbname indexes
 					 idx-kernel idx-channel
+					 :with-oids t
 					 :state idx-state
-					 :include-drop include-drop
 					 :identifier-case identifier-case)))))
 
     ;; now end the kernels

@@ -69,8 +69,10 @@
 	   #:make-pgsql-fkey
 	   #:format-pgsql-create-fkey
 	   #:format-pgsql-drop-fkey
-	   #:drop-index-sql-list
-	   #:create-index-sql-list))
+	   #:make-pgsql-index
+	   #:index-table-name
+	   #:format-pgsql-create-index
+	   #:create-indexes-in-kernel))
 
 (defpackage #:pgloader.ini
   (:use #:cl #:pgloader.params #:pgloader.utils)
@@ -163,8 +165,9 @@
 		#:make-pgsql-fkey
 		#:format-pgsql-create-fkey
 		#:format-pgsql-drop-fkey
-		#:drop-index-sql-list
-		#:create-index-sql-list)
+		#:make-pgsql-index
+		#:format-pgsql-create-index
+		#:create-indexes-in-kernel)
   (:export #:copy-mysql
 	   #:*cast-rules*
 	   #:*default-cast-rules*
@@ -185,7 +188,11 @@
 		#:pgsql-execute-with-timing
 		#:apply-identifier-case
 		#:create-tables
-		#:format-pgsql-column)
+		#:format-pgsql-column
+		#:make-pgsql-index
+		#:index-table-name
+		#:format-pgsql-create-index
+		#:create-indexes-in-kernel)
   (:export #:copy-sqlite
 	   #:map-rows
 	   #:copy-to

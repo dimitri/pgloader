@@ -44,16 +44,28 @@
   (loop for table-name in (list-tables db)
      collect (cons table-name (list-columns table-name db))))
 
+(defstruct sqlite-idx name table-name sql)
+
+(defmethod index-table-name ((index sqlite-idx))
+  (sqlite-idx-table-name index))
+
+(defmethod format-pgsql-create-index ((index sqlite-idx) &key identifier-case)
+  "Generate the PostgresQL statement to build the given SQLite index definition."
+  (declare (ignore identifier-case))
+  (sqlite-idx-sql index))
+
 (defun list-all-indexes (&optional (db *sqlite-db*))
   "Get the list of SQLite index definitions per table."
   (let ((sql "SELECT name, tbl_name, sql FROM sqlite_master WHERE type='index'"))
     (loop with schema = nil
        for (index-name table-name sql) in (sqlite:execute-to-list db sql)
-	 do (let ((entry  (assoc table-name schema :test 'equal))
-		  (idxdef (cons index-name sql)))
-	      (if entry
-		  (push idxdef (cdr entry))
-		  (push (cons table-name (list idxdef)) schema)))
+       do (let ((entry  (assoc table-name schema :test 'equal))
+		(idxdef (make-sqlite-idx :name index-name
+					 :table-name table-name
+					 :sql sql)))
+	    (if entry
+		(push idxdef (cdr entry))
+		(push (cons table-name (list idxdef)) schema)))
        finally (return (reverse (loop for (name . indexes) in schema
 				     collect (cons name (reverse indexes))))))))
 
@@ -98,6 +110,8 @@
 		 collect #'pgloader.transforms::float-to-string
 		 else
 		 collect nil))))))
+
+
 
 ;;;
 ;;; Map a function to each row extracted from SQLite
@@ -152,38 +166,6 @@
 	 finally
 	   (log-message :info "COPY ~a done." table-name)
 	   (unless k-s-p (lp:end-kernel))))))
-
-(defun create-indexes-in-kernel (dbname indexes kernel channel
-				 &key include-drop state (label "create index"))
-  "Create indexes for given table in dbname, using given lparallel KERNEL
-   and CHANNEL so that the index build happen in concurrently with the data
-   copying."
-  (let* ((lp:*kernel* kernel))
-    (pgstate-add-table state dbname label)
-
-    (when include-drop
-      (let ((drop-channel (lp:make-channel))
-	    (drop-indexes
-	     (loop for (name . sql) in indexes
-		collect (format nil "DROP INDEX IF EXISTS ~a;" name))))
-	(loop
-	   for sql in drop-indexes
-	   do
-	     (log-message :notice "~a" sql)
-	     (lp:submit-task drop-channel
-			     #'pgsql-execute-with-timing
-			     dbname label sql state))
-
-	;; wait for the DROP INDEX to be done before issuing CREATE INDEX
-	(loop for idx in drop-indexes do (lp:receive-result drop-channel))))
-
-    (loop
-       for (name . sql) in indexes
-       do
-	 (log-message :notice "~a" sql)
-	 (lp:submit-task channel
-			 #'pgsql-execute-with-timing
-			 dbname label sql state))))
 
 (defmethod copy-database ((sqlite copy-sqlite)
 			  &key
@@ -259,8 +241,7 @@
 		     (cdr (assoc table-name all-indexes :test #'string=))))
 	       (create-indexes-in-kernel pg-dbname indexes
 					 idx-kernel idx-channel
-					 :state idx-state
-					 :include-drop include-drop)))))
+					 :state idx-state)))))
 
     ;; don't forget to reset sequences, but only when we did actually import
     ;; the data.

@@ -171,107 +171,93 @@
 				       :identifier-case identifier-case
 				       :include-drop include-drop)
      when sql
-     do (pgsql-execute sql :client-min-messages client-min-messages)
+     do
+       (log-message :info "~a" sql)
+       (pgsql-execute sql :client-min-messages client-min-messages)
      finally (return nb-tables)))
 
 
 ;;;
 ;;; Index support
 ;;;
-(defun create-index-sql (table-name table-oid index-name unique cols
-			 &key identifier-case)
-  "Return a PostgreSQL CREATE INDEX statement as a string."
-  (let* ((index-name (format nil "idx_~a_~a" table-oid index-name))
-	 (table-name (apply-identifier-case table-name identifier-case))
-	 (index-name (apply-identifier-case index-name identifier-case))
+(defstruct pgsql-index name table-name table-oid primary unique columns)
+
+(defgeneric index-table-name (index)
+  (:documentation
+   "Return the name of the table to attach this index to."))
+
+(defgeneric format-pgsql-create-index (index &key identifier-case)
+  (:documentation
+   "Return the PostgreSQL command to define an Index."))
+
+(defmethod index-table-name ((index pgsql-index))
+  (pgsql-index-table-name index))
+
+(defmethod format-pgsql-create-index ((index pgsql-index) &key identifier-case)
+  "Generate the PostgreSQL statement to rebuild a MySQL Foreign Key"
+  (let* ((index-name (format nil "index_~a_~a"
+			     (pgsql-index-table-oid index)
+			     (pgsql-index-name index)))
+	 (table-name
+	  (apply-identifier-case (pgsql-index-table-name index) identifier-case))
+
+	 (index-name
+	  (apply-identifier-case index-name identifier-case))
+
 	 (cols
-	  (mapcar
-	   (lambda (col) (apply-identifier-case col identifier-case)) cols)))
+	  (mapcar (lambda (col) (apply-identifier-case col identifier-case))
+		  (pgsql-index-columns index))))
     (cond
-      ((string= index-name "PRIMARY")
+      ((pgsql-index-primary index)
        (format nil
 	       "ALTER TABLE ~a ADD PRIMARY KEY (~{~a~^, ~});" table-name cols))
 
       (t
-       (format nil
-	       "CREATE~:[~; UNIQUE~] INDEX ~a ON ~a (~{~a~^, ~});"
-	       unique index-name table-name cols)))))
+       (format nil "CREATE~:[~; UNIQUE~] INDEX ~a ON ~a (~{~a~^, ~});"
+	       (pgsql-index-unique index)
+	       index-name
+	       table-name
+	       cols)))))
 
-(defun drop-index-if-exists-sql (table-name table-oid index-name
-				 &key identifier-case)
-  "Return the DROP INDEX statement for PostgreSQL"
-  (cond
-    ((string= index-name "PRIMARY")
-     (let* ((pkey-name  (format nil "~a_pkey" table-name))
-	    (pkey-name  (apply-identifier-case pkey-name identifier-case))
-	    (table-name (apply-identifier-case table-name identifier-case)))
-       (format nil "ALTER TABLE ~a DROP CONSTRAINT ~a;" table-name pkey-name)))
-
-    (t
-     (let* ((index-name (format nil "idx_~a_~a" table-oid index-name))
-	    (index-name (apply-identifier-case index-name identifier-case)))
-       (format nil "DROP INDEX IF EXISTS ~a;" index-name)))))
-
-(defun drop-index-sql-list (table-name table-oid indexes
-			    &key identifier-case)
-  "Return the DROP INDEX statements for given INDEXES definitions."
-  (loop
-     for (index-name unique cols) in indexes
-     ;; no need to alter table drop constraint, when include-drop
-     ;; is true we just did drop the table and created it again
-     ;; anyway
-     unless (string= index-name "PRIMARY")
-     collect (drop-index-if-exists-sql table-name table-oid index-name
-				       :identifier-case identifier-case)))
-
-(defun create-index-sql-list (table-name table-oid indexes
-			      &key identifier-case)
-  "Return the CREATE INDEX statements from given INDEXES definitions."
-  (loop
-     for (index-name unique cols) in indexes
-     collect (create-index-sql table-name table-oid index-name unique cols
-			       :identifier-case identifier-case)))
-
-
 ;;;
-;;; TODO: see if that's general enough now to be used in SQLite and MySQL
-;;; database sources
+;;; Parallel index building.
 ;;;
-(defun create-indexes-in-kernel (dbname table-name indexes kernel channel
+(defvar *table-oids-cache* nil)
+
+(defun get-table-oid (dbname table-name)
+  "Return the PostgreSQL table OID for given table name."
+  (let* ((name (format nil "~a.~a" dbname table-name))
+	 (oid  (cdr (assoc name *table-oids-cache* :test #'string=))))
+    (unless oid
+      (push
+       (cons name
+	     (with-pgsql-transaction (dbname)
+	       (pomo:query
+		(format nil "select '~a'::regclass::oid" table-name) :single)))
+       *table-oids-cache*))
+    oid))
+
+(defun create-indexes-in-kernel (dbname indexes kernel channel
 				 &key
-				   identifier-case include-drop
-				   state (label "create index"))
+				   identifier-case state with-oids
+				   (label "Create Indexes"))
   "Create indexes for given table in dbname, using given lparallel KERNEL
    and CHANNEL so that the index build happen in concurrently with the data
    copying."
-  (let* ((lp:*kernel* kernel)
-	 (table-oid
-	  (with-pgsql-transaction (dbname)
-	    (pomo:query
-	     (format nil "select '~a'::regclass::oid" table-name) :single))))
+  (let* ((lp:*kernel* kernel))
+    ;; ensure we have a stats entry
     (pgstate-add-table state dbname label)
 
-    (when include-drop
-      (let ((drop-channel (lp:make-channel))
-	    (drop-indexes
-	     (drop-index-sql-list table-name table-oid indexes
-				  :identifier-case identifier-case)))
-	(loop
-	   for sql in drop-indexes
-	   do
-	     (log-message :notice "~a" sql)
-	     (lp:submit-task drop-channel
-			     #'pgsql-execute-with-timing
-			     dbname label sql state))
-
-	;; wait for the DROP INDEX to be done before issuing CREATE INDEX
-	(loop for idx in drop-indexes do (lp:receive-result drop-channel))))
-
     (loop
-       for sql in (create-index-sql-list table-name table-oid indexes
-					 :identifier-case identifier-case)
+       for index in indexes
+       for table-name = (index-table-name index)
+       for table-oid  = (when with-oids (get-table-oid dbname table-name))
        do
-	 (log-message :notice "~a" sql)
-	 (lp:submit-task channel
-			 #'pgsql-execute-with-timing
-			 dbname label sql state))))
+	 (when with-oids
+	   (setf (pgsql-index-table-oid index) table-oid))
+	 (let ((sql (format-pgsql-create-index index
+					       :identifier-case identifier-case)))
+	  (log-message :notice "~a" sql)
+	  (lp:submit-task channel
+			  #'pgsql-execute-with-timing
+			  dbname label sql state)))))

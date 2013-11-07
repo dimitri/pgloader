@@ -1718,7 +1718,7 @@ load database
   "The command could be using from :inline, in which case we want to parse
    as much as possible then use the command against an already opened stream
    where we moved at the beginning of the data."
-  (log-message :notice "Parsing commands from file '~s'~%" filename)
+  (log-message :log "Parsing commands from file ~s~%" filename)
 
   (let ((*data-expected-inline* nil)
 	(content (slurp-file-into-string filename)))
