@@ -344,6 +344,172 @@ The `csv` format command accepts the following clauses and options:
 	section are executed once the load is done. That's the right time to
 	create indexes and constraints, or re-enable triggers.
 
+## LOAD FIXED COLS
+
+This command instructs pgloader to load data from a text file containing
+columns arranged in a *fixed size* manner. Here's an example:
+
+    LOAD FIXED
+         FROM inline (a 0 10, b 10 8, c 18 8, d 26 17)
+         INTO postgresql:///pgloader?fixed
+              (
+                 a, b,
+                 c time using (time-with-no-separator c),
+                 d
+              )
+    
+         WITH truncate
+    
+          SET client_encoding to 'latin1',
+              work_mem to '14MB',
+              standard_conforming_strings to 'on'
+    
+    BEFORE LOAD DO
+         $$ drop table if exists fixed; $$,
+         $$ create table fixed (
+             a integer,
+             b date,
+             c time,
+             d text
+            );
+         $$;
+		 
+     01234567892008052011431250firstline        
+     01234562008052115182300left blank-padded
+     12345678902008052208231560another line     
+
+The `fixed` format command accepts the following clauses and options:
+
+  - *FROM*
+
+    Filename where to load the data from. Accepts an *ENCODING* option. Use
+    the `--list-encodings` option to know which encoding names are
+    supported.
+
+	The filename may be enclosed by single quotes, and could be one of the
+	following special values:
+	
+	  - *inline*
+
+        The data is found after the end of the parsed commands. Any number
+        of empty lines between the end of the commands and the beginning of
+        the data is accepted.
+
+	  - *stdin*
+	  
+	    Reads the data from the standard input stream.
+
+	The *FROM* option also supports an optional comma separated list of
+	*field* names describing what is expected in the `FIXED` data file.
+	
+	Each field name is composed of the field name followed with specific
+	reader options for that field. Supported per-field reader options are
+	the following, where only *start* and *length* are required.
+
+      - *start*
+	  
+	    Position in the line where to start reading that field's value. Can
+	    be entered with decimal digits or `0x` then hexadecimal digits.
+
+      - *length*
+	  
+	    How many bytes to read from the *start* position to read that
+	    field's value. Same format as *start*.
+
+	  - *terminated by*
+	  
+		See the description of *field terminated by* below.
+		
+		The processing of this option is not currently implemented.
+		
+	  - *date format*
+	  
+	    When the field is expected of the date type, then this option allows
+	    to specify the date format used in the file.
+
+		The processing of this option is not currently implemented.
+
+      - *null if*
+	  
+	    This option takes an argument which is either the keyword *blanks*
+	    or a double-quoted string.
+		
+		When *blanks* is used and the field value that is read contains only
+	    space characters, then it's automatically converted to an SQL `NULL`
+	    value.
+		
+		When a double-quoted string is used and that string is read as the
+		field value, then the field value is automatically converted to an
+		SQL `NULL` value.
+
+  - *INTO*
+  
+	The PostgreSQL connection URI must contains the name of the target table
+	where to load the data into. That table must have already been created
+	in PostgreSQL, and the name might be schema qualified.
+	
+	Then *INTO* option also supports an optional comma separated list of
+	target columns, which are either the name of an input *field* or the
+	whitespace separated list of the target column name, its PostgreSQL data
+	type and a *USING* expression.
+	
+	The *USING* expression can be any valid Common Lisp form and will be
+	read with the current package set to `pgloader.transforms`, so that you
+	can use functions defined in that package, such as functions loaded
+	dynamically with the `--load` command line parameter.
+
+    Each *USING* expression is compiled at runtime to native code, and will
+    be called in a context such as:
+	
+	    (destructuring-bind (field-name-1 field-name-2 ...)
+		    row
+		  (list column-name-1
+		        column-name-2
+				(expression column-name-1 column-name-2)))
+
+    This feature allows pgloader to load any number of fields in a CSV file
+    into a possibly different number of columns in the database, using
+    custom code for that projection.
+
+  - *WITH*
+  
+    When loading from a `CSV` file, the following options are supported:
+	
+	  - *truncate*
+	  
+		When this option is listed, pgloader issues a `TRUNCATE` command
+		against the PostgreSQL target table before reading the data file.
+		
+	  - *skip header*
+	  
+	    Takes a numeric value as argument. Instruct pgloader to skip that
+	    many lines at the beginning of the input file.
+
+  - *SET*
+ 
+	This clause allows to specify session parameters to be set for all the
+    sessions opened by pgloader. It expects a list of parameter name, the
+    equal sign, then the single-quoted value as a comma separated list.
+ 	
+ 	The names and values of the parameters are not validated by pgloader,
+ 	they are given as-is to PostgreSQL.
+
+  - *BEFORE LOAD DO*
+
+	 You can run SQL queries against the database before loading the data
+	 from the `CSV` file. Most common SQL queries are `CREATE TABLE IF NOT
+	 EXISTS` so that the data can be loaded.
+	 
+	 Each command must be *dollar-quoted*: it must begin and end with a
+	 double dollar sign, `$$`. Dollar-quoted queries are then comma
+	 separated. No extra punctuation is expected after the last SQL query.
+  
+  - *AFTER LOAD DO*
+
+	Same format as *BEFORE LOAD DO*, the dollar-quoted queries found in that
+	section are executed once the load is done. That's the right time to
+	create indexes and constraints, or re-enable triggers.
+
 ## LOAD DBF
 
 This command instructs pgloader to load data from a `DBF` file. Here's an

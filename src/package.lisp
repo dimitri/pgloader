@@ -111,7 +111,10 @@
 	   #:copy-to-queue
 	   #:copy-to
 	   #:copy-database
-	   #:filter-column-list))
+	   #:filter-column-list
+	   #:get-pathname
+	   #:get-absolute-pathname
+	   #:project-fields))
 
 (defpackage #:pgloader.csv
   (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.sources)
@@ -123,6 +126,12 @@
 	   #:import-database
 	   #:guess-csv-params
 	   #:guess-all-csv-params))
+
+(defpackage #:pgloader.fixed
+  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.sources)
+  (:export #:copy-fixed
+	   #:copy-to-queue
+	   #:copy-from))
 
 (defpackage #:pgloader.db3
   (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.sources)

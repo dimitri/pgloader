@@ -14,6 +14,7 @@
 (declaim (inline intern-symbol
 		 zero-dates-to-null
 		 date-with-no-separator
+		 time-with-no-separator
 		 tinyint-to-boolean
 		 int-to-ip
 		 ip-range
@@ -52,6 +53,21 @@
 	       for (name start end) in format
 	       append (list name (subseq date-string start end)))
 	(format nil "~a-~a-~a ~a:~a:~a" year month day hour minute seconds))))
+
+(defun time-with-no-separator
+    (time-string
+     &optional (format '((:hour     0 2)
+			 (:minute   2 4)
+			 (:seconds  4 6)
+			 (:msecs    6 nil))))
+  "Apply this function when input date in like '08231560'"
+  (declare (type string date-string))
+  (destructuring-bind (&key hour minute seconds msecs
+			    &allow-other-keys)
+      (loop
+	 for (name start end) in format
+	 append (list name (subseq time-string start end)))
+    (format nil "~a:~a:~a.~a" hour minute seconds msecs)))
 
 (defun tinyint-to-boolean (integer-string)
   "When using MySQL, strange things will happen, like encoding booleans into

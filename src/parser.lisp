@@ -61,6 +61,7 @@
   (def-keyword-rule "from")
   (def-keyword-rule "csv")
   (def-keyword-rule "dbf")
+  (def-keyword-rule "fixed")
   (def-keyword-rule "into")
   (def-keyword-rule "with")
   (def-keyword-rule "when")
@@ -1475,6 +1476,138 @@ load database
 
 
 ;;;
+;;; LOAD FIXED COLUMNS FILE
+;;;
+;;; That has lots in common with CSV, so we share a fair amount of parsing
+;;; rules with the CSV case.
+;;;
+(defrule hex-number (and "0x" (+ (hexdigit-char-p character)))
+  (:lambda (hex)
+    (destructuring-bind (prefix digits) hex
+      (declare (ignore prefix))
+      (parse-integer (text digits) :radix 16))))
+
+(defrule dec-number (+ (digit-char-p character))
+  (:lambda (digits)
+    (parse-integer (text digits))))
+
+(defrule number (or hex-number dec-number))
+
+(defrule field-start-position (and ignore-whitespace number)
+  (:destructure (ws pos) (declare (ignore ws)) pos))
+
+(defrule fixed-field-length (and ignore-whitespace number)
+  (:destructure (ws len) (declare (ignore ws)) len))
+
+(defrule fixed-source-field (and csv-field-name
+				 field-start-position fixed-field-length
+				 csv-field-options)
+  (:destructure (name start len opts)
+    `(,name :start ,start :length ,len ,@opts)))
+
+(defrule another-fixed-source-field (and #\, ignore-whitespace fixed-source-field)
+  (:lambda (source)
+    (destructuring-bind (comma ws field) source
+      (declare (ignore comma ws))
+      field)))
+
+(defrule fixed-source-fields (and fixed-source-field (* another-fixed-source-field))
+  (:lambda (source)
+    (destructuring-bind (field1 fields) source
+      (list* field1 fields))))
+
+(defrule fixed-source-field-list (and open-paren fixed-source-fields close-paren)
+  (:lambda (source)
+    (destructuring-bind (open field-defs close) source
+      (declare (ignore open close))
+      field-defs)))
+
+(defrule fixed-option (or option-truncate
+			  option-skip-header))
+
+(defrule another-fixed-option (and #\, ignore-whitespace fixed-option)
+  (:lambda (source)
+    (destructuring-bind (comma ws option) source
+      (declare (ignore comma ws))
+      option)))
+
+(defrule fixed-option-list (and fixed-option (* another-fixed-option))
+  (:lambda (source)
+    (destructuring-bind (opt1 opts) source
+      (alexandria:alist-plist `(,opt1 ,@opts)))))
+
+(defrule fixed-options (and kw-with csv-option-list)
+  (:lambda (source)
+    (destructuring-bind (w opts) source
+      (declare (ignore w))
+      opts)))
+
+(defrule fixed-file-source (or stdin
+			       inline
+			       maybe-quoted-filename))
+
+(defrule fixed-source (and kw-load kw-fixed kw-from fixed-file-source)
+  (:lambda (src)
+    (destructuring-bind (load fixed from source) src
+      (declare (ignore load fixed from))
+      ;; source is (:filename #P"pathname/here")
+      (destructuring-bind (type uri) source
+	(declare (ignore uri))
+	(ecase type
+	  (:stdin    source)
+	  (:inline   source)
+	  (:filename source))))))
+
+(defrule load-fixed-cols-file (and fixed-source (? file-encoding)
+				   fixed-source-field-list
+				   target
+				   (? csv-target-column-list)
+				   (? fixed-options)
+				   (? gucs)
+				   (? before-load-do)
+				   (? after-load-do))
+  (:lambda (command)
+    (destructuring-bind (source encoding fields pg-db-uri
+				columns options gucs before after) command
+      (destructuring-bind (&key host port user password dbname table-name
+				&allow-other-keys)
+	  pg-db-uri
+	`(lambda ()
+	   (let* ((state-before  ,(when before `(pgloader.utils:make-pgstate)))
+		  (summary       (null *state*))
+		  (*state*       (or *state* (pgloader.utils:make-pgstate)))
+		  (state-after   ,(when after `(pgloader.utils:make-pgstate)))
+		  (*pgconn-host* ,host)
+		  (*pgconn-port* ,port)
+		  (*pgconn-user* ,user)
+		  (*pgconn-pass* ,password)
+		  (*pg-settings* ',gucs)
+		  (source
+		   (make-instance 'pgloader.fixed:copy-fixed
+				  :target-db ,dbname
+				  :source ',source
+				  :target ,table-name
+				  :encoding ,encoding
+				  :fields ',fields
+				  :columns ',columns
+				  :skip-lines ,(or (getf options :skip-line) 0))))
+
+	     (progn
+	       ,(sql-code-block dbname 'state-before before "before load")
+
+	       (pgloader.sources:copy-from source
+					   :truncate ,(getf options :truncate))
+
+	       ,(sql-code-block dbname 'state-after after "after load")
+
+	       ;; reporting
+	       (when summary
+		 (report-full-summary "Total import time" *state*
+				      :before  state-before
+				      :finally state-after)))))))))
+
+
+;;;
 ;;; LOAD ARCHIVE ...
 ;;;
 (defrule archive-command (or load-csv-file
@@ -1555,6 +1688,7 @@ load database
 
 (defrule command (and (or load-archive
 			  load-csv-file
+			  load-fixed-cols-file
 			  load-dbf-file
 			  load-mysql-database
 			  load-sqlite-database

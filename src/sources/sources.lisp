@@ -128,3 +128,117 @@
     (remove-if-not #'include
 		   (remove-if-not #'exclude
 				  (remove-if-not #'only all-columns)))))
+
+
+;;;
+;;; Some common tools for file based sources, such as CSV and FIXED
+;;;
+(defun get-pathname (dbname table-name &key (csv-path-root *csv-path-root*))
+  "Return a pathname where to read or write the file data"
+  (make-pathname
+   :directory (pathname-directory
+	       (merge-pathnames (format nil "~a/" dbname) csv-path-root))
+   :name table-name
+   :type "csv"))
+
+(defun get-absolute-pathname (pathname-or-regex &key (root *csv-path-root*))
+  "PATHNAME-OR-REGEX is expected to be either (:regexp expression)
+   or (:filename pathname). In the first case, this fonction check if the
+   pathname is absolute or relative and returns an absolute pathname given
+   current working directory of ROOT.
+
+   In the second case, walk the ROOT directory and return the first pathname
+   that matches the regex. TODO: consider signaling a condition when we have
+   more than one match."
+  (destructuring-bind (type part) pathname-or-regex
+    (ecase type
+      (:inline   part)
+      (:stdin    *standard-input*)
+      (:regex    (first (pgloader.archive:get-matching-filenames root part)))
+      (:filename (if (fad:pathname-absolute-p part) part
+		     (merge-pathnames part root))))))
+
+
+;;;
+;;; Project fields into columns
+;;;
+(defun project-fields (&key fields columns (compile t))
+  "The simplest projection happens when both FIELDS and COLS are nil: in
+   this case the projection is an identity, we simply return what we got.
+
+   Other forms of projections consist of forming columns with the result of
+   applying a transformation function. In that case a cols entry is a list
+   of '(colname type expression), the expression being the (already
+   compiled) function to use here."
+  (labels ((null-as-processing-fn (null-as)
+	     "return a lambda form that will process a value given NULL-AS."
+	     (if (eq null-as :blanks)
+		 (lambda (col)
+		   (declare (optimize speed))
+		   (if (every (lambda (char) (char= char #\Space)) col)
+		       nil
+		       col))
+		 (lambda (col)
+		   (declare (optimize speed))
+		   (if (string= null-as col) nil col))))
+
+	   (field-name-as-symbol (field-name-or-list)
+	     "we need to deal with symbols as we generate code"
+	     (typecase field-name-or-list
+	       (list (pgloader.transforms:intern-symbol (car field-name-or-list)))
+	       (t    (pgloader.transforms:intern-symbol field-name-or-list))))
+
+	   (field-process-null-fn (field-name-or-list)
+	     "Given a field entry, return a function dealing with nulls for it"
+	     (destructuring-bind (&key null-as date-format &allow-other-keys)
+		 (typecase field-name-or-list
+		   (list (cdr field-name-or-list))
+		   (t    (cdr (assoc field-name-or-list fields :test #'string=))))
+	       (declare (ignore date-format)) ; TODO
+	       (if (null null-as)
+		   #'identity
+		   (null-as-processing-fn null-as)))))
+
+    (let* ((projection
+	    (cond
+	      ;; when no specific information has been given on FIELDS and
+	      ;; COLUMNS, just apply generic NULL-AS processing
+	      ((and (null fields) (null columns))
+	       (lambda (row) row))
+
+	      ((null columns)
+	       ;; when no specific information has been given on COLUMNS,
+	       ;; use the information given for FIELDS and apply per-field
+	       ;; null-as, or the generic one if none has been given for
+	       ;; that field.
+	       (let ((process-nulls
+		      (mapcar (function field-process-null-fn) fields)))
+		 `(lambda (row)
+		   (loop
+		      :for col :in row
+		      :for fn :in ',process-nulls
+		      :collect (funcall fn col)))))
+
+	      (t
+	       ;; project some number of FIELDS into a possibly different
+	       ;; number of COLUMNS, using given transformation functions,
+	       ;; processing NULL-AS represented values.
+	       (let* ((args
+		       (if fields
+			   (mapcar (function field-name-as-symbol) fields)
+			   (mapcar (function field-name-as-symbol) columns)))
+		      (newrow
+		       (loop for (name type fn) in columns
+			  collect
+			  ;; we expect the name of a COLUMN to be the same
+			  ;; as the name of its derived FIELD when we
+			  ;; don't have any transformation function
+			    (or fn `(funcall ,(field-process-null-fn name)
+					     ,(field-name-as-symbol name))))))
+		 `(lambda (row)
+		    (declare (optimize speed) (type list row))
+		    (destructuring-bind (,@args) row
+		      (declare (ignorable ,@args))
+		      (list ,@newrow))))))))
+      ;; allow for some debugging
+      (if compile (compile nil projection) projection))))
