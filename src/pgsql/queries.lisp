@@ -43,12 +43,7 @@
   (multiple-value-bind (res secs)
       (timing
        (with-pgsql-transaction (dbname)
-	 (handler-case
-	     (pgsql-execute sql)
-	   (cl-postgres:database-error (e)
-	     (log-message :error "~a" e))
-	   (cl-postgres:postgresql-warning (w)
-	     (log-message :warning "~a" w)))))
+	 (pgsql-execute sql)))
     (declare (ignore res))
     (pgstate-incf state label :rows count :secs secs)))
 
@@ -60,7 +55,7 @@
 
   (handler-case
       ;; execute the query, catching errors and warnings
-      (pgsql-execute sql)
+      (pomo:execute sql)
 
     (cl-postgres:database-error (e)
       (log-message :error "~a" e))
