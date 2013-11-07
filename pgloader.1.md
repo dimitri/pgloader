@@ -61,6 +61,7 @@ TODO. Add CLI options for batch size maybe.
 pgloader support the following commands:
 
   - `LOAD CSV`
+  - `LOAD FIXED`
   - `LOAD DBF`
   - `LOAD SQLite`
   - `LOAD MYSQL`
@@ -375,7 +376,7 @@ columns arranged in a *fixed size* manner. Here's an example:
          $$;
 		 
      01234567892008052011431250firstline        
-     01234562008052115182300left blank-padded
+        01234562008052115182300left blank-padded
      12345678902008052208231560another line     
 
 The `fixed` format command accepts the following clauses and options:
