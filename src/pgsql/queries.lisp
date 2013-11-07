@@ -52,16 +52,20 @@
     (declare (ignore res))
     (pgstate-incf state label :rows count :secs secs)))
 
-;;;
-;;; PostgreSQL queries
-;;;
 (defun pgsql-execute (sql &key ((:client-min-messages level)))
   "Execute given SQL in current transaction"
   (when level
     (pomo:execute
      (format nil "SET LOCAL client_min_messages TO ~a;" (symbol-name level))))
 
-  (pomo:execute sql)
+  (handler-case
+      ;; execute the query, catching errors and warnings
+      (pgsql-execute sql)
+
+    (cl-postgres:database-error (e)
+      (log-message :error "~a" e))
+    (cl-postgres:postgresql-warning (w)
+      (log-message :warning "~a" w)))
 
   (when level (pomo:execute (format nil "RESET client_min_messages;"))))
 

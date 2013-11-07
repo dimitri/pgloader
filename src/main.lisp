@@ -72,7 +72,9 @@
 	      ((condition
 		#'(lambda (c)
 		    (if debug
-			(trivial-backtrace:print-backtrace c :verbose t)
+			(trivial-backtrace:print-backtrace c
+							   :output *standard-output*
+							   :verbose t)
 			(trivial-backtrace:print-condition c *standard-output*)))))
 	      (let ((min-messages (cond (debug   :debug)
 					(verbose :info)
