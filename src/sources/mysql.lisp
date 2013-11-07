@@ -205,6 +205,7 @@
   (let* ((summary       (null *state*))
 	 (*state*       (or *state*       (make-pgstate)))
 	 (idx-state     (or state-indexes (make-pgstate)))
+	 (state-before  (or state-before  (make-pgstate)))
 	 (state-after   (or state-after   (make-pgstate)))
          (copy-kernel   (make-kernel 2))
 	 (dbname        (source-db mysql))
