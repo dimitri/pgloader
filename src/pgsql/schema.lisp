@@ -23,6 +23,14 @@
 ;;; their own column struct and may implement the methods
 ;;; `format-pgsql-column' and `format-extra-type' on those.
 ;;;
+(defun maybe-shorten-column-name (column-name)
+  "PostgreSQL truncates columns with more than 63 characters in their name,
+   but Postmodern then mysteriously loses its connection. Handle the case in
+   the client here."
+  (if (< 63 (length column-name))
+      (subseq column-name 0 63)
+      column-name))
+
 (defstruct pgsql-column name type-name type-mod nullable default)
 
 (defgeneric format-pgsql-column (col &key identifier-case)
@@ -42,7 +50,7 @@
 	 (type-definition
 	  (format nil
 		  "~a~@[~a~]~:[~; not null~]~@[ default ~a~]"
-		  (pgsql-column-type-name col)
+		  (maybe-shorten-column-name (pgsql-column-type-name col))
 		  (pgsql-column-type-mod col)
 		  (pgsql-column-nullable col)
 		  (pgsql-column-default col))))

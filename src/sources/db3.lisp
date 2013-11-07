@@ -23,7 +23,9 @@
 	  (cdr (assoc (db3-field-type col)
 		      *db3-pgsql-type-mapping*
 		      :test #'string=))))
-    (format nil "~a ~22t ~a" column-name type-definition)))
+    (format nil "~a ~22t ~a"
+	    (maybe-shorten-column-name column-name)
+	    type-definition)))
 
 (defun list-all-columns (db3-file-name
 			 &optional (table-name (pathname-name db3-file-name)))
