@@ -241,7 +241,8 @@
       (log-message :debug  (if include-drop
 			       "drop then create ~d tables with ~d indexes."
 			       "create ~d tables with ~d indexes.")
-		   (length all-columns) (length all-indexes))
+		   (length all-columns)
+		   (loop for (name . idxs) in all-indexes sum (length idxs)))
       (with-stats-collection (pg-dbname "create, drop"
 					:use-result-as-rows t
 					:state state-before)
