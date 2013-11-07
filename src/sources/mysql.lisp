@@ -70,14 +70,19 @@
 	       (declare (ignore rs))
 
 	       ;; Now fetch MySQL rows directly in the stream
-	       (loop
-		  with type-map = (make-hash-table)
-		  for row = (cl-mysql:next-row q :type-map type-map)
-		  while row
-		  for row-with-proper-nulls = (fix-nulls row nulls)
-		  counting row into count
-		  do (funcall process-row-fn row-with-proper-nulls)
-		  finally (return count)))))
+	       (handler-case
+		   (loop
+		      with type-map = (make-hash-table)
+		      for row = (cl-mysql:next-row q :type-map type-map)
+		      while row
+		      for row-with-proper-nulls = (fix-nulls row nulls)
+		      counting row into count
+		      do (funcall process-row-fn row-with-proper-nulls)
+		      finally (return count))
+		 (cl-mysql-system:mysql-error (e)
+		   (progn
+		     (log-message :error "~a" e) ; begins with MySQL error:
+		     (pgstate-setf *state* (target mysql) :errs -1)))))))
 
       ;; free resources
       (cl-mysql:disconnect))))
