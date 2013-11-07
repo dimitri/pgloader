@@ -68,7 +68,12 @@
 
 	(when arguments
 	  ;; process the files
-	  (handler-case
+	  (handler-bind
+	      ((catch-the-unexpected
+		(lambda (c)
+		  (if debug
+		      (trivial-backtrace:print-backtrace c :verbose t)
+		      (trivial-backtrace:print-condition c *standard-output*)))))
 	      (let ((min-messages (cond (debug   :debug)
 					(verbose :info)
 					(quiet   :warning)
@@ -79,10 +84,6 @@
 				   :log-filename logfile
 				   :log-min-messages min-messages
 				   :client-min-messages min-messages)
-		     (format t "~&")))
-	    (condition (e)
-	      (if debug
-		  (trivial-backtrace:print-backtrace e :verbose t)
-		  (trivial-backtrace:print-condition e *standard-output*)))))
+		     (format t "~&")))))
 
 	(uiop:quit)))))
