@@ -298,7 +298,7 @@
 		(pgloader.utils::pgstate-secs parallel)))
     (setf (pgloader.utils::pgstate-secs state)
 	  (- (pgloader.utils::pgstate-secs parallel)
-	     (pgloader.utils::pgstate-secs before))))
+	     (if before (pgloader.utils::pgstate-secs before) 0))))
 
   ;; and report the Grand Total
   (report-pgstate-stats state legend))
