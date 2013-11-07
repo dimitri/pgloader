@@ -43,6 +43,10 @@
 				list-encodings upgrade-config load)
 	  options
 
+	(when debug
+	  (format t "sb-impl::*default-external-format* ~s~%"
+		  sb-impl::*default-external-format*))
+
 	(when version
 	  (format t "pgloader version ~s~%" *version-string*))
 
