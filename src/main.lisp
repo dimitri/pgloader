@@ -69,11 +69,11 @@
 	(when arguments
 	  ;; process the files
 	  (handler-bind
-	      ((catch-the-unexpected
-		(lambda (c)
-		  (if debug
-		      (trivial-backtrace:print-backtrace c :verbose t)
-		      (trivial-backtrace:print-condition c *standard-output*)))))
+	      ((condition
+		#'(lambda (c)
+		    (if debug
+			(trivial-backtrace:print-backtrace c :verbose t)
+			(trivial-backtrace:print-condition c *standard-output*)))))
 	      (let ((min-messages (cond (debug   :debug)
 					(verbose :info)
 					(quiet   :warning)
