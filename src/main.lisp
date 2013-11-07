@@ -80,6 +80,8 @@
 		   (run-commands filename)
 		   (format t "~&"))
 	    (condition (e)
-	      (if debug (error e) (format *standard-output* "~a" e)))))
+	      (if debug
+		  (trivial-backtrace:print-backtrace e :verbose t)
+		  (trivial-backtrace:print-condition e *standard-output*)))))
 
 	(uiop:quit)))))

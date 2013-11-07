@@ -28,6 +28,7 @@
 		 #:db3			; DBF version 3 file reader
 		 #:py-configparser	; Read old-style INI config files
 		 #:sqlite		; Query a SQLite file
+		 #:trivial-backtrace  	; For --debug cli usage
 		 )
     :components
     ((:module "src"
