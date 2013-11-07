@@ -51,7 +51,7 @@
 
   (loop for messenger = (pop *log-messengers*)
      while messenger
-     when (string= "stdout" (cl-log:messenger-name messenger))
+     unless (string= "stdout" (cl-log:messenger-name messenger))
      do (cl-log:stop-messenger messenger)))
 
 ;; monkey patch the print-object method for cl-log timestamp
