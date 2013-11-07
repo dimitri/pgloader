@@ -39,7 +39,7 @@
 	*log-messengers*)
 
   (push (cl-log:start-messenger 'text-stream-messenger
-				:name "client"
+				:name "stdout"
 				:filter *client-min-messages*
 				:stream *standard-output*)
 	*log-messengers*)
@@ -51,6 +51,7 @@
 
   (loop for messenger = (pop *log-messengers*)
      while messenger
+     when (string= "stdout" (cl-log:messenger-name messenger))
      do (cl-log:stop-messenger messenger)))
 
 ;; monkey patch the print-object method for cl-log timestamp
