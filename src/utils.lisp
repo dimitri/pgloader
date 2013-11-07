@@ -272,12 +272,12 @@
 
   ;; BEFORE
   (if before
-    (progn
-      (report-summary :state before :footer nil)
-      (format t pgloader.utils::*header-line*)
-      (report-summary :state state :header nil :footer nil))
-    ;; no state before
-    (report-summary :state state :footer nil))
+      (progn
+	(report-summary :state before :footer nil)
+	(format t pgloader.utils::*header-line*)
+	(report-summary :state state :header nil :footer nil))
+      ;; no state before
+      (report-summary :state state :footer nil))
 
   (when (or finally parallel)
     (format t pgloader.utils::*header-line*)
@@ -293,8 +293,9 @@
 
   ;; if the parallel tasks took longer than the rest cumulated, the total
   ;; waiting time actually was parallel - before
-  (when (< (pgloader.utils::pgstate-secs state)
-	   (pgloader.utils::pgstate-secs parallel))
+  (when (and parallel
+	     (< (pgloader.utils::pgstate-secs state)
+		(pgloader.utils::pgstate-secs parallel)))
     (setf (pgloader.utils::pgstate-secs state)
 	  (- (pgloader.utils::pgstate-secs parallel)
 	     (pgloader.utils::pgstate-secs before))))
