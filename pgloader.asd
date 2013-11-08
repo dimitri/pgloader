@@ -60,6 +60,7 @@
 			:components
 			((:file "sources")
 			 (:file "csv"     :depends-on ("sources"))
+			 (:file "fixed"   :depends-on ("sources"))
 			 (:file "db3"     :depends-on ("sources"))
 			 (:file "sqlite"  :depends-on ("sources"))
 			 (:file "syslog"  :depends-on ("sources"))
