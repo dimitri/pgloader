@@ -190,6 +190,7 @@ GROUP BY table_name, index_name;" dbname)))
 	 (table-oids  (pgloader.pgsql:list-table-oids dbname table-names)))
     (loop for (table-name . indexes) in all-indexes
        for table-oid = (cdr (assoc table-name table-oids :test #'string=))
+       unless table-oid do (error "OID not found for ~s." table-name)
        do (loop for index in indexes
 	     do (setf (pgloader.pgsql::pgsql-index-table-oid index) table-oid)))))
 
