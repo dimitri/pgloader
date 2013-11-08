@@ -24,9 +24,7 @@
 		  (coldef-type col)
 		  (coldef-nullable col)
 		  (coldef-default col))))
-    (format nil "~a ~22t ~a"
-	    (maybe-shorten-column-name column-name)
-	    type-definition)))
+    (format nil "~a ~22t ~a" column-name type-definition)))
 
 (defun list-tables (&optional (db *sqlite-db*))
   "Return the list of tables found in SQLITE-DB."

@@ -22,9 +22,7 @@
 	  (with-slots (table-name name dtype ctype default nullable extra)
 	      col
 	    (cast table-name name dtype ctype default nullable extra))))
-    (format nil "~a ~22t ~a"
-	    (maybe-shorten-column-name column-name)
-	    type-definition)))
+    (format nil "~a ~22t ~a" column-name type-definition)))
 
 (defmethod format-extra-type ((col mysql-column)
 			      &key identifier-case include-drop)

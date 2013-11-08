@@ -65,7 +65,6 @@
 	   #:apply-identifier-case
 	   #:create-tables
 	   #:format-pgsql-column
-	   #:maybe-shorten-column-name
 	   #:format-extra-type
 	   #:make-pgsql-fkey
 	   #:format-pgsql-create-fkey
@@ -145,8 +144,7 @@
 		#:pgsql-execute-with-timing
 		#:apply-identifier-case
 		#:create-tables
-		#:format-pgsql-column
-		#:maybe-shorten-column-name)
+		#:format-pgsql-column)
   (:export #:copy-db3
 	   #:map-rows
 	   #:copy-to
@@ -163,7 +161,6 @@
 		#:list-tables-and-fkeys
 		#:create-tables
 		#:format-pgsql-column
-		#:maybe-shorten-column-name
 		#:format-extra-type
 		#:make-pgsql-fkey
 		#:format-pgsql-create-fkey
@@ -192,7 +189,6 @@
 		#:apply-identifier-case
 		#:create-tables
 		#:format-pgsql-column
-		#:maybe-shorten-column-name
 		#:make-pgsql-index
 		#:index-table-name
 		#:format-pgsql-create-index
