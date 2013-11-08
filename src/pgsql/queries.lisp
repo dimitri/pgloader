@@ -6,19 +6,33 @@
 ;;;
 ;;; PostgreSQL Tools connecting to a database
 ;;;
+(defmacro handling-pgsql-notices ((&key set-local) &body forms)
+  "The BODY is run within a PostgreSQL transaction where *pg-settings* have
+   been applied. PostgreSQL warnings and errors are logged at the
+   appropriate log level."
+  `(pomo:with-transaction ()
+     (handler-bind
+	 ((cl-postgres:database-error
+	   #'(lambda (e)
+	       (log-message :error "~a" e)))
+	  (cl-postgres:postgresql-warning
+	   #'(lambda (w)
+	       (log-message :warning "~a" w)
+	       (muffle-warning))))
+       (set-session-gucs *pg-settings* :transaction ,set-local)
+       (progn ,@forms))))
+
 (defmacro with-pgsql-transaction ((dbname &key database) &body forms)
   "Run FORMS within a PostgreSQL transaction to DBNAME, reusing DATABASE if
    given. To get the connection spec from the DBNAME, use `get-connection-spec'."
   (if database
       `(let ((pomo:*database* database))
-	 (pomo:with-transaction ()
-	   (set-session-gucs *pg-settings* :transaction t)
-	   (progn ,@forms)))
+	 (handling-pgsql-notices (:set-local t)
+	   ,@forms))
       ;; no database given, create a new database connection
       `(pomo:with-connection (get-connection-spec ,dbname)
-	 (set-session-gucs *pg-settings*)
-	 (pomo:with-transaction ()
-	   (progn ,@forms)))))
+	 (handling-pgsql-notices ()
+	   ,@forms))))
 
 (defun get-connection-spec (dbname &key (with-port t))
   "pomo:with-connection and cl-postgres:open-database and open-db-writer are
@@ -53,14 +67,7 @@
     (pomo:execute
      (format nil "SET LOCAL client_min_messages TO ~a;" (symbol-name level))))
 
-  (handler-case
-      ;; execute the query, catching errors and warnings
-      (pomo:execute sql)
-
-    (cl-postgres:database-error (e)
-      (log-message :error "~a" e))
-    (cl-postgres:postgresql-warning (w)
-      (log-message :warning "~a" w)))
+  (pomo:execute sql)
 
   (when level (pomo:execute (format nil "RESET client_min_messages;"))))
 
