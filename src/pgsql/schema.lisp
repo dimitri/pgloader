@@ -235,10 +235,9 @@
 
     (loop
        for index in indexes
-       for table-name = (index-table-name index)
        do
-	 (let ((sql (format-pgsql-create-index index
-					       :identifier-case identifier-case)))
+	 (let ((sql
+		(format-pgsql-create-index index :identifier-case identifier-case)))
 	  (log-message :notice "~a" sql)
 	  (lp:submit-task channel
 			  #'pgsql-execute-with-timing
