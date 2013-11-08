@@ -59,6 +59,7 @@
 	   #:list-tables-cols
 	   #:list-tables-and-fkeys
 	   #:list-reserved-keywords
+	   #:list-table-oids
 	   #:reset-all-sequences
 	   #:get-date-columns
 	   #:format-row
@@ -159,6 +160,7 @@
 		#:pgsql-execute-with-timing
 		#:apply-identifier-case
 		#:list-tables-and-fkeys
+		#:list-table-oids
 		#:create-tables
 		#:format-pgsql-column
 		#:format-extra-type

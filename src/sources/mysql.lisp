@@ -219,7 +219,12 @@
 	  ;; now drop then create tables and types, etc
 	  (create-tables all-columns
 			 :identifier-case identifier-case
-			 :include-drop include-drop))))
+			 :include-drop include-drop)
+
+	  ;; MySQL allows the same index name being used against several
+	  ;; tables, so we add the PostgreSQL table OID in the index name,
+	  ;; to differenciate. Set the table oids now.
+	  (set-table-oids dbname all-indexes))))
 
     (loop
        for (table-name . columns) in all-columns
@@ -248,7 +253,6 @@
 		     (cdr (assoc table-name all-indexes :test #'string=))))
 	       (create-indexes-in-kernel pg-dbname indexes
 					 idx-kernel idx-channel
-					 :with-oids t
 					 :state idx-state
 					 :identifier-case identifier-case)))))
 

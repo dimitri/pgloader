@@ -195,7 +195,7 @@
 
 (defmethod format-pgsql-create-index ((index pgsql-index) &key identifier-case)
   "Generate the PostgreSQL statement to rebuild a MySQL Foreign Key"
-  (let* ((index-name (format nil "index_~a_~a"
+  (let* ((index-name (format nil "idx_~a_~a"
 			     (pgsql-index-table-oid index)
 			     (pgsql-index-name index)))
 	 (table-name
@@ -222,24 +222,9 @@
 ;;;
 ;;; Parallel index building.
 ;;;
-(defvar *table-oids-cache* nil)
-
-(defun get-table-oid (dbname table-name)
-  "Return the PostgreSQL table OID for given table name."
-  (let* ((name (format nil "~a.~a" dbname table-name))
-	 (oid  (cdr (assoc name *table-oids-cache* :test #'string=))))
-    (unless oid
-      (push
-       (cons name
-	     (with-pgsql-transaction (dbname)
-	       (pomo:query
-		(format nil "select '~a'::regclass::oid" table-name) :single)))
-       *table-oids-cache*))
-    oid))
-
 (defun create-indexes-in-kernel (dbname indexes kernel channel
 				 &key
-				   identifier-case state with-oids
+				   identifier-case state
 				   (label "Create Indexes"))
   "Create indexes for given table in dbname, using given lparallel KERNEL
    and CHANNEL so that the index build happen in concurrently with the data
@@ -251,10 +236,7 @@
     (loop
        for index in indexes
        for table-name = (index-table-name index)
-       for table-oid  = (when with-oids (get-table-oid dbname table-name))
        do
-	 (when with-oids
-	   (setf (pgsql-index-table-oid index) table-oid))
 	 (let ((sql (format-pgsql-create-index index
 					       :identifier-case identifier-case)))
 	  (log-message :notice "~a" sql)

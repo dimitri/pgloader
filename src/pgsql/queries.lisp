@@ -209,3 +209,14 @@ $$; " tables)))
       ;; now get the notification signal
       (cl-postgres:postgresql-notification (c)
 	(parse-integer (cl-postgres:postgresql-notification-payload c))))))
+
+(defun list-table-oids (dbname table-names)
+  "Return an alist of (TABLE-NAME . TABLE-OID) for all table in the
+   TABLE-NAMES list."
+  (pomo:with-connection (get-connection-spec dbname)
+    (loop for (name oid)
+       in (pomo:query
+	   (format nil
+		   "select n, n::regclass::oid from (values ~{('~a')~^,~}) as t(n)"
+		   table-names))
+       collect (cons name oid))))
