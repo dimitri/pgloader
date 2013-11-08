@@ -11,6 +11,14 @@
      do (format *standard-output* "~a~30T~{~a~^, ~}~%" name aliases))
   (terpri))
 
+(defun log-threshold (min-message &key quiet verbose debug)
+  "Return the internal value to use given the script parameters."
+  (cond (debug   :debug)
+	(verbose :info)
+	(quiet   :warning)
+	(t       (or (find-symbol (string-upcase min-message) "KEYWORD")
+		     :notice))))
+
 (defparameter *opt-spec*
   `((("help" #\h) :type boolean :documentation "Show usage and exit.")
 
@@ -19,7 +27,13 @@
 
     (("quiet"   #\q) :type boolean :documentation "Be quiet")
     (("verbose" #\v) :type boolean :documentation "Be verbose")
-    (("debug"   #\d) :type boolean :documentation "Diplay debug level information.")
+    (("debug"   #\d) :type boolean :documentation "Display debug level information.")
+
+    ("client-min-messages" :type string :initial-value "warning"
+			   :documentation "Filter logs seen at the console")
+
+    ("log-min-messages" :type string :initial-value "notice"
+			:documentation "Filter logs seen in the logfile")
 
     (("upgrade-config" #\U) :type boolean
      :documentation "Output the command(s) corresponding to .conf file for v2.x")
@@ -40,7 +54,8 @@
 	(command-line-arguments:process-command-line-options *opt-spec* args)
 
       (destructuring-bind (&key help version quiet verbose debug logfile
-				list-encodings upgrade-config load)
+				list-encodings upgrade-config load
+				client-min-messages log-min-messages)
 	  options
 
 	(when debug
@@ -80,16 +95,20 @@
 							   :output *standard-output*
 							   :verbose t)
 			(trivial-backtrace:print-condition c *standard-output*)))))
-	      (let ((min-messages (cond (debug   :debug)
-					(verbose :info)
-					(quiet   :warning)
-					(t       :notice))))
-		(loop for filename in arguments
-		   do
-		     (run-commands filename
-				   :log-filename logfile
-				   :log-min-messages min-messages
-				   :client-min-messages min-messages)
-		     (format t "~&")))))
+	    (loop for filename in arguments
+	       do
+		 (run-commands filename
+			       :log-filename logfile
+			       :log-min-messages
+			       (log-threshold log-min-messages
+					      :quiet quiet
+					      :verbose verbose
+					      :debug debug)
+			       :client-min-messages
+			       (log-threshold client-min-messages
+					      :quiet quiet
+					      :verbose verbose
+					      :debug debug))
+		 (format t "~&"))))
 
 	(uiop:quit)))))

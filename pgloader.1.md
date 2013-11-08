@@ -38,6 +38,14 @@ pgloader operates from commands which are read from files:
 -d, \--debug
 :   Show debug level information messages.
 
+--log-min-messages
+:   Minimum level of verbosity needed for log message to make it to the
+    logfile. One of critical, log, error, warning, notice, info or debug.
+
+--client-min-messages
+:   Minimum level of verbosity needed for log message to make it to the
+    console. One of critical, log, error, warning, notice, info or debug.
+
 -E, \--list-encodings
 :   List known encodings in this version of pgloader.
 
