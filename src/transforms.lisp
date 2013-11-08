@@ -61,7 +61,7 @@
 			 (:seconds  4 6)
 			 (:msecs    6 nil))))
   "Apply this function when input date in like '08231560'"
-  (declare (type string date-string))
+  (declare (type string time-string))
   (destructuring-bind (&key hour minute seconds msecs
 			    &allow-other-keys)
       (loop
