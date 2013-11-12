@@ -179,7 +179,7 @@ GROUP BY table_name, index_name;" dbname)))
     ;; free resources
     (cl-mysql:disconnect)))
 
-(defun set-table-oids (dbname all-indexes)
+(defun set-table-oids (all-indexes)
   "MySQL allows using the same index name against separate tables, which
    PostgreSQL forbids. To get unicity in index names without running out of
    characters (we are allowed only 63), we use the table OID instead.
@@ -187,7 +187,7 @@ GROUP BY table_name, index_name;" dbname)))
    This function grabs the table OIDs in the PostgreSQL database and update
    the definitions with them."
   (let* ((table-names (mapcar #'car all-indexes))
-	 (table-oids  (pgloader.pgsql:list-table-oids dbname table-names)))
+	 (table-oids  (pgloader.pgsql:list-table-oids table-names)))
     (loop for (table-name . indexes) in all-indexes
        for table-oid = (cdr (assoc table-name table-oids :test #'string=))
        unless table-oid do (error "OID not found for ~s." table-name)

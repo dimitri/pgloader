@@ -166,6 +166,7 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
 (defun reset-all-sequences (dbname &key tables)
   "Reset all sequences to the max value of the column they are attached to."
   (pomo:with-connection (get-connection-spec dbname)
+    (set-session-gucs *pg-settings*)
     (pomo:execute "set client_min_messages to warning;")
     (pomo:execute "listen seqs")
 
@@ -210,13 +211,12 @@ $$; " tables)))
       (cl-postgres:postgresql-notification (c)
 	(parse-integer (cl-postgres:postgresql-notification-payload c))))))
 
-(defun list-table-oids (dbname table-names)
+(defun list-table-oids (table-names)
   "Return an alist of (TABLE-NAME . TABLE-OID) for all table in the
-   TABLE-NAMES list."
-  (pomo:with-connection (get-connection-spec dbname)
-    (loop for (name oid)
-       in (pomo:query
-	   (format nil
-		   "select n, n::regclass::oid from (values ~{('~a')~^,~}) as t(n)"
-		   table-names))
-       collect (cons name oid))))
+   TABLE-NAMES list. A connection must be established already."
+  (loop for (name oid)
+     in (pomo:query
+	 (format nil
+		 "select n, n::regclass::oid from (values ~{('~a')~^,~}) as t(n)"
+		 table-names))
+     collect (cons name oid)))

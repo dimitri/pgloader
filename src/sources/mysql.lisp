@@ -224,7 +224,7 @@
 	  ;; MySQL allows the same index name being used against several
 	  ;; tables, so we add the PostgreSQL table OID in the index name,
 	  ;; to differenciate. Set the table oids now.
-	  (set-table-oids dbname all-indexes))))
+	  (set-table-oids all-indexes))))
 
     (loop
        for (table-name . columns) in all-columns
