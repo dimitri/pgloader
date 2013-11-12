@@ -36,9 +36,10 @@ pgloader is now a Common Lisp program, tested using the
 [SBCL](http://sbcl.org/) implementation with
 [Quicklisp](http://www.quicklisp.org/beta/).
 
-    apt-get install sbcl
-    apt-get install libmysqlclient-dev libsqlite3-dev
-	make pgloader
+    $ apt-get install sbcl
+    $ apt-get install libmysqlclient-dev libsqlite3-dev
+	$ make pgloader
+	$ ./build/pgloader.exe --help
 
 ### Patches
 
