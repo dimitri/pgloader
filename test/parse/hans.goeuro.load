@@ -1,8 +1,8 @@
-load database
-     from      mysql://root@localhost:3306/goeuro
-     into postgresql://dim@localhost:54393/godollar
+LOAD DATABASE
+     FROM      mysql://root@localhost:3306/goeuro
+     INTO postgresql://dim@localhost:54393/godollar
 
- WITH drop tables, create tables, create indexes, reset sequences
+ WITH include drop, create tables, create indexes, reset sequences
 
  CAST type datetime to timestamptz drop default drop not null using zero-dates-to-null,
       type date drop not null drop default using zero-dates-to-null,
