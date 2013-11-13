@@ -6,33 +6,47 @@
 ;;;
 ;;; PostgreSQL Tools connecting to a database
 ;;;
-(defmacro handling-pgsql-notices ((&key set-local) &body forms)
+(defmacro handling-pgsql-notices (&body forms)
   "The BODY is run within a PostgreSQL transaction where *pg-settings* have
    been applied. PostgreSQL warnings and errors are logged at the
    appropriate log level."
-  `(pomo:with-transaction ()
-     (handler-bind
-	 ((cl-postgres:database-error
-	   #'(lambda (e)
-	       (log-message :error "~a" e)))
-	  (cl-postgres:postgresql-warning
-	   #'(lambda (w)
-	       (log-message :warning "~a" w)
-	       (muffle-warning))))
-       (set-session-gucs *pg-settings* :transaction ,set-local)
-       (progn ,@forms))))
+  `(handler-bind
+       ((cl-postgres:database-error
+	 #'(lambda (e)
+	     (log-message :error "~a" e)))
+	(cl-postgres:postgresql-warning
+	 #'(lambda (w)
+	     (log-message :warning "~a" w)
+	     (muffle-warning))))
+     (progn ,@forms)))
 
 (defmacro with-pgsql-transaction ((dbname &key database) &body forms)
   "Run FORMS within a PostgreSQL transaction to DBNAME, reusing DATABASE if
    given. To get the connection spec from the DBNAME, use `get-connection-spec'."
   (if database
-      `(let ((pomo:*database* database))
-	 (handling-pgsql-notices (:set-local t)
-	   ,@forms))
+      `(let ((pomo:*database* ,database))
+	 (handling-pgsql-notices
+	   (pomo:with-transaction ()
+	     (log-message :debug "BEGIN")
+	     (set-session-gucs *pg-settings* :transaction t)
+	     ,@forms)))
       ;; no database given, create a new database connection
       `(pomo:with-connection (get-connection-spec ,dbname)
+	 (log-message :debug "CONNECT")
+	 (set-session-gucs *pg-settings*)
 	 (handling-pgsql-notices ()
-	   ,@forms))))
+	   (pomo:with-transaction ()
+	     (log-message :debug "BEGIN")
+	     ,@forms)))))
+
+(defmacro with-pgsql-connection ((dbname) &body forms)
+  "Run FROMS within a PostgreSQL connection to DBNAME. To get the connection
+   spec from the DBNAME, use `get-connection-spec'."
+  `(pomo:with-connection (get-connection-spec ,dbname)
+     (log-message :debug "CONNECT")
+     (set-session-gucs *pg-settings*)
+     (handling-pgsql-notices ()
+       ,@forms)))
 
 (defun get-connection-spec (dbname &key (with-port t))
   "pomo:with-connection and cl-postgres:open-database and open-db-writer are
@@ -47,7 +61,7 @@
   (let ((pomo:*database* (or database pomo:*database*)))
     (loop
        for (name . value) in alist
-       for set = (format nil "SET~@[ LOCAL~] ~a TO '~a'" transaction name value)
+       for set = (format nil "SET~:[~; LOCAL~] ~a TO '~a'" transaction name value)
        do
 	 (log-message :debug set)
 	 (pomo:execute set))))

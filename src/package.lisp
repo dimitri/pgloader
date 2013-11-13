@@ -48,6 +48,7 @@
 (defpackage #:pgloader.pgsql
   (:use #:cl #:pgloader.params #:pgloader.utils)
   (:export #:with-pgsql-transaction
+	   #:with-pgsql-connection
 	   #:pgsql-execute
 	   #:pgsql-execute-with-timing
 	   #:truncate-table

@@ -21,11 +21,13 @@ LOAD CSV
 
       SET client_encoding to 'latin1',
           work_mem to '12MB',
-          standard_conforming_strings to 'on'
+          standard_conforming_strings to 'on',
+          search_path to 'err'  -- test GUC settings in retry path
 
    BEFORE LOAD DO
-     $$ drop table if exists errors; $$,
-     $$ create table errors (
+     $$ create schema if not exists err; $$,
+     $$ drop table if exists err.errors; $$,
+     $$ create table err.errors (
          a integer primary key,
          b date,
          c text
@@ -35,10 +37,10 @@ LOAD CSV
 
 
 
-1|some first row text|2006-13-11|
-2|some second row text|2006-11-11|
-3|some third row text|2006-10-12|
+1|expected error, month 13|2006-13-11|
+2|nov. the 11th should go|2006-11-11|
+3|12th of oct. should go|2006-10-12|
 4|\ |2006-16-4|
-5|some fifth row text|2006-5-12|
-6|some sixth row text|2006-13-10|
+5|month should be may, ok|2006-5-12|
+6|another month 13, stress retry path|2006-13-10|
 7|some null date to play with||

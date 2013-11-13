@@ -67,40 +67,43 @@
 			  transforms)
   "Fetch data from the QUEUE until we see :end-of-data. Update *state*"
   (when truncate
-    (log-message :notice "TRUNCATE ~a.~a;" dbname table-name)
+    (log-message :notice "TRUNCATE ~a;" table-name)
     (truncate-table dbname table-name))
 
-  (log-message :debug "pgsql:copy-from-queue: ~a ~a ~a" dbname table-name columns)
+  (log-message :debug "pgsql:copy-from-queue: ~a ~a" table-name columns)
 
-  (with-pgsql-transaction (dbname)
+  (with-pgsql-connection (dbname)
     (loop
        for retval =
-	 (let* ((copier
-		 (cl-postgres:open-db-writer pomo:*database* table-name columns))
-		(*batch* nil)
+	 (let* ((*batch* nil)
 		(*batch-size* 0))
-	   (log-message :debug "pgsql:copy-from-queue: starting new batch")
-	   (unwind-protect
-		(let ((process-row-fn
-		       (make-copy-and-batch-fn copier :transforms transforms)))
-		  (catch 'next-batch
-		    (pgloader.queue:map-pop-queue dataq process-row-fn)))
+	   (handler-case
+	       (with-pgsql-transaction (dbname :database pomo:*database*)
+		 (let* ((copier (cl-postgres:open-db-writer pomo:*database*
+							    table-name
+							    columns)))
+		   (log-message :debug "pgsql:copy-from-queue: new batch")
+		   (unwind-protect
+			(let ((process-row-fn
+			       (make-copy-and-batch-fn copier
+						       :transforms transforms)))
+			  (catch 'next-batch
+			    (pgloader.queue:map-pop-queue dataq process-row-fn)))
+
+		     (log-message :debug "pgsql:copy-from-queue: batch done")
+		     (cl-postgres:close-db-writer copier))))
+
 	     ;; in case of data-exception, split the batch and try again
-	     (handler-case
-		 (progn
-		   (log-message :debug "pgsql:copy-from-queue: commit batch")
-		   (cl-postgres:close-db-writer copier))
-	       ((or
-		 CL-POSTGRES-ERROR:UNIQUE-VIOLATION
-		 CL-POSTGRES-ERROR:DATA-EXCEPTION) (e)
-		 (progn
-		   (log-message :debug "pgsql:copy-from-queue: ~a" e)
-		   (retry-batch dbname
-				table-name
-				(nreverse *batch*)
-				*batch-size*
-				:columns columns
-				:transforms transforms))))))
+	     ((or
+	       CL-POSTGRES-ERROR:UNIQUE-VIOLATION
+	       CL-POSTGRES-ERROR:DATA-EXCEPTION) (e)
+	       (declare (ignore e))	; already logged
+	      (retry-batch dbname
+			   table-name
+			   (nreverse *batch*)
+			   *batch-size*
+			   :columns columns
+			   :transforms transforms))))
 
        ;; fetch how many rows we just pushed through, update stats
        for rows = (if (consp retval) (cdr retval) retval)
@@ -131,8 +134,6 @@
   "Add the row to the reject file, in PostgreSQL COPY TEXT format"
   ;; first, update the stats.
   (pgstate-incf *state* table-name :errs 1 :rows -1)
-
-  (log-message :error "Invalid input: ~{~s~^, ~}~%~a~%" row condition)
 
   ;; now, the bad row processing
   (let* ((table (pgstate-get-table *state* table-name))
@@ -175,44 +176,45 @@
 ;;;
 (defun retry-batch (dbname table-name batch batch-size &key columns transforms)
   "Batch is a list of rows containing at least one bad row. Find it."
-  (let* ((conspec (get-connection-spec dbname :with-port nil))
-	 (current-batch-pos batch)
+  (log-message :debug "pgsql:retry-batch: splitting current batch [~d rows]" batch-size)
+  (let* ((current-batch-pos batch)
 	 (processed-rows 0))
     (loop
        while (< processed-rows batch-size)
        do
-	 (log-message :debug "pgsql:retry-batch: splitting current batch")
 	 (let* ((current-batch current-batch-pos)
 		(current-batch-size (smaller-batch-size batch-size
-							processed-rows))
-		(stream
-		 (cl-postgres:open-db-writer conspec table-name columns)))
+							processed-rows)))
+	  (handler-case
+	      (with-pgsql-transaction (dbname :database pomo:*database*)
+		(let* ((stream (cl-postgres:open-db-writer pomo:*database*
+							   table-name
+							   columns)))
 
-	   (log-message :debug "pgsql:retry-batch: current-batch-size = ~d"
-			current-batch-size)
+		  (log-message :debug "pgsql:retry-batch: current-batch-size = ~d"
+			       current-batch-size)
 
-	   (unwind-protect
-		(dotimes (i current-batch-size)
-		  ;; rows in that batch have already been processed
-		  (cl-postgres:db-write-row stream (car current-batch-pos))
-		  (setf current-batch-pos (cdr current-batch-pos))
-		  (incf processed-rows))
+		  (unwind-protect
+		       (dotimes (i current-batch-size)
+			 ;; rows in that batch have already been processed
+			 (cl-postgres:db-write-row stream (car current-batch-pos))
+			 (setf current-batch-pos (cdr current-batch-pos))
+			 (incf processed-rows))
 
-	     (handler-case
-		 (cl-postgres:close-db-writer stream)
+		    (cl-postgres:close-db-writer stream))))
 
-	       ;; the batch didn't make it, recurse
-	       ((or
-		 CL-POSTGRES-ERROR:UNIQUE-VIOLATION
-		 CL-POSTGRES-ERROR:DATA-EXCEPTION) (condition)
-		 ;; process bad data
-		 (if (= 1 current-batch-size)
-		     (process-bad-row table-name condition (car current-batch)
-				      :transforms transforms)
-		     ;; more than one line of bad data: recurse
-		     (retry-batch dbname
-				  table-name
-				  current-batch
-				  current-batch-size
-				  :columns columns
-				  :transforms transforms)))))))))
+	    ;; the batch didn't make it, recurse
+	    ((or
+	      CL-POSTGRES-ERROR:UNIQUE-VIOLATION
+	      CL-POSTGRES-ERROR:DATA-EXCEPTION) (condition)
+	      ;; process bad data
+	      (if (= 1 current-batch-size)
+		  (process-bad-row table-name condition (car current-batch)
+				   :transforms transforms)
+		  ;; more than one line of bad data: recurse
+		  (retry-batch dbname
+			       table-name
+			       current-batch
+			       current-batch-size
+			       :columns columns
+			       :transforms transforms))))))))
