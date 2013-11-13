@@ -56,10 +56,14 @@
   "Execute given SQL and resgister its timing into STATE."
   (multiple-value-bind (res secs)
       (timing
-       (with-pgsql-transaction (dbname)
-	 (pgsql-execute sql)))
+       (handler-case
+	   (with-pgsql-transaction (dbname)
+	     (pgsql-execute sql))
+	 (cl-postgres:database-error (e)
+	   (declare (ignore e))		; a log has already been printed
+	   (pgstate-incf state label :errs 1 :rows (- count)))))
     (declare (ignore res))
-    (pgstate-incf state label :rows count :secs secs)))
+    (pgstate-incf state label :read count :rows count :secs secs)))
 
 (defun pgsql-execute (sql &key ((:client-min-messages level)))
   "Execute given SQL in current transaction"
