@@ -208,23 +208,34 @@
       (with-stats-collection (pg-dbname "create, drop"
 					:use-result-as-rows t
 					:state state-before)
-	(with-pgsql-transaction (pg-dbname)
-	  ;; we need to first drop the Foreign Key Constraints, so that we
-	  ;; can DROP TABLE when asked
-	  (when (and foreign-keys include-drop)
-	    (drop-fkeys all-fkeys
-			:dbname pg-dbname
-			:identifier-case identifier-case))
+	(handler-case
+	    (with-pgsql-transaction (pg-dbname)
+	      ;; we need to first drop the Foreign Key Constraints, so that we
+	      ;; can DROP TABLE when asked
+	      (when (and foreign-keys include-drop)
+		(drop-fkeys all-fkeys
+			    :dbname pg-dbname
+			    :identifier-case identifier-case))
 
-	  ;; now drop then create tables and types, etc
-	  (create-tables all-columns
-			 :identifier-case identifier-case
-			 :include-drop include-drop)
+	      ;; now drop then create tables and types, etc
+	      (create-tables all-columns
+			     :identifier-case identifier-case
+			     :include-drop include-drop)
 
-	  ;; MySQL allows the same index name being used against several
-	  ;; tables, so we add the PostgreSQL table OID in the index name,
-	  ;; to differenciate. Set the table oids now.
-	  (set-table-oids all-indexes))))
+	      ;; MySQL allows the same index name being used against several
+	      ;; tables, so we add the PostgreSQL table OID in the index name,
+	      ;; to differenciate. Set the table oids now.
+	      (set-table-oids all-indexes))
+
+	  ;;
+	  ;; In case some error happens in the preparatory transaction, we
+	  ;; need to stop now and refrain to try loading the data into an
+	  ;; incomplete schema.
+	  ;;
+	  (cl-postgres:database-error (e)
+	    (declare (ignore e))		; a log has already been printed
+	    (log-message :critical "Failed to create the schema, see above.")
+	    (return-from copy-database)))))
 
     (loop
        for (table-name . columns) in all-columns
