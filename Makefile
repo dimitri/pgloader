@@ -9,6 +9,8 @@ BUILDAPP   = build/buildapp
 MANIFEST   = build/manifest.ql
 PGLOADER   = build/pgloader.exe
 
+all: $(PGLOADER)
+
 docs:
 	pandoc pgloader.1.md -o pgloader.1
 	pandoc pgloader.1.md -o pgloader.html
@@ -75,7 +77,7 @@ $(PGLOADER): $(MANIFEST) $(BUILDAPP)
                          --entry pgloader:main                   \
                          --dynamic-space-size 4096               \
                          --compress-core                         \
-                         --output build/pgloader.exe
+                         --output $@
 
 pgloader: $(PGLOADER) ;
 
