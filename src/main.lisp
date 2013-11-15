@@ -87,28 +87,42 @@
 
 	(when arguments
 	  ;; process the files
-	  (handler-bind
-	      ((condition
-		#'(lambda (c)
-		    (if debug
-			(trivial-backtrace:print-backtrace c
-							   :output *standard-output*
-							   :verbose t)
-			(trivial-backtrace:print-condition c *standard-output*)))))
-	    (loop for filename in arguments
-	       do
-		 (run-commands filename
-			       :log-filename logfile
-			       :log-min-messages
-			       (log-threshold log-min-messages
-					      :quiet quiet
-					      :verbose verbose
-					      :debug debug)
-			       :client-min-messages
-			       (log-threshold client-min-messages
-					      :quiet quiet
-					      :verbose verbose
-					      :debug debug))
-		 (format t "~&"))))
+	  (handler-case
+	      ;; we bind here a catch-all handler to print out the backtrace
+	      ;; before unwinding the call stack, so that it's a useful
+	      ;; piece of information.
+	      ;;
+	      ;; we still need an handler-case to stop the processing in
+	      ;; case of unhandled condition popping up here.
+	      (handler-bind
+		  ((condition
+		    #'(lambda (condition)
+			(let ((s *standard-output*))
+			  (log-message :critical "Fatal error:")
+			  (if debug
+			      (trivial-backtrace:print-backtrace condition
+								 :output s
+								 :verbose t)
+			      (trivial-backtrace:print-condition condition s))))))
+		(loop for filename in arguments
+		   do
+		     (run-commands filename
+				   :log-filename logfile
+				   :log-min-messages
+				   (log-threshold log-min-messages
+						  :quiet quiet
+						  :verbose verbose
+						  :debug debug)
+				   :client-min-messages
+				   (log-threshold client-min-messages
+						  :quiet quiet
+						  :verbose verbose
+						  :debug debug))
+		     (format t "~&")))
+	    (condition (c)
+	      ;; avoid confronting users with the interactive debugger
+	      ;; unless they asked for it using the --debug switch.
+	      (when debug
+		(invoke-debugger c)))))
 
 	(uiop:quit)))))
