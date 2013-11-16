@@ -96,16 +96,66 @@ order by table_name" dbname only-tables))))
     ;; free resources
     (cl-mysql:disconnect)))
 
+(defun create-my-views (dbname views-alist
+			&key
+			  (host *myconn-host*)
+			  (user *myconn-user*)
+			  (pass *myconn-pass*))
+  "VIEWS-ALIST associates view names with their SQL definition, which might
+   be empty for already existing views. Create only the views for which we
+   have an SQL definition."
+  (let ((views (remove-if #'null views-alist :key #'cdr)))
+    (when views
+      (cl-mysql:connect :host host :user user :password pass)
+      (unwind-protect
+	   (progn
+	     (cl-mysql:use dbname)
+	     (loop for (name . def) in views
+		for sql = (format nil "CREATE VIEW ~a AS ~a" name def)
+		do
+		  (log-message :info "MySQL: ~a" sql)
+		  (cl-mysql:query sql)))
+	;; free resources
+	(cl-mysql:disconnect)))))
+
+(defun drop-my-views (dbname views-alist
+		      &key
+			(host *myconn-host*)
+			(user *myconn-user*)
+			(pass *myconn-pass*))
+  "See `create-my-views' for VIEWS-ALIST description. This time we DROP the
+   views to clean out after our work."
+  (let ((views (remove-if #'null views-alist :key #'cdr)))
+    (when views
+      (cl-mysql:connect :host host :user user :password pass)
+      (unwind-protect
+	   (let ((sql
+		  (format nil "DROP VIEW ~{~a~^, ~};" (mapcar #'car views))))
+	     (cl-mysql:use dbname)
+	     (log-message :info "MySQL: ~a" sql)
+	     (cl-mysql:query sql))
+	;; free resources
+	(cl-mysql:disconnect)))))
+
+
 ;;;
 ;;; Tools to get MySQL table and columns definitions and transform them to
 ;;; PostgreSQL CREATE TABLE statements, and run those.
 ;;;
+(defvar *table-type* '((:table . "BASE TABLE")
+		       (:view  . "VIEW"))
+  "Associate internal table type symbol with what's found in MySQL
+  information_schema.tables.table_type column.")
+
 (defun list-all-columns (dbname
 			 &key
 			   only-tables
 			   (host *myconn-host*)
 			   (user *myconn-user*)
-			   (pass *myconn-pass*))
+			   (pass *myconn-pass*)
+			   (table-type :table)
+			 &aux
+			   (table-type-name (cdr (assoc table-type *table-type*))))
   "Get the list of MySQL column names per table."
   (cl-mysql:connect :host host :user user :password pass)
 
@@ -121,9 +171,9 @@ order by table_name" dbname only-tables))))
          c.is_nullable, c.extra
     from information_schema.columns c
          join information_schema.tables t using(table_schema, table_name)
-   where c.table_schema = '~a' and t.table_type = 'BASE TABLE'
+   where c.table_schema = '~a' and t.table_type = '~a'
          ~@[and table_name in (~{'~a'~^,~})~]
-order by table_name, ordinal_position" dbname only-tables)))
+order by table_name, ordinal_position" dbname table-type-name only-tables)))
 	    do
 	      (let ((entry  (assoc table-name schema :test 'equal))
 		    (column

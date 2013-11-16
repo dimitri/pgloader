@@ -167,7 +167,8 @@
 			    (identifier-case :downcase) ; or :quote
 			    only-tables
 			    including
-			    excluding)
+			    excluding
+			    materialize-views)
   "Export MySQL data and Import it into PostgreSQL"
   (let* ((summary       (null *state*))
 	 (*state*       (or *state*       (make-pgstate)))
@@ -177,6 +178,8 @@
          (copy-kernel   (make-kernel 2))
 	 (dbname        (source-db mysql))
 	 (pg-dbname     (target-db mysql))
+	 (view-names    (mapcar #'car materialize-views))
+	 view-columns			; must wait until we created the views
          (all-columns   (filter-column-list (list-all-columns dbname)
 					    :only-tables only-tables
 					    :including including
@@ -225,20 +228,35 @@
 	      ;; MySQL allows the same index name being used against several
 	      ;; tables, so we add the PostgreSQL table OID in the index name,
 	      ;; to differenciate. Set the table oids now.
-	      (set-table-oids all-indexes))
+	      (set-table-oids all-indexes)
+
+	      ;; If asked to materialize views, now is the time to create
+	      ;; the target tables for them
+	      (when materialize-views
+		(create-my-views dbname materialize-views)
+		(setf view-columns (list-all-columns dbname
+						     :only-tables view-names
+						     :table-type :view))
+		(create-tables view-columns
+			       :identifier-case identifier-case
+			       :include-drop include-drop)))
 
 	  ;;
 	  ;; In case some error happens in the preparatory transaction, we
 	  ;; need to stop now and refrain to try loading the data into an
 	  ;; incomplete schema.
 	  ;;
+	  (cl-mysql-system:mysql-error (e)
+	    (log-message :fatal "~a" e)
+	    (return-from copy-database))
+
 	  (cl-postgres:database-error (e)
 	    (declare (ignore e))		; a log has already been printed
-	    (log-message :critical "Failed to create the schema, see above.")
+	    (log-message :fatal "Failed to create the schema, see above.")
 	    (return-from copy-database)))))
 
     (loop
-       for (table-name . columns) in all-columns
+       for (table-name . columns) in (append all-columns view-columns)
        do
 	 (let ((table-source
 		(make-instance 'copy-mysql
@@ -277,6 +295,11 @@
 	  (loop for idx in all-indexes do (lp:receive-result idx-channel))))
       (lp:end-kernel))
 
+    ;;
+    ;; If we created some views for this run, now is the time to DROP'em
+    ;;
+    (when materialize-views
+      (drop-my-views dbname materialize-views))
     ;;
     ;; Now Reset Sequences, the good time to do that is once the whole data
     ;; has been imported and once we have the indexes in place, as max() is

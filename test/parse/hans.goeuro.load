@@ -8,4 +8,12 @@ LOAD DATABASE
       type date drop not null drop default using zero-dates-to-null,
       type tinyint to boolean using tinyint-to-boolean,
       type year to integer,
-      type timestamp to timestamptz drop not null using zero-dates-to-null;
+      type timestamp to timestamptz drop not null using zero-dates-to-null
+
+ MATERIALIZE VIEWS
+   d as $$
+       select cast(d as date) as d, count(*) as n
+         from plop
+        where d > '2013-10-02'
+     group by cast(d as date);
+   $$;

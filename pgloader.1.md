@@ -720,7 +720,9 @@ Here's an example:
           type date drop not null drop default using zero-dates-to-null,
           -- type tinyint to boolean using tinyint-to-boolean,
           type year to integer
-    
+
+     MATERIALIZE VIEWS film_list, staff_list
+
      -- INCLUDING ONLY TABLE NAMES MATCHING ~/film/, 'actor'
      -- EXCLUDING TABLE NAMES MATCHING ~<ory>
     
@@ -881,6 +883,24 @@ The `database` command accepts the following clauses and options:
 	    This option takes as its single argument the name of a function to
 	    be found un the `pgloader.transforms` Common Lisp package. See above
 	    for details.
+
+  - *MATERIALIZE VIEWS*
+  
+    This clause allows you to implement custom data processing at the data
+    source by providing a *view definition* against which pgloader will
+    query the data. It's not possible to just allow for plain `SQL` because
+    we want to know a lot about the exact data types of each column involved
+    in the query output.
+	
+	This clause expect a comma separated list of view definitions, each one
+	being either the name of an existing view in your database or the
+	following expression:
+	
+	  *name* `AS` `$$` *sql query*
+	  
+	The *name* and the *sql query* will be used in a `CREATE VIEW` statement
+	at the beginning of the data loading, and the resulting view will then
+	be dropped at the end of the data loading.
 
   - *INCLUDING ONLY TABLE NAMES MATCHING*
   

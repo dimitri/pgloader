@@ -106,6 +106,7 @@
   (def-keyword-rule "header")
   (def-keyword-rule "null")
   (def-keyword-rule "if")
+  (def-keyword-rule "as")
   (def-keyword-rule "blanks")
   (def-keyword-rule "date")
   (def-keyword-rule "format")
@@ -117,11 +118,13 @@
   (def-keyword-rule "only")
   (def-keyword-rule "drop")
   (def-keyword-rule "create")
+  (def-keyword-rule "materialize")
   (def-keyword-rule "reset")
   (def-keyword-rule "table")
   (def-keyword-rule "name")
   (def-keyword-rule "names")
   (def-keyword-rule "tables")
+  (def-keyword-rule "views")
   (def-keyword-rule "indexes")
   (def-keyword-rule "sequences")
   (def-keyword-rule "foreign")
@@ -674,6 +677,39 @@
     (destructuring-bind (c casts) source
       (declare (ignore c))
       casts)))
+
+
+;;;
+;;; Materialize views by copying their data over, allows for doing advanced
+;;; ETL processing by having parts of the processing happen on the MySQL
+;;; query side.
+;;;
+(defrule view-name (and (alpha-char-p character)
+			(* (or (alpha-char-p character)
+			       (digit-char-p character)
+			       #\_)))
+  (:text t))
+
+(defrule view-sql (and kw-as dollar-quoted)
+  (:destructure (as sql) (declare (ignore as)) sql))
+
+(defrule view-definition (and view-name (? view-sql))
+  (:destructure (name sql) (cons name sql)))
+
+(defrule another-view-definition (and #\, ignore-whitespace view-definition)
+  (:lambda (source)
+    (destructuring-bind (comma ws view) source
+      (declare (ignore comma ws))
+      view)))
+
+(defrule views-list (and view-definition (* another-view-definition))
+  (:lambda (vlist)
+    (destructuring-bind (view1 views) vlist
+      (list* view1 views))))
+
+(defrule materialize-views (and kw-materialize kw-views views-list)
+  (:destructure (mat views list) (declare (ignore mat views)) list))
+
 
 ;;;
 ;;; Including only some tables or excluding some others
@@ -713,13 +749,14 @@
 				  (? mysql-options)
 				  (? gucs)
 				  (? casts)
+				  (? materialize-views)
 				  (? including)
 				  (? excluding)
 				  (? before-load-do)
 				  (? after-load-do))
   (:lambda (source)
     (destructuring-bind (my-db-uri pg-db-uri options
-				   gucs casts
+				   gucs casts views
 				   incl excl
 				   before after)
 	source
@@ -767,6 +804,7 @@
 					       `(:only-tables ',(list table-name)))
 					     :including ',incl
 					     :excluding ',excl
+					     :materialize-views ',views
 					     :state-before state-before
 					     :state-after state-after
 					     :state-indexes state-idx
