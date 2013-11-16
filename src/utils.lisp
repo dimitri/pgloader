@@ -7,8 +7,9 @@
 ;;; Logs
 ;;;
 ;;; First define the log categories
-(defcategory :critical)
-(defcategory :log     (or :log :critical))
+(defcategory :panic)
+(defcategory :fatal   (or :fatal :panic))
+(defcategory :log     (or :log :fatal))
 (defcategory :error   (or :error :log))
 (defcategory :warning (or :warning :error))
 (defcategory :notice  (or :notice :warning))
@@ -289,6 +290,8 @@
 (defun report-full-summary (legend state
 			    &key before finally parallel)
   "Report the full story when given three different sections of reporting."
+
+  (terpri)
 
   ;; BEFORE
   (if before
