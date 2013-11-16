@@ -184,15 +184,17 @@
 	     (or (null ai-s-p) (eq auto-increment rule-source-auto-increment)))
 	  (list :using using :target rule-target))))))
 
-(defun format-pgsql-default-value (default using-cast-fn)
+(defun format-pgsql-default-value (default &optional using-cast-fn)
   "Returns suitably quoted default value for CREATE TABLE command."
   (cond
+    ((null default) "NULL")
     ((string= "NULL" default) default)
     ((string= "CURRENT_TIMESTAMP" default) default)
     (t
-     (format nil "'~a'"
-	     ;; apply the transformation function to the default value
-	     (if using-cast-fn (funcall using-cast-fn default) default)))))
+     ;; apply the transformation function to the default value
+     (if using-cast-fn (format-pgsql-default-value
+			(funcall using-cast-fn default))
+	 (format nil "'~a'" default)))))
 
 (defun format-pgsql-type (source target using)
   "Returns a string suitable for a PostgreSQL type definition"
