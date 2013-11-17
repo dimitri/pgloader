@@ -22,10 +22,18 @@
 		 float-to-string
 		 set-to-enum-array))
 
+
+;;;
+;;; Some tools for reading expressions in the parser, and evaluating them.
+;;;
 (defun intern-symbol (symbol-name)
   (intern (string-upcase symbol-name)
 	  (find-package "PGLOADER.TRANSFORMS")))
 
+
+;;;
+;;; Transformation functions
+;;;
 (defun zero-dates-to-null (date-string)
   "MySQL accepts '0000-00-00' as a date, we want NIL (SQL NULL) instead."
   (cond
