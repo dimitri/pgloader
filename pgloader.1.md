@@ -862,21 +862,62 @@ The `database` command accepts the following clauses and options:
 	
 	A casting rule is expected to follow the form:
 	
-	    type <mysql-type-name> to <pgsql-type-name> [ <option> ... ]
+	    type <mysql-type-name> [ <guard> ... ] to <pgsql-type-name> [ <option> ... ]
+
+    The supported guards are:
 	
+	  - *when default 'value'*
+	  
+	    The casting rule is only applied against MySQL columns of the source
+	    type that have given *value*, which must be a single-quoted or a
+	    double-quoted string.
+		
+	  - *when typemod expression*
+	  
+	    The casting rule is only applied against MySQL columns of the source
+	    type that have a *typemod* value matching the given *typemod
+	    expression*. The *typemod* is separated into its *precision* and
+	    *scale* components.
+		
+		Example of a cast rule using a *typemod* guard:
+		
+		    type char when (= precision 1) to char keep typemod
+			
+        This expression casts MySQL `char(1)` column to a PostgreSQL column
+        of type `char(1)` while allowing for the general case `char(N)` will
+        be converted by the default cast rule into a PostgreSQL type
+        `varchar(N)`.
+
 	The supported casting options are:
 	
-	  - *drop default*
+	  - *drop default*, *keep default*
 
-        When this option is listed, pgloader drops any existing default
-        expression in the MySQL database for columns of the source type from
-        the `CREATE TABLE` statement it generates.
+        When the option *drop default* is listed, pgloader drops any
+        existing default expression in the MySQL database for columns of the
+        source type from the `CREATE TABLE` statement it generates.
 
-	  - *drop not null*
+	    The spelling *keep default* explicitely prevents that behavior and
+	    can be used to overlad the default casting rules.
 
-        When this option is listed, pgloader drop any existing `NOT NULL`
-        constraint associated with the given source MySQL datatype when it
-        creates the tables in the PostgreSQL database.
+	  - *drop not null*, *keep not null*
+
+        When the option *drop not null* is listed, pgloader drops any
+        existing `NOT NULL` constraint associated with the given source
+        MySQL datatype when it creates the tables in the PostgreSQL
+        database.
+
+	    The spelling *keep not null* explicitely prevents that behavior and
+	    can be used to overlad the default casting rules.
+
+      - *drop typemod*, *keep typemod*
+
+	    When the option *drop typemod* is listed, pgloader drops any
+	    existing *typemod* definition (e.g. *precision* and *scale*) from
+	    the datatype definition found in the MySQL columns of the source
+	    type when it created the tables in the PostgreSQL database.
+
+	    The spelling *keep typemod* explicitely prevents that behavior and
+	    can be used to overlad the default casting rules.
 
 	  - *using*
 
@@ -984,17 +1025,21 @@ Numbers:
   - type int to int       when not auto_increment and (< typemod 10)
   - type int to bigint    when not auto_increment and (<= 10 typemod)
   - type bigint to bigserial when auto_increment
-  - type tinyint to smallint
-  - type smallint to smallint
-  - type mediumint to integer
-  - type float to float
-  - type bigint to bigint
-  - type double to double precision
-  - type numeric to numeric (keeping the typemod)
-  - type decimal to deciman (keeping the typemod)
+
+  - type tinyint to smallint   drop typemod
+  - type smallint to smallint  drop typemod
+  - type mediumint to integer  drop typemod
+  - type integer to integer    drop typemod
+  - type float to float        drop typemod
+  - type bigint to bigint      drop typemod
+  - type double to double precision drop typemod
+
+  - type numeric to numeric keep typemod
+  - type decimal to deciman keep typemod
 
 Texts:
 
+  - type char       to varchar keep typemod
   - type varchar    to text
   - type tinytext   to text
   - type text       to text
@@ -1029,7 +1074,7 @@ Date:
   - type date to date
   - type datetime to timestamptz
   - type timestamp to timestamptz
-  - type year to integer
+  - type year to integer drop typemod
 
 Geometric:
 

@@ -45,28 +45,31 @@
 ;;; The default MySQL Type Casting Rules
 ;;;
 (defparameter *default-cast-rules*
-  `((:source (:type "int" :auto-increment t :typemod (< (car typemod) 10))
+  `((:source (:type "int" :auto-increment t :typemod (< precision 10))
      :target (:type "serial"))
 
-    (:source (:type "int" :auto-increment t :typemod (<= 10 (car typemod)))
+    (:source (:type "int" :auto-increment t :typemod (<= 10 precision))
      :target (:type "bigserial"))
 
-    (:source (:type "int" :auto-increment nil :typemod (< (car typemod) 10))
+    (:source (:type "int" :auto-increment nil :typemod (< precision 10))
      :target (:type "int"))
 
-    (:source (:type "int" :auto-increment nil :typemod (<= 10 (car typemod)))
+    (:source (:type "int" :auto-increment nil :typemod (<= 10 precision))
      :target (:type "bigint"))
 
     ;; bigint with auto_increment always are bigserial
     (:source (:type "bigint" :auto-increment t) :target (:type "bigserial"))
 
     ;; we need the following to benefit from :drop-typemod
-    (:source (:type "tinyint")   :target (:type "smallint"))
-    (:source (:type "smallint")  :target (:type "smallint"))
-    (:source (:type "mediumint") :target (:type "integer"))
-    (:source (:type "float")     :target (:type "float"))
-    (:source (:type "bigint")    :target (:type "bigint"))
-    (:source (:type "double")    :target (:type "double precision"))
+    (:source (:type "tinyint")   :target (:type "smallint" :drop-typemod t))
+    (:source (:type "smallint")  :target (:type "smallint" :drop-typemod t))
+    (:source (:type "mediumint") :target (:type "integer"  :drop-typemod t))
+    (:source (:type "integer")   :target (:type "integer"  :drop-typemod t))
+    (:source (:type "float")     :target (:type "float"    :drop-typemod t))
+    (:source (:type "bigint")    :target (:type "bigint"   :drop-typemod t))
+
+    (:source (:type "double")
+	     :target (:type "double precision" :drop-typemod t))
 
     (:source (:type "numeric")
      :target (:type "numeric" :drop-typemod nil))
@@ -115,7 +118,7 @@
     (:source (:type "date")      :target (:type "date"))
     (:source (:type "datetime")  :target (:type "timestamptz"))
     (:source (:type "timestamp") :target (:type "timestamptz"))
-    (:source (:type "year")      :target (:type "integer"))
+    (:source (:type "year")      :target (:type "integer" :drop-typemod t))
 
     ;; Inline MySQL "interesting" datatype
     (:source (:type "enum")
@@ -152,9 +155,24 @@
 				       :start (+ 1 start-1) :end end))
 	  (cons a b))))))
 
+(defun typemod-expr-to-function (expr)
+  "Transform given EXPR into a callable function object."
+  `(lambda (typemod)
+     (destructuring-bind (precision &optional (scale 0)) typemod
+       (declare (ignorable precision scale))
+       ;;
+       ;; The command parser interns symbols into the pgloader.transforms
+       ;; package, whereas the default casting rules are defined in the
+       ;; pgloader.mysql package. Have a compatibility layer here for the
+       ;; generated code.
+       ;;
+       (let ((pgloader.transforms::precision precision))
+	 (declare (ignorable pgloader.transforms::precision))
+	 ,expr))))
+
 (defun typemod-expr-matches-p (rule-typemod-expr typemod)
   "Check if an expression such as (< 10) matches given typemod."
-  (funcall (compile nil `(lambda (typemod) ,rule-typemod-expr)) typemod))
+  (funcall (compile nil (typemod-expr-to-function rule-typemod-expr)) typemod))
 
 (defun cast-rule-matches (rule source)
   "Returns the target datatype if the RULE matches the SOURCE, or nil"
@@ -346,7 +364,8 @@ that would be int and int(7) or varchar and varchar(25)."
 	   ("o"  "timestamp" "timestamp" "CURRENT_TIMESTAMP" "NO" "on update CURRENT_TIMESTAMP")
 	   ("p"  "point"     "point"     nil "YES" nil)
 	   ("q"  "char"      "char(5)"   nil "YES" nil)
-	   ("l"  "char"      "char(1)"   nil "YES" nil))))
+	   ("l"  "char"      "char(1)"   nil "YES" nil)
+	   ("m"  "integer"   "integer(4)"    nil "YES" nil))))
 
     ;;
     ;; format-pgsql-column when given a mysql-column would call `cast' for

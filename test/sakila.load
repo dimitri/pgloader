@@ -8,9 +8,10 @@ load database
   SET maintenance_work_mem to '128MB', work_mem to '12MB', search_path to 'sakila'
 
  CAST type datetime to timestamptz drop default drop not null using zero-dates-to-null,
-      type date drop not null drop default using zero-dates-to-null,
+      type date drop not null drop default using zero-dates-to-null
+
       -- type tinyint to boolean using tinyint-to-boolean,
-      type year to integer
+      -- type year to integer drop typemod -- now a default
 
  MATERIALIZE VIEWS film_list, staff_list
 

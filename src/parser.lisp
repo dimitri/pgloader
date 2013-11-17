@@ -82,6 +82,7 @@
   (def-keyword-rule "no")
   (def-keyword-rule "null")
   (def-keyword-rule "default")
+  (def-keyword-rule "typemod")
   (def-keyword-rule "using")
   ;; option for loading from a file
   (def-keyword-rule "workers")
@@ -591,6 +592,16 @@
 ;;;
 ;;; Now parsing CAST rules for migrating from MySQL
 ;;;
+(defrule cast-typemod-guard (and kw-when sexp)
+  (:destructure (w expr) (declare (ignore w)) (cons :typemod expr)))
+
+(defrule cast-default-guard (and kw-when kw-default quoted-string)
+  (:destructure (w d value) (declare (ignore w d)) (cons :default value)))
+
+(defrule cast-source-guards (* (or cast-default-guard
+				   cast-typemod-guard))
+  (:lambda (guards)
+    (alexandria:alist-plist guards)))
 
 ;; at the moment we only know about extra auto_increment
 (defrule cast-source-extra (and ignore-whitespace
@@ -600,12 +611,19 @@
 (defrule cast-source (and (or kw-column kw-type)
 			  trimmed-name
 			  (? cast-source-extra)
+			  (? cast-source-guards)
 			  ignore-whitespace)
   (:lambda (source)
-    (destructuring-bind (kw name opts ws) source
+    (destructuring-bind (kw name opts guards ws) source
       (declare (ignore ws))
-      (destructuring-bind (&key auto-increment &allow-other-keys) opts
-	(list kw name :auto-increment auto-increment)))))
+      (destructuring-bind (&key (default nil d-s-p)
+				(typemod nil t-s-p)
+				&allow-other-keys) guards
+	(destructuring-bind (&key auto-increment &allow-other-keys) opts
+	  `(,kw ,name
+		,@(when t-s-p (list :typemod typemod))
+		,@(when d-s-p (list :default default))
+		:auto-increment ,auto-increment))))))
 
 (defrule cast-type-name (and (alpha-char-p character)
 			     (* (or (alpha-char-p character)
@@ -618,20 +636,39 @@
       (declare (ignore to ws))
       (list :type type-name))))
 
+(defrule cast-keep-default  (and kw-keep kw-default)
+  (:constant (list :drop-default nil)))
+
+(defrule cast-keep-typemod (and kw-keep kw-typemod)
+  (:constant (list :drop-typemod nil)))
+
+(defrule cast-keep-not-null (and kw-keep kw-not kw-null)
+  (:constant (list :drop-not-null nil)))
+
 (defrule cast-drop-default  (and kw-drop kw-default)
   (:constant (list :drop-default t)))
+
+(defrule cast-drop-typemod (and kw-drop kw-typemod)
+  (:constant (list :drop-typemod t)))
 
 (defrule cast-drop-not-null (and kw-drop kw-not kw-null)
   (:constant (list :drop-not-null t)))
 
 (defrule cast-def (+ (or cast-to-type
+			 cast-keep-default
 			 cast-drop-default
+			 cast-keep-typemod
+			 cast-drop-typemod
+			 cast-keep-not-null
 			 cast-drop-not-null))
   (:lambda (source)
     (destructuring-bind
-	  (&key type drop-default drop-not-null &allow-other-keys)
+	  (&key type drop-default drop-typemod drop-not-null &allow-other-keys)
 	(apply #'append source)
-      (list :type type :drop-default drop-default :drop-not-null drop-not-null))))
+      (list :type type
+	    :drop-default drop-default
+	    :drop-typemod drop-typemod
+	    :drop-not-null drop-not-null))))
 
 (defun function-name-character-p (char)
   (or (member char #.(quote (coerce "/:.-%" 'list)))
@@ -1341,10 +1378,14 @@ load database
   (not (eql #\" char)))
 
 (defun symbol-character-p (character)
-  (or (alphanumericp character)
-      (member character '(#\_ #\-))))
+  (not (member character '(#\Space #\( #\)))))
 
-(defrule sexp-symbol (+ (symbol-character-p character))
+(defun symbol-first-character-p (character)
+  (and (symbol-character-p character)
+       (not (member character '(#\+ #\-)))))
+
+(defrule sexp-symbol (and (symbol-first-character-p character)
+			  (* (symbol-character-p character)))
   (:lambda (schars)
     (pgloader.transforms:intern-symbol (text schars))))
 
