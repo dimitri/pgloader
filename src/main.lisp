@@ -47,6 +47,13 @@
     (("load" #\l) :type string :list t :optional t
      :documentation "Read user code from file")))
 
+(defun print-backtrace (condition debug stream)
+  "Depending on DEBUG, print out the full backtrace or just a shorter
+   message on STREAM for given CONDITION."
+  (if debug
+      (trivial-backtrace:print-backtrace condition :output stream :verbose t)
+      (trivial-backtrace:print-condition condition stream)))
+
 (defun main (argv)
   "Entry point when building an executable image with buildapp"
   (let ((args (rest argv)))
@@ -86,43 +93,38 @@
 	     do (load (compile-file filename :verbose nil :print nil))))
 
 	(when arguments
+	  ;; Start the logs system
+	  (let ((log-min-messages
+		 (log-threshold log-min-messages
+				:quiet quiet :verbose verbose :debug debug))
+		(client-min-messages
+		 (log-threshold client-min-messages
+				:quiet quiet :verbose verbose :debug debug)))
+
+	    (start-logger :log-filename logfile
+			  :log-min-messages log-min-messages
+			  :client-min-messages client-min-messages))
+
 	  ;; process the files
-	  (handler-case
-	      ;; we bind here a catch-all handler to print out the backtrace
-	      ;; before unwinding the call stack, so that it's a useful
-	      ;; piece of information.
-	      ;;
-	      ;; we still need an handler-case to stop the processing in
-	      ;; case of unhandled condition popping up here.
-	      (handler-bind
-		  ((condition
-		    #'(lambda (condition)
-			(let ((s *standard-output*))
-			  (log-message :critical "Fatal error:")
-			  (if debug
-			      (trivial-backtrace:print-backtrace condition
-								 :output s
-								 :verbose t)
-			      (trivial-backtrace:print-condition condition s))))))
-		(loop for filename in arguments
-		   do
-		     (run-commands filename
-				   :log-filename logfile
-				   :log-min-messages
-				   (log-threshold log-min-messages
-						  :quiet quiet
-						  :verbose verbose
-						  :debug debug)
-				   :client-min-messages
-				   (log-threshold client-min-messages
-						  :quiet quiet
-						  :verbose verbose
-						  :debug debug))
-		     (format t "~&")))
-	    (condition (c)
-	      ;; avoid confronting users with the interactive debugger
-	      ;; unless they asked for it using the --debug switch.
-	      (when debug
-		(invoke-debugger c)))))
+	  (loop for filename in arguments
+	     do
+	       ;; The handler-case is to catch unhandled exceptions at the
+	       ;; top level and continue with the next file in the list.
+	       ;;
+	       ;; The handler-bind is to be able to offer a meaningful
+	       ;; backtrace to the user in case of unexpected conditions
+	       ;; being signaled.
+	       (handler-case
+		   (handler-bind
+		       ((condition
+			 #'(lambda (condition)
+			     (log-message :fatal "We have a situation here.")
+			     (print-backtrace condition debug *standard-output*))))
+
+		     (run-commands filename :start-logger nil)
+		     (format t "~&"))
+
+		 (condition (c)
+		   (when debug (invoke-debugger c))))))
 
 	(uiop:quit)))))

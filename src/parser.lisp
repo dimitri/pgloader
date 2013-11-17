@@ -1793,6 +1793,7 @@ load database
 
 (defun run-commands (source
 		     &key
+		       (start-logger t)
 		       ((:log-filename *log-filename*) *log-filename*)
 		       ((:log-min-messages *log-min-messages*) *log-min-messages*)
 		       ((:client-min-messages *client-min-messages*) *client-min-messages*))
@@ -1800,9 +1801,10 @@ load database
    code then run, a pathname containing one or more commands that are parsed
    then run, or a commands string that is then parsed and each command run."
 
-  (start-logger :log-filename *log-filename*
-		:log-min-messages *log-min-messages*
-		:client-min-messages *client-min-messages*)
+  (when start-logger
+    (start-logger :log-filename *log-filename*
+		  :log-min-messages *log-min-messages*
+		  :client-min-messages *client-min-messages*))
 
   (let* ((funcs
 	  (typecase source
@@ -1821,8 +1823,9 @@ load database
     ;; run the commands
     (loop for func in funcs do (funcall func))
 
-    ;; close the logs
-    (stop-logger)))
+    ;; close the logger, only when we've been tasked with opening it.
+    (when start-logger
+      (stop-logger))))
 
 
 ;;;
