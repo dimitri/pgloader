@@ -74,11 +74,15 @@
     (:source (:type "decimal")
      :target (:type "decimal" :drop-typemod nil))
 
+    ;; the text based types
     (:source (:type "varchar")    :target (:type "text"))
     (:source (:type "tinytext")   :target (:type "text"))
     (:source (:type "text")       :target (:type "text"))
     (:source (:type "mediumtext") :target (:type "text"))
     (:source (:type "longtext")   :target (:type "text"))
+
+    (:source (:type "char")
+     :target (:type "varchar" :drop-typemod nil))
 
     ;;
     ;; cl-mysql and postmodern are adapting binary values as a simple-array
@@ -318,7 +322,10 @@ that would be int and int(7) or varchar and varchar(25)."
 
 	   (:source (:type "date" :auto-increment nil)
 	    :target (:type "date" :drop-default t :drop-not-null t)
-	    :using pgloader.transforms::zero-dates-to-null)))
+	    :using pgloader.transforms::zero-dates-to-null)
+
+	   (:source (:type "char" :typemod (= (car typemod) 1))
+	    :target (:type "char" :drop-typemod nil))))
 
 	(columns
 	 ;; name dtype       ctype         default nullable extra
@@ -337,11 +344,19 @@ that would be int and int(7) or varchar and varchar(25)."
 	   ("m"  "numeric"   "numeric(18,3)"   nil nil nil)
 	   ("n"  "decimal"   "decimal(15,5)"   nil nil nil)
 	   ("o"  "timestamp" "timestamp" "CURRENT_TIMESTAMP" "NO" "on update CURRENT_TIMESTAMP")
-	   ("p"  "point"     "point"     nil "YES" nil))))
+	   ("p"  "point"     "point"     nil "YES" nil)
+	   ("q"  "char"      "char(5)"   nil "YES" nil)
+	   ("l"  "char"      "char(1)"   nil "YES" nil))))
 
+    ;;
+    ;; format-pgsql-column when given a mysql-column would call `cast' for
+    ;; us, but here we want more control over the ouput, so we call it
+    ;; ourselves.
+    ;;
     (loop
        for (name dtype ctype nullable default extra) in columns
+       for mycol = (make-mysql-column "table" name dtype ctype nullable default extra)
        for pgtype = (cast "table" name dtype ctype nullable default extra)
-       for fn in (transforms columns)
+       for fn = (car (list-transforms (list mycol)))
        do
 	 (format t "~a: ~a~20T~a~45T~:[~;using ~a~]~%" name ctype pgtype fn fn))))
