@@ -57,6 +57,9 @@
   "Expand given ARCHIVE-FILE in TMPDIR/(pathname-name ARCHIVE-FILE). Return
    the pathname where we did expand the archive file."
   (log-message :notice "Extracting files from archive '~a'" archive-file)
+  (unless (probe-file archive-file)
+    (error "File does not exists: '~a'." archive-file))
+
   (let* ((archive-name (pathname-name archive-file))
 	 (archive-type
 	  (intern (string-upcase (pathname-type archive-file)) :keyword))
