@@ -138,7 +138,6 @@ Some notes about what I intend to be working on next.
 
 ### transformation and casts
 
-  - add typemod expression to cast rules in the command language
   - add per-column support for cast rules in the system
 
 ### data output
