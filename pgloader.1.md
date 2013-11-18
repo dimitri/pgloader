@@ -948,7 +948,7 @@ The `database` command accepts the following clauses and options:
 	being either the name of an existing view in your database or the
 	following expression:
 	
-	  *name* `AS` `$$` *sql query*
+	  *name* `AS` `$$` *sql query* `$$`
 	  
 	The *name* and the *sql query* will be used in a `CREATE VIEW` statement
 	at the beginning of the data loading, and the resulting view will then
