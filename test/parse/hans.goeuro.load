@@ -6,10 +6,13 @@ LOAD DATABASE
 
  CAST type datetime to timestamptz drop default drop not null using zero-dates-to-null,
       type date drop not null drop default using zero-dates-to-null,
-      column bools.a to boolean drop typemod using tinyint-to-boolean,
-      type char when (= precision 1) to char keep typemod,
-      type year to integer,
-      type timestamp to timestamptz drop not null using zero-dates-to-null
+      type timestamp to timestamptz drop not null using zero-dates-to-null,
+
+      -- now the default for tinyint(1)
+      -- column bools.a to boolean drop typemod using tinyint-to-boolean,
+
+      -- override char(1) to varchar(1), just use char(1) here.
+      type char when (= precision 1) to char keep typemod
 
  MATERIALIZE VIEWS
    d as $$

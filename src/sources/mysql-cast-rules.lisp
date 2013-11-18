@@ -60,6 +60,11 @@
     ;; bigint with auto_increment always are bigserial
     (:source (:type "bigint" :auto-increment t) :target (:type "bigserial"))
 
+    ;; actually tinyint(1) is most often used as a boolean
+    (:source (:type "tinyint" :typemod (= 1 precision))
+	     :target (:type "boolean" :drop-typemod t)
+	     :using pgloader.transforms::tinyint-to-boolean)
+
     ;; we need the following to benefit from :drop-typemod
     (:source (:type "tinyint")   :target (:type "smallint" :drop-typemod t))
     (:source (:type "smallint")  :target (:type "smallint" :drop-typemod t))
@@ -100,19 +105,24 @@
     (:source (:type "longblob")   :target (:type "bytea"))
 
     (:source (:type "datetime" :default "0000-00-00 00:00:00" :not-null t)
-     :target (:type "timestamptz" :drop-default t :drop-not-null t))
+     :target (:type "timestamptz" :drop-default t :drop-not-null t)
+     :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "datetime" :default "0000-00-00 00:00:00")
-     :target (:type "timestamptz" :drop-default t))
+     :target (:type "timestamptz" :drop-default t)
+     :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "timestamp" :default "0000-00-00 00:00:00" :not-null t)
-     :target (:type "timestamptz" :drop-default t :drop-not-null t))
+     :target (:type "timestamptz" :drop-default t :drop-not-null t)
+     :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "timestamp" :default "0000-00-00 00:00:00")
-     :target (:type "timestamptz" :drop-default t))
+     :target (:type "timestamptz" :drop-default t)
+     :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "date" :default "0000-00-00")
-     :target (:type "date" :drop-default t))
+     :target (:type "date" :drop-default t)
+     :using pgloader.transforms::zero-dates-to-null)
 
     ;; date types without strange defaults
     (:source (:type "date")      :target (:type "date"))
@@ -333,22 +343,6 @@ that would be int and int(7) or varchar and varchar(25)."
 	    :target (:type "text" :drop-default nil :drop-not-null nil)
 	    :using nil)
 
-	   (:source (:type "tinyint" :auto-increment nil)
-	    :target (:type "boolean" :drop-default nil :drop-not-null nil)
-	    :using pgloader.transforms::tinyint-to-boolean)
-
-	   (:source (:type "datetime" :auto-increment nil)
-	    :target (:type "timestamptz" :drop-default t :drop-not-null t)
-	    :using pgloader.transforms::zero-dates-to-null)
-
-	   (:source (:type "timestamp" :auto-increment nil)
-	    :target (:type "timestamptz" :drop-default nil :drop-not-null t)
-	    :using pgloader.transforms::zero-dates-to-null)
-
-	   (:source (:type "date" :auto-increment nil)
-	    :target (:type "date" :drop-default t :drop-not-null t)
-	    :using pgloader.transforms::zero-dates-to-null)
-
 	   (:source (:type "char" :typemod (= (car typemod) 1))
 	    :target (:type "char" :drop-typemod nil))))
 
@@ -372,7 +366,8 @@ that would be int and int(7) or varchar and varchar(25)."
 	   ("p"  "point"     "point"     nil "YES" nil)
 	   ("q"  "char"      "char(5)"   nil "YES" nil)
 	   ("l"  "char"      "char(1)"   nil "YES" nil)
-	   ("m"  "integer"   "integer(4)"    nil "YES" nil))))
+	   ("m"  "integer"   "integer(4)"    nil "YES" nil)
+	   ("o"  "tinyint"   "tinyint(1)" "0" nil nil))))
 
     ;;
     ;; format-pgsql-column when given a mysql-column would call `cast' for

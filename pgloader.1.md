@@ -870,6 +870,10 @@ The `database` command accepts the following clauses and options:
     flexibility allows to cope with cases where the type `tinyint` might
     have been used as a `boolean` in some cases but as a `smallint` in
     others.
+	
+	The *casting rules* are applied in order, the first match prevents
+	following rules to be applied, and user defined rules are evaluated
+	first.
 
     The supported guards are:
 	
@@ -1027,11 +1031,13 @@ When migrating from MySQL the following Casting Rules are provided:
 
 Numbers:
 
-  - type int to serial    when auto_increment and (< typemod 10)
-  - type int to bigserial when auto_increment and (<= 10 typemod)
-  - type int to int       when not auto_increment and (< typemod 10)
-  - type int to bigint    when not auto_increment and (<= 10 typemod)
+  - type int to serial    when auto_increment and (< precision 10)
+  - type int to bigserial when auto_increment and (<= 10 precision)
+  - type int to int       when not auto_increment and (< precision 10)
+  - type int to bigint    when not auto_increment and (<= 10 precision)
   - type bigint to bigserial when auto_increment
+
+  - type tinyint to boolean when (= 1 precision) using tinyint-to-boolean
 
   - type tinyint to smallint   drop typemod
   - type smallint to smallint  drop typemod
@@ -1066,17 +1072,22 @@ Date:
 
   - type datetime when default "0000-00-00 00:00:00" and not null
     to timestamptz drop not null drop default
+	using zero-dates-to-null
 	
   - type datetime when default "0000-00-00 00:00:00"
     to timestamptz drop default
+	using zero-dates-to-null
 	
   - type timestamp when default "0000-00-00 00:00:00" and not null
     to timestamptz drop not null drop default
+	using zero-dates-to-null
 
   - type timestamp when default "0000-00-00 00:00:00"
     to timestamptz drop default
+	using zero-dates-to-null
 
   - type date when default "0000-00-00" to date drop default
+	using zero-dates-to-null
   
   - type date to date
   - type datetime to timestamptz
