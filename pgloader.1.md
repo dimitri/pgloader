@@ -860,9 +860,16 @@ The `database` command accepts the following clauses and options:
 	The cast clause allows to specify custom casting rules, either to
 	overload the default casting rules or to amend them with special cases.
 	
-	A casting rule is expected to follow the form:
+	A casting rule is expected to follow one of the forms:
 	
 	    type <mysql-type-name> [ <guard> ... ] to <pgsql-type-name> [ <option> ... ]
+		column <table-name>.<column-name> [ <guards> ] to ...
+
+    It's possible for a *casting rule* to either match against a MySQL data
+    type or against a given *column name* in a given *table name*. That
+    flexibility allows to cope with cases where the type `tinyint` might
+    have been used as a `boolean` in some cases but as a `smallint` in
+    others.
 
     The supported guards are:
 	

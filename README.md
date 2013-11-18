@@ -136,10 +136,6 @@ Some notes about what I intend to be working on next.
   - error reporting (done)
   - add input line number to log file?
 
-### transformation and casts
-
-  - add per-column support for cast rules in the system
-
 ### data output
 
   - PostgreSQL COPY Text format output for any supported input

@@ -604,26 +604,39 @@
     (alexandria:alist-plist guards)))
 
 ;; at the moment we only know about extra auto_increment
-(defrule cast-source-extra (and ignore-whitespace
-				kw-with kw-extra kw-auto-increment)
+(defrule cast-source-extra (and kw-with kw-extra kw-auto-increment)
   (:constant (list :auto-increment t)))
 
-(defrule cast-source (and (or kw-column kw-type)
-			  trimmed-name
+(defrule cast-source-type (and kw-type trimmed-name)
+  (:destructure (kw name) (declare (ignore kw)) (list :type name)))
+
+(defrule table-column-name (and namestring "." namestring)
+  (:destructure (table-name dot column-name)
+    (declare (ignore dot))
+    (list :column (cons (text table-name) (text column-name)))))
+
+(defrule cast-source-column (and kw-column table-column-name)
+  ;; well, we want namestring . namestring
+  (:destructure (kw name) (declare (ignore kw)) name))
+
+(defrule cast-source (and (or cast-source-type cast-source-column)
 			  (? cast-source-extra)
 			  (? cast-source-guards)
 			  ignore-whitespace)
   (:lambda (source)
-    (destructuring-bind (kw name opts guards ws) source
+    (destructuring-bind (name-and-type opts guards ws) source
       (declare (ignore ws))
       (destructuring-bind (&key (default nil d-s-p)
 				(typemod nil t-s-p)
-				&allow-other-keys) guards
-	(destructuring-bind (&key auto-increment &allow-other-keys) opts
-	  `(,kw ,name
+				&allow-other-keys)
+	  guards
+	(destructuring-bind (&key (auto-increment nil ai-s-p)
+				  &allow-other-keys)
+	    opts
+	  `(,@name-and-type
 		,@(when t-s-p (list :typemod typemod))
 		,@(when d-s-p (list :default default))
-		:auto-increment ,auto-increment))))))
+		,@(when ai-s-p (list :auto-increment auto-increment))))))))
 
 (defrule cast-type-name (and (alpha-char-p character)
 			     (* (or (alpha-char-p character)

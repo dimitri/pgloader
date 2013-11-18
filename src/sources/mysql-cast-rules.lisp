@@ -181,11 +181,15 @@
 			    using)
       rule
     (destructuring-bind
+	  ;; it's either :type or :column, just cope with both thanks to
+	  ;; &allow-other-keys
 	  (&key ((:type rule-source-type) nil t-s-p)
+		((:column rule-source-column) nil c-s-p)
 		((:typemod typemod-expr) nil tm-s-p)
 		((:default rule-source-default) nil d-s-p)
 		((:not-null rule-source-not-null) nil n-s-p)
-		((:auto-increment rule-source-auto-increment) nil ai-s-p))
+		((:auto-increment rule-source-auto-increment) nil ai-s-p)
+		&allow-other-keys)
 	rule-source
       (destructuring-bind (&key table-name
 				column-name
@@ -196,10 +200,13 @@
 				not-null
 				auto-increment)
 	  source
-	(declare (ignore table-name column-name ctype))
+	(declare (ignore ctype))
 	(when
 	    (and
-	     (string= type rule-source-type)
+	     (or (and t-s-p (string= type rule-source-type))
+		 (and c-s-p
+		      (string-equal table-name (car rule-source-column))
+		      (string-equal column-name (cdr rule-source-column))))
 	     (or (null tm-s-p) (typemod-expr-matches-p typemod-expr typemod))
 	     (or (null d-s-p)  (string= default rule-source-default))
 	     (or (null n-s-p)  (eq not-null rule-source-not-null))

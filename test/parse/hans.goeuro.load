@@ -6,7 +6,7 @@ LOAD DATABASE
 
  CAST type datetime to timestamptz drop default drop not null using zero-dates-to-null,
       type date drop not null drop default using zero-dates-to-null,
-      type tinyint to boolean drop typemod using tinyint-to-boolean,
+      column bools.a to boolean drop typemod using tinyint-to-boolean,
       type char when (= precision 1) to char keep typemod,
       type year to integer,
       type timestamp to timestamptz drop not null using zero-dates-to-null
