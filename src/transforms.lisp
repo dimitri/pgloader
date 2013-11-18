@@ -20,7 +20,8 @@
 		 ip-range
 		 convert-mysql-point
 		 float-to-string
-		 set-to-enum-array))
+		 set-to-enum-array
+		 right-trim))
 
 
 ;;;
@@ -137,3 +138,8 @@
 (defun set-to-enum-array (set-string)
   "Transform a MySQL SET value into a PostgreSQL ENUM Array"
   (format nil "{~a}" set-string))
+
+(defun right-trim (string)
+  "Remove whitespaces at end of STRING."
+  (declare (type simple-string string))
+  (string-right-trim '(#\Space) string))

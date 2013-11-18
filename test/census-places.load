@@ -33,5 +33,5 @@ LOAD ARCHIVE
         INTO postgresql:///pgloader?places
              (
 	        usps, fips, fips_code,
-                loc_name text using (string-right-trim " " loc_name)
+                loc_name text using (right-trim loc_name)
              );
