@@ -245,7 +245,7 @@
   (:export #:*version-string*
 	   #:*state*
 	   #:*csv-path-root*
-	   #:*reject-path-root*
+	   #:*root-dir*
 	   #:*pgconn-host*
 	   #:*pgconn-port*
 	   #:*pgconn-user*

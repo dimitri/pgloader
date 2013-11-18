@@ -62,7 +62,8 @@
 
       (destructuring-bind (&key help version quiet verbose debug logfile
 				list-encodings upgrade-config load
-				client-min-messages log-min-messages)
+				client-min-messages log-min-messages
+				root-dir)
 	  options
 
 	(when debug

@@ -139,7 +139,7 @@
 			  (make-pgtable :name table-name)))
 	     (reject-dir (pathname-directory
 			  (merge-pathnames
-			   (format nil "~a/" dbname) *reject-path-root*)))
+			   (format nil "~a/" dbname) *root-dir*)))
 	     (data-pathname
 	      (make-pathname :directory reject-dir :name table-name :type "dat"))
 	     (logs-pathname

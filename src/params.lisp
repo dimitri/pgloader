@@ -7,7 +7,7 @@
   (:use #:cl)
   (:export #:*version-string*
 	   #:*csv-path-root*
-	   #:*reject-path-root*
+	   #:*root-dir*
 	   #:*log-filename*
 	   #:*client-min-messages*
 	   #:*log-min-messages*
@@ -38,7 +38,7 @@
 (defparameter *csv-path-root*
   (merge-pathnames "csv/" (user-homedir-pathname)))
 
-(defparameter *reject-path-root*
+(defparameter *root-dir*
   (make-pathname :directory "/tmp/pgloader/"))
 
 (defparameter *log-filename*
