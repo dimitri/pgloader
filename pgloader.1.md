@@ -684,7 +684,7 @@ The `archive` command accepts the following clauses and options:
    - command [ *AND* command ... ]
    
 	 A series of commands against the contents of the archive, at the moment
-	 only `CSV` and `DBF` commands are supported.
+	 only `CSV`,`'FIXED` and `DBF` commands are supported.
 
      Note that commands are supporting the clause *FROM FILENAME MATCHING*
      which allows the pgloader command not to depend on the exact names of

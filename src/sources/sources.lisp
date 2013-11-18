@@ -154,7 +154,14 @@
     (ecase type
       (:inline   part)
       (:stdin    *standard-input*)
-      (:regex    (first (pgloader.archive:get-matching-filenames root part)))
+      (:regex    (let* ((candidates
+			 (pgloader.archive:get-matching-filenames root part))
+			(candidate (first candidates)))
+		   (unless candidates
+		     (error "No file matching '~a' in expanded archive in '~a'"
+			    part root))
+		   (if (probe-file candidate) candidate
+		       (error "File does not exists: '~a'." candidate))))
       (:filename (if (fad:pathname-absolute-p part) part
 		     (merge-pathnames part root))))))
 

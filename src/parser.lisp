@@ -1634,8 +1634,10 @@ load database
       (declare (ignore w))
       opts)))
 
+
 (defrule fixed-file-source (or stdin
 			       inline
+			       filename-matching
 			       maybe-quoted-filename))
 
 (defrule fixed-source (and kw-load kw-fixed kw-from fixed-file-source)
@@ -1648,7 +1650,8 @@ load database
 	(ecase type
 	  (:stdin    source)
 	  (:inline   source)
-	  (:filename source))))))
+	  (:filename source)
+	  (:regex    source))))))
 
 (defrule load-fixed-cols-file (and fixed-source (? file-encoding)
 				   fixed-source-field-list
@@ -1703,7 +1706,8 @@ load database
 ;;; LOAD ARCHIVE ...
 ;;;
 (defrule archive-command (or load-csv-file
-			     load-dbf-file))
+			     load-dbf-file
+			     load-fixed-cols-file))
 
 (defrule another-archive-command (and kw-and archive-command)
   (:lambda (source)
@@ -1734,11 +1738,9 @@ load database
       (destructuring-bind (&key host port user password dbname &allow-other-keys)
 	  pg-db-uri
 	`(lambda ()
-	   (let* ((state-before  (when ',before
-				   (pgloader.utils:make-pgstate)))
+	   (let* ((state-before  ,(when before (pgloader.utils:make-pgstate)))
 		  (*state*        (pgloader.utils:make-pgstate))
-		  (state-finally  (when ',finally
-				    (pgloader.utils:make-pgstate)))
+		  (state-finally ,(when finally `(pgloader.utils:make-pgstate)))
 		  (archive-file
 		   ,(destructuring-bind (kind url) source
 		     (ecase kind
