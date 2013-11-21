@@ -44,7 +44,7 @@
     (("list-encodings" #\E) :type boolean
      :documentation "List pgloader known encodings and exit.")
 
-    (("logfile" #\L) :type string :initial-value ,*log-filename*
+    (("logfile" #\L) :type string
      :documentation "Filename where to send the logs.")
 
     (("load" #\l) :type string :list t :optional t
@@ -68,6 +68,20 @@
 	  (print-backtrace e debug stream)
 	  (format stream "PANIC: ~a.~%" e))
       (uiop:quit))))
+
+(defun log-file-name (logfile)
+  " If the logfile has not been given by the user, default to using
+    pgloader.log within *root-dir*."
+  (cond ((null logfile)
+	 (make-pathname :directory (directory-namestring *root-dir*)
+			:name "pgloader"
+			:type "log"))
+
+	((fad:pathname-relative-p logfile)
+	 (merge-pathnames logfile *root-dir*))
+
+	(t
+	 logfile)))
 
 (defun main (argv)
   "Entry point when building an executable image with buildapp"
@@ -121,10 +135,7 @@
 	;; Now process the arguments
 	(when arguments
 	  ;; Start the logs system
-	  (let ((logfile
-		 (if (fad:pathname-relative-p logfile)
-		     (merge-pathnames logfile *root-dir*)
-		     logfile))
+	  (let ((logfile        (log-file-name logfile))
 		(log-min-messages
 		 (log-threshold log-min-messages
 				:quiet quiet :verbose verbose :debug debug))
