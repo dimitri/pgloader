@@ -13,7 +13,11 @@
 
 (defun http-fetch-file (url &key (tmpdir *default-tmpdir*))
   "Download a file from URL into TMPDIR."
-  (log-message :notice "Fetching '~a'" url)
+
+  ;; This operation could take some time, make it so that the user knows
+  ;; it's happening for him.
+  (log-message :log "Fetching '~a'" url)
+
   (ensure-directories-exist tmpdir)
   (let ((archive-filename (make-pathname :directory (namestring tmpdir)
 					 :name (pathname-name url)
@@ -56,7 +60,10 @@
 (defun expand-archive (archive-file &key (tmpdir *default-tmpdir*))
   "Expand given ARCHIVE-FILE in TMPDIR/(pathname-name ARCHIVE-FILE). Return
    the pathname where we did expand the archive file."
-  (log-message :notice "Extracting files from archive '~a'" archive-file)
+
+  ;; This operation could take some time, force a message out about it.
+  (log-message :log "Extracting files from archive '~a'" archive-file)
+
   (unless (probe-file archive-file)
     (error "File does not exists: '~a'." archive-file))
 

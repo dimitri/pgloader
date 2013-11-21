@@ -127,7 +127,10 @@
 	    (start-logger :log-filename logfile
 			  :log-min-messages log-min-messages
 			  :client-min-messages client-min-messages)
-	    (log-message :log "Root path is ~s~%" *root-dir*))
+
+	    ;; tell the user where to look for interesting things
+	    (log-message :log "Main logs in '~a'" logfile)
+	    (log-message :log "Data errors in '~a'~%" *root-dir*))
 
 	  ;; process the files
 	  (loop for filename in arguments
