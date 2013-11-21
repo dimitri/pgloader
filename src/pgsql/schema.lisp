@@ -238,7 +238,8 @@
        do
 	 (let ((sql
 		(format-pgsql-create-index index :identifier-case identifier-case)))
-	  (log-message :notice "~a" sql)
-	  (lp:submit-task channel
-			  #'pgsql-execute-with-timing
-			  dbname label sql state)))))
+	   (when sql
+	     (log-message :notice "~a" sql)
+	     (lp:submit-task channel
+			     #'pgsql-execute-with-timing
+			     dbname label sql state))))))

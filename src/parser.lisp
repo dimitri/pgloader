@@ -913,7 +913,7 @@ load database
 	(declare (ignore type))
 	(list :sqlite path)))))
 
-(defrule sqlite-uri (or sqlite-db-uri http-uri))
+(defrule sqlite-uri (or sqlite-db-uri http-uri maybe-quoted-filename))
 (defrule sqlite-source (and kw-load kw-database kw-from sqlite-uri)
   (:destructure (l d f u)
 		(declare (ignore l d f))
@@ -938,7 +938,8 @@ load database
 		       (:http     `(with-stats-collection
 				       (,dbname "download" :state state-before)
 				     (pgloader.archive:http-fetch-file ,url)))
-		       (:sqlite url))))
+		       (:sqlite url)
+		       (:filename url))))
 		  (db
 		   (if (string= "zip" (pathname-type db))
 		       (progn
@@ -1808,44 +1809,60 @@ load database
 		      (inject-inline-data-position s-exp position)
 		      s-exp)))
 
+(defun process-relative-pathnames (filename command)
+  "Walk the COMMAND to replace relative pathname with absolute ones, merging
+   them within the directory where we found the command FILENAME."
+  (loop
+     for s-exp in command
+     when (pathnamep s-exp)
+     collect (if (fad:pathname-relative-p s-exp)
+		 (merge-pathnames s-exp (directory-namestring filename))
+		 s-exp)
+     else
+     collect (if (and (consp s-exp) (listp (cdr s-exp)))
+		 (process-relative-pathnames filename s-exp)
+		 s-exp)))
+
 (defun parse-commands-from-file (filename)
   "The command could be using from :inline, in which case we want to parse
    as much as possible then use the command against an already opened stream
    where we moved at the beginning of the data."
   (log-message :log "Parsing commands from file ~s~%" filename)
 
-  (let ((*data-expected-inline* nil)
-	(content (slurp-file-into-string filename)))
-    (multiple-value-bind (commands end-commands-position)
-	(parse 'commands content :junk-allowed t)
+  (process-relative-pathnames
+   filename
+   (let ((*data-expected-inline* nil)
+	 (content (slurp-file-into-string filename)))
+     (multiple-value-bind (commands end-commands-position)
+	 (parse 'commands content :junk-allowed t)
 
-      ;; INLINE is only allowed where we have a single command in the file
-      (if *data-expected-inline*
-	  (progn
-	    (when (= 0 end-commands-position)
-	      ;; didn't find any command, leave error reporting to esrap
-	      (parse 'commands content))
+       ;; INLINE is only allowed where we have a single command in the file
+       (if *data-expected-inline*
+	   (progn
+	     (when (= 0 end-commands-position)
+	       ;; didn't find any command, leave error reporting to esrap
+	       (parse 'commands content))
 
-	    (when (and *data-expected-inline*
-		       (null end-commands-position))
-	      (error "Inline data not found in '~a'." filename))
+	     (when (and *data-expected-inline*
+			(null end-commands-position))
+	       (error "Inline data not found in '~a'." filename))
 
-	    (when (and *data-expected-inline* (not (= 1 (length commands))))
-	      (error (concatenate 'string
-				  "Too many commands found in '~a'.~%"
-				  "To use inline data, use a single command.")
-		     filename))
+	     (when (and *data-expected-inline* (not (= 1 (length commands))))
+	       (error (concatenate 'string
+				   "Too many commands found in '~a'.~%"
+				   "To use inline data, use a single command.")
+		      filename))
 
-	    ;; now we should have a single command and inline data after that
-	    ;; replace the (:inline nil) found in the first (and only) command
-	    ;; with a (:inline position) instead
-	    (list
-	     (inject-inline-data-position
-	      (first commands) (cons filename end-commands-position))))
+	     ;; now we should have a single command and inline data after that
+	     ;; replace the (:inline nil) found in the first (and only) command
+	     ;; with a (:inline position) instead
+	     (list
+	      (inject-inline-data-position
+	       (first commands) (cons filename end-commands-position))))
 
-	  ;; There was no INLINE magic found in the file, reparse it so that
-	  ;; normal error processing happen
-	  (parse 'commands content)))))
+	   ;; There was no INLINE magic found in the file, reparse it so that
+	   ;; normal error processing happen
+	   (parse 'commands content))))))
 
 (defun run-commands (source
 		     &key

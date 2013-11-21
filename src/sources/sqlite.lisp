@@ -14,6 +14,15 @@
 	     (:constructor make-coldef (seq name type nullable default pk-id)))
   seq name type nullable default pk-id)
 
+(defun cast (sqlite-type-name)
+  "Return the PostgreSQL type name for a given SQLite type name."
+  (cond ((and (<= 8 (length sqlite-type-name))
+	      (string-equal sqlite-type-name "nvarchar" :end1 8)) "text")
+
+	((string-equal sqlite-type-name "datetime") "timestamptz")
+
+	(t sqlite-type-name)))
+
 (defmethod format-pgsql-column ((col coldef) &key identifier-case)
   "Return a string representing the PostgreSQL column definition."
   (let* ((column-name
@@ -21,14 +30,16 @@
 	 (type-definition
 	  (format nil
 		  "~a~:[~; not null~]~@[ default ~a~]"
-		  (coldef-type col)
+		  (cast (coldef-type col))
 		  (coldef-nullable col)
 		  (coldef-default col))))
     (format nil "~a ~22t ~a" column-name type-definition)))
 
 (defun list-tables (&optional (db *sqlite-db*))
   "Return the list of tables found in SQLITE-DB."
-  (let ((sql "SELECT tbl_name FROM sqlite_master WHERE type='table'"))
+  (let ((sql "SELECT tbl_name
+                FROM sqlite_master
+               WHERE type='table' AND tbl_name <> 'sqlite_sequence'"))
     (loop for (name) in (sqlite:execute-to-list db sql)
        collect name)))
 
@@ -56,7 +67,9 @@
 
 (defun list-all-indexes (&optional (db *sqlite-db*))
   "Get the list of SQLite index definitions per table."
-  (let ((sql "SELECT name, tbl_name, sql FROM sqlite_master WHERE type='index'"))
+  (let ((sql "SELECT name, tbl_name, replace(replace(sql, '[', ''), ']', '')
+                FROM sqlite_master
+               WHERE type='index'"))
     (loop with schema = nil
        for (index-name table-name sql) in (sqlite:execute-to-list db sql)
        do (let ((entry  (assoc table-name schema :test 'equal))
@@ -106,14 +119,26 @@
       (unless transforms
 	(setf (slot-value source 'transforms)
 	      (loop for field in fields
-		 if (string-equal "float" (coldef-type field))
-		 collect #'pgloader.transforms::float-to-string
-		 else
-		 collect nil))))))
+		 collect
+		   (let ((coltype (cast (coldef-type field))))
+		     ;;
+		     ;; The SQLite drive we use maps the CFFI data type
+		     ;; mapping functions and gets back proper CL typed
+		     ;; objects, where we only want to deal with text.
+		     ;;
+		     (cond ((or (string-equal "float" coltype)
+				(and (<= 7 (length coltype))
+				     (string-equal "numeric" coltype :end2 7)))
+			    #'pgloader.transforms::float-to-string)
 
+			   ((string-equal "text" coltype)
+			    nil)
 
+			   (t
+			    (compile nil (lambda (c)
+					   (when c
+					     (format nil "~a" c)))))))))))))
 
-;;;
 ;;; Map a function to each row extracted from SQLite
 ;;;
 (defmethod map-rows ((sqlite copy-sqlite) &key process-row-fn)
