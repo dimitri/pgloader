@@ -35,13 +35,16 @@
     ("log-min-messages" :type string :initial-value "notice"
 			:documentation "Filter logs seen in the logfile")
 
+    (("root-dir" #\D) :type string :initial-value "/tmp/pgloader/"
+                      :documentation "Output root directory.")
+
     (("upgrade-config" #\U) :type boolean
      :documentation "Output the command(s) corresponding to .conf file for v2.x")
 
     (("list-encodings" #\E) :type boolean
      :documentation "List pgloader known encodings and exit.")
 
-    (("logfile" #\L) :type string :initial-value "/tmp/pgloader/pgloader.log"
+    (("logfile" #\L) :type string :initial-value nil
      :documentation "Filename where to send the logs.")
 
     (("load" #\l) :type string :list t :optional t
@@ -65,6 +68,10 @@
 				client-min-messages log-min-messages
 				root-dir)
 	  options
+
+	(setf (symbol-value '*root-dir*) root-dir )
+	(when (not logfile)
+	  (setf logfile (make-pathname :directory *root-dir* :name "pgloader" :type "log")))
 
 	(when debug
 	  (format t "sb-impl::*default-external-format* ~s~%"
@@ -104,7 +111,8 @@
 
 	    (start-logger :log-filename logfile
 			  :log-min-messages log-min-messages
-			  :client-min-messages client-min-messages))
+			  :client-min-messages client-min-messages)
+	    (log-message :log "Root path is ~s~%" *root-dir*))
 
 	  ;; process the files
 	  (loop for filename in arguments

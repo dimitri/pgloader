@@ -38,11 +38,9 @@
 (defparameter *csv-path-root*
   (merge-pathnames "csv/" (user-homedir-pathname)))
 
-(defparameter *root-dir*
-  (make-pathname :directory "/tmp/pgloader/"))
+(defparameter *root-dir* nil)
 
-(defparameter *log-filename*
-  (make-pathname :directory "/tmp/pgloader/" :name "pgloader" :type "log"))
+(defparameter *log-filename* nil)
 
 (defparameter *client-min-messages* :notice)
 (defparameter *log-min-messages* :info)

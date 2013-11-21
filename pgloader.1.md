@@ -38,6 +38,12 @@ pgloader operates from commands which are read from files:
 -d, \--debug
 :   Show debug level information messages.
 
+-D, \--root-dir
+:   Set the root working directory (default to "/tmp/pgloader").
+
+-L, \--logfile
+:   Set the pgloader log file (default to "/tmp/pgloader.log").
+
 --log-min-messages
 :   Minimum level of verbosity needed for log message to make it to the
     logfile. One of critical, log, error, warning, notice, info or debug.
