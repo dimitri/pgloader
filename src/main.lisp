@@ -117,7 +117,11 @@
 	;; Now process the arguments
 	(when arguments
 	  ;; Start the logs system
-	  (let ((log-min-messages
+	  (let ((logfile
+		 (if (fad:pathname-relative-p logfile)
+		     (merge-pathnames logfile *root-dir*)
+		     logfile))
+		(log-min-messages
 		 (log-threshold log-min-messages
 				:quiet quiet :verbose verbose :debug debug))
 		(client-min-messages
