@@ -23,6 +23,8 @@
 	   #:*myconn-user*
 	   #:*myconn-pass*
 	   #:*state*
+	   #:*default-tmpdir*
+	   #:init-params-from-environment
 	   #:getenv-default))
 
 (in-package :pgloader.params)
@@ -83,3 +85,26 @@
 (defparameter *myconn-port* 3306)
 (defparameter *myconn-user* (uiop:getenv "USER"))
 (defparameter *myconn-pass* nil)
+
+;;;
+;;; Archive processing: downloads and unzip.
+;;;
+(defparameter *default-tmpdir*
+  (let* ((tmpdir (uiop:getenv "TMPDIR"))
+	 (tmpdir (or (and tmpdir (probe-file tmpdir)) "/tmp"))
+	 (tmpdir (fad:pathname-as-directory tmpdir)))
+    (fad:pathname-as-directory (merge-pathnames "pgloader" tmpdir)))
+  "Place where to fetch and expand archives on-disk.")
+
+;;;
+;;; Run time initialisation of ENV provided parameters
+;;;
+;;; The command parser dynamically inspect the environment when building the
+;;; connection parameters, so that we don't need to provision for those here.
+;;;
+(defun init-params-from-environment ()
+  "Some of our parameters get their default value from the env. Do that at
+   runtime when using a compiled binary."
+  (setf *default-tmpdir*
+	(fad:pathname-as-directory
+	 (getenv-default "TMPDIR" *default-tmpdir*))))

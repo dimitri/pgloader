@@ -86,10 +86,14 @@
 	(setf *root-dir* (fad:pathname-as-directory root-dir))
 	(mkdir-or-die *root-dir* debug)
 
+	;; Set parameters that come from the environement
+	(init-params-from-environment)
+
 	;; Then process options
 	(when debug
 	  (format t "sb-impl::*default-external-format* ~s~%"
-		  sb-impl::*default-external-format*))
+		  sb-impl::*default-external-format*)
+	  (format t "tmpdir: ~s~%" *default-tmpdir*))
 
 	(when version
 	  (format t "pgloader version ~s~%" *version-string*))

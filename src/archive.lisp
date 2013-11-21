@@ -4,13 +4,6 @@
 
 (in-package #:pgloader.archive)
 
-(defparameter *default-tmpdir*
-  (let* ((tmpdir (uiop:getenv "TMPDIR"))
-	 (tmpdir (or (and tmpdir (probe-file tmpdir)) "/tmp"))
-	 (tmpdir (fad:pathname-as-directory tmpdir)))
-    (fad:pathname-as-directory (merge-pathnames "pgloader" tmpdir)))
-  "Place where to fetch and expand archives on-disk.")
-
 (defun http-fetch-file (url &key (tmpdir *default-tmpdir*))
   "Download a file from URL into TMPDIR."
 
