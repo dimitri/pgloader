@@ -35,7 +35,7 @@
     ("log-min-messages" :type string :initial-value "notice"
 			:documentation "Filter logs seen in the logfile")
 
-    (("root-dir" #\D) :type string :initial-value "/tmp/pgloader/"
+    (("root-dir" #\D) :type string :initial-value ,*root-dir*
                       :documentation "Output root directory.")
 
     (("upgrade-config" #\U) :type boolean
@@ -44,7 +44,7 @@
     (("list-encodings" #\E) :type boolean
      :documentation "List pgloader known encodings and exit.")
 
-    (("logfile" #\L) :type string :initial-value nil
+    (("logfile" #\L) :type string :initial-value ,*log-filename*
      :documentation "Filename where to send the logs.")
 
     (("load" #\l) :type string :list t :optional t
@@ -56,6 +56,18 @@
   (if debug
       (trivial-backtrace:print-backtrace condition :output stream :verbose t)
       (trivial-backtrace:print-condition condition stream)))
+
+(defun mkdir-or-die (path debug &optional (stream *standard-output*))
+  "Create a directory at given PATH and exit with an error message when
+   that's not possible."
+  (handler-case
+      (ensure-directories-exist path)
+    (condition (e)
+      ;; any error here is a panic
+      (if debug
+	  (print-backtrace e debug stream)
+	  (format stream "PANIC: ~a.~%" e))
+      (uiop:quit))))
 
 (defun main (argv)
   "Entry point when building an executable image with buildapp"
@@ -69,10 +81,12 @@
 				root-dir)
 	  options
 
-	(setf (symbol-value '*root-dir*) root-dir )
-	(when (not logfile)
-	  (setf logfile (make-pathname :directory *root-dir* :name "pgloader" :type "log")))
+	;; First care about the root directory where pgloader is supposed to
+	;; output its data logs and reject files
+	(setf *root-dir* (fad:pathname-as-directory root-dir))
+	(mkdir-or-die *root-dir* debug)
 
+	;; Then process options
 	(when debug
 	  (format t "sb-impl::*default-external-format* ~s~%"
 		  sb-impl::*default-external-format*))
@@ -100,6 +114,7 @@
 	  (loop for filename in load
 	     do (load (compile-file filename :verbose nil :print nil))))
 
+	;; Now process the arguments
 	(when arguments
 	  ;; Start the logs system
 	  (let ((log-min-messages
