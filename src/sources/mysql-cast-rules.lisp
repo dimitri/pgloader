@@ -93,16 +93,22 @@
      :target (:type "varchar" :drop-typemod nil))
 
     ;;
-    ;; cl-mysql and postmodern are adapting binary values as a simple-array
-    ;; (or vector) of ‘(UNSIGNED-BYTE 8), so there should be no other
-    ;; explicit conversion to do here.
+    ;; cl-mysql returns binary values as a simple-array of bytes (as in
+    ;; ‘(UNSIGNED-BYTE 8)), that we then need to represent as proper
+    ;; PostgreSQL bytea input.
     ;;
-    (:source (:type "binary")     :target (:type "bytea"))
-    (:source (:type "varbinary")  :target (:type "bytea"))
-    (:source (:type "tinyblob")   :target (:type "bytea"))
-    (:source (:type "blob")       :target (:type "bytea"))
-    (:source (:type "mediumblob") :target (:type "bytea"))
-    (:source (:type "longblob")   :target (:type "bytea"))
+    (:source (:type "binary") :target (:type "bytea")
+	     :using pgloader.transforms::byte-vector-to-bytea)
+    (:source (:type "varbinary")  :target (:type "bytea")
+	     :using pgloader.transforms::byte-vector-to-bytea)
+    (:source (:type "tinyblob")   :target (:type "bytea")
+	     :using pgloader.transforms::byte-vector-to-bytea)
+    (:source (:type "blob")       :target (:type "bytea")
+	     :using pgloader.transforms::byte-vector-to-bytea)
+    (:source (:type "mediumblob") :target (:type "bytea")
+	     :using pgloader.transforms::byte-vector-to-bytea)
+    (:source (:type "longblob")   :target (:type "bytea")
+	     :using pgloader.transforms::byte-vector-to-bytea)
 
     (:source (:type "datetime" :default "0000-00-00 00:00:00" :not-null t)
      :target (:type "timestamptz" :drop-default t :drop-not-null t)

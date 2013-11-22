@@ -21,7 +21,8 @@
 		 convert-mysql-point
 		 float-to-string
 		 set-to-enum-array
-		 right-trim))
+		 right-trim
+		 byte-vector-to-bytea))
 
 
 ;;;
@@ -143,3 +144,28 @@
   "Remove whitespaces at end of STRING."
   (declare (type simple-string string))
   (string-right-trim '(#\Space) string))
+
+(defun byte-vector-to-bytea (vector)
+  "Transform a simple array of unsigned bytes to the PostgreSQL bytea
+  representation as documented at
+  http://www.postgresql.org/docs/9.3/interactive/datatype-binary.html
+
+  Note that we choose here the bytea Hex Format."
+  (declare (type simple-array vector))
+  (let ((hex-digits "0123456789abcdef")
+	(bytea (make-array (+ 2 (* 2 (length vector)))
+			   :initial-element #\0
+			   :element-type 'standard-char)))
+
+    ;; The entire string is preceded by the sequence \x (to distinguish it
+    ;; from the escape format).
+    (setf (aref bytea 0) #\\)
+    (setf (aref bytea 1) #\x)
+
+    (loop for pos from 2 by 2
+       for byte across vector
+       do (let ((high (ldb (byte 4 4) byte))
+		(low  (ldb (byte 4 0) byte)))
+	    (setf (aref bytea pos)       (aref hex-digits high))
+	    (setf (aref bytea (+ pos 1)) (aref hex-digits low)))
+       finally (return bytea))))
