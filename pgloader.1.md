@@ -122,7 +122,16 @@ Where:
 	
   - *netloc*
   
-    Can be either a hostname in dotted notation, or an ipv4.
+    Can be either a hostname in dotted notation, or an ipv4, or an unix
+    domain socket path. Empty is the default network location, under a
+    system providing *unix domain socket* that method is prefered, otherwise
+    the *netloc* default to `localhost`.
+	
+	It's possible to force the *unix domain socket* path by using the syntax
+	`unix:/path/to/where/the/socket/file/is`, so to force a non default
+	socket path and a non default port, you would have:
+	
+	    postgresql://unix:/tmp:54321/dbname
 
   - *dbname*
   

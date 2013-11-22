@@ -244,12 +244,27 @@
 			(? (digit-char-p character))))
 
 (defrule ipv4 (and ipv4-part "." ipv4-part "." ipv4-part "." ipv4-part)
-  (:text t))
+  (:lambda (ipv4)
+    (list :ipv4 (text ipv4))))
 
-(defrule hostname (or ipv4 (and namestring (? (and "." hostname))))
-  (:text t))
+;;; socket directory is unix only, so we can forbid ":" on the parsing
+(defun socket-directory-character-p (char)
+  (or (member char #.(quote (coerce "/.-_" 'list)))
+      (alphanumericp char)))
 
-(defrule dsn-hostname (and hostname (? dsn-port))
+(defrule socket-directory (and "unix:" (* (socket-directory-character-p character)))
+  (:destructure (unix socket-directory)
+		(declare (ignore unix))
+    (list :unix (when socket-directory (text socket-directory)))))
+
+(defrule network-name (and namestring (? (and "." network-name)))
+  (:lambda (name)
+    (list :host (text name))))
+
+(defrule hostname (or ipv4 socket-directory network-name)
+  (:identity t))
+
+(defrule dsn-hostname (and (? hostname) (? dsn-port))
   (:destructure (hostname &optional port)
 		(append (list :host hostname) port)))
 
@@ -303,9 +318,16 @@
        (list :type type
 	     :user user
 	     :password password
-	     :host (or host
+	     :host (or (when host
+			 (destructuring-bind (type &optional name) host
+			   (ecase type
+			     (:unix  (if name (cons :unix name) :unix))
+			     (:ipv4  name)
+			     (:host  name))))
 		       (case type
-			 (:postgresql (getenv-default "PGHOST" "localhost"))
+			 (:postgresql (getenv-default "PGHOST"
+						      #+unix :unix
+						      #-unix "localhost"))
 			 (:mysql      (getenv-default "MYSQL_HOST" "localhost"))))
 	     :port (or port
 		       (parse-integer
@@ -1919,7 +1941,7 @@ load database
 	       (*myconn-pass* ,password))
 	  ,@body))
       (:postgresql
-       `(let* ((*pgconn-host* ,host)
+       `(let* ((*pgconn-host* ,(if (consp host) (list 'quote host) host))
 	       (*pgconn-port* ,port)
 	       (*pgconn-user* ,user)
 	       (*pgconn-pass* ,password))

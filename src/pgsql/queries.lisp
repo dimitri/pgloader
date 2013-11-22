@@ -31,27 +31,38 @@
 	     (set-session-gucs *pg-settings* :transaction t)
 	     ,@forms)))
       ;; no database given, create a new database connection
-      `(pomo:with-connection (get-connection-spec ,dbname)
-	 (log-message :debug "CONNECT")
-	 (set-session-gucs *pg-settings*)
-	 (handling-pgsql-notices ()
-	   (pomo:with-transaction ()
-	     (log-message :debug "BEGIN")
-	     ,@forms)))))
+      `(let ((cl-postgres:*unix-socket-dir*
+	      (if (and (consp *pgconn-host*) (eq :unix (car *pgconn-host*)))
+		  (fad:pathname-as-directory (cdr *pgconn-host*))
+		  cl-postgres:*unix-socket-dir*)))
+	 (pomo:with-connection (get-connection-spec ,dbname)
+	   (log-message :debug "CONNECT")
+	   (set-session-gucs *pg-settings*)
+	   (handling-pgsql-notices ()
+				   (pomo:with-transaction ()
+				     (log-message :debug "BEGIN")
+				     ,@forms))))))
 
 (defmacro with-pgsql-connection ((dbname) &body forms)
   "Run FROMS within a PostgreSQL connection to DBNAME. To get the connection
    spec from the DBNAME, use `get-connection-spec'."
-  `(pomo:with-connection (get-connection-spec ,dbname)
-     (log-message :debug "CONNECT")
-     (set-session-gucs *pg-settings*)
-     (handling-pgsql-notices ()
-       ,@forms)))
+  `(let ((cl-postgres:*unix-socket-dir*
+	  (if (and (consp *pgconn-host*) (eq :unix (car *pgconn-host*)))
+	      (fad:pathname-as-directory (cdr *pgconn-host*))
+	      cl-postgres:*unix-socket-dir*)))
+     (pomo:with-connection (get-connection-spec ,dbname)
+       (log-message :debug "CONNECT ~s" (get-connection-spec ,dbname))
+       (set-session-gucs *pg-settings*)
+       (handling-pgsql-notices ()
+			       ,@forms))))
 
 (defun get-connection-spec (dbname &key (with-port t))
   "pomo:with-connection and cl-postgres:open-database and open-db-writer are
    not using the same connection spec format..."
-  (let ((conspec (list dbname *pgconn-user* *pgconn-pass* *pgconn-host*)))
+  (let* ((host    (if (and (consp *pgconn-host*) (eq :unix (car *pgconn-host*)))
+		      :unix
+		      *pgconn-host*))
+	 (conspec (list dbname *pgconn-user* *pgconn-pass* host)))
     (if with-port
       (append conspec (list :port *pgconn-port*))
       (append conspec (list *pgconn-port*)))))
@@ -100,19 +111,17 @@
 
 (defun list-databases (&optional (username "postgres"))
   "Connect to a local database and get the database list"
-  (pomo:with-connection (let ((*pgconn-user* username))
-			  (get-connection-spec "postgres"))
-    (loop for (dbname) in (pomo:query
-			   "select datname
+  (let* ((*pgconn-user* username))
+    (with-pgsql-transaction ("postgres")
+      (loop for (dbname) in (pomo:query
+			     "select datname
                               from pg_database
                              where datname !~ 'postgres|template'")
-       collect dbname)))
+	 collect dbname))))
 
 (defun list-tables (dbname)
   "Return an alist of tables names and list of columns to pay attention to."
-  (pomo:with-connection
-      (get-connection-spec dbname)
-
+  (with-pgsql-transaction (dbname)
     (loop for (relname colarray) in (pomo:query "
 select relname, array_agg(case when typname in ('date', 'timestamptz')
                                then attnum end
@@ -133,11 +142,9 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
 
 (defun list-tables-cols (dbname &key (schema "public") table-name-list)
   "Return an alist of tables names and number of columns."
-  (pomo:with-connection
-      (get-connection-spec dbname)
-
-    (loop for (relname cols)
-       in (pomo:query (format nil "
+  (with-pgsql-transaction (dbname)
+      (loop for (relname cols)
+	 in (pomo:query (format nil "
     select relname, count(attnum)
       from pg_class c
            join pg_namespace n on n.oid = c.relnamespace
@@ -149,7 +156,7 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
            ~@[~{and relname = '~a'~^ ~}~]
   group by relname
 " schema table-name-list))
-       collect (cons relname cols))))
+	 collect (cons relname cols))))
 
 (defun list-tables-and-fkeys (&optional schema)
   "Yet another table listing query."
@@ -164,9 +171,7 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
 
 (defun list-columns (dbname table-name &key schema)
   "Return a list of column names for given TABLE-NAME."
-  (pomo:with-connection
-      (get-connection-spec dbname)
-
+  (with-pgsql-transaction (dbname)
     (pomo:query (format nil "
     select attname
       from pg_class c
@@ -183,7 +188,7 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
 
 (defun reset-all-sequences (dbname &key tables)
   "Reset all sequences to the max value of the column they are attached to."
-  (pomo:with-connection (get-connection-spec dbname)
+  (with-pgsql-connection (dbname)
     (set-session-gucs *pg-settings*)
     (pomo:execute "set client_min_messages to warning;")
     (pomo:execute "listen seqs")

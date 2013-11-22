@@ -1,6 +1,6 @@
 load database
      from      mysql://root@localhost/sakila
-     into postgresql://localhost:54393/sakila
+     into postgresql:///sakila
 
  WITH include drop, create tables, no truncate,
       create indexes, reset sequences, foreign keys
