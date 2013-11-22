@@ -151,21 +151,22 @@
   http://www.postgresql.org/docs/9.3/interactive/datatype-binary.html
 
   Note that we choose here the bytea Hex Format."
-  (declare (type simple-array vector))
-  (let ((hex-digits "0123456789abcdef")
-	(bytea (make-array (+ 2 (* 2 (length vector)))
-			   :initial-element #\0
-			   :element-type 'standard-char)))
+  (declare (type (or null (simple-array (unsigned-byte 8) (*))) vector))
+  (when vector
+    (let ((hex-digits "0123456789abcdef")
+	  (bytea (make-array (+ 2 (* 2 (length vector)))
+			     :initial-element #\0
+			     :element-type 'standard-char)))
 
-    ;; The entire string is preceded by the sequence \x (to distinguish it
-    ;; from the escape format).
-    (setf (aref bytea 0) #\\)
-    (setf (aref bytea 1) #\x)
+      ;; The entire string is preceded by the sequence \x (to distinguish it
+      ;; from the escape format).
+      (setf (aref bytea 0) #\\)
+      (setf (aref bytea 1) #\x)
 
-    (loop for pos from 2 by 2
-       for byte across vector
-       do (let ((high (ldb (byte 4 4) byte))
-		(low  (ldb (byte 4 0) byte)))
-	    (setf (aref bytea pos)       (aref hex-digits high))
-	    (setf (aref bytea (+ pos 1)) (aref hex-digits low)))
-       finally (return bytea))))
+      (loop for pos from 2 by 2
+	 for byte across vector
+	 do (let ((high (ldb (byte 4 4) byte))
+		  (low  (ldb (byte 4 0) byte)))
+	      (setf (aref bytea pos)       (aref hex-digits high))
+	      (setf (aref bytea (+ pos 1)) (aref hex-digits low)))
+	 finally (return bytea)))))
