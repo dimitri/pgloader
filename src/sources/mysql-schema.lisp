@@ -70,7 +70,13 @@
        (progn
 	 (cl-mysql:use dbname)
 	 ;; that returns a pretty weird format, process it
-	 (mapcan #'identity (caar (cl-mysql:list-tables))))
+	 (loop for (table-name)
+	    in (caar (cl-mysql:query (format nil "
+  select table_name
+    from information_schema.tables
+   where table_schema = '~a' and table_type = 'BASE TABLE'
+order by table_name" dbname)))
+	    collect table-name))
     ;; free resources
     (cl-mysql:disconnect)))
 
