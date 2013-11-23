@@ -168,7 +168,8 @@
 			     (log-message :fatal "We have a situation here.")
 			     (print-backtrace condition debug *standard-output*))))
 
-		     (run-commands filename :start-logger nil)
+		     (run-commands (fad:canonical-pathname filename)
+				   :start-logger nil)
 		     (format t "~&"))
 
 		 (condition (c)
