@@ -500,10 +500,13 @@
 			  option-foreign-keys
 			  option-identifiers-case))
 
-(defrule another-mysql-option (and #\, ignore-whitespace mysql-option)
+(defrule comma (and ignore-whitespace #\, ignore-whitespace)
+  (:constant :comma))
+
+(defrule another-mysql-option (and comma mysql-option)
   (:lambda (source)
-    (destructuring-bind (comma ws option) source
-      (declare (ignore comma ws))
+    (destructuring-bind (comma option) source
+      (declare (ignore comma))
       option)))
 
 (defrule mysql-option-list (and mysql-option (* another-mysql-option))
@@ -535,10 +538,10 @@
       (declare (ignore es))
       (cons name value))))
 
-(defrule another-generic-option (and #\, ignore-whitespace generic-option)
+(defrule another-generic-option (and comma generic-option)
   (:lambda (source)
-    (destructuring-bind (comma ws option) source
-      (declare (ignore comma ws))
+    (destructuring-bind (comma option) source
+      (declare (ignore comma))
       option)))
 
 (defrule generic-option-list (and generic-option (* another-generic-option))
@@ -571,10 +574,10 @@
       (declare (ignore open close))
       (text quoted))))
 
-(defrule another-dollar-quoted (and ignore-whitespace #\, dollar-quoted)
+(defrule another-dollar-quoted (and comma dollar-quoted)
   (:lambda (source)
-    (destructuring-bind (ws comma quoted) source
-      (declare (ignore ws comma))
+    (destructuring-bind (comma quoted) source
+      (declare (ignore comma))
       quoted)))
 
 (defrule dollar-quoted-list (and dollar-quoted (* another-dollar-quoted))
@@ -733,10 +736,10 @@
 	    :target (fix-target-type source target)
 	    :using function))))
 
-(defrule another-cast-rule (and #\, ignore-whitespace cast-rule)
+(defrule another-cast-rule (and comma cast-rule)
   (:lambda (source)
-    (destructuring-bind (comma ws rule) source
-      (declare (ignore comma ws))
+    (destructuring-bind (comma rule) source
+      (declare (ignore comma))
       rule)))
 
 (defrule cast-rule-list (and cast-rule (* another-cast-rule))
@@ -768,10 +771,10 @@
 (defrule view-definition (and view-name (? view-sql))
   (:destructure (name sql) (cons name sql)))
 
-(defrule another-view-definition (and #\, ignore-whitespace view-definition)
+(defrule another-view-definition (and comma view-definition)
   (:lambda (source)
-    (destructuring-bind (comma ws view) source
-      (declare (ignore comma ws))
+    (destructuring-bind (comma view) source
+      (declare (ignore comma))
       view)))
 
 (defrule views-list (and view-definition (* another-view-definition))
@@ -788,13 +791,10 @@
 ;;;
 (defrule namestring-or-regex (or quoted-namestring quoted-regex))
 
-(defrule another-namestring-or-regex (and ignore-whitespace
-					  #\,
-					  ignore-whitespace
-					  namestring-or-regex)
+(defrule another-namestring-or-regex (and comma namestring-or-regex)
   (:lambda (source)
-    (destructuring-bind (w1 comma w2 re) source
-      (declare (ignore w1 comma w2))
+    (destructuring-bind (comma re) source
+      (declare (ignore comma))
       re)))
 
 (defrule filter-list (and namestring-or-regex (* another-namestring-or-regex))
@@ -910,10 +910,10 @@ load database
 			   option-create-indexes
 			   option-reset-sequences))
 
-(defrule another-sqlite-option (and #\, ignore-whitespace sqlite-option)
+(defrule another-sqlite-option (and comma sqlite-option)
   (:lambda (source)
-    (destructuring-bind (comma ws option) source
-      (declare (ignore comma ws))
+    (destructuring-bind (comma option) source
+      (declare (ignore comma))
       option)))
 
 (defrule sqlite-option-list (and sqlite-option (* another-sqlite-option))
@@ -1147,10 +1147,10 @@ load database
 
 (defrule dbf-option (or option-truncate option-create-table option-table-name))
 
-(defrule another-dbf-option (and #\, ignore-whitespace dbf-option)
+(defrule another-dbf-option (and comma dbf-option)
   (:lambda (source)
-    (destructuring-bind (comma ws option) source
-      (declare (ignore comma ws))
+    (destructuring-bind (comma option) source
+      (declare (ignore comma))
       option)))
 
 (defrule dbf-option-list (and dbf-option (* another-dbf-option))
@@ -1314,10 +1314,10 @@ load database
 			option-trim-unquoted-blanks
 			option-keep-unquoted-blanks))
 
-(defrule another-csv-option (and #\, ignore-whitespace csv-option)
+(defrule another-csv-option (and comma csv-option)
   (:lambda (source)
-    (destructuring-bind (comma ws option) source
-      (declare (ignore comma ws))
+    (destructuring-bind (comma option) source
+      (declare (ignore comma))
       option)))
 
 (defrule csv-option-list (and csv-option (* another-csv-option))
@@ -1380,10 +1380,10 @@ load database
   (:destructure (name opts)
     `(,name ,@opts)))
 
-(defrule another-csv-source-field (and #\, ignore-whitespace csv-source-field)
+(defrule another-csv-source-field (and comma csv-source-field)
   (:lambda (source)
-    (destructuring-bind (comma ws field) source
-      (declare (ignore comma ws))
+    (destructuring-bind (comma field) source
+      (declare (ignore comma))
       field)))
 
 (defrule csv-source-fields (and csv-source-field (* another-csv-source-field))
@@ -1467,10 +1467,10 @@ load database
 	    (list name type expr))
 	  (list name nil nil)))))
 
-(defrule another-csv-target-column (and #\, ignore-whitespace csv-target-column)
+(defrule another-csv-target-column (and comma csv-target-column)
   (:lambda (source)
-    (destructuring-bind (comma ws col) source
-      (declare (ignore comma ws))
+    (destructuring-bind (comma col) source
+      (declare (ignore comma))
       col)))
 
 (defrule csv-target-columns (and csv-target-column
@@ -1620,10 +1620,10 @@ load database
   (:destructure (name start len opts)
     `(,name :start ,start :length ,len ,@opts)))
 
-(defrule another-fixed-source-field (and #\, ignore-whitespace fixed-source-field)
+(defrule another-fixed-source-field (and comma fixed-source-field)
   (:lambda (source)
-    (destructuring-bind (comma ws field) source
-      (declare (ignore comma ws))
+    (destructuring-bind (comma field) source
+      (declare (ignore comma))
       field)))
 
 (defrule fixed-source-fields (and fixed-source-field (* another-fixed-source-field))
@@ -1640,10 +1640,10 @@ load database
 (defrule fixed-option (or option-truncate
 			  option-skip-header))
 
-(defrule another-fixed-option (and #\, ignore-whitespace fixed-option)
+(defrule another-fixed-option (and comma fixed-option)
   (:lambda (source)
-    (destructuring-bind (comma ws option) source
-      (declare (ignore comma ws))
+    (destructuring-bind (comma option) source
+      (declare (ignore comma))
       option)))
 
 (defrule fixed-option-list (and fixed-option (* another-fixed-option))

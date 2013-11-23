@@ -18,9 +18,9 @@ LOAD CSV
         (d, b, x, y)
      INTO postgresql:///pgloader?udc
         (
-          b,
-          c text using "constant value",
-          d
+            b
+          , c text using "constant value"
+          , d
         )
 
      WITH fields optionally enclosed by '"',
