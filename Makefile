@@ -1,6 +1,4 @@
-# pgloader build tools
-
-POMO_PATCH = $(realpath patches/postmodern-send-copy-done.patch)
+# pgloader build tool
 ASDF_CONFD = ~/.config/common-lisp/source-registry.conf.d
 ASDF_CONF  = $(ASDF_CONFD)/projects.conf
 
@@ -19,18 +17,13 @@ docs:
 ~/quicklisp/local-projects/cl-abnf:
 	git clone https://github.com/dimitri/cl-abnf.git $@
 
-~/quicklisp/local-projects/cl-db3:
-	git clone https://github.com/dimitri/cl-db3.git $@
-
 ~/quicklisp/local-projects/Postmodern:
 	git clone https://github.com/marijnh/Postmodern.git $@
-	cd ~/quicklisp/local-projects/Postmodern/ && patch -p1 < $(POMO_PATCH)
 
 ~/quicklisp/local-projects/cl-csv:
 	git clone -b empty-strings-and-nil https://github.com/dimitri/cl-csv.git $@
 
 cl-abnf: ~/quicklisp/local-projects/cl-abnf ;
-cl-db3: ~/quicklisp/local-projects/cl-db3 ;
 cl-csv: ~/quicklisp/local-projects/cl-csv ;
 postmodern: ~/quicklisp/local-projects/Postmodern ;
 
@@ -48,7 +41,7 @@ $(ASDF_CONF):
 
 asdf-config: $(ASDF_CONF) ;
 
-$(LIBS): quicklisp $(ASDF_CONF) cl-abnf cl-db3 postmodern cl-csv
+$(LIBS): quicklisp $(ASDF_CONF) cl-abnf postmodern cl-csv
 	sbcl --load ~/quicklisp/setup.lisp                             \
              --eval '(ql:quickload "pgloader")'                        \
              --eval '(quit)'

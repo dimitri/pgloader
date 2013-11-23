@@ -53,11 +53,7 @@ irrelevant.
 
 The current version of the code depends on a recent version of
 [Postmodern](http://marijnhaverbeke.nl/postmodern/postmodern.html) not found
-in Quicklisp yet at the time of this writing. Currently the pgloader source
-tree contains a patch to apply against postmodern sources, and the
-`Makefile` will do the following for you:
-
-Read https://github.com/marijnh/Postmodern/issues/39 for details.
+in Quicklisp yet at the time of this writing.
 
 #### cl-csv
 
