@@ -1761,7 +1761,7 @@ load database
       (destructuring-bind (&key host port user password dbname &allow-other-keys)
 	  pg-db-uri
 	`(lambda ()
-	   (let* ((state-before  ,(when before (pgloader.utils:make-pgstate)))
+	   (let* ((state-before   (pgloader.utils:make-pgstate))
 		  (*state*        (pgloader.utils:make-pgstate))
 		  (state-finally ,(when finally `(pgloader.utils:make-pgstate)))
 		  (archive-file
