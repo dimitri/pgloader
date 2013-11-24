@@ -237,9 +237,10 @@ $$; " tables)))
 (defun list-table-oids (table-names)
   "Return an alist of (TABLE-NAME . TABLE-OID) for all table in the
    TABLE-NAMES list. A connection must be established already."
-  (loop for (name oid)
-     in (pomo:query
-	 (format nil
-		 "select n, n::regclass::oid from (values ~{('~a')~^,~}) as t(n)"
-		 table-names))
-     collect (cons name oid)))
+  (when table-names
+    (loop for (name oid)
+       in (pomo:query
+	   (format nil
+		   "select n, n::regclass::oid from (values ~{('~a')~^,~}) as t(n)"
+		   table-names))
+       collect (cons name oid))))
