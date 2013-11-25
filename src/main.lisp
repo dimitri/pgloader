@@ -173,6 +173,7 @@
 		     (format t "~&"))
 
 		 (condition (c)
-		   (when debug (invoke-debugger c))))))
+		   (when debug (invoke-debugger c))
+		   (uiop:quit 1)))))
 
 	(uiop:quit)))))
