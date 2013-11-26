@@ -143,7 +143,10 @@
   (def-keyword-rule "and")
   (def-keyword-rule "do")
   (def-keyword-rule "filename")
-  (def-keyword-rule "matching"))
+  (def-keyword-rule "filenames")
+  (def-keyword-rule "matching")
+  (def-keyword-rule "first")
+  (def-keyword-rule "all"))
 
 (defrule kw-auto-increment (and "auto_increment" (* (or #\Tab #\Space)))
   (:constant :auto-increment))
@@ -1509,11 +1512,25 @@ load database
 	  encoding)
 	:utf-8)))
 
-(defrule filename-matching (and kw-filename kw-matching quoted-regex)
+(defrule first-filename-matching
+    (and (? kw-first) kw-filename kw-matching quoted-regex)
   (:lambda (fm)
-    (destructuring-bind (filename matching regex) fm
-      (declare (ignore filename matching))
-      regex)))
+    (destructuring-bind (first filename matching regex) fm
+      (declare (ignore first filename matching))
+      ;; regex is a list with first the symbol :regex and second the regexp
+      ;; as a string
+      (list* :regex :first (cdr regex)))))
+
+(defrule all-filename-matching
+    (and kw-all (or kw-filenames kw-filename) kw-matching quoted-regex)
+  (:lambda (fm)
+    (destructuring-bind (all filename matching regex) fm
+      (declare (ignore all filename matching))
+      ;; regex is a list with first the symbol :regex and second the regexp
+      ;; as a string
+      (list* :regex :all (cdr regex)))))
+
+(defrule filename-matching (or first-filename-matching all-filename-matching))
 
 (defrule csv-file-source (or stdin
 			     inline
@@ -1525,8 +1542,8 @@ load database
     (destructuring-bind (load csv from source) src
       (declare (ignore load csv from))
       ;; source is (:filename #P"pathname/here")
-      (destructuring-bind (type uri) source
-	(declare (ignore uri))
+      (destructuring-bind (type &rest data) source
+	(declare (ignore data))
 	(ecase type
 	  (:stdin    source)
 	  (:inline   source)
@@ -1668,8 +1685,8 @@ load database
     (destructuring-bind (load fixed from source) src
       (declare (ignore load fixed from))
       ;; source is (:filename #P"pathname/here")
-      (destructuring-bind (type uri) source
-	(declare (ignore uri))
+      (destructuring-bind (type &rest data) source
+	(declare (ignore data))
 	(ecase type
 	  (:stdin    source)
 	  (:inline   source)
@@ -1752,12 +1769,14 @@ load database
       source)))
 
 (defrule load-archive (and archive-source
-			   target
+			   (? target)
 			   (? before-load-do)
 			   archive-command-list
 			   (? finally-do))
   (:lambda (archive)
     (destructuring-bind (source pg-db-uri before commands finally) archive
+      (when (and (or before finally) (null pg-db-uri))
+	(error "When using a BEFORE LOAD DO or a FINALLY block, you must provide an archive level target database connection."))
       (destructuring-bind (&key host port user password dbname &allow-other-keys)
 	  pg-db-uri
 	`(lambda ()

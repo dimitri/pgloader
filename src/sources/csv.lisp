@@ -8,7 +8,9 @@
 ;;; Implementing the pgloader source API
 ;;;
 (defclass copy-csv (copy)
-  ((encoding    :accessor encoding	  ; file encoding
+  ((source-type :accessor source-type	  ; one of :inline, :stdin, :regex
+		:initarg :source-type)	  ;  or :filename
+   (encoding    :accessor encoding	  ; file encoding
 	        :initarg :encoding)	  ;
    (skip-lines  :accessor skip-lines	  ; CSV headers
 	        :initarg :skip-lines	  ;
@@ -31,7 +33,8 @@
   "Compute the real source definition from the given source parameter, and
    set the transforms function list as needed too."
   (let ((source (slot-value csv 'source)))
-    (setf (slot-value csv 'source) (get-absolute-pathname source)))
+    (setf (slot-value csv 'source-type) (car source))
+    (setf (slot-value csv 'source)      (get-absolute-pathname source)))
 
   (let ((transforms (when (slot-boundp csv 'transforms)
 		      (slot-value csv 'transforms)))
@@ -58,59 +61,52 @@
    data. That's used to handle the INLINE data loading.
 
    Finally returns how many rows where read and processed."
-  (let* ((filespec   (source csv))
-	 (filename   (if (consp filespec) (car filespec) filespec)))
-   (with-open-file
-       ;; we just ignore files that don't exist
-       (input filename
-	      :direction :input
-	      :external-format (encoding csv)
-	      :if-does-not-exist nil)
-     (when input
-       ;; first go to given inline position when filename is a consp
-       (when (consp filespec)
-	 (loop repeat (cdr filespec) do (read-char input)))
+  (let ((filenames   (case (source-type csv)
+		       (:inline  (list (car (source csv))))
+		       (:regex   (source csv))
+		       (t        (list (source csv))))))
+    (loop for filename in filenames
+       do
+	 (with-open-file
+	     ;; we just ignore files that don't exist
+	     (input filename
+		    :direction :input
+		    :external-format (encoding csv)
+		    :if-does-not-exist nil)
+	   (when input
+	     (log-message :info "COPY FROM ~s" filename)
 
-       ;; we handle skipping more than one line here, as cl-csv only knows
-       ;; about skipping the first line
-       (loop repeat (skip-lines csv) do (read-line input nil nil))
+	     ;; first go to given inline position when filename is :inline
+	     (when (eq (source-type csv) :inline)
+	       (file-position input (cdr (source csv))))
 
-       ;; read in the text file, split it into columns, process NULL columns
-       ;; the way postmodern expects them, and call PROCESS-ROW-FN on them
-       (let* ((read 0)
-	      (projection (project-fields :fields  (fields csv)
-					  :columns (columns csv)))
-	      (reformat-then-process
-	       (lambda (row)
-		 (incf read)
-		 (let ((projected-row
-			(handler-case
-			    (funcall projection row)
-			  (condition (e)
-			    (pgstate-incf *state* (target csv) :errs 1)
-			    (log-message :error
-					 "Could not read line ~d: ~a" read e)))))
-		   (when projected-row
-		     (funcall process-row-fn projected-row))))))
+	     ;; we handle skipping more than one line here, as cl-csv only knows
+	     ;; about skipping the first line
+	     (loop repeat (skip-lines csv) do (read-line input nil nil))
 
-	 (handler-case
-	     (cl-csv:read-csv input
-			      :row-fn (compile nil reformat-then-process)
-			      :separator (csv-separator csv)
-			      :quote (csv-quote csv)
-			      :escape (csv-escape csv)
-			      :trim-blanks (csv-trim-blanks csv))
-	   ((or cl-csv:csv-parse-error type-error) (condition)
-	     (progn
-	       (log-message :error "~a" condition)
-	       (pgstate-setf *state* (target csv) :errs -1))))
-	 ;; return how many rows we did read
-	 read)))))
+	     ;; read in the text file, split it into columns, process NULL
+	     ;; columns the way postmodern expects them, and call
+	     ;; PROCESS-ROW-FN on them
+	     (let ((reformat-then-process
+		    (reformat-then-process :fields  (fields csv)
+					   :columns (columns csv)
+					   :target  (target csv)
+					   :process-row-fn process-row-fn)))
+	       (handler-case
+		   (cl-csv:read-csv input
+				    :row-fn (compile nil reformat-then-process)
+				    :separator (csv-separator csv)
+				    :quote (csv-quote csv)
+				    :escape (csv-escape csv)
+				    :trim-blanks (csv-trim-blanks csv))
+		 ((or cl-csv:csv-parse-error type-error) (condition)
+		   (progn
+		     (log-message :error "~a" condition)
+		     (pgstate-setf *state* (target csv) :errs -1))))))))))
 
 (defmethod copy-to-queue ((csv copy-csv) dataq)
   "Copy data from given CSV definition into lparallel.queue DATAQ"
-  (let ((read (pgloader.queue:map-push-queue dataq #'map-rows csv)))
-    (pgstate-incf *state* (target csv) :read read)))
+  (pgloader.queue:map-push-queue dataq #'map-rows csv))
 
 (defmethod copy-from ((csv copy-csv) &key truncate)
   "Copy data from given CSV file definition into its PostgreSQL target table."

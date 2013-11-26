@@ -141,6 +141,24 @@
    :name table-name
    :type "csv"))
 
+(defun filter-directory (regex
+			 &key
+			   (keep :first) ; or :all
+			   (root *csv-path-root*))
+  "Walk the ROOT directory and KEEP either the :first or :all the matches
+   against the given regexp."
+  (let* ((candidates (pgloader.archive:get-matching-filenames root regex))
+	 (candidates (ecase keep
+		       (:first (list (first candidates)))
+		       (:all   candidates))))
+    (unless candidates
+      (error "No file matching '~a' in expanded archive in '~a'" regex root))
+
+    (loop for candidate in candidates
+       do (if (probe-file candidate) candidate
+	      (error "File does not exists: '~a'." candidate))
+       finally (return candidates))))
+
 (defun get-absolute-pathname (pathname-or-regex &key (root *csv-path-root*))
   "PATHNAME-OR-REGEX is expected to be either (:regexp expression)
    or (:filename pathname). In the first case, this fonction check if the
@@ -150,18 +168,12 @@
    In the second case, walk the ROOT directory and return the first pathname
    that matches the regex. TODO: consider signaling a condition when we have
    more than one match."
-  (destructuring-bind (type part) pathname-or-regex
+  (destructuring-bind (type &rest part) pathname-or-regex
     (ecase type
-      (:inline   part)
+      (:inline   (car part))		; because of &rest
       (:stdin    *standard-input*)
-      (:regex    (let* ((candidates
-			 (pgloader.archive:get-matching-filenames root part))
-			(candidate (first candidates)))
-		   (unless candidates
-		     (error "No file matching '~a' in expanded archive in '~a'"
-			    part root))
-		   (if (probe-file candidate) candidate
-		       (error "File does not exists: '~a'." candidate))))
+      (:regex    (destructuring-bind (keep regex) part
+		   (filter-directory regex :keep keep :root root)))
       (:filename (let ((filename
 			(if (fad:pathname-absolute-p part) part
 			    (merge-pathnames part root))))
@@ -252,3 +264,23 @@
 		      (list ,@newrow))))))))
       ;; allow for some debugging
       (if compile (compile nil projection) projection))))
+
+(defun reformat-then-process (&key fields columns target process-row-fn)
+  "Return a lambda form to apply to each row we read.
+
+   The lambda closes over the READ paramater, which is a counter of how many
+   lines we did read in the file."
+  (let ((projection (project-fields :fields fields :columns columns)))
+    (lambda (row)
+      (pgstate-incf *state* target :read 1)
+      (let ((projected-row
+	     (handler-case
+		 (funcall projection row)
+	       (condition (e)
+		 (pgstate-incf *state* target :errs 1)
+		 (log-message :error "Could not read line ~d: ~a"
+			      (pgloader.utils::pgtable-read
+			       (pgstate-get-table *state* target))
+			      e)))))
+	(when projected-row
+	  (funcall process-row-fn projected-row))))))

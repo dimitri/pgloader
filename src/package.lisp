@@ -119,7 +119,8 @@
 	   #:filter-column-list
 	   #:get-pathname
 	   #:get-absolute-pathname
-	   #:project-fields))
+	   #:project-fields
+	   #:reformat-then-process))
 
 (defpackage #:pgloader.csv
   (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.sources)

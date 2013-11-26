@@ -5,7 +5,9 @@
 (in-package :pgloader.fixed)
 
 (defclass copy-fixed (copy)
-  ((encoding    :accessor encoding	  ; file encoding
+  ((source-type :accessor source-type	  ; one of :inline, :stdin, :regex
+		:initarg :source-type)	  ;  or :filename
+   (encoding    :accessor encoding	  ; file encoding
 	        :initarg :encoding)	  ;
    (skip-lines  :accessor skip-lines	  ; CSV headers
 	        :initarg :skip-lines	  ;
@@ -16,7 +18,8 @@
   "Compute the real source definition from the given source parameter, and
    set the transforms function list as needed too."
   (let ((source (slot-value fixed 'source)))
-    (setf (slot-value fixed 'source) (get-absolute-pathname source)))
+    (setf (slot-value fixed 'source-type) (car source))
+    (setf (slot-value fixed 'source)      (get-absolute-pathname source)))
 
   (let ((transforms (when (slot-boundp fixed 'transforms)
 		      (slot-value fixed 'transforms)))
@@ -43,50 +46,44 @@
    list as its only parameter.
 
    Returns how many rows where read and processed."
-  (let* ((filespec   (source fixed))
-	 (filename   (if (consp filespec) (car filespec) filespec)))
-   (with-open-file
-       ;; we just ignore files that don't exist
-       (input filename
-	      :direction :input
-	      :external-format (encoding fixed)
-	      :if-does-not-exist nil)
-     (when input
-       ;; first go to given inline position when filename is a consp
-       (when (consp filespec)
-	 (loop repeat (cdr filespec) do (read-char input)))
+  (let ((filenames   (case (source-type fixed)
+		       (:inline  (list (car (source fixed))))
+		       (:regex   (source fixed))
+		       (t        (list (source fixed))))))
+    (loop for filename in filenames
+       do
+	 (with-open-file
+	     ;; we just ignore files that don't exist
+	     (input filename
+		    :direction :input
+		    :external-format (encoding fixed)
+		    :if-does-not-exist nil)
+	   (when input
+	     ;; first go to given inline position when filename is :inline
+	     (when (eq (source-type fixed) :inline)
+	       (file-position input (cdr (source fixed))))
 
-       ;; ignore as much as skip-lines lines in the file
-       (loop repeat (skip-lines fixed) do (read-line input nil nil))
+	     ;; ignore as much as skip-lines lines in the file
+	     (loop repeat (skip-lines fixed) do (read-line input nil nil))
 
-       ;; read in the text file, split it into columns, process NULL columns
-       ;; the way postmodern expects them, and call PROCESS-ROW-FN on them
-       (let* ((read 0)
-	      (projection (project-fields :fields  (fields fixed)
-					  :columns (columns fixed)))
-	      (reformat-then-process
-	       (lambda (row)
-		 (let ((projected-row
-			(handler-case
-			    (funcall projection row)
-			  (condition (e)
-			    (pgstate-incf *state* (target fixed) :errs 1)
-			    (log-message :error
-					 "Could not read line ~d: ~a" read e)))))
-		   (when projected-row
-		     (funcall process-row-fn projected-row))))))
-	 (loop
-	    with fun = (compile nil reformat-then-process)
-	    for line = (read-line input nil nil)
-	    counting line into read
-	    while line
-	    do (funcall fun (parse-row fixed line))
-	    finally (return read)))))))
+	     ;; read in the text file, split it into columns, process NULL
+	     ;; columns the way postmodern expects them, and call
+	     ;; PROCESS-ROW-FN on them
+	     (let ((reformat-then-process
+		    (reformat-then-process :fields  (fields fixed)
+					   :columns (columns fixed)
+					   :target  (target fixed)
+					   :process-row-fn process-row-fn)))
+	       (loop
+		  with fun = (compile nil reformat-then-process)
+		  for line = (read-line input nil nil)
+		  counting line into read
+		  while line
+		  do (funcall fun (parse-row fixed line)))))))))
 
 (defmethod copy-to-queue ((fixed copy-fixed) dataq)
   "Copy data from given FIXED definition into lparallel.queue DATAQ"
-  (let ((read (pgloader.queue:map-push-queue dataq #'map-rows fixed)))
-    (pgstate-incf *state* (target fixed) :read read)))
+  (pgloader.queue:map-push-queue dataq #'map-rows fixed))
 
 (defmethod copy-from ((fixed copy-fixed) &key truncate)
   "Copy data from given FIXED file definition into its PostgreSQL target table."
