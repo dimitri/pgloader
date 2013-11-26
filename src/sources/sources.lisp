@@ -162,8 +162,11 @@
 			    part root))
 		   (if (probe-file candidate) candidate
 		       (error "File does not exists: '~a'." candidate))))
-      (:filename (if (fad:pathname-absolute-p part) part
-		     (merge-pathnames part root))))))
+      (:filename (let ((filename
+			(if (fad:pathname-absolute-p part) part
+			    (merge-pathnames part root))))
+		   (if (probe-file filename) filename
+		       (error "File does not exists: '~a'." filename)))))))
 
 
 ;;;
