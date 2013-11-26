@@ -705,6 +705,13 @@ The `archive` command accepts the following clauses and options:
      which allows the pgloader command not to depend on the exact names of
      the archive directories.
 
+	 The same clause can also be applied to several files with using the
+	 spelling *FROM ALL FILENAMES MATCHING* and a regular expression.
+	 
+	 The whole *matching* clause must follow the following rule:
+	 
+	     FROM [ ALL FILENAMES | [ FIRST ] FILENAME ] MATCHING
+
    - *FINALLY DO*
    
 	 SQL Queries to run once the data is loaded, such as `CREATE INDEX`.
