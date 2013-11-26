@@ -19,8 +19,6 @@ echo "host  all all 127.0.0.1/32 trust" | sudo tee -a $HBA
 
 sudo pg_ctlcluster 9.3 main reload
 createuser -U postgres -SdR `whoami`
-createdb -U postgres -O `whoami` pgloader
-psql -U postgres -d pgloader -c 'create extension ip4r'
 
 make -C /vagrant pgloader
 make -C /vagrant test

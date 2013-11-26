@@ -1,0 +1,22 @@
+LOAD CSV
+     FROM 'this/file/does/not/exists.csv' WITH ENCODING latin1
+          (a, b, c, d, e)
+     INTO postgresql:///pgloader?csv.nofile
+
+     WITH truncate,
+          skip header = 1,
+          fields optionally enclosed by '"',
+          fields escaped by double-quote,
+          fields terminated by ','
+
+  BEFORE LOAD DO
+   $$ create schema if not exists csv; $$,
+   $$ create table if not exists csv.nofile
+     (
+        a      text,
+        b      text,
+        c      text,
+        d      text,
+        e      text
+     );
+   $$;

@@ -1,0 +1,25 @@
+LOAD ARCHIVE
+  FROM http://bossa.pl/pub/metastock/mstock/mstall.zip
+  -- FROM /Users/dim/dev/temp/mstall.zip
+  INTO postgresql:///stocks
+
+  LOAD CSV
+    FROM FILENAME MATCHING ~/ALIOR/
+      WITH ENCODING iso-8859-2
+      (ticker, quote_date, open, high, low, close, volume)
+    INTO postgresql:///stocks?intf_stocks
+    WITH
+      SKIP HEADER=1,
+      FIELDS OPTIONALLY ENCLOSED BY '"',
+      FIELDS TERMINATED BY ','
+
+  AND LOAD CSV
+    FROM FILENAME MATCHING ~/FPGNH14/
+      WITH ENCODING iso-8859-2
+      (ticker, quote_date, open, high, low, close, volume, openint)
+    INTO postgresql:///stocks?intf_derivatives
+    WITH
+      SKIP HEADER = 1,
+      FIELDS OPTIONALLY ENCLOSED BY '"',
+      FIELDS TERMINATED BY ','
+  ;

@@ -8,7 +8,7 @@
  */
 
 LOAD ARCHIVE
-   FROM /Users/dim/Downloads/GeoLiteCity-latest.zip
+   FROM http://pgsql.tapoueh.org/temp/foo.zip
    INTO postgresql:///ip4r
 
    BEFORE LOAD DO

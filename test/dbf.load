@@ -1,5 +1,10 @@
+/*
+ * The file comes from:
+ *
+ * http://www.insee.fr/fr/methodes/nomenclatures/cog/telechargement/2013/dbf/reg2013.dbf
+ */ 
 LOAD DBF
-    FROM http://www.insee.fr/fr/methodes/nomenclatures/cog/telechargement/2013/dbf/reg2013.dbf
+    FROM data/reg2013.dbf
     INTO postgresql:///pgloader
     WITH truncate, create table
      SET client_encoding TO 'latin1';

@@ -1,0 +1,25 @@
+/*
+ * We load all the files in the archive, all of them into the same target table.
+ */
+
+load archive
+     from http://bossa.pl/pub/futures/mstock/mstfut.zip
+
+  load csv
+    from all filenames matching ~/./
+      with encoding iso-8859-2
+      ( ticker
+      , quote_date
+      , open
+      , high
+      , low
+      , close
+      , volume
+      , openint
+      )
+    into postgresql:///stocks?intf_derivatives
+    with
+      skip header=1
+    , fields optionally enclosed by '"'
+    , fields terminated by ','
+    , truncate;
