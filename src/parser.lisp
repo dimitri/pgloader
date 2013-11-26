@@ -1562,24 +1562,24 @@ load database
 		  (*pgconn-port* ,port)
 		  (*pgconn-user* ,user)
 		  (*pgconn-pass* ,password)
-		  (*pg-settings* ',gucs)
-		  (source
-		   (make-instance 'pgloader.csv:copy-csv
-				  :target-db ,dbname
-				  :source ',source
-				  :target ,table-name
-				  :encoding ,encoding
-				  :fields ',fields
-				  :columns ',columns
-				  ,@(loop for (k v) on options by #'cddr
-				       unless (eq k :truncate)
-				       append (list k v)))))
+		  (*pg-settings* ',gucs))
 
 	     (progn
 	       ,(sql-code-block dbname 'state-before before "before load")
 
-	       (pgloader.sources:copy-from source
-					   :truncate (getf ',options :truncate))
+	       (let ((truncate (getf ',options :truncate))
+		     (source
+		      (make-instance 'pgloader.csv:copy-csv
+				     :target-db  ,dbname
+				     :source    ',source
+				     :target     ,table-name
+				     :encoding   ,encoding
+				     :fields    ',fields
+				     :columns   ',columns
+				     ,@(loop for (k v) on options by #'cddr
+					  unless (eq k :truncate)
+					  append (list k v)))))
+		 (pgloader.sources:copy-from source :truncate truncate))
 
 	       ,(sql-code-block dbname 'state-after after "after load")
 
@@ -1699,22 +1699,22 @@ load database
 		  (*pgconn-port* ,port)
 		  (*pgconn-user* ,user)
 		  (*pgconn-pass* ,password)
-		  (*pg-settings* ',gucs)
-		  (source
-		   (make-instance 'pgloader.fixed:copy-fixed
-				  :target-db ,dbname
-				  :source ',source
-				  :target ,table-name
-				  :encoding ,encoding
-				  :fields ',fields
-				  :columns ',columns
-				  :skip-lines ,(or (getf options :skip-line) 0))))
+		  (*pg-settings* ',gucs))
 
 	     (progn
 	       ,(sql-code-block dbname 'state-before before "before load")
 
-	       (pgloader.sources:copy-from source
-					   :truncate ,(getf options :truncate))
+	       (let ((truncate ,(getf options :truncate))
+		     (source
+		      (make-instance 'pgloader.fixed:copy-fixed
+				     :target-db ,dbname
+				     :source ',source
+				     :target ,table-name
+				     :encoding ,encoding
+				     :fields ',fields
+				     :columns ',columns
+				     :skip-lines ,(or (getf options :skip-line) 0))))
+		 (pgloader.sources:copy-from source :truncate truncate))
 
 	       ,(sql-code-block dbname 'state-after after "after load")
 
