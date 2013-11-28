@@ -14,6 +14,9 @@ docs:
 	pandoc pgloader.1.md -o pgloader.html
 	pandoc pgloader.1.md -o pgloader.pdf
 
+~/quicklisp/local-projects/qmynd:
+	git clone -b streaming https://github.com/dimitri/qmynd.git $@
+
 ~/quicklisp/local-projects/cl-abnf:
 	git clone https://github.com/dimitri/cl-abnf.git $@
 
@@ -23,6 +26,7 @@ docs:
 ~/quicklisp/local-projects/cl-csv:
 	git clone -b empty-strings-and-nil https://github.com/dimitri/cl-csv.git $@
 
+qmynd: ~/quicklisp/local-projects/qmynd ;
 cl-abnf: ~/quicklisp/local-projects/cl-abnf ;
 cl-csv: ~/quicklisp/local-projects/cl-csv ;
 postmodern: ~/quicklisp/local-projects/Postmodern ;
@@ -41,7 +45,7 @@ $(ASDF_CONF):
 
 asdf-config: $(ASDF_CONF) ;
 
-$(LIBS): quicklisp $(ASDF_CONF) cl-abnf postmodern cl-csv
+$(LIBS): quicklisp $(ASDF_CONF) cl-abnf postmodern cl-csv qmynd
 	sbcl --load ~/quicklisp/setup.lisp                             \
              --eval '(ql:quickload "pgloader")'                        \
              --eval '(quit)'

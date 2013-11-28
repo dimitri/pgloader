@@ -50,42 +50,23 @@
   (let ((dbname     (source-db mysql))
 	(table-name (source mysql)))
 
-    (cl-mysql:connect :host *myconn-host*
-		      :port *myconn-port*
-		      :user *myconn-user*
-		      :password *myconn-pass*)
+    (with-mysql-connection (dbname)
+      (mysql-query "SET NAMES 'utf8'")
+      (mysql-query "SET character_set_results = utf8;")
 
-    (unwind-protect
-	 (progn
-	   ;; Ensure we're talking utf-8 and connect to DBNAME in MySQL
-	   (cl-mysql:query "SET NAMES 'utf8'")
-	   (cl-mysql:query "SET character_set_results = utf8;")
-	   (cl-mysql:use dbname)
-
-	   (multiple-value-bind (cols nulls)
-	       (get-column-list-with-is-nulls dbname table-name)
-	     (let* ((sql  (format nil "SELECT ~{~a~^, ~} FROM ~a;" cols table-name))
-		    (q    (cl-mysql:query sql :store nil :type-map nil))
-		    (rs   (cl-mysql:next-result-set q)))
-	       (declare (ignore rs))
-
-	       ;; Now fetch MySQL rows directly in the stream
-	       (handler-case
-		   (loop
-		      with type-map = (make-hash-table)
-		      for row = (cl-mysql:next-row q :type-map type-map)
-		      while row
-		      for row-with-proper-nulls = (fix-nulls row nulls)
-		      counting row into count
-		      do (funcall process-row-fn row-with-proper-nulls)
-		      finally (return count))
-		 (cl-mysql-system:mysql-error (e)
-		   (progn
-		     (log-message :error "~a" e) ; begins with MySQL error:
-		     (pgstate-setf *state* (target mysql) :errs -1)))))))
-
-      ;; free resources
-      (cl-mysql:disconnect))))
+      (multiple-value-bind (cols nulls)
+	  (get-column-list-with-is-nulls dbname table-name)
+	(let* ((sql (format nil "SELECT ~{~a~^, ~} FROM ~a;" cols table-name))
+	       (row-fn
+		(lambda (row)
+		  (pgstate-incf *state* (target mysql) :read 1)
+		  (funcall process-row-fn (fix-nulls row nulls)))))
+	  (handler-bind
+	      ((babel-encodings:character-decoding-error
+		#'(lambda (e)
+		    (pgstate-incf *state* (target mysql) :errs 1)
+		    (log-message :error "~a" e))))
+	      (mysql-query sql :row-fn row-fn)))))))
 
 ;;;
 ;;; Use map-rows and pgsql-text-copy-format to fill in a CSV file on disk
@@ -109,8 +90,7 @@
 ;;;
 (defmethod copy-to-queue ((mysql copy-mysql) dataq)
   "Copy data from MySQL table DBNAME.TABLE-NAME into queue DATAQ"
-  (let ((read (pgloader.queue:map-push-queue dataq #'map-rows mysql)))
-    (pgstate-incf *state* (target mysql) :read read)))
+  (pgloader.queue:map-push-queue dataq #'map-rows mysql))
 
 
 ;;;
@@ -246,7 +226,7 @@
 	  ;; need to stop now and refrain to try loading the data into an
 	  ;; incomplete schema.
 	  ;;
-	  (cl-mysql-system:mysql-error (e)
+	  (qmynd:mysql-error (e)
 	    (log-message :fatal "~a" e)
 	    (return-from copy-database))
 

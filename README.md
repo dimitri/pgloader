@@ -37,7 +37,7 @@ pgloader is now a Common Lisp program, tested using the
 [Quicklisp](http://www.quicklisp.org/beta/).
 
     $ apt-get install sbcl
-    $ apt-get install libmysqlclient-dev libsqlite3-dev
+    $ apt-get install libsqlite3-dev
 	$ make pgloader
 	$ ./build/pgloader.exe --help
 
@@ -112,11 +112,6 @@ file into a manual page or an HTML page thanks to the `pandoc` application:
 ## TODO
 
 Some notes about what I intend to be working on next.
-
-### tests
-
-  - add needed pre-requisites in bootstrap.sh to run the MySQL and SQLite
-    tests from the `make test` target without errors
 
 ### binary distribution
 
