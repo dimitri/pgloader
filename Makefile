@@ -78,6 +78,16 @@ $(PGLOADER): $(MANIFEST) $(BUILDAPP)
 
 pgloader: $(PGLOADER) ;
 
+new-vm:
+	vagrant destroy -f
+	vagrant up
+
+vm:
+	 vagrant up
+
+vm-build: vm
+	vagrant ssh -c "make -C /vagrant"
+
 test:
 	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) -C test all
 

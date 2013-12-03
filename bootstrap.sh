@@ -1,17 +1,37 @@
 #!/usr/bin/env bash
 
+# PostgreSQL
+sidsrc=/etc/apt/sources.list.d/sid-src.list
+echo "deb-src http://ftp.fr.debian.org/debian/ sid main" | sudo tee $sidsrc
+
 pgdg=/etc/apt/sources.list.d/pgdg.list
 pgdgkey=https://www.postgresql.org/media/keys/ACCC4CF8.asc
 echo "deb http://apt.postgresql.org/pub/repos/apt/ wheezy-pgdg main" | sudo tee $pgdg
 
 wget --quiet -O - ${pgdgkey} | sudo apt-key add -
 
+# MariaDB
+sudo apt-get install -y python-software-properties
+sudo apt-key adv --recv-keys --keyserver keyserver.ubuntu.com 0xcbcb082a1bb943db
+sudo add-apt-repository 'deb http://mirrors.linsrv.net/mariadb/repo/10.0/debian wheezy main'
+
 sudo apt-get update
 sudo apt-get install -y postgresql-9.3 postgresql-contrib-9.3 \
                         postgresql-9.3-ip4r                   \
                         sbcl                                  \
                         git patch unzip                       \
-                        libmysqlclient-dev libsqlite3-dev
+                        libsqlite3-dev
+
+sudo DEBIAN_FRONTEND=noninteractive \
+     apt-get install -y --allow-unauthenticated mariadb-server
+
+# SBCL
+#
+# we need to backport SBCL from sid to have a recent enough version of the
+# compiler and run time we depend on
+sudo apt-get -y build-dep sbcl
+sudo apt-get source -b sbcl > /dev/null 2>&1 # too verbose
+sudo dpkg -i *.deb
 
 HBA=/etc/postgresql/9.3/main/pg_hba.conf
 echo "local all all trust"              | sudo tee $HBA
