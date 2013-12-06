@@ -15,7 +15,7 @@ docs:
 	pandoc pgloader.1.md -o pgloader.pdf
 
 ~/quicklisp/local-projects/qmynd:
-	git clone -b streaming https://github.com/dimitri/qmynd.git $@
+	git clone https://github.com/qitab/qmynd.git $@
 
 ~/quicklisp/local-projects/cl-abnf:
 	git clone https://github.com/dimitri/cl-abnf.git $@
