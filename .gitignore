@@ -3,3 +3,6 @@ local-data
 pgloader.1
 pgloader.html
 pgloader.pdf
+debian/pgloader.debhelper.log
+debian/pgloader.substvars
+debian/pgloader/

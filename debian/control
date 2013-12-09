@@ -1,0 +1,26 @@
+Source: pgloader
+Section: database
+Priority: extra
+Maintainer: Dimitri Fontaine <dimitri@2ndQuadrant.fr>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.3
+Homepage: https://github.com/dimitri/pgloader
+Vcs-Git: https://github.com/dimitri/pgloader.git
+Vcs-Browser: https://github.com/dimitri/pgloader
+
+Package: pgloader
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: extract, transform and load data into PostgreSQL
+ pgloader imports data from different kind of sources and COPY it into
+ PostgreSQL.
+ .
+ The command language is described in the manual page and allows to describe
+ where to find the data source, its format, and to describe data processing
+ and transformation.
+ .
+ Supported source formats include CSV, fixed width flat files, dBase3 files
+ (DBF), and SQLite and MySQL databases. In most of those formats, pgloader
+ is able to auto-discover the schema and create the tables and the indexes
+ in PostgreSQL. In the MySQL case it's possible to edit CASTing rules from
+ the pgloader command directly.

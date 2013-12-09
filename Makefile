@@ -7,12 +7,12 @@ BUILDAPP   = build/buildapp
 MANIFEST   = build/manifest.ql
 PGLOADER   = build/pgloader.exe
 
+DEBUILD_ROOT = /tmp/pgloader
+
 all: $(PGLOADER)
 
 docs:
 	pandoc pgloader.1.md -o pgloader.1
-	pandoc pgloader.1.md -o pgloader.html
-	pandoc pgloader.1.md -o pgloader.pdf
 
 ~/quicklisp/local-projects/qmynd:
 	git clone https://github.com/qitab/qmynd.git $@
@@ -90,6 +90,13 @@ vm-build: vm
 
 test:
 	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) -C test all
+
+deb:
+	mkdir -p $(DEBUILD_ROOT) && rm -rf $(DEBUILD_ROOT)/*
+	rsync -Ca --exclude=build/* ./ $(DEBUILD_ROOT)/
+	cd $(DEBUILD_ROOT) && make -f debian/rules orig
+	cd $(DEBUILD_ROOT) && debuild -us -uc -sa
+	cp -a /tmp/pgloader_* build/
 
 check: test ;
 
