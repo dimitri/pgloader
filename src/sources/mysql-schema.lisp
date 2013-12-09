@@ -310,8 +310,10 @@ GROUP BY table_name, index_name;" dbname))
     (:point  (format nil "astext(`~a`) as `~a`" name name))
     (t       (format nil "`~a`" name))))
 
-(defun get-column-list-with-is-nulls (dbname table-name)
-  "We can't just SELECT *, we need to cater for NULLs in text columns ourselves.
+(defun get-column-list (dbname table-name)
+  "Some MySQL datatypes have a meaningless default output representation, we
+   need to process them on the SQL side (geometric data types).
+
    This function assumes a valid connection to the MySQL server has been
    established already."
   (loop
@@ -321,14 +323,7 @@ GROUP BY table_name, index_name;" dbname))
    where table_schema = '~a' and table_name = '~a'
 order by ordinal_position" dbname table-name)
 					   :result-type 'list)
-     for is-null = (member type '("char" "varchar" "text"
-				  "tinytext" "mediumtext" "longtext")
-			   :test #'string-equal)
-     collect nil into nulls
-     collect (get-column-sql-expression name type) into cols
-     when is-null
-     collect (format nil "`~a` is null" name) into cols and collect t into nulls
-     finally (return (values cols nulls))))
+     collect (get-column-sql-expression name type)))
 
 (declaim (inline fix-nulls))
 

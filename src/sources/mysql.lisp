@@ -54,19 +54,18 @@
       (mysql-query "SET NAMES 'utf8'")
       (mysql-query "SET character_set_results = utf8;")
 
-      (multiple-value-bind (cols nulls)
-	  (get-column-list-with-is-nulls dbname table-name)
-	(let* ((sql (format nil "SELECT ~{~a~^, ~} FROM ~a;" cols table-name))
-	       (row-fn
-		(lambda (row)
-		  (pgstate-incf *state* (target mysql) :read 1)
-		  (funcall process-row-fn (fix-nulls row nulls)))))
-	  (handler-bind
-	      ((babel-encodings:character-decoding-error
-		#'(lambda (e)
-		    (pgstate-incf *state* (target mysql) :errs 1)
-		    (log-message :error "~a" e))))
-	      (mysql-query sql :row-fn row-fn)))))))
+      (let* ((cols (get-column-list dbname table-name))
+             (sql  (format nil "SELECT ~{~a~^, ~} FROM ~a;" cols table-name))
+             (row-fn
+              (lambda (row)
+                (pgstate-incf *state* (target mysql) :read 1)
+                (funcall process-row-fn row))))
+        (handler-bind
+            ((babel-encodings:character-decoding-error
+              #'(lambda (e)
+                  (pgstate-incf *state* (target mysql) :errs 1)
+                  (log-message :error "~a" e))))
+          (mysql-query sql :row-fn row-fn))))))
 
 ;;;
 ;;; Use map-rows and pgsql-text-copy-format to fill in a CSV file on disk
@@ -125,7 +124,10 @@
       (loop for tasks below 2 do (lp:receive-result channel)
 	 finally
 	   (log-message :info "COPY ~a.~a done." dbname table-name)
-	   (unless k-s-p (lp:end-kernel))))))
+	   (unless k-s-p (lp:end-kernel))))
+
+    ;; return the copy-mysql object we just did the COPY for
+    mysql))
 
 
 ;;;
