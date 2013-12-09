@@ -6,3 +6,4 @@ pgloader.pdf
 debian/pgloader.debhelper.log
 debian/pgloader.substvars
 debian/pgloader/
+debian/files
