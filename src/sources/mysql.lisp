@@ -30,7 +30,7 @@
     ;; default to using the same table-name as source and target
     (when (and table-name
 	       (or (not (slot-boundp source 'target))
-		   (slot-value source 'target)))
+                   (not (slot-value source 'target))))
       (setf (slot-value source 'target) table-name))
 
     (when fields
@@ -55,7 +55,7 @@
       (mysql-query "SET character_set_results = utf8;")
 
       (let* ((cols (get-column-list dbname table-name))
-             (sql  (format nil "SELECT ~{~a~^, ~} FROM ~a;" cols table-name))
+             (sql  (format nil "SELECT ~{~a~^, ~} FROM `~a`;" cols table-name))
              (row-fn
               (lambda (row)
                 (pgstate-incf *state* (target mysql) :read 1)
@@ -104,10 +104,12 @@
 	 (channel     (lp:make-channel))
 	 (dataq       (lq:make-queue :fixed-capacity 4096))
 	 (dbname      (source-db mysql))
-	 (table-name  (source mysql)))
+	 (table-name  (target mysql)))
 
+    ;; we account stats against the target table-name, because that's all we
+    ;; know on the PostgreSQL thread
     (with-stats-collection (dbname table-name :state *state* :summary summary)
-      (log-message :notice "COPY ~a.~a" dbname table-name)
+      (log-message :notice "COPY ~a" table-name)
       ;; read data from MySQL
       (lp:submit-task channel #'copy-to-queue mysql dataq)
 
@@ -123,7 +125,7 @@
       ;; now wait until both the tasks are over
       (loop for tasks below 2 do (lp:receive-result channel)
 	 finally
-	   (log-message :info "COPY ~a.~a done." dbname table-name)
+	   (log-message :info "COPY ~~a done." table-name)
 	   (unless k-s-p (lp:end-kernel))))
 
     ;; return the copy-mysql object we just did the COPY for
@@ -245,8 +247,10 @@
 			       :source-db  dbname
 			       :target-db  pg-dbname
 			       :source     table-name
-			       :target     table-name
+			       :target     (apply-identifier-case table-name
+                                                                  identifier-case)
 			       :fields     columns)))
+           (log-message :debug "TARGET: ~a" (target table-source))
 	   ;; first COPY the data from MySQL to PostgreSQL, using copy-kernel
 	   (unless schema-only
 	     (copy-from table-source :kernel copy-kernel :truncate truncate))
