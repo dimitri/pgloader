@@ -38,6 +38,8 @@ pgloader is now a Common Lisp program, tested using the
 
     $ apt-get install sbcl
     $ apt-get install libsqlite3-dev
+    $ cd /path/to/pgloader
+    $ echo `pwd` > ~/.config/common-lisp/source-registry.conf.d/pgloader.conf 
 	$ make pgloader
 	$ ./build/pgloader.exe --help
 
@@ -48,12 +50,6 @@ the given `Makefile` will handle that for you. The goal is for those patches
 to get included in the mainline version of the dependencies so that this
 whole section and assorted `Makefile` business disappear for being
 irrelevant.
-
-#### Postmodern
-
-The current version of the code depends on a recent version of
-[Postmodern](http://marijnhaverbeke.nl/postmodern/postmodern.html) not found
-in Quicklisp yet at the time of this writing.
 
 #### cl-csv
 
