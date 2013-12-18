@@ -4,22 +4,63 @@
 (in-package :pgloader.pgsql)
 
 ;;;
-;;; PostgreSQL formating tools
+;;; Format row to PostgreSQL COPY format, the TEXT variant.
 ;;;
-(declaim (inline apply-transform-function apply-transforms))
+;;; That function or something equivalent is provided by default in
+;;; cl-postgres, but we want to avoid having to compute its result more than
+;;; once in case of a rejected batch. Also, we're using vectors as input to
+;;; minimize data copying in certain cases, and we want to avoid a coerce
+;;; call here.
+;;;
+(defun format-vector-row (stream row
+                          &key (transforms (loop for c across row collect nil)))
+  "Add a ROW in the STREAM, formating ROW in PostgreSQL COPY TEXT format.
 
-(defun apply-transform-function (fn col)
-  "Apply the tranformation function FN to the value COL."
-  (if fn (funcall fn col) col))
-
-(defun apply-transforms (row &key transforms)
-  "Reformat row as given by MySQL in a format compatible with cl-postgres"
-  (loop
-     for col in row
-     for fn in transforms
-     for transformed-col = (apply-transform-function fn col)
-     ;; force nil values to being cl-postgres :null special value
-     collect (if (null transformed-col) :null transformed-col)))
+See http://www.postgresql.org/docs/9.2/static/sql-copy.html#AEN66609 for
+details about the format, and format specs."
+  (declare (type simple-array row))
+  (let* (*print-circle* *print-pretty*)
+    (loop
+       with nbcols = (length row)
+       for col across row
+       for i from 1
+       for more? = (< i nbcols)
+       for fn in transforms
+       for preprocessed-col = (if fn (funcall fn col) col)
+       do
+         (if (or (null preprocessed-col)
+                 ;; still accept postmodern :NULL in "preprocessed" data
+                 (eq :NULL preprocessed-col))
+             (progn
+               ;; NULL is expected as \N, two chars
+               (write-char #\\ stream) (write-char #\N stream))
+             (loop
+                ;; From PostgreSQL docs:
+                ;;
+                ;; In particular, the following characters must be preceded
+                ;; by a backslash if they appear as part of a column value:
+                ;; backslash itself, newline, carriage return, and the
+                ;; current delimiter character.
+                for byte across (cl-postgres-trivial-utf-8:string-to-utf-8-bytes preprocessed-col)
+                do (case (code-char byte)
+                     (#\\         (progn (write-char #\\ stream)
+                                         (write-char #\\ stream)))
+                     (#\Space     (write-char #\Space stream))
+                     (#\Newline   (progn (write-char #\\ stream)
+                                         (write-char #\n stream)))
+                     (#\Return    (progn (write-char #\\ stream)
+                                         (write-char #\r stream)))
+                     (#\Tab       (progn (write-char #\\ stream)
+                                         (write-char #\t stream)))
+                     (#\Backspace (progn (write-char #\\ stream)
+                                         (write-char #\b stream)))
+                     (#\Page      (progn (write-char #\\ stream)
+                                         (write-char #\f stream)))
+                     (t           (if (< 32 byte 127)
+                                      (write-char (code-char byte) stream)
+                                      (princ (format nil "\\~o" byte) stream))))))
+       when more? do (write-char #\Tab stream)
+       finally       (write-char #\Newline stream))))
 
 ;;;
 ;;; Pop data from a lparallel.queue queue instance, reformat it assuming
@@ -42,15 +83,17 @@
    is up to *copy-batch-size*, throw the 'next-batch tag with its current
    size."
   (lambda (row)
-    (let ((reformated-row (apply-transforms row :transforms transforms)))
-      (declare (type simple-array *batch*))
+    (let ((data (with-output-to-string (s)
+                  (format-vector-row s row :transforms transforms))))
+      (declare (type simple-string data)
+               (type simple-array *batch*))
 
       ;; maintain the current batch
-      (setf (aref *batch* *batch-rows*) reformated-row)
+      (setf (aref *batch* *batch-rows*) data)
       (incf *batch-rows*)
 
-      ;; send the reformated row in the PostgreSQL COPY stream
-      (cl-postgres:db-write-row stream reformated-row)
+      ;; send the formated row in the PostgreSQL COPY stream
+      (cl-postgres:db-write-row stream nil data)
 
       ;; return control in between batches
       (when (= *batch-rows* *copy-batch-rows*)
@@ -58,7 +101,7 @@
 
 ;;; The idea is to stream the queue content directly into the
 ;;; PostgreSQL COPY protocol stream, but COMMIT every
-;;; *copy-batch-size* rows.
+;;; *copy-batch-rows* rows.
 ;;;
 ;;; That allows to have to recover from a buffer of data only rather
 ;;; than restart from scratch each time we have to find which row
@@ -82,8 +125,7 @@
   (with-pgsql-connection (dbname)
     (loop
        for retval =
-	 (let* ((*batch-rows* 0)
-		(*batch-size* 0))
+	 (let* ((*batch-rows* 0))
 	   (handler-case
 	       (with-pgsql-transaction (dbname :database pomo:*database*)
 		 (let* ((copier (cl-postgres:open-db-writer pomo:*database*
@@ -115,8 +157,7 @@
        ;; fetch how many rows we just pushed through, update stats
        for rows = (if (consp retval) (cdr retval) retval)
        for cont = (and (consp retval) (eq (car retval) :continue))
-       do
-	 (pgstate-incf *state* table-name :rows rows)
+       do (pgstate-incf *state* table-name :rows rows)
        while cont)))
 
 ;;;
@@ -137,7 +178,7 @@
 ;;;   split 1000 rows in 10 batches of 100 rows
 ;;;   split  352 rows in 3 batches of 100 rows + 1 batch of 52 rows
 ;;;
-(defun process-bad-row (table-name condition row &key transforms)
+(defun process-bad-row (table-name condition row)
   "Add the row to the reject file, in PostgreSQL COPY TEXT format"
   ;; first, update the stats.
   (pgstate-incf *state* table-name :errs 1 :rows -1)
@@ -154,7 +195,7 @@
 				      :if-does-not-exist :create
 				      :external-format :utf-8)
       ;; the row has already been processed when we get here
-      (format-row reject-data-file row :transforms transforms))
+      (write-string row reject-data-file))
 
     ;; now log the condition signaled to reject the data
     (with-open-file (reject-logs-file logs
@@ -203,7 +244,7 @@
 		  (unwind-protect
                        (loop repeat current-batch-rows
                           for pos from current-batch-pos
-                          do (cl-postgres:db-write-row stream (aref *batch* pos))
+                          do (cl-postgres:db-write-row stream nil (aref *batch* pos))
                           finally
                             (incf current-batch-pos current-batch-rows)
                             (incf processed-rows current-batch-rows))
@@ -217,8 +258,7 @@
 	      ;; process bad data
 	      (if (= 1 current-batch-rows)
 		  (process-bad-row table-name condition
-                                   (aref *batch* current-batch-pos)
-				   :transforms transforms)
+                                   (aref *batch* current-batch-pos))
 		  ;; more than one line of bad data: recurse
 		  (retry-batch dbname
 			       table-name

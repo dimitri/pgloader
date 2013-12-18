@@ -147,14 +147,14 @@
   (let ((sql (format nil "SELECT * FROM ~a" (source sqlite))))
    (loop
       with statement = (sqlite:prepare-statement (db sqlite) sql)
-      with column-numbers =
-	(loop for i from 0
-	   for name in (sqlite:statement-column-names statement)
-	   collect i)
+      with len = (loop :for name :in (sqlite:statement-column-names statement)
+                    :count name)
       while (sqlite:step-statement statement)
-      for row = (mapcar (lambda (x)
-			  (sqlite:statement-column-value statement x))
-			column-numbers)
+      for row = (let ((v (make-array len)))
+                  (loop :for x :below len
+                     :do (setf (aref v x)
+                               (sqlite:statement-column-value statement x)))
+                  v)
       do (funcall process-row-fn row)
       finally (sqlite:finalize-statement statement))))
 

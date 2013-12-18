@@ -226,7 +226,7 @@
 	      ;; when no specific information has been given on FIELDS and
 	      ;; COLUMNS, just apply generic NULL-AS processing
 	      ((and (null fields) (null columns))
-	       (lambda (row) row))
+	       (lambda (row) (coerce row 'vector)))
 
 	      ((null columns)
 	       ;; when no specific information has been given on COLUMNS,
@@ -236,10 +236,13 @@
 	       (let ((process-nulls
 		      (mapcar (function field-process-null-fn) fields)))
 		 `(lambda (row)
-		   (loop
-		      :for col :in row
-		      :for fn :in ',process-nulls
-		      :collect (funcall fn col)))))
+                    (let ((v (make-array (length row))))
+                     (loop
+                        :for i :from 0
+                        :for col :in row
+                        :for fn :in ',process-nulls
+                        :do (setf (aref v i) (funcall fn col)))
+                     v))))
 
 	      (t
 	       ;; project some number of FIELDS into a possibly different
@@ -261,7 +264,7 @@
 		    (declare (optimize speed) (type list row))
 		    (destructuring-bind (,@args) row
 		      (declare (ignorable ,@args))
-		      (list ,@newrow))))))))
+		      (vector ,@newrow))))))))
       ;; allow for some debugging
       (if compile (compile nil projection) projection))))
 
@@ -273,7 +276,7 @@
   (let ((projection (project-fields :fields fields :columns columns)))
     (lambda (row)
       (pgstate-incf *state* target :read 1)
-      (let ((projected-row
+      (let ((projected-vector
 	     (handler-case
 		 (funcall projection row)
 	       (condition (e)
@@ -282,5 +285,5 @@
 			      (pgloader.utils::pgtable-read
 			       (pgstate-get-table *state* target))
 			      e)))))
-	(when projected-row
-	  (funcall process-row-fn projected-row))))))
+	(when projected-vector
+	  (funcall process-row-fn projected-vector))))))

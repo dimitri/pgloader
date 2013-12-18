@@ -96,7 +96,7 @@
 	 with count = (db3:record-count db3)
 	 repeat count
 	 for row-array = (db3:load-record db3 stream)
-	 do (funcall process-row-fn (coerce row-array 'list))
+	 do (funcall process-row-fn row-array)
 	 finally (return count)))))
 
 (defmethod copy-to ((db3 copy-db3) pgsql-copy-filename)

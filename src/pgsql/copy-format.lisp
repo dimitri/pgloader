@@ -4,44 +4,6 @@
 (in-package :pgloader.pgsql)
 
 ;;;
-;;; Format row to PostgreSQL COPY format, the TEXT variant.
-;;;
-(defun format-row (stream row &key transforms)
-  "Add a ROW in the STREAM, formating ROW in PostgreSQL COPY TEXT format.
-
-See http://www.postgresql.org/docs/9.2/static/sql-copy.html#AEN66609 for
-details about the format, and format specs."
-  (let* (*print-circle* *print-pretty*)
-    (loop
-       for (col . more?) on row
-       for fn in transforms
-       for preprocessed-col = (apply-transform-function fn col)
-       ;; still accept postmodern :NULL in "preprocessed" data
-       do (if (or (null preprocessed-col)
-		  (eq :NULL preprocessed-col))
-	      (format stream "~a~:[~;~c~]" "\\N" more? #\Tab)
-	      (progn
-		;; From PostgreSQL docs:
-		;;
-		;; In particular, the following characters must be preceded
-		;; by a backslash if they appear as part of a column value:
-		;; backslash itself, newline, carriage return, and the
-		;; current delimiter character.
-		(loop
-		   for char across preprocessed-col
-		   do (case char
-			(#\\         (format stream "\\\\")) ; 2 chars here
-			(#\Space     (princ #\Space stream))
-			(#\Newline   (format stream "\\n")) ; 2 chars here
-			(#\Return    (format stream "\\r")) ; 2 chars here
-			(#\Tab       (format stream "\\t")) ; 2 chars here
-			(#\Backspace (format stream "\\b")) ; 2 chars here
-			(#\Page      (format stream "\\f")) ; 2 chars here
-			(t           (format stream "~c" char))))
-		(format stream "~:[~;~c~]" more? #\Tab))))
-    (format stream "~%")))
-
-;;;
 ;;; Read a file format in PostgreSQL COPY TEXT format, and call given
 ;;; function on each line.
 ;;;

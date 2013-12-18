@@ -65,7 +65,7 @@
               #'(lambda (e)
                   (pgstate-incf *state* (target mysql) :errs 1)
                   (log-message :error "~a" e))))
-          (mysql-query sql :row-fn row-fn))))))
+          (mysql-query sql :row-fn row-fn :result-type 'vector))))))
 
 ;;;
 ;;; Use map-rows and pgsql-text-copy-format to fill in a CSV file on disk
