@@ -175,6 +175,7 @@
   (:export #:copy-mysql
 	   #:*cast-rules*
 	   #:*default-cast-rules*
+           #:with-mysql-connection
 	   #:map-rows
 	   #:copy-to
 	   #:copy-from
