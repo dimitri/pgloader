@@ -11,6 +11,7 @@
 	   #:*log-filename*
 	   #:*client-min-messages*
 	   #:*log-min-messages*
+	   #:*copy-batch-rows*
 	   #:*copy-batch-size*
 	   #:*copy-batch-split*
 	   #:*pgconn-host*
@@ -54,7 +55,7 @@
 ;;;
 ;;; How to split batches in case of data loading errors.
 ;;;
-(defparameter *copy-batch-size* 25000
+(defparameter *copy-batch-rows* 25000
   "How many rows to batch per COPY transaction")
 
 (defparameter *copy-batch-split* 5
