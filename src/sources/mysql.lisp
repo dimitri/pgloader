@@ -125,7 +125,7 @@
       ;; now wait until both the tasks are over
       (loop for tasks below 2 do (lp:receive-result channel)
 	 finally
-	   (log-message :info "COPY ~~a done." table-name)
+	   (log-message :info "COPY ~a done." table-name)
 	   (unless k-s-p (lp:end-kernel))))
 
     ;; return the copy-mysql object we just did the COPY for
