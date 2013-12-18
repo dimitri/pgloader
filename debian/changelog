@@ -1,3 +1,10 @@
+pgloader (3.0.95-1) unstable; urgency=low
+
+  * Release Candidate 5.
+  * Minimize memory usage, bug fixes.
+
+ -- Dimitri Fontaine <dimitri@2ndQuadrant.fr>  Wed, 18 Dec 2013 23:32:33 +0100
+
 pgloader (3.0.94-1) unstable; urgency=low
 
   * Release Candidate 4.
