@@ -212,7 +212,8 @@
 	      ;; MySQL allows the same index name being used against several
 	      ;; tables, so we add the PostgreSQL table OID in the index name,
 	      ;; to differenciate. Set the table oids now.
-	      (set-table-oids all-indexes)
+	      (set-table-oids all-indexes
+                              :identifier-case identifier-case)
 
 	      ;; If asked to materialize views, now is the time to create
 	      ;; the target tables for them
