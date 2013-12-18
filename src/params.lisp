@@ -30,7 +30,7 @@
 
 (in-package :pgloader.params)
 
-(defparameter *version-string* "3.0.94"
+(defparameter *version-string* "3.0.95"
   "pgloader version strings, following Emacs versionning model.")
 
 ;; we can't use pgloader.utils:make-pgstate yet because params is compiled
@@ -55,7 +55,7 @@
 ;;;
 ;;; How to split batches in case of data loading errors.
 ;;;
-(defparameter *copy-batch-rows* 25000
+(defparameter *copy-batch-rows* 100
   "How many rows to batch per COPY transaction")
 
 (defparameter *copy-batch-split* 5
