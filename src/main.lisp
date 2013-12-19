@@ -105,7 +105,8 @@
 
 	;; Then process options
 	(when debug
-	  (format t "sb-impl::*default-external-format* ~s~%"
+	  #+sbcl
+          (format t "sb-impl::*default-external-format* ~s~%"
 		  sb-impl::*default-external-format*)
 	  (format t "tmpdir: ~s~%" *default-tmpdir*))
 

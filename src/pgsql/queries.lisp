@@ -31,10 +31,10 @@
 	     (set-session-gucs *pg-settings* :transaction t)
 	     ,@forms)))
       ;; no database given, create a new database connection
-      `(let ((cl-postgres:*unix-socket-dir*
+      `(let ((cl-postgres::*unix-socket-dir*
 	      (if (and (consp *pgconn-host*) (eq :unix (car *pgconn-host*)))
 		  (fad:pathname-as-directory (cdr *pgconn-host*))
-		  cl-postgres:*unix-socket-dir*)))
+		  cl-postgres::*unix-socket-dir*)))
 	 (pomo:with-connection (get-connection-spec ,dbname)
 	   (log-message :debug "CONNECT")
 	   (set-session-gucs *pg-settings*)
@@ -46,10 +46,10 @@
 (defmacro with-pgsql-connection ((dbname) &body forms)
   "Run FROMS within a PostgreSQL connection to DBNAME. To get the connection
    spec from the DBNAME, use `get-connection-spec'."
-  `(let ((cl-postgres:*unix-socket-dir*
+  `(let ((cl-postgres::*unix-socket-dir*
 	  (if (and (consp *pgconn-host*) (eq :unix (car *pgconn-host*)))
 	      (fad:pathname-as-directory (cdr *pgconn-host*))
-	      cl-postgres:*unix-socket-dir*)))
+	      cl-postgres::*unix-socket-dir*)))
      (pomo:with-connection (get-connection-spec ,dbname)
        (log-message :debug "CONNECT ~s" (get-connection-spec ,dbname))
        (set-session-gucs *pg-settings*)
