@@ -179,7 +179,9 @@ order by table_name, ordinal_position" dbname table-type-name only-tables))
      finally
      ;; we did push, we need to reverse here
        (return (loop
-                  for (name . cols) in schema
+                  for name in (if only-tables only-tables
+                                  (reverse (mapcar #'car schema)))
+                  for cols = (cdr (assoc name schema :test #'string=))
                   collect (cons name (reverse cols))))))
 
 (defun list-all-indexes (dbname)
