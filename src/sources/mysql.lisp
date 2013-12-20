@@ -163,26 +163,51 @@
 	 (dbname        (source-db mysql))
 	 (pg-dbname     (target-db mysql))
 	 (view-names    (mapcar #'car materialize-views))
-	 view-columns			; must wait until we created the views
-         (all-columns   (filter-column-list (list-all-columns dbname)
-					    :only-tables only-tables
-					    :including including
-					    :excluding excluding))
-	 (all-fkeys     (filter-column-list (list-all-fkeys dbname)
-					    :only-tables only-tables
-					    :including including
-					    :excluding excluding))
-         (all-indexes   (filter-column-list (list-all-indexes dbname)
-					    :only-tables only-tables
-					    :including including
-					    :excluding excluding))
-         (max-indexes   (loop for (table . indexes) in all-indexes
-                           maximizing (length indexes)))
-         (idx-kernel    (when (and max-indexes (< 0 max-indexes))
-			  (make-kernel max-indexes)))
-         (idx-channel   (when idx-kernel
-			  (let ((lp:*kernel* idx-kernel))
-			    (lp:make-channel)))))
+
+         ;; all to be set within a single MySQL transaction
+	 view-columns all-columns all-fkeys all-indexes
+
+         ;; those depend on the previous entries
+         idx-kernel idx-channel)
+
+    ;; to prepare the run, we need to fetch MySQL meta-data
+    (with-stats-collection (pg-dbname "fetch meta data" :state state-before)
+     (with-mysql-connection (dbname)
+       ;; If asked to materialize views, now is the time to create
+       ;; the target tables for them
+       (when materialize-views
+         (create-my-views dbname materialize-views))
+
+       (setf all-columns   (filter-column-list (list-all-columns dbname)
+                                               :only-tables only-tables
+                                               :including including
+                                               :excluding excluding)
+
+             all-fkeys     (filter-column-list (list-all-fkeys dbname)
+                                               :only-tables only-tables
+                                               :including including
+                                               :excluding excluding)
+
+             all-indexes   (filter-column-list (list-all-indexes dbname)
+                                               :only-tables only-tables
+                                               :including including
+                                               :excluding excluding)
+
+             view-columns  (list-all-columns dbname
+                                             :only-tables view-names
+                                             :table-type :view))))
+
+    ;; prepare our lparallel kernels, dimensioning them to the known sizes
+    (let ((max-indexes
+           (loop for (table . indexes) in all-indexes
+              maximizing (length indexes))))
+
+      (setf idx-kernel    (when (and max-indexes (< 0 max-indexes))
+                            (make-kernel max-indexes)))
+
+      (setf idx-channel   (when idx-kernel
+                            (let ((lp:*kernel* idx-kernel))
+                              (lp:make-channel)))))
 
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (when (and (or create-tables schema-only) (not data-only))
@@ -215,16 +240,11 @@
 	      (set-table-oids all-indexes
                               :identifier-case identifier-case)
 
-	      ;; If asked to materialize views, now is the time to create
-	      ;; the target tables for them
-	      (when materialize-views
-		(create-my-views dbname materialize-views)
-		(setf view-columns (list-all-columns dbname
-						     :only-tables view-names
-						     :table-type :view))
-		(create-tables view-columns
-			       :identifier-case identifier-case
-			       :include-drop include-drop)))
+              ;; We might have to MATERIALIZE VIEWS
+              (when materialize-views
+                (create-tables view-columns
+                               :identifier-case identifier-case
+                               :include-drop include-drop)))
 
 	  ;;
 	  ;; In case some error happens in the preparatory transaction, we
@@ -286,7 +306,8 @@
     ;; If we created some views for this run, now is the time to DROP'em
     ;;
     (when materialize-views
-      (drop-my-views dbname materialize-views))
+      (with-mysql-connection (dbname)
+        (drop-my-views dbname materialize-views)))
     ;;
     ;; Now Reset Sequences, the good time to do that is once the whole data
     ;; has been imported and once we have the indexes in place, as max() is
