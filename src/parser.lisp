@@ -851,7 +851,7 @@
 				  &allow-other-keys)
 	    pg-db-uri
 	  `(lambda ()
-	     (let* ((state-before  ,(when before `(pgloader.utils:make-pgstate)))
+	     (let* ((state-before  (pgloader.utils:make-pgstate))
 		    (*state*       (or *state* (pgloader.utils:make-pgstate)))
 		    (state-idx     (pgloader.utils:make-pgstate))
 		    (state-after   (pgloader.utils:make-pgstate))
