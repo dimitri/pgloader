@@ -165,11 +165,11 @@
    element of the column list is expected to be of a type handled by the
    `format-pgsql-column' generic function, such as `pgsql-column'."
   (loop
-     for nb-tables from 0
      for sql in (create-table-sql-list all-columns
 				       :if-not-exists if-not-exists
 				       :identifier-case identifier-case
 				       :include-drop include-drop)
+     count (not (null sql)) into nb-tables
      when sql
      do
        (log-message :info "~a" sql)

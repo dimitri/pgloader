@@ -269,6 +269,7 @@
 (defmacro with-stats-collection ((dbname table-name
 					 &key
 					 summary
+					 use-result-as-read
 					 use-result-as-rows
 					 ((:state pgstate) *state*))
 				 &body forms)
@@ -280,9 +281,15 @@
 	 (pgstate-add-table ,pgstate ,dbname ,table-name)
 	 (multiple-value-bind (,result ,secs)
 	     (timing ,@forms)
-	   (if ,use-result-as-rows
-	       (pgstate-incf ,pgstate ,table-name :rows ,result :secs ,secs)
-	       (pgstate-incf ,pgstate ,table-name :secs ,secs))
+	   (cond ((and ,use-result-as-read ,use-result-as-rows)
+                  (pgstate-incf ,pgstate ,table-name
+                                :read ,result :rows ,result :secs ,secs))
+                 (,use-result-as-read
+                  (pgstate-incf ,pgstate ,table-name :read ,result :secs ,secs))
+                 (,use-result-as-rows
+                  (pgstate-incf ,pgstate ,table-name :rows ,result :secs ,secs))
+                 (t
+                  (pgstate-incf ,pgstate ,table-name :secs ,secs)))
 	   ,result)
        (when ,summary (report-summary)))))
 

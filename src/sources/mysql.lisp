@@ -171,7 +171,10 @@
          idx-kernel idx-channel)
 
     ;; to prepare the run, we need to fetch MySQL meta-data
-    (with-stats-collection (pg-dbname "fetch meta data" :state state-before)
+    (with-stats-collection (pg-dbname "fetch meta data"
+                                      :use-result-as-rows t
+                                      :use-result-as-read t
+                                      :state state-before)
      (with-mysql-connection (dbname)
        ;; If asked to materialize views, now is the time to create
        ;; the target tables for them
@@ -195,7 +198,11 @@
 
              view-columns  (list-all-columns dbname
                                              :only-tables view-names
-                                             :table-type :view))))
+                                             :table-type :view))
+
+       ;; return how many objects we're going to deal with in total
+       (+ (length all-columns) (length all-fkeys)
+          (length all-indexes) (length view-columns))))
 
     ;; prepare our lparallel kernels, dimensioning them to the known sizes
     (let ((max-indexes
@@ -230,21 +237,22 @@
 			    :identifier-case identifier-case))
 
 	      ;; now drop then create tables and types, etc
-	      (create-tables all-columns
-			     :identifier-case identifier-case
-			     :include-drop include-drop)
+              (prog1
+               (create-tables all-columns
+                              :identifier-case identifier-case
+                              :include-drop include-drop)
 
-	      ;; MySQL allows the same index name being used against several
-	      ;; tables, so we add the PostgreSQL table OID in the index name,
-	      ;; to differenciate. Set the table oids now.
-	      (set-table-oids all-indexes
-                              :identifier-case identifier-case)
+                ;; MySQL allows the same index name being used against several
+                ;; tables, so we add the PostgreSQL table OID in the index name,
+                ;; to differenciate. Set the table oids now.
+                (set-table-oids all-indexes
+                                :identifier-case identifier-case)
 
-              ;; We might have to MATERIALIZE VIEWS
-              (when materialize-views
-                (create-tables view-columns
-                               :identifier-case identifier-case
-                               :include-drop include-drop)))
+                ;; We might have to MATERIALIZE VIEWS
+                (when materialize-views
+                  (create-tables view-columns
+                                 :identifier-case identifier-case
+                                 :include-drop include-drop))))
 
 	  ;;
 	  ;; In case some error happens in the preparatory transaction, we

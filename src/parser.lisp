@@ -609,12 +609,15 @@
 (defun sql-code-block (dbname state commands label)
   "Return lisp code to run COMMANDS against DBNAME, updating STATE."
   (when commands
-    `(with-stats-collection (,dbname ,label :state ,state)
+    `(with-stats-collection (,dbname ,label :state ,state
+                                     :use-result-as-read t
+                                     :use-result-as-rows t)
        (with-pgsql-transaction (,dbname)
 	 (loop for command in ',commands
 	    do
 	      (log-message :notice command)
-	      (pgsql-execute command :client-min-messages :error))))))
+	      (pgsql-execute command :client-min-messages :error)
+            counting command)))))
 
 
 ;;;
