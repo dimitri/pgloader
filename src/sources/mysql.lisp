@@ -207,6 +207,55 @@
     (when (and foreign-keys (not data-only))
       (create-pgsql-fkeys all-fkeys :state state :identifier-case identifier-case)))
 
+(defun fetch-mysql-metadata (&key
+                               state
+                               materialize-views
+                               only-tables
+                               including
+                               excluding)
+  "MySQL introspection to prepare the migration."
+  (let ((view-names    (mapcar #'car materialize-views))
+        view-columns all-columns all-fkeys all-indexes)
+   (with-stats-collection ("fetch meta data"
+                           :use-result-as-rows t
+                           :use-result-as-read t
+                           :state state)
+     (with-mysql-connection ()
+       ;; If asked to MATERIALIZE VIEWS, now is the time to create them in
+       ;; MySQL, when given definitions rather than existing view names.
+       (when materialize-views
+         (create-my-views materialize-views))
+
+       (setf all-columns   (filter-column-list (list-all-columns)
+                                               :only-tables only-tables
+                                               :including including
+                                               :excluding excluding)
+
+             all-fkeys     (filter-column-list (list-all-fkeys)
+                                               :only-tables only-tables
+                                               :including including
+                                               :excluding excluding)
+
+             all-indexes   (filter-column-list (list-all-indexes)
+                                               :only-tables only-tables
+                                               :including including
+                                               :excluding excluding)
+
+             view-columns  (when view-names
+                             (list-all-columns :only-tables view-names
+                                               :table-type :view)))
+
+       ;; return how many objects we're going to deal with in total
+       ;; for stats collection
+       (+ (length all-columns) (length all-fkeys)
+          (length all-indexes) (length view-columns))))
+
+   ;; now return a plist to the caller
+   (list :all-columns all-columns
+         :all-fkeys all-fkeys
+         :all-indexes all-indexes
+         :view-columns view-columns)))
+
 ;;;
 ;;; Work on all tables for given database
 ;;;
@@ -237,147 +286,115 @@
          (copy-kernel   (make-kernel 2))
 	 (dbname        (source-db mysql))
 	 (pg-dbname     (target-db mysql))
-	 (view-names    (mapcar #'car materialize-views))
-
-         ;; all to be set within a single MySQL transaction
-	 view-columns all-columns all-fkeys all-indexes
-
-         ;; those depend on the previous entries
          idx-kernel idx-channel)
 
-    ;; to prepare the run, we need to fetch MySQL meta-data
-    (with-stats-collection ("fetch meta data"
-                            :use-result-as-rows t
-                            :use-result-as-read t
-                            :state state-before)
-      (with-mysql-connection ()
-        ;; If asked to MATERIALIZE VIEWS, now is the time to create them in
-        ;; MySQL, when given definitions rather than existing view names.
-        (when materialize-views
-          (create-my-views materialize-views))
+    (destructuring-bind (&key view-columns all-columns all-fkeys all-indexes)
+        ;; to prepare the run, we need to fetch MySQL meta-data
+        (fetch-mysql-metadata :state state-before
+                              :materialize-views materialize-views
+                              :only-tables only-tables
+                              :including including
+                              :excluding excluding)
 
-        (setf all-columns   (filter-column-list (list-all-columns)
-                                                :only-tables only-tables
-                                                :including including
-                                                :excluding excluding)
+      ;; prepare our lparallel kernels, dimensioning them to the known sizes
+      (let ((max-indexes
+             (loop for (table . indexes) in all-indexes
+                maximizing (length indexes))))
 
-              all-fkeys     (filter-column-list (list-all-fkeys)
-                                                :only-tables only-tables
-                                                :including including
-                                                :excluding excluding)
+        (setf idx-kernel    (when (and max-indexes (< 0 max-indexes))
+                              (make-kernel max-indexes)))
 
-              all-indexes   (filter-column-list (list-all-indexes)
-                                                :only-tables only-tables
-                                                :including including
-                                                :excluding excluding)
+        (setf idx-channel   (when idx-kernel
+                              (let ((lp:*kernel* idx-kernel))
+                                (lp:make-channel)))))
 
-              view-columns  (when view-names
-                              (list-all-columns :only-tables view-names
-                                                :table-type :view)))
+      ;; if asked, first drop/create the tables on the PostgreSQL side
+      (when (and (or create-tables schema-only) (not data-only))
+        (handler-case
+            (prepare-pgsql-database all-columns
+                                    all-indexes
+                                    all-fkeys
+                                    materialize-views
+                                    view-columns
+                                    :state state-before
+                                    :foreign-keys foreign-keys
+                                    :identifier-case identifier-case
+                                    :include-drop include-drop)
+          ;;
+          ;; In case some error happens in the preparatory transaction, we
+          ;; need to stop now and refrain from trying to load the data into
+          ;; an incomplete schema.
+          ;;
+          (cl-postgres:database-error (e)
+            (declare (ignore e))		; a log has already been printed
+            (log-message :fatal "Failed to create the schema, see above.")
+            (return-from copy-database))))
 
-        ;; return how many objects we're going to deal with in total
-        (+ (length all-columns) (length all-fkeys)
-           (length all-indexes) (length view-columns))))
+      (loop
+         for (table-name . columns) in (append all-columns view-columns)
+         do
+           (let ((table-source
+                  (make-instance 'copy-mysql
+                                 :source-db  dbname
+                                 :target-db  pg-dbname
+                                 :source     table-name
+                                 :target     (apply-identifier-case table-name
+                                                                    identifier-case)
+                                 :fields     columns)))
+             (log-message :debug "TARGET: ~a" (target table-source))
+             ;; first COPY the data from MySQL to PostgreSQL, using copy-kernel
+             (unless schema-only
+               (copy-from table-source :kernel copy-kernel :truncate truncate))
 
-    ;; prepare our lparallel kernels, dimensioning them to the known sizes
-    (let ((max-indexes
-           (loop for (table . indexes) in all-indexes
-              maximizing (length indexes))))
+             ;; Create the indexes for that table in parallel with the next
+             ;; COPY, and all at once in concurrent threads to benefit from
+             ;; PostgreSQL synchronous scan ability
+             ;;
+             ;; We just push new index build as they come along, if one
+             ;; index build requires much more time than the others our
+             ;; index build might get unsync: indexes for different tables
+             ;; will get built in parallel --- not a big problem.
+             (when (and create-indexes (not data-only))
+               (let* ((indexes
+                       (cdr (assoc table-name all-indexes :test #'string=))))
+                 (create-indexes-in-kernel pg-dbname indexes
+                                           idx-kernel idx-channel
+                                           :state idx-state
+                                           :identifier-case identifier-case)))))
 
-      (setf idx-kernel    (when (and max-indexes (< 0 max-indexes))
-                            (make-kernel max-indexes)))
+      ;; now end the kernels
+      (let ((lp:*kernel* copy-kernel))  (lp:end-kernel))
+      (let ((lp:*kernel* idx-kernel))
+        ;; wait until the indexes are done being built...
+        ;; don't forget accounting for that waiting time.
+        (when (and create-indexes (not data-only))
+          (with-stats-collection ("Index Build Completion" :state *state*)
+            (loop for idx in all-indexes do (lp:receive-result idx-channel))))
+        (lp:end-kernel))
 
-      (setf idx-channel   (when idx-kernel
-                            (let ((lp:*kernel* idx-kernel))
-                              (lp:make-channel)))))
+      ;;
+      ;; If we created some views for this run, now is the time to DROP'em
+      ;;
+      (when materialize-views
+        (with-mysql-connection ()
+          (drop-my-views materialize-views)))
 
-    ;; if asked, first drop/create the tables on the PostgreSQL side
-    (when (and (or create-tables schema-only) (not data-only))
-      (handler-case
-          (prepare-pgsql-database all-columns
-                                  all-indexes
-                                  all-fkeys
-                                  materialize-views
-                                  view-columns
-                                  :state state-before
-                                  :foreign-keys foreign-keys
-                                  :identifier-case identifier-case
-                                  :include-drop include-drop)
-        ;;
-        ;; In case some error happens in the preparatory transaction, we
-        ;; need to stop now and refrain from trying to load the data into
-        ;; an incomplete schema.
-        ;;
-        (cl-postgres:database-error (e)
-          (declare (ignore e))		; a log has already been printed
-          (log-message :fatal "Failed to create the schema, see above.")
-          (return-from copy-database))))
+      ;;
+      ;; Complete the PostgreSQL database before handing over.
+      ;;
+      (complete-pgsql-database all-columns all-fkeys
+                               :state state-after
+                               :data-only data-only
+                               :foreign-keys foreign-keys
+                               :reset-sequences reset-sequences
+                               :identifier-case identifier-case)
 
-    (loop
-       for (table-name . columns) in (append all-columns view-columns)
-       do
-	 (let ((table-source
-		(make-instance 'copy-mysql
-			       :source-db  dbname
-			       :target-db  pg-dbname
-			       :source     table-name
-			       :target     (apply-identifier-case table-name
-                                                                  identifier-case)
-			       :fields     columns)))
-           (log-message :debug "TARGET: ~a" (target table-source))
-	   ;; first COPY the data from MySQL to PostgreSQL, using copy-kernel
-	   (unless schema-only
-	     (copy-from table-source :kernel copy-kernel :truncate truncate))
-
-	   ;; Create the indexes for that table in parallel with the next
-	   ;; COPY, and all at once in concurrent threads to benefit from
-	   ;; PostgreSQL synchronous scan ability
-	   ;;
-	   ;; We just push new index build as they come along, if one
-	   ;; index build requires much more time than the others our
-	   ;; index build might get unsync: indexes for different tables
-	   ;; will get built in parallel --- not a big problem.
-	   (when (and create-indexes (not data-only))
-	     (let* ((indexes
-		     (cdr (assoc table-name all-indexes :test #'string=))))
-	       (create-indexes-in-kernel pg-dbname indexes
-					 idx-kernel idx-channel
-					 :state idx-state
-					 :identifier-case identifier-case)))))
-
-    ;; now end the kernels
-    (let ((lp:*kernel* copy-kernel))  (lp:end-kernel))
-    (let ((lp:*kernel* idx-kernel))
-      ;; wait until the indexes are done being built...
-      ;; don't forget accounting for that waiting time.
-      (when (and create-indexes (not data-only))
-	(with-stats-collection ("Index Build Completion" :state *state*)
-	  (loop for idx in all-indexes do (lp:receive-result idx-channel))))
-      (lp:end-kernel))
-
-    ;;
-    ;; If we created some views for this run, now is the time to DROP'em
-    ;;
-    (when materialize-views
-      (with-mysql-connection ()
-        (drop-my-views materialize-views)))
-
-    ;;
-    ;; Complete the PostgreSQL database before handing over.
-    ;;
-    (complete-pgsql-database all-columns all-fkeys
-                             :state state-after
-                             :data-only data-only
-                             :foreign-keys foreign-keys
-                             :reset-sequences reset-sequences
-                             :identifier-case identifier-case)
-
-    ;; and report the total time spent on the operation
-    (when summary
-      (report-full-summary "Total streaming time" *state*
-			   :before   state-before
-			   :finally  state-after
-			   :parallel idx-state))))
+      ;; and report the total time spent on the operation
+      (when summary
+        (report-full-summary "Total streaming time" *state*
+                             :before   state-before
+                             :finally  state-after
+                             :parallel idx-state)))))
 
 
 ;;;
