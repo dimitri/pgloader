@@ -176,8 +176,8 @@
                                       :use-result-as-read t
                                       :state state-before)
      (with-mysql-connection (dbname)
-       ;; If asked to materialize views, now is the time to create
-       ;; the target tables for them
+       ;; If asked to MATERIALIZE VIEWS, now is the time to create them in
+       ;; MySQL, when given definitions rather than existing view names.
        (when materialize-views
          (create-my-views dbname materialize-views))
 
@@ -238,9 +238,9 @@
 
 	      ;; now drop then create tables and types, etc
               (prog1
-               (create-tables all-columns
-                              :identifier-case identifier-case
-                              :include-drop include-drop)
+                  (create-tables all-columns
+                                 :identifier-case identifier-case
+                                 :include-drop include-drop)
 
                 ;; MySQL allows the same index name being used against several
                 ;; tables, so we add the PostgreSQL table OID in the index name,
@@ -256,8 +256,8 @@
 
 	  ;;
 	  ;; In case some error happens in the preparatory transaction, we
-	  ;; need to stop now and refrain to try loading the data into an
-	  ;; incomplete schema.
+	  ;; need to stop now and refrain from trying to load the data into
+	  ;; an incomplete schema.
 	  ;;
 	  (qmynd:mysql-error (e)
 	    (log-message :fatal "~a" e)
