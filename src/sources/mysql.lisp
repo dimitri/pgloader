@@ -131,6 +131,92 @@
     ;; return the copy-mysql object we just did the COPY for
     mysql))
 
+
+;;;
+;;; Prepare the PostgreSQL database before streaming the data into it.
+;;;
+(defun prepare-pgsql-database (pg-dbname
+                               all-columns all-indexes all-fkeys
+                               materialize-views view-columns
+                               &key
+                                 state
+                                 identifier-case
+                                 foreign-keys
+                                 include-drop)
+  "Prepare the target PostgreSQL database: create tables casting datatypes
+   from the MySQL definitions, prepare index definitions and create target
+   tables for materialized views.
+
+   That function mutates index definitions in ALL-INDEXES."
+  (log-message :notice "~:[~;DROP then ~]CREATE TABLES" include-drop)
+  (log-message :debug  (if include-drop
+                           "drop then create ~d tables with ~d indexes."
+                           "create ~d tables with ~d indexes.")
+               (length all-columns)
+               (loop for (name . idxs) in all-indexes sum (length idxs)))
+
+  (with-stats-collection (pg-dbname "create, drop"
+                                    :use-result-as-rows t
+                                    :state state)
+    (with-pgsql-transaction (pg-dbname)
+      ;; we need to first drop the Foreign Key Constraints, so that we
+      ;; can DROP TABLE when asked
+      (when (and foreign-keys include-drop)
+        (drop-fkeys all-fkeys
+                    :dbname pg-dbname
+                    :identifier-case identifier-case))
+
+      ;; now drop then create tables and types, etc
+      (prog1
+          (create-tables all-columns
+                         :identifier-case identifier-case
+                         :include-drop include-drop)
+
+        ;; MySQL allows the same index name being used against several
+        ;; tables, so we add the PostgreSQL table OID in the index name,
+        ;; to differenciate. Set the table oids now.
+        (set-table-oids all-indexes
+                        :identifier-case identifier-case)
+
+        ;; We might have to MATERIALIZE VIEWS
+        (when materialize-views
+          (create-tables view-columns
+                         :identifier-case identifier-case
+                         :include-drop include-drop))))))
+
+(defun complete-pgsql-database (pg-dbname all-columns all-fkeys
+                                &key
+                                  state
+                                  data-only
+                                  foreign-keys
+                                  reset-sequences
+                                  identifier-case)
+    "After loading the data into PostgreSQL, we can now reset the sequences
+     and declare foreign keys."
+    ;;
+    ;; Now Reset Sequences, the good time to do that is once the whole data
+    ;; has been imported and once we have the indexes in place, as max() is
+    ;; able to benefit from the indexes. In particular avoid doing that step
+    ;; while CREATE INDEX statements are in flight (avoid locking).
+    ;;
+    (when reset-sequences
+      (reset-sequences all-columns
+		       :dbname pg-dbname
+		       :state state
+		       :identifier-case identifier-case))
+
+    ;;
+    ;; Foreign Key Constraints
+    ;;
+    ;; We need to have finished loading both the reference and the refering
+    ;; tables to be able to build the foreign keys, so wait until all tables
+    ;; and indexes are imported before doing that.
+    ;;
+    (when (and foreign-keys (not data-only))
+      (create-fkeys all-fkeys
+		    :dbname pg-dbname
+		    :state state
+		    :identifier-case identifier-case)))
 
 ;;;
 ;;; Work on all tables for given database
@@ -175,34 +261,34 @@
                                       :use-result-as-rows t
                                       :use-result-as-read t
                                       :state state-before)
-     (with-mysql-connection (dbname)
-       ;; If asked to MATERIALIZE VIEWS, now is the time to create them in
-       ;; MySQL, when given definitions rather than existing view names.
-       (when materialize-views
-         (create-my-views dbname materialize-views))
+      (with-mysql-connection (dbname)
+        ;; If asked to MATERIALIZE VIEWS, now is the time to create them in
+        ;; MySQL, when given definitions rather than existing view names.
+        (when materialize-views
+          (create-my-views dbname materialize-views))
 
-       (setf all-columns   (filter-column-list (list-all-columns dbname)
-                                               :only-tables only-tables
-                                               :including including
-                                               :excluding excluding)
+        (setf all-columns   (filter-column-list (list-all-columns dbname)
+                                                :only-tables only-tables
+                                                :including including
+                                                :excluding excluding)
 
-             all-fkeys     (filter-column-list (list-all-fkeys dbname)
-                                               :only-tables only-tables
-                                               :including including
-                                               :excluding excluding)
+              all-fkeys     (filter-column-list (list-all-fkeys dbname)
+                                                :only-tables only-tables
+                                                :including including
+                                                :excluding excluding)
 
-             all-indexes   (filter-column-list (list-all-indexes dbname)
-                                               :only-tables only-tables
-                                               :including including
-                                               :excluding excluding)
+              all-indexes   (filter-column-list (list-all-indexes dbname)
+                                                :only-tables only-tables
+                                                :including including
+                                                :excluding excluding)
 
-             view-columns  (list-all-columns dbname
-                                             :only-tables view-names
-                                             :table-type :view))
+              view-columns  (list-all-columns dbname
+                                              :only-tables view-names
+                                              :table-type :view))
 
-       ;; return how many objects we're going to deal with in total
-       (+ (length all-columns) (length all-fkeys)
-          (length all-indexes) (length view-columns))))
+        ;; return how many objects we're going to deal with in total
+        (+ (length all-columns) (length all-fkeys)
+           (length all-indexes) (length view-columns))))
 
     ;; prepare our lparallel kernels, dimensioning them to the known sizes
     (let ((max-indexes
@@ -218,55 +304,26 @@
 
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (when (and (or create-tables schema-only) (not data-only))
-      (log-message :notice "~:[~;DROP then ~]CREATE TABLES" include-drop)
-      (log-message :debug  (if include-drop
-			       "drop then create ~d tables with ~d indexes."
-			       "create ~d tables with ~d indexes.")
-		   (length all-columns)
-		   (loop for (name . idxs) in all-indexes sum (length idxs)))
-      (with-stats-collection (pg-dbname "create, drop"
-					:use-result-as-rows t
-					:state state-before)
-	(handler-case
-	    (with-pgsql-transaction (pg-dbname)
-	      ;; we need to first drop the Foreign Key Constraints, so that we
-	      ;; can DROP TABLE when asked
-	      (when (and foreign-keys include-drop)
-		(drop-fkeys all-fkeys
-			    :dbname pg-dbname
-			    :identifier-case identifier-case))
-
-	      ;; now drop then create tables and types, etc
-              (prog1
-                  (create-tables all-columns
-                                 :identifier-case identifier-case
-                                 :include-drop include-drop)
-
-                ;; MySQL allows the same index name being used against several
-                ;; tables, so we add the PostgreSQL table OID in the index name,
-                ;; to differenciate. Set the table oids now.
-                (set-table-oids all-indexes
-                                :identifier-case identifier-case)
-
-                ;; We might have to MATERIALIZE VIEWS
-                (when materialize-views
-                  (create-tables view-columns
-                                 :identifier-case identifier-case
-                                 :include-drop include-drop))))
-
-	  ;;
-	  ;; In case some error happens in the preparatory transaction, we
-	  ;; need to stop now and refrain from trying to load the data into
-	  ;; an incomplete schema.
-	  ;;
-	  (qmynd:mysql-error (e)
-	    (log-message :fatal "~a" e)
-	    (return-from copy-database))
-
-	  (cl-postgres:database-error (e)
-	    (declare (ignore e))		; a log has already been printed
-	    (log-message :fatal "Failed to create the schema, see above.")
-	    (return-from copy-database)))))
+      (handler-case
+          (prepare-pgsql-database pg-dbname
+                                  all-columns
+                                  all-indexes
+                                  all-fkeys
+                                  materialize-views
+                                  view-columns
+                                  :state state-before
+                                  :foreign-keys foreign-keys
+                                  :identifier-case identifier-case
+                                  :include-drop include-drop)
+        ;;
+        ;; In case some error happens in the preparatory transaction, we
+        ;; need to stop now and refrain from trying to load the data into
+        ;; an incomplete schema.
+        ;;
+        (cl-postgres:database-error (e)
+          (declare (ignore e))		; a log has already been printed
+          (log-message :fatal "Failed to create the schema, see above.")
+          (return-from copy-database))))
 
     (loop
        for (table-name . columns) in (append all-columns view-columns)
@@ -316,30 +373,16 @@
     (when materialize-views
       (with-mysql-connection (dbname)
         (drop-my-views dbname materialize-views)))
-    ;;
-    ;; Now Reset Sequences, the good time to do that is once the whole data
-    ;; has been imported and once we have the indexes in place, as max() is
-    ;; able to benefit from the indexes. In particular avoid doing that step
-    ;; while CREATE INDEX statements are in flight (avoid locking).
-    ;;
-    (when reset-sequences
-      (reset-sequences all-columns
-		       :dbname pg-dbname
-		       :state state-after
-		       :identifier-case identifier-case))
 
     ;;
-    ;; Foreign Key Constraints
+    ;; Complete the PostgreSQL database before handing over.
     ;;
-    ;; We need to have finished loading both the reference and the refering
-    ;; tables to be able to build the foreign keys, so wait until all tables
-    ;; and indexes are imported before doing that.
-    ;;
-    (when (and foreign-keys (not data-only))
-      (create-fkeys all-fkeys
-		    :dbname pg-dbname
-		    :state state-after
-		    :identifier-case identifier-case))
+    (complete-pgsql-database pg-dbname all-columns all-fkeys
+                             :state state-after
+                             :data-only data-only
+                             :foreign-keys foreign-keys
+                             :reset-sequences reset-sequences
+                             :identifier-case identifier-case)
 
     ;; and report the total time spent on the operation
     (when summary
