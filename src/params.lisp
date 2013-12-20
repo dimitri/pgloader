@@ -18,11 +18,13 @@
 	   #:*pgconn-port*
 	   #:*pgconn-user*
 	   #:*pgconn-pass*
+	   #:*pg-dbname*
 	   #:*pg-settings*
 	   #:*myconn-host*
 	   #:*myconn-port*
 	   #:*myconn-user*
 	   #:*myconn-pass*
+	   #:*my-dbname*
 	   #:*state*
 	   #:*default-tmpdir*
 	   #:init-params-from-environment
@@ -77,6 +79,7 @@
 (defparameter *pgconn-port* (parse-integer (getenv-default "PGPORT" "5432")))
 (defparameter *pgconn-user* (uiop:getenv "USER"))
 (defparameter *pgconn-pass* "pgpass")
+(defparameter *pg-dbname* nil)
 (defparameter *pg-settings* nil "An alist of GUC names and values.")
 
 ;;;
@@ -86,6 +89,7 @@
 (defparameter *myconn-port* 3306)
 (defparameter *myconn-user* (uiop:getenv "USER"))
 (defparameter *myconn-pass* nil)
+(defparameter *my-dbname* nil)
 
 ;;;
 ;;; Archive processing: downloads and unzip.

@@ -15,7 +15,7 @@
 	 (fields     (or (and (slot-boundp source 'fields)
 			      (slot-value source 'fields))
 			 (when table-name
-			   (let* ((all-columns (list-all-columns source-db)))
+			   (let* ((all-columns (list-all-columns :dbname source-db)))
 			     (cdr (assoc table-name all-columns
 					 :test #'string=))))))
 	 (transforms (when (slot-boundp source 'transforms)
@@ -80,8 +80,8 @@
     (map-rows mysql
 	      :process-row-fn
 	      (lambda (row)
-		(pgloader.pgsql:format-row text-file row
-					   :transforms (transforms mysql))))))
+		(pgloader.pgsql::format-vector-row text-file row
+                                                   :transforms (transforms mysql))))))
 
 ;;;
 ;;; Export MySQL data to our lparallel data queue. All the work is done in
@@ -103,12 +103,11 @@
 	 (lp:*kernel* (or kernel (make-kernel 2)))
 	 (channel     (lp:make-channel))
 	 (dataq       (lq:make-queue :fixed-capacity 4096))
-	 (dbname      (source-db mysql))
 	 (table-name  (target mysql)))
 
     ;; we account stats against the target table-name, because that's all we
     ;; know on the PostgreSQL thread
-    (with-stats-collection (dbname table-name :state *state* :summary summary)
+    (with-stats-collection (table-name :state *state* :summary summary)
       (log-message :notice "COPY ~a" table-name)
       ;; read data from MySQL
       (lp:submit-task channel #'copy-to-queue mysql dataq)
@@ -135,8 +134,7 @@
 ;;;
 ;;; Prepare the PostgreSQL database before streaming the data into it.
 ;;;
-(defun prepare-pgsql-database (pg-dbname
-                               all-columns all-indexes all-fkeys
+(defun prepare-pgsql-database (all-columns all-indexes all-fkeys
                                materialize-views view-columns
                                &key
                                  state
@@ -155,16 +153,12 @@
                (length all-columns)
                (loop for (name . idxs) in all-indexes sum (length idxs)))
 
-  (with-stats-collection (pg-dbname "create, drop"
-                                    :use-result-as-rows t
-                                    :state state)
-    (with-pgsql-transaction (pg-dbname)
+  (with-stats-collection ("create, drop" :use-result-as-rows t :state state)
+    (with-pgsql-transaction ()
       ;; we need to first drop the Foreign Key Constraints, so that we
       ;; can DROP TABLE when asked
       (when (and foreign-keys include-drop)
-        (drop-fkeys all-fkeys
-                    :dbname pg-dbname
-                    :identifier-case identifier-case))
+        (drop-pgsql-fkeys all-fkeys :identifier-case identifier-case))
 
       ;; now drop then create tables and types, etc
       (prog1
@@ -175,8 +169,7 @@
         ;; MySQL allows the same index name being used against several
         ;; tables, so we add the PostgreSQL table OID in the index name,
         ;; to differenciate. Set the table oids now.
-        (set-table-oids all-indexes
-                        :identifier-case identifier-case)
+        (set-table-oids all-indexes :identifier-case identifier-case)
 
         ;; We might have to MATERIALIZE VIEWS
         (when materialize-views
@@ -184,7 +177,7 @@
                          :identifier-case identifier-case
                          :include-drop include-drop))))))
 
-(defun complete-pgsql-database (pg-dbname all-columns all-fkeys
+(defun complete-pgsql-database (all-columns all-fkeys
                                 &key
                                   state
                                   data-only
@@ -200,10 +193,9 @@
     ;; while CREATE INDEX statements are in flight (avoid locking).
     ;;
     (when reset-sequences
-      (reset-sequences all-columns
-		       :dbname pg-dbname
-		       :state state
-		       :identifier-case identifier-case))
+      (reset-pgsql-sequences all-columns
+                             :state state
+                             :identifier-case identifier-case))
 
     ;;
     ;; Foreign Key Constraints
@@ -213,10 +205,7 @@
     ;; and indexes are imported before doing that.
     ;;
     (when (and foreign-keys (not data-only))
-      (create-fkeys all-fkeys
-		    :dbname pg-dbname
-		    :state state
-		    :identifier-case identifier-case)))
+      (create-pgsql-fkeys all-fkeys :state state :identifier-case identifier-case)))
 
 ;;;
 ;;; Work on all tables for given database
@@ -257,34 +246,34 @@
          idx-kernel idx-channel)
 
     ;; to prepare the run, we need to fetch MySQL meta-data
-    (with-stats-collection (pg-dbname "fetch meta data"
-                                      :use-result-as-rows t
-                                      :use-result-as-read t
-                                      :state state-before)
-      (with-mysql-connection (dbname)
+    (with-stats-collection ("fetch meta data"
+                            :use-result-as-rows t
+                            :use-result-as-read t
+                            :state state-before)
+      (with-mysql-connection ()
         ;; If asked to MATERIALIZE VIEWS, now is the time to create them in
         ;; MySQL, when given definitions rather than existing view names.
         (when materialize-views
-          (create-my-views dbname materialize-views))
+          (create-my-views materialize-views))
 
-        (setf all-columns   (filter-column-list (list-all-columns dbname)
+        (setf all-columns   (filter-column-list (list-all-columns)
                                                 :only-tables only-tables
                                                 :including including
                                                 :excluding excluding)
 
-              all-fkeys     (filter-column-list (list-all-fkeys dbname)
+              all-fkeys     (filter-column-list (list-all-fkeys)
                                                 :only-tables only-tables
                                                 :including including
                                                 :excluding excluding)
 
-              all-indexes   (filter-column-list (list-all-indexes dbname)
+              all-indexes   (filter-column-list (list-all-indexes)
                                                 :only-tables only-tables
                                                 :including including
                                                 :excluding excluding)
 
-              view-columns  (list-all-columns dbname
-                                              :only-tables view-names
-                                              :table-type :view))
+              view-columns  (when view-names
+                              (list-all-columns :only-tables view-names
+                                                :table-type :view)))
 
         ;; return how many objects we're going to deal with in total
         (+ (length all-columns) (length all-fkeys)
@@ -305,8 +294,7 @@
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (when (and (or create-tables schema-only) (not data-only))
       (handler-case
-          (prepare-pgsql-database pg-dbname
-                                  all-columns
+          (prepare-pgsql-database all-columns
                                   all-indexes
                                   all-fkeys
                                   materialize-views
@@ -363,7 +351,7 @@
       ;; wait until the indexes are done being built...
       ;; don't forget accounting for that waiting time.
       (when (and create-indexes (not data-only))
-	(with-stats-collection (pg-dbname "Index Build Completion" :state *state*)
+	(with-stats-collection ("Index Build Completion" :state *state*)
 	  (loop for idx in all-indexes do (lp:receive-result idx-channel))))
       (lp:end-kernel))
 
@@ -371,13 +359,13 @@
     ;; If we created some views for this run, now is the time to DROP'em
     ;;
     (when materialize-views
-      (with-mysql-connection (dbname)
-        (drop-my-views dbname materialize-views)))
+      (with-mysql-connection ()
+        (drop-my-views materialize-views)))
 
     ;;
     ;; Complete the PostgreSQL database before handing over.
     ;;
-    (complete-pgsql-database pg-dbname all-columns all-fkeys
+    (complete-pgsql-database all-columns all-fkeys
                              :state state-after
                              :data-only data-only
                              :foreign-keys foreign-keys
@@ -397,7 +385,7 @@
 ;;;
 (defun export-database (dbname &key only-tables)
   "Export MySQL tables into as many TEXT files, in the PostgreSQL COPY format"
-  (let ((all-columns  (list-all-columns dbname)))
+  (let ((all-columns  (list-all-columns :dbname dbname)))
     (setf *state* (pgloader.utils:make-pgstate))
     (report-header)
     (loop
@@ -437,7 +425,7 @@
 				 only-tables)
   "Export MySQL data and Import it into PostgreSQL"
   ;; get the list of tables and have at it
-  (let ((all-columns  (list-all-columns dbname)))
+  (let ((all-columns  (list-all-columns :dbname dbname)))
     (setf *state* (pgloader.utils:make-pgstate))
     (report-header)
     (loop

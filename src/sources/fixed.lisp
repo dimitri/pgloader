@@ -95,7 +95,7 @@
 	 (dbname         (target-db fixed))
 	 (table-name     (target fixed)))
 
-    (with-stats-collection (dbname table-name :state *state* :summary summary)
+    (with-stats-collection (table-name :state *state* :summary summary)
       (log-message :notice "COPY ~a.~a" dbname table-name)
       (lp:submit-task channel #'copy-to-queue fixed dataq)
 

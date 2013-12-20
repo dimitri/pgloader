@@ -252,11 +252,13 @@
 	   #:*pgconn-port*
 	   #:*pgconn-user*
 	   #:*pgconn-pass*
+	   #:*pg-dbname*
 	   #:*pg-settings*
 	   #:*myconn-host*
 	   #:*myconn-port*
 	   #:*myconn-user*
 	   #:*myconn-pass*
+	   #:*my-dbname*
 	   #:run-commands
 	   #:parse-commands
 	   #:with-database-uri

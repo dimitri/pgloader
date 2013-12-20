@@ -20,7 +20,7 @@
 	     (muffle-warning))))
      (progn ,@forms)))
 
-(defmacro with-pgsql-transaction ((dbname &key database) &body forms)
+(defmacro with-pgsql-transaction ((&key (dbname *pg-dbname*) database) &body forms)
   "Run FORMS within a PostgreSQL transaction to DBNAME, reusing DATABASE if
    given. To get the connection spec from the DBNAME, use `get-connection-spec'."
   (if database
@@ -34,8 +34,11 @@
       `(let ((cl-postgres::*unix-socket-dir*
 	      (if (and (consp *pgconn-host*) (eq :unix (car *pgconn-host*)))
 		  (fad:pathname-as-directory (cdr *pgconn-host*))
-		  cl-postgres::*unix-socket-dir*)))
-	 (pomo:with-connection (get-connection-spec ,dbname)
+		  cl-postgres::*unix-socket-dir*))
+             ;; if no dbname is given at macro-expansion time, we want to
+             ;; use the current value of *pg-dbname* at run time
+             (*pg-dbname* (or ,dbname *pg-dbname*)))
+	 (pomo:with-connection (get-connection-spec *pg-dbname*)
 	   (log-message :debug "CONNECT")
 	   (set-session-gucs *pg-settings*)
 	   (handling-pgsql-notices ()
@@ -82,7 +85,7 @@
   (multiple-value-bind (res secs)
       (timing
        (handler-case
-	   (with-pgsql-transaction (dbname)
+	   (with-pgsql-transaction (:dbname dbname)
 	     (pgsql-execute sql))
 	 (cl-postgres:database-error (e)
 	   (declare (ignore e))		; a log has already been printed
@@ -112,16 +115,16 @@
 (defun list-databases (&optional (username "postgres"))
   "Connect to a local database and get the database list"
   (let* ((*pgconn-user* username))
-    (with-pgsql-transaction ("postgres")
+    (with-pgsql-transaction (:dbname "postgres")
       (loop for (dbname) in (pomo:query
 			     "select datname
                               from pg_database
                              where datname !~ 'postgres|template'")
 	 collect dbname))))
 
-(defun list-tables (dbname)
+(defun list-tables (&optional (dbname *pg-dbname*))
   "Return an alist of tables names and list of columns to pay attention to."
-  (with-pgsql-transaction (dbname)
+  (with-pgsql-transaction (:dbname dbname)
     (loop for (relname colarray) in (pomo:query "
 select relname, array_agg(case when typname in ('date', 'timestamptz')
                                then attnum end
@@ -140,24 +143,6 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
 				unless (eq attnum :NULL)
 				collect attnum)))))
 
-(defun list-tables-cols (dbname &key (schema "public") table-name-list)
-  "Return an alist of tables names and number of columns."
-  (with-pgsql-transaction (dbname)
-      (loop for (relname cols)
-	 in (pomo:query (format nil "
-    select relname, count(attnum)
-      from pg_class c
-           join pg_namespace n on n.oid = c.relnamespace
-           left join pg_attribute a on c.oid = a.attrelid
-           join pg_type t on t.oid = a.atttypid
-     where c.relkind = 'r'
-           and attnum > 0
-           and n.nspname = '~a'
-           ~@[~{and relname = '~a'~^ ~}~]
-  group by relname
-" schema table-name-list))
-	 collect (cons relname cols))))
-
 (defun list-tables-and-fkeys (&optional schema)
   "Yet another table listing query."
   (loop for (relname fkeys) in (pomo:query (format nil "
@@ -171,7 +156,7 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
 
 (defun list-columns (dbname table-name &key schema)
   "Return a list of column names for given TABLE-NAME."
-  (with-pgsql-transaction (dbname)
+  (with-pgsql-transaction (:dbname dbname)
     (pomo:query (format nil "
     select attname
       from pg_class c
@@ -183,7 +168,7 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
 
 (defun list-reserved-keywords (dbname)
   "Connect to PostgreSQL DBNAME and fetch reserved keywords."
-  (with-pgsql-transaction (dbname)
+  (with-pgsql-transaction (:dbname dbname)
     (pomo:query "select word from pg_get_keywords() where catcode = 'R'" :column)))
 
 (defun reset-all-sequences (dbname &key tables)

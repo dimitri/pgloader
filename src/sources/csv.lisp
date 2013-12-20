@@ -118,7 +118,7 @@
 	 (dbname         (target-db csv))
 	 (table-name     (target csv)))
 
-    (with-stats-collection (dbname table-name :state *state* :summary summary)
+    (with-stats-collection (table-name :state *state* :summary summary)
       (log-message :notice "COPY ~a.~a" dbname table-name)
       (lp:submit-task channel #'copy-to-queue csv dataq)
 
@@ -162,12 +162,15 @@
        when (or (null only-tables)
 		(member table-name only-tables :test #'equal))
        do
-	 (copy-from-file dbname table-name filename
-			 :skip-lines skip-lines
-			 :separator separator
-			 :quote quote
-			 :escape escape
-			 :truncate truncate)
+         (let ((source (make-instance 'copy-csv
+                                      :target-db  dbname
+                                      :source     (list :filename filename)
+                                      :target     table-name
+                                      :skip-lines skip-lines
+                                      :separator separator
+                                      :quote quote
+                                      :escape escape)))
+           (copy-from source :truncate truncate))
        finally
 	 (report-pgstate-stats *state* "Total import time"))))
 

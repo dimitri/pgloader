@@ -58,20 +58,20 @@
                      :as-text as-text
                      :result-type result-type))
 
-(defmacro with-mysql-connection ((&optional dbname) &body forms)
+(defmacro with-mysql-connection ((&optional (dbname *my-dbname*)) &body forms)
   "Connect to MySQL, use given DBNAME as the current database if provided,
    and execute FORMS in a protected way so that we always disconnect when
    done.
 
    Connection parameters are *myconn-host*, *myconn-port*, *myconn-user* and
    *myconn-pass*."
-  `(let ((*connection*
-	  (qmynd:mysql-connect :host *myconn-host*
-			       :port *myconn-port*
-			       :username *myconn-user*
-			       :password *myconn-pass*
-			       ,@(when dbname
-				       (list :database dbname)))))
+  `(let* ((dbname (or ,dbname *my-dbname*))
+          (*connection*
+           (qmynd:mysql-connect :host *myconn-host*
+                                :port *myconn-port*
+                                :username *myconn-user*
+                                :password *myconn-pass*
+                                :database dbname)))
      (unwind-protect
           (progn ,@forms)
        (qmynd:mysql-disconnect *connection*))))
@@ -113,7 +113,7 @@ order by table_name" dbname only-tables))))
 ;;; Handle MATERIALIZE VIEWS sections, where we need to create the views in
 ;;; the MySQL database before being able to process them.
 ;;;
-(defun create-my-views (dbname views-alist)
+(defun create-my-views (views-alist)
   "VIEWS-ALIST associates view names with their SQL definition, which might
    be empty for already existing views. Create only the views for which we
    have an SQL definition."
@@ -125,7 +125,7 @@ order by table_name" dbname only-tables))))
            (log-message :info "MySQL: ~a" sql)
            (mysql-query sql)))))
 
-(defun drop-my-views (dbname views-alist)
+(defun drop-my-views (views-alist)
   "See `create-my-views' for VIEWS-ALIST description. This time we DROP the
    views to clean out after our work."
   (let ((views (remove-if #'null views-alist :key #'cdr)))
@@ -148,8 +148,8 @@ order by table_name" dbname only-tables))))
   "Associate internal table type symbol with what's found in MySQL
   information_schema.tables.table_type column.")
 
-(defun list-all-columns (dbname
-			 &key
+(defun list-all-columns (&key
+                           (dbname *my-dbname*)
 			   only-tables
 			   (table-type :table)
 			 &aux
@@ -184,7 +184,7 @@ order by table_name, ordinal_position" dbname table-type-name only-tables))
                   for cols = (cdr (assoc name schema :test #'string=))
                   collect (cons name (reverse cols))))))
 
-(defun list-all-indexes (dbname)
+(defun list-all-indexes (&optional (dbname *my-dbname*))
   "Get the list of MySQL index definitions per table."
   (loop
      with schema = nil
@@ -232,7 +232,7 @@ GROUP BY table_name, index_name;" dbname))
 ;;;
 ;;; MySQL Foreign Keys
 ;;;
-(defun list-all-fkeys (dbname)
+(defun list-all-fkeys (&optional (dbname *my-dbname*))
   "Get the list of MySQL Foreign Keys definitions per table."
   (loop
      with schema = nil
@@ -270,7 +270,7 @@ GROUP BY table_name, index_name;" dbname))
                            for (name . fks) in schema
                            collect (cons name (reverse fks)))))))
 
-(defun drop-fkeys (all-fkeys &key dbname identifier-case)
+(defun drop-pgsql-fkeys (all-fkeys &key (dbname *pg-dbname*) identifier-case)
   "Drop all Foreign Key Definitions given, to prepare for a clean run."
   (let ((all-pgsql-fkeys (list-tables-and-fkeys dbname)))
     (loop for (table-name . fkeys) in all-fkeys
@@ -284,9 +284,12 @@ GROUP BY table_name, index_name;" dbname))
 	      (log-message :notice "~a;" sql)
 	      (pgsql-execute sql)))))
 
-(defun create-fkeys (all-fkeys
-		     &key
-		       dbname state identifier-case (label "Foreign Keys"))
+(defun create-pgsql-fkeys (all-fkeys
+                           &key
+                             (dbname *pg-dbname*)
+                             state
+                             identifier-case
+                             (label "Foreign Keys"))
   "Actually create the Foreign Key References that where declared in the
    MySQL database"
   (pgstate-add-table state dbname label)
@@ -302,16 +305,18 @@ GROUP BY table_name, index_name;" dbname))
 ;;;
 ;;; Sequences
 ;;;
-(defun reset-sequences (all-columns &key dbname state identifier-case)
+(defun reset-pgsql-sequences (all-columns
+                              &key (dbname *pg-dbname*) state identifier-case)
   "Reset all sequences created during this MySQL migration."
   (let ((tables
 	 (mapcar
 	  (lambda (name) (apply-identifier-case name identifier-case))
 	  (mapcar #'car all-columns))))
     (log-message :notice "Reset sequences")
-    (with-stats-collection (dbname "Reset Sequences"
-				   :use-result-as-rows t
-				   :state state)
+    (with-stats-collection ("Reset Sequences"
+                            :dbname dbname
+                            :use-result-as-rows t
+                            :state state)
       (pgloader.pgsql:reset-all-sequences dbname :tables tables))))
 
 
@@ -335,7 +340,7 @@ GROUP BY table_name, index_name;" dbname))
    This function assumes a valid connection to the MySQL server has been
    established already."
   (loop
-     for (name type) in (qmynd:mysql-query *connection* (format nil "
+     for (name type) in (mysql-query (format nil "
   select column_name, data_type
     from information_schema.columns
    where table_schema = '~a' and table_name = '~a'

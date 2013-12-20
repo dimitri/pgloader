@@ -174,7 +174,7 @@
 	 (table-name  (target sqlite))
 	 (pg-dbname   (target-db sqlite)))
 
-    (with-stats-collection (pg-dbname table-name :state *state* :summary summary)
+    (with-stats-collection (table-name :state *state* :summary summary)
       (log-message :notice "COPY ~a" table-name)
       ;; read data from SQLite
       (lp:submit-task channel #'copy-to-queue sqlite dataq)
@@ -232,10 +232,10 @@
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (when (and (or create-tables schema-only) (not data-only))
       (log-message :notice "~:[~;DROP then ~]CREATE TABLES" include-drop)
-      (with-stats-collection (pg-dbname "create, truncate"
-					:state state-before
-					:summary summary)
-	(with-pgsql-transaction (pg-dbname)
+      (with-stats-collection ("create, truncate"
+                              :state state-before
+                              :summary summary)
+	(with-pgsql-transaction ()
 	  (create-tables all-columns :include-drop include-drop))))
 
     (loop
@@ -274,9 +274,9 @@
       (let ((tables (or only-tables
 			(mapcar #'car all-columns))))
 	(log-message :notice "Reset sequences")
-	(with-stats-collection (pg-dbname "reset sequences"
-					  :use-result-as-rows t
-					  :state seq-state)
+	(with-stats-collection ("reset sequences"
+                                :use-result-as-rows t
+                                :state seq-state)
 	  (pgloader.pgsql:reset-all-sequences pg-dbname :tables tables))))
 
     ;; now end the kernels
@@ -285,7 +285,7 @@
       ;; wait until the indexes are done being built...
       ;; don't forget accounting for that waiting time.
       (when (and create-indexes (not data-only))
-	(with-stats-collection (pg-dbname "index build completion" :state *state*)
+	(with-stats-collection ("index build completion" :state *state*)
 	 (loop for idx in all-indexes do (lp:receive-result idx-channel))))
       (lp:end-kernel))
 

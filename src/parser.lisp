@@ -400,25 +400,6 @@
     (declare (ignore load-from ws))
     source))
 
-
-;;
-;; Putting it all together, the COPY command
-;;
-;; The output format is Lisp code using the pgloader API.
-;;
-(defrule load (and ignore-whitespace source ignore-whitespace target)
-  (:destructure (ws1 source ws2 target)
-    (declare (ignore ws1 ws2))
-    (destructuring-bind (&key table-name user password host port dbname
-			      &allow-other-keys)
-	target
-      `(lambda (&key
-		  (*pgconn-host* ,host)
-		  (*pgconn-port* ,port)
-		  (*pgconn-user* ,user)
-		  (*pgconn-pass* ,password))
-	 (pgloader.pgsql:copy-from-file ,dbname ,table-name ',source)))))
-
 (defrule database-source (and kw-load kw-database kw-from
 			      db-connection-uri)
   (:lambda (source)
@@ -609,10 +590,12 @@
 (defun sql-code-block (dbname state commands label)
   "Return lisp code to run COMMANDS against DBNAME, updating STATE."
   (when commands
-    `(with-stats-collection (,dbname ,label :state ,state
-                                     :use-result-as-read t
-                                     :use-result-as-rows t)
-       (with-pgsql-transaction (,dbname)
+    `(with-stats-collection (,label
+                             :dbname ,dbname
+                             :state ,state
+                             :use-result-as-read t
+                             :use-result-as-rows t)
+       (with-pgsql-transaction (:dbname ,dbname)
 	 (loop for command in ',commands
 	    do
 	      (log-message :notice command)
@@ -863,10 +846,12 @@
 		    (*myconn-port* ,myport)
 		    (*myconn-user* ,myuser)
 		    (*myconn-pass* ,mypass)
+		    (*my-dbname*   ,mydb)
 		    (*pgconn-host* ,pghost)
 		    (*pgconn-port* ,pgport)
 		    (*pgconn-user* ,pguser)
 		    (*pgconn-pass* ,pgpass)
+		    (*pg-dbname*   ,pgdb)
 		    (*pg-settings* ',gucs)
 		    (pgloader.pgsql::*pgsql-reserved-keywords*
 		     (pgloader.pgsql:list-reserved-keywords ,pgdb))
@@ -960,32 +945,32 @@ load database
 	`(lambda ()
 	   (let* ((state-before   (pgloader.utils:make-pgstate))
 		  (*state*        (pgloader.utils:make-pgstate))
+		  (*pgconn-host* ,host)
+		  (*pgconn-port* ,port)
+		  (*pgconn-user* ,user)
+		  (*pgconn-pass* ,password)
+		  (*pg-dbname*   ,dbname)
+		  (*pg-settings* ',gucs)
+		  (pgloader.pgsql::*pgsql-reserved-keywords*
+		   (pgloader.pgsql:list-reserved-keywords ,dbname))
 		  (db
 		   ,(destructuring-bind (kind url) sqlite-uri
 		     (ecase kind
 		       (:http     `(with-stats-collection
-				       (,dbname "download" :state state-before)
+				       ("download" :state state-before)
 				     (pgloader.archive:http-fetch-file ,url)))
 		       (:sqlite url)
 		       (:filename url))))
 		  (db
 		   (if (string= "zip" (pathname-type db))
 		       (progn
-			 (with-stats-collection (,dbname "extract"
-							 :state state-before)
+			 (with-stats-collection ("extract" :state state-before)
 			   (let ((d (pgloader.archive:expand-archive db)))
 			     (merge-pathnames
 			      (make-pathname :name (pathname-name db)
 					     :type "db")
 			      d))))
 		       db))
-		  (*pgconn-host* ,host)
-		  (*pgconn-port* ,port)
-		  (*pgconn-user* ,user)
-		  (*pgconn-pass* ,password)
-		  (*pg-settings* ',gucs)
-		  (pgloader.pgsql::*pgsql-reserved-keywords*
-		   (pgloader.pgsql:list-reserved-keywords ,dbname))
 		  (source
 		   (make-instance 'pgloader.sqlite::copy-sqlite
 				  :target-db ,dbname
@@ -1185,29 +1170,29 @@ load database
 	`(lambda ()
 	   (let* ((state-before   (pgloader.utils:make-pgstate))
 		  (*state*        (pgloader.utils:make-pgstate))
+		  (*pgconn-host* ,host)
+		  (*pgconn-port* ,port)
+		  (*pgconn-user* ,user)
+		  (*pgconn-pass* ,password)
+		  (*pg-dbname*   ,dbname)
+		  (*pg-settings* ',gucs)
 		  (source
 		   ,(destructuring-bind (kind url) source
 		     (ecase kind
 		       (:http     `(with-stats-collection
-				       (,dbname "download" :state state-before)
+				       ("download" :state state-before)
 				     (pgloader.archive:http-fetch-file ,url)))
 		       (:filename url))))
 		  (source
 		   (if (string= "zip" (pathname-type source))
 		       (progn
-			 (with-stats-collection (,dbname "extract"
-							 :state state-before)
+			 (with-stats-collection ("extract" :state state-before)
 			   (let ((d (pgloader.archive:expand-archive source)))
 			     (merge-pathnames
 			      (make-pathname :name (pathname-name source)
 					     :type "dbf")
 			      d))))
 		       source))
-		  (*pgconn-host* ,host)
-		  (*pgconn-port* ,port)
-		  (*pgconn-user* ,user)
-		  (*pgconn-pass* ,password)
-		  (*pg-settings* ',gucs)
 		  (source
 		   (make-instance 'pgloader.db3:copy-db3
 				  :target-db ,dbname
@@ -1719,6 +1704,7 @@ load database
 		  (*pgconn-port* ,port)
 		  (*pgconn-user* ,user)
 		  (*pgconn-pass* ,password)
+		  (*pg-dbname*   ,dbname)
 		  (*pg-settings* ',gucs))
 
 	     (progn
@@ -1785,21 +1771,22 @@ load database
 	`(lambda ()
 	   (let* ((state-before   (pgloader.utils:make-pgstate))
 		  (*state*        (pgloader.utils:make-pgstate))
+                  (*pgconn-host* ,host)
+		  (*pgconn-port* ,port)
+		  (*pgconn-user* ,user)
+		  (*pgconn-pass* ,password)
+		  (*pg-dbname*   ,dbname)
 		  (state-finally ,(when finally `(pgloader.utils:make-pgstate)))
 		  (archive-file
 		   ,(destructuring-bind (kind url) source
 		     (ecase kind
 		       (:http     `(with-stats-collection
-				       (,dbname "download" :state state-before)
+				       ("download" :state state-before)
 				     (pgloader.archive:http-fetch-file ,url)))
 		       (:filename url))))
 		  (*csv-path-root*
-		   (with-stats-collection (,dbname "extract" :state state-before)
-		     (pgloader.archive:expand-archive archive-file)))
-		  (*pgconn-host* ,host)
-		  (*pgconn-port* ,port)
-		  (*pgconn-user* ,user)
-		  (*pgconn-pass* ,password))
+		   (with-stats-collection ("extract" :state state-before)
+		     (pgloader.archive:expand-archive archive-file))))
 	     (progn
 	       ,(sql-code-block dbname 'state-before before "before load")
 
@@ -1953,20 +1940,23 @@ load database
    from the DATABASE-URI. For a MySQL connection string, that's
    *myconn-user* and all, for a PostgreSQL connection string, *pgconn-user*
    and all."
-  (destructuring-bind (&key type user password host port &allow-other-keys)
+  (destructuring-bind (&key type user password host port dbname
+                            &allow-other-keys)
       (parse 'db-connection-uri database-uri)
     (ecase type
       (:mysql
        `(let* ((*myconn-host* ,host)
 	       (*myconn-port* ,port)
 	       (*myconn-user* ,user)
-	       (*myconn-pass* ,password))
+	       (*myconn-pass* ,password)
+               (*my-dbname*   ,dbname))
 	  ,@body))
       (:postgresql
        `(let* ((*pgconn-host* ,(if (consp host) (list 'quote host) host))
 	       (*pgconn-port* ,port)
 	       (*pgconn-user* ,user)
-	       (*pgconn-pass* ,password))
+	       (*pgconn-pass* ,password)
+               (*pg-dbname*   ,dbname))
 	  ,@body)))))
 
 

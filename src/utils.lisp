@@ -266,12 +266,13 @@
      finally (when footer
 	       (report-pgstate-stats pgstate footer))))
 
-(defmacro with-stats-collection ((dbname table-name
-					 &key
-					 summary
-					 use-result-as-read
-					 use-result-as-rows
-					 ((:state pgstate) *state*))
+(defmacro with-stats-collection ((table-name
+                                  &key
+                                  (dbname *pg-dbname*)
+                                  summary
+                                  use-result-as-read
+                                  use-result-as-rows
+                                  ((:state pgstate) *state*))
 				 &body forms)
   "Measure time spent in running BODY into STATE, accounting the seconds to
    given DBNAME and TABLE-NAME"

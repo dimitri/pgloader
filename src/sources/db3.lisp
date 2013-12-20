@@ -109,9 +109,9 @@
       (map-rows db3
 		:process-row-fn
 		(lambda (row)
-		  (pgloader.pgsql:format-row text-file
-					     row
-					     :transforms transforms))))))
+		  (pgloader.pgsql::format-vector-row text-file
+                                                     row
+                                                     :transforms transforms))))))
 
 (defmethod copy-to-queue ((db3 copy-db3) dataq)
   "Copy data from DB3 file FILENAME into queue DATAQ"
@@ -131,10 +131,8 @@
     ;; fix the table-name in the db3 object
     (setf (target db3) table-name)
 
-    (with-stats-collection (dbname "create, truncate"
-				   :state state-before
-				   :summary summary)
-      (with-pgsql-transaction (dbname)
+    (with-stats-collection ("create, truncate" :state state-before :summary summary)
+      (with-pgsql-transaction ()
 	(when create-table
 	  (log-message :notice "Create table \"~a\"" table-name)
 	  (create-tables (list-all-columns (source db3) table-name)
@@ -150,7 +148,7 @@
 	   (channel     (lp:make-channel))
 	   (dataq       (lq:make-queue :fixed-capacity 4096)))
 
-      (with-stats-collection (dbname table-name :state *state* :summary summary)
+      (with-stats-collection (table-name :state *state* :summary summary)
 	(log-message :notice "COPY \"~a\" from '~a'" (target db3) (source db3))
 	(lp:submit-task channel #'copy-to-queue db3 dataq)
 

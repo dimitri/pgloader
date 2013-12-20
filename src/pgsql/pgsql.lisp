@@ -127,7 +127,7 @@ details about the format, and format specs."
        for retval =
 	 (let* ((*batch-rows* 0))
 	   (handler-case
-	       (with-pgsql-transaction (dbname :database pomo:*database*)
+	       (with-pgsql-transaction (:dbname dbname :database pomo:*database*)
 		 (let* ((copier (cl-postgres:open-db-writer pomo:*database*
 							    table-name
 							    columns)))
@@ -233,7 +233,7 @@ details about the format, and format specs."
 	 (let* ((current-batch-rows
                  (smaller-batch-rows batch-rows processed-rows)))
 	  (handler-case
-	      (with-pgsql-transaction (dbname :database pomo:*database*)
+	      (with-pgsql-transaction (:dbname dbname :database pomo:*database*)
 		(let* ((stream
                         (cl-postgres:open-db-writer pomo:*database*
                                                     table-name columns)))
