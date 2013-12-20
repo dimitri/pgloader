@@ -229,10 +229,3 @@
        when esc
        do (return (list :separator sep :quote #\" :escape esc)))))
 
-(defun guess-all-csv-params (dbname)
-  "Return a list of table-name and CSV parameters for tables in PostgreSQL
-   database DBNAME."
-  (loop
-     for (table-name . cols) in (pgloader.pgsql:list-tables-cols dbname)
-     for filename = (get-pathname dbname table-name)
-     collect (cons table-name (guess-csv-params filename cols))))
