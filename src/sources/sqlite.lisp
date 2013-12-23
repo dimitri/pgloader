@@ -155,8 +155,11 @@
                      :do (setf (aref v x)
                                (sqlite:statement-column-value statement x)))
                   v)
+      counting t into rows
       do (funcall process-row-fn row)
-      finally (sqlite:finalize-statement statement))))
+      finally
+        (sqlite:finalize-statement statement)
+        (return rows))))
 
 
 (defmethod copy-to-queue ((sqlite copy-sqlite) dataq)
