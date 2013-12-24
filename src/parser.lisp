@@ -1905,31 +1905,23 @@ load database
    code then run, a pathname containing one or more commands that are parsed
    then run, or a commands string that is then parsed and each command run."
 
-  (when start-logger
-    (start-logger :log-filename *log-filename*
-		  :log-min-messages *log-min-messages*
-		  :client-min-messages *client-min-messages*))
+  (with-monitor (:start-logger start-logger)
+    (let* ((funcs
+            (typecase source
+              (function (list source))
 
-  (let* ((funcs
-	  (typecase source
-	    (function (list source))
+              (list     (list (compile nil source)))
 
-	    (list     (list (compile nil source)))
+              (pathname (mapcar (lambda (expr) (compile nil expr))
+                                (parse-commands-from-file source)))
 
-	    (pathname (mapcar (lambda (expr) (compile nil expr))
-			      (parse-commands-from-file source)))
+              (t        (mapcar (lambda (expr) (compile nil expr))
+                                (if (probe-file source)
+                                    (parse-commands-from-file source)
+                                    (parse-commands source)))))))
 
-	    (t        (mapcar (lambda (expr) (compile nil expr))
-			      (if (probe-file source)
-				  (parse-commands-from-file source)
-				  (parse-commands source)))))))
-
-    ;; run the commands
-    (loop for func in funcs do (funcall func))
-
-    ;; close the logger, only when we've been tasked with opening it.
-    (when start-logger
-      (stop-logger))))
+      ;; run the commands
+      (loop for func in funcs do (funcall func)))))
 
 
 ;;;

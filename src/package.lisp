@@ -3,21 +3,38 @@
 ;;; To avoid circular files dependencies, define all the packages here
 ;;;
 
-(defpackage #:pgloader.utils
+(defpackage #:pgloader.logs
   (:use #:cl #:pgloader.params)
   (:import-from #:cl-log
 		#:defcategory
 		#:log-manager
 		#:start-messenger
-		#:log-message
 		#:ring-messenger
 		#:text-file-messenger
 		#:text-stream-messenger
 		#:formatted-message)
-  (:export #:start-logger
-	   #:stop-logger
-	   #:log-message
-	   #:report-header
+  (:export #:*log-messengers*
+           #:start-logger
+           #:stop-logger))
+
+(defpackage #:pgloader.monitor
+  (:use #:cl #:pgloader.params)
+  (:export #:with-monitor
+           #:*monitoring-queue*
+           #:log-message
+           #:send-event
+           #:start-monitor
+           #:stop-monitor))
+
+(defpackage #:pgloader.utils
+  (:use #:cl #:pgloader.params)
+  (:import-from #:pgloader.monitor
+                #:with-monitor
+                #:*monitoring-queue*
+                #:log-message)
+  (:export #:with-monitor
+           #:log-message
+           #:report-header
 	   #:report-table-name
 	   #:report-results
 	   #:report-footer
