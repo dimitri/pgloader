@@ -15,7 +15,7 @@ LOAD ARCHIVE
 
    LOAD FIXED
         FROM FILENAME MATCHING ~/places2k.txt/
-             WITH ENCODING latin-1
+             WITH ENCODING latin1
              (
              -- name   start  length
                 usps       0  2,
