@@ -137,44 +137,41 @@
 	;; Now process the arguments
 	(when arguments
 	  ;; Start the logs system
-	  (let ((logfile        (log-file-name logfile))
-		(log-min-messages
+	  (let ((*logfile*        (log-file-name logfile))
+		(*log-min-messages*
 		 (log-threshold log-min-messages
 				:quiet quiet :verbose verbose :debug debug))
-		(client-min-messages
+		(*client-min-messages*
 		 (log-threshold client-min-messages
 				:quiet quiet :verbose verbose :debug debug)))
 
-	    (start-logger :log-filename logfile
-			  :log-min-messages log-min-messages
-			  :client-min-messages client-min-messages)
+            (with-monitor ()
+              ;; tell the user where to look for interesting things
+              (log-message :log "Main logs in '~a'" *logfile*)
+              (log-message :log "Data errors in '~a'~%" *root-dir*)
 
-	    ;; tell the user where to look for interesting things
-	    (log-message :log "Main logs in '~a'" logfile)
-	    (log-message :log "Data errors in '~a'~%" *root-dir*))
+              ;; process the files
+              (loop for filename in arguments
+                 do
+                 ;; The handler-case is to catch unhandled exceptions at the
+                 ;; top level and continue with the next file in the list.
+                 ;;
+                 ;; The handler-bind is to be able to offer a meaningful
+                 ;; backtrace to the user in case of unexpected conditions
+                 ;; being signaled.
+                   (handler-case
+                       (handler-bind
+                           ((condition
+                             #'(lambda (condition)
+                                 (log-message :fatal "We have a situation here.")
+                                 (print-backtrace condition debug *standard-output*))))
 
-	  ;; process the files
-	  (loop for filename in arguments
-	     do
-	       ;; The handler-case is to catch unhandled exceptions at the
-	       ;; top level and continue with the next file in the list.
-	       ;;
-	       ;; The handler-bind is to be able to offer a meaningful
-	       ;; backtrace to the user in case of unexpected conditions
-	       ;; being signaled.
-	       (handler-case
-		   (handler-bind
-		       ((condition
-			 #'(lambda (condition)
-			     (log-message :fatal "We have a situation here.")
-			     (print-backtrace condition debug *standard-output*))))
+                         (run-commands (fad:canonical-pathname filename)
+                                       :start-logger nil)
+                         (format t "~&"))
 
-		     (run-commands (fad:canonical-pathname filename)
-				   :start-logger nil)
-		     (format t "~&"))
-
-		 (condition (c)
-		   (when debug (invoke-debugger c))
-		   (uiop:quit 1)))))
+                     (condition (c)
+                       (when debug (invoke-debugger c))
+                       (uiop:quit 1)))))))
 
 	(uiop:quit)))))
