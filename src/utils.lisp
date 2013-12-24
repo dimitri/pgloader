@@ -55,7 +55,8 @@
   reject-data reject-logs)		; files where to find reject data
 
 (defstruct pgstate
-  (tables (make-hash-table :test 'equal))
+  (tables   (make-hash-table :test 'equal))
+  (tabnames nil)                        ; we want to keep the ordering
   (read 0   :type fixnum)
   (rows 0   :type fixnum)
   (errs 0   :type fixnum)
@@ -76,6 +77,9 @@
 	      (make-pathname :directory reject-dir :name table-name :type "dat"))
 	     (logs-pathname
 	      (make-pathname :directory reject-dir :name table-name :type "log")))
+
+        ;; maintain the ordering
+        (push table-name (pgstate-tabnames pgstate))
 
 	;; create the per-database directory if it does not exists yet
 	(ensure-directories-exist (directory-namestring data-pathname))
@@ -190,8 +194,8 @@
   "Report a whole summary."
   (when header (report-header))
   (loop
-     for table-name being the hash-keys in (pgstate-tables pgstate)
-     using (hash-value pgtable)
+     for table-name in (reverse (pgstate-tabnames pgstate))
+     for pgtable = (gethash table-name (pgstate-tables pgstate))
      do
        (with-slots (read rows errs secs) pgtable
 	 (format t *header-cols-format*
