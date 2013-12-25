@@ -68,7 +68,45 @@ pgloader operates from commands which are read from files:
 
 # BATCHES AND RETRY BEHAVIOUR
 
-TODO. Add CLI options for batch size maybe.
+To load data to PostgreSQL, pgloader uses the `COPY` streaming protocol.
+While this is the faster way to load data, `COPY` has an important drawback:
+as soon as PostgreSQL emits an error with any bit of data sent to it,
+whatever the problem is, the whole data set is rejected by PostgreSQL.
+
+To work around that, pgloader cuts the data into *batches* of 25000 rows
+each, so that when a problem occurs it's only impacting that many rows of
+data. Each batch is kept in memory while the `COPY` streaming happens, in
+order to be able to handle errors should some happen.
+
+When PostgreSQL rejects the whole batch, pgloader logs the error message
+then isolates the bad row(s) from the accepted ones by retrying the batched
+rows in smaller batches. The generic way to do that is using *dichotomy*
+where the rows are split in two batches as evenly as possible. In the case
+of pgloader, as we expect bad data to be a rare event and want to optimize
+finding it as quickly as possible, the rows are split in 5 batches.
+
+Each batch of rows is sent again to PostgreSQL until we have an error
+message corresponding to a batch of single row, then we process the row as
+rejected and continue loading the remaining of the batch.
+
+So the batch sizes are going to be as following:
+
+  - 1 batch of 25000 rows, which fails to load
+  - 5 batches of 5000 rows, one of which fails to load
+  - 5 batches of 1000 rows, one of which fails to load
+  - 5 batches of 200 rows, one of which fails to load
+  - 5 batches of 40 rows, one of which fails to load
+  - 5 batchs of 8 rows, one of which fails to load
+  - 8 batches of 1 row, one of which fails to load
+
+At the end of a load containing rejected rows, you will find two files in
+the *root-dir* location, under a directory named the same as the target
+database of your setup. The filenames are the target table, and their
+extensions are `.dat` for the rejected data and `.log` for the file
+containing the full PostgreSQL client side logs about the rejected data.
+
+The `.dat` file is formated in PostgreSQL the text COPY format as documented
+in [http://www.postgresql.org/docs/9.2/static/sql-copy.html#AEN66609]().
 
 # COMMANDS
 
