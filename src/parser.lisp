@@ -1567,6 +1567,7 @@ load database
 		  (*pgconn-port* ,port)
 		  (*pgconn-user* ,user)
 		  (*pgconn-pass* ,password)
+                  (*pg-dbname*   ,dbname)
 		  (*pg-settings* ',gucs))
 
 	     (progn

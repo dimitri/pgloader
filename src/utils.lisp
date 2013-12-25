@@ -215,21 +215,22 @@
    given DBNAME and TABLE-NAME"
   (let ((result (gensym "result"))
 	(secs   (gensym "secs")))
-    `(prog2
-	 (pgstate-add-table ,pgstate ,dbname ,table-name)
-	 (multiple-value-bind (,result ,secs)
-	     (timing ,@forms)
-	   (cond ((and ,use-result-as-read ,use-result-as-rows)
-                  (pgstate-incf ,pgstate ,table-name
-                                :read ,result :rows ,result :secs ,secs))
-                 (,use-result-as-read
-                  (pgstate-incf ,pgstate ,table-name :read ,result :secs ,secs))
-                 (,use-result-as-rows
-                  (pgstate-incf ,pgstate ,table-name :rows ,result :secs ,secs))
-                 (t
-                  (pgstate-incf ,pgstate ,table-name :secs ,secs)))
-	   ,result)
-       (when ,summary (report-summary)))))
+    `(let ((*pg-dbname* (or ,dbname *pg-dbname*)))
+       (prog2
+           (pgstate-add-table ,pgstate *pg-dbname* ,table-name)
+           (multiple-value-bind (,result ,secs)
+               (timing ,@forms)
+             (cond ((and ,use-result-as-read ,use-result-as-rows)
+                    (pgstate-incf ,pgstate ,table-name
+                                  :read ,result :rows ,result :secs ,secs))
+                   (,use-result-as-read
+                    (pgstate-incf ,pgstate ,table-name :read ,result :secs ,secs))
+                   (,use-result-as-rows
+                    (pgstate-incf ,pgstate ,table-name :rows ,result :secs ,secs))
+                   (t
+                    (pgstate-incf ,pgstate ,table-name :secs ,secs)))
+             ,result)
+         (when ,summary (report-summary))))))
 
 (defun report-full-summary (legend state
 			    &key before finally parallel)
