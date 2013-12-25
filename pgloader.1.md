@@ -80,24 +80,16 @@ order to be able to handle errors should some happen.
 
 When PostgreSQL rejects the whole batch, pgloader logs the error message
 then isolates the bad row(s) from the accepted ones by retrying the batched
-rows in smaller batches. The generic way to do that is using *dichotomy*
-where the rows are split in two batches as evenly as possible. In the case
-of pgloader, as we expect bad data to be a rare event and want to optimize
-finding it as quickly as possible, the rows are split in 5 batches.
+rows in smaller batches. To do that, pgloader parses the *CONTEXT* error
+message from the failed COPY, as the message contains the line number where
+the error was found in the batch, as in the following example:
 
-Each batch of rows is sent again to PostgreSQL until we have an error
-message corresponding to a batch of single row, then we process the row as
-rejected and continue loading the remaining of the batch.
+    CONTEXT: COPY errors, line 3, column b: "2006-13-11"
 
-So the batch sizes are going to be as following:
-
-  - 1 batch of 25000 rows, which fails to load
-  - 5 batches of 5000 rows, one of which fails to load
-  - 5 batches of 1000 rows, one of which fails to load
-  - 5 batches of 200 rows, one of which fails to load
-  - 5 batches of 40 rows, one of which fails to load
-  - 5 batchs of 8 rows, one of which fails to load
-  - 8 batches of 1 row, one of which fails to load
+Using that information, pgloader will reload all rows in the batch before
+the erroneous one, log the erroneous one as rejected, then try loading the
+remaining of the batch in a single attempt, which may or may not contain
+other erroneous data.
 
 At the end of a load containing rejected rows, you will find two files in
 the *root-dir* location, under a directory named the same as the target

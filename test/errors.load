@@ -37,10 +37,10 @@ LOAD CSV
 
 
 
-1|expected error, month 13|2006-13-11|
-2|nov. the 11th should go|2006-11-11|
-3|12th of oct. should go|2006-10-12|
-4|\ |2006-16-4|
-5|month should be may, ok|2006-5-12|
-6|another month 13, stress retry path|2006-13-10|
-7|some null date to play with||
+0|nov. the 11th should go|2006-11-11|
+1|12th of oct. should go|2006-10-12|
+2|expected error, month 13|2006-13-11|
+3|\ |2006-16-4|
+4|month should be may, ok|2006-5-12|
+5|another month 13, stress retry path|2006-13-10|
+6|some null date to play with||
