@@ -108,6 +108,27 @@ containing the full PostgreSQL client side logs about the rejected data.
 The `.dat` file is formated in PostgreSQL the text COPY format as documented
 in [http://www.postgresql.org/docs/9.2/static/sql-copy.html#AEN66609]().
 
+# A NOTE ABOUT PERFORMANCES
+
+pgloader has been developped with performances in mind, to be able to cope
+with ever growing needs in loading large amounts of data into PostgreSQL.
+
+The basic architecture it uses is the old Unix pipe model, where a thread is
+responsible for loading the data (reading a CSV file, querying MySQL, etc)
+and fills pre-processed data into a queue. Another threads feeds from the
+queue, apply some more *transformations* to the input data and stream the
+end result to PostgreSQL using the COPY protocol.
+
+When given a file that the PostgreSQL `COPY` command knows how to parse, and
+if the file contains no erroneous data, then pgloader will never be as fast
+as just using the PostgreSQL `COPY` command.
+
+Note that while the `COPY` command is restricted to read either from its
+standard input or from a local file on the server's file system, the command
+line tool `psql` implements a `\copy` command that knows how to stream a
+file local to the client over the network and into the PostgreSQL server,
+using the same protocol as pgloader uses.
+
 # COMMANDS
 
 pgloader support the following commands:
