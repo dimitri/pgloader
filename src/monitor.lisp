@@ -96,7 +96,9 @@
                       params
                     ;; cl-log:log-message is a macro, we can't use apply
                     ;; here, so we need to break a level of abstraction
-                    (let ((mesg (format nil "~{~}" description arguments)))
+                    (let ((mesg (if arguments
+                                    (format nil "~{~}" description arguments)
+                                    description)))
                      (cl-log:log-message category mesg)))))
 
      until (eq event :stop)))
