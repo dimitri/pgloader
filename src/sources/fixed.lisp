@@ -104,8 +104,7 @@
 		      ;; this function update :rows stats
 		      #'pgloader.pgsql:copy-from-queue dbname table-name dataq
 		      ;; we only are interested into the column names here
-		      :columns (let ((cols (columns fixed)))
-				 (when cols (mapcar #'car cols)))
+		      :columns (mapcar #'car (columns fixed))
 		      :truncate truncate
 		      :transforms (transforms fixed))
 
