@@ -15,7 +15,7 @@ docs:
 	pandoc pgloader.1.md -o pgloader.1
 
 ~/quicklisp/local-projects/Postmodern:
-	git clone -b protocol-error-fields https://github.com/dimitri/Postmodern.git $@
+	git clone https://github.com/marijnh/Postmodern.git $@
 
 ~/quicklisp/local-projects/qmynd:
 	git clone https://github.com/qitab/qmynd.git $@
