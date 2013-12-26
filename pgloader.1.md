@@ -1086,15 +1086,6 @@ the following limitations:
     The other ones should be easy enough to implement now, it's just not
     done yet.
 	
-  - Per-column rather than per-type casting rules are on the roadmap too,
-    just not implemented yet.
-	
-  - Casting Rules with conditions on typemods are implemented in default
-    rules but not exposed in the command grammar yet.
-	
-	Also, included casting rules know how to deal with "extra" definition
-	such as auto_increment, but it's not exposed to the grammar yet.
-	
   - The PostgreSQL `client_encoding` should be set to `UFT8` as pgloader is
     using that setting when asking MySQL for its data.
 
