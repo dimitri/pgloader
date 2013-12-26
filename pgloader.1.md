@@ -1369,6 +1369,16 @@ The provided transformation functions are:
 	    In: "foo,bar"
 	    Out: "{foo,bar}"
 
+  - *right-trimg*
+  
+    Remove whitespaces at end of string.
+    
+  - *byte-vector-to-bytea*
+  
+    Transform a simple array of unsigned bytes to the PostgreSQL bytea Hex
+    Format representation as documented at
+    http://www.postgresql.org/docs/9.3/interactive/datatype-binary.html
+
 ## LOAD MESSAGES
 
 This command is still experimental and allows to receive messages in UDP
