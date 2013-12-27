@@ -1,3 +1,11 @@
+pgloader (3.0.96-1) unstable; urgency=low
+
+  * Release Candidate 6
+  * Document then rework the batch retry behavior.
+  * Various bug fixes, including CCL compatibility.
+  
+ -- Dimitri Fontaine <dimitri@2ndQuadrant.fr>  Fri, 27 Dec 2013 15:11:02 +0400
+
 pgloader (3.0.95-1) unstable; urgency=low
 
   * Release Candidate 5.
