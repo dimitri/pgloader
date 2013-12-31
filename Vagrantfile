@@ -5,10 +5,22 @@
 VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure("2") do |config|
-  config.vm.box = "wheezy64"
 
-  config.vm.provision "shell" do |s|
-    s.path = "bootstrap.sh"
-    s.privileged = false
+  config.vm.define "wheezy" do |wheezy|
+    wheezy.vm.box = "wheezy64"
+
+    config.vm.provision "shell" do |s|
+      s.path = "bootstrap-debian.sh"
+      s.privileged = false
+    end
+  end
+
+  config.vm.define "centos" do |centos|
+    centos.vm.box = "CentOS64"
+
+    config.vm.provision "shell" do |s|
+      s.path = "bootstrap-centos.sh"
+      s.privileged = false
+    end
   end
 end
