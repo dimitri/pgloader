@@ -36,8 +36,8 @@
 	      :components
 	      ((:file "params")
 	       (:file "package" :depends-on ("params"))
-	       (:file "logs"    :depends-on ("params"))
-	       (:file "monitor" :depends-on ("params" "logs"))
+	       (:file "logs"    :depends-on ("package"))
+	       (:file "monitor" :depends-on ("package" "logs"))
 	       (:file "utils"   :depends-on ("package"))
 
 	       ;; those are one-package-per-file
