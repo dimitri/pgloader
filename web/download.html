@@ -1,0 +1,135 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="shortcut icon" href="../../docs-assets/ico/favicon.png">
+
+    <title>pgloader</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="dist/css/bootstrap.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="dist/carousel.css" rel="stylesheet">
+  </head>
+<!-- NAVBAR
+================================================== -->
+  <body>
+    <div class="navbar-wrapper">
+      <div class="container">
+
+        <div class="navbar navbar-inverse navbar-static-top" role="navigation">
+          <div class="container">
+            <div class="navbar-header">
+              <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+              </button>
+              <a class="navbar-brand" href="index.html">pgloader</a>
+            </div>
+            <div class="navbar-collapse collapse">
+              <ul class="nav navbar-nav">
+                <li class="active"><a href="#">Home</a></li>
+                <li><a href="howto/pgloader.1.html">Reference documentation</a></li>
+                <li class="dropdown">
+                  <a href="#" class="dropdown-toggle" data-toggle="dropdown">Data Sources HowTos <b class="caret"></b></a>
+                  <ul class="dropdown-menu">
+                    <li class="dropdown-header">Plain Files</li>
+                    <li><a href="howto/csv.html">CSV</a></li>
+                    <li><a href="howto/fixed.html">Fixed format</a></li>
+                    <li><a href="howto/geolite.html">Geolite</a></li>
+                    <li class="divider"></li>
+                    <li class="dropdown-header">Databases</li>
+                    <li><a href="howto/dBase.html">dBase</a></li>
+                    <li><a href="howto/sqlite.html">SQLite</a></li>
+                    <li><a href="howto/mysql.html">MySQL</a></li>
+                  </ul>
+                </li>
+                <li><a href="download.html">Download</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+
+    <!-- an empty carousel -->
+    <div id="myCarousel" class="carousel slide" data-ride="carousel" style="height: 100px">
+      <div class="carousel-inner" style="height: 100px">
+        <div class="item active" style="height: 100px">
+          <img data-src="holder.js/900x100/auto/#777:#7a7a7a" style="height: 100px">
+          <!-- <div class="container"> -->
+          <!--   <div class="carousel-caption"> -->
+          <!--     <h1>Load data into PostgreSQL. Fast.</h1> -->
+          <!--     <p></p> -->
+          <!--   </div> -->
+          <!-- </div> -->
+        </div>
+      </div>
+    </div><!-- /.carousel -->
+
+    <div class="container">
+      <div class="row">
+        <div class="col-md-2"> </div>
+        <div class="col-md-8">
+          <h1>Download pgloader</h1>
+          <p>
+            You can fetch the source code
+            from <a href="https://github.com/dimitri/">GitHub</a> or fetch a
+            self-contained binary image using the following links:
+          </p>
+          <table class="table">
+            <tr><th>File Type</th><th>URL</th></tr>
+            <tr><td>Sources</td>
+              <td><a href="https://github.com/dimitri/pgloader">https://github.com/dimitri/pgloader</a></td>
+            </tr>
+            <tr><td>debian wheezy, <tt>amd64</tt></td>
+              <td><a href="http://pgsql.tapoueh.org/pgloader/pgloader_3.0.96-1_amd64.deb">pgloader_3.0.96-1_amd64.deb</a></td>
+            </tr>
+            <tr><td>CentOS 6.4, <tt>amd64</tt></td>
+              <td><a href="http://pgsql.tapoueh.org/pgloader/pgloader-3.0.96-21.el6.x86_64.rpm">pgloader-3.0.96-21.el6.x86_64.rpm</a></td>
+            </tr>
+          </table>
+          <p>
+            Those build have been made
+            using <a href="http://sbcl.org/">SBCL</a>, and pgloader is known
+            to also work with <a href="http://ccl.clozure.com/">Clozure
+            Common Lisp</a>.
+          </p>
+          <p>
+            Note that in theory more platforms should be supported out of
+            the box, it's all about setting up the <i>building
+            environment</i> (read <i>virtual machines</i>) and testing the
+            artifacts.
+          </p>
+        </div>
+        <div class="col-md-2"> </div>
+      </div>
+    </div>
+
+      <!-- FOOTER -->
+      <footer>
+        <p class="pull-right"><a href="#">Back to top</a></p>
+        <p>&copy; 2013 Company, Inc. &middot; <a href="#">Privacy</a> &middot; <a href="#">Terms</a></p>
+      </footer>
+
+    </div><!-- /.container -->
+
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
+    <script src="dist/js/bootstrap.min.js"></script>
+    <!-- <script src="docs-assets/js/holder.js"></script> -->
+  </body>
+</html>

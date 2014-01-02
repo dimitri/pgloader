@@ -7,3 +7,10 @@ debian/pgloader.debhelper.log
 debian/pgloader.substvars
 debian/pgloader/
 debian/files
+web/howto/csv.html
+web/howto/dBase.html
+web/howto/fixed.html
+web/howto/geolite.html
+web/howto/mysql.html
+web/howto/pgloader.1.html
+web/howto/sqlite.html

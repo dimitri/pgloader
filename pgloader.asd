@@ -29,6 +29,7 @@
 		 #:py-configparser	; Read old-style INI config files
 		 #:sqlite		; Query a SQLite file
 		 #:trivial-backtrace  	; For --debug cli usage
+                 #:cl-markdown          ; To produce the website
 		 )
     :components
     ((:module "src"
@@ -73,6 +74,12 @@
 
 	       ;; the main entry file, used when building a stand-alone
 	       ;; executable image
-	       (:file "main" :depends-on ("package" "parser" "sources"))))))
+	       (:file "main" :depends-on ("package" "parser" "sources"))))
 
+     ;; to produce the website
+     (:module "web"
+              :components
+              ((:module src
+                        :components
+                        ((:file "docs")))))))
 
