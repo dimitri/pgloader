@@ -1,6 +1,6 @@
 # pgloader build tool
 ASDF_CONFD = ~/.config/common-lisp/source-registry.conf.d
-ASDF_CONF  = $(ASDF_CONFD)/projects.conf
+ASDF_CONF  = $(ASDF_CONFD)/pgloader.conf
 
 LIBS       = build/libs.stamp
 BUILDAPP   = build/buildapp
@@ -37,7 +37,7 @@ quicklisp: ~/quicklisp/setup.lisp ;
 
 $(ASDF_CONF):
 	mkdir -p $(ASDF_CONFD)
-	echo '(:tree "/vagrant")' > $@
+	echo "(:tree \"`pwd`\")" > $@
 
 asdf-config: $(ASDF_CONF) ;
 
@@ -66,6 +66,9 @@ buildapp: $(BUILDAPP) ;
 
 $(PGLOADER): manifest buildapp
 	./build/buildapp --logfile /tmp/build.log                \
+                         --require sb-posix                      \
+                         --require sb-bsd-sockets                \
+                         --require sb-rotate-byte                \
                          --asdf-tree ~/quicklisp/local-projects  \
                          --manifest-file ./build/manifest.ql     \
                          --asdf-tree ~/quicklisp/dists           \
