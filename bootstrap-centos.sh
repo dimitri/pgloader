@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-sudo yum -y install yum-utils @development-tools sbcl sqlite-devel
+sudo yum -y install yum-utils rpmdevtools @development-tools \
+                    sbcl sqlite-devel zlib-devel
 
 # SBCL 1.1.14
 # http://www.mikeivanov.com/post/66510551125/installing-sbcl-1-1-on-rhel-centos-systems
@@ -18,6 +19,9 @@ cd
 
 # remove the old version that we used to compile the newer one.
 sudo yum remove -y sbcl
+
+# prepare the rpmbuild setup
+rpmdev-setuptree
 
 # pgloader
 #make -C /vagrant rpm
