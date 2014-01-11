@@ -21,7 +21,7 @@ docs:
 	git clone https://github.com/qitab/qmynd.git $@
 
 ~/quicklisp/local-projects/cl-csv:
-	git clone -b empty-strings-and-nil https://github.com/dimitri/cl-csv.git $@
+	git clone https://github.com/AccelerationNet/cl-csv.git $@
 
 postmodern: ~/quicklisp/local-projects/Postmodern ;
 qmynd: ~/quicklisp/local-projects/qmynd ;

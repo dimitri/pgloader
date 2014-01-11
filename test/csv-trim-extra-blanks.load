@@ -1,0 +1,20 @@
+LOAD CSV
+    FROM INLINE
+    INTO postgresql:///pgloader?nulls (f1, f2, f3)
+    WITH truncate,
+    	 trim unquoted blanks,
+         fields optionally enclosed by '"',
+         fields escaped by double-quote,
+         fields terminated by ','
+
+  BEFORE LOAD DO
+   $$ drop table if exists nulls; $$,
+   $$ create table if not exists nulls (id serial, f1 text, f2 text, f3 text); $$;
+
+"quoted empty string","","should be empty string"
+"no value between separators",,"should be null"
+"quoted blanks","    ","should be blanks"
+"unquoted blanks",    ,"should be null"
+"unquoted string",no quote,"should be 'no quote'"
+"quoted separator","a,b,c","should be 'a,b,c'"
+"trim extra blanks",  test string  , "should be 'test string'"

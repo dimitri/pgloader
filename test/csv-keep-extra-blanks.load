@@ -17,4 +17,4 @@ LOAD CSV
 "unquoted blanks",    ,"should be null"
 "unquoted string",no quote,"should be 'no quote'"
 "quoted separator","a,b,c","should be 'a,b,c'"
-"keep extra blanks",  test string  , "should be '  test string  '"
+"keep extra blanks",  test string  , "should be an error"

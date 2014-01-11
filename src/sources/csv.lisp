@@ -26,7 +26,7 @@
 	        :initform cl-csv:*quote-escape*)
    (trim-blanks :accessor csv-trim-blanks ; CSV blank and NULLs
 		:initarg :trim-blanks	  ;
-		:initform cl-csv:*trim-blanks*))
+		:initform t))
   (:documentation "pgloader CSV Data Source"))
 
 (defmethod initialize-instance :after ((csv copy-csv) &key)
@@ -98,7 +98,9 @@
 				    :separator (csv-separator csv)
 				    :quote (csv-quote csv)
 				    :escape (csv-escape csv)
-				    :trim-blanks (csv-trim-blanks csv))
+                                    :unquoted-empty-string-is-nil t
+                                    :quoted-empty-string-is-nil nil
+				    :trim-outer-whitespace (csv-trim-blanks csv))
 		 ((or cl-csv:csv-parse-error type-error) (condition)
 		   (progn
 		     (log-message :error "~a" condition)
