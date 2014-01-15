@@ -20,7 +20,7 @@ sudo apt-get install -y postgresql-9.3 postgresql-contrib-9.3 \
                         postgresql-9.3-ip4r                   \
                         sbcl                                  \
                         git patch unzip                       \
-                        devscripts                            \
+                        devscripts pandoc                     \
                         libsqlite3-dev
 
 sudo DEBIAN_FRONTEND=noninteractive \

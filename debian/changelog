@@ -1,3 +1,13 @@
+pgloader (3.0.97-1) unstable; urgency=low
+
+  * Release Candidate 7
+  * Fix log-filename location
+  * Switch to the new cl-csv version
+  * Add a documentation website with tutorials
+  * Fix ASDF dependencies
+
+ -- Dimitri Fontaine <dimitri@2ndQuadrant.fr>  Thu, 15 Jan 2014 01:33:16 +0400
+
 pgloader (3.0.96-1) unstable; urgency=low
 
   * Release Candidate 6

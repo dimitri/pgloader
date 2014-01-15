@@ -2,7 +2,7 @@ Source: pgloader
 Section: database
 Priority: extra
 Maintainer: Dimitri Fontaine <dimitri@2ndQuadrant.fr>
-Build-Depends: debhelper (>= 8.0.0), sbcl (>= 1.1.13)
+Build-Depends: debhelper (>= 8.0.0), sbcl (>= 1.1.13), pandoc
 Standards-Version: 3.9.3
 Homepage: https://github.com/dimitri/pgloader
 Vcs-Git: https://github.com/dimitri/pgloader.git
