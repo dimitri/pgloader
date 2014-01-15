@@ -137,7 +137,7 @@
 	;; Now process the arguments
 	(when arguments
 	  ;; Start the logs system
-	  (let ((*logfile*        (log-file-name logfile))
+	  (let ((*log-filename* (log-file-name logfile))
 		(*log-min-messages*
 		 (log-threshold log-min-messages
 				:quiet quiet :verbose verbose :debug debug))
@@ -147,7 +147,7 @@
 
             (with-monitor ()
               ;; tell the user where to look for interesting things
-              (log-message :log "Main logs in '~a'" *logfile*)
+              (log-message :log "Main logs in '~a'" *log-filename*)
               (log-message :log "Data errors in '~a'~%" *root-dir*)
 
               ;; process the files
