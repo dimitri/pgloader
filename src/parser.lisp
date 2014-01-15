@@ -260,7 +260,7 @@
 		(declare (ignore unix))
     (list :unix (when socket-directory (text socket-directory)))))
 
-(defrule network-name (and namestring (? (and "." network-name)))
+(defrule network-name (and namestring (* (and "." namestring)))
   (:lambda (name)
     (list :host (text name))))
 
