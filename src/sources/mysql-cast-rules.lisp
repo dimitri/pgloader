@@ -57,7 +57,8 @@
     (:source (:type "int" :auto-increment nil :typemod (<= 10 precision))
      :target (:type "bigint"))
 
-    ;; bigint with auto_increment always are bigserial
+    ;; bigint and smallint with auto_increment always are [big]serial
+    (:source (:type "smallint" :auto-increment t) :target (:type "serial"))
     (:source (:type "bigint" :auto-increment t) :target (:type "bigserial"))
 
     ;; actually tinyint(1) is most often used as a boolean
@@ -373,17 +374,20 @@ that would be int and int(7) or varchar and varchar(25)."
 	   ("q"  "char"      "char(5)"   nil "YES" nil)
 	   ("l"  "char"      "char(1)"   nil "YES" nil)
 	   ("m"  "integer"   "integer(4)"    nil "YES" nil)
-	   ("o"  "tinyint"   "tinyint(1)" "0" nil nil))))
+	   ("o"  "tinyint"   "tinyint(1)" "0" nil nil)
+           ("p"  "smallint"  "smallint(5) unsigned" nil "no" "auto_increment"))))
 
     ;;
     ;; format-pgsql-column when given a mysql-column would call `cast' for
     ;; us, but here we want more control over the ouput, so we call it
     ;; ourselves.
     ;;
+    (format t "   ~a~30T~a~65T~a~%" "MySQL ctype" "PostgreSQL type" "transform")
+    (format t "   ~a~30T~a~65T~a~%" "-----------" "---------------" "---------")
     (loop
        for (name dtype ctype nullable default extra) in columns
        for mycol = (make-mysql-column "table" name dtype ctype nullable default extra)
        for pgtype = (cast "table" name dtype ctype nullable default extra)
        for fn = (car (list-transforms (list mycol)))
        do
-	 (format t "~a: ~a~20T~a~45T~:[~;using ~a~]~%" name ctype pgtype fn fn))))
+	 (format t "~a: ~a~30T~a~65T~:[~;using ~a~]~%" name ctype pgtype fn fn))))
