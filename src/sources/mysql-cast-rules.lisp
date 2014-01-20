@@ -294,41 +294,38 @@
   (let* ((typemod        (parse-column-typemod dtype ctype))
 	 (not-null       (string-equal nullable "NO"))
 	 (auto-increment (string= "auto_increment" extra))
-	 (source         (append (list :table-name table-name)
-				 (list :column-name column-name)
-				 (list :type dtype)
-				 (list :ctype ctype)
-				 (when typemod (list :typemod typemod))
-				 (list :default default)
-				 (list :not-null not-null)
-				 (list :auto-increment auto-increment))))
-   (loop
-      for rule in rules
-      for target? = (cast-rule-matches rule source)
-      until target?
-      finally
-	(return
-	  (destructuring-bind (&key target using &allow-other-keys)
-	      target?
-	    (list :transform-fn using
-		  :pgtype (format-pgsql-type source target using)))))))
-
-(defun get-transform-function (dtype ctype default nullable extra)
-  "Apply given RULES and return the tranform function needed for this column"
-  (destructuring-bind (&key transform-fn &allow-other-keys)
-      (apply-casting-rules dtype ctype default nullable extra)
-    transform-fn))
+	 (source        `(:table-name ,table-name
+                                      :column-name ,column-name
+                                      :type ,dtype
+                                      :ctype ,ctype
+                                      ,@(when typemod (list :typemod typemod))
+                                      :default ,default
+                                      :not-null ,not-null
+                                      :auto-increment ,auto-increment)))
+    (let (first-match-using)
+      (loop
+         for rule in rules
+         for (target using) = (destructuring-bind (&key target using)
+                                  (cast-rule-matches rule source)
+                                (list target using))
+         do (when (and (null target) using (null first-match-using))
+              (setf first-match-using using))
+         until target
+         finally
+           (return
+             (list :transform-fn (or first-match-using using)
+                   :pgtype (format-pgsql-type source target using)))))))
 
 (defun cast (table-name column-name dtype ctype default nullable extra)
   "Convert a MySQL datatype to a PostgreSQL datatype.
 
 DYTPE is the MySQL data_type and CTYPE the MySQL column_type, for example
 that would be int and int(7) or varchar and varchar(25)."
-  (destructuring-bind (&key pgtype &allow-other-keys)
+  (destructuring-bind (&key pgtype transform-fn &allow-other-keys)
       (apply-casting-rules dtype ctype default nullable extra
 			   :table-name table-name
 			   :column-name column-name)
-    pgtype))
+    (values pgtype transform-fn)))
 
 (defun list-transforms (columns)
   "Return the list of transformation functions to apply to a given table."
@@ -351,7 +348,11 @@ that would be int and int(7) or varchar and varchar(25)."
 	    :using nil)
 
 	   (:source (:type "char" :typemod (= (car typemod) 1))
-	    :target (:type "char" :drop-typemod nil))))
+	    :target (:type "char" :drop-typemod nil))
+
+           (:source (:column ("table" . "g"))
+            :target nil
+            :using pgloader.transforms::empty-string-to-null)))
 
 	(columns
 	 ;; name dtype       ctype         default nullable extra
@@ -387,7 +388,8 @@ that would be int and int(7) or varchar and varchar(25)."
     (loop
        for (name dtype ctype nullable default extra) in columns
        for mycol = (make-mysql-column "table" name dtype ctype nullable default extra)
-       for pgtype = (cast "table" name dtype ctype nullable default extra)
-       for fn = (car (list-transforms (list mycol)))
+       for (pgtype fn) = (multiple-value-bind (pgcol fn)
+                             (cast "table" name dtype ctype nullable default extra)
+                           (list pgcol fn))
        do
 	 (format t "~a: ~a~30T~a~65T~:[~;using ~a~]~%" name ctype pgtype fn fn))))

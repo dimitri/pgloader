@@ -1009,6 +1009,13 @@ The `database` command accepts the following clauses and options:
 	    be found un the `pgloader.transforms` Common Lisp package. See above
 	    for details.
 
+        It's possible to augment a default cast rule (such as one that
+        applies against `ENUM` data type for example) with a *transformation
+        function* by omitting entirely the `type` parts of the casting rule,
+        as in the following example:
+        
+            column enumerate.foo using empty-string-to-null
+
   - *MATERIALIZE VIEWS*
   
     This clause allows you to implement custom data processing at the data

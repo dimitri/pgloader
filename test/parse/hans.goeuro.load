@@ -12,9 +12,9 @@ LOAD DATABASE
       -- column bools.a to boolean drop typemod using tinyint-to-boolean,
 
       -- override char(1) to varchar(1), just use char(1) here.
-      type char when (= precision 1) to char keep typemod
+      type char when (= precision 1) to char keep typemod,
 
-      -- column enumerate.foo to boolenum using empty-string-to-null
+      column enumerate.foo using empty-string-to-null
 
  MATERIALIZE VIEWS
    d as $$

@@ -20,6 +20,7 @@
 		 ip-range
 		 convert-mysql-point
 		 float-to-string
+                 empty-string-to-null
 		 set-to-enum-array
 		 right-trim
 		 byte-vector-to-bytea))
@@ -139,6 +140,10 @@
 (defun set-to-enum-array (set-string)
   "Transform a MySQL SET value into a PostgreSQL ENUM Array"
   (format nil "{~a}" set-string))
+
+(defun empty-string-to-null (string)
+  "MySQL ENUM sometimes return an empty string rather than a NULL."
+  (if (string= string "") nil string))
 
 (defun right-trim (string)
   "Remove whitespaces at end of STRING."

@@ -718,7 +718,7 @@
 	 for (key value) on target by #'cddr
 	 append (list key (if (eq :type key) (getf source :type) value)))))
 
-(defrule cast-rule (and cast-source cast-def (? cast-function))
+(defrule cast-rule (and cast-source (? cast-def) (? cast-function))
   (:lambda (cast)
     (destructuring-bind (source target function) cast
       (list :source source

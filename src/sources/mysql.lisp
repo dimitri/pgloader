@@ -7,6 +7,12 @@
 (defclass copy-mysql (copy) ()
   (:documentation "pgloader MySQL Data Source"))
 
+(defun cast-mysql-column-definition-to-pgsql (mysql-column)
+  "Return the PostgreSQL column definition from the MySQL one."
+  (with-slots (table-name name dtype ctype default nullable extra)
+      mysql-column
+    (cast table-name name dtype ctype default nullable extra)))
+
 (defmethod initialize-instance :after ((source copy-mysql) &key)
   "Add a default value for transforms in case it's not been provided."
   (let* ((source-db  (slot-value source 'source-db))
@@ -37,8 +43,15 @@
       (unless (slot-boundp source 'fields)
 	(setf (slot-value source 'fields) fields))
 
-      (unless transforms
-	(setf (slot-value source 'transforms) (list-transforms fields))))))
+      (loop for field in fields
+         for (column fn) = (multiple-value-bind (column fn)
+                               (cast-mysql-column-definition-to-pgsql field)
+                             (list column fn))
+         collect column into columns
+         collect fn into fns
+         finally (progn (setf (slot-value source 'columns) columns)
+                        (unless transforms
+                          (setf (slot-value source 'transforms) fns)))))))
 
 
 ;;;
