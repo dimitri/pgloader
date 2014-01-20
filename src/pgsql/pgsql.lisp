@@ -233,15 +233,14 @@ details about the format, and format specs."
 ;;; batching splitting in case of errors.
 ;;;
 ;;;  CONTEXT: COPY errors, line 1, column b: "2006-13-11"
+;;;  CONTEXT: COPY byte, line 1: "hello\0world"
 ;;;
 (defun parse-copy-error-context (context)
   "Given a COPY command CONTEXT error message, return the batch position
    where the error comes from."
-  (let* ((fields   (sq:split-sequence #\, context))
-         (linepart (second fields))
-         (linestr  (second (sq:split-sequence #\Space linepart :start 1))))
-    ;; COPY command counts from 1 where we index our batch from 0
-    (1- (parse-integer linestr))))
+  (cl-ppcre:register-groups-bind ((#'parse-integer n))
+      ("line (\\d+)" context :sharedp t)
+    (1- n)))
 
 ;;;
 ;;; The main retry batch function.
