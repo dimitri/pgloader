@@ -299,9 +299,3 @@
 	(com.informatimago.clext.character-sets charsets)
 	(py-configparser ini))
    do (rename-package package package nicknames))
-
-;;;
-;;; and recompile. Now you can pre-allocate the queue by passing a size to
-;;; MAKE-QUEUE. (You could pass a number before too, but it was ignored.)
-;;;
-(pushnew :lparallel.with-vector-queue *features*)

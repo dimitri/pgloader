@@ -35,31 +35,67 @@
     ((:module "src"
 	      :components
 	      ((:file "params")
+
 	       (:file "package" :depends-on ("params"))
-	       (:file "logs"    :depends-on ("package"))
-	       (:file "monitor" :depends-on ("package" "logs"))
-	       (:file "utils"   :depends-on ("package"))
+
+	       (:file "logs"    :depends-on ("package" "params"))
+
+	       (:file "monitor" :depends-on ("params"
+                                             "package"
+                                             "logs"))
+
+	       (:file "utils"   :depends-on ("params"
+                                             "package"
+                                             "monitor"))
 
 	       ;; those are one-package-per-file
 	       (:file "transforms")
-	       (:file "parser"    :depends-on ("package" "params" "transforms"))
-	       (:file "parse-ini" :depends-on ("package" "params"))
 	       (:file "queue"     :depends-on ("package"))
-	       (:file "archive"   :depends-on ("sources" "pgsql"))
+
+	       (:file "parser"    :depends-on ("package"
+                                               "params"
+                                               "transforms"
+                                               "utils"
+                                               "monitor"
+                                               "pgsql"))
+
+	       (:file "parse-ini" :depends-on ("package"
+                                               "params"
+                                               "utils"))
+
+	       (:file "archive"   :depends-on ("params"
+                                               "package"
+                                               "utils"
+                                               "sources"
+                                               "pgsql"))
 
 	       ;; package pgloader.pgsql
 	       (:module pgsql
-			:depends-on ("package" "params" "queue" "utils")
+			:depends-on ("package"
+                                     "params"
+                                     "queue"
+                                     "utils"
+                                     "logs"
+                                     "monitor")
 			:components
 			((:file "copy-format")
 			 (:file "queries")
 			 (:file "schema")
 			 (:file "pgsql"
-				:depends-on ("copy-format" "queries" "schema"))))
+				:depends-on ("copy-format"
+                                             "queries"
+                                             "schema"))))
 
 	       ;; Source format specific implementations
 	       (:module sources
-			:depends-on ("package" "pgsql" "utils" "queue" "transforms")
+			:depends-on ("params"
+                                     "package"
+                                     "pgsql"
+                                     "utils"
+                                     "logs"
+                                     "monitor"
+                                     "queue"
+                                     "transforms")
 			:components
 			((:file "sources")
 			 (:file "csv"     :depends-on ("sources"))
@@ -74,7 +110,12 @@
 
 	       ;; the main entry file, used when building a stand-alone
 	       ;; executable image
-	       (:file "main" :depends-on ("package" "parser" "sources"))))
+	       (:file "main" :depends-on ("params"
+                                          "package"
+                                          "monitor"
+                                          "utils"
+                                          "parser"
+                                          "sources"))))
 
      ;; to produce the website
      (:module "web"
