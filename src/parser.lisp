@@ -1855,7 +1855,10 @@ load database
 		 (process-relative-pathnames filename s-exp)
 		 s-exp)))
 
-(defun parse-commands-from-file (filename)
+(defun parse-commands-from-file (maybe-relative-filename
+                                 &aux (filename
+                                       ;; we want a truename here
+                                       (probe-file maybe-relative-filename)))
   "The command could be using from :inline, in which case we want to parse
    as much as possible then use the command against an already opened stream
    where we moved at the beginning of the data."
