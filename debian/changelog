@@ -1,3 +1,11 @@
+pgloader (3.0.98-1) unstable; urgency=low
+
+  * Release Candidate 8
+  * Fixes retry behavior
+  * Assorted fixes
+
+ -- Dimitri Fontaine <dimitri@2ndQuadrant.fr>  Thu, 23 Jan 2014 03:19:07 +0400
+
 pgloader (3.0.97-1) unstable; urgency=low
 
   * Release Candidate 7

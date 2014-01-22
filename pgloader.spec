@@ -1,6 +1,6 @@
 Summary:            extract, transform and load data into PostgreSQL
 Name:               pgloader
-Version:            3.0.97
+Version:            3.0.98
 Release:            21%{?dist}
 License:            The PostgreSQL Licence
 Group:              System Environment/Base
@@ -37,6 +37,8 @@ cp build/pgloader.exe %{buildroot}/%{_bindir}/pgloader
 %{_bindir}/*
 
 %changelog
+* Thu Dec 23 2014 Dimitri Fontaine <dimitri@2ndQuadrant.fr> 3.0.98
+- Assorted fixes, release candidate 8
 * Wed Dec 15 2014 Dimitri Fontaine <dimitri@2ndQuadrant.fr> 3.0.97
 - Assorted fixes, release candidate 7
 * Tue Dec 31 2013 Dimitri Fontaine <dimitri@2ndQuadrant.fr> 3.0.96

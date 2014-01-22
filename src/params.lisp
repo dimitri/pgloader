@@ -32,7 +32,7 @@
 
 (in-package :pgloader.params)
 
-(defparameter *version-string* "3.0.97"
+(defparameter *version-string* "3.0.98"
   "pgloader version strings, following Emacs versionning model.")
 
 ;; we can't use pgloader.utils:make-pgstate yet because params is compiled
