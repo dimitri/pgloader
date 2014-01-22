@@ -174,11 +174,12 @@
       (:stdin    *standard-input*)
       (:regex    (destructuring-bind (keep regex) part
 		   (filter-directory regex :keep keep :root root)))
-      (:filename (let ((filename
-			(if (fad:pathname-absolute-p part) part
-			    (merge-pathnames part root))))
-		   (if (probe-file filename) filename
-		       (error "File does not exists: '~a'." filename)))))))
+      (:filename (let* ((filename (first part))
+                        (realname
+                         (if (fad:pathname-absolute-p filename) filename
+                             (merge-pathnames filename root))))
+		   (if (probe-file realname) realname
+		       (error "File does not exists: '~a'." realname)))))))
 
 
 ;;;
