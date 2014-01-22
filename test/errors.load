@@ -44,3 +44,5 @@ LOAD CSV
 4|month should be may, ok|2006-5-12|
 5|another month 13, stress retry path|2006-13-10|
 6|some null date to play with||
+7|and another line|2014-01-22|
+

@@ -126,12 +126,12 @@ details about the format, and format specs."
     (loop
        for retval =
 	 (let* ((*batch-rows* 0))
+           (log-message :debug "pgsql:copy-from-queue: new batch")
 	   (handler-case
 	       (with-pgsql-transaction (:dbname dbname :database pomo:*database*)
 		 (let* ((copier (cl-postgres:open-db-writer pomo:*database*
 							    table-name
 							    columns)))
-		   (log-message :debug "pgsql:copy-from-queue: new batch")
 		   (unwind-protect
 			(let ((process-row-fn
 			       (make-copy-and-batch-fn copier
@@ -139,15 +139,14 @@ details about the format, and format specs."
 			  (catch 'next-batch
 			    (pgloader.queue:map-pop-queue dataq process-row-fn)))
 
-		     (log-message :debug "pgsql:copy-from-queue: batch done")
 		     (cl-postgres:close-db-writer copier))))
 
 	     ;; in case of data-exception, split the batch and try again
 	     ((or
 	       CL-POSTGRES-ERROR:UNIQUE-VIOLATION
 	       CL-POSTGRES-ERROR:DATA-EXCEPTION) (condition)
-	      (retry-batch dbname table-name columns
-			   *batch* *batch-rows* condition))))
+	      (retry-batch table-name columns *batch* *batch-rows* condition)))
+           (log-message :debug "pgsql:copy-from-queue: batch done"))
 
        ;; fetch how many rows we just pushed through, update stats
        for rows = (if (consp retval) (cdr retval) retval)
@@ -245,10 +244,12 @@ details about the format, and format specs."
 ;;;
 ;;; The main retry batch function.
 ;;;
-(defun retry-batch (dbname table-name columns batch batch-rows condition
+(defun retry-batch (table-name columns batch batch-rows condition
                     &optional (current-batch-pos 0))
   "Batch is a list of rows containing at least one bad row, the first such
    row is known to be located at FIRST-ERROR index in the BATCH array."
+
+  (log-message :info "Entering error recovery.")
 
   (loop
      :with next-error = (parse-copy-error-context
@@ -266,32 +267,40 @@ details about the format, and format specs."
 
        (let* ((current-batch-rows
                (next-batch-rows batch-rows current-batch-pos next-error)))
-         (handler-case
-             (with-pgsql-transaction (:dbname dbname :database pomo:*database*)
-               (let* ((stream
-                       (cl-postgres:open-db-writer pomo:*database*
-                                                   table-name columns)))
+         (when (< 0 current-batch-rows)
+          (handler-case
+              (with-pgsql-transaction (:database pomo:*database*)
+                (let* ((stream
+                        (cl-postgres:open-db-writer pomo:*database*
+                                                    table-name columns)))
 
-                 (log-message :info "error recovery at ~d/~d, trying ~d row~:p"
-                              current-batch-pos batch-rows current-batch-rows)
+                  (if (< current-batch-pos next-error)
+                      (log-message :info
+                                   "error recovery at ~d/~d, next error at ~d, loading ~d row~:p"
+                                   current-batch-pos batch-rows next-error current-batch-rows)
+                      (log-message :info
+                                   "error recovery at ~d/~d, trying ~d row~:p"
+                                   current-batch-pos batch-rows current-batch-rows))
 
-                 (unwind-protect
-                      (loop :repeat current-batch-rows
-                         :for pos :from current-batch-pos
-                         :do (cl-postgres:db-write-row stream nil (aref batch pos)))
+                  (unwind-protect
+                       (loop :repeat current-batch-rows
+                          :for pos :from current-batch-pos
+                          :do (cl-postgres:db-write-row stream nil (aref batch pos)))
 
-                   ;; close-db-writer is the one signaling cl-postgres-errors
-                   (cl-postgres:close-db-writer stream)
-                   (incf current-batch-pos current-batch-rows))))
+                    ;; close-db-writer is the one signaling cl-postgres-errors
+                    (cl-postgres:close-db-writer stream)
+                    (incf current-batch-pos current-batch-rows))))
 
-           ;; the batch didn't make it, prepare error handling for next turn
-           ((or
-             CL-POSTGRES-ERROR:UNIQUE-VIOLATION
-             CL-POSTGRES-ERROR:DATA-EXCEPTION) (next-error-in-batch)
+            ;; the batch didn't make it, prepare error handling for next turn
+            ((or
+              CL-POSTGRES-ERROR:UNIQUE-VIOLATION
+              CL-POSTGRES-ERROR:DATA-EXCEPTION) (next-error-in-batch)
 
-             (setf condition next-error-in-batch
+              (setf condition next-error-in-batch
 
-                   next-error
-                   (+ current-batch-pos
-                      (parse-copy-error-context
-                       (cl-postgres::database-error-context condition))))))))))
+                    next-error
+                    (+ current-batch-pos
+                       (parse-copy-error-context
+                        (cl-postgres::database-error-context condition))))))))))
+
+  (log-message :info "Recovery done."))
