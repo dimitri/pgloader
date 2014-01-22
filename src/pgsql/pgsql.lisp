@@ -128,30 +128,30 @@ details about the format, and format specs."
 	 (let* ((*batch-rows* 0))
            (log-message :debug "pgsql:copy-from-queue: new batch")
 	   (handler-case
-	       (with-pgsql-transaction (:dbname dbname :database pomo:*database*)
-		 (let* ((copier (cl-postgres:open-db-writer pomo:*database*
-							    table-name
-							    columns)))
-		   (unwind-protect
-			(let ((process-row-fn
-			       (make-copy-and-batch-fn copier
+               (with-pgsql-transaction (:dbname dbname :database pomo:*database*)
+                 (let* ((copier (cl-postgres:open-db-writer pomo:*database*
+                                                            table-name
+                                                            columns)))
+                   (unwind-protect
+                        (let ((process-row-fn
+                               (make-copy-and-batch-fn copier
                                                        :transforms transforms)))
-			  (catch 'next-batch
-			    (pgloader.queue:map-pop-queue dataq process-row-fn)))
+                          (catch 'next-batch
+                            (pgloader.queue:map-pop-queue dataq process-row-fn)))
+                     (cl-postgres:close-db-writer copier))))
 
-		     (cl-postgres:close-db-writer copier))))
-
-	     ;; in case of data-exception, split the batch and try again
-	     ((or
-	       CL-POSTGRES-ERROR:UNIQUE-VIOLATION
-	       CL-POSTGRES-ERROR:DATA-EXCEPTION) (condition)
-	      (retry-batch table-name columns *batch* *batch-rows* condition)))
-           (log-message :debug "pgsql:copy-from-queue: batch done"))
+             ;; in case of data-exception, split the batch and try again
+             ((or
+               CL-POSTGRES-ERROR:UNIQUE-VIOLATION
+               CL-POSTGRES-ERROR:DATA-EXCEPTION) (condition)
+               (retry-batch table-name columns *batch* *batch-rows* condition))))
 
        ;; fetch how many rows we just pushed through, update stats
        for rows = (if (consp retval) (cdr retval) retval)
        for cont = (and (consp retval) (eq (car retval) :continue))
-       do (pgstate-incf *state* table-name :rows rows)
+       do (progn
+            (log-message :debug "pgsql:copy-from-queue: batch done")
+            (pgstate-incf *state* table-name :rows rows))
        while cont)))
 
 ;;;
@@ -245,7 +245,8 @@ details about the format, and format specs."
 ;;; The main retry batch function.
 ;;;
 (defun retry-batch (table-name columns batch batch-rows condition
-                    &optional (current-batch-pos 0))
+                    &optional (current-batch-pos 0)
+                    &aux (nb-errors 0))
   "Batch is a list of rows containing at least one bad row, the first such
    row is known to be located at FIRST-ERROR index in the BATCH array."
 
@@ -261,9 +262,10 @@ details about the format, and format specs."
      (progn                             ; indenting helper
        (when (= current-batch-pos next-error)
          (log-message :info "error recovery at ~d/~d, processing bad row"
-                      next-error batch-rows)
+                      (+ 1 next-error) batch-rows)
          (process-bad-row table-name condition (aref batch current-batch-pos))
-         (incf current-batch-pos))
+         (incf current-batch-pos)
+         (incf nb-errors))
 
        (let* ((current-batch-rows
                (next-batch-rows batch-rows current-batch-pos next-error)))
@@ -277,7 +279,7 @@ details about the format, and format specs."
                   (if (< current-batch-pos next-error)
                       (log-message :info
                                    "error recovery at ~d/~d, next error at ~d, loading ~d row~:p"
-                                   current-batch-pos batch-rows next-error current-batch-rows)
+                                   current-batch-pos batch-rows (+ 1 next-error) current-batch-rows)
                       (log-message :info
                                    "error recovery at ~d/~d, trying ~d row~:p"
                                    current-batch-pos batch-rows current-batch-rows))
@@ -303,4 +305,7 @@ details about the format, and format specs."
                        (parse-copy-error-context
                         (cl-postgres::database-error-context condition))))))))))
 
-  (log-message :info "Recovery done."))
+  (log-message :info "Recovery done.")
+
+  ;; Implement the batch processing protocol
+  (cons :continue (- batch-rows nb-errors)))

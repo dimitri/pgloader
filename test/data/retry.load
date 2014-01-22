@@ -1,0 +1,5 @@
+LOAD DATABASE
+     FROM      mysql://root@localhost:3306/retry
+     INTO postgresql:///retry
+
+ WITH include drop, create tables, create indexes, reset sequences, truncate;
