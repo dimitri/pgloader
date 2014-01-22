@@ -66,46 +66,40 @@ details about the format, and format specs."
 ;;; Pop data from a lparallel.queue queue instance, reformat it assuming
 ;;; data in there are from cl-mysql, and copy it to a PostgreSQL table.
 ;;;
-;;; First prepare the streaming function that batches the rows so that we
-;;; are able to process them in case of errors.
+(defun copy-batch (table-name columns transforms dataq
+                    &key (db pomo:*database*))
+  "Copy a batch of data from DATAQ into TABLE-NAME."
+  (let ((batch  (make-array *copy-batch-rows* :element-type 'list))
+        (count  0))
+    (handler-case
+        (with-pgsql-transaction (:dbname dbname :database db)
+          ;; We need to keep a copy of the rows we send through the COPY
+          ;; protocol to PostgreSQL to be able to process them again in case
+          ;; of a data error being signaled, that's the BATCH here.
+          (let ((copier (cl-postgres:open-db-writer db table-name columns)))
+            (unwind-protect
+                 (loop for i below *copy-batch-rows*
+                    for row = (lq:pop-queue dataq)
+                    until (eq row :end-of-data)
+                    for data = (with-output-to-string (s)
+                                 (format-vector-row s row :transforms transforms))
+                    do (progn
+                         (incf count)
+                         (setf (aref batch i) data)
+                         (cl-postgres:db-write-row copier nil data))
+                    finally (return count))
+              (cl-postgres:close-db-writer copier))))
+
+      ;; If PostgreSQL signals a data error, process the batch by isolating
+      ;; erroneous data away and retrying the rest.
+      ((or
+        CL-POSTGRES-ERROR:UNIQUE-VIOLATION
+        CL-POSTGRES-ERROR:DATA-EXCEPTION) (condition)
+        (retry-batch table-name columns batch count condition)))))
+
 ;;;
-(declaim (type (or null simple-array) *batch*))
-(declaim (type fixnum *batch-rows*))
-
-(defvar *batch* nil "Current batch of rows being processed.")
-(defvar *batch-rows* 0 "How many rows are to be found in current *batch*.")
-
-(defun make-copy-and-batch-fn (stream &key transforms)
-  "Returns a function of one argument, ROW.
-
-   When called, the function returned reformats the row, adds it into the
-   PostgreSQL COPY STREAM, and push it to BATCH (a list). When batch's size
-   is up to *copy-batch-size*, throw the 'next-batch tag with its current
-   size."
-  (lambda (row)
-    (let ((data (with-output-to-string (s)
-                  (format-vector-row s row :transforms transforms))))
-      (declare (type simple-string data)
-               (type simple-array *batch*))
-
-      ;; maintain the current batch
-      (setf (aref *batch* *batch-rows*) data)
-      (incf *batch-rows*)
-
-      ;; send the formated row in the PostgreSQL COPY stream
-      (cl-postgres:db-write-row stream nil data)
-
-      ;; return control in between batches
-      (when (= *batch-rows* *copy-batch-rows*)
-	(throw 'next-batch (cons :continue *batch-rows*))))))
-
-;;; The idea is to stream the queue content directly into the
-;;; PostgreSQL COPY protocol stream, but COMMIT every
-;;; *copy-batch-rows* rows.
+;;; Copy data from queue, a batch at a time.
 ;;;
-;;; That allows to have to recover from a buffer of data only rather
-;;; than restart from scratch each time we have to find which row
-;;; contains erroneous data. BATCH is that buffer.
 (defun copy-from-queue (dbname table-name dataq
 			&key
 			  columns
@@ -119,63 +113,25 @@ details about the format, and format specs."
 
   (log-message :debug "pgsql:copy-from-queue: ~a ~a" table-name columns)
 
-  ;; Prepare an array we're going to reuse for all batches in the queue.
-  (setf *batch* (make-array *copy-batch-rows* :element-type 'list))
-
   (with-pgsql-connection (dbname)
     (loop
-       for retval =
-	 (let* ((*batch-rows* 0))
-           (log-message :debug "pgsql:copy-from-queue: new batch")
-	   (handler-case
-               (with-pgsql-transaction (:dbname dbname :database pomo:*database*)
-                 (let* ((copier (cl-postgres:open-db-writer pomo:*database*
-                                                            table-name
-                                                            columns)))
-                   (unwind-protect
-                        (let ((process-row-fn
-                               (make-copy-and-batch-fn copier
-                                                       :transforms transforms)))
-                          (catch 'next-batch
-                            (pgloader.queue:map-pop-queue dataq process-row-fn)))
-                     (cl-postgres:close-db-writer copier))))
-
-             ;; in case of data-exception, split the batch and try again
-             ((or
-               CL-POSTGRES-ERROR:UNIQUE-VIOLATION
-               CL-POSTGRES-ERROR:DATA-EXCEPTION) (condition)
-               (retry-batch table-name columns *batch* *batch-rows* condition))))
-
-       ;; fetch how many rows we just pushed through, update stats
-       for rows = (if (consp retval) (cdr retval) retval)
-       for cont = (and (consp retval) (eq (car retval) :continue))
+       for rows = (copy-batch table-name columns transforms dataq)
        do (progn
-            (log-message :debug "pgsql:copy-from-queue: batch done")
+            (when (< 0 rows)
+              (log-message :debug "copy-batch ~a ~d row~:p" table-name rows))
             (pgstate-incf *state* table-name :rows rows))
-       while cont)))
+       until (lq:queue-empty-p dataq))))
 
 ;;;
 ;;; When a batch has been refused by PostgreSQL with a data-exception, that
-;;; means it contains non-conforming data. It could be only one row in the
-;;; middle of the *copy-batch-size* rows.
-;;;
-;;; The general principle to filter out the bad row(s) is to split the batch
-;;; in smaller ones, and try to COPY all of the smaller ones again,
-;;; recursively. When the batch is containing only one row, we know that one
-;;; is non conforming to PostgreSQL expectations (usually, data type input
-;;; does not match, e.g. text is not proper utf-8).
-;;;
-;;; As we often need to split out a single bad row out of a full batch, we
-;;; don't do the classical dichotomy but rather split the batch directly in
-;;; lots of smaller ones.
-;;;
-;;;   split 1000 rows in 10 batches of 100 rows
-;;;   split  352 rows in 3 batches of 100 rows + 1 batch of 52 rows
+;;; means it contains non-conforming data. Log the error message in a log
+;;; file and the erroneous data in a rejected data file for further
+;;; processing.
 ;;;
 (defun process-bad-row (table-name condition row)
   "Add the row to the reject file, in PostgreSQL COPY TEXT format"
   ;; first, update the stats.
-  (pgstate-incf *state* table-name :errs 1 :rows -1)
+  (pgstate-incf *state* table-name :errs 1)
 
   ;; now, the bad row processing
   (let* ((table (pgstate-get-table *state* table-name))
@@ -201,8 +157,9 @@ details about the format, and format specs."
       (format reject-logs-file "~a~%" condition))))
 
 ;;;
-;;; Compute the next batch size in rows, must be smaller than the previous
-;;; one or just one row to ensure the retry-batch recursion is not infinite.
+;;; Compute how many rows we're going to try loading next, depending on
+;;; where we are in the batch currently and where is the next-error to be
+;;; seen, if that's between current position and the end of the batch.
 ;;;
 (defun next-batch-rows (batch-rows current-batch-pos next-error)
   "How many rows should we process in next iteration?"
@@ -305,7 +262,7 @@ details about the format, and format specs."
                        (parse-copy-error-context
                         (cl-postgres::database-error-context condition))))))))))
 
-  (log-message :info "Recovery done.")
+  (log-message :info "Recovery found ~d errors in ~d row~:p" nb-errors batch-rows)
 
-  ;; Implement the batch processing protocol
-  (cons :continue (- batch-rows nb-errors)))
+  ;; Return how many rows we did load, for statistics purposes
+  (- batch-rows nb-errors))
