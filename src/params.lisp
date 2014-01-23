@@ -13,7 +13,6 @@
 	   #:*log-min-messages*
 	   #:*copy-batch-rows*
 	   #:*copy-batch-size*
-	   #:*copy-batch-split*
 	   #:*pgconn-host*
 	   #:*pgconn-port*
 	   #:*pgconn-user*
@@ -57,11 +56,8 @@
 ;;;
 ;;; How to split batches in case of data loading errors.
 ;;;
-(defparameter *copy-batch-rows* 25000
+(defparameter *copy-batch-rows* 2500
   "How many rows to batch per COPY transaction")
-
-(defparameter *copy-batch-split* 5
-  "Number of batches in which to split a batch with bad data")
 
 ;;;
 ;;; We need that to setup our default connection parameters
