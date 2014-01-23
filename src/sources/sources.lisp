@@ -263,8 +263,8 @@
 					     ,(field-name-as-symbol name))))))
 		 `(lambda (row)
 		    (declare (optimize speed) (type list row))
-		    (destructuring-bind (&optional ,@args) row
-		      (declare (ignorable ,@args))
+		    (destructuring-bind (&optional ,@args &rest extra) row
+		      (declare (ignorable ,@args) (ignore extra))
 		      (vector ,@newrow))))))))
       ;; allow for some debugging
       (if compile (compile nil projection) projection))))

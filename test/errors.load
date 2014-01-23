@@ -45,5 +45,6 @@ LOAD CSV
 5|another month 13, stress retry path|2006-13-10|
 6|some null date to play with||
 7|and a ragged line|
-8|and another line|2014-01-22|
+8|and a line with extra columns|2014-01-23|hello|there|
+9|and another line|2014-01-22|
 
