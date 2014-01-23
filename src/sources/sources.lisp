@@ -263,7 +263,7 @@
 					     ,(field-name-as-symbol name))))))
 		 `(lambda (row)
 		    (declare (optimize speed) (type list row))
-		    (destructuring-bind (,@args) row
+		    (destructuring-bind (&optional ,@args) row
 		      (declare (ignorable ,@args))
 		      (vector ,@newrow))))))))
       ;; allow for some debugging
