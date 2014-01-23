@@ -165,9 +165,10 @@
                              #'(lambda (condition)
                                  (log-message :fatal "We have a situation here.")
                                  (print-backtrace condition debug *standard-output*))))
-
-                         (run-commands (fad:canonical-pathname filename)
-                                       :start-logger nil)
+                         (let ((truename (probe-file filename)))
+                           (if truename
+                               (run-commands truename :start-logger nil)
+                               (log-message :error "Can not find file: ~s" filename)))
                          (format t "~&"))
 
                      (condition (c)

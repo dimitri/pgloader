@@ -1862,7 +1862,9 @@ load database
   "The command could be using from :inline, in which case we want to parse
    as much as possible then use the command against an already opened stream
    where we moved at the beginning of the data."
-  (log-message :log "Parsing commands from file ~s~%" filename)
+  (if filename
+      (log-message :log "Parsing commands from file ~s~%" filename)
+      (error "Can not find file: ~s" maybe-relative-filename))
 
   (process-relative-pathnames
    filename
