@@ -56,7 +56,7 @@
 ;;;
 ;;; How to split batches in case of data loading errors.
 ;;;
-(defparameter *copy-batch-rows* 2500
+(defparameter *copy-batch-rows* 25000
   "How many rows to batch per COPY transaction")
 
 ;;;
