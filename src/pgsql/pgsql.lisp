@@ -93,7 +93,7 @@ details about the format, and format specs."
       ;; If PostgreSQL signals a data error, process the batch by isolating
       ;; erroneous data away and retrying the rest.
       ((or
-        CL-POSTGRES-ERROR:UNIQUE-VIOLATION
+        CL-POSTGRES-ERROR:INTEGRITY-VIOLATION
         CL-POSTGRES-ERROR:DATA-EXCEPTION) (condition)
         (retry-batch table-name columns batch count condition)))))
 
