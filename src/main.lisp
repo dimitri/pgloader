@@ -108,8 +108,12 @@
 
 	;; First care about the root directory where pgloader is supposed to
 	;; output its data logs and reject files
-	(setf *root-dir* (fad:pathname-as-directory root-dir))
-	(mkdir-or-die *root-dir* debug)
+        (let ((root-dir-truename (probe-file root-dir)))
+          (if root-dir-truename
+              (progn
+                (setf *root-dir* (fad:pathname-as-directory root-dir-truename))
+                (mkdir-or-die *root-dir* debug))
+              (format t "FATAL: can't find root-dir: ~s~%" root-dir)))
 
 	;; Set parameters that come from the environement
 	(init-params-from-environment)
