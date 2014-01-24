@@ -277,14 +277,20 @@
   (let ((projection (project-fields :fields fields :columns columns)))
     (lambda (row)
       (pgstate-incf *state* target :read 1)
-      (let ((projected-vector
-	     (handler-case
-		 (funcall projection row)
-	       (condition (e)
-		 (pgstate-incf *state* target :errs 1)
-		 (log-message :error "Could not read line ~d: ~a"
-			      (pgloader.utils::pgtable-read
-			       (pgstate-get-table *state* target))
-			      e)))))
-	(when projected-vector
-	  (funcall process-row-fn projected-vector))))))
+      ;; cl-csv returns (nil) for an empty line
+      (if (or (null row)
+              (and (null (car row)) (null (cdr row))))
+          (log-message :notice "Skipping empty line ~d."
+                       (pgloader.utils::pgtable-read
+                        (pgstate-get-table *state* target)))
+          (let ((projected-vector
+                 (handler-case
+                     (funcall projection row)
+                   (condition (e)
+                     (pgstate-incf *state* target :errs 1)
+                     (log-message :error "Could not read line ~d: ~a"
+                                  (pgloader.utils::pgtable-read
+                                   (pgstate-get-table *state* target))
+                                  e)))))
+            (when projected-vector
+              (funcall process-row-fn projected-vector)))))))
