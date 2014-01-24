@@ -125,8 +125,7 @@
 	  (format t "pgloader version ~s~%" *version-string*))
 
 	(when help
-	  (format t "~a [ option ... ] command-file ..." (first argv))
-	  (command-line-arguments:show-option-help *opt-spec*))
+          (usage argv))
 
 	(when (or help version) (uiop:quit))
 
