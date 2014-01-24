@@ -83,11 +83,22 @@
 	(t
 	 logfile)))
 
+(defun usage (argv &key quit)
+  "Show usage then QUIT if asked to."
+  (format t "~a [ option ... ] command-file ..." (first argv))
+  (command-line-arguments:show-option-help *opt-spec*)
+  (when quit (uiop:quit)))
+
 (defun main (argv)
   "Entry point when building an executable image with buildapp"
   (let ((args (rest argv)))
     (multiple-value-bind (options arguments)
-	(command-line-arguments:process-command-line-options *opt-spec* args)
+	(handler-case
+            (command-line-arguments:process-command-line-options *opt-spec* args)
+          (condition (e)
+            ;; print out the usage, whatever happens here
+            (declare (ignore e))
+            (usage argv :quit t)))
 
       (destructuring-bind (&key help version quiet verbose debug logfile
 				list-encodings upgrade-config load
