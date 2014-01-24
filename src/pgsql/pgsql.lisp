@@ -252,7 +252,7 @@ details about the format, and format specs."
 
             ;; the batch didn't make it, prepare error handling for next turn
             ((or
-              CL-POSTGRES-ERROR:UNIQUE-VIOLATION
+              CL-POSTGRES-ERROR:INTEGRITY-VIOLATION
               CL-POSTGRES-ERROR:DATA-EXCEPTION) (next-error-in-batch)
 
               (setf condition next-error-in-batch
