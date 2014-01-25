@@ -306,21 +306,23 @@
       collect (char-downcase char))
    'string))
 
+
 ;;;
-;;; lparallel
+;;; For communication purposes, the lparallel kernel must be created with
+;;; access to some common bindings.
 ;;;
 (defun make-kernel (worker-count
 		    &key (bindings
-			  `((*monitoring-queue* . ,*monitoring-queue*)
-                            (*pgconn-host*      . ,*pgconn-host*)
-			    (*pgconn-port*      . ,*pgconn-port*)
-			    (*pgconn-user*      . ,*pgconn-user*)
-			    (*pgconn-pass*      . ,*pgconn-pass*)
-			    (*pg-settings*      . ',*pg-settings*)
-			    (*myconn-host*      . ,*myconn-host*)
-			    (*myconn-port*      . ,*myconn-port*)
-			    (*myconn-user*      . ,*myconn-user*)
-			    (*myconn-pass*      . ,*myconn-pass*)
-			    (*state*            . ,*state*))))
+			  `((*monitoring-queue*  . ,*monitoring-queue*)
+                            (*pgconn-host*       . ,*pgconn-host*)
+			    (*pgconn-port*       . ,*pgconn-port*)
+			    (*pgconn-user*       . ,*pgconn-user*)
+			    (*pgconn-pass*       . ,*pgconn-pass*)
+			    (*pg-settings*       . ',*pg-settings*)
+			    (*myconn-host*       . ,*myconn-host*)
+			    (*myconn-port*       . ,*myconn-port*)
+			    (*myconn-user*       . ,*myconn-user*)
+			    (*myconn-pass*       . ,*myconn-pass*)
+			    (*state*             . ,*state*))))
   "Wrapper around lparallel:make-kernel that sets our usual bindings."
   (lp:make-kernel worker-count :bindings bindings))
