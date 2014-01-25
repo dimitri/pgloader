@@ -59,7 +59,7 @@
 	 ;; add a data queue to each scanner
 	 (scanners    (loop
 			 for scanner in scanners
-			 for dataq = (lq:make-queue :fixed-capacity 4096)
+			 for dataq = (lq:make-queue)
 			 collect `(,@scanner :queue ,dataq))))
 
     ;; listen to syslog messages and match them against the scanners

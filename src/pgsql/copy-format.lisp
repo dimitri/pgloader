@@ -4,6 +4,66 @@
 (in-package :pgloader.pgsql)
 
 ;;;
+;;; Format row to PostgreSQL COPY format, the TEXT variant.
+;;;
+;;; That function or something equivalent is provided by default in
+;;; cl-postgres, but we want to avoid having to compute its result more than
+;;; once in case of a rejected batch. Also, we're using vectors as input to
+;;; minimize data copying in certain cases, and we want to avoid a coerce
+;;; call here.
+;;;
+(defun format-vector-row (stream row
+                          &optional (transforms (loop for c across row collect nil)))
+  "Add a ROW in the STREAM, formating ROW in PostgreSQL COPY TEXT format.
+
+See http://www.postgresql.org/docs/9.2/static/sql-copy.html#AEN66609 for
+details about the format, and format specs."
+  (declare (type simple-array row))
+  (let* (*print-circle* *print-pretty*)
+    (loop
+       with nbcols = (length row)
+       for col across row
+       for i from 1
+       for more? = (< i nbcols)
+       for fn in transforms
+       for preprocessed-col = (if fn (funcall fn col) col)
+       do
+         (if (or (null preprocessed-col)
+                 ;; still accept postmodern :NULL in "preprocessed" data
+                 (eq :NULL preprocessed-col))
+             (progn
+               ;; NULL is expected as \N, two chars
+               (write-char #\\ stream) (write-char #\N stream))
+             (loop
+                ;; From PostgreSQL docs:
+                ;;
+                ;; In particular, the following characters must be preceded
+                ;; by a backslash if they appear as part of a column value:
+                ;; backslash itself, newline, carriage return, and the
+                ;; current delimiter character.
+                for byte across (cl-postgres-trivial-utf-8:string-to-utf-8-bytes preprocessed-col)
+                do (case (code-char byte)
+                     (#\\         (progn (write-char #\\ stream)
+                                         (write-char #\\ stream)))
+                     (#\Space     (write-char #\Space stream))
+                     (#\Newline   (progn (write-char #\\ stream)
+                                         (write-char #\n stream)))
+                     (#\Return    (progn (write-char #\\ stream)
+                                         (write-char #\r stream)))
+                     (#\Tab       (progn (write-char #\\ stream)
+                                         (write-char #\t stream)))
+                     (#\Backspace (progn (write-char #\\ stream)
+                                         (write-char #\b stream)))
+                     (#\Page      (progn (write-char #\\ stream)
+                                         (write-char #\f stream)))
+                     (t           (if (< 32 byte 127)
+                                      (write-char (code-char byte) stream)
+                                      (princ (format nil "\\~o" byte) stream))))))
+       when more? do (write-char #\Tab stream)
+       finally       (write-char #\Newline stream))))
+
+
+;;;
 ;;; Read a file format in PostgreSQL COPY TEXT format, and call given
 ;;; function on each line.
 ;;;

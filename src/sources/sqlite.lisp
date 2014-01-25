@@ -162,9 +162,9 @@
         (return rows))))
 
 
-(defmethod copy-to-queue ((sqlite copy-sqlite) dataq)
+(defmethod copy-to-queue ((sqlite copy-sqlite) queue)
   "Copy data from SQLite table TABLE-NAME within connection DB into queue DATAQ"
-  (let ((read (pgloader.queue:map-push-queue dataq #'map-rows sqlite)))
+  (let ((read (pgloader.queue:map-push-queue sqlite queue)))
     (pgstate-incf *state* (target sqlite) :read read)))
 
 (defmethod copy-from ((sqlite copy-sqlite) &key (kernel nil k-s-p) truncate)
@@ -173,21 +173,20 @@
 	 (*state*     (or *state* (pgloader.utils:make-pgstate)))
 	 (lp:*kernel* (or kernel (make-kernel 2)))
 	 (channel     (lp:make-channel))
-	 (dataq       (lq:make-queue :fixed-capacity 4096))
+	 (queue       (lq:make-queue :fixed-capacity *concurrent-batches*))
 	 (table-name  (target sqlite))
 	 (pg-dbname   (target-db sqlite)))
 
     (with-stats-collection (table-name :state *state* :summary summary)
       (log-message :notice "COPY ~a" table-name)
       ;; read data from SQLite
-      (lp:submit-task channel #'copy-to-queue sqlite dataq)
+      (lp:submit-task channel #'copy-to-queue sqlite queue)
 
       ;; and start another task to push that data from the queue to PostgreSQL
       (lp:submit-task channel
 		      #'pgloader.pgsql:copy-from-queue
-		      pg-dbname table-name dataq
-		      :truncate truncate
-		      :transforms (transforms sqlite))
+		      pg-dbname table-name queue
+		      :truncate truncate)
 
       ;; now wait until both the tasks are over
       (loop for tasks below 2 do (lp:receive-result channel)

@@ -106,9 +106,9 @@
 		     (log-message :error "~a" condition)
 		     (pgstate-setf *state* (target csv) :errs -1))))))))))
 
-(defmethod copy-to-queue ((csv copy-csv) dataq)
+(defmethod copy-to-queue ((csv copy-csv) queue)
   "Copy data from given CSV definition into lparallel.queue DATAQ"
-  (pgloader.queue:map-push-queue dataq #'map-rows csv))
+  (map-push-queue csv queue))
 
 (defmethod copy-from ((csv copy-csv) &key truncate)
   "Copy data from given CSV file definition into its PostgreSQL target table."
@@ -116,22 +116,21 @@
 	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
 	 (lp:*kernel*    (make-kernel 2))
 	 (channel        (lp:make-channel))
-	 (dataq          (lq:make-queue :fixed-capacity 4096))
+	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*))
 	 (dbname         (target-db csv))
 	 (table-name     (target csv)))
 
     (with-stats-collection (table-name :state *state* :summary summary)
       (log-message :notice "COPY ~a.~a" dbname table-name)
-      (lp:submit-task channel #'copy-to-queue csv dataq)
+      (lp:submit-task channel #'copy-to-queue csv queue)
 
       ;; and start another task to push that data from the queue to PostgreSQL
       (lp:submit-task channel
 		      ;; this function update :rows stats
-		      #'pgloader.pgsql:copy-from-queue dbname table-name dataq
+		      #'pgloader.pgsql:copy-from-queue dbname table-name queue
 		      ;; we only are interested into the column names here
 		      :columns (mapcar #'car (columns csv))
-		      :truncate truncate
-		      :transforms (transforms csv))
+		      :truncate truncate)
 
       ;; now wait until both the tasks are over
       (loop for tasks below 2 do (lp:receive-result channel)

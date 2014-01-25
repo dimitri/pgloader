@@ -84,6 +84,14 @@
 (defclass copy-db3 (copy) ()
   (:documentation "pgloader DBF Data Source"))
 
+(defmethod initialize-instance :after ((db3 copy-db3) &key)
+  "Add a default value for transforms in case it's not been provided."
+  (let ((transforms (when (slot-boundp db3 'transforms)
+                      (slot-value db3 'transforms))))
+    (unless transforms
+      (setf (slot-value db3 'transforms)
+            (list-transforms (source db3))))))
+
 (defmethod map-rows ((copy-db3 copy-db3) &key process-row-fn)
   "Extract DB3 data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row."
@@ -109,13 +117,11 @@
       (map-rows db3
 		:process-row-fn
 		(lambda (row)
-		  (pgloader.pgsql::format-vector-row text-file
-                                                     row
-                                                     :transforms transforms))))))
+		  (format-vector-row text-file row transforms))))))
 
-(defmethod copy-to-queue ((db3 copy-db3) dataq)
+(defmethod copy-to-queue ((db3 copy-db3) queue)
   "Copy data from DB3 file FILENAME into queue DATAQ"
-  (let ((read (pgloader.queue:map-push-queue dataq #'map-rows db3)))
+  (let ((read (pgloader.queue:map-push-queue db3 queue)))
     (pgstate-incf *state* (target db3) :read read)))
 
 (defmethod copy-from ((db3 copy-db3)
@@ -144,20 +150,19 @@
 	    (log-message :notice "~a" truncate-sql)
 	    (pgsql-execute truncate-sql)))))
 
-    (let* ((lp:*kernel* (make-kernel 2))
-	   (channel     (lp:make-channel))
-	   (dataq       (lq:make-queue :fixed-capacity 4096)))
+    (let* ((lp:*kernel*    (make-kernel 2))
+	   (channel        (lp:make-channel))
+           (queue          (lq:make-queue :fixed-capacity *concurrent-batches*)))
 
       (with-stats-collection (table-name :state *state* :summary summary)
 	(log-message :notice "COPY \"~a\" from '~a'" (target db3) (source db3))
-	(lp:submit-task channel #'copy-to-queue db3 dataq)
+	(lp:submit-task channel #'copy-to-queue db3 queue)
 
 	;; and start another task to push that data from the queue to PostgreSQL
 	(lp:submit-task channel
 			#'pgloader.pgsql:copy-from-queue
-			dbname table-name dataq
-			:truncate truncate
-			:transforms (list-transforms (source db3)))
+			dbname table-name queue
+                        :truncate truncate)
 
 	;; now wait until both the tasks are over, and kill the kernel
 	(loop for tasks below 2 do (lp:receive-result channel)

@@ -81,9 +81,9 @@
 		  while line
 		  do (funcall fun (parse-row fixed line)))))))))
 
-(defmethod copy-to-queue ((fixed copy-fixed) dataq)
+(defmethod copy-to-queue ((fixed copy-fixed) queue)
   "Copy data from given FIXED definition into lparallel.queue DATAQ"
-  (pgloader.queue:map-push-queue dataq #'map-rows fixed))
+  (pgloader.queue:map-push-queue fixed queue))
 
 (defmethod copy-from ((fixed copy-fixed) &key truncate)
   "Copy data from given FIXED file definition into its PostgreSQL target table."
@@ -91,22 +91,21 @@
 	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
 	 (lp:*kernel*    (make-kernel 2))
 	 (channel        (lp:make-channel))
-	 (dataq          (lq:make-queue :fixed-capacity 4096))
+	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*))
 	 (dbname         (target-db fixed))
 	 (table-name     (target fixed)))
 
     (with-stats-collection (table-name :state *state* :summary summary)
       (log-message :notice "COPY ~a.~a" dbname table-name)
-      (lp:submit-task channel #'copy-to-queue fixed dataq)
+      (lp:submit-task channel #'copy-to-queue fixed queue)
 
       ;; and start another task to push that data from the queue to PostgreSQL
       (lp:submit-task channel
 		      ;; this function update :rows stats
-		      #'pgloader.pgsql:copy-from-queue dbname table-name dataq
+		      #'pgloader.pgsql:copy-from-queue dbname table-name queue
 		      ;; we only are interested into the column names here
 		      :columns (mapcar #'car (columns fixed))
-		      :truncate truncate
-		      :transforms (transforms fixed))
+		      :truncate truncate)
 
       ;; now wait until both the tasks are over
       (loop for tasks below 2 do (lp:receive-result channel)

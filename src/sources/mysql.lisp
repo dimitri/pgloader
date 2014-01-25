@@ -93,16 +93,15 @@
     (map-rows mysql
 	      :process-row-fn
 	      (lambda (row)
-		(pgloader.pgsql::format-vector-row text-file row
-                                                   :transforms (transforms mysql))))))
+		(format-vector-row text-file row (transforms mysql))))))
 
 ;;;
 ;;; Export MySQL data to our lparallel data queue. All the work is done in
 ;;; other basic layers, simple enough function.
 ;;;
-(defmethod copy-to-queue ((mysql copy-mysql) dataq)
+(defmethod copy-to-queue ((mysql copy-mysql) queue)
   "Copy data from MySQL table DBNAME.TABLE-NAME into queue DATAQ"
-  (pgloader.queue:map-push-queue dataq #'map-rows mysql))
+  (map-push-queue mysql queue))
 
 
 ;;;
@@ -111,28 +110,24 @@
 ;;;
 (defmethod copy-from ((mysql copy-mysql) &key (kernel nil k-s-p) truncate)
   "Connect in parallel to MySQL and PostgreSQL and stream the data."
-  (let* ((summary     (null *state*))
-	 (*state*     (or *state* (pgloader.utils:make-pgstate)))
-	 (lp:*kernel* (or kernel (make-kernel 2)))
-	 (channel     (lp:make-channel))
-	 (dataq       (lq:make-queue :fixed-capacity 4096))
-	 (table-name  (target mysql)))
+  (let* ((summary        (null *state*))
+	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
+	 (lp:*kernel*    (or kernel (make-kernel 2)))
+	 (channel        (lp:make-channel))
+	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*))
+	 (table-name     (target mysql)))
 
     ;; we account stats against the target table-name, because that's all we
     ;; know on the PostgreSQL thread
     (with-stats-collection (table-name :state *state* :summary summary)
       (log-message :notice "COPY ~a" table-name)
       ;; read data from MySQL
-      (lp:submit-task channel #'copy-to-queue mysql dataq)
+      (lp:submit-task channel #'copy-to-queue mysql queue)
 
       ;; and start another task to push that data from the queue to PostgreSQL
-      (lp:submit-task channel
-		      #'pgloader.pgsql:copy-from-queue
-		      (target-db mysql)
-		      (target mysql)
-		      dataq
-		      :truncate truncate
-		      :transforms (transforms mysql))
+      (lp:submit-task channel #'pgloader.pgsql:copy-from-queue
+		      (target-db mysql) (target mysql) queue
+		      :truncate truncate)
 
       ;; now wait until both the tasks are over
       (loop for tasks below 2 do (lp:receive-result channel)

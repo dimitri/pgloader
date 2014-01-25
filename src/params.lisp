@@ -12,7 +12,7 @@
 	   #:*client-min-messages*
 	   #:*log-min-messages*
 	   #:*copy-batch-rows*
-	   #:*copy-batch-size*
+	   #:*concurrent-batches*
 	   #:*pgconn-host*
 	   #:*pgconn-port*
 	   #:*pgconn-user*
@@ -58,6 +58,9 @@
 ;;;
 (defparameter *copy-batch-rows* 25000
   "How many rows to batch per COPY transaction")
+
+(defparameter *concurrent-batches* 10
+  "How many batches do we stack in the queue in advance")
 
 ;;;
 ;;; We need that to setup our default connection parameters

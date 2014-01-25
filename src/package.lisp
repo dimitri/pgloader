@@ -55,13 +55,12 @@
 	   #:with-stats-collection
 	   #:slurp-file-into-string
 	   #:camelCase-to-colname
-	   #:make-kernel))
+           #:make-kernel))
 
-(defpackage #:pgloader.queue
-  (:use #:cl)
-  (:export #:map-pop-queue
-	   #:map-push-queue))
-
+
+;;;
+;;; PostgreSQL COPY support, and generic sources API.
+;;;
 (defpackage #:pgloader.pgsql
   (:use #:cl #:pgloader.params #:pgloader.utils)
   (:export #:with-pgsql-transaction
@@ -80,7 +79,7 @@
 	   #:list-table-oids
 	   #:reset-all-sequences
 	   #:get-date-columns
-	   #:format-row
+           #:format-vector-row
 	   #:apply-identifier-case
 	   #:create-tables
 	   #:format-pgsql-column
@@ -93,6 +92,40 @@
 	   #:format-pgsql-create-index
 	   #:create-indexes-in-kernel))
 
+(defpackage #:pgloader.sources
+  (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:export #:copy
+	   #:source-db
+	   #:target-db
+	   #:source
+	   #:target
+	   #:fields
+	   #:columns
+	   #:transforms
+	   #:map-rows
+	   #:copy-from
+	   #:copy-to-queue
+	   #:copy-to
+	   #:copy-database
+	   #:filter-column-list
+	   #:get-pathname
+	   #:get-absolute-pathname
+	   #:project-fields
+	   #:reformat-then-process))
+
+(defpackage #:pgloader.queue
+  (:use #:cl #:pgloader.params)
+  (:import-from #:pgloader.pgsql
+                #:format-vector-row)
+  (:import-from #:pgloader.sources
+                #:map-rows
+                #:transforms)
+  (:export #:map-push-queue))
+
+
+;;;
+;;; Other utilities
+;;;
 (defpackage #:pgloader.ini
   (:use #:cl #:pgloader.params #:pgloader.utils)
   (:import-from #:pgloader.pgsql
@@ -118,29 +151,10 @@
 ;;
 ;; Specific source handling
 ;;
-(defpackage #:pgloader.sources
-  (:use #:cl #:pgloader.params #:pgloader.utils)
-  (:export #:copy
-	   #:source-db
-	   #:target-db
-	   #:source
-	   #:target
-	   #:fields
-	   #:columns
-	   #:transforms
-	   #:map-rows
-	   #:copy-from
-	   #:copy-to-queue
-	   #:copy-to
-	   #:copy-database
-	   #:filter-column-list
-	   #:get-pathname
-	   #:get-absolute-pathname
-	   #:project-fields
-	   #:reformat-then-process))
-
 (defpackage #:pgloader.csv
-  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.sources)
+  (:use #:cl
+        #:pgloader.params #:pgloader.utils
+        #:pgloader.sources #:pgloader.queue)
   (:export #:*csv-path-root*
 	   #:get-pathname
 	   #:copy-csv
@@ -151,20 +165,25 @@
 	   #:guess-all-csv-params))
 
 (defpackage #:pgloader.fixed
-  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.sources)
+  (:use #:cl
+        #:pgloader.params #:pgloader.utils
+        #:pgloader.sources #:pgloader.queue)
   (:export #:copy-fixed
 	   #:copy-to-queue
 	   #:copy-from))
 
 (defpackage #:pgloader.db3
-  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.sources)
+  (:use #:cl
+        #:pgloader.params #:pgloader.utils
+        #:pgloader.sources #:pgloader.queue)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
 		#:apply-identifier-case
 		#:create-tables
-		#:format-pgsql-column)
+		#:format-pgsql-column
+                #:format-vector-row)
   (:export #:copy-db3
 	   #:map-rows
 	   #:copy-to
@@ -172,7 +191,9 @@
 	   #:stream-file))
 
 (defpackage #:pgloader.mysql
-  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.sources)
+  (:use #:cl
+        #:pgloader.params #:pgloader.utils
+        #:pgloader.sources #:pgloader.queue)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
 		#:pgsql-execute
@@ -188,7 +209,8 @@
 		#:format-pgsql-drop-fkey
 		#:make-pgsql-index
 		#:format-pgsql-create-index
-		#:create-indexes-in-kernel)
+		#:create-indexes-in-kernel
+                #:format-vector-row)
   (:export #:copy-mysql
 	   #:*cast-rules*
 	   #:*default-cast-rules*
@@ -203,7 +225,9 @@
 	   #:export-import-database))
 
 (defpackage #:pgloader.sqlite
-  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.sources)
+  (:use #:cl
+        #:pgloader.params #:pgloader.utils
+        #:pgloader.sources #:pgloader.queue)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
 		#:pgsql-execute

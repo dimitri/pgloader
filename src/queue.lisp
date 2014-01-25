@@ -3,28 +3,54 @@
 ;;;
 (in-package :pgloader.queue)
 
-(defun map-pop-queue (queue process-row-fn)
-  "Consume the whole of QUEUE, calling PROCESS-ROW-FN on each row. The QUEUE
-   must signal end of data by the element :end-of-data.
+;;;
+;;; The pgloader architectures uses a reader thread and a writer thread. The
+;;; reader fills in batches of data from the source of data, and the writer
+;;; pushes the data down to PostgreSQL using the COPY protocol.
+;;;
+;;; The reader thread is always preparing the next batch to send. The reader
+;;; thread only works with *reader-batch*.
+;;;
+;;; As soon as *reader-batch* is ready, it's made available to the writer
+;;; thread as *writer-batch*, as soon as the writer is ready for processing
+;;; another batch.
+;;;
+(defstruct batch
+  (data  (make-array *copy-batch-rows* :element-type 'simple-string)
+         :type (vector simple-string *))
+  (count 0 :type fixnum))
 
-Returns how many rows where processed from the queue."
-  (loop
-     for row = (lq:pop-queue queue)
-     until (eq row :end-of-data)
-     counting row into count
-     do (funcall process-row-fn row)
-     finally (return count)))
+(defvar *current-batch* nil)
 
-(defun map-push-queue (queue map-row-fn &rest initial-args)
-  "Apply MAP-ROW-FN on INITIAL-ARGS and a function of ROW that will push the
-row into the queue. When MAP-ROW-FN returns, push :end-of-data in the queue.
+(defun batch-row (row copy queue)
+  "Add ROW to the reader batch. When the batch is full, provide it to the
+   writer as the *writer-batch*."
+  (when (= (batch-count *current-batch*) *copy-batch-rows*)
+    ;; close current batch, prepare next one
+    (with-slots (data count) *current-batch*
+      (lq:push-queue (list :batch data count) queue))
+    (setf *current-batch* (make-batch)))
 
-Returns whatever MAP-ROW-FN did return."
+  ;; Add ROW to the current BATCH.
+  ;;
+  ;; All the data transformation takes place here, so that we batch fully
+  ;; formed COPY TEXT string ready to go in the PostgreSQL stream.
+  (let ((copy-string (with-output-to-string (s)
+                       (format-vector-row s row (transforms copy)))))
+    (with-slots (data count) *current-batch*
+      (setf (aref data count) copy-string)
+      (incf count))))
+
+(defun map-push-queue (copy queue)
+  "Apply MAP-ROWS on the COPY instance and a function of ROW that will push
+   the row into the QUEUE. When MAP-ROWS returns, push :end-of-data in the
+   queue."
+  (setf *current-batch* (make-batch))
   (unwind-protect
-       (apply map-row-fn (append initial-args
-				     (list
-				      :process-row-fn
-				      (lambda (row)
-					(lq:push-queue row queue)))))
-    ;; in all cases, signal the end of the producer
-    (lq:push-queue :end-of-data queue)))
+       (map-rows copy :process-row-fn (lambda (row) (batch-row row copy queue)))
+    (with-slots (data count) *current-batch*
+      (when (< 0 count)
+        (lq:push-queue (list :batch data count) queue)))
+
+    ;; signal we're done
+    (lq:push-queue (list :end-of-data nil nil) queue)))

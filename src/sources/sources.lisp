@@ -38,7 +38,7 @@
   (:documentation
    "Read rows from source S and funcall PROCESS-ROW-FN for each of them."))
 
-(defgeneric copy-to-queue (source dataq)
+(defgeneric copy-to-queue (source queue)
   (:documentation
    "Copy data as read in DATAQ into the source S target definition."))
 

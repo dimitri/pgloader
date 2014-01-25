@@ -50,7 +50,7 @@
 
 	       ;; those are one-package-per-file
 	       (:file "transforms")
-	       (:file "queue"     :depends-on ("package"))
+	       (:file "queue"     :depends-on ("params" "package"))
 
 	       (:file "parser"    :depends-on ("package"
                                                "params"
