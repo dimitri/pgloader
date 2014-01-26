@@ -12,7 +12,8 @@
 	   #:*client-min-messages*
 	   #:*log-min-messages*
 	   #:*copy-batch-rows*
-	   #:*concurrent-batches*
+           #:*copy-batch-size*
+           #:*concurrent-batches*
 	   #:*pgconn-host*
 	   #:*pgconn-port*
 	   #:*pgconn-user*
@@ -57,10 +58,13 @@
 ;;; How to split batches in case of data loading errors.
 ;;;
 (defparameter *copy-batch-rows* 25000
-  "How many rows to batch per COPY transaction")
+  "How many rows to batch per COPY transaction.")
+
+(defparameter *copy-batch-size* nil ;; (* 20 1024 1024)
+  "Maximum memory size allowed for a single batch.")
 
 (defparameter *concurrent-batches* 10
-  "How many batches do we stack in the queue in advance")
+  "How many batches do we stack in the queue in advance.")
 
 ;;;
 ;;; We need that to setup our default connection parameters

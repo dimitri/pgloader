@@ -18,18 +18,28 @@
 (defstruct batch
   (data  (make-array *copy-batch-rows* :element-type 'simple-string)
          :type (vector simple-string *))
-  (count 0 :type fixnum))
+  (count 0 :type fixnum)
+  (bytes  0 :type fixnum))
 
 (defvar *current-batch* nil)
+
+(declaim (inline oversized?))
+(defun oversized? (&optional (batch *current-batch*))
+  "Return a generalized boolean that is true only when BATCH is considered
+   over-sized when its size in BYTES is compared *copy-batch-size*."
+  (and *copy-batch-size*      ; defaults to nil
+       (<= *copy-batch-size* (batch-bytes batch))))
 
 (defun batch-row (row copy queue)
   "Add ROW to the reader batch. When the batch is full, provide it to the
    writer as the *writer-batch*."
-  (when (= (batch-count *current-batch*) *copy-batch-rows*)
-    ;; close current batch, prepare next one
-    (with-slots (data count) *current-batch*
-      (lq:push-queue (list :batch data count) queue))
-    (setf *current-batch* (make-batch)))
+  (let ((oversized? (oversized? *current-batch*)))
+    (when (or (= (batch-count *current-batch*) *copy-batch-rows*)
+              oversized?)
+      ;; close current batch, prepare next one
+      (with-slots (data count bytes) *current-batch*
+        (lq:push-queue (list :batch data count oversized?) queue))
+      (setf *current-batch* (make-batch))))
 
   ;; Add ROW to the current BATCH.
   ;;
@@ -37,8 +47,14 @@
   ;; formed COPY TEXT string ready to go in the PostgreSQL stream.
   (let ((copy-string (with-output-to-string (s)
                        (format-vector-row s row (transforms copy)))))
-    (with-slots (data count) *current-batch*
+    (with-slots (data count bytes) *current-batch*
       (setf (aref data count) copy-string)
+      (when *copy-batch-size*           ; running under memory watch
+        (incf bytes
+              #+sbcl (length
+                      (sb-ext:string-to-octets copy-string :external-format :utf-8))
+              #+ccl (ccl:string-size-in-octets copy-string :external-format :utf-8)
+              #- (or sbcl ccl) (length copy-string)))
       (incf count))))
 
 (defun map-push-queue (copy queue)
@@ -50,7 +66,7 @@
        (map-rows copy :process-row-fn (lambda (row) (batch-row row copy queue)))
     (with-slots (data count) *current-batch*
       (when (< 0 count)
-        (lq:push-queue (list :batch data count) queue)))
+        (lq:push-queue (list :batch data count nil) queue)))
 
     ;; signal we're done
-    (lq:push-queue (list :end-of-data nil nil) queue)))
+    (lq:push-queue (list :end-of-data nil nil nil) queue)))

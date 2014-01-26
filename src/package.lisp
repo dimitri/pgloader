@@ -115,6 +115,8 @@
 
 (defpackage #:pgloader.queue
   (:use #:cl #:pgloader.params)
+  (:import-from #:pgloader.monitor
+                #:log-message)
   (:import-from #:pgloader.pgsql
                 #:format-vector-row)
   (:import-from #:pgloader.sources

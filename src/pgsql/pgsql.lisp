@@ -49,11 +49,15 @@
 
   (with-pgsql-connection (dbname)
     (loop
-       for (mesg batch read) = (lq:pop-queue queue)
+       for (mesg batch read oversized?) = (lq:pop-queue queue)
        until (eq mesg :end-of-data)
        for rows = (copy-batch table-name columns batch read)
        do (progn
-            (log-message :debug "copy-batch ~a ~d row~:p" table-name rows)
+            ;; The SBCL implementation needs some Garbage Collection
+            ;; decision making help... and now is a pretty good time.
+            #+sbcl (when oversized? (sb-ext:gc :full t))
+            (log-message :debug "copy-batch ~a ~d row~:p~:[~; [oversized]~]"
+                         table-name rows oversized?)
             (pgstate-incf *state* table-name :rows rows)))))
 
 ;;;
