@@ -162,7 +162,7 @@
 
             (with-monitor ()
               ;; tell the user where to look for interesting things
-              (log-message :log "Main logs in '~a'" *log-filename*)
+              (log-message :log "Main logs in '~a'" (probe-file *log-filename*))
               (log-message :log "Data errors in '~a'~%" *root-dir*)
 
               ;; process the files
