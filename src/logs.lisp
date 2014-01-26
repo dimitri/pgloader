@@ -11,6 +11,7 @@
 (defcategory :notice  (or :notice :warning))
 (defcategory :info    (or :info :notice))
 (defcategory :debug   (or :debug :info))
+(defcategory :data    (or :data :debug))
 
 (defvar *log-messengers* nil
   "Currently active log-messengers")

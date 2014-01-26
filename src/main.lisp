@@ -13,7 +13,8 @@
 
 (defun log-threshold (min-message &key quiet verbose debug)
   "Return the internal value to use given the script parameters."
-  (cond (debug   :debug)
+  (cond ((and debug verbose) :data)
+        (debug   :debug)
 	(verbose :info)
 	(quiet   :warning)
 	(t       (or (find-symbol (string-upcase min-message) "KEYWORD")
