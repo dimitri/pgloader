@@ -61,12 +61,15 @@
   "Apply MAP-ROWS on the COPY instance and a function of ROW that will push
    the row into the QUEUE. When MAP-ROWS returns, push :end-of-data in the
    queue."
-  (setf *current-batch* (make-batch))
   (unwind-protect
-       (map-rows copy :process-row-fn (lambda (row) (batch-row row copy queue)))
-    (with-slots (data count) *current-batch*
-      (when (< 0 count)
-        (lq:push-queue (list :batch data count nil) queue)))
+       (let ((*current-batch* (make-batch)))
+         (map-rows copy :process-row-fn (lambda (row)
+                                          (batch-row row copy queue)))
+
+         ;; we might have the last batch to send over now
+         (with-slots (data count) *current-batch*
+           (when (< 0 count)
+             (lq:push-queue (list :batch data count nil) queue))))
 
     ;; signal we're done
     (lq:push-queue (list :end-of-data nil nil nil) queue)))
