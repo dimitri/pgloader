@@ -376,7 +376,15 @@ The `csv` format command accepts the following clauses and options:
 		
 		This character is used as the quoting character in the `CSV` file,
 	    and defaults to double-quote.
-	  
+
+      - *fields not enclosed*
+      
+        By default, pgloader will use the double-quote character as the
+        enclosing character. If you have a CSV file where fields are not
+        enclosed and are using double-quote as an expected ordinary
+        character, then use the option *fields not enclosed* for the CSV
+        parser to accept those values.
+
       - *fields escaped by*
 	  
 	    Takes either the special value *backslash-quote* or *double-quote*.
