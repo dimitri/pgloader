@@ -1,0 +1,14 @@
+LOAD CSV
+    FROM INLINE
+    INTO postgresql:///pgloader?lines (f1, f2, f3)
+    WITH truncate,
+         fields optionally enclosed by '"',
+         fields escaped by double-quote,
+         fields terminated by '¦',
+         lines terminated by '¶'
+
+  BEFORE LOAD DO
+   $$ drop table if exists lines; $$,
+   $$ create table if not exists lines (id serial, f1 text, f2 text, f3 text); $$;
+
+plop¦bar¦foo¶plip¦second line¦bar¶

@@ -402,6 +402,16 @@ The `csv` format command accepts the following clauses and options:
 	    This character is used as the *field separator* when reading the
 	    `CSV` data.
 
+      - *lines terminated by*
+
+	    Takes a single character as argument, which must be found inside
+	    single quotes, and might be given as the printable character itself,
+	    the special value \t to denote a tabulation character, or `0x` then
+	    an hexadecimal value read as the ascii code for the character.
+
+        This character is used to recognize *end-of-line* condition when
+        reading the `CSV` data.
+
   - *SET*
  
 	This clause allows to specify session parameters to be set for all the

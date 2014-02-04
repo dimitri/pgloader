@@ -18,6 +18,9 @@
    (separator   :accessor csv-separator	  ; CSV separator
 	        :initarg :separator	  ;
 	        :initform #\Tab)	  ;
+   (newline     :accessor csv-newline     ; CSV line ending
+                :initarg :newline         ;
+                :initform #\Newline)
    (quote       :accessor csv-quote	  ; CSV quoting
 	        :initarg :quote		  ;
 	        :initform cl-csv:*quote*) ;
@@ -100,8 +103,9 @@
 				    :escape (csv-escape csv)
                                     :unquoted-empty-string-is-nil t
                                     :quoted-empty-string-is-nil nil
-				    :trim-outer-whitespace (csv-trim-blanks csv))
-		 ((or cl-csv:csv-parse-error type-error) (condition)
+				    :trim-outer-whitespace (csv-trim-blanks csv)
+                                    :newline (csv-newline csv))
+		 ((or cl-csv:csv-parse-error) (condition)
 		   (progn
 		     (log-message :error "~a" condition)
 		     (pgstate-setf *state* (target csv) :errs -1))))))))))

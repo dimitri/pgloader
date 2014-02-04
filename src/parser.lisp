@@ -1290,6 +1290,12 @@ load database
       (declare (ignore fields ))
       sep)))
 
+(defrule option-lines-terminated-by (and kw-lines kw-terminated kw-by separator)
+  (:lambda (term)
+    (destructuring-bind (lines terminated by sep) term
+      (declare (ignore lines terminated by))
+      (cons :newline sep))))
+
 (defrule option-keep-unquoted-blanks (and kw-keep kw-unquoted kw-blanks)
   (:constant (cons :trim-blanks nil)))
 
@@ -1298,6 +1304,7 @@ load database
 
 (defrule csv-option (or option-truncate
 			option-skip-header
+                        option-lines-terminated-by
 			option-fields-not-enclosed
 			option-fields-enclosed-by
 			option-fields-escaped-by
