@@ -890,7 +890,7 @@ The `database` command accepts the following clauses and options:
         PostgreSQL sequences created to the current maximum value of the
         column they are attached to.
 		
-		The options *schema-only* and *data-ony* have no effects on this
+		The options *schema only* and *data only* have no effects on this
 		option.
 
       - *reset no sequences*
@@ -898,7 +898,7 @@ The `database` command accepts the following clauses and options:
 	    When this option is listed, pgloader skips resetting sequences after
 	    the load.
 
-		The options *schema-only* and *data-ony* have no effects on this
+		The options *schema only* and *data only* have no effects on this
 		option.
 
 	  - *downcase identifiers*
@@ -922,7 +922,7 @@ The `database` command accepts the following clauses and options:
 	    over. Note that the schema in this context includes the indexes when
 	    the option *create indexes* has been listed.
 		
-	  - *data-only*
+	  - *data only*
 	  
 	    When this option is listed pgloader only issues the `COPY`
 	    statements, without doing any other processing.
@@ -1274,7 +1274,7 @@ The `sqlite` command accepts the following clauses and options:
 	    When this option is listed, pgloader skips resetting sequences after
 	    the load.
 
-		The options *schema-only* and *data-ony* have no effects on this
+		The options *schema only* and *data only* have no effects on this
 		option.
 
 	  - *schema only*
@@ -1283,7 +1283,7 @@ The `sqlite` command accepts the following clauses and options:
 	     data over. Note that the schema in this context includes the
 	     indexes when the option *create indexes* has been listed.
 
-	  - *data-only*
+	  - *data only*
 	  
 	    When this option is listed pgloader only issues the `COPY`
 	    statements, without doing any other processing.
