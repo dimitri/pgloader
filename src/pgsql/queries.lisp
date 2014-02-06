@@ -195,8 +195,8 @@ BEGIN
                || trim(trailing ')'
                   from replace(pg_get_expr(d.adbin, d.adrelid),
                                'nextval', 'setval'))
-               || ', (select greatest(max(' || a.attname || '), 1) from only '
-               || nspname || '.' || relname || '));' as sql
+               || ', (select greatest(max(\"' || a.attname || '\"), 1) from only '
+               || nspname || '.\"' || relname || '\"));' as sql
          FROM pg_class c
               JOIN pg_namespace n on n.oid = c.relnamespace
               JOIN pg_attribute a on a.attrelid = c.oid
