@@ -32,14 +32,14 @@
 
    The type naming is hardcoded to be table-name_column-name"
   (declare (ignore type ctype typemod))
-  (format nil "~a_~a" table-name column-name))
+  (format nil "\"~a_~a\"" table-name column-name))
 
 (defun cast-set (table-name column-name type ctype typemod)
   "Cast MySQL inline SET type to using a PostgreSQL ENUM Array.
 
    The ENUM data type name is hardcoded to be table-name_column-name"
   (declare (ignore type ctype typemod))
-  (format nil "~a_~a[]" table-name column-name))
+  (format nil "\"~a_~a\"[]" table-name column-name))
 
 ;;;
 ;;; The default MySQL Type Casting Rules
