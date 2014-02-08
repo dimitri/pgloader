@@ -95,20 +95,21 @@
 					   :columns (columns csv)
 					   :target  (target csv)
 					   :process-row-fn process-row-fn)))
-	       (handler-case
-		   (cl-csv:read-csv input
-				    :row-fn (compile nil reformat-then-process)
-				    :separator (csv-separator csv)
-				    :quote (csv-quote csv)
-				    :escape (csv-escape csv)
-                                    :unquoted-empty-string-is-nil t
-                                    :quoted-empty-string-is-nil nil
-				    :trim-outer-whitespace (csv-trim-blanks csv)
-                                    :newline (csv-newline csv))
-		 ((or cl-csv:csv-parse-error) (condition)
-		   (progn
-		     (log-message :error "~a" condition)
-		     (pgstate-setf *state* (target csv) :errs -1))))))))))
+               (handler-case
+                   (handler-bind ((cl-csv:csv-parse-error #'cl-csv::continue))
+                     (cl-csv:read-csv input
+                                      :row-fn (compile nil reformat-then-process)
+                                      :separator (csv-separator csv)
+                                      :quote (csv-quote csv)
+                                      :escape (csv-escape csv)
+                                      :unquoted-empty-string-is-nil t
+                                      :quoted-empty-string-is-nil nil
+                                      :trim-outer-whitespace (csv-trim-blanks csv)
+                                      :newline (csv-newline csv)))
+                 (condition (e)
+                   (progn
+                     (log-message :error "~a" e)
+                     (pgstate-incf *state* (target csv) :errs 1))))))))))
 
 (defmethod copy-to-queue ((csv copy-csv) queue)
   "Copy data from given CSV definition into lparallel.queue DATAQ"

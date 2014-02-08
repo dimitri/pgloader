@@ -1,0 +1,25 @@
+LOAD CSV
+     FROM INLINE with encoding 'ascii'
+     INTO postgresql:///pgloader?jordane
+
+     WITH truncate,
+          fields terminated by '|',
+          fields not enclosed,
+          fields escaped by backslash-quote
+
+      SET work_mem to '128MB',
+          standard_conforming_strings to 'on'
+
+   BEFORE LOAD DO
+    $$ drop table if exists jordane; $$,
+    $$ CREATE TABLE jordane
+       (
+         "NOM" character(20),
+         "PRENOM" character(20)
+       )
+    $$;
+
+BORDET|Jordane
+BORDET|Audrey
+JOURDAIN|héhé¶
+BONNIER|testprenombeaucouptroplong

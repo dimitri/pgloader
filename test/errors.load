@@ -11,7 +11,8 @@
  *
  *
  * Note that we added ragged lines, empty lines, and lines with extra
- * columns.
+ * columns. The last line opens a quoted value and reaches end-of-file
+ * without closing it, too.
  */
 
 LOAD CSV
@@ -54,3 +55,4 @@ LOAD CSV
 9|and another line|2014-01-22|
 
 
+10|"plop
