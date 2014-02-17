@@ -33,11 +33,10 @@ candidate). The next stable versions are going to be `3.1` then `3.2` etc.
 ## INSTALL
 
 pgloader is now a Common Lisp program, tested using the
-[SBCL](http://sbcl.org/) implementation with
+[SBCL](http://sbcl.org/) (>= 1.1.14) implementation with
 [Quicklisp](http://www.quicklisp.org/beta/).
 
-    $ apt-get install sbcl
-    $ apt-get install libsqlite3-dev
+    $ apt-get install sbcl libsqlite3-dev make curl 
     $ cd /path/to/pgloader
     $ mkdir -p ~/.config/common-lisp/source-registry.conf.d
     $ echo "(:tree `pwd`)" > ~/.config/common-lisp/source-registry.conf.d/pgloader.conf 
