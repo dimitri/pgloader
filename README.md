@@ -36,8 +36,7 @@ pgloader is now a Common Lisp program, tested using the
 [SBCL](http://sbcl.org/) implementation with
 [Quicklisp](http://www.quicklisp.org/beta/).
 
-    $ apt-get install sbcl
-    $ apt-get install libsqlite3-dev
+    $ apt-get install sbcl libsqlite3-dev make curl 
     $ cd /path/to/pgloader
     $ mkdir -p ~/.config/common-lisp/source-registry.conf.d
     $ echo "(:tree `pwd`)" > ~/.config/common-lisp/source-registry.conf.d/pgloader.conf 
