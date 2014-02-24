@@ -1570,7 +1570,7 @@ load database
 		  (summary       (null *state*))
 		  (*state*       (or *state* (pgloader.utils:make-pgstate)))
 		  (state-after   ,(when after `(pgloader.utils:make-pgstate)))
-		  (*pgconn-host* ,host)
+		  (*pgconn-host* ',host)
 		  (*pgconn-port* ,port)
 		  (*pgconn-user* ,user)
 		  (*pgconn-pass* ,password)

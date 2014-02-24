@@ -31,10 +31,7 @@
 	     (set-session-gucs *pg-settings* :transaction t)
 	     ,@forms)))
       ;; no database given, create a new database connection
-      `(let ((cl-postgres::*unix-socket-dir*
-	      (if (and (consp *pgconn-host*) (eq :unix (car *pgconn-host*)))
-		  (fad:pathname-as-directory (cdr *pgconn-host*))
-		  cl-postgres::*unix-socket-dir*))
+      `(let ((cl-postgres::*unix-socket-dir* (get-unix-socket-dir))
              ;; if no dbname is given at macro-expansion time, we want to
              ;; use the current value of *pg-dbname* at run time
              (*pg-dbname* (or ,dbname *pg-dbname*)))
@@ -49,15 +46,22 @@
 (defmacro with-pgsql-connection ((dbname) &body forms)
   "Run FROMS within a PostgreSQL connection to DBNAME. To get the connection
    spec from the DBNAME, use `get-connection-spec'."
-  `(let ((cl-postgres::*unix-socket-dir*
-	  (if (and (consp *pgconn-host*) (eq :unix (car *pgconn-host*)))
-	      (fad:pathname-as-directory (cdr *pgconn-host*))
-	      cl-postgres::*unix-socket-dir*)))
+  `(let ((cl-postgres::*unix-socket-dir*  (get-unix-socket-dir)))
      (pomo:with-connection (get-connection-spec ,dbname)
        (log-message :debug "CONNECT ~s" (get-connection-spec ,dbname))
        (set-session-gucs *pg-settings*)
        (handling-pgsql-notices ()
 			       ,@forms))))
+
+(defun get-unix-socket-dir ()
+  "When *pgcon-host* is a (cons :unix path) value, return the right value
+   for cl-postgres::*unix-socket-dir*."
+  (if (and (consp *pgconn-host*)
+           (eq :unix (car *pgconn-host*)))
+      ;; set to *pgconn-host* value
+      (directory-namestring (fad:pathname-as-directory (cdr *pgconn-host*)))
+      ;; keep as is.
+      cl-postgres::*unix-socket-dir*))
 
 (defun get-connection-spec (dbname &key (with-port t))
   "pomo:with-connection and cl-postgres:open-database and open-db-writer are

@@ -317,7 +317,7 @@
                             (*copy-batch-rows*    . ,*copy-batch-rows*)
                             (*copy-batch-size*    . ,*copy-batch-size*)
                             (*concurrent-batches* . ,*concurrent-batches*)
-                            (*pgconn-host*        . ,*pgconn-host*)
+                            (*pgconn-host*        . ',*pgconn-host*)
 			    (*pgconn-port*        . ,*pgconn-port*)
 			    (*pgconn-user*        . ,*pgconn-user*)
 			    (*pgconn-pass*        . ,*pgconn-pass*)
