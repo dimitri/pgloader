@@ -21,5 +21,6 @@ LOAD CSV
 
 BORDET|Jordane
 BORDET|Audrey
-JOURDAIN|héhé¶
+LASTNAME|"opening quote
 BONNIER|testprenombeaucouptroplong
+JOURDAIN|héhé¶
