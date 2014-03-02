@@ -16,6 +16,8 @@ LOAD DATABASE
 
       column enumerate.foo using empty-string-to-null
 
+ -- INCLUDING ONLY TABLE NAMES MATCHING ~/encoding/;
+
  MATERIALIZE VIEWS
    d as $$
        select cast(d as date) as d, count(*) as n
