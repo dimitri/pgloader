@@ -72,9 +72,17 @@
                 (funcall process-row-fn row))))
         (handler-bind
             ((babel-encodings:character-decoding-error
-              #'(lambda (e)
+              #'(lambda (c)
                   (pgstate-incf *state* (target mysql) :errs 1)
-                  (log-message :error "~a" e))))
+                  (let ((encoding (babel-encodings:character-coding-error-encoding c))
+                        (position (babel-encodings:character-coding-error-position c))
+                        (character
+                         (aref (babel-encodings:character-decoding-error-octets c)
+                               (babel-encodings:character-coding-error-position c))))
+                    (log-message :error
+                                 "~a: Illegal ~a character starting at position ~a: ~a."
+                                 table-name encoding position character))
+                  (invoke-restart 'qmynd-impl::use-nil))))
           (mysql-query sql :row-fn row-fn :result-type 'vector))))))
 
 ;;;
