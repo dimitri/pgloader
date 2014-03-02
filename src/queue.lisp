@@ -33,6 +33,7 @@
 (defun batch-row (row copy queue)
   "Add ROW to the reader batch. When the batch is full, provide it to the
    writer as the *writer-batch*."
+  (log-message :data "< ~s" row)
   (let ((oversized? (oversized? *current-batch*)))
     (when (or (= (batch-count *current-batch*) *copy-batch-rows*)
               oversized?)

@@ -60,13 +60,10 @@
 (defmethod map-rows ((mysql copy-mysql) &key process-row-fn)
   "Extract MySQL data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row."
-  (let ((dbname     (source-db mysql))
-	(table-name (source mysql)))
+  (let ((dbname      (source-db mysql))
+	(table-name  (source mysql)))
 
     (with-mysql-connection (dbname)
-      (mysql-query "SET NAMES 'utf8'")
-      (mysql-query "SET character_set_results = utf8;")
-
       (let* ((cols (get-column-list dbname table-name))
              (sql  (format nil "SELECT ~{~a~^, ~} FROM `~a`;" cols table-name))
              (row-fn
