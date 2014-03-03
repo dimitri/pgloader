@@ -4,7 +4,10 @@
 
 (in-package :pgloader.mysql)
 
-(defclass copy-mysql (copy) ()
+(defclass copy-mysql (copy)
+  ((encoding :accessor encoding         ; allows forcing encoding
+             :initarg :encoding
+             :initform nil))
   (:documentation "pgloader MySQL Data Source"))
 
 (defun cast-mysql-column-definition-to-pgsql (mysql-column)
@@ -60,10 +63,14 @@
 (defmethod map-rows ((mysql copy-mysql) &key process-row-fn)
   "Extract MySQL data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row."
-  (let ((dbname      (source-db mysql))
-	(table-name  (source mysql)))
+  (let ((dbname                 (source-db mysql))
+	(table-name             (source mysql))
+        (qmynd:*mysql-encoding* (encoding mysql)))
 
     (with-mysql-connection (dbname)
+      (when qmynd:*mysql-encoding*
+        (log-message :notice "Force encoding to ~a for ~a"
+                     qmynd:*mysql-encoding* table-name))
       (let* ((cols (get-column-list dbname table-name))
              (sql  (format nil "SELECT ~{~a~^, ~} FROM `~a`;" cols table-name))
              (row-fn
@@ -269,6 +276,18 @@
          :all-indexes all-indexes
          :view-columns view-columns)))
 
+(defun apply-decoding-as-filters (table-name filters)
+  "Return a generialized boolean which is non-nil only if TABLE-NAME matches
+   one of the FILTERS."
+  (flet ((apply-filter (filter)
+           ;; we close over table-name here.
+           (typecase filter
+             (string (string-equal filter table-name))
+             (list   (destructuring-bind (type val) filter
+                       (ecase type
+                         (:regex (cl-ppcre:scan val table-name))))))))
+    (some #'apply-filter filters)))
+
 ;;;
 ;;; Work on all tables for given database
 ;;;
@@ -289,6 +308,7 @@
 			    only-tables
 			    including
 			    excluding
+                            decoding-as
 			    materialize-views)
   "Export MySQL data and Import it into PostgreSQL"
   (let* ((summary       (null *state*))
@@ -346,15 +366,25 @@
       (loop
          for (table-name . columns) in (append all-columns view-columns)
          do
-           (let ((table-source
-                  (make-instance 'copy-mysql
-                                 :source-db  dbname
-                                 :target-db  pg-dbname
-                                 :source     table-name
-                                 :target     (apply-identifier-case table-name
-                                                                    identifier-case)
-                                 :fields     columns)))
+           (let* ((encoding
+                   ;; force the data encoding when asked to
+                   (when decoding-as
+                     (loop :for (encoding . filters) :in decoding-as
+                        :when (apply-decoding-as-filters table-name filters)
+                        :return encoding)))
+
+                  (table-source
+                   (make-instance 'copy-mysql
+                                  :source-db  dbname
+                                  :target-db  pg-dbname
+                                  :source     table-name
+                                  :target     (apply-identifier-case table-name
+                                                                     identifier-case)
+                                  :fields     columns
+                                  :encoding   encoding)))
+
              (log-message :debug "TARGET: ~a" (target table-source))
+
              ;; first COPY the data from MySQL to PostgreSQL, using copy-kernel
              (unless schema-only
                (copy-from table-source :kernel copy-kernel :truncate truncate))

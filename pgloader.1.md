@@ -816,7 +816,8 @@ Here's an example:
 
      -- INCLUDING ONLY TABLE NAMES MATCHING ~/film/, 'actor'
      -- EXCLUDING TABLE NAMES MATCHING ~<ory>
-    
+     -- DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf8
+
      BEFORE LOAD DO
      $$ create schema if not exists sakila; $$;
 
@@ -1063,11 +1064,23 @@ The `database` command accepts the following clauses and options:
 
   - *EXCLUDING TABLE NAMES MATCHING*
   
-    Introduce a comma separated list of table names or *rugular expression*
+    Introduce a comma separated list of table names or *regular expression*
     used to exclude table names from the migration. This filter only applies
     to the result of the *INCLUDING* filter.
 	
 	    EXCLUDING TABLE NAMES MATCHING ~<ory>
+
+  - *DECODING TABLE NAMES MATCHING*
+  
+    Introduce a comma separated list of table names or *regular expressions*
+    used to force the encoding to use when processing data from MySQL. If
+    the data encoding known to you is different from MySQL's idea about it,
+    this is the option to use.
+    
+        DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf8
+
+    You can use as many such rules as you need, all with possibly different
+    encodings.
 
   - *BEFORE LOAD DO*
 

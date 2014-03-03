@@ -93,6 +93,7 @@
   (def-keyword-rule "log")
   (def-keyword-rule "level")
   (def-keyword-rule "encoding")
+  (def-keyword-rule "decoding")
   (def-keyword-rule "truncate")
   (def-keyword-rule "lines")
   (def-keyword-rule "fields")
@@ -805,6 +806,20 @@
       filter-list)))
 
 
+;;;
+;;; Per table encoding options, because MySQL is so bad at encoding...
+;;;
+(defrule decoding-table-as (and kw-decoding kw-table kw-names kw-matching
+                                filter-list
+                                kw-as encoding)
+  (:lambda (source)
+    (destructuring-bind (d table n m filter-list as encoding) source
+      (declare (ignore d table n m as))
+      (cons encoding filter-list))))
+
+(defrule decoding-tables-as (* decoding-table-as))
+
+
 ;;; LOAD DATABASE FROM mysql://
 (defrule load-mysql-database (and database-source target
 				  (? mysql-options)
@@ -813,12 +828,13 @@
 				  (? materialize-views)
 				  (? including)
 				  (? excluding)
+                                  (? decoding-tables-as)
 				  (? before-load-do)
 				  (? after-load-do))
   (:lambda (source)
     (destructuring-bind (my-db-uri pg-db-uri options
 				   gucs casts views
-				   incl excl
+				   incl excl decoding-as
 				   before after)
 	source
       (destructuring-bind (&key ((:host myhost))
@@ -867,6 +883,7 @@
 					       `(:only-tables ',(list table-name)))
 					     :including ',incl
 					     :excluding ',excl
+                                             :decoding-as ',decoding-as
 					     :materialize-views ',views
 					     :state-before state-before
 					     :state-after state-after
