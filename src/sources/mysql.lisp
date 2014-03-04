@@ -78,7 +78,13 @@
                 (pgstate-incf *state* (target mysql) :read 1)
                 (funcall process-row-fn row))))
         (handler-bind
-            ((babel-encodings:character-decoding-error
+            ;; avoid trying to fetch the character at end-of-input position...
+            ((babel-encodings:end-of-input-in-character
+              #'(lambda (c)
+                  (pgstate-incf *state* (target mysql) :errs 1)
+                  (log-message :error "~a" c)
+                  (invoke-restart 'qmynd-impl::use-nil)))
+             (babel-encodings:character-decoding-error
               #'(lambda (c)
                   (pgstate-incf *state* (target mysql) :errs 1)
                   (let ((encoding (babel-encodings:character-coding-error-encoding c))
