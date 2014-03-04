@@ -90,7 +90,7 @@
                   (let ((encoding (babel-encodings:character-coding-error-encoding c))
                         (position (babel-encodings:character-coding-error-position c))
                         (character
-                         (aref (babel-encodings:character-decoding-error-octets c)
+                         (aref (babel-encodings:character-coding-error-buffer c)
                                (babel-encodings:character-coding-error-position c))))
                     (log-message :error
                                  "~a: Illegal ~a character starting at position ~a: ~a."
