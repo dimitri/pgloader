@@ -105,6 +105,7 @@
 			 (:file "syslog"  :depends-on ("sources"))
 			 (:file "mysql-cast-rules")
 			 (:file "mysql-schema")
+			 (:file "mysql-csv" :depends-on ("mysql-schema"))
 			 (:file "mysql" :depends-on ("mysql-cast-rules"
 						     "mysql-schema"))))
 
