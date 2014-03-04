@@ -16,7 +16,7 @@ LOAD DATABASE
 
       column enumerate.foo using empty-string-to-null
 
- MATERIALIZE VIEWS
+ MATERIALIZE VIEWS nonexisting,
    d as $$
        select cast(d as date) as d, count(*) as n
          from plop

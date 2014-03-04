@@ -365,6 +365,11 @@
 
       (loop
          for (table-name . columns) in (append all-columns view-columns)
+
+         unless columns
+         do (log-message :error "Table ~s not found, skipping." table-name)
+
+         when columns
          do
            (let* ((encoding
                    ;; force the data encoding when asked to
