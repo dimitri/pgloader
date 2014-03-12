@@ -73,6 +73,16 @@ $(PGLOADER): manifest buildapp
 
 pgloader: $(PGLOADER) ;
 
+pgloader-standalone:
+	buildapp             --require sb-posix                      \
+                       --require sb-bsd-sockets                \
+                       --require sb-rotate-byte                \
+                       --load-system pgloader                  \
+                       --entry pgloader:main                   \
+                       --dynamic-space-size 4096               \
+                       --compress-core                         \
+                       --output $(PGLOADER)
+
 test:
 	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) -C test all
 
@@ -95,4 +105,4 @@ rpm:
 
 check: test ;
 
-.PHONY: test
+.PHONY: test pgloader-standalone
