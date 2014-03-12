@@ -1,16 +1,10 @@
-% PGLOADER(1) pgloader User Manuals
-% Dimitri Fontaine <dimitri@2ndQuadrant.fr>
-% September 8, 2013
+# pgloader(1) -- PostgreSQL data loader
 
-# NAME
+## SYNOPSIS
 
-pgloader - PostgreSQL data loader
+`pgloader` [<options>] [<command-file>]...
 
-# SYNOPSIS
-
-pgloader [*options*] [*command-file*]...
-
-# DESCRIPTION
+## DESCRIPTION
 
 pgloader loads data from different sources into PostgreSQL. It can tranform
 the data it reads on the fly and send raw SQL before and after the loading.
@@ -21,47 +15,47 @@ pgloader operates from commands which are read from files:
 
     pgloader commands.load
 
-# OPTIONS
+## OPTIONS
 
--h, \--help
-:   Show command usage summary and exit.
+  * `-h`, `--help`:
+    Show command usage summary and exit.
 
--V, \--version
-:   Show pgloader version string and exit.
+  * `-V`, `--version`:
+    Show pgloader version string and exit.
 
--v, \--verbose
-:   Be verbose.
+  * `-v`, `--verbose`:
+    Be verbose.
 
--q, \--quiet
-:   Be quiet.
+  * `-q`, `--quiet:
+    Be quiet.
 
--d, \--debug
-:   Show debug level information messages.
+  * `-d`, `--debug`:
+    Show debug level information messages.
 
--D, \--root-dir
-:   Set the root working directory (default to "/tmp/pgloader").
+  * `-D`, `--root-dir`:
+    Set the root working directory (default to "/tmp/pgloader").
 
--L, \--logfile
-:   Set the pgloader log file (default to "/tmp/pgloader.log").
+  * `-L`, `--logfile`:
+    Set the pgloader log file (default to "/tmp/pgloader.log").
 
---log-min-messages
-:   Minimum level of verbosity needed for log message to make it to the
+  * `--log-min-messages`:
+    Minimum level of verbosity needed for log message to make it to the
     logfile. One of critical, log, error, warning, notice, info or debug.
 
---client-min-messages
-:   Minimum level of verbosity needed for log message to make it to the
+  * `--client-min-messages`:
+    Minimum level of verbosity needed for log message to make it to the
     console. One of critical, log, error, warning, notice, info or debug.
 
--E, \--list-encodings
-:   List known encodings in this version of pgloader.
+  * `-E`, `--list-encodings`:
+    List known encodings in this version of pgloader.
 
--U, \--upgrade-config
-:   Parse given files in the command line as `pgloader.conf` files with the
-    `INI` syntax that was in use in pgloader versions 2.x, and output the
-    new command syntax for pgloader on standard output.
+  * `-U`, `--upgrade-config`:
+    Parse given files in the command line as `pgloader.conf` files with the
+   `INI` syntax that was in use in pgloader versions 2.x, and output the
+   new command syntax for pgloader on standard output.
 
--l *FILE*, \--load *FILE*
-:   Specify a lisp *FILE* to compile and load into the pgloader image before
+  * -l <file>, --load <file>:
+    Specify a lisp <file> to compile and load into the pgloader image before
     reading the commands, allowing to define extra transformation function.
     Those functions should be defined in the `pgloader.transforms` package.
     This option can appear more than once in the command line.
@@ -72,7 +66,7 @@ to saying `--client-min-messages data`. Then the log messages will show the
 data being processed, in the cases where the code has explicit support for
 it.
 
-# BATCHES AND RETRY BEHAVIOUR
+## BATCHES AND RETRY BEHAVIOUR
 
 To load data to PostgreSQL, pgloader uses the `COPY` streaming protocol.
 While this is the faster way to load data, `COPY` has an important drawback:
@@ -106,7 +100,7 @@ containing the full PostgreSQL client side logs about the rejected data.
 The `.dat` file is formated in PostgreSQL the text COPY format as documented
 in [http://www.postgresql.org/docs/9.2/static/sql-copy.html#AEN66609]().
 
-# A NOTE ABOUT PERFORMANCES
+## A NOTE ABOUT PERFORMANCES
 
 pgloader has been developped with performances in mind, to be able to cope
 with ever growing needs in loading large amounts of data into PostgreSQL.
@@ -127,7 +121,7 @@ line tool `psql` implements a `\copy` command that knows how to stream a
 file local to the client over the network and into the PostgreSQL server,
 using the same protocol as pgloader uses.
 
-# COMMANDS
+## COMMANDS
 
 pgloader support the following commands:
 
@@ -242,7 +236,7 @@ Any command may contain comments, following those input rules:
 
 Any place where you could enter a *whitespace* will accept a comment too.
 
-## LOAD CSV
+### LOAD CSV
 
 This command instructs pgloader to load data from a `CSV` file. Here's an
 example:
@@ -443,7 +437,7 @@ The `csv` format command accepts the following clauses and options:
 	section are executed once the load is done. That's the right time to
 	create indexes and constraints, or re-enable triggers.
 
-## LOAD FIXED COLS
+### LOAD FIXED COLS
 
 This command instructs pgloader to load data from a text file containing
 columns arranged in a *fixed size* manner. Here's an example:
@@ -609,7 +603,7 @@ The `fixed` format command accepts the following clauses and options:
 	section are executed once the load is done. That's the right time to
 	create indexes and constraints, or re-enable triggers.
 
-## LOAD DBF
+### LOAD DBF
 
 This command instructs pgloader to load data from a `DBF` file. Here's an
 example:
@@ -662,7 +656,7 @@ The `dbf` format command accepts the following clauses and options:
  	The names and values of the parameters are not validated by pgloader,
  	they are given as-is to PostgreSQL.
 
-## LOAD ARCHIVE
+### LOAD ARCHIVE
 
 This command instructs pgloader to load data from one or more files contained
 in an archive. Currently the only supported archive format is *ZIP*, and the
@@ -791,7 +785,7 @@ The `archive` command accepts the following clauses and options:
    
 	 SQL Queries to run once the data is loaded, such as `CREATE INDEX`.
 
-## LOAD MYSQL DATABASE
+### LOAD MYSQL DATABASE
 
 This command instructs pgloader to load data from a database connection. The
 only supported database source is currently *MySQL*, and pgloader supports
@@ -1216,7 +1210,7 @@ When the source type definition is not matched in the default casting rules
 nor in the casting rules provided in the command, then the type name with
 the typemod is used.
 
-## LOAD SQLite DATABASE
+### LOAD SQLite DATABASE
 
 This command instructs pgloader to load data from a SQLite file. Automatic
 discovery of the schema is supported, including build of the indexes.
@@ -1343,7 +1337,7 @@ The `sqlite` command accepts the following clauses and options:
 	
 	    EXCLUDING TABLE NAMES MATCHING ~<ory>
 
-## TRANSFORMATION FUNCTIONS
+### TRANSFORMATION FUNCTIONS
 
 Some data types are implemented in a different enough way that a
 transformation function is necessary. This function must be written in
@@ -1453,7 +1447,11 @@ them to a destination table.
 As the command is still experimental the options might be changed in the
 future and the details are not documented.
 
-# SEE ALSO
+## AUTHOR
+
+Dimitri Fontaine <dimitri@2ndQuadrant.fr>
+
+## SEE ALSO
 
 PostgreSQL COPY documentation at <http://www.postgresql.org/docs/9.3/static/sql-copy.html>.
 
