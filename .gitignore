@@ -1,6 +1,5 @@
 .vagrant
 local-data
-pgloader.1
 pgloader.html
 pgloader.pdf
 debian/pgloader.debhelper.log
