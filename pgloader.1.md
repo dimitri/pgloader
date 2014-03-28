@@ -66,6 +66,12 @@ pgloader operates from commands which are read from files:
     Those functions should be defined in the `pgloader.transforms` package.
     This option can appear more than once in the command line.
 
+To get the maximum amount of debug information, you can use both the
+`--verbose` and the `--debug` switches at the same time, which is equivalent
+to saying `--client-min-messages data`. Then the log messages will show the
+data being processed, in the cases where the code has explicit support for
+it.
+
 # BATCHES AND RETRY BEHAVIOUR
 
 To load data to PostgreSQL, pgloader uses the `COPY` streaming protocol.
