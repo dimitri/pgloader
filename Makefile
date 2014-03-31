@@ -14,18 +14,10 @@ all: $(PGLOADER)
 docs:
 	pandoc pgloader.1.md -o pgloader.1
 
-~/quicklisp/local-projects/Postmodern:
-	git clone https://github.com/marijnh/Postmodern.git $@
-
 ~/quicklisp/local-projects/qmynd:
 	git clone https://github.com/qitab/qmynd.git $@
 
-~/quicklisp/local-projects/cl-csv:
-	git clone https://github.com/AccelerationNet/cl-csv.git $@
-
-postmodern: ~/quicklisp/local-projects/Postmodern ;
 qmynd: ~/quicklisp/local-projects/qmynd ;
-cl-csv: ~/quicklisp/local-projects/cl-csv ;
 
 ~/quicklisp/setup.lisp:
 	curl -o ~/quicklisp.lisp http://beta.quicklisp.org/quicklisp.lisp
@@ -41,7 +33,7 @@ $(ASDF_CONF):
 
 asdf-config: $(ASDF_CONF) ;
 
-$(LIBS): quicklisp $(ASDF_CONF) cl-csv qmynd postmodern
+$(LIBS): quicklisp $(ASDF_CONF) qmynd
 	sbcl --load ~/quicklisp/setup.lisp                             \
              --eval '(ql:quickload "pgloader")'                        \
              --eval '(quit)'
