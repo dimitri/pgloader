@@ -1,16 +1,10 @@
-% PGLOADER(1) pgloader User Manuals
-% Dimitri Fontaine <dimitri@2ndQuadrant.fr>
-% September 8, 2013
+# pgloader(1) -- PostgreSQL data loader
 
-# NAME
+## SYNOPSIS
 
-pgloader - PostgreSQL data loader
+`pgloader` [<options>] [<command-file>]...
 
-# SYNOPSIS
-
-pgloader [*options*] [*command-file*]...
-
-# DESCRIPTION
+## DESCRIPTION
 
 pgloader loads data from different sources into PostgreSQL. It can tranform
 the data it reads on the fly and send raw SQL before and after the loading.
@@ -21,47 +15,47 @@ pgloader operates from commands which are read from files:
 
     pgloader commands.load
 
-# OPTIONS
+## OPTIONS
 
--h, \--help
-:   Show command usage summary and exit.
+  * `-h`, `--help`:
+    Show command usage summary and exit.
 
--V, \--version
-:   Show pgloader version string and exit.
+  * `-V`, `--version`:
+    Show pgloader version string and exit.
 
--v, \--verbose
-:   Be verbose.
+  * `-v`, `--verbose`:
+    Be verbose.
 
--q, \--quiet
-:   Be quiet.
+  * `-q`, `--quiet:
+    Be quiet.
 
--d, \--debug
-:   Show debug level information messages.
+  * `-d`, `--debug`:
+    Show debug level information messages.
 
--D, \--root-dir
-:   Set the root working directory (default to "/tmp/pgloader").
+  * `-D`, `--root-dir`:
+    Set the root working directory (default to "/tmp/pgloader").
 
--L, \--logfile
-:   Set the pgloader log file (default to "/tmp/pgloader.log").
+  * `-L`, `--logfile`:
+    Set the pgloader log file (default to "/tmp/pgloader.log").
 
---log-min-messages
-:   Minimum level of verbosity needed for log message to make it to the
+  * `--log-min-messages`:
+    Minimum level of verbosity needed for log message to make it to the
     logfile. One of critical, log, error, warning, notice, info or debug.
 
---client-min-messages
-:   Minimum level of verbosity needed for log message to make it to the
+  * `--client-min-messages`:
+    Minimum level of verbosity needed for log message to make it to the
     console. One of critical, log, error, warning, notice, info or debug.
 
--E, \--list-encodings
-:   List known encodings in this version of pgloader.
+  * `-E`, `--list-encodings`:
+    List known encodings in this version of pgloader.
 
--U, \--upgrade-config
-:   Parse given files in the command line as `pgloader.conf` files with the
-    `INI` syntax that was in use in pgloader versions 2.x, and output the
-    new command syntax for pgloader on standard output.
+  * `-U`, `--upgrade-config`:
+    Parse given files in the command line as `pgloader.conf` files with the
+   `INI` syntax that was in use in pgloader versions 2.x, and output the
+   new command syntax for pgloader on standard output.
 
--l *FILE*, \--load *FILE*
-:   Specify a lisp *FILE* to compile and load into the pgloader image before
+  * -l <file>, --load <file>:
+    Specify a lisp <file> to compile and load into the pgloader image before
     reading the commands, allowing to define extra transformation function.
     Those functions should be defined in the `pgloader.transforms` package.
     This option can appear more than once in the command line.
@@ -72,7 +66,7 @@ to saying `--client-min-messages data`. Then the log messages will show the
 data being processed, in the cases where the code has explicit support for
 it.
 
-# BATCHES AND RETRY BEHAVIOUR
+## BATCHES AND RETRY BEHAVIOUR
 
 To load data to PostgreSQL, pgloader uses the `COPY` streaming protocol.
 While this is the faster way to load data, `COPY` has an important drawback:
@@ -106,7 +100,7 @@ containing the full PostgreSQL client side logs about the rejected data.
 The `.dat` file is formated in PostgreSQL the text COPY format as documented
 in [http://www.postgresql.org/docs/9.2/static/sql-copy.html#AEN66609]().
 
-# A NOTE ABOUT PERFORMANCES
+## A NOTE ABOUT PERFORMANCES
 
 pgloader has been developped with performances in mind, to be able to cope
 with ever growing needs in loading large amounts of data into PostgreSQL.
@@ -127,7 +121,7 @@ line tool `psql` implements a `\copy` command that knows how to stream a
 file local to the client over the network and into the PostgreSQL server,
 using the same protocol as pgloader uses.
 
-# COMMANDS
+## COMMANDS
 
 pgloader support the following commands:
 
@@ -146,9 +140,9 @@ support only a subset of the general options and provide specific options.
     LOAD <something>
 	     FROM <source-url>  [ WITH <source-options> ]
 		 INTO <postgresql-url>
-		 
+
 	[ WITH <load-options> ]
-	
+
 	[ SET <postgresql-settings> ]
 	;
 
@@ -167,31 +161,31 @@ http://www.postgresql.org/docs/9.3/static/libpq-connect.html#LIBPQ-CONNSTRING.
 Where:
 
   - *user*
-  
+
     Can contain any character, including colon (`:`) which must then be
     doubled (`::`) and at-sign (`@`) which must then be doubled (`@@`).
-	
+
   - *password*
-  
+
 	Can contain any character, including that at sign (`@`) which must then
 	be doubled (`@@`). To leave the password empty, when the *user* name
 	ends with at at sign, you then have to use the syntax user:@.
-	
+
   - *netloc*
-  
+
     Can be either a hostname in dotted notation, or an ipv4, or an unix
     domain socket path. Empty is the default network location, under a
     system providing *unix domain socket* that method is prefered, otherwise
     the *netloc* default to `localhost`.
-	
+
 	It's possible to force the *unix domain socket* path by using the syntax
 	`unix:/path/to/where/the/socket/file/is`, so to force a non default
 	socket path and a non default port, you would have:
-	
+
 	    postgresql://unix:/tmp:54321/dbname
 
   - *dbname*
-  
+
 	Should be a proper identifier (letter followed by a mix of letters,
 	digits and the punctuation signs comma (`,`), dash (`-`) and underscore
 	(`_`).
@@ -204,12 +198,12 @@ Several clauses listed in the following accept *regular expressions* with
 the following input rules:
 
   - A regular expression begins with a tilde sign (`~`),
-  
+
   - is then followed with an opening sign,
-  
+
   - then any character is allowed and considered part of the regular
     expression, except for the closing sign,
-	
+
   - then a closing sign is expected.
 
 The opening and closing sign are allowed by pair, here's the complete list
@@ -236,13 +230,13 @@ Any command may contain comments, following those input rules:
 
   - the `--` delimiter begins a comment that ends with the end of the
     current line,
-	
+
   - the delimiters `/*` and `*/` respectively start and end a comment, which
     can be found in the middle of a command or span several lines.
 
 Any place where you could enter a *whitespace* will accept a comment too.
 
-## LOAD CSV
+### LOAD CSV
 
 This command instructs pgloader to load data from a `CSV` file. Here's an
 example:
@@ -262,7 +256,7 @@ example:
             fields optionally enclosed by '"',
             fields escaped by backslash-quote,
             fields terminated by '\t'
-	
+
         SET work_mem to '32 MB', maintenance_work_mem to '64 MB';
 
 The `csv` format command accepts the following clauses and options:
@@ -275,7 +269,7 @@ The `csv` format command accepts the following clauses and options:
 
 	The filename may be enclosed by single quotes, and could be one of the
 	following special values:
-	
+
 	  - *inline*
 
         The data is found after the end of the parsed commands. Any number
@@ -283,53 +277,53 @@ The `csv` format command accepts the following clauses and options:
         the data is accepted.
 
 	  - *stdin*
-	  
+
 	    Reads the data from the standard input stream.
 
 	The *FROM* option also supports an optional comma separated list of
 	*field* names describing what is expected in the `CSV` data file.
-	
+
 	Each field name can be either only one name or a name following with
 	specific reader options for that field. Supported per-field reader
 	options are:
-	
+
 	  - *terminated by*
-	  
+
 		See the description of *field terminated by* below.
-		
+
 		The processing of this option is not currently implemented.
-		
+
 	  - *date format*
-	  
+
 	    When the field is expected of the date type, then this option allows
 	    to specify the date format used in the file.
 
 		The processing of this option is not currently implemented.
 
       - *null if*
-	  
+
 	    This option takes an argument which is either the keyword *blanks*
 	    or a double-quoted string.
-		
+
 		When *blanks* is used and the field value that is read contains only
 	    space characters, then it's automatically converted to an SQL `NULL`
 	    value.
-		
+
 		When a double-quoted string is used and that string is read as the
 		field value, then the field value is automatically converted to an
 		SQL `NULL` value.
 
   - *INTO*
-  
+
 	The PostgreSQL connection URI must contains the name of the target table
 	where to load the data into. That table must have already been created
 	in PostgreSQL, and the name might be schema qualified.
-	
+
 	Then *INTO* option also supports an optional comma separated list of
 	target columns, which are either the name of an input *field* or the
 	whitespace separated list of the target column name, its PostgreSQL data
 	type and a *USING* expression.
-	
+
 	The *USING* expression can be any valid Common Lisp form and will be
 	read with the current package set to `pgloader.transforms`, so that you
 	can use functions defined in that package, such as functions loaded
@@ -337,7 +331,7 @@ The `csv` format command accepts the following clauses and options:
 
     Each *USING* expression is compiled at runtime to native code, and will
     be called in a context such as:
-	
+
 	    (destructuring-bind (field-name-1 field-name-2 ...)
 		    row
 		  (list column-name-1
@@ -349,21 +343,21 @@ The `csv` format command accepts the following clauses and options:
     custom code for that projection.
 
   - *WITH*
-  
+
     When loading from a `CSV` file, the following options are supported:
-	
+
 	  - *truncate*
-	  
+
 		When this option is listed, pgloader issues a `TRUNCATE` command
 		against the PostgreSQL target table before reading the data file.
-		
+
 	  - *skip header*
-	  
+
 	    Takes a numeric value as argument. Instruct pgloader to skip that
 	    many lines at the beginning of the input file.
 
       - *trim unquoted blanks*
-	  
+
 	    When reading unquoted values in the `CSV` file, remove the blanks
 	    found in between the separator and the value. That behaviour is the
 	    default.
@@ -374,17 +368,17 @@ The `csv` format command accepts the following clauses and options:
         between the separator and the value.
 
       - *fields optionally enclosed by*
-	  
+
 	    Takes a single character as argument, which must be found inside
 	    single quotes, and might be given as the printable character itself,
 	    the special value \t to denote a tabulation character, or `0x` then
 	    an hexadecimal value read as the ascii code for the character.
-		
+
 		This character is used as the quoting character in the `CSV` file,
 	    and defaults to double-quote.
 
       - *fields not enclosed*
-      
+
         By default, pgloader will use the double-quote character as the
         enclosing character. If you have a CSV file where fields are not
         enclosed and are using double-quote as an expected ordinary
@@ -392,12 +386,12 @@ The `csv` format command accepts the following clauses and options:
         parser to accept those values.
 
       - *fields escaped by*
-	  
+
 	    Takes either the special value *backslash-quote* or *double-quote*.
 	    This value is used to recognize escaped field separators when they
 	    are to be found within the data fields themselves. Defaults to
 	    *double-quote*.
-	  
+
       - *fields terminated by*
 
 	    Takes a single character as argument, which must be found inside
@@ -419,11 +413,11 @@ The `csv` format command accepts the following clauses and options:
         reading the `CSV` data.
 
   - *SET*
- 
+
 	This clause allows to specify session parameters to be set for all the
     sessions opened by pgloader. It expects a list of parameter name, the
     equal sign, then the single-quoted value as a comma separated list.
- 	
+
  	The names and values of the parameters are not validated by pgloader,
  	they are given as-is to PostgreSQL.
 
@@ -432,18 +426,18 @@ The `csv` format command accepts the following clauses and options:
 	 You can run SQL queries against the database before loading the data
 	 from the `CSV` file. Most common SQL queries are `CREATE TABLE IF NOT
 	 EXISTS` so that the data can be loaded.
-	 
+
 	 Each command must be *dollar-quoted*: it must begin and end with a
 	 double dollar sign, `$$`. Dollar-quoted queries are then comma
 	 separated. No extra punctuation is expected after the last SQL query.
-  
+
   - *AFTER LOAD DO*
 
 	Same format as *BEFORE LOAD DO*, the dollar-quoted queries found in that
 	section are executed once the load is done. That's the right time to
 	create indexes and constraints, or re-enable triggers.
 
-## LOAD FIXED COLS
+### LOAD FIXED COLS
 
 This command instructs pgloader to load data from a text file containing
 columns arranged in a *fixed size* manner. Here's an example:
@@ -456,13 +450,13 @@ columns arranged in a *fixed size* manner. Here's an example:
                  c time using (time-with-no-separator c),
                  d
               )
-    
+
          WITH truncate
-    
+
           SET client_encoding to 'latin1',
               work_mem to '14MB',
               standard_conforming_strings to 'on'
-    
+
     BEFORE LOAD DO
          $$ drop table if exists fixed; $$,
          $$ create table fixed (
@@ -472,10 +466,10 @@ columns arranged in a *fixed size* manner. Here's an example:
              d text
             );
          $$;
-		 
-     01234567892008052011431250firstline        
+
+     01234567892008052011431250firstline
         01234562008052115182300left blank-padded
-     12345678902008052208231560another line     
+     12345678902008052208231560another line
 
 The `fixed` format command accepts the following clauses and options:
 
@@ -487,7 +481,7 @@ The `fixed` format command accepts the following clauses and options:
 
 	The filename may be enclosed by single quotes, and could be one of the
 	following special values:
-	
+
 	  - *inline*
 
         The data is found after the end of the parsed commands. Any number
@@ -495,63 +489,63 @@ The `fixed` format command accepts the following clauses and options:
         the data is accepted.
 
 	  - *stdin*
-	  
+
 	    Reads the data from the standard input stream.
 
 	The *FROM* option also supports an optional comma separated list of
 	*field* names describing what is expected in the `FIXED` data file.
-	
+
 	Each field name is composed of the field name followed with specific
 	reader options for that field. Supported per-field reader options are
 	the following, where only *start* and *length* are required.
 
       - *start*
-	  
+
 	    Position in the line where to start reading that field's value. Can
 	    be entered with decimal digits or `0x` then hexadecimal digits.
 
       - *length*
-	  
+
 	    How many bytes to read from the *start* position to read that
 	    field's value. Same format as *start*.
 
 	  - *terminated by*
-	  
+
 		See the description of *field terminated by* below.
-		
+
 		The processing of this option is not currently implemented.
-		
+
 	  - *date format*
-	  
+
 	    When the field is expected of the date type, then this option allows
 	    to specify the date format used in the file.
 
 		The processing of this option is not currently implemented.
 
       - *null if*
-	  
+
 	    This option takes an argument which is either the keyword *blanks*
 	    or a double-quoted string.
-		
+
 		When *blanks* is used and the field value that is read contains only
 	    space characters, then it's automatically converted to an SQL `NULL`
 	    value.
-		
+
 		When a double-quoted string is used and that string is read as the
 		field value, then the field value is automatically converted to an
 		SQL `NULL` value.
 
   - *INTO*
-  
+
 	The PostgreSQL connection URI must contains the name of the target table
 	where to load the data into. That table must have already been created
 	in PostgreSQL, and the name might be schema qualified.
-	
+
 	Then *INTO* option also supports an optional comma separated list of
 	target columns, which are either the name of an input *field* or the
 	whitespace separated list of the target column name, its PostgreSQL data
 	type and a *USING* expression.
-	
+
 	The *USING* expression can be any valid Common Lisp form and will be
 	read with the current package set to `pgloader.transforms`, so that you
 	can use functions defined in that package, such as functions loaded
@@ -559,7 +553,7 @@ The `fixed` format command accepts the following clauses and options:
 
     Each *USING* expression is compiled at runtime to native code, and will
     be called in a context such as:
-	
+
 	    (destructuring-bind (field-name-1 field-name-2 ...)
 		    row
 		  (list column-name-1
@@ -571,25 +565,25 @@ The `fixed` format command accepts the following clauses and options:
     custom code for that projection.
 
   - *WITH*
-  
+
     When loading from a `CSV` file, the following options are supported:
-	
+
 	  - *truncate*
-	  
+
 		When this option is listed, pgloader issues a `TRUNCATE` command
 		against the PostgreSQL target table before reading the data file.
-		
+
 	  - *skip header*
-	  
+
 	    Takes a numeric value as argument. Instruct pgloader to skip that
 	    many lines at the beginning of the input file.
 
   - *SET*
- 
+
 	This clause allows to specify session parameters to be set for all the
     sessions opened by pgloader. It expects a list of parameter name, the
     equal sign, then the single-quoted value as a comma separated list.
- 	
+
  	The names and values of the parameters are not validated by pgloader,
  	they are given as-is to PostgreSQL.
 
@@ -598,18 +592,18 @@ The `fixed` format command accepts the following clauses and options:
 	 You can run SQL queries against the database before loading the data
 	 from the `CSV` file. Most common SQL queries are `CREATE TABLE IF NOT
 	 EXISTS` so that the data can be loaded.
-	 
+
 	 Each command must be *dollar-quoted*: it must begin and end with a
 	 double dollar sign, `$$`. Dollar-quoted queries are then comma
 	 separated. No extra punctuation is expected after the last SQL query.
-  
+
   - *AFTER LOAD DO*
 
 	Same format as *BEFORE LOAD DO*, the dollar-quoted queries found in that
 	section are executed once the load is done. That's the right time to
 	create indexes and constraints, or re-enable triggers.
 
-## LOAD DBF
+### LOAD DBF
 
 This command instructs pgloader to load data from a `DBF` file. Here's an
 example:
@@ -617,7 +611,7 @@ example:
     LOAD DBF
 	    FROM http://www.insee.fr/fr/methodes/nomenclatures/cog/telechargement/2013/dbf/reg2013.dbf
         INTO postgresql://user@localhost/dbname
-        WITH truncate, create table; 
+        WITH truncate, create table;
 
 The `dbf` format command accepts the following clauses and options:
 
@@ -628,41 +622,41 @@ The `dbf` format command accepts the following clauses and options:
     such a zip file from an HTTP address is of course supported.
 
   - *INTO*
-  
+
   	The PostgreSQL connection URI. If it doesn't have a table name in the
   	target, then the name part of the filename will be used as a table name.
 
   - *WITH*
-  
+
     When loading from a `DBF` file, the following options are supported:
-	
+
 	  - *truncate*
-	  
+
 		When this option is listed, pgloader issues a `TRUNCATE` command
 		against the PostgreSQL target table before reading the data file.
-		
+
 	  - *create table*
-	  
+
 		When this option is listed, pgloader creates the table using the
 		meta data found in the `DBF` file, which must contain a list of
 		fields with their data type. A standard data type conversion from
 		DBF to PostgreSQL is done.
-		
+
 	  - *table name*
-	  
+
 	    This options expects as its value the possibly qualified name of the
 	    table to create.
 
   - *SET*
- 
+
 	This clause allows to specify session parameters to be set for all the
     sessions opened by pgloader. It expects a list of parameter name, the
     equal sign, then the single-quoted value as a comma separated list.
- 	
+
  	The names and values of the parameters are not validated by pgloader,
  	they are given as-is to PostgreSQL.
 
-## LOAD ARCHIVE
+### LOAD ARCHIVE
 
 This command instructs pgloader to load data from one or more files contained
 in an archive. Currently the only supported archive format is *ZIP*, and the
@@ -673,7 +667,7 @@ Here's an example:
     LOAD ARCHIVE
        FROM /Users/dim/Downloads/GeoLiteCity-latest.zip
        INTO postgresql:///ip4r
-    
+
        BEFORE LOAD DO
          $$ create extension if not exists ip4r; $$,
          $$ create schema if not exists geolite; $$,
@@ -697,7 +691,7 @@ Here's an example:
          $$,
          $$ drop index if exists geolite.blocks_ip4r_idx; $$,
          $$ truncate table geolite.blocks, geolite.location cascade; $$
-    
+
        LOAD CSV
             FROM FILENAME MATCHING ~/GeoLiteCity-Location.csv/
                  WITH ENCODING iso-8859-1
@@ -722,7 +716,7 @@ Here's an example:
                  fields optionally enclosed by '"',
                  fields escaped by double-quote,
                  fields terminated by ','
-    
+
       AND LOAD CSV
             FROM FILENAME MATCHING ~/GeoLiteCity-Blocks.csv/
                  WITH ENCODING iso-8859-1
@@ -738,7 +732,7 @@ Here's an example:
                  fields optionally enclosed by '"',
                  fields escaped by double-quote,
                  fields terminated by ','
-    
+
        FINALLY DO
          $$ create index blocks_ip4r_idx on geolite.blocks using gist(iprange); $$;
 
@@ -748,11 +742,11 @@ The `archive` command accepts the following clauses and options:
 
 	 Filename or HTTP URI where to load the data from. When given an HTTP
 	 URL the linked file will get downloaded locally before processing.
-	 
+
 	 If the file is a `zip` file, the command line utility `unzip` is used
 	 to expand the archive into files in `$TMPDIR`, or `/tmp` if `$TMPDIR`
 	 is unset or set to a non-existing directory.
-	 
+
 	 Then the following commands are used from the top level directory where
 	 the archive has been expanded.
 
@@ -766,13 +760,13 @@ The `archive` command accepts the following clauses and options:
 	 You can run SQL queries against the database before loading from the
 	 data files found in the archive. Most common SQL queries are `CREATE
 	 TABLE IF NOT EXISTS` so that the data can be loaded.
-	 
+
 	 Each command must be *dollar-quoted*: it must begin and end with a
 	 double dollar sign, `$$`. Queries are then comma separated. No extra
 	 punctuation is expected after the last SQL query.
 
    - command [ *AND* command ... ]
-   
+
 	 A series of commands against the contents of the archive, at the moment
 	 only `CSV`,`'FIXED` and `DBF` commands are supported.
 
@@ -782,16 +776,16 @@ The `archive` command accepts the following clauses and options:
 
 	 The same clause can also be applied to several files with using the
 	 spelling *FROM ALL FILENAMES MATCHING* and a regular expression.
-	 
+
 	 The whole *matching* clause must follow the following rule:
-	 
+
 	     FROM [ ALL FILENAMES | [ FIRST ] FILENAME ] MATCHING
 
    - *FINALLY DO*
-   
+
 	 SQL Queries to run once the data is loaded, such as `CREATE INDEX`.
 
-## LOAD MYSQL DATABASE
+### LOAD MYSQL DATABASE
 
 This command instructs pgloader to load data from a database connection. The
 only supported database source is currently *MySQL*, and pgloader supports
@@ -806,13 +800,13 @@ Here's an example:
     LOAD DATABASE
          FROM      mysql://root@localhost/sakila
          INTO postgresql://localhost:54393/sakila
-    
+
      WITH include drop, create tables, create indexes, reset sequences
-    
+
       SET maintenance_work_mem to '128MB',
           work_mem to '12MB',
           search_path to 'sakila'
-    
+
      CAST type datetime to timestamptz drop default drop not null using zero-dates-to-null,
           type date drop not null drop default using zero-dates-to-null,
           -- type tinyint to boolean using tinyint-to-boolean,
@@ -836,7 +830,7 @@ The `database` command accepts the following clauses and options:
 
     If the connection URI contains a table name, then only this table is
   	migrated from MySQL to PostgreSQL.
-	
+
   - *INTO*
 
   	The target PostgreSQL connection URI.
@@ -855,7 +849,7 @@ The `database` command accepts the following clauses and options:
 		automatically from a clean environment.
 
       - *include no drop*
-	  
+
 	    When this option is listed, pgloader will not include any `DROP`
 	    statement when loading the data.
 
@@ -863,9 +857,9 @@ The `database` command accepts the following clauses and options:
 
         When this option is listed, pgloader issue the `TRUNCATE` command
         against each PostgreSQL table just before loading data into it.
-		
+
 	  - *no truncate*
-	  
+
 		When this topion is listed, pgloader issues no `TRUNCATE` command.
 
 	  - *create tables*
@@ -876,28 +870,28 @@ The `database` command accepts the following clauses and options:
 		DBF to PostgreSQL is done.
 
       - *create no tables*
-	  
+
 	    When this option is listed, pgloader skips the creation of table
 	    before lading data, target tables must then already exist.
 
 	  - *create indexes*
-	  
+
 	    When this option is listed, pgloader gets the definitions of all the
 	    indexes found in the MySQL database and create the same set of index
 	    definitions against the PostgreSQL database.
 
       - *create no indexes*
-	  
+
 	    When this option is listed, pgloader skips the creating indexes.
 
       - *foreign keys*
-	  
+
 	    When this option is listed, pgloader gets the definitions of all the
 	    foreign keys found in the MySQL database and create the same set of
 	    foreign key definitions against the PostgreSQL database.
 
       - *no foreign keys*
-	  
+
 	    When this option is listed, pgloader skips creating foreign keys.
 
 	  - *reset sequences*
@@ -906,12 +900,12 @@ The `database` command accepts the following clauses and options:
         the indexes have all been created, pgloader resets all the
         PostgreSQL sequences created to the current maximum value of the
         column they are attached to.
-		
+
 		The options *schema only* and *data only* have no effects on this
 		option.
 
       - *reset no sequences*
-	  
+
 	    When this option is listed, pgloader skips resetting sequences after
 	    the load.
 
@@ -923,24 +917,24 @@ The `database` command accepts the following clauses and options:
 	    When this option is listed, pgloader converts all MySQL identifiers
 	    (table names, index names, column names) to *downcase*, except for
 	    PostgreSQL *reserved* keywords.
-		
+
 		The PostgreSQL *reserved* keywords are determined dynamically by
 		using the system function `pg_get_keywords()`.
 
 	  - *quote identifiers*
-	  
+
 		When this option is listed, pgloader quotes all MySQL identifiers so
 		that their case is respected. Note that you will then have to do the
 		same thing in your application code queries.
-		 
+
 	  - *schema only*
-	  
+
 	    When this option is listed pgloader refrains from migrating the data
 	    over. Note that the schema in this context includes the indexes when
 	    the option *create indexes* has been listed.
-		
+
 	  - *data only*
-	  
+
 	    When this option is listed pgloader only issues the `COPY`
 	    statements, without doing any other processing.
 
@@ -949,17 +943,17 @@ The `database` command accepts the following clauses and options:
     This clause allows to specify session parameters to be set for all the
     sessions opened by pgloader. It expects a list of parameter name, the
     equal sign, then the single-quoted value as a comma separated list.
-	
+
 	The names and values of the parameters are not validated by pgloader,
 	they are given as-is to PostgreSQL.
 
   - *CAST*
-  
+
 	The cast clause allows to specify custom casting rules, either to
 	overload the default casting rules or to amend them with special cases.
-	
+
 	A casting rule is expected to follow one of the forms:
-	
+
 	    type <mysql-type-name> [ <guard> ... ] to <pgsql-type-name> [ <option> ... ]
 		column <table-name>.<column-name> [ <guards> ] to ...
 
@@ -968,37 +962,37 @@ The `database` command accepts the following clauses and options:
     flexibility allows to cope with cases where the type `tinyint` might
     have been used as a `boolean` in some cases but as a `smallint` in
     others.
-	
+
 	The *casting rules* are applied in order, the first match prevents
 	following rules to be applied, and user defined rules are evaluated
 	first.
 
     The supported guards are:
-	
+
 	  - *when default 'value'*
-	  
+
 	    The casting rule is only applied against MySQL columns of the source
 	    type that have given *value*, which must be a single-quoted or a
 	    double-quoted string.
-		
+
 	  - *when typemod expression*
-	  
+
 	    The casting rule is only applied against MySQL columns of the source
 	    type that have a *typemod* value matching the given *typemod
 	    expression*. The *typemod* is separated into its *precision* and
 	    *scale* components.
-		
+
 		Example of a cast rule using a *typemod* guard:
-		
+
 		    type char when (= precision 1) to char keep typemod
-			
+
         This expression casts MySQL `char(1)` column to a PostgreSQL column
         of type `char(1)` while allowing for the general case `char(N)` will
         be converted by the default cast rule into a PostgreSQL type
         `varchar(N)`.
 
 	The supported casting options are:
-	
+
 	  - *drop default*, *keep default*
 
         When the option *drop default* is listed, pgloader drops any
@@ -1038,51 +1032,51 @@ The `database` command accepts the following clauses and options:
         applies against `ENUM` data type for example) with a *transformation
         function* by omitting entirely the `type` parts of the casting rule,
         as in the following example:
-        
+
             column enumerate.foo using empty-string-to-null
 
   - *MATERIALIZE VIEWS*
-  
+
     This clause allows you to implement custom data processing at the data
     source by providing a *view definition* against which pgloader will
     query the data. It's not possible to just allow for plain `SQL` because
     we want to know a lot about the exact data types of each column involved
     in the query output.
-	
+
 	This clause expect a comma separated list of view definitions, each one
 	being either the name of an existing view in your database or the
 	following expression:
-	
+
 	  *name* `AS` `$$` *sql query* `$$`
-	  
+
 	The *name* and the *sql query* will be used in a `CREATE VIEW` statement
 	at the beginning of the data loading, and the resulting view will then
 	be dropped at the end of the data loading.
 
   - *INCLUDING ONLY TABLE NAMES MATCHING*
-  
+
 	Introduce a comma separated list of table names or *regular expression*
 	used to limit the tables to migrate to a sublist.
 
     Example:
-	
+
 	    INCLUDING ONLY TABLE NAMES MATCHING ~/film/, 'actor'
 
   - *EXCLUDING TABLE NAMES MATCHING*
-  
+
     Introduce a comma separated list of table names or *regular expression*
     used to exclude table names from the migration. This filter only applies
     to the result of the *INCLUDING* filter.
-	
+
 	    EXCLUDING TABLE NAMES MATCHING ~<ory>
 
   - *DECODING TABLE NAMES MATCHING*
-  
+
     Introduce a comma separated list of table names or *regular expressions*
     used to force the encoding to use when processing data from MySQL. If
     the data encoding known to you is different from MySQL's idea about it,
     this is the option to use.
-    
+
         DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf8
 
     You can use as many such rules as you need, all with possibly different
@@ -1095,11 +1089,11 @@ The `database` command accepts the following clauses and options:
 	 SCHEMA IF NOT EXISTS` command in case you want to load your data into
 	 some specific schema. To ensure your load happens in the right schema,
 	 consider setting the `search_path` in the *SET* clause.
-	 
+
 	 Each command must be *dollar-quoted*: it must begin and end with a
 	 double dollar sign, `$$`. Dollar-quoted queries are then comma
 	 separated. No extra punctuation is expected after the last SQL query.
-  
+
   - *AFTER LOAD DO*
 
 	Same format as *BEFORE LOAD DO*, the dollar-quoted queries found in that
@@ -1115,21 +1109,21 @@ the following limitations:
 	Supporting views might require implemeting a full SQL parser for the
 	MySQL dialect with a porting engine to rewrite the SQL against
 	PostgreSQL, including renaming functions and changing some constructs.
-	
+
 	While it's not theorically impossible, don't hold your breath.
 
   - Triggers are not migrated
-  
+
 	The difficulty of doing so is not yet assessed.
-	
+
   - `ON UPDATE CURRENT_TIMESTAMP` is currently not migrated
-  
+
 	It's simple enough to implement, just not on the priority list yet.
-	
+
   - Of the geometric datatypes, onle the `POINT` database has been covered.
     The other ones should be easy enough to implement now, it's just not
     done yet.
-	
+
   - The PostgreSQL `client_encoding` should be set to `UFT8` as pgloader is
     using that setting when asking MySQL for its data.
 
@@ -1182,11 +1176,11 @@ Date:
   - type datetime when default "0000-00-00 00:00:00" and not null
     to timestamptz drop not null drop default
 	using zero-dates-to-null
-	
+
   - type datetime when default "0000-00-00 00:00:00"
     to timestamptz drop default
 	using zero-dates-to-null
-	
+
   - type timestamp when default "0000-00-00 00:00:00" and not null
     to timestamptz drop not null drop default
 	using zero-dates-to-null
@@ -1197,7 +1191,7 @@ Date:
 
   - type date when default "0000-00-00" to date drop default
 	using zero-dates-to-null
-  
+
   - type date to date
   - type datetime to timestamptz
   - type timestamp to timestamptz
@@ -1216,7 +1210,7 @@ When the source type definition is not matched in the default casting rules
 nor in the casting rules provided in the command, then the type name with
 the typemod is used.
 
-## LOAD SQLite DATABASE
+### LOAD SQLite DATABASE
 
 This command instructs pgloader to load data from a SQLite file. Automatic
 discovery of the schema is supported, including build of the indexes.
@@ -1226,9 +1220,9 @@ Here's an example:
     load database
          from sqlite:///Users/dim/Downloads/lastfm_tags.db
          into postgresql:///tags
-    
+
      with drop tables, create tables, create indexes, reset sequences
-    
+
       set work_mem to '16MB', maintenance_work_mem to '512 MB';
 
 The `sqlite` command accepts the following clauses and options:
@@ -1236,7 +1230,7 @@ The `sqlite` command accepts the following clauses and options:
   - *FROM*
 
     Path or HTTP URL to a SQLite file, might be a `.zip` file.
-	
+
   - *INTO*
 
   	The target PostgreSQL connection URI. If that URL containst a
@@ -1256,7 +1250,7 @@ The `sqlite` command accepts the following clauses and options:
 		automatically from a clean environment.
 
       - *include no drop*
-	  
+
 	    When this option is listed, pgloader will not include any `DROP`
 	    statement when loading the data.
 
@@ -1266,7 +1260,7 @@ The `sqlite` command accepts the following clauses and options:
         against each PostgreSQL table just before loading data into it.
 
 	  - *no truncate*
-	  
+
 		When this topion is listed, pgloader issues no `TRUNCATE` command.
 
 	  - *create tables*
@@ -1277,20 +1271,20 @@ The `sqlite` command accepts the following clauses and options:
 		DBF to PostgreSQL is done.
 
       - *create no tables*
-	  
+
 	    When this option is listed, pgloader skips the creation of table
 	    before lading data, target tables must then already exist.
 
 	  - *create indexes*
-	  
+
 	     When this option is listed, pgloader gets the definitions of all
 	     the indexes found in the SQLite database and create the same set of
 	     index definitions against the PostgreSQL database.
-		  
+
       - *create no indexes*
-	  
+
 	    When this option is listed, pgloader skips the creating indexes.
-		
+
 	  - *reset sequences*
 
         When this option is listed, at the end of the data loading and after
@@ -1299,7 +1293,7 @@ The `sqlite` command accepts the following clauses and options:
         column they are attached to.
 
       - *reset no sequences*
-	  
+
 	    When this option is listed, pgloader skips resetting sequences after
 	    the load.
 
@@ -1307,13 +1301,13 @@ The `sqlite` command accepts the following clauses and options:
 		option.
 
 	  - *schema only*
-	  
+
 	     When this option is listed pgloader will refrain from migrating the
 	     data over. Note that the schema in this context includes the
 	     indexes when the option *create indexes* has been listed.
 
 	  - *data only*
-	  
+
 	    When this option is listed pgloader only issues the `COPY`
 	    statements, without doing any other processing.
 
@@ -1322,28 +1316,28 @@ The `sqlite` command accepts the following clauses and options:
     This clause allows to specify session parameters to be set for all the
     sessions opened by pgloader. It expects a list of parameter name, the
     equal sign, then the single-quoted value as a comma separated list.
-	
+
 	The names and values of the parameters are not validated by pgloader,
 	they are given as-is to PostgreSQL.
 
   - *INCLUDING ONLY TABLE NAMES MATCHING*
-  
+
 	Introduce a comma separated list of table names or *regular expression*
 	used to limit the tables to migrate to a sublist.
 
     Example:
-	
+
 	    INCLUDING ONLY TABLE NAMES MATCHING ~/film/, 'actor'
 
   - *EXCLUDING TABLE NAMES MATCHING*
-  
+
     Introduce a comma separated list of table names or *rugular expression*
     used to exclude table names from the migration. This filter only applies
     to the result of the *INCLUDING* filter.
-	
+
 	    EXCLUDING TABLE NAMES MATCHING ~<ory>
 
-## TRANSFORMATION FUNCTIONS
+### TRANSFORMATION FUNCTIONS
 
 Some data types are implemented in a different enough way that a
 transformation function is necessary. This function must be written in
@@ -1355,71 +1349,71 @@ into pgloader at runtime. For your functions to be found, remember to begin
 your lisp file with the following form:
 
     (in-package #:pgloader.transforms)
-    
+
 The provided transformation functions are:
 
   - *zero-dates-to-null*
 
     When the input date is all zeroes, return `nil`, which gets loaded as a
     PostgreSQL `NULL` value.
-	
+
   - *date-with-no-separator*
-  
+
     Applies *zero-dates-to-null* then transform the given date into a format
     that PostgreSQL will actually process:
-	
+
 	    In:  "20041002152952"
 		Out: "2004-10-02 15:29:52"
-		
+
   - *tinyint-to-boolean*
-  
+
     As MySQL lacks a proper boolean type, *tinyint* is often used to
     implement that. This function transforms `0` to `'false'` and anything
     else to `'true`'.
-	
+
   - *int-to-ip*
-  
+
     Convert an integer into a dotted representation of an ip4.
-        
+
         In:  18435761
         Out: "1.25.78.177"
 
   - *ip-range*
 
     Converts a couple of integers given as strings into a range of ip4.
-	
+
 	    In:  "16825344" "16825599"
 		Out: "1.0.188.0-1.0.188.255"
 
   - *convert-mysql-point*
-  
+
     Converts from the `astext` representation of points in MySQL to the
     PostgreSQL representation.
-    
+
         In:  "POINT(48.5513589 7.6926827)"
         Out: "(48.5513589,7.6926827)"
 
   - *float-to-string*
-  
+
     Converts a Common Lisp float into a string suitable for a PostgreSQL float:
-	
+
 	    In:  100.0d0
 		Out: "100.0"
-		
+
   - *set-to-enum-array*
-  
+
     Converts a string representing a MySQL SET into a PostgreSQL Array of
     Enum values from the set.
-	
+
 	    In: "foo,bar"
 	    Out: "{foo,bar}"
 
   - *right-trimg*
-  
+
     Remove whitespaces at end of string.
-    
+
   - *byte-vector-to-bytea*
-  
+
     Transform a simple array of unsigned bytes to the PostgreSQL bytea Hex
     Format representation as documented at
     http://www.postgresql.org/docs/9.3/interactive/datatype-binary.html
@@ -1432,28 +1426,32 @@ them to a destination table.
 
     LOAD MESSAGES
         FROM syslog://localhost:10514/
-    
+
      WHEN MATCHES rsyslog-msg IN apache
 	  REGISTERING timestamp, ip, rest
              INTO postgresql://localhost/db?logs.apache
               SET guc_1 = 'value', guc_2 = 'other value'
-    
+
      WHEN MATCHES rsyslog-msg IN others
       REGISTERING timestamp, app-name, data
              INTO postgresql://localhost/db?logs.others
               SET guc_1 = 'value', guc_2 = 'other value'
-    
+
         WITH apache = rsyslog
              DATA   = IP REST
              IP     = 1*3DIGIT "." 1*3DIGIT "."1*3DIGIT "."1*3DIGIT
              REST   = ~/.*/
-    
+
         WITH others = rsyslog;
 
 As the command is still experimental the options might be changed in the
 future and the details are not documented.
 
-# SEE ALSO
+## AUTHOR
+
+Dimitri Fontaine <dimitri@2ndQuadrant.fr>
+
+## SEE ALSO
 
 PostgreSQL COPY documentation at <http://www.postgresql.org/docs/9.3/static/sql-copy.html>.
 

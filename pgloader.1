@@ -1,0 +1,1851 @@
+.\" generated with Ronn/v0.7.3
+.\" http://github.com/rtomayko/ronn/tree/0.7.3
+.
+.TH "PGLOADER" "1" "April 2014" "ff" ""
+.
+.SH "NAME"
+\fBpgloader\fR \- PostgreSQL data loader
+.
+.SH "SYNOPSIS"
+\fBpgloader\fR [\fIoptions\fR] [\fIcommand\-file\fR]\.\.\.
+.
+.SH "DESCRIPTION"
+pgloader loads data from different sources into PostgreSQL\. It can tranform the data it reads on the fly and send raw SQL before and after the loading\. It uses the \fBCOPY\fR PostgreSQL protocol to stream the data into the server, and manages errors by filling a pair fo \fIreject\.dat\fR and \fIreject\.log\fR files\.
+.
+.P
+pgloader operates from commands which are read from files:
+.
+.IP "" 4
+.
+.nf
+
+pgloader commands\.load
+.
+.fi
+.
+.IP "" 0
+.
+.SH "OPTIONS"
+.
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Show command usage summary and exit\.
+.
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Show pgloader version string and exit\.
+.
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Be verbose\.
+.
+.TP
+\fB\-q\fR, `\-\-quiet
+Be quiet\.
+.
+.TP
+\fB\-d\fR, \fB\-\-debug\fR
+Show debug level information messages\.
+.
+.TP
+\fB\-D\fR, \fB\-\-root\-dir\fR
+Set the root working directory (default to "/tmp/pgloader")\.
+.
+.TP
+\fB\-L\fR, \fB\-\-logfile\fR
+Set the pgloader log file (default to "/tmp/pgloader\.log")\.
+.
+.TP
+\fB\-\-log\-min\-messages\fR
+Minimum level of verbosity needed for log message to make it to the logfile\. One of critical, log, error, warning, notice, info or debug\.
+.
+.TP
+\fB\-\-client\-min\-messages\fR
+Minimum level of verbosity needed for log message to make it to the console\. One of critical, log, error, warning, notice, info or debug\.
+.
+.TP
+\fB\-E\fR, \fB\-\-list\-encodings\fR
+List known encodings in this version of pgloader\.
+.
+.TP
+\fB\-U\fR, \fB\-\-upgrade\-config\fR
+Parse given files in the command line as \fBpgloader\.conf\fR files with the \fBINI\fR syntax that was in use in pgloader versions 2\.x, and output the new command syntax for pgloader on standard output\.
+.
+.TP
+\-l \fIfile\fR, \-\-load \fIfile\fR
+Specify a lisp \fIfile\fR to compile and load into the pgloader image before reading the commands, allowing to define extra transformation function\. Those functions should be defined in the \fBpgloader\.transforms\fR package\. This option can appear more than once in the command line\.
+.
+.P
+To get the maximum amount of debug information, you can use both the \fB\-\-verbose\fR and the \fB\-\-debug\fR switches at the same time, which is equivalent to saying \fB\-\-client\-min\-messages data\fR\. Then the log messages will show the data being processed, in the cases where the code has explicit support for it\.
+.
+.SH "BATCHES AND RETRY BEHAVIOUR"
+To load data to PostgreSQL, pgloader uses the \fBCOPY\fR streaming protocol\. While this is the faster way to load data, \fBCOPY\fR has an important drawback: as soon as PostgreSQL emits an error with any bit of data sent to it, whatever the problem is, the whole data set is rejected by PostgreSQL\.
+.
+.P
+To work around that, pgloader cuts the data into \fIbatches\fR of 25000 rows each, so that when a problem occurs it\'s only impacting that many rows of data\. Each batch is kept in memory while the \fBCOPY\fR streaming happens, in order to be able to handle errors should some happen\.
+.
+.P
+When PostgreSQL rejects the whole batch, pgloader logs the error message then isolates the bad row(s) from the accepted ones by retrying the batched rows in smaller batches\. To do that, pgloader parses the \fICONTEXT\fR error message from the failed COPY, as the message contains the line number where the error was found in the batch, as in the following example:
+.
+.IP "" 4
+.
+.nf
+
+CONTEXT: COPY errors, line 3, column b: "2006\-13\-11"
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Using that information, pgloader will reload all rows in the batch before the erroneous one, log the erroneous one as rejected, then try loading the remaining of the batch in a single attempt, which may or may not contain other erroneous data\.
+.
+.P
+At the end of a load containing rejected rows, you will find two files in the \fIroot\-dir\fR location, under a directory named the same as the target database of your setup\. The filenames are the target table, and their extensions are \fB\.dat\fR for the rejected data and \fB\.log\fR for the file containing the full PostgreSQL client side logs about the rejected data\.
+.
+.P
+The \fB\.dat\fR file is formated in PostgreSQL the text COPY format as documented in http://www\.postgresql\.org/docs/9\.2/static/sql\-copy\.html#AEN66609 \fI\fR\.
+.
+.SH "A NOTE ABOUT PERFORMANCES"
+pgloader has been developped with performances in mind, to be able to cope with ever growing needs in loading large amounts of data into PostgreSQL\.
+.
+.P
+The basic architecture it uses is the old Unix pipe model, where a thread is responsible for loading the data (reading a CSV file, querying MySQL, etc) and fills pre\-processed data into a queue\. Another threads feeds from the queue, apply some more \fItransformations\fR to the input data and stream the end result to PostgreSQL using the COPY protocol\.
+.
+.P
+When given a file that the PostgreSQL \fBCOPY\fR command knows how to parse, and if the file contains no erroneous data, then pgloader will never be as fast as just using the PostgreSQL \fBCOPY\fR command\.
+.
+.P
+Note that while the \fBCOPY\fR command is restricted to read either from its standard input or from a local file on the server\'s file system, the command line tool \fBpsql\fR implements a \fB\ecopy\fR command that knows how to stream a file local to the client over the network and into the PostgreSQL server, using the same protocol as pgloader uses\.
+.
+.SH "COMMANDS"
+pgloader support the following commands:
+.
+.IP "\(bu" 4
+\fBLOAD CSV\fR
+.
+.IP "\(bu" 4
+\fBLOAD FIXED\fR
+.
+.IP "\(bu" 4
+\fBLOAD DBF\fR
+.
+.IP "\(bu" 4
+\fBLOAD SQLite\fR
+.
+.IP "\(bu" 4
+\fBLOAD MYSQL\fR
+.
+.IP "\(bu" 4
+\fBLOAD ARCHIVE\fR
+.
+.IP "\(bu" 4
+\fBLOAD DATABASE\fR
+.
+.IP "\(bu" 4
+\fBLOAD MESSAGES\fR
+.
+.IP "" 0
+.
+.P
+The pgloader commands follow the same grammar rules\. Each of them might support only a subset of the general options and provide specific options\.
+.
+.IP "" 4
+.
+.nf
+
+LOAD <something>
+     FROM <source\-url>  [ WITH <source\-options> ]
+     INTO <postgresql\-url>
+
+[ WITH <load\-options> ]
+
+[ SET <postgresql\-settings> ]
+;
+.
+.fi
+.
+.IP "" 0
+.
+.P
+The main clauses are the \fBLOAD\fR, \fBFROM\fR, \fBINTO\fR and \fBWITH\fR clauses that each command implements\. Some command then implement the \fBSET\fR command, or some specific clauses such as the \fBCAST\fR clause\.
+.
+.SS "Connection String"
+The \fB<source\-url>\fR parameter is expected to be given as a \fIConnection URI\fR as documented in the PostgreSQL documentation at http://www\.postgresql\.org/docs/9\.3/static/libpq\-connect\.html#LIBPQ\-CONNSTRING\.
+.
+.IP "" 4
+.
+.nf
+
+postgresql://[user[:password]@][netloc][:port][/dbname][?schema\.table]
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Where:
+.
+.IP "\(bu" 4
+\fIuser\fR
+.
+.IP
+Can contain any character, including colon (\fB:\fR) which must then be doubled (\fB::\fR) and at\-sign (\fB@\fR) which must then be doubled (\fB@@\fR)\.
+.
+.IP "\(bu" 4
+\fIpassword\fR
+.
+.IP
+Can contain any character, including that at sign (\fB@\fR) which must then be doubled (\fB@@\fR)\. To leave the password empty, when the \fIuser\fR name ends with at at sign, you then have to use the syntax user:@\.
+.
+.IP "\(bu" 4
+\fInetloc\fR
+.
+.IP
+Can be either a hostname in dotted notation, or an ipv4, or an unix domain socket path\. Empty is the default network location, under a system providing \fIunix domain socket\fR that method is prefered, otherwise the \fInetloc\fR default to \fBlocalhost\fR\.
+.
+.IP
+It\'s possible to force the \fIunix domain socket\fR path by using the syntax \fBunix:/path/to/where/the/socket/file/is\fR, so to force a non default socket path and a non default port, you would have:
+.
+.IP "" 4
+.
+.nf
+
+postgresql://unix:/tmp:54321/dbname
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fIdbname\fR
+.
+.IP
+Should be a proper identifier (letter followed by a mix of letters, digits and the punctuation signs comma (\fB,\fR), dash (\fB\-\fR) and underscore (\fB_\fR)\.
+.
+.IP "\(bu" 4
+The only optionnal parameter should be a possibly qualified table name\.
+.
+.IP "" 0
+.
+.SS "Regular Expressions"
+Several clauses listed in the following accept \fIregular expressions\fR with the following input rules:
+.
+.IP "\(bu" 4
+A regular expression begins with a tilde sign (\fB~\fR),
+.
+.IP "\(bu" 4
+is then followed with an opening sign,
+.
+.IP "\(bu" 4
+then any character is allowed and considered part of the regular expression, except for the closing sign,
+.
+.IP "\(bu" 4
+then a closing sign is expected\.
+.
+.IP "" 0
+.
+.P
+The opening and closing sign are allowed by pair, here\'s the complete list of allowed delimiters:
+.
+.IP "" 4
+.
+.nf
+
+~//
+~[]
+~{}
+~()
+~<>
+~""
+~\'\'
+~||
+~##
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Pick the set of delimiters that don\'t collide with the \fIregular expression\fR you\'re trying to input\. If your expression is such that none of the solutions allow you to enter it, the places where such expressions are allowed should allow for a list of expressions\.
+.
+.SS "Comments"
+Any command may contain comments, following those input rules:
+.
+.IP "\(bu" 4
+the \fB\-\-\fR delimiter begins a comment that ends with the end of the current line,
+.
+.IP "\(bu" 4
+the delimiters \fB/*\fR and \fB*/\fR respectively start and end a comment, which can be found in the middle of a command or span several lines\.
+.
+.IP "" 0
+.
+.P
+Any place where you could enter a \fIwhitespace\fR will accept a comment too\.
+.
+.SS "LOAD CSV"
+This command instructs pgloader to load data from a \fBCSV\fR file\. Here\'s an example:
+.
+.IP "" 4
+.
+.nf
+
+LOAD CSV
+   FROM \'GeoLiteCity\-Blocks\.csv\' WITH ENCODING iso\-646\-us
+        (
+           startIpNum, endIpNum, locId
+        )
+   INTO postgresql://user@localhost:54393/dbname?geolite\.blocks
+        (
+           iprange ip4r using (ip\-range startIpNum endIpNum),
+           locId
+        )
+   WITH truncate,
+        skip header = 2,
+        fields optionally enclosed by \'"\',
+        fields escaped by backslash\-quote,
+        fields terminated by \'\et\'
+
+    SET work_mem to \'32 MB\', maintenance_work_mem to \'64 MB\';
+.
+.fi
+.
+.IP "" 0
+.
+.P
+The \fBcsv\fR format command accepts the following clauses and options:
+.
+.IP "\(bu" 4
+\fIFROM\fR
+.
+.IP
+Filename where to load the data from\. Accepts an \fIENCODING\fR option\. Use the \fB\-\-list\-encodings\fR option to know which encoding names are supported\.
+.
+.IP
+The filename may be enclosed by single quotes, and could be one of the following special values:
+.
+.IP "\(bu" 4
+\fIinline\fR
+.
+.IP
+The data is found after the end of the parsed commands\. Any number of empty lines between the end of the commands and the beginning of the data is accepted\.
+.
+.IP "\(bu" 4
+\fIstdin\fR
+.
+.IP
+Reads the data from the standard input stream\.
+.
+.IP "" 0
+.
+.IP
+The \fIFROM\fR option also supports an optional comma separated list of \fIfield\fR names describing what is expected in the \fBCSV\fR data file\.
+.
+.IP
+Each field name can be either only one name or a name following with specific reader options for that field\. Supported per\-field reader options are:
+.
+.IP "\(bu" 4
+\fIterminated by\fR
+.
+.IP
+See the description of \fIfield terminated by\fR below\.
+.
+.IP
+The processing of this option is not currently implemented\.
+.
+.IP "\(bu" 4
+\fIdate format\fR
+.
+.IP
+When the field is expected of the date type, then this option allows to specify the date format used in the file\.
+.
+.IP
+The processing of this option is not currently implemented\.
+.
+.IP "\(bu" 4
+\fInull if\fR
+.
+.IP
+This option takes an argument which is either the keyword \fIblanks\fR or a double\-quoted string\.
+.
+.IP
+When \fIblanks\fR is used and the field value that is read contains only space characters, then it\'s automatically converted to an SQL \fBNULL\fR value\.
+.
+.IP
+When a double\-quoted string is used and that string is read as the field value, then the field value is automatically converted to an SQL \fBNULL\fR value\.
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fIINTO\fR
+.
+.IP
+The PostgreSQL connection URI must contains the name of the target table where to load the data into\. That table must have already been created in PostgreSQL, and the name might be schema qualified\.
+.
+.IP
+Then \fIINTO\fR option also supports an optional comma separated list of target columns, which are either the name of an input \fIfield\fR or the whitespace separated list of the target column name, its PostgreSQL data type and a \fIUSING\fR expression\.
+.
+.IP
+The \fIUSING\fR expression can be any valid Common Lisp form and will be read with the current package set to \fBpgloader\.transforms\fR, so that you can use functions defined in that package, such as functions loaded dynamically with the \fB\-\-load\fR command line parameter\.
+.
+.IP
+Each \fIUSING\fR expression is compiled at runtime to native code, and will be called in a context such as:
+.
+.IP "" 4
+.
+.nf
+
+(destructuring\-bind (field\-name\-1 field\-name\-2 \.\.\.)
+    row
+  (list column\-name\-1
+        column\-name\-2
+        (expression column\-name\-1 column\-name\-2)))
+.
+.fi
+.
+.IP "" 0
+.
+.IP
+This feature allows pgloader to load any number of fields in a CSV file into a possibly different number of columns in the database, using custom code for that projection\.
+.
+.IP "\(bu" 4
+\fIWITH\fR
+.
+.IP
+When loading from a \fBCSV\fR file, the following options are supported:
+.
+.IP "\(bu" 4
+\fItruncate\fR
+.
+.IP
+When this option is listed, pgloader issues a \fBTRUNCATE\fR command against the PostgreSQL target table before reading the data file\.
+.
+.IP "\(bu" 4
+\fIskip header\fR
+.
+.IP
+Takes a numeric value as argument\. Instruct pgloader to skip that many lines at the beginning of the input file\.
+.
+.IP "\(bu" 4
+\fItrim unquoted blanks\fR
+.
+.IP
+When reading unquoted values in the \fBCSV\fR file, remove the blanks found in between the separator and the value\. That behaviour is the default\.
+.
+.IP "\(bu" 4
+\fIkeep unquoted blanks\fR
+.
+.IP
+When reading unquoted values in the \fBCSV\fR file, keep blanks found in between the separator and the value\.
+.
+.IP "\(bu" 4
+\fIfields optionally enclosed by\fR
+.
+.IP
+Takes a single character as argument, which must be found inside single quotes, and might be given as the printable character itself, the special value \et to denote a tabulation character, or \fB0x\fR then an hexadecimal value read as the ascii code for the character\.
+.
+.IP
+This character is used as the quoting character in the \fBCSV\fR file, and defaults to double\-quote\.
+.
+.IP "\(bu" 4
+\fIfields not enclosed\fR
+.
+.IP
+By default, pgloader will use the double\-quote character as the enclosing character\. If you have a CSV file where fields are not enclosed and are using double\-quote as an expected ordinary character, then use the option \fIfields not enclosed\fR for the CSV parser to accept those values\.
+.
+.IP "\(bu" 4
+\fIfields escaped by\fR
+.
+.IP
+Takes either the special value \fIbackslash\-quote\fR or \fIdouble\-quote\fR\. This value is used to recognize escaped field separators when they are to be found within the data fields themselves\. Defaults to \fIdouble\-quote\fR\.
+.
+.IP "\(bu" 4
+\fIfields terminated by\fR
+.
+.IP
+Takes a single character as argument, which must be found inside single quotes, and might be given as the printable character itself, the special value \et to denote a tabulation character, or \fB0x\fR then an hexadecimal value read as the ascii code for the character\.
+.
+.IP
+This character is used as the \fIfield separator\fR when reading the \fBCSV\fR data\.
+.
+.IP "\(bu" 4
+\fIlines terminated by\fR
+.
+.IP
+Takes a single character as argument, which must be found inside single quotes, and might be given as the printable character itself, the special value \et to denote a tabulation character, or \fB0x\fR then an hexadecimal value read as the ascii code for the character\.
+.
+.IP
+This character is used to recognize \fIend\-of\-line\fR condition when reading the \fBCSV\fR data\.
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fISET\fR
+.
+.IP
+This clause allows to specify session parameters to be set for all the sessions opened by pgloader\. It expects a list of parameter name, the equal sign, then the single\-quoted value as a comma separated list\.
+.
+.IP
+The names and values of the parameters are not validated by pgloader, they are given as\-is to PostgreSQL\.
+.
+.IP "\(bu" 4
+\fIBEFORE LOAD DO\fR
+.
+.IP
+You can run SQL queries against the database before loading the data from the \fBCSV\fR file\. Most common SQL queries are \fBCREATE TABLE IF NOT EXISTS\fR so that the data can be loaded\.
+.
+.IP
+Each command must be \fIdollar\-quoted\fR: it must begin and end with a double dollar sign, \fB$$\fR\. Dollar\-quoted queries are then comma separated\. No extra punctuation is expected after the last SQL query\.
+.
+.IP "\(bu" 4
+\fIAFTER LOAD DO\fR
+.
+.IP
+Same format as \fIBEFORE LOAD DO\fR, the dollar\-quoted queries found in that section are executed once the load is done\. That\'s the right time to create indexes and constraints, or re\-enable triggers\.
+.
+.IP "" 0
+.
+.SS "LOAD FIXED COLS"
+This command instructs pgloader to load data from a text file containing columns arranged in a \fIfixed size\fR manner\. Here\'s an example:
+.
+.IP "" 4
+.
+.nf
+
+LOAD FIXED
+     FROM inline (a 0 10, b 10 8, c 18 8, d 26 17)
+     INTO postgresql:///pgloader?fixed
+          (
+             a, b,
+             c time using (time\-with\-no\-separator c),
+             d
+          )
+
+     WITH truncate
+
+      SET client_encoding to \'latin1\',
+          work_mem to \'14MB\',
+          standard_conforming_strings to \'on\'
+
+BEFORE LOAD DO
+     $$ drop table if exists fixed; $$,
+     $$ create table fixed (
+         a integer,
+         b date,
+         c time,
+         d text
+        );
+     $$;
+
+ 01234567892008052011431250firstline
+    01234562008052115182300left blank\-padded
+ 12345678902008052208231560another line
+.
+.fi
+.
+.IP "" 0
+.
+.P
+The \fBfixed\fR format command accepts the following clauses and options:
+.
+.IP "\(bu" 4
+\fIFROM\fR
+.
+.IP
+Filename where to load the data from\. Accepts an \fIENCODING\fR option\. Use the \fB\-\-list\-encodings\fR option to know which encoding names are supported\.
+.
+.IP
+The filename may be enclosed by single quotes, and could be one of the following special values:
+.
+.IP "\(bu" 4
+\fIinline\fR
+.
+.IP
+The data is found after the end of the parsed commands\. Any number of empty lines between the end of the commands and the beginning of the data is accepted\.
+.
+.IP "\(bu" 4
+\fIstdin\fR
+.
+.IP
+Reads the data from the standard input stream\.
+.
+.IP "" 0
+.
+.IP
+The \fIFROM\fR option also supports an optional comma separated list of \fIfield\fR names describing what is expected in the \fBFIXED\fR data file\.
+.
+.IP
+Each field name is composed of the field name followed with specific reader options for that field\. Supported per\-field reader options are the following, where only \fIstart\fR and \fIlength\fR are required\.
+.
+.IP "\(bu" 4
+\fIstart\fR
+.
+.IP
+Position in the line where to start reading that field\'s value\. Can be entered with decimal digits or \fB0x\fR then hexadecimal digits\.
+.
+.IP "\(bu" 4
+\fIlength\fR
+.
+.IP
+How many bytes to read from the \fIstart\fR position to read that field\'s value\. Same format as \fIstart\fR\.
+.
+.IP "\(bu" 4
+\fIterminated by\fR
+.
+.IP
+See the description of \fIfield terminated by\fR below\.
+.
+.IP
+The processing of this option is not currently implemented\.
+.
+.IP "\(bu" 4
+\fIdate format\fR
+.
+.IP
+When the field is expected of the date type, then this option allows to specify the date format used in the file\.
+.
+.IP
+The processing of this option is not currently implemented\.
+.
+.IP "\(bu" 4
+\fInull if\fR
+.
+.IP
+This option takes an argument which is either the keyword \fIblanks\fR or a double\-quoted string\.
+.
+.IP
+When \fIblanks\fR is used and the field value that is read contains only space characters, then it\'s automatically converted to an SQL \fBNULL\fR value\.
+.
+.IP
+When a double\-quoted string is used and that string is read as the field value, then the field value is automatically converted to an SQL \fBNULL\fR value\.
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fIINTO\fR
+.
+.IP
+The PostgreSQL connection URI must contains the name of the target table where to load the data into\. That table must have already been created in PostgreSQL, and the name might be schema qualified\.
+.
+.IP
+Then \fIINTO\fR option also supports an optional comma separated list of target columns, which are either the name of an input \fIfield\fR or the whitespace separated list of the target column name, its PostgreSQL data type and a \fIUSING\fR expression\.
+.
+.IP
+The \fIUSING\fR expression can be any valid Common Lisp form and will be read with the current package set to \fBpgloader\.transforms\fR, so that you can use functions defined in that package, such as functions loaded dynamically with the \fB\-\-load\fR command line parameter\.
+.
+.IP
+Each \fIUSING\fR expression is compiled at runtime to native code, and will be called in a context such as:
+.
+.IP "" 4
+.
+.nf
+
+(destructuring\-bind (field\-name\-1 field\-name\-2 \.\.\.)
+    row
+  (list column\-name\-1
+        column\-name\-2
+        (expression column\-name\-1 column\-name\-2)))
+.
+.fi
+.
+.IP "" 0
+.
+.IP
+This feature allows pgloader to load any number of fields in a CSV file into a possibly different number of columns in the database, using custom code for that projection\.
+.
+.IP "\(bu" 4
+\fIWITH\fR
+.
+.IP
+When loading from a \fBCSV\fR file, the following options are supported:
+.
+.IP "\(bu" 4
+\fItruncate\fR
+.
+.IP
+When this option is listed, pgloader issues a \fBTRUNCATE\fR command against the PostgreSQL target table before reading the data file\.
+.
+.IP "\(bu" 4
+\fIskip header\fR
+.
+.IP
+Takes a numeric value as argument\. Instruct pgloader to skip that many lines at the beginning of the input file\.
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fISET\fR
+.
+.IP
+This clause allows to specify session parameters to be set for all the sessions opened by pgloader\. It expects a list of parameter name, the equal sign, then the single\-quoted value as a comma separated list\.
+.
+.IP
+The names and values of the parameters are not validated by pgloader, they are given as\-is to PostgreSQL\.
+.
+.IP "\(bu" 4
+\fIBEFORE LOAD DO\fR
+.
+.IP
+You can run SQL queries against the database before loading the data from the \fBCSV\fR file\. Most common SQL queries are \fBCREATE TABLE IF NOT EXISTS\fR so that the data can be loaded\.
+.
+.IP
+Each command must be \fIdollar\-quoted\fR: it must begin and end with a double dollar sign, \fB$$\fR\. Dollar\-quoted queries are then comma separated\. No extra punctuation is expected after the last SQL query\.
+.
+.IP "\(bu" 4
+\fIAFTER LOAD DO\fR
+.
+.IP
+Same format as \fIBEFORE LOAD DO\fR, the dollar\-quoted queries found in that section are executed once the load is done\. That\'s the right time to create indexes and constraints, or re\-enable triggers\.
+.
+.IP "" 0
+.
+.SS "LOAD DBF"
+This command instructs pgloader to load data from a \fBDBF\fR file\. Here\'s an example:
+.
+.IP "" 4
+.
+.nf
+
+LOAD DBF
+    FROM http://www\.insee\.fr/fr/methodes/nomenclatures/cog/telechargement/2013/dbf/reg2013\.dbf
+    INTO postgresql://user@localhost/dbname
+    WITH truncate, create table;
+.
+.fi
+.
+.IP "" 0
+.
+.P
+The \fBdbf\fR format command accepts the following clauses and options:
+.
+.IP "\(bu" 4
+\fIFROM\fR
+.
+.IP
+Filename where to load the data from\. This support local files, HTTP URLs and zip files containing a single dbf file of the same name\. Fetch such a zip file from an HTTP address is of course supported\.
+.
+.IP "\(bu" 4
+\fIINTO\fR
+.
+.IP
+The PostgreSQL connection URI\. If it doesn\'t have a table name in the target, then the name part of the filename will be used as a table name\.
+.
+.IP "\(bu" 4
+\fIWITH\fR
+.
+.IP
+When loading from a \fBDBF\fR file, the following options are supported:
+.
+.IP "\(bu" 4
+\fItruncate\fR
+.
+.IP
+When this option is listed, pgloader issues a \fBTRUNCATE\fR command against the PostgreSQL target table before reading the data file\.
+.
+.IP "\(bu" 4
+\fIcreate table\fR
+.
+.IP
+When this option is listed, pgloader creates the table using the meta data found in the \fBDBF\fR file, which must contain a list of fields with their data type\. A standard data type conversion from DBF to PostgreSQL is done\.
+.
+.IP "\(bu" 4
+\fItable name\fR
+.
+.IP
+This options expects as its value the possibly qualified name of the table to create\.
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fISET\fR
+.
+.IP
+This clause allows to specify session parameters to be set for all the sessions opened by pgloader\. It expects a list of parameter name, the equal sign, then the single\-quoted value as a comma separated list\.
+.
+.IP
+The names and values of the parameters are not validated by pgloader, they are given as\-is to PostgreSQL\.
+.
+.IP "" 0
+.
+.SS "LOAD ARCHIVE"
+This command instructs pgloader to load data from one or more files contained in an archive\. Currently the only supported archive format is \fIZIP\fR, and the archive might be downloaded from an \fIHTTP\fR URL\.
+.
+.P
+Here\'s an example:
+.
+.IP "" 4
+.
+.nf
+
+LOAD ARCHIVE
+   FROM /Users/dim/Downloads/GeoLiteCity\-latest\.zip
+   INTO postgresql:///ip4r
+
+   BEFORE LOAD DO
+     $$ create extension if not exists ip4r; $$,
+     $$ create schema if not exists geolite; $$,
+     $$ create table if not exists geolite\.location
+       (
+          locid      integer primary key,
+          country    text,
+          region     text,
+          city       text,
+          postalcode text,
+          location   point,
+          metrocode  text,
+          areacode   text
+       );
+     $$,
+     $$ create table if not exists geolite\.blocks
+       (
+          iprange    ip4r,
+          locid      integer
+       );
+     $$,
+     $$ drop index if exists geolite\.blocks_ip4r_idx; $$,
+     $$ truncate table geolite\.blocks, geolite\.location cascade; $$
+
+   LOAD CSV
+        FROM FILENAME MATCHING ~/GeoLiteCity\-Location\.csv/
+             WITH ENCODING iso\-8859\-1
+             (
+                locId,
+                country,
+                region     null if blanks,
+                city       null if blanks,
+                postalCode null if blanks,
+                latitude,
+                longitude,
+                metroCode  null if blanks,
+                areaCode   null if blanks
+             )
+        INTO postgresql:///ip4r?geolite\.location
+             (
+                locid,country,region,city,postalCode,
+                location point using (format nil "(~a,~a)" longitude latitude),
+                metroCode,areaCode
+             )
+        WITH skip header = 2,
+             fields optionally enclosed by \'"\',
+             fields escaped by double\-quote,
+             fields terminated by \',\'
+
+  AND LOAD CSV
+        FROM FILENAME MATCHING ~/GeoLiteCity\-Blocks\.csv/
+             WITH ENCODING iso\-8859\-1
+             (
+                startIpNum, endIpNum, locId
+             )
+        INTO postgresql:///ip4r?geolite\.blocks
+             (
+                iprange ip4r using (ip\-range startIpNum endIpNum),
+                locId
+             )
+        WITH skip header = 2,
+             fields optionally enclosed by \'"\',
+             fields escaped by double\-quote,
+             fields terminated by \',\'
+
+   FINALLY DO
+     $$ create index blocks_ip4r_idx on geolite\.blocks using gist(iprange); $$;
+.
+.fi
+.
+.IP "" 0
+.
+.P
+The \fBarchive\fR command accepts the following clauses and options:
+.
+.IP "\(bu" 4
+\fIFROM\fR
+.
+.IP
+Filename or HTTP URI where to load the data from\. When given an HTTP URL the linked file will get downloaded locally before processing\.
+.
+.IP
+If the file is a \fBzip\fR file, the command line utility \fBunzip\fR is used to expand the archive into files in \fB$TMPDIR\fR, or \fB/tmp\fR if \fB$TMPDIR\fR is unset or set to a non\-existing directory\.
+.
+.IP
+Then the following commands are used from the top level directory where the archive has been expanded\.
+.
+.IP "\(bu" 4
+\fIINTO\fR
+.
+.IP
+A PostgreSQL database connection URL is expected and will be used in the \fIBEFORE LOAD DO\fR and \fIFINALLY DO\fR clauses\.
+.
+.IP "\(bu" 4
+\fIBEFORE LOAD DO\fR
+.
+.IP
+You can run SQL queries against the database before loading from the data files found in the archive\. Most common SQL queries are \fBCREATE TABLE IF NOT EXISTS\fR so that the data can be loaded\.
+.
+.IP
+Each command must be \fIdollar\-quoted\fR: it must begin and end with a double dollar sign, \fB$$\fR\. Queries are then comma separated\. No extra punctuation is expected after the last SQL query\.
+.
+.IP "\(bu" 4
+command [ \fIAND\fR command \.\.\. ]
+.
+.IP
+A series of commands against the contents of the archive, at the moment only \fBCSV\fR,\fB\'FIXED\fR and \fBDBF\fR commands are supported\.
+.
+.IP
+Note that commands are supporting the clause \fIFROM FILENAME MATCHING\fR which allows the pgloader command not to depend on the exact names of the archive directories\.
+.
+.IP
+The same clause can also be applied to several files with using the spelling \fIFROM ALL FILENAMES MATCHING\fR and a regular expression\.
+.
+.IP
+The whole \fImatching\fR clause must follow the following rule:
+.
+.IP "" 4
+.
+.nf
+
+ FROM [ ALL FILENAMES | [ FIRST ] FILENAME ] MATCHING
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fIFINALLY DO\fR
+.
+.IP
+SQL Queries to run once the data is loaded, such as \fBCREATE INDEX\fR\.
+.
+.IP "" 0
+.
+.SS "LOAD MYSQL DATABASE"
+This command instructs pgloader to load data from a database connection\. The only supported database source is currently \fIMySQL\fR, and pgloader supports dynamically converting the schema of the source database and the indexes building\.
+.
+.P
+A default set of casting rules are provided and might be overloaded and appended to by the command\.
+.
+.P
+Here\'s an example:
+.
+.IP "" 4
+.
+.nf
+
+LOAD DATABASE
+     FROM      mysql://root@localhost/sakila
+     INTO postgresql://localhost:54393/sakila
+
+ WITH include drop, create tables, create indexes, reset sequences
+
+  SET maintenance_work_mem to \'128MB\',
+      work_mem to \'12MB\',
+      search_path to \'sakila\'
+
+ CAST type datetime to timestamptz drop default drop not null using zero\-dates\-to\-null,
+      type date drop not null drop default using zero\-dates\-to\-null,
+      \-\- type tinyint to boolean using tinyint\-to\-boolean,
+      type year to integer
+
+ MATERIALIZE VIEWS film_list, staff_list
+
+ \-\- INCLUDING ONLY TABLE NAMES MATCHING ~/film/, \'actor\'
+ \-\- EXCLUDING TABLE NAMES MATCHING ~<ory>
+ \-\- DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf8
+
+ BEFORE LOAD DO
+ $$ create schema if not exists sakila; $$;
+.
+.fi
+.
+.IP "" 0
+.
+.P
+The \fBdatabase\fR command accepts the following clauses and options:
+.
+.IP "\(bu" 4
+\fIFROM\fR
+.
+.IP
+Must be a connection URL pointing to a MySQL database\. At the moment only MySQL is supported as a pgloader source\.
+.
+.IP
+If the connection URI contains a table name, then only this table is migrated from MySQL to PostgreSQL\.
+.
+.IP "\(bu" 4
+\fIINTO\fR
+.
+.IP
+The target PostgreSQL connection URI\.
+.
+.IP "\(bu" 4
+\fIWITH\fR
+.
+.IP
+When loading from a \fBMySQL\fR database, the following options are supported:
+.
+.IP "\(bu" 4
+\fIinclude drop\fR
+.
+.IP
+When this option is listed, pgloader drop in the PostgreSQL connection all the table whose names have been found in the MySQL database\. This option allows for using the same command several times in a row until you figure out all the options, starting automatically from a clean environment\.
+.
+.IP "\(bu" 4
+\fIinclude no drop\fR
+.
+.IP
+When this option is listed, pgloader will not include any \fBDROP\fR statement when loading the data\.
+.
+.IP "\(bu" 4
+\fItruncate\fR
+.
+.IP
+When this option is listed, pgloader issue the \fBTRUNCATE\fR command against each PostgreSQL table just before loading data into it\.
+.
+.IP "\(bu" 4
+\fIno truncate\fR
+.
+.IP
+When this topion is listed, pgloader issues no \fBTRUNCATE\fR command\.
+.
+.IP "\(bu" 4
+\fIcreate tables\fR
+.
+.IP
+When this option is listed, pgloader creates the table using the meta data found in the \fBMySQL\fR file, which must contain a list of fields with their data type\. A standard data type conversion from DBF to PostgreSQL is done\.
+.
+.IP "\(bu" 4
+\fIcreate no tables\fR
+.
+.IP
+When this option is listed, pgloader skips the creation of table before lading data, target tables must then already exist\.
+.
+.IP "\(bu" 4
+\fIcreate indexes\fR
+.
+.IP
+When this option is listed, pgloader gets the definitions of all the indexes found in the MySQL database and create the same set of index definitions against the PostgreSQL database\.
+.
+.IP "\(bu" 4
+\fIcreate no indexes\fR
+.
+.IP
+When this option is listed, pgloader skips the creating indexes\.
+.
+.IP "\(bu" 4
+\fIforeign keys\fR
+.
+.IP
+When this option is listed, pgloader gets the definitions of all the foreign keys found in the MySQL database and create the same set of foreign key definitions against the PostgreSQL database\.
+.
+.IP "\(bu" 4
+\fIno foreign keys\fR
+.
+.IP
+When this option is listed, pgloader skips creating foreign keys\.
+.
+.IP "\(bu" 4
+\fIreset sequences\fR
+.
+.IP
+When this option is listed, at the end of the data loading and after the indexes have all been created, pgloader resets all the PostgreSQL sequences created to the current maximum value of the column they are attached to\.
+.
+.IP
+The options \fIschema only\fR and \fIdata only\fR have no effects on this option\.
+.
+.IP "\(bu" 4
+\fIreset no sequences\fR
+.
+.IP
+When this option is listed, pgloader skips resetting sequences after the load\.
+.
+.IP
+The options \fIschema only\fR and \fIdata only\fR have no effects on this option\.
+.
+.IP "\(bu" 4
+\fIdowncase identifiers\fR
+.
+.IP
+When this option is listed, pgloader converts all MySQL identifiers (table names, index names, column names) to \fIdowncase\fR, except for PostgreSQL \fIreserved\fR keywords\.
+.
+.IP
+The PostgreSQL \fIreserved\fR keywords are determined dynamically by using the system function \fBpg_get_keywords()\fR\.
+.
+.IP "\(bu" 4
+\fIquote identifiers\fR
+.
+.IP
+When this option is listed, pgloader quotes all MySQL identifiers so that their case is respected\. Note that you will then have to do the same thing in your application code queries\.
+.
+.IP "\(bu" 4
+\fIschema only\fR
+.
+.IP
+When this option is listed pgloader refrains from migrating the data over\. Note that the schema in this context includes the indexes when the option \fIcreate indexes\fR has been listed\.
+.
+.IP "\(bu" 4
+\fIdata only\fR
+.
+.IP
+When this option is listed pgloader only issues the \fBCOPY\fR statements, without doing any other processing\.
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fISET\fR
+.
+.IP
+This clause allows to specify session parameters to be set for all the sessions opened by pgloader\. It expects a list of parameter name, the equal sign, then the single\-quoted value as a comma separated list\.
+.
+.IP
+The names and values of the parameters are not validated by pgloader, they are given as\-is to PostgreSQL\.
+.
+.IP "\(bu" 4
+\fICAST\fR
+.
+.IP
+The cast clause allows to specify custom casting rules, either to overload the default casting rules or to amend them with special cases\.
+.
+.IP
+A casting rule is expected to follow one of the forms:
+.
+.IP "" 4
+.
+.nf
+
+type <mysql\-type\-name> [ <guard> \.\.\. ] to <pgsql\-type\-name> [ <option> \.\.\. ]
+column <table\-name>\.<column\-name> [ <guards> ] to \.\.\.
+.
+.fi
+.
+.IP "" 0
+.
+.IP
+It\'s possible for a \fIcasting rule\fR to either match against a MySQL data type or against a given \fIcolumn name\fR in a given \fItable name\fR\. That flexibility allows to cope with cases where the type \fBtinyint\fR might have been used as a \fBboolean\fR in some cases but as a \fBsmallint\fR in others\.
+.
+.IP
+The \fIcasting rules\fR are applied in order, the first match prevents following rules to be applied, and user defined rules are evaluated first\.
+.
+.IP
+The supported guards are:
+.
+.IP "\(bu" 4
+\fIwhen default \'value\'\fR
+.
+.IP
+The casting rule is only applied against MySQL columns of the source type that have given \fIvalue\fR, which must be a single\-quoted or a double\-quoted string\.
+.
+.IP "\(bu" 4
+\fIwhen typemod expression\fR
+.
+.IP
+The casting rule is only applied against MySQL columns of the source type that have a \fItypemod\fR value matching the given \fItypemod expression\fR\. The \fItypemod\fR is separated into its \fIprecision\fR and \fIscale\fR components\.
+.
+.IP
+Example of a cast rule using a \fItypemod\fR guard:
+.
+.IP "" 4
+.
+.nf
+
+type char when (= precision 1) to char keep typemod
+.
+.fi
+.
+.IP "" 0
+.
+.IP
+This expression casts MySQL \fBchar(1)\fR column to a PostgreSQL column of type \fBchar(1)\fR while allowing for the general case \fBchar(N)\fR will be converted by the default cast rule into a PostgreSQL type \fBvarchar(N)\fR\.
+.
+.IP "" 0
+.
+.IP
+The supported casting options are:
+.
+.IP "\(bu" 4
+\fIdrop default\fR, \fIkeep default\fR
+.
+.IP
+When the option \fIdrop default\fR is listed, pgloader drops any existing default expression in the MySQL database for columns of the source type from the \fBCREATE TABLE\fR statement it generates\.
+.
+.IP
+The spelling \fIkeep default\fR explicitely prevents that behavior and can be used to overlad the default casting rules\.
+.
+.IP "\(bu" 4
+\fIdrop not null\fR, \fIkeep not null\fR
+.
+.IP
+When the option \fIdrop not null\fR is listed, pgloader drops any existing \fBNOT NULL\fR constraint associated with the given source MySQL datatype when it creates the tables in the PostgreSQL database\.
+.
+.IP
+The spelling \fIkeep not null\fR explicitely prevents that behavior and can be used to overlad the default casting rules\.
+.
+.IP "\(bu" 4
+\fIdrop typemod\fR, \fIkeep typemod\fR
+.
+.IP
+When the option \fIdrop typemod\fR is listed, pgloader drops any existing \fItypemod\fR definition (e\.g\. \fIprecision\fR and \fIscale\fR) from the datatype definition found in the MySQL columns of the source type when it created the tables in the PostgreSQL database\.
+.
+.IP
+The spelling \fIkeep typemod\fR explicitely prevents that behavior and can be used to overlad the default casting rules\.
+.
+.IP "\(bu" 4
+\fIusing\fR
+.
+.IP
+This option takes as its single argument the name of a function to be found un the \fBpgloader\.transforms\fR Common Lisp package\. See above for details\.
+.
+.IP
+It\'s possible to augment a default cast rule (such as one that applies against \fBENUM\fR data type for example) with a \fItransformation function\fR by omitting entirely the \fBtype\fR parts of the casting rule, as in the following example:
+.
+.IP "" 4
+.
+.nf
+
+column enumerate\.foo using empty\-string\-to\-null
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fIMATERIALIZE VIEWS\fR
+.
+.IP
+This clause allows you to implement custom data processing at the data source by providing a \fIview definition\fR against which pgloader will query the data\. It\'s not possible to just allow for plain \fBSQL\fR because we want to know a lot about the exact data types of each column involved in the query output\.
+.
+.IP
+This clause expect a comma separated list of view definitions, each one being either the name of an existing view in your database or the following expression:
+.
+.IP
+\fIname\fR \fBAS\fR \fB$$\fR \fIsql query\fR \fB$$\fR
+.
+.IP
+The \fIname\fR and the \fIsql query\fR will be used in a \fBCREATE VIEW\fR statement at the beginning of the data loading, and the resulting view will then be dropped at the end of the data loading\.
+.
+.IP "\(bu" 4
+\fIINCLUDING ONLY TABLE NAMES MATCHING\fR
+.
+.IP
+Introduce a comma separated list of table names or \fIregular expression\fR used to limit the tables to migrate to a sublist\.
+.
+.IP
+Example:
+.
+.IP "" 4
+.
+.nf
+
+INCLUDING ONLY TABLE NAMES MATCHING ~/film/, \'actor\'
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fIEXCLUDING TABLE NAMES MATCHING\fR
+.
+.IP
+Introduce a comma separated list of table names or \fIregular expression\fR used to exclude table names from the migration\. This filter only applies to the result of the \fIINCLUDING\fR filter\.
+.
+.IP "" 4
+.
+.nf
+
+EXCLUDING TABLE NAMES MATCHING ~<ory>
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fIDECODING TABLE NAMES MATCHING\fR
+.
+.IP
+Introduce a comma separated list of table names or \fIregular expressions\fR used to force the encoding to use when processing data from MySQL\. If the data encoding known to you is different from MySQL\'s idea about it, this is the option to use\.
+.
+.IP "" 4
+.
+.nf
+
+DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf8
+.
+.fi
+.
+.IP "" 0
+.
+.IP
+You can use as many such rules as you need, all with possibly different encodings\.
+.
+.IP "\(bu" 4
+\fIBEFORE LOAD DO\fR
+.
+.IP
+You can run SQL queries against the database before loading the data from the \fBMySQL\fR database\. You can use that clause to execute a \fBCREATE SCHEMA IF NOT EXISTS\fR command in case you want to load your data into some specific schema\. To ensure your load happens in the right schema, consider setting the \fBsearch_path\fR in the \fISET\fR clause\.
+.
+.IP
+Each command must be \fIdollar\-quoted\fR: it must begin and end with a double dollar sign, \fB$$\fR\. Dollar\-quoted queries are then comma separated\. No extra punctuation is expected after the last SQL query\.
+.
+.IP "\(bu" 4
+\fIAFTER LOAD DO\fR
+.
+.IP
+Same format as \fIBEFORE LOAD DO\fR, the dollar\-quoted queries found in that section are executed once the load is done\.
+.
+.IP "" 0
+.
+.SS "LIMITATIONS"
+The \fBdatabase\fR command currently only supports MySQL source database and has the following limitations:
+.
+.IP "\(bu" 4
+Views are not migrated,
+.
+.IP
+Supporting views might require implemeting a full SQL parser for the MySQL dialect with a porting engine to rewrite the SQL against PostgreSQL, including renaming functions and changing some constructs\.
+.
+.IP
+While it\'s not theorically impossible, don\'t hold your breath\.
+.
+.IP "\(bu" 4
+Triggers are not migrated
+.
+.IP
+The difficulty of doing so is not yet assessed\.
+.
+.IP "\(bu" 4
+\fBON UPDATE CURRENT_TIMESTAMP\fR is currently not migrated
+.
+.IP
+It\'s simple enough to implement, just not on the priority list yet\.
+.
+.IP "\(bu" 4
+Of the geometric datatypes, onle the \fBPOINT\fR database has been covered\. The other ones should be easy enough to implement now, it\'s just not done yet\.
+.
+.IP "\(bu" 4
+The PostgreSQL \fBclient_encoding\fR should be set to \fBUFT8\fR as pgloader is using that setting when asking MySQL for its data\.
+.
+.IP "" 0
+.
+.SS "DEFAULT MySQL CASTING RULES"
+When migrating from MySQL the following Casting Rules are provided:
+.
+.P
+Numbers:
+.
+.IP "\(bu" 4
+type int to serial when auto_increment and (< precision 10)
+.
+.IP "\(bu" 4
+type int to bigserial when auto_increment and (<= 10 precision)
+.
+.IP "\(bu" 4
+type int to int when not auto_increment and (< precision 10)
+.
+.IP "\(bu" 4
+type int to bigint when not auto_increment and (<= 10 precision)
+.
+.IP "\(bu" 4
+type smallint to serial when auto_increment
+.
+.IP "\(bu" 4
+type bigint to bigserial when auto_increment
+.
+.IP "\(bu" 4
+type tinyint to boolean when (= 1 precision) using tinyint\-to\-boolean
+.
+.IP "\(bu" 4
+type tinyint to smallint drop typemod
+.
+.IP "\(bu" 4
+type smallint to smallint drop typemod
+.
+.IP "\(bu" 4
+type mediumint to integer drop typemod
+.
+.IP "\(bu" 4
+type integer to integer drop typemod
+.
+.IP "\(bu" 4
+type float to float drop typemod
+.
+.IP "\(bu" 4
+type bigint to bigint drop typemod
+.
+.IP "\(bu" 4
+type double to double precision drop typemod
+.
+.IP "\(bu" 4
+type numeric to numeric keep typemod
+.
+.IP "\(bu" 4
+type decimal to deciman keep typemod
+.
+.IP "" 0
+.
+.P
+Texts:
+.
+.IP "\(bu" 4
+type char to varchar keep typemod
+.
+.IP "\(bu" 4
+type varchar to text
+.
+.IP "\(bu" 4
+type tinytext to text
+.
+.IP "\(bu" 4
+type text to text
+.
+.IP "\(bu" 4
+type mediumtext to text
+.
+.IP "\(bu" 4
+type longtext to text
+.
+.IP "" 0
+.
+.P
+Binary:
+.
+.IP "\(bu" 4
+type binary to bytea
+.
+.IP "\(bu" 4
+type varbinary to bytea
+.
+.IP "\(bu" 4
+type tinyblob to bytea
+.
+.IP "\(bu" 4
+type blob to bytea
+.
+.IP "\(bu" 4
+type mediumblob to bytea
+.
+.IP "\(bu" 4
+type longblob to bytea
+.
+.IP "" 0
+.
+.P
+Date:
+.
+.IP "\(bu" 4
+type datetime when default "0000\-00\-00 00:00:00" and not null to timestamptz drop not null drop default using zero\-dates\-to\-null
+.
+.IP "\(bu" 4
+type datetime when default "0000\-00\-00 00:00:00" to timestamptz drop default using zero\-dates\-to\-null
+.
+.IP "\(bu" 4
+type timestamp when default "0000\-00\-00 00:00:00" and not null to timestamptz drop not null drop default using zero\-dates\-to\-null
+.
+.IP "\(bu" 4
+type timestamp when default "0000\-00\-00 00:00:00" to timestamptz drop default using zero\-dates\-to\-null
+.
+.IP "\(bu" 4
+type date when default "0000\-00\-00" to date drop default using zero\-dates\-to\-null
+.
+.IP "\(bu" 4
+type date to date
+.
+.IP "\(bu" 4
+type datetime to timestamptz
+.
+.IP "\(bu" 4
+type timestamp to timestamptz
+.
+.IP "\(bu" 4
+type year to integer drop typemod
+.
+.IP "" 0
+.
+.P
+Geometric:
+.
+.IP "\(bu" 4
+type point to point using pgloader\.transforms::convert\-mysql\-point
+.
+.IP "" 0
+.
+.P
+Enum types are declared inline in MySQL and separately with a \fBCREATE TYPE\fR command in PostgreSQL, so each column of Enum Type is converted to a type named after the table and column names defined with the same labels in the same order\.
+.
+.P
+When the source type definition is not matched in the default casting rules nor in the casting rules provided in the command, then the type name with the typemod is used\.
+.
+.SS "LOAD SQLite DATABASE"
+This command instructs pgloader to load data from a SQLite file\. Automatic discovery of the schema is supported, including build of the indexes\.
+.
+.P
+Here\'s an example:
+.
+.IP "" 4
+.
+.nf
+
+load database
+     from sqlite:///Users/dim/Downloads/lastfm_tags\.db
+     into postgresql:///tags
+
+ with drop tables, create tables, create indexes, reset sequences
+
+  set work_mem to \'16MB\', maintenance_work_mem to \'512 MB\';
+.
+.fi
+.
+.IP "" 0
+.
+.P
+The \fBsqlite\fR command accepts the following clauses and options:
+.
+.IP "\(bu" 4
+\fIFROM\fR
+.
+.IP
+Path or HTTP URL to a SQLite file, might be a \fB\.zip\fR file\.
+.
+.IP "\(bu" 4
+\fIINTO\fR
+.
+.IP
+The target PostgreSQL connection URI\. If that URL containst a \fItable\-name\fR element, then that single table will get migrated\.
+.
+.IP "\(bu" 4
+\fIWITH\fR
+.
+.IP
+When loading from a \fBSQLite\fR database, the following options are supported:
+.
+.IP "\(bu" 4
+\fIinclude drop\fR
+.
+.IP
+When this option is listed, pgloader drop in the PostgreSQL connection all the table whose names have been found in the SQLite database\. This option allows for using the same command several times in a row until you figure out all the options, starting automatically from a clean environment\.
+.
+.IP "\(bu" 4
+\fIinclude no drop\fR
+.
+.IP
+When this option is listed, pgloader will not include any \fBDROP\fR statement when loading the data\.
+.
+.IP "\(bu" 4
+\fItruncate\fR
+.
+.IP
+When this option is listed, pgloader issue the \fBTRUNCATE\fR command against each PostgreSQL table just before loading data into it\.
+.
+.IP "\(bu" 4
+\fIno truncate\fR
+.
+.IP
+When this topion is listed, pgloader issues no \fBTRUNCATE\fR command\.
+.
+.IP "\(bu" 4
+\fIcreate tables\fR
+.
+.IP
+When this option is listed, pgloader creates the table using the meta data found in the \fBSQLite\fR file, which must contain a list of fields with their data type\. A standard data type conversion from DBF to PostgreSQL is done\.
+.
+.IP "\(bu" 4
+\fIcreate no tables\fR
+.
+.IP
+When this option is listed, pgloader skips the creation of table before lading data, target tables must then already exist\.
+.
+.IP "\(bu" 4
+\fIcreate indexes\fR
+.
+.IP
+When this option is listed, pgloader gets the definitions of all the indexes found in the SQLite database and create the same set of index definitions against the PostgreSQL database\.
+.
+.IP "\(bu" 4
+\fIcreate no indexes\fR
+.
+.IP
+When this option is listed, pgloader skips the creating indexes\.
+.
+.IP "\(bu" 4
+\fIreset sequences\fR
+.
+.IP
+When this option is listed, at the end of the data loading and after the indexes have all been created, pgloader resets all the PostgreSQL sequences created to the current maximum value of the column they are attached to\.
+.
+.IP "\(bu" 4
+\fIreset no sequences\fR
+.
+.IP
+When this option is listed, pgloader skips resetting sequences after the load\.
+.
+.IP
+The options \fIschema only\fR and \fIdata only\fR have no effects on this option\.
+.
+.IP "\(bu" 4
+\fIschema only\fR
+.
+.IP
+When this option is listed pgloader will refrain from migrating the data over\. Note that the schema in this context includes the indexes when the option \fIcreate indexes\fR has been listed\.
+.
+.IP "\(bu" 4
+\fIdata only\fR
+.
+.IP
+When this option is listed pgloader only issues the \fBCOPY\fR statements, without doing any other processing\.
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fISET\fR
+.
+.IP
+This clause allows to specify session parameters to be set for all the sessions opened by pgloader\. It expects a list of parameter name, the equal sign, then the single\-quoted value as a comma separated list\.
+.
+.IP
+The names and values of the parameters are not validated by pgloader, they are given as\-is to PostgreSQL\.
+.
+.IP "\(bu" 4
+\fIINCLUDING ONLY TABLE NAMES MATCHING\fR
+.
+.IP
+Introduce a comma separated list of table names or \fIregular expression\fR used to limit the tables to migrate to a sublist\.
+.
+.IP
+Example:
+.
+.IP "" 4
+.
+.nf
+
+INCLUDING ONLY TABLE NAMES MATCHING ~/film/, \'actor\'
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fIEXCLUDING TABLE NAMES MATCHING\fR
+.
+.IP
+Introduce a comma separated list of table names or \fIrugular expression\fR used to exclude table names from the migration\. This filter only applies to the result of the \fIINCLUDING\fR filter\.
+.
+.IP "" 4
+.
+.nf
+
+EXCLUDING TABLE NAMES MATCHING ~<ory>
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "" 0
+.
+.SS "TRANSFORMATION FUNCTIONS"
+Some data types are implemented in a different enough way that a transformation function is necessary\. This function must be written in \fBCommon lisp\fR and is searched in the \fBpgloader\.transforms\fR package\.
+.
+.P
+Some default transformation function are provided with pgloader, and you can use the \fB\-\-load\fR command line option to load and compile your own lisp file into pgloader at runtime\. For your functions to be found, remember to begin your lisp file with the following form:
+.
+.IP "" 4
+.
+.nf
+
+(in\-package #:pgloader\.transforms)
+.
+.fi
+.
+.IP "" 0
+.
+.P
+The provided transformation functions are:
+.
+.IP "\(bu" 4
+\fIzero\-dates\-to\-null\fR
+.
+.IP
+When the input date is all zeroes, return \fBnil\fR, which gets loaded as a PostgreSQL \fBNULL\fR value\.
+.
+.IP "\(bu" 4
+\fIdate\-with\-no\-separator\fR
+.
+.IP
+Applies \fIzero\-dates\-to\-null\fR then transform the given date into a format that PostgreSQL will actually process:
+.
+.IP "" 4
+.
+.nf
+
+In:  "20041002152952"
+Out: "2004\-10\-02 15:29:52"
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fItinyint\-to\-boolean\fR
+.
+.IP
+As MySQL lacks a proper boolean type, \fItinyint\fR is often used to implement that\. This function transforms \fB0\fR to \fB\'false\'\fR and anything else to \fB\'true\fR\'\.
+.
+.IP "\(bu" 4
+\fIint\-to\-ip\fR
+.
+.IP
+Convert an integer into a dotted representation of an ip4\.
+.
+.IP "" 4
+.
+.nf
+
+In:  18435761
+Out: "1\.25\.78\.177"
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fIip\-range\fR
+.
+.IP
+Converts a couple of integers given as strings into a range of ip4\.
+.
+.IP "" 4
+.
+.nf
+
+In:  "16825344" "16825599"
+Out: "1\.0\.188\.0\-1\.0\.188\.255"
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fIconvert\-mysql\-point\fR
+.
+.IP
+Converts from the \fBastext\fR representation of points in MySQL to the PostgreSQL representation\.
+.
+.IP "" 4
+.
+.nf
+
+In:  "POINT(48\.5513589 7\.6926827)"
+Out: "(48\.5513589,7\.6926827)"
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fIfloat\-to\-string\fR
+.
+.IP
+Converts a Common Lisp float into a string suitable for a PostgreSQL float:
+.
+.IP "" 4
+.
+.nf
+
+In:  100\.0d0
+Out: "100\.0"
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fIset\-to\-enum\-array\fR
+.
+.IP
+Converts a string representing a MySQL SET into a PostgreSQL Array of Enum values from the set\.
+.
+.IP "" 4
+.
+.nf
+
+In: "foo,bar"
+Out: "{foo,bar}"
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fIright\-trimg\fR
+.
+.IP
+Remove whitespaces at end of string\.
+.
+.IP "\(bu" 4
+\fIbyte\-vector\-to\-bytea\fR
+.
+.IP
+Transform a simple array of unsigned bytes to the PostgreSQL bytea Hex Format representation as documented at http://www\.postgresql\.org/docs/9\.3/interactive/datatype\-binary\.html
+.
+.IP "" 0
+.
+.SH "LOAD MESSAGES"
+This command is still experimental and allows to receive messages in UDP with a syslod like format, and depending on matching rules load named parts them to a destination table\.
+.
+.IP "" 4
+.
+.nf
+
+LOAD MESSAGES
+    FROM syslog://localhost:10514/
+
+ WHEN MATCHES rsyslog\-msg IN apache
+  REGISTERING timestamp, ip, rest
+         INTO postgresql://localhost/db?logs\.apache
+          SET guc_1 = \'value\', guc_2 = \'other value\'
+
+ WHEN MATCHES rsyslog\-msg IN others
+  REGISTERING timestamp, app\-name, data
+         INTO postgresql://localhost/db?logs\.others
+          SET guc_1 = \'value\', guc_2 = \'other value\'
+
+    WITH apache = rsyslog
+         DATA   = IP REST
+         IP     = 1*3DIGIT "\." 1*3DIGIT "\."1*3DIGIT "\."1*3DIGIT
+         REST   = ~/\.*/
+
+    WITH others = rsyslog;
+.
+.fi
+.
+.IP "" 0
+.
+.P
+As the command is still experimental the options might be changed in the future and the details are not documented\.
+.
+.SH "AUTHOR"
+Dimitri Fontaine \fIdimitri@2ndQuadrant\.fr\fR
+.
+.SH "SEE ALSO"
+PostgreSQL COPY documentation at \fIhttp://www\.postgresql\.org/docs/9\.3/static/sql\-copy\.html\fR\.
+.
+.P
+The pgloader source code and all documentation may be downloaded from \fIhttp://tapoueh\.org/pgloader/\fR\.

@@ -12,7 +12,7 @@ DEBUILD_ROOT = /tmp/pgloader
 all: $(PGLOADER)
 
 docs:
-	pandoc pgloader.1.md -o pgloader.1
+	ronn -roff pgloader.1.md
 
 ~/quicklisp/local-projects/qmynd:
 	git clone https://github.com/qitab/qmynd.git $@
@@ -73,6 +73,16 @@ $(PGLOADER): manifest buildapp
 
 pgloader: $(PGLOADER) ;
 
+pgloader-standalone:
+	buildapp             --require sb-posix                      \
+                       --require sb-bsd-sockets                \
+                       --require sb-rotate-byte                \
+                       --load-system pgloader                  \
+                       --entry pgloader:main                   \
+                       --dynamic-space-size 4096               \
+                       --compress-core                         \
+                       --output $(PGLOADER)
+
 test:
 	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) -C test all
 
@@ -95,4 +105,4 @@ rpm:
 
 check: test ;
 
-.PHONY: test
+.PHONY: test pgloader-standalone
