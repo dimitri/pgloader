@@ -1,80 +1,93 @@
 # pgloader build tool
-ASDF_CONFD = ~/.config/common-lisp/source-registry.conf.d
-ASDF_CONF  = $(ASDF_CONFD)/pgloader.conf
+APP_NAME   = pgloader
 
-LIBS       = build/libs.stamp
-BUILDAPP   = build/buildapp
-MANIFEST   = build/manifest.ql
-PGLOADER   = build/pgloader.exe
+SBCL	   = sbcl
+SBCL_OPTS  = --no-sysinit --no-userinit
+
+COMPRESS_CORE ?= yes
+
+ifeq ($(COMPRESS_CORE),yes)
+COMPRESS_CORE_OPT = --compress-core
+else
+COMPRESS_CORE_OPT = 
+endif
+
+BUILDDIR   = build
+LIBS       = $(BUILDDIR)/libs.stamp
+BUILDAPP   = $(BUILDDIR)/buildapp
+MANIFEST   = $(BUILDDIR)/manifest.ql
+PGLOADER   = $(BUILDDIR)/bin/$(APP_NAME)
+QLDIR      = $(BUILDDIR)/quicklisp
 
 DEBUILD_ROOT = /tmp/pgloader
 
 all: $(PGLOADER)
 
+clean:
+	rm -rf $(BUILDDIR)/*
+
 docs:
 	ronn -roff pgloader.1.md
 
-~/quicklisp/local-projects/qmynd:
+$(QLDIR)/local-projects/qmynd:
 	git clone https://github.com/qitab/qmynd.git $@
 
-qmynd: ~/quicklisp/local-projects/qmynd ;
+qmynd: $(QLDIR)/local-projects/qmynd
+	cd $< && git pull
 
-~/quicklisp/setup.lisp:
-	curl -o ~/quicklisp.lisp http://beta.quicklisp.org/quicklisp.lisp
-	sbcl --load ~/quicklisp.lisp                  \
-             --eval '(quicklisp-quickstart:install)'  \
+$(QLDIR)/setup.lisp:
+	mkdir -p $(BUILDDIR)
+	curl -o $(BUILDDIR)/quicklisp.lisp http://beta.quicklisp.org/quicklisp.lisp
+	$(SBCL) $(SBCL_OPTS) --load $(BUILDDIR)/quicklisp.lisp                     \
+             --eval '(quicklisp-quickstart:install :path "$(BUILDDIR)/quicklisp")' \
              --eval '(quit)'
 
-quicklisp: ~/quicklisp/setup.lisp ;
+quicklisp: $(QLDIR)/setup.lisp ;
 
-$(ASDF_CONF):
-	mkdir -p $(ASDF_CONFD)
-	echo "(:tree \"`pwd`\")" > $@
-
-asdf-config: $(ASDF_CONF) ;
-
-$(LIBS): quicklisp $(ASDF_CONF) qmynd
-	sbcl --load ~/quicklisp/setup.lisp                             \
-             --eval '(ql:quickload "pgloader")'                        \
+$(LIBS): quicklisp qmynd
+	$(SBCL) $(SBCL_OPTS) --load $(QLDIR)/setup.lisp             \
+             --eval '(ql:quickload "pgloader")'                     \
              --eval '(quit)'
 	touch $@
 
 libs: $(LIBS) ;
 
 $(MANIFEST): libs
-	sbcl --load ~/quicklisp/setup.lisp                                 \
-             --eval '(ql:write-asdf-manifest-file "./build/manifest.ql")'  \
+	$(SBCL) $(SBCL_OPTS) --load $(QLDIR)/setup.lisp            \
+             --eval '(ql:write-asdf-manifest-file "$(MANIFEST)")'  \
              --eval '(quit)'
 
 manifest: $(MANIFEST) ;
 
 $(BUILDAPP): quicklisp
-	sbcl --load ~/quicklisp/setup.lisp                          \
-             --eval '(ql:quickload "buildapp")'                     \
-             --eval '(buildapp:build-buildapp "./build/buildapp")'  \
+	$(SBCL) $(SBCL_OPTS) --load $(QLDIR)/setup.lisp           \
+             --eval '(ql:quickload "buildapp")'                   \
+             --eval '(buildapp:build-buildapp "$(BUILDAPP)")'     \
              --eval '(quit)'
 
 buildapp: $(BUILDAPP) ;
 
 $(PGLOADER): manifest buildapp
-	./build/buildapp --logfile /tmp/build.log                \
+	mkdir -p $(BUILDDIR)/bin
+	$(BUILDAPP)      --logfile /tmp/build.log                \
                          --require sb-posix                      \
                          --require sb-bsd-sockets                \
                          --require sb-rotate-byte                \
-                         --asdf-tree ~/quicklisp/local-projects  \
-                         --manifest-file ./build/manifest.ql     \
-                         --asdf-tree ~/quicklisp/dists           \
                          --asdf-path .                           \
-                         --load-system pgloader                  \
+                         --asdf-tree $(QLDIR)/local-projects     \
+                         --manifest-file $(MANIFEST)             \
+                         --asdf-tree $(QLDIR)/dists              \
+                         --asdf-path .                           \
+                         --load-system $(APP_NAME)               \
                          --entry pgloader:main                   \
                          --dynamic-space-size 4096               \
-                         --compress-core                         \
+                         $(COMPRESS_CORE_OPT)                    \
                          --output $@
 
 pgloader: $(PGLOADER) ;
 
 pgloader-standalone:
-	buildapp             --require sb-posix                      \
+	$(BUILDAPP)    --require sb-posix                      \
                        --require sb-bsd-sockets                \
                        --require sb-rotate-byte                \
                        --load-system pgloader                  \
