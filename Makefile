@@ -79,6 +79,7 @@ $(PGLOADER): manifest buildapp
                          --asdf-tree $(QLDIR)/dists              \
                          --asdf-path .                           \
                          --load-system $(APP_NAME)               \
+                         --load src/hooks.lisp                   \
                          --entry pgloader:main                   \
                          --dynamic-space-size 4096               \
                          $(COMPRESS_CORE_OPT)                    \
