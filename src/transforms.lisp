@@ -84,13 +84,14 @@
 			 (:seconds  4 6)
 			 (:msecs    6 nil))))
   "Apply this function when input date in like '08231560'"
-  (declare (type string time-string))
-  (destructuring-bind (&key hour minute seconds msecs
-			    &allow-other-keys)
-      (loop
-	 for (name start end) in format
-	 append (list name (subseq time-string start end)))
-    (format nil "~a:~a:~a.~a" hour minute seconds msecs)))
+  (declare (type (or null string) time-string))
+  (when time-string
+    (destructuring-bind (&key hour minute seconds msecs
+                              &allow-other-keys)
+        (loop
+           for (name start end) in format
+           append (list name (subseq time-string start end)))
+      (format nil "~a:~a:~a.~a" hour minute seconds msecs))))
 
 (defun tinyint-to-boolean (integer-string)
   "When using MySQL, strange things will happen, like encoding booleans into
@@ -122,10 +123,11 @@
 (defun ip-range (start-integer-string end-integer-string)
   "Transform a couple of integers to an IP4R ip range notation."
   (declare (optimize speed)
-	   (type string start-integer-string end-integer-string))
-  (let ((ip-start (int-to-ip (parse-integer start-integer-string)))
-	(ip-end   (int-to-ip (parse-integer end-integer-string))))
-    (concatenate 'simple-base-string ip-start "-" ip-end)))
+	   (type (or null string) start-integer-string end-integer-string))
+  (when (and start-integer-string end-integer-string)
+    (let ((ip-start (int-to-ip (parse-integer start-integer-string)))
+          (ip-end   (int-to-ip (parse-integer end-integer-string))))
+      (concatenate 'simple-base-string ip-start "-" ip-end))))
 
 (defun convert-mysql-point (mysql-point-as-string)
   "Transform the MYSQL-POINT-AS-STRING into a suitable representation for
@@ -141,7 +143,7 @@
 (defun float-to-string (float)
   "Transform a Common Lisp float value into its string representation as
    accepted by PostgreSQL, that is 100.0 rather than 100.0d0."
-  (declare (type float float))
+  (declare (type (or null float) float))
   (let ((*read-default-float-format* 'double-float))
     (princ-to-string float)))
 
@@ -155,7 +157,7 @@
 
 (defun right-trim (string)
   "Remove whitespaces at end of STRING."
-  (declare (type simple-string string))
+  (declare (type (or null simple-string) string))
   (string-right-trim '(#\Space) string))
 
 (defun byte-vector-to-bytea (vector)
