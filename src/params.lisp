@@ -60,7 +60,7 @@
 (defparameter *copy-batch-rows* 25000
   "How many rows to batch per COPY transaction.")
 
-(defparameter *copy-batch-size* nil ;; (* 20 1024 1024)
+(defparameter *copy-batch-size* (* 20 1024 1024)
   "Maximum memory size allowed for a single batch.")
 
 (defparameter *concurrent-batches* 10
