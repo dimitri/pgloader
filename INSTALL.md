@@ -30,7 +30,7 @@ We suppose you already have `git` and `make` available, if that's not the
 case now is the time to install those tools. The SQLite lib that comes in
 MacOSX is fine, no need for extra software here.
 
-## Building the pginstall tool
+## Building pgloader
 
 Now that the dependences are installed, just type make.
 
