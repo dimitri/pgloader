@@ -75,10 +75,10 @@
   "Receives and process messages from *monitoring-queue*."
 
   ;; process messages from the queue
-  (loop for (event params) = (multiple-value-bind (element available)
-                                 (lq:try-pop-queue queue)
-                               (if available element (list :empty)))
-     do
+  (loop :for (event params) := (multiple-value-bind (element available)
+                                   (lq:try-pop-queue queue)
+                                 (if available element (list :empty)))
+     :do
        (case event
          (:start  (progn
                     (destructuring-bind (&key start-logger) params
@@ -99,6 +99,6 @@
                     (let ((mesg (if arguments
                                     (format nil "~{~}" description arguments)
                                     description)))
-                     (cl-log:log-message category mesg)))))
+                     (cl-log:log-message category "~a" mesg)))))
 
      until (eq event :stop)))
