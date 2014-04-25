@@ -23,9 +23,6 @@ DEBUILD_ROOT = /tmp/pgloader
 
 all: $(PGLOADER)
 
-clean:
-	rm -rf $(BUILDDIR)/*
-
 docs:
 	ronn -roff pgloader.1.md
 
@@ -60,6 +57,7 @@ $(MANIFEST): libs
 manifest: $(MANIFEST) ;
 
 $(BUILDAPP): quicklisp
+	mkdir -p $(BUILDDIR)/bin
 	$(SBCL) $(SBCL_OPTS) --load $(QLDIR)/setup.lisp           \
              --eval '(ql:quickload "buildapp")'                   \
              --eval '(buildapp:build-buildapp "$(BUILDAPP)")'     \
