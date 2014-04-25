@@ -1504,17 +1504,17 @@ load database
 ;;
 (defun find-encoding-by-name-or-alias (encoding)
   "charsets::*lisp-encodings* is an a-list of (NAME . ALIASES)..."
-  (loop for (name . aliases) in charsets::*lisp-encodings*
-     for encoding-name = (when (or (string-equal name encoding)
-				   (member encoding aliases :test #'string-equal))
-			   name)
-     until encoding-name
-     finally (if encoding-name (return encoding-name)
-		 (error "The encoding '~a' is unknown" encoding))))
+  (loop :for (name . aliases) :in (list-encodings-and-aliases)
+     :for encoding-name := (when (or (string-equal name encoding)
+                                     (member encoding aliases :test #'string-equal))
+                             name)
+     :until encoding-name
+     :finally (if encoding-name (return encoding-name)
+                  (error "The encoding '~a' is unknown" encoding))))
 
 (defrule encoding (or namestring single-quoted-string)
   (:lambda (encoding)
-    (charsets:make-external-format (find-encoding-by-name-or-alias encoding))))
+    (make-external-format (find-encoding-by-name-or-alias encoding))))
 
 (defrule file-encoding (? (and kw-with kw-encoding encoding))
   (:lambda (enc)

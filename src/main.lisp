@@ -1,16 +1,5 @@
 (in-package #:pgloader)
 
-(defun list-encodings ()
-  "List known encodings names and aliases from charsets::*lisp-encodings*."
-  (format *standard-output* "Name    ~30TAliases~%")
-  (format *standard-output* "--------~30T--------------~%")
-  (loop
-     with encodings = (sort (copy-tree charsets::*lisp-encodings*) #'string<
-			    :key #'car)
-     for (name . aliases) in encodings
-     do (format *standard-output* "~a~30T~{~a~^, ~}~%" name aliases))
-  (terpri))
-
 (defun log-threshold (min-message &key quiet verbose debug)
   "Return the internal value to use given the script parameters."
   (cond ((and debug verbose) :data)
@@ -135,7 +124,7 @@
 	(when (or help version) (uiop:quit))
 
 	(when list-encodings
-	  (list-encodings)
+	  (show-encodings)
 	  (uiop:quit))
 
 	(when upgrade-config

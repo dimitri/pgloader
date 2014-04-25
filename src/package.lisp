@@ -55,7 +55,10 @@
 	   #:with-stats-collection
 	   #:slurp-file-into-string
 	   #:camelCase-to-colname
-           #:make-kernel))
+           #:make-kernel
+           #:list-encodings-and-aliases
+           #:show-encodings
+           #:make-external-format))
 
 
 ;;;
@@ -322,6 +325,5 @@
 	(lparallel.queue lq)
 	(simple-date date)
 	(split-sequence sq)
-	(com.informatimago.clext.character-sets charsets)
 	(py-configparser ini))
    do (rename-package package package nicknames))

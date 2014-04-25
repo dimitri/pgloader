@@ -20,7 +20,6 @@
 		 #:drakma		; http client, download archives
 		 #:zip			; support for zip archive files
 		 #:flexi-streams	; streams
-		 #:com.informatimago.clext ; portable character-sets listings
 		 #:usocket		; UDP / syslog
 		 #:local-time		; UDP date parsing
 		 #:command-line-arguments ; for the main function
@@ -44,8 +43,10 @@
                                              "package"
                                              "logs"))
 
+	       (:file "charsets":depends-on ("package"))
 	       (:file "utils"   :depends-on ("params"
                                              "package"
+                                             "charsets"
                                              "monitor"))
 
 	       ;; those are one-package-per-file
