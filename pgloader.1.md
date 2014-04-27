@@ -236,6 +236,44 @@ Any command may contain comments, following those input rules:
 
 Any place where you could enter a *whitespace* will accept a comment too.
 
+### Batch behaviour options
+
+All pgloader commands have support for a *WITH* clause that allows for
+specifying options. Some options are generic and accepted by all commands,
+such as the *batch behaviour options*, and some options are specific to a
+data source kind, such as the CSV *skip header* options.
+
+The global batch behaviour options are:
+
+  - *batch rows*
+  
+    Takes a numeric value as argument, used as the maximum number of rows
+    allowed in a batch. The default is `25 000` and can be changed to try
+    having better performances characteristics or to control pgloader memory
+    usage;
+    
+  - *batch size*
+  
+    Takes a memory unit as argument, such as *20 MB*, its default value.
+    Accepted multipliers are *kB*, *MB*, *GB*, *TB* and *PB*. The case is
+    important so as not to be confused about bits versus bytes, we're only
+    talking bytes here.
+    
+  - *batch concurrency*
+  
+    Takes a numeric value as argument, defaults to `10`. That's the number
+    of batches that pgloader is allows to build in memory, even when only a
+    single batch at a time might be sent to PostgreSQL.
+  
+    Supporting more than a single batch being sent at a time is on the TODO
+    list of pgloader, but is not implemented yet. This option is about
+    controling the memory needs of pgloader as a trade-off to the
+    performances characteristics, and not about parallel activity of
+    pgloader.
+    
+Other options are specific to each input source, please refer to specific
+parts of the documentation for their listing and covering.
+
 ### LOAD CSV
 
 This command instructs pgloader to load data from a `CSV` file. Here's an

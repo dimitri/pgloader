@@ -28,6 +28,9 @@ LOAD CSV
 
      WITH truncate,
           skip header = 1,
+          batch rows = 200,
+          batch size = 1024 kB,
+          batch concurrency = 3,
           fields terminated by '\t'
 
    BEFORE LOAD DO
