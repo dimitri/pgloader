@@ -133,6 +133,19 @@
 ;;;
 ;;; Some common tools for file based sources, such as CSV and FIXED
 ;;;
+(defmacro with-open-file-or-stream ((&whole arguments
+                                           stream filename-or-stream
+                                           &key &allow-other-keys)
+                                             &body body)
+  "Generate a with-open-file call, or just bind STREAM varialbe to the
+   FILENAME-OR-STREAM stream when this variable is of type STREAM."
+  `(typecase ,filename-or-stream
+     (stream (let ((,stream *standard-input*))
+               ,@body))
+
+     (t      (with-open-file (,stream ,filename-or-stream ,@(cddr arguments))
+               ,@body))))
+
 (defun get-pathname (dbname table-name &key (csv-path-root *csv-path-root*))
   "Return a pathname where to read or write the file data"
   (make-pathname

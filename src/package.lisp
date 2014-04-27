@@ -111,6 +111,7 @@
 	   #:copy-to
 	   #:copy-database
 	   #:filter-column-list
+           #:with-open-file-or-stream
 	   #:get-pathname
 	   #:get-absolute-pathname
 	   #:project-fields

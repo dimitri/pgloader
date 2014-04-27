@@ -5,7 +5,7 @@ OUT   = $(TESTS:.load=.out)
 REMOTE = archive.load bossa-all.load bossa.load census-places.load dbf-zip.load
 LOCAL  = $(filter-out $(REMOTE:.load=.out),$(OUT))
 
-PGLOADER ?= ../build/pgloader.exe
+PGLOADER ?= ../build/bin/pgloader
 
 local: prepare $(LOCAL)
 
@@ -47,6 +47,9 @@ sakila: $(TMPDIR)/sakila-db/sakila-schema.sql
 sakila.out: sakila sakila.load
 	-$(PGLOADER) sakila.load
 	@echo
+
+csv-districts-stdin.out: csv-districts-stdin.load
+	cat  data/2013_Gaz_113CDs_national.txt | $(PGLOADER) $^
 
 # General case where we do NOT expect any error
 %.out: %.load

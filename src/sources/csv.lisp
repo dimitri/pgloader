@@ -65,12 +65,13 @@
 
    Finally returns how many rows where read and processed."
   (let ((filenames   (case (source-type csv)
+                       (:stdin   (list (source csv)))
 		       (:inline  (list (car (source csv))))
 		       (:regex   (source csv))
 		       (t        (list (source csv))))))
     (loop for filename in filenames
        do
-	 (with-open-file
+	 (with-open-file-or-stream
 	     ;; we just ignore files that don't exist
 	     (input filename
 		    :direction :input
