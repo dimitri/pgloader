@@ -93,7 +93,7 @@
 (defmethod initialize-instance :after ((source copy-sqlite) &key)
   "Add a default value for transforms in case it's not been provided."
   (let* ((source-db  (slot-value source 'source-db))
-	 (db         (sqlite:connect source-db))
+	 (db         (sqlite:connect (get-absolute-pathname `(:filename ,source-db))))
 	 (table-name (when (slot-boundp source 'source)
 		       (slot-value source 'source)))
 	 (fields     (or (and (slot-boundp source 'fields)
