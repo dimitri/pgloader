@@ -380,7 +380,10 @@
     (list :filename (parse-namestring (coerce f 'string)))))
 
 (defrule quoted-filename (and #\' (+ (not #\')) #\')
-  (:destructure (open f close) (declare (ignore open close)) (text f)))
+  (:lambda (q-f)
+    (destructuring-bind (open f close) q-f
+      (declare (ignore open close))
+      (list :filename (parse-namestring (coerce f 'string))))))
 
 (defrule maybe-quoted-filename (or quoted-filename filename)
   (:identity t))
