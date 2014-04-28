@@ -36,15 +36,17 @@
 
 (defgeneric map-rows (source &key process-row-fn)
   (:documentation
-   "Read rows from source S and funcall PROCESS-ROW-FN for each of them."))
+   "Load data from SOURCE and funcall PROCESS-ROW-FUN for each row found in
+    the SOURCE data. Each ROW is passed as a vector of objects."))
 
 (defgeneric copy-to-queue (source queue)
   (:documentation
-   "Copy data as read in DATAQ into the source S target definition."))
+   "Load data from SOURCE and queue each row into QUEUE. Typicall
+    implementation will directly use pgloader.queue:map-push-queue."))
 
 (defgeneric copy-from (source &key truncate)
   (:documentation
-   "Read data from source and concurrently stream it down to PostgreSQL"))
+   "Load data from SOURCE into its target as defined by the SOURCE object."))
 
 ;; That one is more an export than a load. It always export to a single very
 ;; well defined format, the importing utility is defined in
@@ -52,7 +54,8 @@
 
 (defgeneric copy-to (source filename)
   (:documentation
-   "Extract data from source S into FILENAME, wth PostgreSQL COPY TEXT format."))
+   "Load data from SOURCE and serialize it into FILENAME, using PostgreSQL
+    COPY TEXT format."))
 
 ;; The next generic function is only to get instanciated for sources
 ;; actually containing more than a single source item (tables, collections,
