@@ -70,17 +70,18 @@
   (let ((sql "SELECT name, tbl_name, replace(replace(sql, '[', ''), ']', '')
                 FROM sqlite_master
                WHERE type='index'"))
-    (loop with schema = nil
-       for (index-name table-name sql) in (sqlite:execute-to-list db sql)
-       do (let ((entry  (assoc table-name schema :test 'equal))
-		(idxdef (make-sqlite-idx :name index-name
-					 :table-name table-name
-					 :sql sql)))
-	    (if entry
-		(push idxdef (cdr entry))
-		(push (cons table-name (list idxdef)) schema)))
-       finally (return (reverse (loop for (name . indexes) in schema
-				     collect (cons name (reverse indexes))))))))
+    (loop :with schema := nil
+       :for (index-name table-name sql) :in (sqlite:execute-to-list db sql)
+       :when sql
+       :do (let ((entry  (assoc table-name schema :test 'equal))
+                 (idxdef (make-sqlite-idx :name index-name
+                                          :table-name table-name
+                                          :sql sql)))
+             (if entry
+                 (push idxdef (cdr entry))
+                 (push (cons table-name (list idxdef)) schema)))
+       :finally (return (reverse (loop for (name . indexes) in schema
+                                    collect (cons name (reverse indexes))))))))
 
 
 ;;;
