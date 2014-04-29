@@ -41,22 +41,6 @@ pgloader is now a Common Lisp program, tested using the
 	$ make pgloader
 	$ ./build/bin/pgloader --help
 
-### Patches
-
-Several dependencies needed some patching for pgloader to be running fine,
-the given `Makefile` will handle that for you. The goal is for those patches
-to get included in the mainline version of the dependencies so that this
-whole section and assorted `Makefile` business disappear for being
-irrelevant.
-
-#### cl-csv
-
-The handling of `NULL` values in `CSV` files requires pgloader to have more
-smarts than the default `cl-csv` code, so the `Makefile` will fetch my
-branch including a fix for that.
-
-Read https://github.com/AccelerationNet/cl-csv/pull/12 for details.
-
 ## The pgloader.lisp script
 
 Now you can use the `#!` script or build a self-contained binary executable
