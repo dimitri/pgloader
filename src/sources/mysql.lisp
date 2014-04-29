@@ -65,7 +65,10 @@
    argument (a list of column values) for each row."
   (let ((dbname                 (source-db mysql))
 	(table-name             (source mysql))
-        (qmynd:*mysql-encoding* (encoding mysql)))
+        (qmynd:*mysql-encoding*
+         (when (encoding mysql)
+           #+sbcl (encoding mysql)
+           #+ccl  (ccl:external-format-character-encoding (encoding mysql)))))
 
     (with-mysql-connection (dbname)
       (when qmynd:*mysql-encoding*
