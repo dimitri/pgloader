@@ -165,7 +165,7 @@
    against the given regexp."
   (let* ((candidates (pgloader.archive:get-matching-filenames root regex))
 	 (candidates (ecase keep
-		       (:first (list (first candidates)))
+		       (:first (when candidates (list (first candidates))))
 		       (:all   candidates))))
     (unless candidates
       (error "No file matching '~a' in expanded archive in '~a'" regex root))
