@@ -208,10 +208,12 @@ in 2 bytes.
 
 (defun parse-ccl-encodings-desc-first-line (line)
   "Given a line with :ENCODING [Aliases: :X :Y] return a proper cons."
-  (cl-ppcre:register-groups-bind (name aliases)
-      (":([A-Z0-9-]+).*Aliases: (.*)[]]" line)
-    (cons name (mapcar (lambda (alias) (subseq alias 1))
-                       (split-sequence:split-sequence #\Space aliases)))))
+  (or (cl-ppcre:register-groups-bind (name aliases)
+          (":([A-Z0-9-]+).*Aliases: (.*)[]]" line)
+        (cons name (mapcar (lambda (alias) (subseq alias 1))
+                           (split-sequence:split-sequence #\Space aliases))))
+      ;; some of them have no alias
+      (cons (subseq line 1) nil)))
 
 (defun parse-ccl-encodings-desc (&optional
                                    (desc *ccl-describe-character-encodings*))
@@ -228,8 +230,8 @@ in 2 bytes.
   of them."
   (let ((encoding-and-aliases
          #+ccl
-          (parse-ccl-encoding-desc (with-output-to-string (*terminal-io*)
-                                     (ccl:describe-character-encodings)))
+          (parse-ccl-encodings-desc (with-output-to-string (*standard-output*)
+                                      (ccl:describe-character-encodings)))
           #+sbcl
           (let ((result '()))
             (maphash (lambda (name encoding)
