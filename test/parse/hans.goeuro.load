@@ -26,5 +26,5 @@ LOAD DATABASE
 
  -- INCLUDING ONLY TABLE NAMES MATCHING ~/encoding/
 
- DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf8;
+ DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf-8;
 
