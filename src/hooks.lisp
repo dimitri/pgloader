@@ -11,6 +11,14 @@
 
 (in-package #:cl-user)
 
+#+ccl
+(progn
+  (push (lambda () (cffi:close-foreign-library 'CL+SSL::LIBSSL))
+        *save-exit-functions*)
+
+  (push (lambda () (cffi:load-foreign-library 'CL+SSL::LIBSSL))
+        *lisp-startup-functions*))
+
 #+sbcl
 (progn
  (push (lambda () (cffi:close-foreign-library 'CL+SSL::LIBSSL))

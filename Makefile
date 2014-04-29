@@ -1,16 +1,31 @@
 # pgloader build tool
 APP_NAME   = pgloader
 
-SBCL	   = sbcl
-SBCL_OPTS  = --no-sysinit --no-userinit
+# use either sbcl or ccl
+CL	   = sbcl
+
+ifeq ($(CL),sbcl)
+CL_OPTS    = --no-sysinit --no-userinit
+else
+CL_OPTS    = --no-init
+endif
 
 COMPRESS_CORE ?= yes
 
+ifeq ($(CL),sbcl)
 ifeq ($(COMPRESS_CORE),yes)
 COMPRESS_CORE_OPT = --compress-core
 else
 COMPRESS_CORE_OPT = 
 endif
+endif
+
+ifeq ($(CL),sbcl)
+BUILDAPP_OPTS =          --require sb-posix                      \
+                         --require sb-bsd-sockets                \
+                         --require sb-rotate-byte
+endif
+
 
 BUILDDIR   = build
 LIBS       = $(BUILDDIR)/libs.stamp
@@ -35,14 +50,14 @@ qmynd: $(QLDIR)/local-projects/qmynd
 $(QLDIR)/setup.lisp:
 	mkdir -p $(BUILDDIR)
 	curl -o $(BUILDDIR)/quicklisp.lisp http://beta.quicklisp.org/quicklisp.lisp
-	$(SBCL) $(SBCL_OPTS) --load $(BUILDDIR)/quicklisp.lisp                     \
+	$(CL) $(CL_OPTS) --load $(BUILDDIR)/quicklisp.lisp                         \
              --eval '(quicklisp-quickstart:install :path "$(BUILDDIR)/quicklisp")' \
              --eval '(quit)'
 
 quicklisp: $(QLDIR)/setup.lisp ;
 
 $(LIBS): quicklisp qmynd
-	$(SBCL) $(SBCL_OPTS) --load $(QLDIR)/setup.lisp             \
+	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp                 \
              --eval '(ql:quickload "pgloader")'                     \
              --eval '(quit)'
 	touch $@
@@ -50,7 +65,7 @@ $(LIBS): quicklisp qmynd
 libs: $(LIBS) ;
 
 $(MANIFEST): libs
-	$(SBCL) $(SBCL_OPTS) --load $(QLDIR)/setup.lisp            \
+	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp                \
              --eval '(ql:write-asdf-manifest-file "$(MANIFEST)")'  \
              --eval '(quit)'
 
@@ -58,7 +73,7 @@ manifest: $(MANIFEST) ;
 
 $(BUILDAPP): quicklisp
 	mkdir -p $(BUILDDIR)/bin
-	$(SBCL) $(SBCL_OPTS) --load $(QLDIR)/setup.lisp           \
+	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp               \
              --eval '(ql:quickload "buildapp")'                   \
              --eval '(buildapp:build-buildapp "$(BUILDAPP)")'     \
              --eval '(quit)'
@@ -68,9 +83,8 @@ buildapp: $(BUILDAPP) ;
 $(PGLOADER): manifest buildapp
 	mkdir -p $(BUILDDIR)/bin
 	$(BUILDAPP)      --logfile /tmp/build.log                \
-                         --require sb-posix                      \
-                         --require sb-bsd-sockets                \
-                         --require sb-rotate-byte                \
+                         $(BUILDAPP_OPTS)                        \
+                         --sbcl $(CL)                            \
                          --asdf-path .                           \
                          --asdf-tree $(QLDIR)/local-projects     \
                          --manifest-file $(MANIFEST)             \

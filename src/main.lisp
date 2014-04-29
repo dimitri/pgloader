@@ -116,7 +116,10 @@
 	  (format t "tmpdir: ~s~%" *default-tmpdir*))
 
 	(when version
-	  (format t "pgloader version ~s~%" *version-string*))
+	  (format t "pgloader version ~s~%" *version-string*)
+          (format t "compiled with ~a ~a~%"
+                  (lisp-implementation-type)
+                  (lisp-implementation-version)))
 
 	(when help
           (usage argv))

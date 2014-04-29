@@ -77,16 +77,26 @@ Binary file for pgloader, named `pgloader.exe`:
 
     $ make pgloader
 
-Note that the `Makefile` uses the `--compress-core` option, that should be
-enabled in your local copy of `SBCL`. If that's not the case, it's probably
-because you did compile and install `SBCL` yourself, so that you have a
-decently recent version to use. Then you need to compile it with the
-`--with-sb-core-compression` option.
+By default, the `Makefile` uses [SBCL](http://sbcl.org/) to compile your
+binary image, though it's possible to also build using
+[CCL](http://ccl.clozure.com/).
 
-You can also remove the `--compress-core` option by editing the `Makefile`
-and removing the line where it appears.
+    $ make CC=ccl pgloader
 
-The `make pgloader` command when successful outputs a `./build/pgloader.exe`
+Note that the `Makefile` uses the `--compress-core` option when using SBCL,
+that should be enabled in your local copy of `SBCL`. If that's not the case,
+it's probably because you did compile and install `SBCL` yourself, so that
+you have a decently recent version to use. Then you need to compile it with
+the `--with-sb-core-compression` option.
+
+You can also remove the `--compress-core` option that way:
+
+    $ make COMPRESS_CORE=no pgloader
+
+The `--compress-core` is unique to SBCL, so not used when `CC` is different
+from the `sbcl` value.
+
+The `make pgloader` command when successful outputs a `./build/bin/pgloader`
 file for you to use.
 
 ## Usage
