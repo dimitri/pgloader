@@ -64,12 +64,16 @@
 (defmacro with-monitor ((&key (start-logger t)) &body body)
   "Start and stop the monitor around BODY code. The monitor is responsible
   for processing logs into a central logfile"
-  `(let* ((*monitoring-queue*   (lq:make-queue))
-          (*monitoring-channel* (start-monitor :start-logger ,start-logger)))
-     (unwind-protect
-          ,@body
-       (stop-monitor :channel *monitoring-channel*
-                     :stop-logger ,start-logger))))
+  `(if ,start-logger
+       (let* ((*monitoring-queue*   (lq:make-queue))
+              (*monitoring-channel* (start-monitor :start-logger ,start-logger)))
+         (unwind-protect
+              ,@body
+           (stop-monitor :channel *monitoring-channel*
+                         :stop-logger ,start-logger)))
+
+       ;; logger has already been started
+       (progn ,@body)))
 
 (defun monitor (queue)
   "Receives and process messages from *monitoring-queue*."
