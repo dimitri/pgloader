@@ -161,20 +161,26 @@
 (defvar *header-cols-names* '("table name" "read" "imported" "errors" "time"))
 
 (defun report-header ()
-  (apply #'format t *header-cols-format* *header-cols-names*)
-  (format t *header-line*))
+  (apply #'format *terminal-io* *header-cols-format* *header-cols-names*)
+  (terpri)
+  (format *terminal-io* *header-line*)
+  (terpri))
 
 (defun report-table-name (table-name)
-  (format t *header-tname-format* table-name))
+  (format *terminal-io* *header-tname-format* table-name))
 
 (defun report-results (read rows errors seconds)
-  (format t *header-stats-format* read rows errors (format-interval seconds nil)))
+  (format *terminal-io* *header-stats-format*
+          read rows errors (format-interval seconds nil))
+  (terpri))
 
 (defun report-footer (legend read rows errors seconds)
-  (format t *header-line*)
-  (apply #'format t *header-cols-format*
+  (terpri)
+  (format *terminal-io* *header-line*)
+  (apply #'format *terminal-io* *header-cols-format*
 	 (list legend read rows errors (format-interval seconds nil)))
-  (format t "~&"))
+  (format *terminal-io* "~&")
+  (terpri))
 
 ;;;
 ;;; Pretty print a report from a pgtable and pgstats counters
