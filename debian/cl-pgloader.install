@@ -1,0 +1,3 @@
+pgloader.asd usr/share/common-lisp/source/simple-date
+pgloader.lisp usr/share/common-lisp/source/pgloader
+src usr/share/common-lisp/source/pgloader

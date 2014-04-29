@@ -15,6 +15,23 @@ EXCLUDE = --exclude-vcs --exclude=debian --exclude=build
 orig: clean
 	cd .. && tar czf pgloader_$(PKGVERS).orig.tar.gz $(EXCLUDE) pgloader
 
+override_dh_auto_build:
+	make docs
+	buildapp --logfile /tmp/pgloader-build.log          \
+                 --require sb-posix                         \
+                 --require sb-bsd-sockets                   \
+                 --asdf-path .                              \
+                 --asdf-tree /usr/share/common-lisp/systems \
+                 --load-system asdf               	    \
+                 --load-system asdf-finalizers         	    \
+                 --load-system asdf-system-connections 	    \
+                 --load-system pgloader               	    \
+                 --load src/hooks.lisp                      \
+                 --entry pgloader:main                      \
+                 --dynamic-space-size 4096                  \
+                 --compress-core                    	    \
+                 --output build/bin/pgloader
+
 override_dh_auto_test:
 	# do nothing
 
