@@ -124,7 +124,7 @@ rpm:
 	# intended for use on a CentOS or other RPM based system
 	mkdir -p $(DEBUILD_ROOT) && rm -rf $(DEBUILD_ROOT)/*
 	rsync -Ca --exclude=build/* ./ $(DEBUILD_ROOT)/
-	cd /tmp && tar czf $(HOME)/rpmbuild/SOURCES/pgloader-3.0.98.tar.gz pgloader
+	cd /tmp && tar czf $(HOME)/rpmbuild/SOURCES/pgloader-3.0.99.tar.gz pgloader
 	cd $(DEBUILD_ROOT) && rpmbuild -ba pgloader.spec
 	cp -a $(HOME)/rpmbuild/SRPMS/*rpm build
 	cp -a $(HOME)/rpmbuild/RPMS/x86_64/*rpm build

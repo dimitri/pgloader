@@ -1,1 +1,1 @@
-build/pgloader.exe /usr/bin
+build/bin/pgloader /usr/bin

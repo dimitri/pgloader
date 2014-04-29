@@ -1,3 +1,12 @@
+pgloader (3.0.99-1) unstable; urgency=medium
+
+  * Release Candidate 9
+  * Can be built against either CCL or SBCL
+  * Lots of bug fixes
+  * Smarted batch memory usage
+
+ -- Dimitri Fontaine <dimitri@2ndQuadrant.fr>  Tue, 29 Apr 2014 13:50:26 +0400
+
 pgloader (3.0.98-1) unstable; urgency=low
 
   * Release Candidate 8
