@@ -284,6 +284,38 @@ the delimiters \fB/*\fR and \fB*/\fR respectively start and end a comment, which
 .P
 Any place where you could enter a \fIwhitespace\fR will accept a comment too\.
 .
+.SS "Batch behaviour options"
+All pgloader commands have support for a \fIWITH\fR clause that allows for specifying options\. Some options are generic and accepted by all commands, such as the \fIbatch behaviour options\fR, and some options are specific to a data source kind, such as the CSV \fIskip header\fR options\.
+.
+.P
+The global batch behaviour options are:
+.
+.IP "\(bu" 4
+\fIbatch rows\fR
+.
+.IP
+Takes a numeric value as argument, used as the maximum number of rows allowed in a batch\. The default is \fB25 000\fR and can be changed to try having better performances characteristics or to control pgloader memory usage;
+.
+.IP "\(bu" 4
+\fIbatch size\fR
+.
+.IP
+Takes a memory unit as argument, such as \fI20 MB\fR, its default value\. Accepted multipliers are \fIkB\fR, \fIMB\fR, \fIGB\fR, \fITB\fR and \fIPB\fR\. The case is important so as not to be confused about bits versus bytes, we\'re only talking bytes here\.
+.
+.IP "\(bu" 4
+\fIbatch concurrency\fR
+.
+.IP
+Takes a numeric value as argument, defaults to \fB10\fR\. That\'s the number of batches that pgloader is allows to build in memory, even when only a single batch at a time might be sent to PostgreSQL\.
+.
+.IP
+Supporting more than a single batch being sent at a time is on the TODO list of pgloader, but is not implemented yet\. This option is about controling the memory needs of pgloader as a trade\-off to the performances characteristics, and not about parallel activity of pgloader\.
+.
+.IP "" 0
+.
+.P
+Other options are specific to each input source, please refer to specific parts of the documentation for their listing and covering\.
+.
 .SS "LOAD CSV"
 This command instructs pgloader to load data from a \fBCSV\fR file\. Here\'s an example:
 .
