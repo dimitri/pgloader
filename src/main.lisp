@@ -38,7 +38,10 @@
      :documentation "Filename where to send the logs.")
 
     (("load" #\l) :type string :list t :optional t
-     :documentation "Read user code from file")))
+     :documentation "Read user code from file")
+
+    ("self-upgrade" :type string :optional t
+     :documentation "Path to pgloader newer sources")))
 
 (defun print-backtrace (condition debug stream)
   "Depending on DEBUG, print out the full backtrace or just a shorter
@@ -79,6 +82,25 @@
   (command-line-arguments:show-option-help *opt-spec*)
   (when quit (uiop:quit)))
 
+(defun self-upgrade (namestring)
+  "Load pgloader sources at PATH-TO-PGLOADER-SOURCES."
+  (let ((pgloader-pathname (uiop:directory-exists-p
+                            (uiop:parse-unix-namestring namestring))))
+    (unless pgloader-pathname
+      (format t "No such directory: ~s~%" namestring)
+      (uiop:quit))
+
+    ;; now the real thing
+    (handler-case
+        (handler-bind ((condition #'muffle-warning))
+          (let ((asdf:*central-registry* (list* pgloader-pathname
+                                                asdf:*central-registry*)))
+            (format t "Self-upgrading from sources at ~s~%"
+                    (uiop:native-namestring pgloader-pathname))
+            (asdf:load-system :pgloader)))
+      (condition (c)
+        (format t "Fatal: ~a~%" c)))))
+
 (defun main (argv)
   "Entry point when building an executable image with buildapp"
   (let ((args (rest argv)))
@@ -93,7 +115,7 @@
       (destructuring-bind (&key help version quiet verbose debug logfile
 				list-encodings upgrade-config load
 				client-min-messages log-min-messages
-				root-dir)
+				root-dir self-upgrade)
 	  options
 
 	;; First care about the root directory where pgloader is supposed to
@@ -136,6 +158,10 @@
 	       (pgloader.ini:convert-ini-into-commands filename)
 	       (format t "~%~%"))
 	  (uiop:quit))
+
+        ;; Self Upgrade?
+        (when self-upgrade
+          (self-upgrade self-upgrade))
 
 	(when load
 	  (loop for filename in load

@@ -60,6 +60,13 @@ pgloader operates from commands which are read from files:
     Those functions should be defined in the `pgloader.transforms` package.
     This option can appear more than once in the command line.
 
+  * --self-upgrade <directory>:
+
+    Specify a <directory> where to find pgloader sources so that one of the
+    very first things it does is dynamically loading-in (and compiling to
+    machine code) another version of itself, usually a newer one like a very
+    recent git checkout.
+
 To get the maximum amount of debug information, you can use both the
 `--verbose` and the `--debug` switches at the same time, which is equivalent
 to saying `--client-min-messages data`. Then the log messages will show the

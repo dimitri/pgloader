@@ -33,13 +33,35 @@ candidate). The next stable versions are going to be `3.1` then `3.2` etc.
 ## INSTALL
 
 pgloader is now a Common Lisp program, tested using the
-[SBCL](http://sbcl.org/) (>= 1.1.14) implementation with
+[SBCL](http://sbcl.org/) (>= 1.1.14) and
+[Clozure CL](http://ccl.clozure.com/) implementations with
 [Quicklisp](http://www.quicklisp.org/beta/).
 
     $ apt-get install sbcl libsqlite3-dev make curl
     $ cd /path/to/pgloader
 	$ make pgloader
 	$ ./build/bin/pgloader --help
+
+You can also fetch pre-made binary packages at
+[pgloader.io](http://pgloader.io/download.html).
+
+## Testing a new feature
+
+Being a Common Lisp program, pgloader is able to *upgrade itself* at run
+time, and provides the command-line option `--self-upgrade` that just does
+that.
+
+If you want to test the current repository version (or any checkout really),
+it's possible to clone the sources then load them with an older pgloader
+release:
+
+    $ git clone https://github.com/dimitri/pgloader.git /tmp/pgloader
+    $ /usr/bin/pgloader --self-upgrade /tmp/pgloader myfile.load
+
+Here, the code from the *git clone* will be used at run-time. Of course,
+code that has changed before the self-upgrade mechanism is executed will
+have no change to get run again. That only includes command line options
+processing, though.
 
 ## The pgloader.lisp script
 
