@@ -56,7 +56,7 @@ $(QLDIR)/setup.lisp:
 
 quicklisp: $(QLDIR)/setup.lisp ;
 
-$(LIBS): quicklisp qmynd
+$(LIBS): $(QLDIR)/setup.lisp
 	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp                 \
              --eval '(ql:quickload "pgloader")'                     \
              --eval '(quit)'
@@ -64,14 +64,14 @@ $(LIBS): quicklisp qmynd
 
 libs: $(LIBS) ;
 
-$(MANIFEST): libs
+$(MANIFEST): $(LIBS)
 	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp                \
              --eval '(ql:write-asdf-manifest-file "$(MANIFEST)")'  \
              --eval '(quit)'
 
 manifest: $(MANIFEST) ;
 
-$(BUILDAPP): quicklisp
+$(BUILDAPP): $(QLDIR)/setup.lisp
 	mkdir -p $(BUILDDIR)/bin
 	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp               \
              --eval '(ql:quickload "buildapp")'                   \
@@ -80,7 +80,7 @@ $(BUILDAPP): quicklisp
 
 buildapp: $(BUILDAPP) ;
 
-$(PGLOADER): manifest buildapp
+$(PGLOADER): $(MANIFEST) $(BUILDAPP) qmynd
 	mkdir -p $(BUILDDIR)/bin
 	$(BUILDAPP)      --logfile /tmp/build.log                \
                          $(BUILDAPP_OPTS)                        \
