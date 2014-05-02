@@ -328,7 +328,7 @@
 			    (*pgconn-user*        . ,*pgconn-user*)
 			    (*pgconn-pass*        . ,*pgconn-pass*)
 			    (*pg-settings*        . ',*pg-settings*)
-			    (*myconn-host*        . ,*myconn-host*)
+			    (*myconn-host*        . ',*myconn-host*)
 			    (*myconn-port*        . ,*myconn-port*)
 			    (*myconn-user*        . ,*myconn-user*)
 			    (*myconn-pass*        . ,*myconn-pass*)

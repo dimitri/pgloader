@@ -67,11 +67,16 @@
    *myconn-pass*."
   `(let* ((dbname (or ,dbname *my-dbname*))
           (*connection*
-           (qmynd:mysql-connect :host *myconn-host*
-                                :port *myconn-port*
-                                :username *myconn-user*
-                                :password *myconn-pass*
-                                :database dbname)))
+           (if (and (consp *myconn-host*) (eq :unix (car *myconn-host*)))
+               (qmynd:mysql-local-connect :path (cdr *myconn-host*)
+                                          :username *myconn-user*
+                                          :password *myconn-pass*
+                                          :database dbname)
+               (qmynd:mysql-connect :host *myconn-host*
+                                    :port *myconn-port*
+                                    :username *myconn-user*
+                                    :password *myconn-pass*
+                                    :database dbname))))
      (unwind-protect
           (progn ,@forms)
        (qmynd:mysql-disconnect *connection*))))

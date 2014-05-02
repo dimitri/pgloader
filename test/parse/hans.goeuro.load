@@ -1,6 +1,6 @@
 LOAD DATABASE
-     FROM      mysql://root@localhost:3306/goeuro
-     INTO postgresql://dim@localhost:54393/godollar
+     FROM      mysql://root@unix:/tmp/mysql.sock:/goeuro
+     INTO postgresql://dim@unix:/tmp:/godollar
 
  WITH include drop, create tables, create indexes, reset sequences
 
