@@ -355,6 +355,39 @@
 	(error "The target must be a PostgreSQL connection string."))
       target)))
 
+(defun pgsql-connection-bindings (pg-db-uri gucs)
+  "Generate the code needed to set PostgreSQL connection bindings."
+  (destructuring-bind (&key ((:host pghost))
+                            ((:port pgport))
+                            ((:user pguser))
+                            ((:password pgpass))
+                            ((:dbname pgdb))
+                            &allow-other-keys)
+      pg-db-uri
+    `((*pgconn-host* ',pghost)
+      (*pgconn-port* ,pgport)
+      (*pgconn-user* ,pguser)
+      (*pgconn-pass* ,pgpass)
+      (*pg-dbname*   ,pgdb)
+      (*pg-settings* ',gucs)
+      (pgloader.pgsql::*pgsql-reserved-keywords*
+       (pgloader.pgsql:list-reserved-keywords ,pgdb)))))
+
+(defun mysql-connection-bindings (my-db-uri)
+  "Generate the code needed to set MySQL connection bindings."
+  (destructuring-bind (&key ((:host myhost))
+                            ((:port myport))
+                            ((:user myuser))
+                            ((:password mypass))
+                            ((:dbname mydb))
+                            &allow-other-keys)
+      my-db-uri
+    `((*myconn-host* ',myhost)
+      (*myconn-port* ,myport)
+      (*myconn-user* ,myuser)
+      (*myconn-pass* ,mypass)
+      (*my-dbname*   ,mydb))))
+
 
 ;;;
 ;;; Source parsing
@@ -903,66 +936,44 @@
 				   incl excl decoding-as
 				   before after)
 	source
-      (destructuring-bind (&key ((:host myhost))
-				((:port myport))
-				((:user myuser))
-				((:password mypass))
-				((:dbname mydb))
-				table-name
+      (destructuring-bind (&key ((:dbname mydb)) table-name
 				&allow-other-keys)
 	  my-db-uri
-	(destructuring-bind (&key ((:host pghost))
-				  ((:port pgport))
-				  ((:user pguser))
-				  ((:password pgpass))
-				  ((:dbname pgdb))
-				  &allow-other-keys)
-	    pg-db-uri
-	  `(lambda ()
-	     (let* ((state-before  (pgloader.utils:make-pgstate))
-		    (*state*       (or *state* (pgloader.utils:make-pgstate)))
-		    (state-idx     (pgloader.utils:make-pgstate))
-		    (state-after   (pgloader.utils:make-pgstate))
-		    (pgloader.mysql:*cast-rules* ',casts)
-		    (*myconn-host* ',myhost)
-		    (*myconn-port* ,myport)
-		    (*myconn-user* ,myuser)
-		    (*myconn-pass* ,mypass)
-		    (*my-dbname*   ,mydb)
-		    (*pgconn-host* ',pghost)
-		    (*pgconn-port* ,pgport)
-		    (*pgconn-user* ,pguser)
-		    (*pgconn-pass* ,pgpass)
-		    (*pg-dbname*   ,pgdb)
-		    (*pg-settings* ',gucs)
+        (destructuring-bind (&key ((:dbname pgdb)) &allow-other-keys) pg-db-uri
+          `(lambda ()
+             (let* ((state-before  (pgloader.utils:make-pgstate))
+                    (*state*       (or *state* (pgloader.utils:make-pgstate)))
+                    (state-idx     (pgloader.utils:make-pgstate))
+                    (state-after   (pgloader.utils:make-pgstate))
+                    (pgloader.mysql:*cast-rules* ',casts)
+                    ,@(mysql-connection-bindings my-db-uri)
+                    ,@(pgsql-connection-bindings pg-db-uri gucs)
                     ,@(batch-control-bindings options)
-		    (pgloader.pgsql::*pgsql-reserved-keywords*
-		     (pgloader.pgsql:list-reserved-keywords ,pgdb))
 		    (source
 		     (make-instance 'pgloader.mysql::copy-mysql
 				    :target-db ,pgdb
 				    :source-db ,mydb)))
 
-	       ,(sql-code-block pgdb 'state-before before "before load")
+               ,(sql-code-block pgdb 'state-before before "before load")
 
-	       (pgloader.mysql:copy-database source
-					     ,@(when table-name
-					       `(:only-tables ',(list table-name)))
-					     :including ',incl
-					     :excluding ',excl
+               (pgloader.mysql:copy-database source
+                                             ,@(when table-name
+                                                     `(:only-tables ',(list table-name)))
+                                             :including ',incl
+                                             :excluding ',excl
                                              :decoding-as ',decoding-as
-					     :materialize-views ',views
-					     :state-before state-before
-					     :state-after state-after
-					     :state-indexes state-idx
+                                             :materialize-views ',views
+                                             :state-before state-before
+                                             :state-after state-after
+                                             :state-indexes state-idx
                                              ,@(remove-batch-control-option options))
 
-	       ,(sql-code-block pgdb 'state-after after "after load")
+               ,(sql-code-block pgdb 'state-after after "after load")
 
-	       (report-full-summary "Total import time" *state*
-				    :before   state-before
-				    :finally  state-after
-				    :parallel state-idx))))))))
+               (report-full-summary "Total import time" *state*
+                                    :before   state-before
+                                    :finally  state-after
+                                    :parallel state-idx))))))))
 
 
 ;;;
@@ -1026,21 +1037,13 @@ load database
 				   (? excluding))
   (:lambda (source)
     (destructuring-bind (sqlite-uri pg-db-uri options gucs incl excl) source
-      (destructuring-bind (&key host port user password dbname table-name
-				&allow-other-keys)
+      (destructuring-bind (&key dbname table-name &allow-other-keys)
 	  pg-db-uri
 	`(lambda ()
 	   (let* ((state-before   (pgloader.utils:make-pgstate))
 		  (*state*        (pgloader.utils:make-pgstate))
-		  (*pgconn-host* ',host)
-		  (*pgconn-port* ,port)
-		  (*pgconn-user* ,user)
-		  (*pgconn-pass* ,password)
-		  (*pg-dbname*   ,dbname)
-		  (*pg-settings* ',gucs)
+                  ,@(pgsql-connection-bindings pg-db-uri gucs)
                   ,@(batch-control-bindings options)
-		  (pgloader.pgsql::*pgsql-reserved-keywords*
-		   (pgloader.pgsql:list-reserved-keywords ,dbname))
 		  (db
 		   ,(destructuring-bind (kind url) sqlite-uri
 		     (ecase kind
@@ -1257,18 +1260,12 @@ load database
 (defrule load-dbf-file (and dbf-source target dbf-options (? gucs))
   (:lambda (command)
     (destructuring-bind (source pg-db-uri options gucs) command
-      (destructuring-bind (&key host port user password dbname table-name
-				&allow-other-keys)
+      (destructuring-bind (&key dbname table-name &allow-other-keys)
 	  pg-db-uri
 	`(lambda ()
 	   (let* ((state-before   (pgloader.utils:make-pgstate))
 		  (*state*        (pgloader.utils:make-pgstate))
-		  (*pgconn-host* ',host)
-		  (*pgconn-port* ,port)
-		  (*pgconn-user* ,user)
-		  (*pgconn-pass* ,password)
-		  (*pg-dbname*   ,dbname)
-		  (*pg-settings* ',gucs)
+                  ,@(pgsql-connection-bindings pg-db-uri gucs)
                   ,@(batch-control-bindings options)
 		  (source
 		   ,(destructuring-bind (kind url) source
@@ -1659,20 +1656,14 @@ load database
   (:lambda (command)
     (destructuring-bind (source encoding fields pg-db-uri
 				columns options gucs before after) command
-      (destructuring-bind (&key host port user password dbname table-name
-				&allow-other-keys)
+      (destructuring-bind (&key dbname table-name &allow-other-keys)
 	  pg-db-uri
 	`(lambda ()
 	   (let* ((state-before  ,(when before `(pgloader.utils:make-pgstate)))
 		  (summary       (null *state*))
 		  (*state*       (or *state* (pgloader.utils:make-pgstate)))
 		  (state-after   ,(when after `(pgloader.utils:make-pgstate)))
-		  (*pgconn-host* ',host)
-		  (*pgconn-port* ,port)
-		  (*pgconn-user* ,user)
-		  (*pgconn-pass* ,password)
-                  (*pg-dbname*   ,dbname)
-		  (*pg-settings* ',gucs)
+                  ,@(pgsql-connection-bindings pg-db-uri gucs)
                   ,@(batch-control-bindings options))
 
 	     (progn
@@ -1800,20 +1791,14 @@ load database
   (:lambda (command)
     (destructuring-bind (source encoding fields pg-db-uri
 				columns options gucs before after) command
-      (destructuring-bind (&key host port user password dbname table-name
-				&allow-other-keys)
+      (destructuring-bind (&key dbname table-name &allow-other-keys)
 	  pg-db-uri
 	`(lambda ()
 	   (let* ((state-before  ,(when before `(pgloader.utils:make-pgstate)))
 		  (summary       (null *state*))
 		  (*state*       (or *state* (pgloader.utils:make-pgstate)))
 		  (state-after   ,(when after `(pgloader.utils:make-pgstate)))
-		  (*pgconn-host* ',host)
-		  (*pgconn-port* ,port)
-		  (*pgconn-user* ,user)
-		  (*pgconn-pass* ,password)
-		  (*pg-dbname*   ,dbname)
-		  (*pg-settings* ',gucs)
+                  ,@(pgsql-connection-bindings pg-db-uri gucs)
                   ,@(batch-control-bindings options))
 
 	     (progn
