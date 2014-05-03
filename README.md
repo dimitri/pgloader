@@ -30,6 +30,25 @@ The versioning is now following the Emacs model, where any X.0 release
 number means you're using a development version (alpha, beta, or release
 candidate). The next stable versions are going to be `3.1` then `3.2` etc.
 
+When using a development snapshot rather than a released version the version
+number includes the git hash (in its abbreviated form):
+
+  - `pgloader version "3.0.99"`
+  
+     Release candidate 9 for pgloader version 3.1, with a *git tag* named
+     `v3.0.99` so that it's easy to checkout the same sources as the
+     released code.
+     
+  - `pgloader version "3.0.fecae2c"`
+  
+     Development snapshot again *git hash* `fecae2c`. It's possible to have
+     the same sources on another setup with using the git command `git
+     checkout fecae2c`.
+
+  - `pgloader version "3.1.0"`
+  
+     Stable release.
+
 ## INSTALL
 
 pgloader is now a Common Lisp program, tested using the

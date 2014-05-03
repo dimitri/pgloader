@@ -32,7 +32,24 @@
 
 (in-package :pgloader.params)
 
-(defparameter *version-string* "3.0.99"
+(defparameter *release* nil
+  "non-nil when this build is a release build.")
+
+(defparameter *major-version* "3.0")
+(defparameter *minor-version* "99")
+
+(defun git-hash ()
+  "Return the current abbreviated git hash of the development tree."
+  (let ((git-hash `("git" "--no-pager" "log" "-n1" "--format=format:%h")))
+    (uiop:with-current-directory ((asdf:system-source-directory :pgloader))
+      (multiple-value-bind (stdout stderr code)
+          (uiop:run-program git-hash :output :string)
+        (declare (ignore code stderr))
+        stdout))))
+
+(defparameter *version-string*
+  (concatenate 'string *major-version* "."
+               (if *release* *minor-version* (git-hash)))
   "pgloader version strings, following Emacs versionning model.")
 
 ;; we can't use pgloader.utils:make-pgstate yet because params is compiled
