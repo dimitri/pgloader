@@ -80,7 +80,7 @@ release:
     
     $ git clone https://github.com/dimitri/pgloader.git /tmp/pgloader
     $ /usr/bin/pgloader --self-upgrade /tmp/pgloader --version
-    Self-upgrading from sources at "/Users/dim/dev/pgloader/"
+    Self-upgrading from sources at "/tmp/pgloader/"
     pgloader version "3.0.fecae2c"
     compiled with SBCL 1.1.17
 
