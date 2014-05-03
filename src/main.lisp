@@ -82,6 +82,9 @@
   (command-line-arguments:show-option-help *opt-spec*)
   (when quit (uiop:quit)))
 
+(defvar *self-upgraded-already* nil
+  "Keep track if we did reload our own source code already.")
+
 (defun self-upgrade (namestring)
   "Load pgloader sources at PATH-TO-PGLOADER-SOURCES."
   (let ((pgloader-pathname (uiop:directory-exists-p
@@ -97,7 +100,8 @@
                                                 asdf:*central-registry*)))
             (format t "Self-upgrading from sources at ~s~%"
                     (uiop:native-namestring pgloader-pathname))
-            (asdf:load-system :pgloader)))
+            (with-output-to-string (*standard-output*)
+              (asdf:operate 'asdf:load-op :pgloader :verbose nil))))
       (condition (c)
         (format t "Fatal: ~a~%" c)))))
 
@@ -117,6 +121,13 @@
 				client-min-messages log-min-messages
 				root-dir self-upgrade)
 	  options
+
+        ;; First thing: Self Upgrade?
+        (when self-upgrade
+          (unless *self-upgraded-already*
+            (self-upgrade self-upgrade)
+            (let ((*self-upgraded-already* t))
+              (main argv))))
 
 	;; First care about the root directory where pgloader is supposed to
 	;; output its data logs and reject files
@@ -158,10 +169,6 @@
 	       (pgloader.ini:convert-ini-into-commands filename)
 	       (format t "~%~%"))
 	  (uiop:quit))
-
-        ;; Self Upgrade?
-        (when self-upgrade
-          (self-upgrade self-upgrade))
 
 	(when load
 	  (loop for filename in load

@@ -74,13 +74,19 @@ If you want to test the current repository version (or any checkout really),
 it's possible to clone the sources then load them with an older pgloader
 release:
 
+    $ /usr/bin/pgloader --version
+    pgloader version "3.0.99"
+    compiled with SBCL 1.1.17
+    
     $ git clone https://github.com/dimitri/pgloader.git /tmp/pgloader
-    $ /usr/bin/pgloader --self-upgrade /tmp/pgloader myfile.load
+    $ /usr/bin/pgloader --self-upgrade /tmp/pgloader --version
+    Self-upgrading from sources at "/Users/dim/dev/pgloader/"
+    pgloader version "3.0.fecae2c"
+    compiled with SBCL 1.1.17
 
-Here, the code from the *git clone* will be used at run-time. Of course,
-code that has changed before the self-upgrade mechanism is executed will
-have no change to get run again. That only includes command line options
-processing, though.
+Here, the code from the *git clone* will be used at run-time. Self-upgrade
+is done first, then the main program entry point is called again with the
+new coded loaded in.
 
 ## The pgloader.lisp script
 
