@@ -29,15 +29,15 @@
 					  (slot-value fixed 'target)))))
     (unless transforms
       (setf (slot-value fixed 'transforms)
-	    (loop for c in columns collect nil)))))
+	    (loop :repeat (length columns) :collect nil)))))
 
 (declaim (inline parse-row))
 
 (defmethod parse-row ((fixed copy-fixed) line)
   "Parse a single line of FIXED input file and return a row of columns."
-  (loop for (name . opts) in (fields fixed)
-     collect (destructuring-bind (&key start length &allow-other-keys) opts
-	       (subseq line start (+ start length)))))
+  (loop :for (nil . opts) :in (fields fixed)
+     :collect (destructuring-bind (&key start length &allow-other-keys) opts
+                (subseq line start (+ start length)))))
 
 (defmethod map-rows ((fixed copy-fixed) &key process-row-fn)
   "Load data from a text file in Fixed Columns format.
@@ -47,12 +47,12 @@
 
    Returns how many rows where read and processed."
   (let ((filenames   (case (source-type fixed)
-                       (:stdin   (list (source csv)))
+                       (:stdin   (list (source fixed)))
 		       (:inline  (list (car (source fixed))))
 		       (:regex   (source fixed))
 		       (t        (list (source fixed))))))
-    (loop for filename in filenames
-       do
+    (loop :for filename :in filenames
+       :do
 	 (with-open-file-or-stream
 	     ;; we just ignore files that don't exist
 	     (input filename
