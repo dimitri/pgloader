@@ -4,9 +4,20 @@ APP_NAME   = pgloader
 # use either sbcl or ccl
 CL	   = sbcl
 
+BUILDDIR   = build
+LIBS       = $(BUILDDIR)/libs.stamp
+QLDIR      = $(BUILDDIR)/quicklisp
+MANIFEST   = $(BUILDDIR)/manifest.ql
+PGLOADER   = $(BUILDDIR)/bin/$(APP_NAME)
+
+BUILDAPP_CCL  = $(BUILDDIR)/bin/buildapp.ccl
+BUILDAPP_SBCL = $(BUILDDIR)/bin/buildapp.sbcl
+
 ifeq ($(CL),sbcl)
+BUILDAPP   = $(BUILDAPP_SBCL)
 CL_OPTS    = --no-sysinit --no-userinit
 else
+BUILDAPP   = $(BUILDAPP_CCL)
 CL_OPTS    = --no-init
 endif
 
@@ -25,14 +36,6 @@ BUILDAPP_OPTS =          --require sb-posix                      \
                          --require sb-bsd-sockets                \
                          --require sb-rotate-byte
 endif
-
-
-BUILDDIR   = build
-LIBS       = $(BUILDDIR)/libs.stamp
-BUILDAPP   = $(BUILDDIR)/bin/buildapp
-MANIFEST   = $(BUILDDIR)/manifest.ql
-PGLOADER   = $(BUILDDIR)/bin/$(APP_NAME)
-QLDIR      = $(BUILDDIR)/quicklisp
 
 DEBUILD_ROOT = /tmp/pgloader
 
@@ -71,11 +74,18 @@ $(MANIFEST): $(LIBS)
 
 manifest: $(MANIFEST) ;
 
-$(BUILDAPP): $(QLDIR)/setup.lisp
+$(BUILDAPP_CCL): $(QLDIR)/setup.lisp
 	mkdir -p $(BUILDDIR)/bin
 	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp               \
              --eval '(ql:quickload "buildapp")'                   \
-             --eval '(buildapp:build-buildapp "$(BUILDAPP)")'     \
+             --eval '(buildapp:build-buildapp "$@")'              \
+             --eval '(quit)'
+
+$(BUILDAPP_SBCL): $(QLDIR)/setup.lisp
+	mkdir -p $(BUILDDIR)/bin
+	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp               \
+             --eval '(ql:quickload "buildapp")'                   \
+             --eval '(buildapp:build-buildapp "$@")'              \
              --eval '(quit)'
 
 buildapp: $(BUILDAPP) ;
