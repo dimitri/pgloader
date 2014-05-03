@@ -46,8 +46,7 @@
 	     (pgloader.pgsql:list-columns (slot-value csv 'target-db)
 					  (slot-value csv 'target)))))
     (unless transforms
-      (setf (slot-value csv 'transforms)
-	    (loop for c in columns collect nil)))))
+      (setf (slot-value csv 'transforms) (make-list (length columns))))))
 
 ;;;
 ;;; Read a file format in CSV format, and call given function on each line.

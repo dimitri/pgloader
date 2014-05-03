@@ -28,8 +28,7 @@
 	     (pgloader.pgsql:list-columns (slot-value fixed 'target-db)
 					  (slot-value fixed 'target)))))
     (unless transforms
-      (setf (slot-value fixed 'transforms)
-	    (loop :repeat (length columns) :collect nil)))))
+      (setf (slot-value fixed 'transforms) (make-list (length columns))))))
 
 (declaim (inline parse-row))
 

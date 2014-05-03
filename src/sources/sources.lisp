@@ -32,7 +32,7 @@
 			(slot-value source 'transforms))))
       (unless transforms
 	(setf (slot-value source 'transforms)
-	      (loop for c in (slot-value source 'columns) collect nil))))))
+              (make-list (length (slot-value source 'columns))))))))
 
 (defgeneric map-rows (source &key process-row-fn)
   (:documentation
