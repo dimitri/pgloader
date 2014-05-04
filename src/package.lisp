@@ -144,6 +144,10 @@
 	   #:convert-ini-into-commands
 	   #:convert-ini-into-files))
 
+(defpackage #:pgloader.sql
+  (:use #:cl)
+  (:export #:read-queries))
+
 (defpackage #:pgloader.parser
   (:use #:cl #:esrap #:pgloader.params #:pgloader.utils)
   (:import-from #:pgloader.pgsql

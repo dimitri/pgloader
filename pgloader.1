@@ -176,6 +176,85 @@ LOAD <something>
 .P
 The main clauses are the \fBLOAD\fR, \fBFROM\fR, \fBINTO\fR and \fBWITH\fR clauses that each command implements\. Some command then implement the \fBSET\fR command, or some specific clauses such as the \fBCAST\fR clause\.
 .
+.SH "COMMON CLAUSES"
+Some clauses are common to all commands:
+.
+.IP "\(bu" 4
+\fIINTO\fR
+.
+.IP
+The PostgreSQL connection URI must contains the name of the target table where to load the data into\. That table must have already been created in PostgreSQL, and the name might be schema qualified\.
+.
+.IP
+Then \fIINTO\fR option also supports an optional comma separated list of target columns, which are either the name of an input \fIfield\fR or the whitespace separated list of the target column name, its PostgreSQL data type and a \fIUSING\fR expression\.
+.
+.IP
+The \fIUSING\fR expression can be any valid Common Lisp form and will be read with the current package set to \fBpgloader\.transforms\fR, so that you can use functions defined in that package, such as functions loaded dynamically with the \fB\-\-load\fR command line parameter\.
+.
+.IP
+Each \fIUSING\fR expression is compiled at runtime to native code\.
+.
+.IP
+This feature allows pgloader to load any number of fields in a CSV file into a possibly different number of columns in the database, using custom code for that projection\.
+.
+.IP "\(bu" 4
+\fIWITH\fR
+.
+.IP
+Set of options to apply to the command, using a global syntax of either:
+.
+.IP "\(bu" 4
+\fIkey = value\fR
+.
+.IP "\(bu" 4
+\fIuse option\fR
+.
+.IP "\(bu" 4
+\fIdo not use option\fR
+.
+.IP "" 0
+.
+.IP
+See each specific command for details\.
+.
+.IP "\(bu" 4
+\fISET\fR
+.
+.IP
+This clause allows to specify session parameters to be set for all the sessions opened by pgloader\. It expects a list of parameter name, the equal sign, then the single\-quoted value as a comma separated list\.
+.
+.IP
+The names and values of the parameters are not validated by pgloader, they are given as\-is to PostgreSQL\.
+.
+.IP "\(bu" 4
+\fIBEFORE LOAD DO\fR
+.
+.IP
+You can run SQL queries against the database before loading the data from the \fBCSV\fR file\. Most common SQL queries are \fBCREATE TABLE IF NOT EXISTS\fR so that the data can be loaded\.
+.
+.IP
+Each command must be \fIdollar\-quoted\fR: it must begin and end with a double dollar sign, \fB$$\fR\. Dollar\-quoted queries are then comma separated\. No extra punctuation is expected after the last SQL query\.
+.
+.IP "\(bu" 4
+\fIBEFORE LOAD EXECUTE\fR
+.
+.IP
+Same behaviour as in the \fIBEFORE LOAD DO\fR clause\. Allows you to read the SQL queries from a SQL file\. Implements support for PostgreSQL dollar\-quoting and the \fB\ei\fR and \fB\eir\fR include facilities as in \fBpsql\fR batch mode (where they are the same thing)\.
+.
+.IP "\(bu" 4
+\fIAFTER LOAD DO\fR
+.
+.IP
+Same format as \fIBEFORE LOAD DO\fR, the dollar\-quoted queries found in that section are executed once the load is done\. That\'s the right time to create indexes and constraints, or re\-enable triggers\.
+.
+.IP "\(bu" 4
+\fIAFTER LOAD EXECUTE\fR
+.
+.IP
+Same behaviour as in the \fIAFTER LOAD DO\fR clause\. Allows you to read the SQL queries from a SQL file\. Implements support for PostgreSQL dollar\-quoting and the \fB\ei\fR and \fB\eir\fR include facilities as in \fBpsql\fR batch mode (where they are the same thing)\.
+.
+.IP "" 0
+.
 .SS "Connection String"
 The \fB<source\-url>\fR parameter is expected to be given as a \fIConnection URI\fR as documented in the PostgreSQL documentation at http://www\.postgresql\.org/docs/9\.3/static/libpq\-connect\.html#LIBPQ\-CONNSTRING\.
 .
@@ -322,7 +401,7 @@ Supporting more than a single batch being sent at a time is on the TODO list of 
 .P
 Other options are specific to each input source, please refer to specific parts of the documentation for their listing and covering\.
 .
-.SS "LOAD CSV"
+.SH "LOAD CSV"
 This command instructs pgloader to load data from a \fBCSV\fR file\. Here\'s an example:
 .
 .IP "" 4
@@ -417,38 +496,6 @@ When a double\-quoted string is used and that string is read as the field value,
 
 .
 .IP "\(bu" 4
-\fIINTO\fR
-.
-.IP
-The PostgreSQL connection URI must contains the name of the target table where to load the data into\. That table must have already been created in PostgreSQL, and the name might be schema qualified\.
-.
-.IP
-Then \fIINTO\fR option also supports an optional comma separated list of target columns, which are either the name of an input \fIfield\fR or the whitespace separated list of the target column name, its PostgreSQL data type and a \fIUSING\fR expression\.
-.
-.IP
-The \fIUSING\fR expression can be any valid Common Lisp form and will be read with the current package set to \fBpgloader\.transforms\fR, so that you can use functions defined in that package, such as functions loaded dynamically with the \fB\-\-load\fR command line parameter\.
-.
-.IP
-Each \fIUSING\fR expression is compiled at runtime to native code, and will be called in a context such as:
-.
-.IP "" 4
-.
-.nf
-
-(destructuring\-bind (field\-name\-1 field\-name\-2 \.\.\.)
-    row
-  (list column\-name\-1
-        column\-name\-2
-        (expression column\-name\-1 column\-name\-2)))
-.
-.fi
-.
-.IP "" 0
-.
-.IP
-This feature allows pgloader to load any number of fields in a CSV file into a possibly different number of columns in the database, using custom code for that projection\.
-.
-.IP "\(bu" 4
 \fIWITH\fR
 .
 .IP
@@ -520,33 +567,9 @@ This character is used to recognize \fIend\-of\-line\fR condition when reading t
 .IP "" 0
 
 .
-.IP "\(bu" 4
-\fISET\fR
-.
-.IP
-This clause allows to specify session parameters to be set for all the sessions opened by pgloader\. It expects a list of parameter name, the equal sign, then the single\-quoted value as a comma separated list\.
-.
-.IP
-The names and values of the parameters are not validated by pgloader, they are given as\-is to PostgreSQL\.
-.
-.IP "\(bu" 4
-\fIBEFORE LOAD DO\fR
-.
-.IP
-You can run SQL queries against the database before loading the data from the \fBCSV\fR file\. Most common SQL queries are \fBCREATE TABLE IF NOT EXISTS\fR so that the data can be loaded\.
-.
-.IP
-Each command must be \fIdollar\-quoted\fR: it must begin and end with a double dollar sign, \fB$$\fR\. Dollar\-quoted queries are then comma separated\. No extra punctuation is expected after the last SQL query\.
-.
-.IP "\(bu" 4
-\fIAFTER LOAD DO\fR
-.
-.IP
-Same format as \fIBEFORE LOAD DO\fR, the dollar\-quoted queries found in that section are executed once the load is done\. That\'s the right time to create indexes and constraints, or re\-enable triggers\.
-.
 .IP "" 0
 .
-.SS "LOAD FIXED COLS"
+.SH "LOAD FIXED COLS"
 This command instructs pgloader to load data from a text file containing columns arranged in a \fIfixed size\fR manner\. Here\'s an example:
 .
 .IP "" 4
@@ -664,38 +687,6 @@ When a double\-quoted string is used and that string is read as the field value,
 
 .
 .IP "\(bu" 4
-\fIINTO\fR
-.
-.IP
-The PostgreSQL connection URI must contains the name of the target table where to load the data into\. That table must have already been created in PostgreSQL, and the name might be schema qualified\.
-.
-.IP
-Then \fIINTO\fR option also supports an optional comma separated list of target columns, which are either the name of an input \fIfield\fR or the whitespace separated list of the target column name, its PostgreSQL data type and a \fIUSING\fR expression\.
-.
-.IP
-The \fIUSING\fR expression can be any valid Common Lisp form and will be read with the current package set to \fBpgloader\.transforms\fR, so that you can use functions defined in that package, such as functions loaded dynamically with the \fB\-\-load\fR command line parameter\.
-.
-.IP
-Each \fIUSING\fR expression is compiled at runtime to native code, and will be called in a context such as:
-.
-.IP "" 4
-.
-.nf
-
-(destructuring\-bind (field\-name\-1 field\-name\-2 \.\.\.)
-    row
-  (list column\-name\-1
-        column\-name\-2
-        (expression column\-name\-1 column\-name\-2)))
-.
-.fi
-.
-.IP "" 0
-.
-.IP
-This feature allows pgloader to load any number of fields in a CSV file into a possibly different number of columns in the database, using custom code for that projection\.
-.
-.IP "\(bu" 4
 \fIWITH\fR
 .
 .IP
@@ -716,33 +707,9 @@ Takes a numeric value as argument\. Instruct pgloader to skip that many lines at
 .IP "" 0
 
 .
-.IP "\(bu" 4
-\fISET\fR
-.
-.IP
-This clause allows to specify session parameters to be set for all the sessions opened by pgloader\. It expects a list of parameter name, the equal sign, then the single\-quoted value as a comma separated list\.
-.
-.IP
-The names and values of the parameters are not validated by pgloader, they are given as\-is to PostgreSQL\.
-.
-.IP "\(bu" 4
-\fIBEFORE LOAD DO\fR
-.
-.IP
-You can run SQL queries against the database before loading the data from the \fBCSV\fR file\. Most common SQL queries are \fBCREATE TABLE IF NOT EXISTS\fR so that the data can be loaded\.
-.
-.IP
-Each command must be \fIdollar\-quoted\fR: it must begin and end with a double dollar sign, \fB$$\fR\. Dollar\-quoted queries are then comma separated\. No extra punctuation is expected after the last SQL query\.
-.
-.IP "\(bu" 4
-\fIAFTER LOAD DO\fR
-.
-.IP
-Same format as \fIBEFORE LOAD DO\fR, the dollar\-quoted queries found in that section are executed once the load is done\. That\'s the right time to create indexes and constraints, or re\-enable triggers\.
-.
 .IP "" 0
 .
-.SS "LOAD DBF"
+.SH "LOAD DBF"
 This command instructs pgloader to load data from a \fBDBF\fR file\. Here\'s an example:
 .
 .IP "" 4
@@ -766,12 +733,6 @@ The \fBdbf\fR format command accepts the following clauses and options:
 .
 .IP
 Filename where to load the data from\. This support local files, HTTP URLs and zip files containing a single dbf file of the same name\. Fetch such a zip file from an HTTP address is of course supported\.
-.
-.IP "\(bu" 4
-\fIINTO\fR
-.
-.IP
-The PostgreSQL connection URI\. If it doesn\'t have a table name in the target, then the name part of the filename will be used as a table name\.
 .
 .IP "\(bu" 4
 \fIWITH\fR
@@ -800,18 +761,9 @@ This options expects as its value the possibly qualified name of the table to cr
 .IP "" 0
 
 .
-.IP "\(bu" 4
-\fISET\fR
-.
-.IP
-This clause allows to specify session parameters to be set for all the sessions opened by pgloader\. It expects a list of parameter name, the equal sign, then the single\-quoted value as a comma separated list\.
-.
-.IP
-The names and values of the parameters are not validated by pgloader, they are given as\-is to PostgreSQL\.
-.
 .IP "" 0
 .
-.SS "LOAD ARCHIVE"
+.SH "LOAD ARCHIVE"
 This command instructs pgloader to load data from one or more files contained in an archive\. Currently the only supported archive format is \fIZIP\fR, and the archive might be downloaded from an \fIHTTP\fR URL\.
 .
 .P
@@ -913,21 +865,6 @@ If the file is a \fBzip\fR file, the command line utility \fBunzip\fR is used to
 Then the following commands are used from the top level directory where the archive has been expanded\.
 .
 .IP "\(bu" 4
-\fIINTO\fR
-.
-.IP
-A PostgreSQL database connection URL is expected and will be used in the \fIBEFORE LOAD DO\fR and \fIFINALLY DO\fR clauses\.
-.
-.IP "\(bu" 4
-\fIBEFORE LOAD DO\fR
-.
-.IP
-You can run SQL queries against the database before loading from the data files found in the archive\. Most common SQL queries are \fBCREATE TABLE IF NOT EXISTS\fR so that the data can be loaded\.
-.
-.IP
-Each command must be \fIdollar\-quoted\fR: it must begin and end with a double dollar sign, \fB$$\fR\. Queries are then comma separated\. No extra punctuation is expected after the last SQL query\.
-.
-.IP "\(bu" 4
 command [ \fIAND\fR command \.\.\. ]
 .
 .IP
@@ -961,7 +898,7 @@ SQL Queries to run once the data is loaded, such as \fBCREATE INDEX\fR\.
 .
 .IP "" 0
 .
-.SS "LOAD MYSQL DATABASE"
+.SH "LOAD MYSQL DATABASE"
 This command instructs pgloader to load data from a database connection\. The only supported database source is currently \fIMySQL\fR, and pgloader supports dynamically converting the schema of the source database and the indexes building\.
 .
 .P
@@ -1013,12 +950,6 @@ Must be a connection URL pointing to a MySQL database\. At the moment only MySQL
 .
 .IP
 If the connection URI contains a table name, then only this table is migrated from MySQL to PostgreSQL\.
-.
-.IP "\(bu" 4
-\fIINTO\fR
-.
-.IP
-The target PostgreSQL connection URI\.
 .
 .IP "\(bu" 4
 \fIWITH\fR
@@ -1133,15 +1064,6 @@ When this option is listed pgloader only issues the \fBCOPY\fR statements, witho
 .
 .IP "" 0
 
-.
-.IP "\(bu" 4
-\fISET\fR
-.
-.IP
-This clause allows to specify session parameters to be set for all the sessions opened by pgloader\. It expects a list of parameter name, the equal sign, then the single\-quoted value as a comma separated list\.
-.
-.IP
-The names and values of the parameters are not validated by pgloader, they are given as\-is to PostgreSQL\.
 .
 .IP "\(bu" 4
 \fICAST\fR
@@ -1326,21 +1248,6 @@ DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf8
 .IP
 You can use as many such rules as you need, all with possibly different encodings\.
 .
-.IP "\(bu" 4
-\fIBEFORE LOAD DO\fR
-.
-.IP
-You can run SQL queries against the database before loading the data from the \fBMySQL\fR database\. You can use that clause to execute a \fBCREATE SCHEMA IF NOT EXISTS\fR command in case you want to load your data into some specific schema\. To ensure your load happens in the right schema, consider setting the \fBsearch_path\fR in the \fISET\fR clause\.
-.
-.IP
-Each command must be \fIdollar\-quoted\fR: it must begin and end with a double dollar sign, \fB$$\fR\. Dollar\-quoted queries are then comma separated\. No extra punctuation is expected after the last SQL query\.
-.
-.IP "\(bu" 4
-\fIAFTER LOAD DO\fR
-.
-.IP
-Same format as \fIBEFORE LOAD DO\fR, the dollar\-quoted queries found in that section are executed once the load is done\.
-.
 .IP "" 0
 .
 .SS "LIMITATIONS"
@@ -1369,9 +1276,6 @@ It\'s simple enough to implement, just not on the priority list yet\.
 .
 .IP "\(bu" 4
 Of the geometric datatypes, onle the \fBPOINT\fR database has been covered\. The other ones should be easy enough to implement now, it\'s just not done yet\.
-.
-.IP "\(bu" 4
-The PostgreSQL \fBclient_encoding\fR should be set to \fBUFT8\fR as pgloader is using that setting when asking MySQL for its data\.
 .
 .IP "" 0
 .
@@ -1523,7 +1427,7 @@ Enum types are declared inline in MySQL and separately with a \fBCREATE TYPE\fR 
 .P
 When the source type definition is not matched in the default casting rules nor in the casting rules provided in the command, then the type name with the typemod is used\.
 .
-.SS "LOAD SQLite DATABASE"
+.SH "LOAD SQLite DATABASE"
 This command instructs pgloader to load data from a SQLite file\. Automatic discovery of the schema is supported, including build of the indexes\.
 .
 .P
@@ -1553,12 +1457,6 @@ The \fBsqlite\fR command accepts the following clauses and options:
 .
 .IP
 Path or HTTP URL to a SQLite file, might be a \fB\.zip\fR file\.
-.
-.IP "\(bu" 4
-\fIINTO\fR
-.
-.IP
-The target PostgreSQL connection URI\. If that URL containst a \fItable\-name\fR element, then that single table will get migrated\.
 .
 .IP "\(bu" 4
 \fIWITH\fR
@@ -1645,15 +1543,6 @@ When this option is listed pgloader only issues the \fBCOPY\fR statements, witho
 
 .
 .IP "\(bu" 4
-\fISET\fR
-.
-.IP
-This clause allows to specify session parameters to be set for all the sessions opened by pgloader\. It expects a list of parameter name, the equal sign, then the single\-quoted value as a comma separated list\.
-.
-.IP
-The names and values of the parameters are not validated by pgloader, they are given as\-is to PostgreSQL\.
-.
-.IP "\(bu" 4
 \fIINCLUDING ONLY TABLE NAMES MATCHING\fR
 .
 .IP
@@ -1692,7 +1581,7 @@ EXCLUDING TABLE NAMES MATCHING ~<ory>
 .
 .IP "" 0
 .
-.SS "TRANSFORMATION FUNCTIONS"
+.SH "TRANSFORMATION FUNCTIONS"
 Some data types are implemented in a different enough way that a transformation function is necessary\. This function must be written in \fBCommon lisp\fR and is searched in the \fBpgloader\.transforms\fR package\.
 .
 .P

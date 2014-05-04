@@ -4,6 +4,9 @@
 
 (in-package :pgloader.parser)
 
+(defvar *cwd* nil
+  "Parser Current Working Directory")
+
 (defvar *data-expected-inline* nil
   "Set to :inline when parsing an INLINE keyword in a FROM clause.")
 
@@ -145,6 +148,7 @@
   (def-keyword-rule "finally")
   (def-keyword-rule "and")
   (def-keyword-rule "do")
+  (def-keyword-rule "execute")
   (def-keyword-rule "filename")
   (def-keyword-rule "filenames")
   (def-keyword-rule "matching")
@@ -675,17 +679,48 @@
       (declare (ignore before load do))
       quoted)))
 
+(defrule sql-file (or maybe-quoted-filename)
+  (:lambda (filename)
+    (destructuring-bind (kind path) filename
+      (ecase kind
+        (:filename
+         (pgloader.sql:read-queries (merge-pathnames path *cwd*)))))))
+
+(defrule before-load-execute (and kw-before kw-load kw-execute sql-file)
+  (:lambda (ble)
+    (destructuring-bind (before load execute sql) ble
+      (declare (ignore before load execute))
+      sql)))
+
+(defrule before-load (or before-load-do before-load-execute))
+
 (defrule finally-do (and kw-finally kw-do dollar-quoted-list)
   (:lambda (fd)
     (destructuring-bind (finally do quoted) fd
       (declare (ignore finally do))
       quoted)))
 
+(defrule finally-execute (and kw-finally kw-execute sql)
+  (:lambda (fe)
+    (destructuring-bind (finally execute sql) fe
+      (declare (ignore finally execute))
+      sql)))
+
+(defrule finally (or finally-do finally-execute))
+
 (defrule after-load-do (and kw-after kw-load kw-do dollar-quoted-list)
   (:lambda (fd)
     (destructuring-bind (after load do quoted) fd
       (declare (ignore after load do))
       quoted)))
+
+(defrule after-load-execute (and kw-after kw-load kw-execute sql-file)
+  (:lambda (fd)
+    (destructuring-bind (after load execute sql) fd
+      (declare (ignore after load execute))
+      sql)))
+
+(defrule after-load (or after-load-do after-load-execute))
 
 (defun sql-code-block (dbname state commands label)
   "Return lisp code to run COMMANDS against DBNAME, updating STATE."
@@ -928,8 +963,8 @@
 				  (? including)
 				  (? excluding)
                                   (? decoding-tables-as)
-				  (? before-load-do)
-				  (? after-load-do))
+				  (? before-load)
+				  (? after-load))
   (:lambda (source)
     (destructuring-bind (my-db-uri pg-db-uri options
 				   gucs casts views
@@ -1651,8 +1686,8 @@ load database
 			    target (? csv-target-column-list)
 			    csv-options
 			    (? gucs)
-			    (? before-load-do)
-			    (? after-load-do))
+			    (? before-load)
+			    (? after-load))
   (:lambda (command)
     (destructuring-bind (source encoding fields pg-db-uri
 				columns options gucs before after) command
@@ -1786,8 +1821,8 @@ load database
 				   (? csv-target-column-list)
 				   (? fixed-options)
 				   (? gucs)
-				   (? before-load-do)
-				   (? after-load-do))
+				   (? before-load)
+				   (? after-load))
   (:lambda (command)
     (destructuring-bind (source encoding fields pg-db-uri
 				columns options gucs before after) command
@@ -1853,9 +1888,9 @@ load database
 
 (defrule load-archive (and archive-source
 			   (? target)
-			   (? before-load-do)
+			   (? before-load)
 			   archive-command-list
-			   (? finally-do))
+			   (? finally))
   (:lambda (archive)
     (destructuring-bind (source pg-db-uri before commands finally) archive
       (when (and (or before finally) (null pg-db-uri))
@@ -1961,7 +1996,8 @@ load database
 
   (process-relative-pathnames
    filename
-   (let ((*data-expected-inline* nil)
+   (let ((*cwd* (directory-namestring filename))
+         (*data-expected-inline* nil)
 	 (content (slurp-file-into-string filename)))
      (multiple-value-bind (commands end-commands-position)
 	 (parse 'commands content :junk-allowed t)

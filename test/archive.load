@@ -11,29 +11,7 @@ LOAD ARCHIVE
    FROM http://pgsql.tapoueh.org/temp/foo.zip
    INTO postgresql:///ip4r
 
-   BEFORE LOAD DO
-     $$ create extension if not exists ip4r; $$,
-     $$ create schema if not exists geolite; $$,
-     $$ create table if not exists geolite.location
-       (
-          locid      integer primary key,
-          country    text,
-          region     text,
-          city       text,
-          postalcode text,
-          location   point,
-          metrocode  text,
-          areacode   text
-       );
-     $$,
-     $$ create table if not exists geolite.blocks
-       (
-          iprange    ip4r,
-          locid      integer
-       );
-     $$,
-     $$ drop index if exists geolite.blocks_ip4r_idx; $$,
-     $$ truncate table geolite.blocks, geolite.location cascade; $$
+   BEFORE LOAD EXECUTE 'geolite.sql'
 
    LOAD CSV
         FROM FILENAME MATCHING ~/GeoLiteCity-Location.csv/
