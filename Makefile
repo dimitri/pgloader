@@ -8,6 +8,7 @@ BUILDDIR   = build
 LIBS       = $(BUILDDIR)/libs.stamp
 QLDIR      = $(BUILDDIR)/quicklisp
 MANIFEST   = $(BUILDDIR)/manifest.ql
+LATEST     = $(BUILDDIR)/pgloader-latest.tgz
 PGLOADER   = $(BUILDDIR)/bin/$(APP_NAME)
 
 BUILDAPP_CCL  = $(BUILDDIR)/bin/buildapp.ccl
@@ -138,6 +139,10 @@ rpm:
 	cd $(DEBUILD_ROOT) && rpmbuild -ba pgloader.spec
 	cp -a $(HOME)/rpmbuild/SRPMS/*rpm build
 	cp -a $(HOME)/rpmbuild/RPMS/x86_64/*rpm build
+
+latest:
+	git archive --format=tar --prefix=pgloader-3.0.99/ \
+            v3.0.99 | gzip -9 > $(LATEST)
 
 check: test ;
 
