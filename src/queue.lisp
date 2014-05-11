@@ -46,17 +46,21 @@
   ;;
   ;; All the data transformation takes place here, so that we batch fully
   ;; formed COPY TEXT string ready to go in the PostgreSQL stream.
-  (let ((copy-string (with-output-to-string (s)
-                       (format-vector-row s row (transforms copy)))))
-    (with-slots (data count bytes) *current-batch*
-      (setf (aref data count) copy-string)
-      (when *copy-batch-size*           ; running under memory watch
-        (incf bytes
-              #+sbcl (length
-                      (sb-ext:string-to-octets copy-string :external-format :utf-8))
-              #+ccl (ccl:string-size-in-octets copy-string :external-format :utf-8)
-              #- (or sbcl ccl) (length copy-string)))
-      (incf count))))
+  (handler-case
+      (let ((copy-string (with-output-to-string (s)
+                           (format-vector-row s row (transforms copy)))))
+        (with-slots (data count bytes) *current-batch*
+          (setf (aref data count) copy-string)
+          (when *copy-batch-size*          ; running under memory watch
+            (incf bytes
+                  #+sbcl (length
+                          (sb-ext:string-to-octets copy-string :external-format :utf-8))
+                  #+ccl (ccl:string-size-in-octets copy-string :external-format :utf-8)
+                  #- (or sbcl ccl) (length copy-string)))
+          (incf count)))
+
+    (condition (e)
+      (log-message :error "~a" e))))
 
 (defun map-push-queue (copy queue)
   "Apply MAP-ROWS on the COPY instance and a function of ROW that will push
