@@ -13,7 +13,7 @@
 ;;; call here.
 ;;;
 (defun format-vector-row (stream row
-                          &optional (transforms (loop for c across row collect nil)))
+                          &optional (transforms (make-list (length row))))
   "Add a ROW in the STREAM, formating ROW in PostgreSQL COPY TEXT format.
 
 See http://www.postgresql.org/docs/9.2/static/sql-copy.html#AEN66609 for
