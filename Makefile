@@ -1,5 +1,6 @@
 # pgloader build tool
 APP_NAME   = pgloader
+VERSION    = 3.0.99
 
 # use either sbcl or ccl
 CL	   = sbcl
@@ -41,6 +42,9 @@ endif
 DEBUILD_ROOT = /tmp/pgloader
 
 all: $(PGLOADER)
+
+clean:
+	rm -rf $(LIBS) $(QLDIR) $(MANIFEST) $(BUILDAPP) $(PGINSTALL)
 
 docs:
 	ronn -roff pgloader.1.md
@@ -135,14 +139,26 @@ rpm:
 	# intended for use on a CentOS or other RPM based system
 	mkdir -p $(DEBUILD_ROOT) && rm -rf $(DEBUILD_ROOT)/*
 	rsync -Ca --exclude=build/* ./ $(DEBUILD_ROOT)/
-	cd /tmp && tar czf $(HOME)/rpmbuild/SOURCES/pgloader-3.0.99.tar.gz pgloader
+	cd /tmp && tar czf $(HOME)/rpmbuild/SOURCES/pgloader-$(VERSION).tar.gz pgloader
 	cd $(DEBUILD_ROOT) && rpmbuild -ba pgloader.spec
 	cp -a $(HOME)/rpmbuild/SRPMS/*rpm build
 	cp -a $(HOME)/rpmbuild/RPMS/x86_64/*rpm build
 
+pkg:
+	# intended for use on a MacOSX system
+	mkdir -p $(DEBUILD_ROOT) && rm -rf $(DEBUILD_ROOT)/*
+	mkdir -p $(DEBUILD_ROOT)/usr/local/bin/
+	mkdir -p $(DEBUILD_ROOT)/usr/local/share/man/man1/
+	cp ./pgloader.1 $(DEBUILD_ROOT)/usr/local/share/man/man1/
+	cp ./build/bin/pgloader $(DEBUILD_ROOT)/usr/local/bin/
+	pkgbuild --identifier org.tapoueh.pgloader \
+	         --root $(DEBUILD_ROOT)            \
+	         --version $(VERSION)              \
+                 ./build/pgloader-$(VERSION).pkg
+
 latest:
-	git archive --format=tar --prefix=pgloader-3.0.99/ \
-            v3.0.99 | gzip -9 > $(LATEST)
+	git archive --format=tar --prefix=pgloader-$(VERSION)/ v$(VERSION) \
+        | gzip -9 > $(LATEST)
 
 check: test ;
 
