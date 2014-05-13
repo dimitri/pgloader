@@ -135,6 +135,9 @@
 			   ((string-equal "text" coltype)
 			    nil)
 
+                           ((string-equal "double" coltype)
+                            "double precision")
+
 			   (t
 			    (compile nil (lambda (c)
 					   (when c
