@@ -1,5 +1,5 @@
 load database
-     from 'sqlite/sqlite.db'
+     from 'sqlite/Chinook_Sqlite_AutoIncrementPKs.sqlite'
      into postgresql:///pgloader
 
  with include drop, create tables, create indexes, reset sequences

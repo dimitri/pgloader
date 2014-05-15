@@ -21,6 +21,8 @@
 
 	((string-equal sqlite-type-name "datetime") "timestamptz")
 
+        ((string-equal sqlite-type-name "double") "double precision")
+
 	(t sqlite-type-name)))
 
 (defmethod format-pgsql-column ((col coldef) &key identifier-case)
@@ -128,15 +130,13 @@
 		     ;; objects, where we only want to deal with text.
 		     ;;
 		     (cond ((or (string-equal "float" coltype)
+                                (string-equal "double precision" coltype)
 				(and (<= 7 (length coltype))
 				     (string-equal "numeric" coltype :end2 7)))
 			    #'pgloader.transforms::float-to-string)
 
 			   ((string-equal "text" coltype)
 			    nil)
-
-                           ((string-equal "double" coltype)
-                            "double precision")
 
 			   (t
 			    (compile nil (lambda (c)
