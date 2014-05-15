@@ -20,8 +20,8 @@
 	      (string-equal sqlite-type-name "nvarchar" :end1 8)) "text")
 
 	((string-equal sqlite-type-name "datetime") "timestamptz")
-
-        ((string-equal sqlite-type-name "double") "double precision")
+        ((string-equal sqlite-type-name "double")   "double precision")
+        ((string-equal sqlite-type-name "blob")     "bytea")
 
 	(t sqlite-type-name)))
 
@@ -137,6 +137,9 @@
 
 			   ((string-equal "text" coltype)
 			    nil)
+
+                           ((string-equal "bytea" coltype)
+                            #'pgloader.transforms::byte-vector-to-bytea)
 
 			   (t
 			    (compile nil (lambda (c)
