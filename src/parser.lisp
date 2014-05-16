@@ -328,7 +328,11 @@
 	     (or user
 		 (case type
 		   (:postgresql (getenv-default "PGUSER" (getenv-default "USER")))
-		   (:mysql      (getenv-default "USER"))))))
+		   (:mysql      (getenv-default "USER")))))
+          (password (or password
+              (case type
+                (:postgresql (getenv-default "PGPASSWORD"))
+                (:mysql (getenv-default "MYSQL_PWD"))))))
        (list :type type
 	     :user user
 	     :password password
