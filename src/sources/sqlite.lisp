@@ -151,7 +151,12 @@
 (defmethod map-rows ((sqlite copy-sqlite) &key process-row-fn)
   "Extract SQLite data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row"
-  (let ((sql (format nil "SELECT * FROM ~a" (source sqlite))))
+  (let ((sql      (format nil "SELECT * FROM ~a" (source sqlite)))
+        (blobs-p
+         (coerce (mapcar (lambda (field)
+                           (string-equal "bytea" (cast (coldef-type field))))
+                         (fields sqlite))
+                 'vector)))
    (loop
       with statement = (sqlite:prepare-statement (db sqlite) sql)
       with len = (loop :for name :in (sqlite:statement-column-names statement)
@@ -159,8 +164,11 @@
       while (sqlite:step-statement statement)
       for row = (let ((v (make-array len)))
                   (loop :for x :below len
-                     :do (setf (aref v x)
-                               (sqlite:statement-column-value statement x)))
+                     :for raw := (sqlite:statement-column-value statement x)
+                     :for val := (if (and (aref blobs-p x) (stringp raw))
+                                     (base64:base64-string-to-usb8-array raw)
+                                     raw)
+                     :do (setf (aref v x) val))
                   v)
       counting t into rows
       do (funcall process-row-fn row)
