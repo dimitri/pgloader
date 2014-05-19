@@ -176,6 +176,18 @@
        (pgsql-execute sql :client-min-messages client-min-messages)
      finally (return nb-tables)))
 
+(defun truncate-tables (dbname table-name-list
+                        &key identifier-case)
+  "Truncate given TABLE-NAME in database DBNAME"
+  (pomo:with-connection (get-connection-spec dbname)
+    (set-session-gucs *pg-settings*)
+    (let ((sql (format nil "TRUNCATE ~{~s~^,~};"
+                       (loop :for table-name :in table-name-list
+                          :collect (apply-identifier-case table-name
+                                                          identifier-case)))))
+      (log-message :notice "~a" sql)
+      (pomo:execute sql))))
+
 
 ;;;
 ;;; Index support

@@ -221,7 +221,8 @@
 			    reset-sequences
 			    only-tables
 			    including
-			    excluding)
+			    excluding
+                            (identifier-case :downcase))
   "Stream the given SQLite database down to PostgreSQL."
   (let* ((summary       (null *state*))
 	 (*state*       (or *state* (make-pgstate)))
@@ -247,13 +248,19 @@
 	 (pg-dbname     (target-db sqlite)))
 
     ;; if asked, first drop/create the tables on the PostgreSQL side
-    (when (and (or create-tables schema-only) (not data-only))
-      (log-message :notice "~:[~;DROP then ~]CREATE TABLES" include-drop)
-      (with-stats-collection ("create, truncate"
-                              :state state-before
-                              :summary summary)
-	(with-pgsql-transaction ()
-	  (create-tables all-columns :include-drop include-drop))))
+    (cond ((and (or create-tables schema-only) (not data-only))
+           (log-message :notice "~:[~;DROP then ~]CREATE TABLES" include-drop)
+           (with-stats-collection ("create, truncate"
+                                   :state state-before
+                                   :summary summary)
+             (with-pgsql-transaction ()
+               (create-tables all-columns
+                              :include-drop include-drop
+                              :identifier-case identifier-case))))
+
+          (truncate
+           (truncate-tables *pg-dbname* (mapcar #'car all-columns)
+                            :identifier-case identifier-case)))
 
     (loop
        for (table-name . columns) in all-columns
@@ -268,7 +275,7 @@
 			       :fields     columns)))
 	   ;; first COPY the data from SQLite to PostgreSQL, using copy-kernel
 	   (unless schema-only
-	     (copy-from table-source :kernel copy-kernel :truncate truncate))
+	     (copy-from table-source :kernel copy-kernel))
 
 	   ;; Create the indexes for that table in parallel with the next
 	   ;; COPY, and all at once in concurrent threads to benefit from

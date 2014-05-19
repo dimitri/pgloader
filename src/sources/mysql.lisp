@@ -351,26 +351,31 @@
                                 (lp:make-channel)))))
 
       ;; if asked, first drop/create the tables on the PostgreSQL side
-      (when (and (or create-tables schema-only) (not data-only))
-        (handler-case
-            (prepare-pgsql-database all-columns
-                                    all-indexes
-                                    all-fkeys
-                                    materialize-views
-                                    view-columns
-                                    :state state-before
-                                    :foreign-keys foreign-keys
-                                    :identifier-case identifier-case
-                                    :include-drop include-drop)
-          ;;
-          ;; In case some error happens in the preparatory transaction, we
-          ;; need to stop now and refrain from trying to load the data into
-          ;; an incomplete schema.
-          ;;
-          (cl-postgres:database-error (e)
-            (declare (ignore e))		; a log has already been printed
-            (log-message :fatal "Failed to create the schema, see above.")
-            (return-from copy-database))))
+      (handler-case
+          (cond ((and (or create-tables schema-only) (not data-only))
+                 (prepare-pgsql-database all-columns
+                                         all-indexes
+                                         all-fkeys
+                                         materialize-views
+                                         view-columns
+                                         :state state-before
+                                         :foreign-keys foreign-keys
+                                         :identifier-case identifier-case
+                                         :include-drop include-drop))
+                (t
+                 (when truncate
+                   (truncate-tables *pg-dbname*
+                                    (mapcar #'car all-columns)
+                                    :identifier-case identifier-case))))
+        ;;
+        ;; In case some error happens in the preparatory transaction, we
+        ;; need to stop now and refrain from trying to load the data into
+        ;; an incomplete schema.
+        ;;
+        (cl-postgres:database-error (e)
+          (declare (ignore e))		; a log has already been printed
+          (log-message :fatal "Failed to create the schema, see above.")
+          (return-from copy-database)))
 
       (loop
          for (table-name . columns) in (append all-columns view-columns)
@@ -401,7 +406,7 @@
 
              ;; first COPY the data from MySQL to PostgreSQL, using copy-kernel
              (unless schema-only
-               (copy-from table-source :kernel copy-kernel :truncate truncate))
+               (copy-from table-source :kernel copy-kernel))
 
              ;; Create the indexes for that table in parallel with the next
              ;; COPY, and all at once in concurrent threads to benefit from

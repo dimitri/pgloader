@@ -70,7 +70,7 @@
 	   #:with-pgsql-connection
 	   #:pgsql-execute
 	   #:pgsql-execute-with-timing
-	   #:truncate-table
+	   #:truncate-tables
 	   #:copy-from-file
 	   #:copy-from-queue
 	   #:list-databases
@@ -212,6 +212,7 @@
 		#:list-tables-and-fkeys
 		#:list-table-oids
 		#:create-tables
+                #:truncate-tables
 		#:format-pgsql-column
 		#:format-extra-type
 		#:make-pgsql-fkey
@@ -244,6 +245,7 @@
 		#:pgsql-execute-with-timing
 		#:apply-identifier-case
 		#:create-tables
+                #:truncate-tables
 		#:format-pgsql-column
 		#:make-pgsql-index
 		#:index-table-name

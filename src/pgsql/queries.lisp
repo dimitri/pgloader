@@ -110,11 +110,6 @@
 ;;;
 ;;; PostgreSQL Utility Queries
 ;;;
-(defun truncate-table (dbname table-name)
-  "Truncate given TABLE-NAME in database DBNAME"
-  (pomo:with-connection (get-connection-spec dbname)
-    (set-session-gucs *pg-settings*)
-    (pomo:execute (format nil "truncate ~a;" table-name))))
 
 (defun list-databases (&optional (username "postgres"))
   "Connect to a local database and get the database list"
