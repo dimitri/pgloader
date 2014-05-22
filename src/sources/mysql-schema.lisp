@@ -261,11 +261,12 @@ GROUP BY table_name, index_name;" dbname))
 
  GROUP BY table_name, constraint_name, ft;" dbname dbname))
      do (let ((entry (assoc table-name schema :test 'equal))
-              (fk    (make-pgsql-fkey :name name
-                                      :table-name table-name
-                                      :columns cols
-                                      :foreign-table ftable
-                                      :foreign-columns fcols)))
+              (fk
+               (make-pgsql-fkey :name name
+                                :table-name table-name
+                                :columns (sq:split-sequence #\, cols)
+                                :foreign-table ftable
+                                :foreign-columns (sq:split-sequence #\, fcols))))
           (if entry
               (push fk (cdr entry))
               (push (cons table-name (list fk)) schema)))

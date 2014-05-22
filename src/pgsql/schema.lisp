@@ -75,15 +75,23 @@
 	  (apply-identifier-case (pgsql-fkey-name fk) identifier-case))
 	 (table-name
 	  (apply-identifier-case (pgsql-fkey-table-name fk) identifier-case))
+         (fkey-columns
+          (mapcar (lambda (column-name)
+                    (apply-identifier-case column-name identifier-case))
+                  (pgsql-fkey-columns fk)))
 	 (foreign-table
-	  (apply-identifier-case (pgsql-fkey-foreign-table fk) identifier-case)))
+	  (apply-identifier-case (pgsql-fkey-foreign-table fk) identifier-case))
+         (foreign-columns
+          (mapcar (lambda (column-name)
+                    (apply-identifier-case column-name identifier-case))
+                  (pgsql-fkey-foreign-columns fk))))
     (format nil
-	    "ALTER TABLE ~a ADD CONSTRAINT ~a FOREIGN KEY(~a) REFERENCES ~a(~a)"
+	    "ALTER TABLE ~a ADD CONSTRAINT ~a FOREIGN KEY(~{~a~^,~}) REFERENCES ~a(~{~a~^,~})"
 	    table-name
 	    constraint-name
-	    (pgsql-fkey-columns fk)
+	    fkey-columns
 	    foreign-table
-	    (pgsql-fkey-foreign-columns fk))))
+	    foreign-columns)))
 
 (defmethod format-pgsql-drop-fkey ((fk pgsql-fkey)
 				   &key all-pgsql-fkeys identifier-case)
