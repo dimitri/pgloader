@@ -5,6 +5,11 @@ VERSION    = 3.0.99
 # use either sbcl or ccl
 CL	   = sbcl
 
+LISP_SRC   = $(wildcard src/*lisp) \
+             $(wildcard src/pgsql/*lisp) \
+             $(wildcard src/sources/*lisp) \
+             pgloader.asd
+
 BUILDDIR   = build
 LIBS       = $(BUILDDIR)/libs.stamp
 QLDIR      = $(BUILDDIR)/quicklisp
@@ -49,12 +54,6 @@ clean:
 docs:
 	ronn -roff pgloader.1.md
 
-$(QLDIR)/local-projects/qmynd:
-	git clone https://github.com/qitab/qmynd.git $@
-
-qmynd: $(QLDIR)/local-projects/qmynd
-	cd $< && git pull
-
 $(QLDIR)/setup.lisp:
 	mkdir -p $(BUILDDIR)
 	curl -o $(BUILDDIR)/quicklisp.lisp http://beta.quicklisp.org/quicklisp.lisp
@@ -95,7 +94,7 @@ $(BUILDAPP_SBCL): $(QLDIR)/setup.lisp
 
 buildapp: $(BUILDAPP) ;
 
-$(PGLOADER): $(MANIFEST) $(BUILDAPP) qmynd
+$(PGLOADER): $(MANIFEST) $(BUILDAPP) $(LISP_SRC)
 	mkdir -p $(BUILDDIR)/bin
 	$(BUILDAPP)      --logfile /tmp/build.log                \
                          $(BUILDAPP_OPTS)                        \
