@@ -97,7 +97,8 @@
   "When using MySQL, strange things will happen, like encoding booleans into
    tinyiny that are either 0 (false) or 1 (true). Of course PostgreSQL wants
    'f' and 't', respectively."
-  (if (string= "0" integer-string) "f" "t"))
+  (when integer-string
+   (if (string= "0" integer-string) "f" "t")))
 
 (defun int-to-ip (int)
   "Transform an IP as integer into its dotted notation, optimised code from
