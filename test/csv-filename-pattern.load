@@ -1,0 +1,10 @@
+load csv
+    from all filenames matching ~<data/matching.*csv$> (id, field)
+    into postgresql:///pgloader?matching
+    with fields optionally enclosed by '"', 
+         fields terminated by ',',
+         truncate
+
+  before load do
+    $$ drop table if exists matching; $$,
+    $$ create table matching(id int, field text); $$;

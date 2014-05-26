@@ -1698,6 +1698,7 @@ load database
 		  (summary       (null *state*))
 		  (*state*       (or *state* (pgloader.utils:make-pgstate)))
 		  (state-after   ,(when after `(pgloader.utils:make-pgstate)))
+                  (*csv-path-root* ,*cwd*)
                   ,@(pgsql-connection-bindings pg-db-uri gucs)
                   ,@(batch-control-bindings options))
 
