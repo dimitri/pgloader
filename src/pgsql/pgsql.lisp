@@ -42,7 +42,6 @@
    *writer-batch* for us to send down to PostgreSQL, and when that's done
    update *state*."
   (when truncate
-    (log-message :notice "TRUNCATE ~a;" table-name)
     (truncate-tables dbname (list table-name)))
 
   (log-message :debug "pgsql:copy-from-queue: ~a ~a" table-name columns)
