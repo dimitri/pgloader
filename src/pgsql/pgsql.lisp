@@ -20,7 +20,9 @@
           (unwind-protect
                (loop for i below batch-rows
                   for copy-string = (aref batch i)
-                  do (log-message :data "> ~s" copy-string)
+                  do (when (or (eq :data *log-min-messages*)
+                               (eq :data *client-min-messages*))
+                       (log-message :data "> ~s" copy-string))
                   do (cl-postgres:db-write-row copier nil copy-string)
                   finally (return batch-rows))
             (cl-postgres:close-db-writer copier))))

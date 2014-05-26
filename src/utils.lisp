@@ -332,6 +332,8 @@
 			    (*myconn-port*        . ,*myconn-port*)
 			    (*myconn-user*        . ,*myconn-user*)
 			    (*myconn-pass*        . ,*myconn-pass*)
-			    (*state*              . ,*state*))))
+			    (*state*              . ,*state*)
+                            (*client-min-messages* . ,*client-min-messages*)
+                            (*log-min-messages*    . ,*log-min-messages*))))
   "Wrapper around lparallel:make-kernel that sets our usual bindings."
   (lp:make-kernel worker-count :bindings bindings))
