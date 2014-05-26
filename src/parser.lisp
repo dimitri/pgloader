@@ -910,8 +910,13 @@
     (destructuring-bind (view1 views) vlist
       (list* view1 views))))
 
-(defrule materialize-views (and kw-materialize kw-views views-list)
+(defrule materialize-all-views (and kw-materialize kw-all kw-views)
+  (:constant :all))
+
+(defrule materialize-view-list (and kw-materialize kw-views views-list)
   (:destructure (mat views list) (declare (ignore mat views)) list))
+
+(defrule materialize-views (or materialize-view-list materialize-all-views))
 
 
 ;;;

@@ -13,7 +13,8 @@ load database
       -- type tinyint to boolean using tinyint-to-boolean,
       -- type year to integer drop typemod -- now a default
 
- MATERIALIZE VIEWS film_list, staff_list
+ -- MATERIALIZE VIEWS film_list, staff_list
+ MATERIALIZE ALL VIEWS
 
  -- INCLUDING ONLY TABLE NAMES MATCHING ~/film/, 'actor'
  -- EXCLUDING TABLE NAMES MATCHING ~<ory>

@@ -122,23 +122,25 @@ order by table_name" dbname only-tables))))
   "VIEWS-ALIST associates view names with their SQL definition, which might
    be empty for already existing views. Create only the views for which we
    have an SQL definition."
-  (let ((views (remove-if #'null views-alist :key #'cdr)))
-    (when views
-      (loop for (name . def) in views
-         for sql = (format nil "CREATE VIEW ~a AS ~a" name def)
-         do
-           (log-message :info "MySQL: ~a" sql)
-           (mysql-query sql)))))
+  (unless (eq :all views-alist)
+   (let ((views (remove-if #'null views-alist :key #'cdr)))
+     (when views
+       (loop for (name . def) in views
+          for sql = (format nil "CREATE VIEW ~a AS ~a" name def)
+          do
+            (log-message :info "MySQL: ~a" sql)
+            (mysql-query sql))))))
 
 (defun drop-my-views (views-alist)
   "See `create-my-views' for VIEWS-ALIST description. This time we DROP the
    views to clean out after our work."
-  (let ((views (remove-if #'null views-alist :key #'cdr)))
-    (when views
-      (let ((sql
-             (format nil "DROP VIEW ~{~a~^, ~};" (mapcar #'car views))))
-        (log-message :info "MySQL: ~a" sql)
-        (mysql-query sql)))))
+  (unless (eq :all views-alist)
+   (let ((views (remove-if #'null views-alist :key #'cdr)))
+     (when views
+       (let ((sql
+              (format nil "DROP VIEW ~{~a~^, ~};" (mapcar #'car views))))
+         (log-message :info "MySQL: ~a" sql)
+         (mysql-query sql))))))
 
 
 ;;;

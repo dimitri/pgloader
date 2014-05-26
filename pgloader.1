@@ -1219,6 +1219,12 @@ This clause expect a comma separated list of view definitions, each one being ei
 The \fIname\fR and the \fIsql query\fR will be used in a \fBCREATE VIEW\fR statement at the beginning of the data loading, and the resulting view will then be dropped at the end of the data loading\.
 .
 .IP "\(bu" 4
+\fIMATERIALIZE ALL VIEWS\fR
+.
+.IP
+Same behaviour as \fIMATERIALIZE VIEWS\fR using the dynamic list of views as returned by MySQL rather than asking the user to specify the list\.
+.
+.IP "\(bu" 4
 \fIINCLUDING ONLY TABLE NAMES MATCHING\fR
 .
 .IP

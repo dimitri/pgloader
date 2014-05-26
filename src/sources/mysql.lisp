@@ -243,7 +243,8 @@
                                including
                                excluding)
   "MySQL introspection to prepare the migration."
-  (let ((view-names    (mapcar #'car materialize-views))
+  (let ((view-names    (unless (eq :all materialize-views)
+                         (mapcar #'car materialize-views)))
         view-columns all-columns all-fkeys all-indexes)
    (with-stats-collection ("fetch meta data"
                            :use-result-as-rows t
@@ -252,7 +253,7 @@
      (with-mysql-connection ()
        ;; If asked to MATERIALIZE VIEWS, now is the time to create them in
        ;; MySQL, when given definitions rather than existing view names.
-       (when materialize-views
+       (when (and materialize-views (not (eq :all materialize-views)))
          (create-my-views materialize-views))
 
        (setf all-columns   (filter-column-list (list-all-columns)
@@ -270,9 +271,12 @@
                                                :including including
                                                :excluding excluding)
 
-             view-columns  (when view-names
-                             (list-all-columns :only-tables view-names
-                                               :table-type :view)))
+             view-columns  (cond (view-names
+                                  (list-all-columns :only-tables view-names
+                                                    :table-type :view))
+
+                                 ((eq :all materialize-views)
+                                  (list-all-columns :table-type :view))))
 
        ;; return how many objects we're going to deal with in total
        ;; for stats collection

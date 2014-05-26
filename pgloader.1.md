@@ -1044,6 +1044,11 @@ The `database` command accepts the following clauses and options:
 	at the beginning of the data loading, and the resulting view will then
 	be dropped at the end of the data loading.
 
+  - *MATERIALIZE ALL VIEWS*
+  
+    Same behaviour as *MATERIALIZE VIEWS* using the dynamic list of views as
+    returned by MySQL rather than asking the user to specify the list.
+
   - *INCLUDING ONLY TABLE NAMES MATCHING*
 
 	Introduce a comma separated list of table names or *regular expression*
