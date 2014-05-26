@@ -454,6 +454,25 @@ The data is found after the end of the parsed commands\. Any number of empty lin
 .IP
 Reads the data from the standard input stream\.
 .
+.IP "\(bu" 4
+\fIFILENAMES MATCHING\fR
+.
+.IP
+The whole \fImatching\fR clause must follow the following rule:
+.
+.IP "" 4
+.
+.nf
+
+[ ALL FILENAMES | [ FIRST ] FILENAME ] MATCHING ~<>
+.
+.fi
+.
+.IP "" 0
+.
+.IP
+The \fImatching\fR clause applies given \fIregular expression\fR (see above for exact syntax, several options can be used here) to filenames\. It\'s then possible to load data from only the first match of all of them\.
+.
 .IP "" 0
 .
 .IP

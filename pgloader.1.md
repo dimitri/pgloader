@@ -400,6 +400,17 @@ The `csv` format command accepts the following clauses and options:
 
 	    Reads the data from the standard input stream.
 
+      - *FILENAMES MATCHING*
+
+        The whole *matching* clause must follow the following rule:
+
+	        [ ALL FILENAMES | [ FIRST ] FILENAME ] MATCHING ~<>
+
+        The *matching* clause applies given *regular expression* (see above
+        for exact syntax, several options can be used here) to filenames.
+        It's then possible to load data from only the first match of all of
+        them.
+
 	The *FROM* option also supports an optional comma separated list of
 	*field* names describing what is expected in the `CSV` data file.
 
