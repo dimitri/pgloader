@@ -9,6 +9,7 @@
 
 LOAD CSV
      FROM data/2013_Gaz_113CDs_national.txt
+     HAVING FIELDS
       (
          usps,          -- United States Postal Service State Abbreviation
          geoid,         -- Geographic Identifier
@@ -21,6 +22,7 @@ LOAD CSV
       )
 
      INTO postgresql:///pgloader?districts
+     TARGET COLUMNS
       (
          usps, geoid, aland, awater, aland_sqmi, awater_sqmi,
          location point using (format nil "(~a,~a)" intptlong intptlat)

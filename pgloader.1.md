@@ -363,10 +363,12 @@ example:
 
     LOAD CSV
        FROM 'GeoLiteCity-Blocks.csv' WITH ENCODING iso-646-us
+            HAVING FIELDS
             (
                startIpNum, endIpNum, locId
             )
        INTO postgresql://user@localhost:54393/dbname?geolite.blocks
+            TARGET COLUMNS
             (
                iprange ip4r using (ip-range startIpNum endIpNum),
                locId
@@ -419,7 +421,8 @@ The `csv` format command accepts the following clauses and options:
         directory must exists.
 
 	The *FROM* option also supports an optional comma separated list of
-	*field* names describing what is expected in the `CSV` data file.
+	*field* names describing what is expected in the `CSV` data file,
+	optionally introduced by the clause `HAVING FIELDS`.
 
 	Each field name can be either only one name or a name following with
 	specific reader options for that field. Supported per-field reader

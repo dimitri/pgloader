@@ -410,10 +410,12 @@ This command instructs pgloader to load data from a \fBCSV\fR file\. Here\'s an 
 
 LOAD CSV
    FROM \'GeoLiteCity\-Blocks\.csv\' WITH ENCODING iso\-646\-us
+        HAVING FIELDS
         (
            startIpNum, endIpNum, locId
         )
    INTO postgresql://user@localhost:54393/dbname?geolite\.blocks
+        TARGET COLUMNS
         (
            iprange ip4r using (ip\-range startIpNum endIpNum),
            locId
@@ -481,7 +483,7 @@ The optional \fIIN DIRECTORY\fR clause allows specifying which directory to walk
 .IP "" 0
 .
 .IP
-The \fIFROM\fR option also supports an optional comma separated list of \fIfield\fR names describing what is expected in the \fBCSV\fR data file\.
+The \fIFROM\fR option also supports an optional comma separated list of \fIfield\fR names describing what is expected in the \fBCSV\fR data file, optionally introduced by the clause \fBHAVING FIELDS\fR\.
 .
 .IP
 Each field name can be either only one name or a name following with specific reader options for that field\. Supported per\-field reader options are:

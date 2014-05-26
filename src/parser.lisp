@@ -77,6 +77,8 @@
   (def-keyword-rule "registering")
   (def-keyword-rule "cast")
   (def-keyword-rule "column")
+  (def-keyword-rule "target")
+  (def-keyword-rule "columns")
   (def-keyword-rule "type")
   (def-keyword-rule "extra")
   (def-keyword-rule "include")
@@ -102,6 +104,7 @@
   (def-keyword-rule "decoding")
   (def-keyword-rule "truncate")
   (def-keyword-rule "lines")
+  (def-keyword-rule "having")
   (def-keyword-rule "fields")
   (def-keyword-rule "optionally")
   (def-keyword-rule "enclosed")
@@ -1524,10 +1527,13 @@ load database
 (defrule close-paren (and ignore-whitespace #\) ignore-whitespace)
   (:constant :close-paren))
 
-(defrule csv-source-field-list (and open-paren csv-source-fields close-paren)
+(defrule having-fields (and kw-having kw-fields) (:constant nil))
+
+(defrule csv-source-field-list (and (? having-fields)
+                                    open-paren csv-source-fields close-paren)
   (:lambda (source)
-    (destructuring-bind (open field-defs close) source
-      (declare (ignore open close))
+    (destructuring-bind (having open field-defs close) source
+      (declare (ignore having open close))
       field-defs)))
 
 ;;
@@ -1607,10 +1613,13 @@ load database
     (destructuring-bind (col1 cols) source
       (list* col1 cols))))
 
-(defrule csv-target-column-list (and open-paren csv-target-columns close-paren)
+(defrule target-columns (and kw-target kw-columns) (:constant nil))
+
+(defrule csv-target-column-list (and (? target-columns)
+                                     open-paren csv-target-columns close-paren)
   (:lambda (source)
-    (destructuring-bind (open columns close) source
-      (declare (ignore open close))
+    (destructuring-bind (target-columns open columns close) source
+      (declare (ignore target-columns open close))
       columns)))
 ;;
 ;; The main command parsing
