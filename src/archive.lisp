@@ -80,4 +80,4 @@
 	     (when (cl-ppcre:scan regex (namestring pathname) :start start)
 	       (push pathname matches))))
       (fad:walk-directory directory #'push-matches))
-    matches))
+    (nreverse matches)))
