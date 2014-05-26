@@ -188,7 +188,7 @@
     (ecase type
       (:inline   (car part))		; because of &rest
       (:stdin    *standard-input*)
-      (:regex    (destructuring-bind (keep regex) part
+      (:regex    (destructuring-bind (keep regex root) part
 		   (filter-directory regex :keep keep :root root)))
       (:filename (let* ((filename (first part))
                         (realname

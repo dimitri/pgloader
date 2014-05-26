@@ -73,6 +73,7 @@
   (def-keyword-rule "messages")
   (def-keyword-rule "matches")
   (def-keyword-rule "in")
+  (def-keyword-rule "directory")
   (def-keyword-rule "registering")
   (def-keyword-rule "cast")
   (def-keyword-rule "column")
@@ -1654,7 +1655,29 @@ load database
       ;; as a string
       (list* :regex :all (cdr regex)))))
 
-(defrule filename-matching (or first-filename-matching all-filename-matching))
+(defrule in-directory (and kw-in kw-directory maybe-quoted-filename)
+  (:lambda (in-d)
+    (destructuring-bind (in d dir) in-d
+      (declare (ignore in d))
+      dir)))
+
+(defrule filename-matching (and (or first-filename-matching
+                                    all-filename-matching)
+                                (? in-directory))
+  (:lambda (filename-matching)
+    (destructuring-bind (matching directory) filename-matching
+      (let ((directory (or directory `(:filename ,*cwd*))))
+        (destructuring-bind (m-type first-or-all regex) matching
+          (assert (eq m-type :regex))
+          (destructuring-bind (d-type dir) directory
+            (assert (eq d-type :filename))
+            (let ((root (uiop:directory-exists-p
+                         (if (uiop:absolute-pathname-p dir) dir
+                             (uiop:merge-pathnames* dir *cwd*)))))
+              (unless root
+                (error "Directory ~s does not exists."
+                       (uiop:native-namestring dir)))
+             `(:regex ,first-or-all ,regex ,root))))))))
 
 (defrule csv-file-source (or stdin
 			     inline
@@ -1698,7 +1721,6 @@ load database
 		  (summary       (null *state*))
 		  (*state*       (or *state* (pgloader.utils:make-pgstate)))
 		  (state-after   ,(when after `(pgloader.utils:make-pgstate)))
-                  (*csv-path-root* ,*cwd*)
                   ,@(pgsql-connection-bindings pg-db-uri gucs)
                   ,@(batch-control-bindings options))
 

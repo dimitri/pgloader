@@ -1,5 +1,5 @@
 load csv
-    from all filenames matching ~<data/matching.*csv$> (id, field)
+    from all filenames matching ~<matching.*csv$> in directory 'data' (id, field)
     into postgresql:///pgloader?matching
     with fields optionally enclosed by '"', 
          fields terminated by ',',

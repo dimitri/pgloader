@@ -404,12 +404,19 @@ The `csv` format command accepts the following clauses and options:
 
         The whole *matching* clause must follow the following rule:
 
-	        [ ALL FILENAMES | [ FIRST ] FILENAME ] MATCHING ~<>
+	        [ ALL FILENAMES | [ FIRST ] FILENAME ]
+            MATCHING regexp
+            [ IN DIRECTORY '...' ]
 
         The *matching* clause applies given *regular expression* (see above
         for exact syntax, several options can be used here) to filenames.
         It's then possible to load data from only the first match of all of
         them.
+        
+        The optional *IN DIRECTORY* clause allows specifying which directory
+        to walk for finding the data files, and can be either relative to
+        where the command file is read from, or absolute. The given
+        directory must exists.
 
 	The *FROM* option also supports an optional comma separated list of
 	*field* names describing what is expected in the `CSV` data file.

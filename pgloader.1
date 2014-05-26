@@ -464,7 +464,9 @@ The whole \fImatching\fR clause must follow the following rule:
 .
 .nf
 
-[ ALL FILENAMES | [ FIRST ] FILENAME ] MATCHING ~<>
+[ ALL FILENAMES | [ FIRST ] FILENAME ]
+MATCHING regexp
+[ IN DIRECTORY \'\.\.\.\' ]
 .
 .fi
 .
@@ -472,6 +474,9 @@ The whole \fImatching\fR clause must follow the following rule:
 .
 .IP
 The \fImatching\fR clause applies given \fIregular expression\fR (see above for exact syntax, several options can be used here) to filenames\. It\'s then possible to load data from only the first match of all of them\.
+.
+.IP
+The optional \fIIN DIRECTORY\fR clause allows specifying which directory to walk for finding the data files, and can be either relative to where the command file is read from, or absolute\. The given directory must exists\.
 .
 .IP "" 0
 .
