@@ -43,7 +43,7 @@
    update *state*."
   (when truncate
     (log-message :notice "TRUNCATE ~a;" table-name)
-    (truncate-table dbname table-name))
+    (truncate-tables dbname (list table-name)))
 
   (log-message :debug "pgsql:copy-from-queue: ~a ~a" table-name columns)
 

@@ -185,7 +185,7 @@
      finally (return nb-tables)))
 
 (defun truncate-tables (dbname table-name-list
-                        &key identifier-case)
+                        &key (identifier-case :downcase))
   "Truncate given TABLE-NAME in database DBNAME"
   (pomo:with-connection (get-connection-spec dbname)
     (set-session-gucs *pg-settings*)
