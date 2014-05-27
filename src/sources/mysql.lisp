@@ -379,6 +379,13 @@
         (cl-postgres:database-error (e)
           (declare (ignore e))		; a log has already been printed
           (log-message :fatal "Failed to create the schema, see above.")
+
+          ;; we did already create our Views in the MySQL database, so clean
+          ;; that up now.
+          (when materialize-views
+            (with-mysql-connection ()
+              (drop-my-views materialize-views)))
+
           (return-from copy-database)))
 
       (loop
