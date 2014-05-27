@@ -168,7 +168,9 @@ select relname, array_agg(case when typname in ('date', 'timestamptz')
 (defun list-reserved-keywords (dbname)
   "Connect to PostgreSQL DBNAME and fetch reserved keywords."
   (with-pgsql-transaction (:dbname dbname)
-    (pomo:query "select word from pg_get_keywords() where catcode = 'R'" :column)))
+    (pomo:query "select word
+                   from pg_get_keywords()
+                  where catcode IN ('R', 'T')" :column)))
 
 (defun reset-all-sequences (dbname &key tables)
   "Reset all sequences to the max value of the column they are attached to."
