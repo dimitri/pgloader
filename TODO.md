@@ -52,6 +52,10 @@ Add support for full data and schema migrations for the following:
 
   - implement CAST rules support
 
+### Archive format
+
+  - add support for more than just .zip, like tarballs and all
+
 ## Compat
 
   - add parsing for SQL*Loader file format
