@@ -129,6 +129,19 @@
             (let ((*self-upgraded-already* t))
               (main argv))))
 
+        ;; parse the log thresholds
+        (setf *log-min-messages*
+              (log-threshold log-min-messages
+                             :quiet quiet :verbose verbose :debug debug)
+
+              *client-min-messages*
+              (log-threshold client-min-messages
+                             :quiet quiet :verbose verbose :debug debug)
+
+              verbose (member *client-min-messages* '(:info :debug :data))
+              debug   (member *client-min-messages* '(:debug :data))
+              quiet   (and (not verbose) (not debug)))
+
 	;; First care about the root directory where pgloader is supposed to
 	;; output its data logs and reject files
         (let ((root-dir-truename (probe-file root-dir)))
@@ -177,13 +190,7 @@
 	;; Now process the arguments
 	(when arguments
 	  ;; Start the logs system
-	  (let ((*log-filename* (log-file-name logfile))
-		(*log-min-messages*
-		 (log-threshold log-min-messages
-				:quiet quiet :verbose verbose :debug debug))
-		(*client-min-messages*
-		 (log-threshold client-min-messages
-				:quiet quiet :verbose verbose :debug debug)))
+	  (let ((*log-filename* (log-file-name logfile)))
 
             (with-monitor ()
               ;; tell the user where to look for interesting things
