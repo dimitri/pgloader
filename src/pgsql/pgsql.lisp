@@ -130,11 +130,17 @@
 ;;;  CONTEXT: COPY errors, line 1, column b: "2006-13-11"
 ;;;  CONTEXT: COPY byte, line 1: "hello\0world"
 ;;;
+;;; Those error messages are a translation target, tho, so we can only
+;;; assume to recognize the command tag (COPY), the comma, and a numer after
+;;; a world that might be Zeile (de), línea (es), ligne (fr), riga (it),
+;;; linia (pl), linha (pt), строка (ru), 行 (zh), or something else
+;;; entirely.
+;;;
 (defun parse-copy-error-context (context)
   "Given a COPY command CONTEXT error message, return the batch position
    where the error comes from."
   (cl-ppcre:register-groups-bind ((#'parse-integer n))
-      ("line (\\d+)" context :sharedp t)
+      ("COPY [^,]+, [^ ]+ (\\d+)" context :sharedp t)
     (1- n)))
 
 ;;;
@@ -192,7 +198,8 @@
             ;; the batch didn't make it, prepare error handling for next turn
             ((or
               CL-POSTGRES-ERROR:INTEGRITY-VIOLATION
-              CL-POSTGRES-ERROR:DATA-EXCEPTION) (next-error-in-batch)
+              CL-POSTGRES-ERROR:DATA-EXCEPTION)
+                (next-error-in-batch)
 
               (setf condition next-error-in-batch
 
