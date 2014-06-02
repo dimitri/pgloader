@@ -112,7 +112,7 @@ By default, the `Makefile` uses [SBCL](http://sbcl.org/) to compile your
 binary image, though it's possible to also build using
 [CCL](http://ccl.clozure.com/).
 
-    $ make CC=ccl pgloader
+    $ make CL=ccl pgloader
 
 Note that the `Makefile` uses the `--compress-core` option when using SBCL,
 that should be enabled in your local copy of `SBCL`. If that's not the case,
