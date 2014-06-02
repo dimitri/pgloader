@@ -204,7 +204,7 @@
      for pgtable = (gethash table-name (pgstate-tables pgstate))
      do
        (with-slots (read rows errs secs) pgtable
-	 (format t *header-cols-format*
+	 (format *terminal-io* *header-cols-format*
 		 table-name read rows errs (format-interval secs nil)))
      finally (when footer
 	       (report-pgstate-stats pgstate footer))))
@@ -248,13 +248,13 @@
   (if before
       (progn
 	(report-summary :state before :footer nil)
-	(format t pgloader.utils::*header-line*)
+	(format *terminal-io* pgloader.utils::*header-line*)
 	(report-summary :state state :header nil :footer nil))
       ;; no state before
       (report-summary :state state :footer nil))
 
   (when (or finally parallel)
-    (format t pgloader.utils::*header-line*)
+    (format *terminal-io* pgloader.utils::*header-line*)
     (when parallel
       (report-summary :state parallel :header nil :footer nil))
     (when finally
