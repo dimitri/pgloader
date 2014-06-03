@@ -57,8 +57,8 @@
 (defparameter *state* nil
   "State of the current loading.")
 
-(defparameter *csv-path-root*
-  (merge-pathnames "csv/" (user-homedir-pathname)))
+(defparameter *csv-path-root* nil
+  "Where to load CSV files from, when loading from an archive.")
 
 (defparameter *root-dir*
   (make-pathname :directory "/tmp/pgloader/")

@@ -189,7 +189,9 @@
       (:inline   (car part))		; because of &rest
       (:stdin    *standard-input*)
       (:regex    (destructuring-bind (keep regex root) part
-		   (filter-directory regex :keep keep :root root)))
+		   (filter-directory regex
+                                     :keep keep
+                                     :root (or *csv-path-root* root))))
       (:filename (let* ((filename (first part))
                         (realname
                          (if (fad:pathname-absolute-p filename) filename
