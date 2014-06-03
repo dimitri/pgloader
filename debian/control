@@ -2,7 +2,7 @@ Source: pgloader
 Section: database
 Priority: extra
 Maintainer: Dimitri Fontaine <dimitri@2ndQuadrant.fr>
-Build-Depends: debhelper (>= 8.0.0), sbcl (>= 1.1.13), ruby-ronn, buildapp (>= 1.5), cl-asdf (>= 3.0.3), cl-log, cl-postmodern, cl-qmynd, cl-split-sequence, cl-csv, cl-fad, cl-lparallel, cl-esrap, cl-alexandria, cl-drakma, cl-zip, cl-flexi-streams, cl-usocket, cl-local-time, cl-command-line-arguments, cl-abnf, cl-db3, cl-py-configparser, cl-sqlite, cl-trivial-backtrace, cl-markdown, cl-md5, cl-asdf-finalizers, cl-asdf-system-connections, cl-cffi (>= 1:0.12.0)
+Build-Depends: debhelper (>= 8.0.0), sbcl (>= 1.1.13), ruby-ronn, buildapp (>= 1.5), cl-asdf (>= 3.0.3), cl-log, cl-postmodern, cl-qmynd, cl-split-sequence, cl-csv, cl-fad, cl-lparallel, cl-esrap, cl-alexandria, cl-drakma, cl-zip, cl-flexi-streams, cl-usocket, cl-local-time, cl-command-line-arguments, cl-abnf, cl-db3, cl-py-configparser, cl-sqlite, cl-trivial-backtrace, cl-markdown, cl-md5, cl-asdf-finalizers, cl-asdf-system-connections, cl-cffi (>= 1:0.12.0), gawk
 Standards-Version: 3.9.3
 Homepage: https://github.com/dimitri/pgloader
 Vcs-Git: https://github.com/dimitri/pgloader.git

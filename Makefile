@@ -124,7 +124,7 @@ pgloader-standalone:
                        --output $(PGLOADER)
 
 test:
-	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) -C test all
+	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) -C test regress
 
 deb: docs
 	# intended for use on a debian system

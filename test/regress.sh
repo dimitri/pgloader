@@ -8,8 +8,8 @@
 
 pgloader=$1
 command=$2
-targetdb=`awk -F '[ ?]+' '/^ *INTO|into/ {print $3}' < $command`
-table=`awk -F '[ ?]+' '/^ *INTO|into/ {print $4}' < $command`
+targetdb=`gawk -F '[ ?]+' '/^ *INTO|into/ {print $3}' < $command`
+table=`gawk -F '[ ?]+' '/^ *INTO|into/ {print $4}' < $command`
 
 expected=regress/expected/`basename $2 .load`.out
 out=regress/out/`basename $2 .load`.out
