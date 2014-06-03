@@ -32,6 +32,9 @@ nofile.out: nofile.load
 	-$(PGLOADER) $<
 	@echo
 
+csv-hstore.out: csv-hstore.load
+	@echo skipping $@
+
 # sakila needs preparing a MySQL database too
 $(TMPDIR)/sakila-db/sakila-schema.sql: data/sakila-db.zip
 	rm -rf $(TMPDIR)/sakila-db

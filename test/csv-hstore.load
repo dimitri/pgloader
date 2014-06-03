@@ -1,0 +1,26 @@
+LOAD CSV
+     FROM INLINE
+     INTO postgresql://dim@localhost/pgloader?hs
+
+     WITH truncate,
+          fields terminated by '\t',
+          fields not enclosed,
+          fields escaped by backslash-quote
+
+      SET work_mem to '128MB',
+          standard_conforming_strings to 'on'
+
+   BEFORE LOAD DO
+    $$ create extension if not exists hstore; $$,
+    $$ drop table if exists hs; $$,
+    $$ CREATE TABLE hs
+       (
+          id     serial primary key,
+          kv     hstore
+       )
+    $$;
+
+
+1	email=>foo@example.com,a=>b
+2	test=>value
+3	a=>b,c=>"quoted hstore value",d=>other
