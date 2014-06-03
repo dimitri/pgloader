@@ -4,8 +4,27 @@ OUT   = $(TESTS:.load=.out)
 
 REMOTE = archive.load bossa-all.load bossa.load census-places.load dbf-zip.load
 LOCAL  = $(filter-out $(REMOTE:.load=.out),$(OUT))
+REGRESS= allcols.load 		    \
+         csv-before-after.load 	    \
+         csv-districts.load 	    \
+         csv-error.load 	    \
+         csv-keep-extra-blanks.load \
+         csv-trim-extra-blanks.load \
+         csv.load 		    \
+         errors.load 		    \
+         fixed.load 		    \
+         overflow.load 		    \
+         partial.load 		    \
+         serial.load 		    \
+         udc.load 		    \
+         xzero.load
 
 PGLOADER ?= ../build/bin/pgloader
+
+regress: clean-out $(addprefix regress/out/, $(REGRESS:.load=.out)) ;
+
+clean-out:
+	rm -f regress/out/*
 
 local: prepare $(LOCAL)
 
@@ -58,3 +77,7 @@ csv-districts-stdin.out: csv-districts-stdin.load
 %.out: %.load
 	$(PGLOADER) $<
 	@echo
+
+# Regression tests
+regress/out/%.out: %.load
+	./regress.sh $(PGLOADER) $<

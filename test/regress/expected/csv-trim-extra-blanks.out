@@ -1,0 +1,7 @@
+1	quoted empty string		should be empty string
+2	no value between separators	\N	should be null
+3	quoted blanks	    	should be blanks
+4	unquoted blanks	\N	should be null
+5	unquoted string	no quote	should be 'no quote'
+6	quoted separator	a,b,c	should be 'a,b,c'
+7	trim extra blanks	test string	should be 'test string'

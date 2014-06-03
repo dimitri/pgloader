@@ -1,0 +1,14 @@
+LOAD CSV
+     FROM INLINE with encoding 'ascii'
+     INTO postgresql:///pgloader?overflow
+
+     WITH truncate,
+          fields terminated by ',',
+          fields not enclosed
+
+   BEFORE LOAD DO
+    $$ drop table if exists overflow; $$,
+    $$ CREATE TABLE overflow (id int, f1 text not null) $$;
+
+18446744073709551596,a
+12,
