@@ -16,14 +16,20 @@
 
 (defun cast (sqlite-type-name)
   "Return the PostgreSQL type name for a given SQLite type name."
-  (cond ((and (<= 8 (length sqlite-type-name))
-	      (string-equal sqlite-type-name "nvarchar" :end1 8)) "text")
+  (let* ((tokens (remove-if (lambda (token)
+                              (member token '("unsigned" "short")
+                                      :test #'string-equal))
+                            (sq:split-sequence #\Space sqlite-type-name)))
+         (sqlite-type-name (first tokens)))
+    (assert (= 1 (length tokens)))
+    (cond ((and (<= 8 (length sqlite-type-name))
+                (string-equal sqlite-type-name "nvarchar" :end1 8)) "text")
 
-	((string-equal sqlite-type-name "datetime") "timestamptz")
-        ((string-equal sqlite-type-name "double")   "double precision")
-        ((string-equal sqlite-type-name "blob")     "bytea")
+          ((string-equal sqlite-type-name "datetime") "timestamptz")
+          ((string-equal sqlite-type-name "double")   "double precision")
+          ((string-equal sqlite-type-name "blob")     "bytea")
 
-	(t sqlite-type-name)))
+          (t sqlite-type-name))))
 
 (defmethod format-pgsql-column ((col coldef) &key identifier-case)
   "Return a string representing the PostgreSQL column definition."
