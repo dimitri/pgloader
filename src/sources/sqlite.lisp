@@ -136,6 +136,7 @@
 		     ;; objects, where we only want to deal with text.
 		     ;;
 		     (cond ((or (string-equal "float" coltype)
+                                (string-equal "real" coltype)
                                 (string-equal "double precision" coltype)
 				(and (<= 7 (length coltype))
 				     (string-equal "numeric" coltype :end2 7)))
