@@ -49,6 +49,10 @@ number includes the git hash (in its abbreviated form):
   
      Stable release.
 
+## LICENCE
+
+pgloader is available under [The PostgreSQL Licence](http://www.postgresql.org/about/licence/).
+
 ## INSTALL
 
 pgloader is now a Common Lisp program, tested using the
