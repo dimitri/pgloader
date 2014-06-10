@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "May 2014" "ff" ""
+.TH "PGLOADER" "1" "June 2014" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -277,11 +277,17 @@ Where:
 .IP
 Can contain any character, including colon (\fB:\fR) which must then be doubled (\fB::\fR) and at\-sign (\fB@\fR) which must then be doubled (\fB@@\fR)\.
 .
+.IP
+When ommited, the \fIuser\fR name defaults to the value of the \fBPGUSER\fR environment variable, and if it is unset, the value of the \fBUSER\fR environment variable\.
+.
 .IP "\(bu" 4
 \fIpassword\fR
 .
 .IP
 Can contain any character, including that at sign (\fB@\fR) which must then be doubled (\fB@@\fR)\. To leave the password empty, when the \fIuser\fR name ends with at at sign, you then have to use the syntax user:@\.
+.
+.IP
+When ommited, the \fIpassword\fR defaults to the value of the \fBPGPASSWORD\fR environement variable if it is set, otherwise the password is left unset\.
 .
 .IP "\(bu" 4
 \fInetloc\fR
@@ -301,13 +307,18 @@ postgresql://unix:/tmp:54321/dbname
 .fi
 .
 .IP "" 0
-
+.
+.IP
+The \fInetloc\fR defaults to the value of the \fBPGHOST\fR environement variable, and if it is unset, to either the default \fBunix\fR socket path when running on a Unix system, and \fBlocalhost\fR otherwise\.
 .
 .IP "\(bu" 4
 \fIdbname\fR
 .
 .IP
 Should be a proper identifier (letter followed by a mix of letters, digits and the punctuation signs comma (\fB,\fR), dash (\fB\-\fR) and underscore (\fB_\fR)\.
+.
+.IP
+When ommited, the \fIdbname\fR defaults to the value of the environment variable \fBPGDATABASE\fR, and if that is unset, to the \fIuser\fR value as determined above\.
 .
 .IP "\(bu" 4
 The only optionnal parameter should be a possibly qualified table name\.

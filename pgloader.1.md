@@ -246,12 +246,20 @@ Where:
 
     Can contain any character, including colon (`:`) which must then be
     doubled (`::`) and at-sign (`@`) which must then be doubled (`@@`).
+    
+    When ommited, the *user* name defaults to the value of the `PGUSER`
+    environment variable, and if it is unset, the value of the `USER`
+    environment variable.
 
   - *password*
 
 	Can contain any character, including that at sign (`@`) which must then
 	be doubled (`@@`). To leave the password empty, when the *user* name
 	ends with at at sign, you then have to use the syntax user:@.
+
+    When ommited, the *password* defaults to the value of the `PGPASSWORD`
+    environement variable if it is set, otherwise the password is left
+    unset.
 
   - *netloc*
 
@@ -266,11 +274,19 @@ Where:
 
 	    postgresql://unix:/tmp:54321/dbname
 
+    The *netloc* defaults to the value of the `PGHOST` environement
+    variable, and if it is unset, to either the default `unix` socket path
+    when running on a Unix system, and `localhost` otherwise.
+
   - *dbname*
 
 	Should be a proper identifier (letter followed by a mix of letters,
 	digits and the punctuation signs comma (`,`), dash (`-`) and underscore
 	(`_`).
+
+    When ommited, the *dbname* defaults to the value of the environment
+    variable `PGDATABASE`, and if that is unset, to the *user* value as
+    determined above.
 
   - The only optionnal parameter should be a possibly qualified table name.
 
