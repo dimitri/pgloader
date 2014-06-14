@@ -321,13 +321,8 @@
       (lp:end-kernel))
 
     ;; and report the total time spent on the operation
-    (report-summary :state state-before)
-    (report-summary :header nil :footer nil)
-    (format t pgloader.utils::*header-line*)
-    (report-summary :state idx-state :header nil :footer nil)
-    (report-summary :state seq-state :header nil :footer nil)
-    ;; don't forget to add up the RESET SEQUENCES timings
-    (incf (pgloader.utils::pgstate-secs *state*)
-	  (pgloader.utils::pgstate-secs seq-state))
-    (report-pgstate-stats *state* "Total streaming time")))
+    (report-full-summary "Total streaming time" *state*
+                         :before state-before
+                         :finally seq-state
+                         :parallel idx-state)))
 
