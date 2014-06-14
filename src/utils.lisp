@@ -161,25 +161,26 @@
 (defvar *header-cols-names* '("table name" "read" "imported" "errors" "time"))
 
 (defun report-header ()
-  (apply #'format *terminal-io* *header-cols-format* *header-cols-names*)
+  ;; (apply #'format *report-stream* *header-cols-format* *header-cols-names*)
+  (format *report-stream* "~{~}" *header-cols-format* *header-cols-names*)
   (terpri)
-  (format *terminal-io* *header-line*)
+  (format *report-stream* *header-line*)
   (terpri))
 
 (defun report-table-name (table-name)
-  (format *terminal-io* *header-tname-format* table-name))
+  (format *report-stream* *header-tname-format* table-name))
 
 (defun report-results (read rows errors seconds)
-  (format *terminal-io* *header-stats-format*
+  (format *report-stream* *header-stats-format*
           read rows errors (format-interval seconds nil))
   (terpri))
 
 (defun report-footer (legend read rows errors seconds)
   (terpri)
-  (format *terminal-io* *header-line*)
-  (apply #'format *terminal-io* *header-cols-format*
-	 (list legend read rows errors (format-interval seconds nil)))
-  (format *terminal-io* "~&")
+  (format *report-stream* *header-line*)
+  (format *report-stream* "~{~}" *header-cols-format*
+          (list legend read rows errors (format-interval seconds nil)))
+  (format *report-stream* "~&")
   (terpri))
 
 ;;;
@@ -204,7 +205,7 @@
      for pgtable = (gethash table-name (pgstate-tables pgstate))
      do
        (with-slots (read rows errs secs) pgtable
-	 (format *terminal-io* *header-cols-format*
+	 (format *report-stream* *header-cols-format*
 		 table-name read rows errs (format-interval secs nil)))
      finally (when footer
 	       (report-pgstate-stats pgstate footer))))
@@ -248,13 +249,13 @@
   (if before
       (progn
 	(report-summary :state before :footer nil)
-	(format *terminal-io* pgloader.utils::*header-line*)
+	(format *report-stream* pgloader.utils::*header-line*)
 	(report-summary :state state :header nil :footer nil))
       ;; no state before
       (report-summary :state state :footer nil))
 
   (when (or finally parallel)
-    (format *terminal-io* pgloader.utils::*header-line*)
+    (format *report-stream* pgloader.utils::*header-line*)
     (when parallel
       (report-summary :state parallel :header nil :footer nil))
     (when finally

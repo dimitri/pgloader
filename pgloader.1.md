@@ -46,6 +46,10 @@ pgloader operates from commands which are read from files:
     Minimum level of verbosity needed for log message to make it to the
     console. One of critical, log, error, warning, notice, info or debug.
 
+  * `-S`, `--summary`:
+    A filename where to copy the summary output. When relative, the filename
+    is expanded into `*root-dir`.
+
   * `-E`, `--list-encodings`:
     List known encodings in this version of pgloader.
 

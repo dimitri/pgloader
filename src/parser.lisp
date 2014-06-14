@@ -2074,6 +2074,7 @@ load database
 (defun run-commands (source
 		     &key
 		       (start-logger t)
+                       ((:summary summary-pathname))
 		       ((:log-filename *log-filename*) *log-filename*)
 		       ((:log-min-messages *log-min-messages*) *log-min-messages*)
 		       ((:client-min-messages *client-min-messages*) *client-min-messages*))
@@ -2096,8 +2097,22 @@ load database
                                     (parse-commands-from-file source)
                                     (parse-commands source)))))))
 
-      ;; run the commands
-      (loop for func in funcs do (funcall func)))))
+      ;; maybe duplicate the summary to a file
+      (let* ((summary-stream (when summary-pathname
+                              (open summary-pathname
+                                    :direction :output
+                                    :if-exists :rename
+                                    :if-does-not-exist :create)))
+             (*report-stream* (apply
+                               #'make-broadcast-stream
+                               (remove-if #'null (list *terminal-io*
+                                                       summary-stream)))))
+        (unwind-protect
+             ;; run the commands
+             (loop for func in funcs do (funcall func))
+
+          ;; cleanup
+          (when summary-stream (close summary-stream)))))))
 
 
 ;;;

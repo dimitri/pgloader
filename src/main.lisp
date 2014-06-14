@@ -25,6 +25,8 @@
     ("log-min-messages" :type string :initial-value "notice"
 			:documentation "Filter logs seen in the logfile")
 
+    (("summary" #\S) :type string :documentation "Filename where to copy the summary")
+
     (("root-dir" #\D) :type string :initial-value ,*root-dir*
                       :documentation "Output root directory.")
 
@@ -105,6 +107,17 @@
       (condition (c)
         (format t "Fatal: ~a~%" c)))))
 
+(defun parse-summary-filename (summary debug)
+  "Return the pathname where to write the summary output."
+  (when summary
+    (let* ((summary-pathname (uiop:parse-unix-namestring summary))
+           (summary-pathname (if (uiop:absolute-pathname-p summary-pathname)
+                                 summary-pathname
+                                 (uiop:merge-pathnames* summary-pathname *root-dir*)))
+           (summary-dir      (directory-namestring summary-pathname)))
+      (mkdir-or-die summary-dir debug)
+      summary-pathname)))
+
 (defun main (argv)
   "Entry point when building an executable image with buildapp"
   (let ((args (rest argv)))
@@ -118,7 +131,7 @@
 
       (destructuring-bind (&key help version quiet verbose debug logfile
 				list-encodings upgrade-config load
-				client-min-messages log-min-messages
+				client-min-messages log-min-messages summary
 				root-dir self-upgrade)
 	  options
 
@@ -212,9 +225,13 @@
                              #'(lambda (condition)
                                  (log-message :fatal "We have a situation here.")
                                  (print-backtrace condition debug *standard-output*))))
-                         (let ((truename (probe-file filename)))
+                         (let ((truename (probe-file filename))
+                               (summary-pathname
+                                (parse-summary-filename summary debug)))
                            (if truename
-                               (run-commands truename :start-logger nil)
+                               (run-commands truename
+                                             :summary summary-pathname
+                                             :start-logger nil)
                                (log-message :error "Can not find file: ~s" filename)))
                          (format t "~&"))
 

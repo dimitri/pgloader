@@ -11,6 +11,7 @@
 	   #:*log-filename*
 	   #:*client-min-messages*
 	   #:*log-min-messages*
+           #:*report-stream*
 	   #:*copy-batch-rows*
            #:*copy-batch-size*
            #:*concurrent-batches*
@@ -70,6 +71,9 @@
 
 (defparameter *client-min-messages* :notice)
 (defparameter *log-min-messages* :info)
+
+(defparameter *report-stream* *terminal-io*
+  "Stream where to format the output stream.")
 
 ;;;
 ;;; How to split batches in case of data loading errors.
