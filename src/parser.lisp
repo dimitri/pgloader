@@ -967,22 +967,50 @@
 (defrule decoding-tables-as (* decoding-table-as))
 
 
+;;;
+;;; Allow clauses to appear in any order
+;;;
+(defrule mysql-options-clause mysql-options
+  (:lambda (opts) `(:mysql-options ,@opts)))
+
+(defrule gucs-clause gucs (:lambda (gucs) `(:gucs ,@gucs)))
+(defrule casts-clause casts (:lambda (casts) `(:casts ,@casts)))
+(defrule mview-clause materialize-views (:lambda (mv) `(:views ,@mv)))
+(defrule including-clause including (:lambda (inc) `(:including ,@inc)))
+(defrule excluding-clause excluding (:lambda (exc) `(:excluding ,@exc)))
+(defrule decoding-clause decoding-table-as (:lambda (dec) `(:decoding ,dec)))
+(defrule before-clause before-load (:lambda (b) `(:before ,@b)))
+(defrule after-clause after-load (:lambda (a) `(:after ,@a)))
+
+(defrule load-mysql-optional-clauses (+ (or mysql-options-clause
+                                            gucs-clause
+                                            casts-clause
+                                            mview-clause
+                                            including-clause
+                                            excluding-clause
+                                            decoding-clause
+                                            before-clause
+                                            after-clause))
+  (:lambda (clauses-list)
+    (alexandria:alist-plist clauses-list)))
+
+(defrule load-mysql-command (and database-source target
+                                 load-mysql-optional-clauses)
+  (:lambda (command)
+    (destructuring-bind (source target clauses) command
+      `(,source ,target ,@clauses))))
+
+
 ;;; LOAD DATABASE FROM mysql://
-(defrule load-mysql-database (and database-source target
-				  (? mysql-options)
-				  (? gucs)
-				  (? casts)
-				  (? materialize-views)
-				  (? including)
-				  (? excluding)
-                                  (? decoding-tables-as)
-				  (? before-load)
-				  (? after-load))
+(defrule load-mysql-database load-mysql-command
   (:lambda (source)
-    (destructuring-bind (my-db-uri pg-db-uri options
-				   gucs casts views
-				   incl excl decoding-as
-				   before after)
+    (destructuring-bind (my-db-uri pg-db-uri
+                                   &key
+				   gucs casts views before after
+                                   ((:mysql-options options))
+				   ((:including incl))
+                                   ((:excuding excl))
+                                   ((:decoding decoding-as)))
 	source
       (destructuring-bind (&key ((:dbname mydb)) table-name
 				&allow-other-keys)

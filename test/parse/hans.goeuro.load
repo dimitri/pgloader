@@ -2,7 +2,9 @@ LOAD DATABASE
      FROM      mysql://root@unix:/tmp/mysql.sock:/goeuro
      INTO postgresql://dim@unix:/tmp:/godollar
 
- WITH include drop, create tables, create indexes, reset sequences
+ INCLUDING ONLY TABLE NAMES MATCHING ~/encoding/
+
+ DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf-8
 
  CAST type datetime to timestamptz drop default drop not null using zero-dates-to-null,
       type date drop not null drop default using zero-dates-to-null,
@@ -24,7 +26,7 @@ LOAD DATABASE
      group by cast(d as date);
    $$
 
- -- INCLUDING ONLY TABLE NAMES MATCHING ~/encoding/
+ WITH include drop, create tables, create indexes, reset sequences
 
- DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf-8;
+ ;
 
