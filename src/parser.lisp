@@ -1009,7 +1009,7 @@
 				   gucs casts views before after
                                    ((:mysql-options options))
 				   ((:including incl))
-                                   ((:excuding excl))
+                                   ((:excluding excl))
                                    ((:decoding decoding-as)))
 	source
       (destructuring-bind (&key ((:dbname mydb)) table-name
