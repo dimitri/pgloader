@@ -12,6 +12,7 @@ install:
 before_script:
   - sudo -u postgres createuser -S -R -D -E -l pgloader
   - sudo -u postgres createdb -E UTF8 -O pgloader -hlocalhost pgloader
+  - sudo -u postgres psql -h localhost -d pgloader -c "create extension ip4r;"
   - make --version
   - make
 script:
