@@ -29,9 +29,7 @@
 
     ;; If PostgreSQL signals a data error, process the batch by isolating
     ;; erroneous data away and retrying the rest.
-    ((or
-      CL-POSTGRES-ERROR:INTEGRITY-VIOLATION
-      CL-POSTGRES-ERROR:DATA-EXCEPTION) (condition)
+    (cl-postgres-error::database-error (condition)
       (retry-batch table-name columns batch batch-rows condition))))
 
 ;;;
@@ -196,10 +194,7 @@
                     (incf current-batch-pos current-batch-rows))))
 
             ;; the batch didn't make it, prepare error handling for next turn
-            ((or
-              CL-POSTGRES-ERROR:INTEGRITY-VIOLATION
-              CL-POSTGRES-ERROR:DATA-EXCEPTION)
-                (next-error-in-batch)
+            (cl-postgres-error::database-error (next-error-in-batch)
 
               (setf condition next-error-in-batch
 
