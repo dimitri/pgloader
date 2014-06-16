@@ -17,7 +17,8 @@ LOAD CSV
 
   BEFORE LOAD DO
    $$ create extension if not exists ip4r; $$,
-   $$ create schema if not exists csv; $$,
+   $$ drop schema if exists csv; $$,
+   $$ create schema csv; $$,
    $$ create table if not exists csv.blocks
      (
         iprange    ip4r,
