@@ -54,11 +54,14 @@
 	       (:file "transforms")
 	       (:file "queue"     :depends-on ("params" "package"))
 
+               (:file "read-sql-files" :depends-on ("package"))
+
 	       (:file "parser"    :depends-on ("package"
                                                "params"
                                                "transforms"
                                                "utils"
                                                "monitor"
+                                               "read-sql-files"
                                                "pgsql"))
 
 	       (:file "parse-ini" :depends-on ("package"

@@ -149,7 +149,7 @@
   (:export #:read-queries))
 
 (defpackage #:pgloader.parser
-  (:use #:cl #:esrap #:pgloader.params #:pgloader.utils)
+  (:use #:cl #:esrap #:pgloader.params #:pgloader.utils #:pgloader.sql)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
 		#:pgsql-execute)
