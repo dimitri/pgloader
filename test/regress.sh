@@ -6,6 +6,8 @@
 #  - output a CSV for the target table
 #  - diff the CSV and error if diffs found
 
+set -x
+
 pgloader=$1
 command=$2
 targetdb=`gawk -F '[ ?]+' '/^ *INTO|into/ {print $3}' < $command`
