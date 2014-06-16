@@ -3,7 +3,7 @@ install:
   - sudo apt-get install sbcl unzip libsqlite3-dev
   - echo "deb-src http://ftp.fr.debian.org/debian/ sid main" | sudo tee /etc/apt/sources.list.d/sid-src.list
   - sudo apt-get update
-  - sudo apt-get -y build-dep sbcl
+  - sudo apt-get -y build-dep sbcl 2>&1 | pv > /dev/null
   - sudo apt-get source -b sbcl
   - sudo dpkg -i *.deb
 before_script:
