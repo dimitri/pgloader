@@ -614,7 +614,7 @@
   (:lambda (source)
     (destructuring-bind (w opts) source
       (declare (ignore w))
-      opts)))
+      (cons :mysql-options opts))))
 
 ;; we don't validate GUCs, that's PostgreSQL job.
 (defrule generic-optname optname-element
@@ -650,7 +650,7 @@
   (:lambda (source)
     (destructuring-bind (set gucs) source
       (declare (ignore set))
-      gucs)))
+      (cons :gucs gucs))))
 
 
 #|
@@ -700,7 +700,9 @@
       (declare (ignore before load execute))
       sql)))
 
-(defrule before-load (or before-load-do before-load-execute))
+(defrule before-load (or before-load-do before-load-execute)
+  (:lambda (before)
+    (cons :before before)))
 
 (defrule finally-do (and kw-finally kw-do dollar-quoted-list)
   (:lambda (fd)
@@ -714,7 +716,9 @@
       (declare (ignore finally execute))
       sql)))
 
-(defrule finally (or finally-do finally-execute))
+(defrule finally (or finally-do finally-execute)
+  (:lambda (finally)
+    (cons :finally finally)))
 
 (defrule after-load-do (and kw-after kw-load kw-do dollar-quoted-list)
   (:lambda (fd)
@@ -728,7 +732,9 @@
       (declare (ignore after load execute))
       sql)))
 
-(defrule after-load (or after-load-do after-load-execute))
+(defrule after-load (or after-load-do after-load-execute)
+  (:lambda (after)
+    (cons :after after)))
 
 (defun sql-code-block (dbname state commands label)
   "Return lisp code to run COMMANDS against DBNAME, updating STATE."
@@ -883,7 +889,7 @@
   (:lambda (source)
     (destructuring-bind (c casts) source
       (declare (ignore c))
-      casts)))
+      (cons :casts casts))))
 
 
 ;;;
@@ -920,7 +926,9 @@
 (defrule materialize-view-list (and kw-materialize kw-views views-list)
   (:destructure (mat views list) (declare (ignore mat views)) list))
 
-(defrule materialize-views (or materialize-view-list materialize-all-views))
+(defrule materialize-views (or materialize-view-list materialize-all-views)
+  (:lambda (views)
+    (cons :views views)))
 
 
 ;;;
@@ -944,13 +952,13 @@
   (:lambda (source)
     (destructuring-bind (i o table n m filter-list) source
       (declare (ignore i o table n m))
-      filter-list)))
+      (cons :including filter-list))))
 
 (defrule excluding (and kw-excluding kw-table kw-names kw-matching filter-list)
   (:lambda (source)
     (destructuring-bind (e table n m filter-list) source
       (declare (ignore e table n m))
-      filter-list)))
+      (cons :excluding filter-list))))
 
 
 ;;;
@@ -964,33 +972,23 @@
       (declare (ignore d table n m as))
       (cons encoding filter-list))))
 
-(defrule decoding-tables-as (* decoding-table-as))
+(defrule decoding-tables-as (+ decoding-table-as)
+  (:lambda (tables)
+    (cons :decoding tables)))
 
 
 ;;;
 ;;; Allow clauses to appear in any order
 ;;;
-(defrule mysql-options-clause mysql-options
-  (:lambda (opts) `(:mysql-options ,@opts)))
-
-(defrule gucs-clause gucs (:lambda (gucs) `(:gucs ,@gucs)))
-(defrule casts-clause casts (:lambda (casts) `(:casts ,@casts)))
-(defrule mview-clause materialize-views (:lambda (mv) `(:views ,@mv)))
-(defrule including-clause including (:lambda (inc) `(:including ,@inc)))
-(defrule excluding-clause excluding (:lambda (exc) `(:excluding ,@exc)))
-(defrule decoding-clause decoding-table-as (:lambda (dec) `(:decoding ,dec)))
-(defrule before-clause before-load (:lambda (b) `(:before ,@b)))
-(defrule after-clause after-load (:lambda (a) `(:after ,@a)))
-
-(defrule load-mysql-optional-clauses (+ (or mysql-options-clause
-                                            gucs-clause
-                                            casts-clause
-                                            mview-clause
-                                            including-clause
-                                            excluding-clause
-                                            decoding-clause
-                                            before-clause
-                                            after-clause))
+(defrule load-mysql-optional-clauses (* (or mysql-options
+                                            gucs
+                                            casts
+                                            materialize-views
+                                            including
+                                            excluding
+                                            decoding-tables-as
+                                            before-load
+                                            after-load))
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
 
@@ -1090,7 +1088,7 @@ load database
   (:lambda (source)
     (destructuring-bind (w opts) source
       (declare (ignore w))
-      opts)))
+      (cons :sqlite-options opts))))
 
 (defrule sqlite-db-uri (and "sqlite://" filename)
   (:lambda (source)
@@ -1106,13 +1104,25 @@ load database
 		(declare (ignore l d f))
 		u))
 
-(defrule load-sqlite-database (and sqlite-source target
-				   (? sqlite-options)
-				   (? gucs)
-				   (? including)
-				   (? excluding))
+(defrule load-sqlite-optional-clauses (* (or sqlite-options
+                                             gucs
+                                             including
+                                             excluding))
+  (:lambda (clauses-list)
+    (alexandria:alist-plist clauses-list)))
+
+(defrule load-sqlite-command (and sqlite-source target
+                                  load-sqlite-optional-clauses)
+  (:lambda (command)
+    (destructuring-bind (source target clauses) command
+      `(,source ,target ,@clauses))))
+
+(defrule load-sqlite-database load-sqlite-command
   (:lambda (source)
-    (destructuring-bind (sqlite-uri pg-db-uri options gucs incl excl) source
+    (destructuring-bind (sqlite-uri pg-db-uri
+                                    &key
+                                    ((:sqlite-options options)) gucs incl excl)
+        source
       (destructuring-bind (&key dbname table-name &allow-other-keys)
 	  pg-db-uri
 	`(lambda ()
@@ -1325,7 +1335,7 @@ load database
   (:lambda (source)
     (destructuring-bind (w opts) source
       (declare (ignore w))
-      opts)))
+      (cons :dbf-options opts))))
 
 (defrule dbf-source (and kw-load kw-dbf kw-from filename-or-http-uri)
   (:lambda (src)
@@ -1333,9 +1343,19 @@ load database
       (declare (ignore load dbf from))
       source)))
 
-(defrule load-dbf-file (and dbf-source target dbf-options (? gucs))
+(defrule load-dbf-optional-clauses (* (or dbf-options gucs))
+  (:lambda (clauses-list)
+    (alexandria:alist-plist clauses-list)))
+
+(defrule load-dbf-command (and dbf-source target load-dbf-optional-clauses)
   (:lambda (command)
-    (destructuring-bind (source pg-db-uri options gucs) command
+    (destructuring-bind (source target clauses) command
+      `(,source ,target ,@clauses))))
+
+(defrule load-dbf-file load-dbf-command
+  (:lambda (command)
+    (destructuring-bind (source pg-db-uri &key ((:dbf-options options)) gucs)
+        command
       (destructuring-bind (&key dbname table-name &allow-other-keys)
 	  pg-db-uri
 	`(lambda ()
@@ -1497,7 +1517,7 @@ load database
   (:lambda (source)
     (destructuring-bind (w opts) source
       (declare (ignore w))
-      opts)))
+      (cons :csv-options opts))))
 
 ;;
 ;; CSV per-field reading options
@@ -1751,15 +1771,30 @@ load database
 		finally (return (reverse s))))
     (t       s)))
 
-(defrule load-csv-file (and csv-source (? file-encoding) (? csv-source-field-list)
-			    target (? csv-target-column-list)
-			    csv-options
-			    (? gucs)
-			    (? before-load)
-			    (? after-load))
+
+;;;
+;;; The main CSV loading command, with optional clauses
+;;;
+(defrule load-csv-file-optional-clauses (* (or csv-options
+                                               gucs
+                                               before-load
+                                               after-load))
+  (:lambda (clauses-list)
+    (alexandria:alist-plist clauses-list)))
+
+(defrule load-csv-file-command (and csv-source
+                                    (? file-encoding) (? csv-source-field-list)
+                                    target (? csv-target-column-list)
+                                    load-csv-file-optional-clauses)
   (:lambda (command)
-    (destructuring-bind (source encoding fields pg-db-uri
-				columns options gucs before after) command
+    (destructuring-bind (source encoding fields target columns clauses) command
+      `(,source ,encoding ,fields ,target ,columns ,@clauses))))
+
+(defrule load-csv-file load-csv-file-command
+  (:lambda (command)
+    (destructuring-bind (source encoding fields pg-db-uri columns
+                                &key ((:csv-options options)) gucs before after)
+        command
       (destructuring-bind (&key dbname table-name &allow-other-keys)
 	  pg-db-uri
 	`(lambda ()
@@ -1863,7 +1898,7 @@ load database
   (:lambda (source)
     (destructuring-bind (w opts) source
       (declare (ignore w))
-      opts)))
+      (cons :fixed-options opts))))
 
 
 (defrule fixed-file-source (or stdin
@@ -1884,17 +1919,27 @@ load database
 	  (:filename source)
 	  (:regex    source))))))
 
-(defrule load-fixed-cols-file (and fixed-source (? file-encoding)
-				   fixed-source-field-list
-				   target
-				   (? csv-target-column-list)
-				   (? fixed-options)
-				   (? gucs)
-				   (? before-load)
-				   (? after-load))
+(defrule load-fixed-cols-file-optional-clauses (* (or fixed-options
+                                                      gucs
+                                                      before-load
+                                                      after-load))
+  (:lambda (clauses-list)
+    (alexandria:alist-plist clauses-list)))
+
+(defrule load-fixed-cols-file-command (and fixed-source (? file-encoding)
+                                           fixed-source-field-list
+                                           target
+                                           (? csv-target-column-list)
+                                           load-fixed-cols-file-optional-clauses)
   (:lambda (command)
-    (destructuring-bind (source encoding fields pg-db-uri
-				columns options gucs before after) command
+    (destructuring-bind (source encoding fields target columns clauses) command
+      `(,source ,encoding ,fields ,target ,columns ,@clauses))))
+
+(defrule load-fixed-cols-file load-fixed-cols-file-command
+  (:lambda (command)
+    (destructuring-bind (source encoding fields pg-db-uri columns
+                                &key ((:fixed-options options)) gucs before after)
+        command
       (destructuring-bind (&key dbname table-name &allow-other-keys)
 	  pg-db-uri
 	`(lambda ()
@@ -1945,7 +1990,7 @@ load database
 (defrule archive-command-list (and archive-command (* another-archive-command))
   (:lambda (source)
     (destructuring-bind (col1 cols) source
-      (list* col1 cols))))
+      (cons :commands (list* col1 cols)))))
 
 (defrule filename-or-http-uri (or http-uri maybe-quoted-filename))
 
@@ -1955,13 +2000,23 @@ load database
       (declare (ignore load from archive))
       source)))
 
-(defrule load-archive (and archive-source
-			   (? target)
-			   (? before-load)
-			   archive-command-list
-			   (? finally))
+(defrule load-archive-clauses (and archive-source
+                                   (? target)
+                                   (? before-load)
+                                   archive-command-list
+                                   (? finally))
+  (:lambda (command)
+    (destructuring-bind (source target before commands finally) command
+      (destructuring-bind (&key before commands finally)
+          (alexandria:alist-plist (list before commands finally))
+        (list source target
+              :before before
+              :commands commands
+              :finally finally)))))
+
+(defrule load-archive load-archive-clauses
   (:lambda (archive)
-    (destructuring-bind (source pg-db-uri before commands finally) archive
+    (destructuring-bind (source pg-db-uri &key before commands finally) archive
       (when (and (or before finally) (null pg-db-uri))
 	(error "When using a BEFORE LOAD DO or a FINALLY block, you must provide an archive level target database connection."))
       (destructuring-bind (&key host port user password dbname &allow-other-keys)
