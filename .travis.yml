@@ -7,9 +7,10 @@ install:
 before_script:
   - sudo -u postgres createuser -S -R -D -E -l pgloader
   - sudo -u postgres createdb -E UTF8 -O pgloader -hlocalhost pgloader
-  - 
+  - make --version
+  - make
 script:
-  - PGUSER=pgloader make PGLOADER=./build/bin/pgloader check
+  - PGUSER=pgloader make check
 notifications:
   email:
     - dim@tapoueh.org
