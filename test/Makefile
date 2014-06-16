@@ -8,6 +8,7 @@ REGRESS= allcols.load 		    \
          csv-before-after.load 	    \
          csv-districts.load 	    \
          csv-error.load 	    \
+         csv-filename-pattern.load  \
          csv-keep-extra-blanks.load \
          csv-trim-extra-blanks.load \
          csv.load 		    \
