@@ -19,7 +19,7 @@ define in a *command* the operations in some details. Here's our command:
       set work_mem to '16MB', maintenance_work_mem to '512 MB';
 
 You can see the full list of options in the
-[pgloader reference manual](../pgloader.1.html), with a complete description
+[pgloader reference manual](pgloader.1.html), with a complete description
 of the options you see here.
 
 Note that here pgloader will benefit from the meta-data information found in

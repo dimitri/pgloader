@@ -23,7 +23,7 @@ Here's our command:
          SET client_encoding TO 'latin1';
 
 You can see the full list of options in the
-[pgloader reference manual](../pgloader.1.html), with a complete description
+[pgloader reference manual](pgloader.1.html), with a complete description
 of the options you see here.
 
 Note that here pgloader will benefit from the meta-data information found in

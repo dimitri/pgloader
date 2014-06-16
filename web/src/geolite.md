@@ -93,7 +93,7 @@ loading the Geolite data:
          $$ create index blocks_ip4r_idx on geolite.blocks using gist(iprange); $$;
 
 You can see the full list of options in the
-[pgloader reference manual](../pgloader.1.html), with a complete description
+[pgloader reference manual](pgloader.1.html), with a complete description
 of the options you see here.
 
 Note that while the *Geolite* data is using a pair of integers (*start*,

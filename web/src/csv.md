@@ -34,7 +34,7 @@ loading CSV data:
        $$;
 
 You can see the full list of options in the
-[pgloader reference manual](../pgloader.1.html), with a complete description
+[pgloader reference manual](pgloader.1.html), with a complete description
 of the options you see here.
 
 ## The Data
