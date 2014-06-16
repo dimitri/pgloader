@@ -11,6 +11,7 @@ REGRESS= allcols.load 		    \
          csv-keep-extra-blanks.load \
          csv-trim-extra-blanks.load \
          csv.load 		    \
+         dbf.load 		    \
          errors.load 		    \
          fixed.load 		    \
          overflow.load 		    \

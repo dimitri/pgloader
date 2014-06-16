@@ -5,6 +5,6 @@
  */ 
 LOAD DBF
     FROM data/reg2013.dbf
-    INTO postgresql:///pgloader
+    INTO postgresql:///pgloader?reg2013
     WITH truncate, create table
      SET client_encoding TO 'latin1';
