@@ -4,7 +4,7 @@ install:
   - echo "deb-src http://ftp.fr.debian.org/debian/ sid main" | sudo tee /etc/apt/sources.list.d/sid-src.list
   - sudo apt-get update
   - sudo apt-get -y build-dep sbcl
-  - sudo apt-get source -b sbcl > /dev/null 2>&1
+  - sudo apt-get source -b sbcl
   - sudo dpkg -i *.deb
 before_script:
   - sudo -u postgres createuser -S -R -D -E -l pgloader
