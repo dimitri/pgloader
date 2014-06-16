@@ -134,7 +134,10 @@
 		      ;; this function update :rows stats
 		      #'pgloader.pgsql:copy-from-queue dbname table-name queue
 		      ;; we only are interested into the column names here
-		      :columns (mapcar #'car (columns csv))
+		      :columns (mapcar (lambda (col)
+                                         ;; always double quote column names
+                                         (format nil "~s" (car col)))
+                                       (columns csv))
 		      :truncate truncate)
 
       ;; now wait until both the tasks are over

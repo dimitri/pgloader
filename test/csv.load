@@ -16,8 +16,8 @@
  */
 
 LOAD CSV
-     FROM inline (x, y, a, b, c, d)
-     INTO postgresql:///pgloader?csv (a, b, d, c)
+     FROM inline (x, y, a, b, c, "camelCase")
+     INTO postgresql:///pgloader?csv (a, b, "camelCase", c)
 
      WITH truncate,
           skip header = 1,
@@ -35,7 +35,7 @@ LOAD CSV
         a bigint,
         b bigint,
         c char(2),
-        d text
+        "camelCase" text
        );
     $$;
 

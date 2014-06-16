@@ -1558,13 +1558,17 @@ load database
   (:lambda (options)
     (alexandria:alist-plist options)))
 
-(defrule csv-bare-field-name (and (or #\_ (alpha-char-p character))
+(defrule csv-raw-field-name (and (or #\_ (alpha-char-p character))
                                   (* (or (alpha-char-p character)
                                          (digit-char-p character)
                                          #\_)))
   (:text t))
 
-(defrule csv-quoted-field-name (and #\" csv-bare-field-name #\")
+(defrule csv-bare-field-name csv-raw-field-name
+  (:lambda (name)
+    (string-downcase name)))
+
+(defrule csv-quoted-field-name (and #\" csv-raw-field-name #\")
   (:lambda (csv-field-name)
     (destructuring-bind (open name close) csv-field-name
       (declare (ignore open close))
