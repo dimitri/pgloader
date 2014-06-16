@@ -3,7 +3,12 @@ install:
   - wget http://pgsql.tapoueh.org/sbcl/sbcl_1.2.0-1_amd64.deb
   - sudo dpkg -i sbcl_1.2.0-1_amd64.deb
   - sudo apt-get install -f
-  - sudo apt-get install sbcl unzip libsqlite3-dev gawk
+  - sudo apt-get install sbcl unzip libsqlite3-dev gawk libssl
+  - wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+  - echo "deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+  - sudo apt-get update
+  - sudo apt-get upgrade
+  - sudo apt-get install postgresql-9.1-ip4r
 before_script:
   - sudo -u postgres createuser -S -R -D -E -l pgloader
   - sudo -u postgres createdb -E UTF8 -O pgloader -hlocalhost pgloader
