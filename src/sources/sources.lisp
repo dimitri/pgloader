@@ -234,7 +234,8 @@
 	     (destructuring-bind (&key null-as date-format &allow-other-keys)
 		 (typecase field-name-or-list
 		   (list (cdr field-name-or-list))
-		   (t    (cdr (assoc field-name-or-list fields :test #'string=))))
+		   (t    (cdr (assoc field-name-or-list fields
+                                     :test #'string-equal))))
 	       (declare (ignore date-format)) ; TODO
 	       (if (null null-as)
 		   #'identity
