@@ -145,21 +145,25 @@
   "Transform a Common Lisp float value into its string representation as
    accepted by PostgreSQL, that is 100.0 rather than 100.0d0."
   (declare (type (or null float) float))
-  (let ((*read-default-float-format* 'double-float))
-    (princ-to-string float)))
+  (when float
+    (let ((*read-default-float-format* 'double-float))
+      (princ-to-string float))))
 
 (defun set-to-enum-array (set-string)
   "Transform a MySQL SET value into a PostgreSQL ENUM Array"
-  (format nil "{~a}" set-string))
+  (when set-string
+    (format nil "{~a}" set-string)))
 
 (defun empty-string-to-null (string)
   "MySQL ENUM sometimes return an empty string rather than a NULL."
-  (if (string= string "") nil string))
+  (when string
+    (if (string= string "") nil string)))
 
 (defun right-trim (string)
   "Remove whitespaces at end of STRING."
   (declare (type (or null simple-string) string))
-  (string-right-trim '(#\Space) string))
+  (when string
+    (string-right-trim '(#\Space) string)))
 
 (defun byte-vector-to-bytea (vector)
   "Transform a simple array of unsigned bytes to the PostgreSQL bytea
