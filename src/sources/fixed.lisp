@@ -34,9 +34,12 @@
 
 (defun parse-row (fixed-cols-specs line)
   "Parse a single line of FIXED input file and return a row of columns."
-  (loop :for opts :in fixed-cols-specs
+  (loop :with len := (length line)
+     :for opts :in fixed-cols-specs
      :collect (destructuring-bind (&key start length &allow-other-keys) opts
-                (subseq line start (+ start length)))))
+                (let ((end (+ start length)))
+                  (when (<= end len)
+                    (subseq line start end))))))
 
 (defmethod map-rows ((fixed copy-fixed) &key process-row-fn)
   "Load data from a text file in Fixed Columns format.
