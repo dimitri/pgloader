@@ -32,9 +32,9 @@
 
 (declaim (inline parse-row))
 
-(defmethod parse-row ((fixed copy-fixed) line)
+(defun parse-row (fixed-cols-specs line)
   "Parse a single line of FIXED input file and return a row of columns."
-  (loop :for (nil . opts) :in (fields fixed)
+  (loop :for opts :in fixed-cols-specs
      :collect (destructuring-bind (&key start length &allow-other-keys) opts
                 (subseq line start (+ start length)))))
 
@@ -75,11 +75,17 @@
 					   :target  (target fixed)
 					   :process-row-fn process-row-fn)))
 	       (loop
-		  with fun = (compile nil reformat-then-process)
-		  for line = (read-line input nil nil)
-		  counting line into read
-		  while line
-		  do (funcall fun (parse-row fixed line)))))))))
+		  :with fun := (compile nil reformat-then-process)
+                  :with fixed-cols-specs := (mapcar #'cdr (fields fixed))
+		  :for line := (read-line input nil nil)
+		  :counting line :into read
+		  :while line
+		  :do (handler-case
+                          (funcall fun (parse-row fixed-cols-specs line))
+                        (condition (e)
+                          (progn
+                            (log-message :error "~a" e)
+                            (pgstate-incf *state* (target fixed) :errs 1)))))))))))
 
 (defmethod copy-to-queue ((fixed copy-fixed) queue)
   "Copy data from given FIXED definition into lparallel.queue DATAQ"
