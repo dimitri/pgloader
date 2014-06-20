@@ -9,7 +9,8 @@ LOAD CSV
             iprange ip4r using (ip-range startIpNum endIpNum),
             locId
          )
-    WITH fields optionally enclosed by '"',
+    WITH truncate,
+         fields optionally enclosed by '"',
          fields escaped by double-quote,
          fields terminated by ','
 
@@ -17,7 +18,7 @@ LOAD CSV
 
   BEFORE LOAD DO
    $$ create extension if not exists ip4r; $$,
-   $$ drop schema if exists csv; $$,
+   $$ drop schema if exists csv cascade; $$,
    $$ create schema csv; $$,
    $$ create table if not exists csv.blocks
      (

@@ -14,7 +14,7 @@
 		case)))
    (ecase case
      (:downcase (cl-ppcre:regex-replace-all
-		 "[^a-zA-Z0-9]" (string-downcase identifier) "_"))
+		 "[^a-zA-Z0-9.]" (string-downcase identifier) "_"))
      (:quote    (format nil "\"~a\"" identifier)))))
 
 ;;;
@@ -189,7 +189,7 @@
   "Truncate given TABLE-NAME in database DBNAME"
   (pomo:with-connection (get-connection-spec dbname)
     (set-session-gucs *pg-settings*)
-    (let ((sql (format nil "TRUNCATE ~{~s~^,~};"
+    (let ((sql (format nil "TRUNCATE ~{~a~^,~};"
                        (loop :for table-name :in table-name-list
                           :collect (apply-identifier-case table-name
                                                           identifier-case)))))
