@@ -38,8 +38,8 @@
      :for opts :in fixed-cols-specs
      :collect (destructuring-bind (&key start length &allow-other-keys) opts
                 (let ((end (+ start length)))
-                  (when (<= end len)
-                    (subseq line start end))))))
+                  (when (<= start len)
+                    (subseq line start (min len end)))))))
 
 (defmethod map-rows ((fixed copy-fixed) &key process-row-fn)
   "Load data from a text file in Fixed Columns format.
