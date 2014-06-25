@@ -283,7 +283,11 @@
 	;;
 	;; prefer char(24) over just char, that is the column type over the
 	;; data type.
-	source-ctype)))
+        (format nil "~a~:[~; not null~]~:[~; default ~a~]"
+                source-ctype
+                source-not-null
+                source-default
+                (format-pgsql-default-value source-default using)))))
 
 (defun apply-casting-rules (dtype ctype default nullable extra
 			    &key
