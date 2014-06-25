@@ -37,6 +37,9 @@
   (loop :with len := (length line)
      :for opts :in fixed-cols-specs
      :collect (destructuring-bind (&key start length &allow-other-keys) opts
+                ;; some fixed format files are ragged on the right, meaning
+                ;; that we might have missing characters on each line.
+                ;; take all that we have and return nil for missing data.
                 (let ((end (+ start length)))
                   (when (<= start len)
                     (subseq line start (min len end)))))))
