@@ -2,7 +2,7 @@ LOAD DATABASE
      FROM      mysql://root@unix:/tmp/mysql.sock:/goeuro
      INTO postgresql://dim@unix:/tmp:/godollar
 
- INCLUDING ONLY TABLE NAMES MATCHING ~/encoding/
+ -- INCLUDING ONLY TABLE NAMES MATCHING ~/encoding/
 
  DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf-8
 
@@ -16,6 +16,7 @@ LOAD DATABASE
       -- override char(1) to varchar(1), just use char(1) here.
       type char when (= precision 1) to char keep typemod,
 
+      column ascii.s using byte-vector-to-bytea,
       column enumerate.foo using empty-string-to-null
 
  MATERIALIZE VIEWS nonexisting,
