@@ -272,6 +272,15 @@
 		       (if fields
 			   (mapcar (function field-name-as-symbol) fields)
 			   (mapcar (function field-name-as-symbol) columns)))
+                      (values
+                       ;; make sure we apply fields level processing before
+                       ;; we pass in the processed field values to the
+                       ;; transformation functions, if any (null if blanks)
+                       (loop for field-name in args
+                          collect (list
+                                   field-name
+                                   `(funcall ,(field-process-null-fn field-name)
+                                             ,field-name))))
 		      (newrow
 		       (loop for (name type fn) in columns
 			  collect
@@ -284,7 +293,9 @@
 		    (declare (optimize speed) (type list row))
 		    (destructuring-bind (&optional ,@args &rest extra) row
 		      (declare (ignorable ,@args) (ignore extra))
-		      (vector ,@newrow))))))))
+                      (let ,values
+                        (declare (ignorable ,@args))
+                        (vector ,@newrow)))))))))
       ;; allow for some debugging
       (if compile (compile nil projection) projection))))
 
