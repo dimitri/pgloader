@@ -6,10 +6,10 @@ LOAD ARCHIVE
      $$ drop table if exists places; $$,
      $$ create table places
        (
-          usps      char(2)  not null,
-          fips      char(2)  not null,
-          fips_code char(5),
-          loc_name  varchar(64)
+          usps            char(2)  not null,
+          fips            char(2)  not null,
+          fips_code       char(5),
+          "LocationName"  varchar(64)
        );
      $$
 
@@ -18,21 +18,21 @@ LOAD ARCHIVE
              WITH ENCODING latin1
              (
              -- name   start  length
-                usps       0  2,
-                fips       2  2,
-                fips_code  4  5,
-                loc_name   9 64,
-                p         73  9,
-                h         82  9,
-                land      91 14,
-                water    105 14,
-                ldm      119 14,
-                wtm      131 14,
-                lat      143 10,
-                long     153 11
+                usps             0  2,
+                fips             2  2,
+                fips_code        4  5,
+                "LocationName"   9 64,
+                p               73  9,
+                h               82  9,
+                land            91 14,
+                water          105 14,
+                ldm            119 14,
+                wtm            131 14,
+                lat            143 10,
+                long           153 11
              )
         INTO postgresql:///pgloader?places
              (
 	        usps, fips, fips_code,
-                loc_name text using (right-trim loc_name)
+                "LocationName" text using (right-trim LocationName)
              );
