@@ -343,7 +343,7 @@ Any place where you could enter a *whitespace* will accept a comment too.
 All pgloader commands have support for a *WITH* clause that allows for
 specifying options. Some options are generic and accepted by all commands,
 such as the *batch behaviour options*, and some options are specific to a
-data source kind, such as the CSV *skip header* options.
+data source kind, such as the CSV *skip header* option.
 
 The global batch behaviour options are:
 
@@ -375,6 +375,11 @@ The global batch behaviour options are:
     
 Other options are specific to each input source, please refer to specific
 parts of the documentation for their listing and covering.
+
+A batch is then closed as soon as either the *batch rows* or the *batch
+size* threshold is crossed, whichever comes first. In cases when a batch has
+to be closed because of the *batch size* setting, a *debug* level log
+message is printed with how many rows did fit in the *oversized* batch.
 
 ## LOAD CSV
 

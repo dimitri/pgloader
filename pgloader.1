@@ -385,7 +385,7 @@ the delimiters \fB/*\fR and \fB*/\fR respectively start and end a comment, which
 Any place where you could enter a \fIwhitespace\fR will accept a comment too\.
 .
 .SS "Batch behaviour options"
-All pgloader commands have support for a \fIWITH\fR clause that allows for specifying options\. Some options are generic and accepted by all commands, such as the \fIbatch behaviour options\fR, and some options are specific to a data source kind, such as the CSV \fIskip header\fR options\.
+All pgloader commands have support for a \fIWITH\fR clause that allows for specifying options\. Some options are generic and accepted by all commands, such as the \fIbatch behaviour options\fR, and some options are specific to a data source kind, such as the CSV \fIskip header\fR option\.
 .
 .P
 The global batch behaviour options are:
@@ -415,6 +415,9 @@ Supporting more than a single batch being sent at a time is on the TODO list of 
 .
 .P
 Other options are specific to each input source, please refer to specific parts of the documentation for their listing and covering\.
+.
+.P
+A batch is then closed as soon as either the \fIbatch rows\fR or the \fIbatch size\fR threshold is crossed, whichever comes first\. In cases when a batch has to be closed because of the \fIbatch size\fR setting, a \fIdebug\fR level log message is printed with how many rows did fit in the \fIoversized\fR batch\.
 .
 .SH "LOAD CSV"
 This command instructs pgloader to load data from a \fBCSV\fR file\. Here\'s an example:
