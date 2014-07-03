@@ -66,6 +66,10 @@
 	     :target (:type "boolean" :drop-typemod t)
 	     :using pgloader.transforms::tinyint-to-boolean)
 
+    (:source (:type "bit" :typemod (= 1 precision))
+	     :target (:type "boolean" :drop-typemod t)
+	     :using pgloader.transforms::bits-to-boolean)
+
     ;; we need the following to benefit from :drop-typemod
     (:source (:type "tinyint")   :target (:type "smallint" :drop-typemod t))
     (:source (:type "smallint")  :target (:type "smallint" :drop-typemod t))
