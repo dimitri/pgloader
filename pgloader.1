@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "June 2014" "ff" ""
+.TH "PGLOADER" "1" "July 2014" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -1336,22 +1336,22 @@ When migrating from MySQL the following Casting Rules are provided:
 Numbers:
 .
 .IP "\(bu" 4
-type int to serial when auto_increment and (< precision 10)
+type int with extra auto_increment to serial when (< precision 10)
 .
 .IP "\(bu" 4
-type int to bigserial when auto_increment and (<= 10 precision)
+type int with extra auto_increment to bigserial when (<= 10 precision)
 .
 .IP "\(bu" 4
-type int to int when not auto_increment and (< precision 10)
+type int to int when (< precision 10)
 .
 .IP "\(bu" 4
-type int to bigint when not auto_increment and (<= 10 precision)
+type int to bigint when (<= 10 precision)
 .
 .IP "\(bu" 4
-type smallint to serial when auto_increment
+type smallint with extra auto_increment to serial
 .
 .IP "\(bu" 4
-type bigint to bigserial when auto_increment
+type bigint with extra auto_increment to bigserial
 .
 .IP "\(bu" 4
 type tinyint to boolean when (= 1 precision) using tinyint\-to\-boolean
