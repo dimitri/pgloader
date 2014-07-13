@@ -237,7 +237,7 @@
    (loop
       for (param option section default)
       in `((:host   "host"   ,*global-section* ,*pgconn-host*)
-	   (:port   "port"   ,*global-section* ,*pgconn-port*)
+	   (:port   "port"   ,*global-section* ,(format nil "~d" *pgconn-port*))
 	   (:user   "user"   ,*global-section* ,*pgconn-user*)
 	   (:pass   "pass"   ,*global-section* ,*pgconn-pass*)
 	   (:dbname "base"   ,*global-section* nil))

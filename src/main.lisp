@@ -192,7 +192,12 @@
 	(when upgrade-config
 	  (loop for filename in arguments
 	     do
-	       (pgloader.ini:convert-ini-into-commands filename)
+               (handler-case
+                   (with-monitor ()
+                     (pgloader.ini:convert-ini-into-commands filename))
+                 (condition (c)
+                   (when debug (invoke-debugger c))
+                   (uiop:quit 1)))
 	       (format t "~%~%"))
 	  (uiop:quit))
 
