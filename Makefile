@@ -66,13 +66,13 @@ $(QLDIR)/setup.lisp:
 
 quicklisp: $(QLDIR)/setup.lisp ;
 
-$(LIBS): $(QLDIR)/setup.lisp
+$(LIBS): $(QLDIR)/setup.lisp $(QLDIR)/local-projects/cl-ixf
 	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp                 \
              --eval '(ql:quickload "pgloader")'                     \
              --eval '(quit)'
 	touch $@
 
-libs: $(LIBS) $(QLDIR)/local-projects/cl-ixf ;
+libs: $(LIBS) ;
 
 $(MANIFEST): $(LIBS)
 	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp                \
