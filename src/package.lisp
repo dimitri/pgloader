@@ -215,7 +215,7 @@
 	   #:map-rows
 	   #:copy-to
 	   #:copy-to-queue
-	   #:stream-file))
+	   #:copy-from))
 
 (defpackage #:pgloader.mysql
   (:use #:cl

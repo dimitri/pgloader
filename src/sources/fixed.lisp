@@ -1,5 +1,5 @@
 ;;;
-;;; Tools to handle MySQL data fetching
+;;; Tools to handle fixed width files
 ;;;
 
 (in-package :pgloader.fixed)
