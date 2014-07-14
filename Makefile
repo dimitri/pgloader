@@ -54,6 +54,9 @@ clean:
 docs:
 	ronn -roff pgloader.1.md
 
+$(QLDIR)/local-projects/cl-ixf:
+	git clone https://github.com/dimitri/cl-ixf.git $@
+
 $(QLDIR)/setup.lisp:
 	mkdir -p $(BUILDDIR)
 	curl -o $(BUILDDIR)/quicklisp.lisp http://beta.quicklisp.org/quicklisp.lisp
@@ -69,7 +72,7 @@ $(LIBS): $(QLDIR)/setup.lisp
              --eval '(quit)'
 	touch $@
 
-libs: $(LIBS) ;
+libs: $(LIBS) $(QLDIR)/local-projects/cl-ixf ;
 
 $(MANIFEST): $(LIBS)
 	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp                \

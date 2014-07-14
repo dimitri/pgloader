@@ -25,6 +25,7 @@
 		 #:command-line-arguments ; for the main function
 		 #:abnf			; ABNF parser generator (for syslog)
 		 #:db3			; DBF version 3 file reader
+		 #:ixf			; IBM IXF file format reader
 		 #:py-configparser	; Read old-style INI config files
 		 #:sqlite		; Query a SQLite file
                  #:cl-base64            ; Decode base64 data
@@ -106,6 +107,7 @@
 			 (:file "csv"     :depends-on ("sources"))
 			 (:file "fixed"   :depends-on ("sources"))
 			 (:file "db3"     :depends-on ("sources"))
+			 (:file "ixf"     :depends-on ("sources"))
 			 (:file "sqlite"  :depends-on ("sources"))
 			 (:file "syslog"  :depends-on ("sources"))
 			 (:file "mysql-cast-rules")

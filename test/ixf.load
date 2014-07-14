@@ -1,0 +1,4 @@
+LOAD IXF
+    FROM data/nsitra.test1.ixf
+    INTO postgresql:///pgloader?nsitra.test1
+    WITH truncate, create table;

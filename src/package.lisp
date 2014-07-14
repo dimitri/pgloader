@@ -182,6 +182,23 @@
 	   #:copy-to-queue
 	   #:copy-from))
 
+(defpackage #:pgloader.ixf
+  (:use #:cl
+        #:pgloader.params #:pgloader.utils
+        #:pgloader.sources #:pgloader.queue)
+  (:import-from #:pgloader.pgsql
+		#:with-pgsql-transaction
+		#:pgsql-execute
+		#:pgsql-execute-with-timing
+		#:apply-identifier-case
+		#:create-tables
+		#:format-pgsql-column
+                #:format-vector-row)
+  (:export #:copy-ixf
+	   #:map-rows
+	   #:copy-to-queue
+	   #:copy-from))
+
 (defpackage #:pgloader.db3
   (:use #:cl
         #:pgloader.params #:pgloader.utils

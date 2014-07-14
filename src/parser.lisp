@@ -64,6 +64,7 @@
   (def-keyword-rule "from")
   (def-keyword-rule "csv")
   (def-keyword-rule "dbf")
+  (def-keyword-rule "ixf")
   (def-keyword-rule "fixed")
   (def-keyword-rule "into")
   (def-keyword-rule "with")
@@ -1395,6 +1396,78 @@ load database
 
 
 #|
+    LOAD IXF FROM '/Users/dim/Downloads/comsimp2013.ixf'
+        INTO postgresql://dim@localhost:54393/dim?comsimp2013
+        WITH truncate, create table, table name = 'comsimp2013'
+|#
+(defrule option-create-table (and kw-create kw-table)
+  (:constant (cons :create-table t)))
+
+;;; piggyback on DBF parsing
+(defrule ixf-options (and kw-with dbf-option-list)
+  (:lambda (source)
+    (destructuring-bind (w opts) source
+      (declare (ignore w))
+      (cons :ixf-options opts))))
+
+(defrule ixf-source (and kw-load kw-ixf kw-from filename-or-http-uri)
+  (:lambda (src)
+    (destructuring-bind (load ixf from source) src
+      (declare (ignore load ixf from))
+      source)))
+
+(defrule load-ixf-optional-clauses (* (or ixf-options gucs))
+  (:lambda (clauses-list)
+    (alexandria:alist-plist clauses-list)))
+
+(defrule load-ixf-command (and ixf-source target load-ixf-optional-clauses)
+  (:lambda (command)
+    (destructuring-bind (source target clauses) command
+      `(,source ,target ,@clauses))))
+
+(defrule load-ixf-file load-ixf-command
+  (:lambda (command)
+    (destructuring-bind (source pg-db-uri &key ((:ixf-options options)) gucs)
+        command
+      (destructuring-bind (&key dbname table-name &allow-other-keys)
+	  pg-db-uri
+	`(lambda ()
+	   (let* ((state-before   (pgloader.utils:make-pgstate))
+		  (*state*        (pgloader.utils:make-pgstate))
+                  ,@(pgsql-connection-bindings pg-db-uri gucs)
+                  ,@(batch-control-bindings options)
+		  (source
+		   ,(destructuring-bind (kind url) source
+		     (ecase kind
+		       (:http     `(with-stats-collection
+				       ("download" :state state-before)
+				     (pgloader.archive:http-fetch-file ,url)))
+		       (:filename url))))
+		  (source
+		   (if (string= "zip" (pathname-type source))
+		       (progn
+			 (with-stats-collection ("extract" :state state-before)
+			   (let ((d (pgloader.archive:expand-archive source)))
+			     (merge-pathnames
+			      (make-pathname :name (pathname-name source)
+					     :type "ixf")
+			      d))))
+		       source))
+		  (source
+		   (make-instance 'pgloader.ixf:copy-ixf
+				  :target-db ,dbname
+				  :source source
+				  :target ,table-name)))
+
+	     (pgloader.sources:copy-from source
+					 :state-before state-before
+					 ,@(remove-batch-control-option options))
+
+	     (report-full-summary "Total import time" *state*
+				  :before state-before)))))))
+
+
+#|
     LOAD CSV FROM /Users/dim/dev/CL/pgloader/galaxya/yagoa/communaute_profil.csv
         INTO postgresql://dim@localhost:54393/yagoa?commnaute_profil
 
@@ -2081,6 +2154,7 @@ load database
 			  load-csv-file
 			  load-fixed-cols-file
 			  load-dbf-file
+                          load-ixf-file
 			  load-mysql-database
 			  load-sqlite-database
 			  load-syslog-messages)
