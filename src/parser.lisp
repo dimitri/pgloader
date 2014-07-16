@@ -33,7 +33,7 @@
 (defrule punct (or #\, #\- #\_)
   (:text t))
 
-(defrule namestring (and (alpha-char-p character)
+(defrule namestring (and (or #\_ (alpha-char-p character))
 			 (* (or (alpha-char-p character)
 				(digit-char-p character)
 				punct)))
@@ -239,7 +239,7 @@
 (defrule doubled-at-sign (and "@@") (:constant "@"))
 (defrule doubled-colon   (and "::") (:constant ":"))
 (defrule password (+ (or (not "@") doubled-at-sign)) (:text t))
-(defrule username (+ (or (not (or ":" "@")) doubled-at-sign doubled-colon))
+(defrule username (and namestring (? (or doubled-at-sign doubled-colon)))
   (:text t))
 
 (defrule dsn-user-password (and username
