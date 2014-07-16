@@ -298,13 +298,14 @@
     (declare (ignore qm))
     (list :table-name name)))
 
-(defrule dsn-prefix (and (+ (alpha-char-p character)) "://")
-  (:destructure (p c-s-s &aux (prefix (coerce p 'string)))
-    (declare (ignore c-s-s))
-    (cond ((string= "postgresql" prefix) (list :type :postgresql))
-	  ((string= "mysql" prefix)      (list :type :mysql))
-	  ((string= "syslog" prefix)     (list :type :syslog))
-	  (t (list :type :unknown)))))
+(defrule dsn-prefix (and (or "postgresql" "pgsql" "mysql" "syslog") "://")
+  (:lambda (db)
+    (destructuring-bind (prefix colon-slash-slash) db
+      (declare (ignore colon-slash-slash))
+      (cond ((string= "postgresql" prefix) (list :type :postgresql))
+            ((string= "pgsql" prefix)      (list :type :postgresql))
+            ((string= "mysql" prefix)      (list :type :mysql))
+            ((string= "syslog" prefix)     (list :type :syslog))))))
 
 (defrule db-connection-uri (and dsn-prefix
 				(? dsn-user-password)
