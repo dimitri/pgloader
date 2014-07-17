@@ -68,6 +68,7 @@ quicklisp: $(QLDIR)/setup.lisp ;
 
 $(LIBS): $(QLDIR)/setup.lisp $(QLDIR)/local-projects/cl-ixf
 	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp                 \
+             --eval '(push "$(PWD)/" asdf:*central-registry*)'      \
              --eval '(ql:quickload "pgloader")'                     \
              --eval '(quit)'
 	touch $@
