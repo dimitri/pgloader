@@ -807,6 +807,64 @@ This options expects as its value the possibly qualified name of the table to cr
 .
 .IP "" 0
 .
+.SH "LOAD IXF"
+This command instructs pgloader to load data from an IBM \fBIXF\fR file\. Here\'s an example:
+.
+.IP "" 4
+.
+.nf
+
+LOAD IXF
+    FROM data/nsitra\.test1\.ixf
+    INTO postgresql:///pgloader?nsitra\.test1
+    WITH truncate, create table
+
+  BEFORE LOAD DO
+   $$ create schema if not exists nsitra; $$,
+   $$ drop table if exists nsitra\.test1; $$;
+.
+.fi
+.
+.IP "" 0
+.
+.P
+The \fBixf\fR format command accepts the following clauses and options:
+.
+.IP "\(bu" 4
+\fIFROM\fR
+.
+.IP
+Filename where to load the data from\. This support local files, HTTP URLs and zip files containing a single ixf file of the same name\. Fetch such a zip file from an HTTP address is of course supported\.
+.
+.IP "\(bu" 4
+\fIWITH\fR
+.
+.IP
+When loading from a \fBIXF\fR file, the following options are supported:
+.
+.IP "\(bu" 4
+\fItruncate\fR
+.
+.IP
+When this option is listed, pgloader issues a \fBTRUNCATE\fR command against the PostgreSQL target table before reading the data file\.
+.
+.IP "\(bu" 4
+\fIcreate table\fR
+.
+.IP
+When this option is listed, pgloader creates the table using the meta data found in the \fBDBF\fR file, which must contain a list of fields with their data type\. A standard data type conversion from DBF to PostgreSQL is done\.
+.
+.IP "\(bu" 4
+\fItable name\fR
+.
+.IP
+This options expects as its value the possibly qualified name of the table to create\.
+.
+.IP "" 0
+
+.
+.IP "" 0
+.
 .SH "LOAD ARCHIVE"
 This command instructs pgloader to load data from one or more files contained in an archive\. Currently the only supported archive format is \fIZIP\fR, and the archive might be downloaded from an \fIHTTP\fR URL\.
 .

@@ -700,6 +700,49 @@ The `dbf` format command accepts the following clauses and options:
 	    This options expects as its value the possibly qualified name of the
 	    table to create.
 
+## LOAD IXF
+
+This command instructs pgloader to load data from an IBM `IXF` file. Here's
+an example:
+
+    LOAD IXF
+        FROM data/nsitra.test1.ixf
+        INTO postgresql:///pgloader?nsitra.test1
+        WITH truncate, create table
+    
+      BEFORE LOAD DO
+       $$ create schema if not exists nsitra; $$,
+       $$ drop table if exists nsitra.test1; $$;
+
+The `ixf` format command accepts the following clauses and options:
+
+  - *FROM*
+
+    Filename where to load the data from. This support local files, HTTP
+    URLs and zip files containing a single ixf file of the same name. Fetch
+    such a zip file from an HTTP address is of course supported.
+
+  - *WITH*
+
+    When loading from a `IXF` file, the following options are supported:
+
+	  - *truncate*
+
+		When this option is listed, pgloader issues a `TRUNCATE` command
+		against the PostgreSQL target table before reading the data file.
+
+	  - *create table*
+
+		When this option is listed, pgloader creates the table using the
+		meta data found in the `DBF` file, which must contain a list of
+		fields with their data type. A standard data type conversion from
+		DBF to PostgreSQL is done.
+
+	  - *table name*
+
+	    This options expects as its value the possibly qualified name of the
+	    table to create.
+
 ## LOAD ARCHIVE
 
 This command instructs pgloader to load data from one or more files contained
