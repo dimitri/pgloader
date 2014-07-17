@@ -4,5 +4,6 @@ LOAD IXF
     WITH truncate, create table
 
   BEFORE LOAD DO
-   $$ create schema if not exists nsitra; $$,
+   $$ drop schema if exists nsitra cascade; $$,
+   $$ create schema nsitra; $$,
    $$ drop table if exists nsitra.test1; $$;
