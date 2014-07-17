@@ -1345,7 +1345,10 @@ load database
       (declare (ignore load dbf from))
       source)))
 
-(defrule load-dbf-optional-clauses (* (or dbf-options gucs))
+(defrule load-dbf-optional-clauses (* (or dbf-options
+                                          gucs
+                                          before-load
+                                          after-load))
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
 
@@ -1356,13 +1359,16 @@ load database
 
 (defrule load-dbf-file load-dbf-command
   (:lambda (command)
-    (destructuring-bind (source pg-db-uri &key ((:dbf-options options)) gucs)
+    (destructuring-bind (source pg-db-uri
+                                &key ((:dbf-options options)) gucs before after)
         command
       (destructuring-bind (&key dbname table-name &allow-other-keys)
 	  pg-db-uri
 	`(lambda ()
 	   (let* ((state-before   (pgloader.utils:make-pgstate))
-		  (*state*        (pgloader.utils:make-pgstate))
+                  (summary        (null *state*))
+		  (*state*        (or *state* (pgloader.utils:make-pgstate)))
+                  (state-after   ,(when after `(pgloader.utils:make-pgstate)))
                   ,@(pgsql-connection-bindings pg-db-uri gucs)
                   ,@(batch-control-bindings options)
 		  (source
@@ -1388,12 +1394,19 @@ load database
 				  :source source
 				  :target ,table-name)))
 
+             ,(sql-code-block dbname 'state-before before "before load")
+
 	     (pgloader.sources:copy-from source
 					 :state-before state-before
 					 ,@(remove-batch-control-option options))
 
-	     (report-full-summary "Total import time" *state*
-				  :before state-before)))))))
+             ,(sql-code-block dbname 'state-after after "after load")
+
+             ;; reporting
+             (when summary
+               (report-full-summary "Total import time" *state*
+                                    :before state-before
+                                    :finally state-after))))))))
 
 
 #|
@@ -1417,7 +1430,10 @@ load database
       (declare (ignore load ixf from))
       source)))
 
-(defrule load-ixf-optional-clauses (* (or ixf-options gucs))
+(defrule load-ixf-optional-clauses (* (or ixf-options
+                                          gucs
+                                          before-load
+                                          after-load))
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
 
@@ -1428,13 +1444,16 @@ load database
 
 (defrule load-ixf-file load-ixf-command
   (:lambda (command)
-    (destructuring-bind (source pg-db-uri &key ((:ixf-options options)) gucs)
+    (destructuring-bind (source pg-db-uri
+                                &key ((:ixf-options options)) gucs before after)
         command
       (destructuring-bind (&key dbname table-name &allow-other-keys)
 	  pg-db-uri
 	`(lambda ()
 	   (let* ((state-before   (pgloader.utils:make-pgstate))
-		  (*state*        (pgloader.utils:make-pgstate))
+                  (summary        (null *state*))
+		  (*state*        (or *state* (pgloader.utils:make-pgstate)))
+		  (state-after   ,(when after `(pgloader.utils:make-pgstate)))
                   ,@(pgsql-connection-bindings pg-db-uri gucs)
                   ,@(batch-control-bindings options)
 		  (source
@@ -1460,12 +1479,18 @@ load database
 				  :source source
 				  :target ,table-name)))
 
+             ,(sql-code-block dbname 'state-before before "before load")
+
 	     (pgloader.sources:copy-from source
 					 :state-before state-before
 					 ,@(remove-batch-control-option options))
 
-	     (report-full-summary "Total import time" *state*
-				  :before state-before)))))))
+             ,(sql-code-block dbname 'state-after after "after load")
+
+             (when summary
+               (report-full-summary "Total import time" *state*
+                                    :before state-before
+                                    :finally state-after))))))))
 
 
 #|

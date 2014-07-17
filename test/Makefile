@@ -16,6 +16,7 @@ REGRESS= allcols.load 		    \
          dbf.load 		    \
          errors.load 		    \
          fixed.load 		    \
+         ixf.load 		    \
          overflow.load 		    \
          partial.load 		    \
          serial.load 		    \

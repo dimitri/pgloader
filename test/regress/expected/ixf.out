@@ -1,0 +1,4 @@
+1	77	77	foobar         	foobar         	baz	baz
+2	\N	88	\N	abcdef         	\N	ghijkl
+3	179	179	FOOBAR         	FOOBAR         	BAZ	BAZ
+4	\N	179	\N	FOOBAR         	\N	BAZ

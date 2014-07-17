@@ -127,7 +127,7 @@ pgloader-standalone:
                        --compress-core                         \
                        --output $(PGLOADER)
 
-test:
+test: $(PGLOADER)
 	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) -C test regress
 
 deb: docs
