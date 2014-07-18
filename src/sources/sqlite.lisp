@@ -25,6 +25,7 @@
     (cond ((and (<= 8 (length sqlite-type-name))
                 (string-equal sqlite-type-name "nvarchar" :end1 8)) "text")
 
+          ((string-equal sqlite-type-name "tinyint")  "smallint")
           ((string-equal sqlite-type-name "datetime") "timestamptz")
           ((string-equal sqlite-type-name "double")   "double precision")
           ((string-equal sqlite-type-name "blob")     "bytea")
