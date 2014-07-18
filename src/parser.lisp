@@ -2119,7 +2119,7 @@ load database
   (:lambda (command)
     (destructuring-bind (source target before commands finally) command
       (destructuring-bind (&key before commands finally)
-          (alexandria:alist-plist (list before commands finally))
+          (alexandria:alist-plist (remove-if #'null (list before commands finally)))
         (list source target
               :before before
               :commands commands
