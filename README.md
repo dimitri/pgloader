@@ -2,29 +2,30 @@
 
 pgloader is a data loading tool for PostgreSQL, using the `COPY` command.
 
-Its main avantage over just using `COPY` or `\copy` and over using a
-*Foreign Data Wrapper* is the transaction behaviour, where *pgloader* will
-keep a separate file of rejected data and continue trying to `copy` good
-data in your database.
+Its main advantage over just using `COPY` or `\copy`, and over using a
+*Foreign Data Wrapper*, is its transaction behaviour, where *pgloader*
+will keep a separate file of rejected data, but continue trying to
+`copy` good data in your database.
 
-The default PostgreSQL behaviour is transactional, which means that any
-erroneous line in the input data (file or remote database) will stop the
-bulk load for the whole table.
+The default PostgreSQL behaviour is transactional, which means that
+*any* erroneous line in the input data (file or remote database) will
+stop the entire bulk load for the table.
 
-pgloader also implements data reformating, the main example of that being a
-transformation from MySQL dates `0000-00-00` and `0000-00-00 00:00:00` to
-PostgreSQL `NULL` value (because our calendar never had a *year zero*).
+pgloader also implements data reformatting, a typical example of that
+being the transformation of MySQL datestamps `0000-00-00` and
+`0000-00-00 00:00:00` to PostgreSQL `NULL` value (because our calendar
+never had a *year zero*).
 
 ## Versioning
 
-The pgloader version 1.x from a long time ago had been developped in `TCL`.
-When faced with maintaining that code, the new emerging development team
-(hi!) picked `python` instead because that made sense at the time. So
-pgloader version 2.x were in python.
+The pgloader version 1.x from a long time ago was developed in `TCL`.
+When faced with maintaining that code, the new emerging development
+team (hi!) picked `python` instead because that made sense at the
+time. So pgloader version 2.x were in python.
 
 The current version of pgloader is the 3.x series, which is written in
-[Common Lisp](http://cliki.net/) for better development flexibility, run
-time performances, real threading.
+[Common Lisp](http://cliki.net/) for better development flexibility,
+runtime performance, and support of real threading.
 
 The versioning is now following the Emacs model, where any X.0 release
 number means you're using a development version (alpha, beta, or release
