@@ -10,10 +10,10 @@
 \fBpgloader\fR [\fIoptions\fR] [\fIcommand\-file\fR]\.\.\.
 .
 .SH "DESCRIPTION"
-pgloader loads data from different sources into PostgreSQL\. It can tranform the data it reads on the fly and send raw SQL before and after the loading\. It uses the \fBCOPY\fR PostgreSQL protocol to stream the data into the server, and manages errors by filling a pair fo \fIreject\.dat\fR and \fIreject\.log\fR files\.
+pgloader loads data from various sources into PostgreSQL\. It can transform the data it reads on the fly and submit raw SQL before and after the loading\. It uses the \fBCOPY\fR PostgreSQL protocol to stream the data into the server, and manages errors by filling a pair of \fIreject\.dat\fR and \fIreject\.log\fR files\.
 .
 .P
-pgloader operates from commands which are read from files:
+pgloader operates using commands which are read from files:
 .
 .IP "" 4
 .
@@ -114,10 +114,10 @@ Using that information, pgloader will reload all rows in the batch before the er
 At the end of a load containing rejected rows, you will find two files in the \fIroot\-dir\fR location, under a directory named the same as the target database of your setup\. The filenames are the target table, and their extensions are \fB\.dat\fR for the rejected data and \fB\.log\fR for the file containing the full PostgreSQL client side logs about the rejected data\.
 .
 .P
-The \fB\.dat\fR file is formated in PostgreSQL the text COPY format as documented in http://www\.postgresql\.org/docs/9\.2/static/sql\-copy\.html#AEN66609 \fI\fR\.
+The \fB\.dat\fR file is formatted in PostgreSQL the text COPY format as documented in http://www\.postgresql\.org/docs/9\.2/static/sql\-copy\.html#AEN66609 \fI\fR\.
 .
 .SH "A NOTE ABOUT PERFORMANCES"
-pgloader has been developped with performances in mind, to be able to cope with ever growing needs in loading large amounts of data into PostgreSQL\.
+pgloader has been developed with performances in mind, to be able to cope with ever growing needs in loading large amounts of data into PostgreSQL\.
 .
 .P
 The basic architecture it uses is the old Unix pipe model, where a thread is responsible for loading the data (reading a CSV file, querying MySQL, etc) and fills pre\-processed data into a queue\. Another threads feeds from the queue, apply some more \fItransformations\fR to the input data and stream the end result to PostgreSQL using the COPY protocol\.
@@ -202,7 +202,7 @@ The PostgreSQL connection URI must contains the name of the target table where t
 The \fIINTO\fR target database connection URI can be parsed from the value of an environment variable when using the form \fBGETENV \'varname\'\fR\.
 .
 .IP
-Then \fIINTO\fR option also supports an optional comma separated list of target columns, which are either the name of an input \fIfield\fR or the whitespace separated list of the target column name, its PostgreSQL data type and a \fIUSING\fR expression\.
+Then \fIINTO\fR option also supports an optional comma separated list of target columns, which are either the name of an input \fIfield\fR or the white space separated list of the target column name, its PostgreSQL data type and a \fIUSING\fR expression\.
 .
 .IP
 The \fIUSING\fR expression can be any valid Common Lisp form and will be read with the current package set to \fBpgloader\.transforms\fR, so that you can use functions defined in that package, such as functions loaded dynamically with the \fB\-\-load\fR command line parameter\.
@@ -294,7 +294,7 @@ Where:
 Can contain any character, including colon (\fB:\fR) which must then be doubled (\fB::\fR) and at\-sign (\fB@\fR) which must then be doubled (\fB@@\fR)\.
 .
 .IP
-When ommited, the \fIuser\fR name defaults to the value of the \fBPGUSER\fR environment variable, and if it is unset, the value of the \fBUSER\fR environment variable\.
+When omitted, the \fIuser\fR name defaults to the value of the \fBPGUSER\fR environment variable, and if it is unset, the value of the \fBUSER\fR environment variable\.
 .
 .IP "\(bu" 4
 \fIpassword\fR
@@ -303,13 +303,13 @@ When ommited, the \fIuser\fR name defaults to the value of the \fBPGUSER\fR envi
 Can contain any character, including that at sign (\fB@\fR) which must then be doubled (\fB@@\fR)\. To leave the password empty, when the \fIuser\fR name ends with at at sign, you then have to use the syntax user:@\.
 .
 .IP
-When ommited, the \fIpassword\fR defaults to the value of the \fBPGPASSWORD\fR environement variable if it is set, otherwise the password is left unset\.
+When omitted, the \fIpassword\fR defaults to the value of the \fBPGPASSWORD\fR environment variable if it is set, otherwise the password is left unset\.
 .
 .IP "\(bu" 4
 \fInetloc\fR
 .
 .IP
-Can be either a hostname in dotted notation, or an ipv4, or an unix domain socket path\. Empty is the default network location, under a system providing \fIunix domain socket\fR that method is prefered, otherwise the \fInetloc\fR default to \fBlocalhost\fR\.
+Can be either a hostname in dotted notation, or an ipv4, or an Unix domain socket path\. Empty is the default network location, under a system providing \fIunix domain socket\fR that method is preferred, otherwise the \fInetloc\fR default to \fBlocalhost\fR\.
 .
 .IP
 It\'s possible to force the \fIunix domain socket\fR path by using the syntax \fBunix:/path/to/where/the/socket/file/is\fR, so to force a non default socket path and a non default port, you would have:
@@ -325,7 +325,7 @@ postgresql://unix:/tmp:54321/dbname
 .IP "" 0
 .
 .IP
-The \fInetloc\fR defaults to the value of the \fBPGHOST\fR environement variable, and if it is unset, to either the default \fBunix\fR socket path when running on a Unix system, and \fBlocalhost\fR otherwise\.
+The \fInetloc\fR defaults to the value of the \fBPGHOST\fR environment variable, and if it is unset, to either the default \fBunix\fR socket path when running on a Unix system, and \fBlocalhost\fR otherwise\.
 .
 .IP "\(bu" 4
 \fIdbname\fR
@@ -334,10 +334,10 @@ The \fInetloc\fR defaults to the value of the \fBPGHOST\fR environement variable
 Should be a proper identifier (letter followed by a mix of letters, digits and the punctuation signs comma (\fB,\fR), dash (\fB\-\fR) and underscore (\fB_\fR)\.
 .
 .IP
-When ommited, the \fIdbname\fR defaults to the value of the environment variable \fBPGDATABASE\fR, and if that is unset, to the \fIuser\fR value as determined above\.
+When omitted, the \fIdbname\fR defaults to the value of the environment variable \fBPGDATABASE\fR, and if that is unset, to the \fIuser\fR value as determined above\.
 .
 .IP "\(bu" 4
-The only optionnal parameter should be a possibly qualified table name\.
+The only optional parameter should be a possibly qualified table name\.
 .
 .IP "" 0
 .
@@ -421,7 +421,7 @@ Takes a memory unit as argument, such as \fI20 MB\fR, its default value\. Accept
 Takes a numeric value as argument, defaults to \fB10\fR\. That\'s the number of batches that pgloader is allows to build in memory, even when only a single batch at a time might be sent to PostgreSQL\.
 .
 .IP
-Supporting more than a single batch being sent at a time is on the TODO list of pgloader, but is not implemented yet\. This option is about controling the memory needs of pgloader as a trade\-off to the performances characteristics, and not about parallel activity of pgloader\.
+Supporting more than a single batch being sent at a time is on the TODO list of pgloader, but is not implemented yet\. This option is about controlling the memory needs of pgloader as a trade\-off to the performances characteristics, and not about parallel activity of pgloader\.
 .
 .IP "" 0
 .
@@ -585,7 +585,7 @@ When reading unquoted values in the \fBCSV\fR file, keep blanks found in between
 \fIfields optionally enclosed by\fR
 .
 .IP
-Takes a single character as argument, which must be found inside single quotes, and might be given as the printable character itself, the special value \et to denote a tabulation character, or \fB0x\fR then an hexadecimal value read as the ascii code for the character\.
+Takes a single character as argument, which must be found inside single quotes, and might be given as the printable character itself, the special value \et to denote a tabulation character, or \fB0x\fR then an hexadecimal value read as the ASCII code for the character\.
 .
 .IP
 This character is used as the quoting character in the \fBCSV\fR file, and defaults to double\-quote\.
@@ -606,7 +606,7 @@ Takes either the special value \fIbackslash\-quote\fR or \fIdouble\-quote\fR\. T
 \fIfields terminated by\fR
 .
 .IP
-Takes a single character as argument, which must be found inside single quotes, and might be given as the printable character itself, the special value \et to denote a tabulation character, or \fB0x\fR then an hexadecimal value read as the ascii code for the character\.
+Takes a single character as argument, which must be found inside single quotes, and might be given as the printable character itself, the special value \et to denote a tabulation character, or \fB0x\fR then an hexadecimal value read as the ASCII code for the character\.
 .
 .IP
 This character is used as the \fIfield separator\fR when reading the \fBCSV\fR data\.
@@ -615,7 +615,7 @@ This character is used as the \fIfield separator\fR when reading the \fBCSV\fR d
 \fIlines terminated by\fR
 .
 .IP
-Takes a single character as argument, which must be found inside single quotes, and might be given as the printable character itself, the special value \et to denote a tabulation character, or \fB0x\fR then an hexadecimal value read as the ascii code for the character\.
+Takes a single character as argument, which must be found inside single quotes, and might be given as the printable character itself, the special value \et to denote a tabulation character, or \fB0x\fR then an hexadecimal value read as the ASCII code for the character\.
 .
 .IP
 This character is used to recognize \fIend\-of\-line\fR condition when reading the \fBCSV\fR data\.
@@ -1093,7 +1093,7 @@ When this option is listed, pgloader issue the \fBTRUNCATE\fR command against ea
 \fIno truncate\fR
 .
 .IP
-When this topion is listed, pgloader issues no \fBTRUNCATE\fR command\.
+When this option is listed, pgloader issues no \fBTRUNCATE\fR command\.
 .
 .IP "\(bu" 4
 \fIcreate tables\fR
@@ -1248,7 +1248,7 @@ The supported casting options are:
 When the option \fIdrop default\fR is listed, pgloader drops any existing default expression in the MySQL database for columns of the source type from the \fBCREATE TABLE\fR statement it generates\.
 .
 .IP
-The spelling \fIkeep default\fR explicitely prevents that behavior and can be used to overlad the default casting rules\.
+The spelling \fIkeep default\fR explicitly prevents that behaviour and can be used to overload the default casting rules\.
 .
 .IP "\(bu" 4
 \fIdrop not null\fR, \fIkeep not null\fR
@@ -1257,7 +1257,7 @@ The spelling \fIkeep default\fR explicitely prevents that behavior and can be us
 When the option \fIdrop not null\fR is listed, pgloader drops any existing \fBNOT NULL\fR constraint associated with the given source MySQL datatype when it creates the tables in the PostgreSQL database\.
 .
 .IP
-The spelling \fIkeep not null\fR explicitely prevents that behavior and can be used to overlad the default casting rules\.
+The spelling \fIkeep not null\fR explicitly prevents that behaviour and can be used to overload the default casting rules\.
 .
 .IP "\(bu" 4
 \fIdrop typemod\fR, \fIkeep typemod\fR
@@ -1266,13 +1266,13 @@ The spelling \fIkeep not null\fR explicitely prevents that behavior and can be u
 When the option \fIdrop typemod\fR is listed, pgloader drops any existing \fItypemod\fR definition (e\.g\. \fIprecision\fR and \fIscale\fR) from the datatype definition found in the MySQL columns of the source type when it created the tables in the PostgreSQL database\.
 .
 .IP
-The spelling \fIkeep typemod\fR explicitely prevents that behavior and can be used to overlad the default casting rules\.
+The spelling \fIkeep typemod\fR explicitly prevents that behaviour and can be used to overload the default casting rules\.
 .
 .IP "\(bu" 4
 \fIusing\fR
 .
 .IP
-This option takes as its single argument the name of a function to be found un the \fBpgloader\.transforms\fR Common Lisp package\. See above for details\.
+This option takes as its single argument the name of a function to be found in the \fBpgloader\.transforms\fR Common Lisp package\. See above for details\.
 .
 .IP
 It\'s possible to augment a default cast rule (such as one that applies against \fBENUM\fR data type for example) with a \fItransformation function\fR by omitting entirely the \fBtype\fR parts of the casting rule, as in the following example:
@@ -1377,10 +1377,10 @@ The \fBdatabase\fR command currently only supports MySQL source database and has
 Views are not migrated,
 .
 .IP
-Supporting views might require implemeting a full SQL parser for the MySQL dialect with a porting engine to rewrite the SQL against PostgreSQL, including renaming functions and changing some constructs\.
+Supporting views might require implementing a full SQL parser for the MySQL dialect with a porting engine to rewrite the SQL against PostgreSQL, including renaming functions and changing some constructs\.
 .
 .IP
-While it\'s not theorically impossible, don\'t hold your breath\.
+While it\'s not theoretically impossible, don\'t hold your breath\.
 .
 .IP "\(bu" 4
 Triggers are not migrated
@@ -1395,7 +1395,7 @@ The difficulty of doing so is not yet assessed\.
 It\'s simple enough to implement, just not on the priority list yet\.
 .
 .IP "\(bu" 4
-Of the geometric datatypes, onle the \fBPOINT\fR database has been covered\. The other ones should be easy enough to implement now, it\'s just not done yet\.
+Of the geometric datatypes, only the \fBPOINT\fR database has been covered\. The other ones should be easy enough to implement now, it\'s just not done yet\.
 .
 .IP "" 0
 .
@@ -1451,7 +1451,7 @@ type double to double precision drop typemod
 type numeric to numeric keep typemod
 .
 .IP "\(bu" 4
-type decimal to deciman keep typemod
+type decimal to decimal keep typemod
 .
 .IP "" 0
 .
@@ -1606,7 +1606,7 @@ When this option is listed, pgloader issue the \fBTRUNCATE\fR command against ea
 \fIno truncate\fR
 .
 .IP
-When this topion is listed, pgloader issues no \fBTRUNCATE\fR command\.
+When this option is listed, pgloader issues no \fBTRUNCATE\fR command\.
 .
 .IP "\(bu" 4
 \fIcreate tables\fR
@@ -1686,7 +1686,7 @@ INCLUDING ONLY TABLE NAMES MATCHING ~/film/, \'actor\'
 \fIEXCLUDING TABLE NAMES MATCHING\fR
 .
 .IP
-Introduce a comma separated list of table names or \fIrugular expression\fR used to exclude table names from the migration\. This filter only applies to the result of the \fIINCLUDING\fR filter\.
+Introduce a comma separated list of table names or \fIregular expression\fR used to exclude table names from the migration\. This filter only applies to the result of the \fIINCLUDING\fR filter\.
 .
 .IP "" 4
 .
@@ -1844,7 +1844,7 @@ Out: "{foo,bar}"
 \fIright\-trimg\fR
 .
 .IP
-Remove whitespaces at end of string\.
+Remove whitespace at end of string\.
 .
 .IP "\(bu" 4
 \fIbyte\-vector\-to\-bytea\fR
@@ -1855,7 +1855,7 @@ Transform a simple array of unsigned bytes to the PostgreSQL bytea Hex Format re
 .IP "" 0
 .
 .SH "LOAD MESSAGES"
-This command is still experimental and allows to receive messages in UDP with a syslod like format, and depending on matching rules load named parts them to a destination table\.
+This command is still experimental and allows receiving messages via UDP using a syslog like format, and, depending on rule matching, loads named portions of the data stream into a destination table\.
 .
 .IP "" 4
 .
