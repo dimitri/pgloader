@@ -165,11 +165,25 @@ specific clauses such as the `CAST` clause.
 
 Some clauses are common to all commands:
 
+  - *FROM*
+  
+    The *FROM* clause specifies where to read the data from, and each
+    command introduces its own variant of sources. For instance, the *CSV*
+    source supports `inline`, `stdin`, a filename, a quoted filename, and a
+    *FILENAME MATCHING* clause (see above); whereas the *MySQL* source only
+    supports a MySQL database URI specification.
+    
+    In all cases, the *FROM* clause is able to read its value from an
+    environment variable when using the form `GETENV 'varname'`.
+
   - *INTO*
 
 	The PostgreSQL connection URI must contains the name of the target table
 	where to load the data into. That table must have already been created
 	in PostgreSQL, and the name might be schema qualified.
+    
+    The *INTO* target database connection URI can be parsed from the value
+    of an environment variable when using the form `GETENV 'varname'`.
 
 	Then *INTO* option also supports an optional comma separated list of
 	target columns, which are either the name of an input *field* or the

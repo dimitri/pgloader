@@ -91,6 +91,7 @@
   (def-keyword-rule "default")
   (def-keyword-rule "typemod")
   (def-keyword-rule "using")
+  (def-keyword-rule "getenv")
   ;; option for loading from a file
   (def-keyword-rule "workers")
   (def-keyword-rule "batch")
@@ -361,7 +362,17 @@
 			   (:postgresql (getenv-default "PGDATABASE" user))))
 	     :table-name table-name)))))
 
-(defrule target (and kw-into db-connection-uri)
+(defrule get-dburi-from-environment-variable (and kw-getenv name)
+  (:lambda (p-e-v)
+    (destructuring-bind (g varname) p-e-v
+      (declare (ignore g))
+      (let ((connstring (getenv-default varname)))
+        (unless connstring
+          (error "Environment variable ~s is unset." varname))
+        (parse 'db-connection-uri connstring)))))
+
+(defrule target (and kw-into (or db-connection-uri
+                                 get-dburi-from-environment-variable))
   (:destructure (into target)
     (declare (ignore into))
     (destructuring-bind (&key type &allow-other-keys) target
@@ -439,6 +450,20 @@
   (:destructure (prefix url)
     (list :http (concatenate 'string prefix url))))
 
+(defrule maybe-quoted-filename-or-http-uri (or http-uri maybe-quoted-filename))
+
+(defrule get-filename-or-http-uri-from-environment-variable (and kw-getenv name)
+  (:lambda (p-e-v)
+    (destructuring-bind (g varname) p-e-v
+      (declare (ignore g))
+      (let ((connstring (getenv-default varname)))
+        (unless connstring
+          (error "Environment variable ~s is unset." varname))
+        (parse 'maybe-quoted-filename-or-http-uri connstring)))))
+
+(defrule filename-or-http-uri (or get-filename-or-http-uri-from-environment-variable
+                                  maybe-quoted-filename-or-http-uri))
+
 (defrule source-uri (or stdin
 			http-uri
 			db-connection-uri
@@ -454,7 +479,8 @@
     source))
 
 (defrule database-source (and kw-load kw-database kw-from
-			      db-connection-uri)
+			      (or db-connection-uri
+                                  get-dburi-from-environment-variable))
   (:lambda (source)
     (destructuring-bind (l d f uri) source
       (declare (ignore l d f))
@@ -1101,7 +1127,19 @@ load database
 	(list :sqlite path)))))
 
 (defrule sqlite-uri (or sqlite-db-uri http-uri maybe-quoted-filename))
-(defrule sqlite-source (and kw-load kw-database kw-from sqlite-uri)
+
+(defrule get-sqlite-uri-from-environment-variable (and kw-getenv name)
+  (:lambda (p-e-v)
+    (destructuring-bind (g varname) p-e-v
+      (declare (ignore g))
+      (let ((connstring (getenv-default varname)))
+        (unless connstring
+          (error "Environment variable ~s is unset." varname))
+        (parse 'sqlite-uri connstring)))))
+
+(defrule sqlite-source (and kw-load kw-database kw-from
+                            (or get-sqlite-uri-from-environment-variable
+                                sqlite-uri))
   (:destructure (l d f u)
 		(declare (ignore l d f))
 		u))
@@ -1861,7 +1899,18 @@ load database
 			     filename-matching
 			     maybe-quoted-filename))
 
-(defrule csv-source (and kw-load kw-csv kw-from csv-file-source)
+(defrule get-csv-file-source-from-environment-variable (and kw-getenv name)
+  (:lambda (p-e-v)
+    (destructuring-bind (g varname) p-e-v
+      (declare (ignore g))
+      (let ((connstring (getenv-default varname)))
+        (unless connstring
+          (error "Environment variable ~s is unset." varname))
+        (parse 'csv-file-source connstring)))))
+
+(defrule csv-source (and kw-load kw-csv kw-from
+                         (or get-csv-file-source-from-environment-variable
+                             csv-file-source))
   (:lambda (src)
     (destructuring-bind (load csv from source) src
       (declare (ignore load csv from))
@@ -2017,7 +2066,18 @@ load database
 			       filename-matching
 			       maybe-quoted-filename))
 
-(defrule fixed-source (and kw-load kw-fixed kw-from fixed-file-source)
+(defrule get-fixed-file-source-from-environment-variable (and kw-getenv name)
+  (:lambda (p-e-v)
+    (destructuring-bind (g varname) p-e-v
+      (declare (ignore g))
+      (let ((connstring (getenv-default varname)))
+        (unless connstring
+          (error "Environment variable ~s is unset." varname))
+        (parse 'fixed-file-source connstring)))))
+
+(defrule fixed-source (and kw-load kw-fixed kw-from
+                           (or get-fixed-file-source-from-environment-variable
+                               fixed-file-source))
   (:lambda (src)
     (destructuring-bind (load fixed from source) src
       (declare (ignore load fixed from))
@@ -2102,8 +2162,6 @@ load database
   (:lambda (source)
     (destructuring-bind (col1 cols) source
       (cons :commands (list* col1 cols)))))
-
-(defrule filename-or-http-uri (or http-uri maybe-quoted-filename))
 
 (defrule archive-source (and kw-load kw-archive kw-from filename-or-http-uri)
   (:lambda (src)

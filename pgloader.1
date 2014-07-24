@@ -184,10 +184,22 @@ The main clauses are the \fBLOAD\fR, \fBFROM\fR, \fBINTO\fR and \fBWITH\fR claus
 Some clauses are common to all commands:
 .
 .IP "\(bu" 4
+\fIFROM\fR
+.
+.IP
+The \fIFROM\fR clause specifies where to read the data from, and each command introduces its own variant of sources\. For instance, the \fICSV\fR source supports \fBinline\fR, \fBstdin\fR, a filename, a quoted filename, and a \fIFILENAME MATCHING\fR clause (see above); whereas the \fIMySQL\fR source only supports a MySQL database URI specification\.
+.
+.IP
+In all cases, the \fIFROM\fR clause is able to read its value from an environment variable when using the form \fBGETENV \'varname\'\fR\.
+.
+.IP "\(bu" 4
 \fIINTO\fR
 .
 .IP
 The PostgreSQL connection URI must contains the name of the target table where to load the data into\. That table must have already been created in PostgreSQL, and the name might be schema qualified\.
+.
+.IP
+The \fIINTO\fR target database connection URI can be parsed from the value of an environment variable when using the form \fBGETENV \'varname\'\fR\.
 .
 .IP
 Then \fIINTO\fR option also supports an optional comma separated list of target columns, which are either the name of an input \fIfield\fR or the whitespace separated list of the target column name, its PostgreSQL data type and a \fIUSING\fR expression\.
