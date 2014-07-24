@@ -6,12 +6,13 @@
 
 ## DESCRIPTION
 
-pgloader loads data from different sources into PostgreSQL. It can tranform
-the data it reads on the fly and send raw SQL before and after the loading.
-It uses the `COPY` PostgreSQL protocol to stream the data into the server,
-and manages errors by filling a pair fo *reject.dat* and *reject.log* files.
+pgloader loads data from various sources into PostgreSQL. It can
+transform the data it reads on the fly and submit raw SQL before and
+after the loading.  It uses the `COPY` PostgreSQL protocol to stream
+the data into the server, and manages errors by filling a pair of
+*reject.dat* and *reject.log* files.
 
-pgloader operates from commands which are read from files:
+pgloader operates using commands which are read from files:
 
     pgloader commands.load
 
@@ -108,12 +109,12 @@ database of your setup. The filenames are the target table, and their
 extensions are `.dat` for the rejected data and `.log` for the file
 containing the full PostgreSQL client side logs about the rejected data.
 
-The `.dat` file is formated in PostgreSQL the text COPY format as documented
+The `.dat` file is formatted in PostgreSQL the text COPY format as documented
 in [http://www.postgresql.org/docs/9.2/static/sql-copy.html#AEN66609]().
 
 ## A NOTE ABOUT PERFORMANCES
 
-pgloader has been developped with performances in mind, to be able to cope
+pgloader has been developed with performances in mind, to be able to cope
 with ever growing needs in loading large amounts of data into PostgreSQL.
 
 The basic architecture it uses is the old Unix pipe model, where a thread is
@@ -187,7 +188,7 @@ Some clauses are common to all commands:
 
 	Then *INTO* option also supports an optional comma separated list of
 	target columns, which are either the name of an input *field* or the
-	whitespace separated list of the target column name, its PostgreSQL data
+	white space separated list of the target column name, its PostgreSQL data
 	type and a *USING* expression.
 
 	The *USING* expression can be any valid Common Lisp form and will be
@@ -265,7 +266,7 @@ Where:
     Can contain any character, including colon (`:`) which must then be
     doubled (`::`) and at-sign (`@`) which must then be doubled (`@@`).
     
-    When ommited, the *user* name defaults to the value of the `PGUSER`
+    When omitted, the *user* name defaults to the value of the `PGUSER`
     environment variable, and if it is unset, the value of the `USER`
     environment variable.
 
@@ -275,15 +276,15 @@ Where:
 	be doubled (`@@`). To leave the password empty, when the *user* name
 	ends with at at sign, you then have to use the syntax user:@.
 
-    When ommited, the *password* defaults to the value of the `PGPASSWORD`
-    environement variable if it is set, otherwise the password is left
+    When omitted, the *password* defaults to the value of the `PGPASSWORD`
+    environment variable if it is set, otherwise the password is left
     unset.
 
   - *netloc*
 
-    Can be either a hostname in dotted notation, or an ipv4, or an unix
+    Can be either a hostname in dotted notation, or an ipv4, or an Unix
     domain socket path. Empty is the default network location, under a
-    system providing *unix domain socket* that method is prefered, otherwise
+    system providing *unix domain socket* that method is preferred, otherwise
     the *netloc* default to `localhost`.
 
 	It's possible to force the *unix domain socket* path by using the syntax
@@ -292,7 +293,7 @@ Where:
 
 	    postgresql://unix:/tmp:54321/dbname
 
-    The *netloc* defaults to the value of the `PGHOST` environement
+    The *netloc* defaults to the value of the `PGHOST` environment
     variable, and if it is unset, to either the default `unix` socket path
     when running on a Unix system, and `localhost` otherwise.
 
@@ -302,11 +303,11 @@ Where:
 	digits and the punctuation signs comma (`,`), dash (`-`) and underscore
 	(`_`).
 
-    When ommited, the *dbname* defaults to the value of the environment
+    When omitted, the *dbname* defaults to the value of the environment
     variable `PGDATABASE`, and if that is unset, to the *user* value as
     determined above.
 
-  - The only optionnal parameter should be a possibly qualified table name.
+  - The only optional parameter should be a possibly qualified table name.
 
 ### Regular Expressions
 
@@ -383,7 +384,7 @@ The global batch behaviour options are:
   
     Supporting more than a single batch being sent at a time is on the TODO
     list of pgloader, but is not implemented yet. This option is about
-    controling the memory needs of pgloader as a trade-off to the
+    controlling the memory needs of pgloader as a trade-off to the
     performances characteristics, and not about parallel activity of
     pgloader.
     
@@ -523,7 +524,7 @@ The `csv` format command accepts the following clauses and options:
 	    Takes a single character as argument, which must be found inside
 	    single quotes, and might be given as the printable character itself,
 	    the special value \t to denote a tabulation character, or `0x` then
-	    an hexadecimal value read as the ascii code for the character.
+	    an hexadecimal value read as the ASCII code for the character.
 
 		This character is used as the quoting character in the `CSV` file,
 	    and defaults to double-quote.
@@ -548,7 +549,7 @@ The `csv` format command accepts the following clauses and options:
 	    Takes a single character as argument, which must be found inside
 	    single quotes, and might be given as the printable character itself,
 	    the special value \t to denote a tabulation character, or `0x` then
-	    an hexadecimal value read as the ascii code for the character.
+	    an hexadecimal value read as the ASCII code for the character.
 
 	    This character is used as the *field separator* when reading the
 	    `CSV` data.
@@ -558,7 +559,7 @@ The `csv` format command accepts the following clauses and options:
 	    Takes a single character as argument, which must be found inside
 	    single quotes, and might be given as the printable character itself,
 	    the special value \t to denote a tabulation character, or `0x` then
-	    an hexadecimal value read as the ascii code for the character.
+	    an hexadecimal value read as the ASCII code for the character.
 
         This character is used to recognize *end-of-line* condition when
         reading the `CSV` data.
@@ -942,7 +943,7 @@ The `database` command accepts the following clauses and options:
 
 	  - *no truncate*
 
-		When this topion is listed, pgloader issues no `TRUNCATE` command.
+		When this option is listed, pgloader issues no `TRUNCATE` command.
 
 	  - *create tables*
 
@@ -1072,8 +1073,8 @@ The `database` command accepts the following clauses and options:
         existing default expression in the MySQL database for columns of the
         source type from the `CREATE TABLE` statement it generates.
 
-	    The spelling *keep default* explicitely prevents that behavior and
-	    can be used to overlad the default casting rules.
+	    The spelling *keep default* explicitly prevents that behaviour and
+	    can be used to overload the default casting rules.
 
 	  - *drop not null*, *keep not null*
 
@@ -1082,8 +1083,8 @@ The `database` command accepts the following clauses and options:
         MySQL datatype when it creates the tables in the PostgreSQL
         database.
 
-	    The spelling *keep not null* explicitely prevents that behavior and
-	    can be used to overlad the default casting rules.
+	    The spelling *keep not null* explicitly prevents that behaviour and
+	    can be used to overload the default casting rules.
 
       - *drop typemod*, *keep typemod*
 
@@ -1092,13 +1093,13 @@ The `database` command accepts the following clauses and options:
 	    the datatype definition found in the MySQL columns of the source
 	    type when it created the tables in the PostgreSQL database.
 
-	    The spelling *keep typemod* explicitely prevents that behavior and
-	    can be used to overlad the default casting rules.
+	    The spelling *keep typemod* explicitly prevents that behaviour and
+	    can be used to overload the default casting rules.
 
 	  - *using*
 
 	    This option takes as its single argument the name of a function to
-	    be found un the `pgloader.transforms` Common Lisp package. See above
+	    be found in the `pgloader.transforms` Common Lisp package. See above
 	    for details.
 
         It's possible to augment a default cast rule (such as one that
@@ -1167,11 +1168,11 @@ the following limitations:
 
   - Views are not migrated,
 
-	Supporting views might require implemeting a full SQL parser for the
+	Supporting views might require implementing a full SQL parser for the
 	MySQL dialect with a porting engine to rewrite the SQL against
 	PostgreSQL, including renaming functions and changing some constructs.
 
-	While it's not theorically impossible, don't hold your breath.
+	While it's not theoretically impossible, don't hold your breath.
 
   - Triggers are not migrated
 
@@ -1181,7 +1182,7 @@ the following limitations:
 
 	It's simple enough to implement, just not on the priority list yet.
 
-  - Of the geometric datatypes, onle the `POINT` database has been covered.
+  - Of the geometric datatypes, only the `POINT` database has been covered.
     The other ones should be easy enough to implement now, it's just not
     done yet.
 
@@ -1209,7 +1210,7 @@ Numbers:
   - type double to double precision drop typemod
 
   - type numeric to numeric keep typemod
-  - type decimal to deciman keep typemod
+  - type decimal to decimal keep typemod
 
 Texts:
 
@@ -1314,7 +1315,7 @@ The `sqlite` command accepts the following clauses and options:
 
 	  - *no truncate*
 
-		When this topion is listed, pgloader issues no `TRUNCATE` command.
+		When this option is listed, pgloader issues no `TRUNCATE` command.
 
 	  - *create tables*
 
@@ -1375,7 +1376,7 @@ The `sqlite` command accepts the following clauses and options:
 
   - *EXCLUDING TABLE NAMES MATCHING*
 
-    Introduce a comma separated list of table names or *rugular expression*
+    Introduce a comma separated list of table names or *regular expression*
     used to exclude table names from the migration. This filter only applies
     to the result of the *INCLUDING* filter.
 
@@ -1454,7 +1455,7 @@ The provided transformation functions are:
 
   - *right-trimg*
 
-    Remove whitespaces at end of string.
+    Remove whitespace at end of string.
 
   - *byte-vector-to-bytea*
 
@@ -1464,9 +1465,9 @@ The provided transformation functions are:
 
 ## LOAD MESSAGES
 
-This command is still experimental and allows to receive messages in UDP
-with a syslod like format, and depending on matching rules load named parts
-them to a destination table.
+This command is still experimental and allows receiving messages via
+UDP using a syslog like format, and, depending on rule matching, loads
+named portions of the data stream into a destination table.
 
     LOAD MESSAGES
         FROM syslog://localhost:10514/
