@@ -1451,9 +1451,9 @@ The provided transformation functions are:
 
 ## LOAD MESSAGES
 
-This command is still experimental and allows to receive messages in UDP
-with a syslog like format, and depending on matching rules load named parts
-them to a destination table.
+This command is still experimental and allows receiving messages via
+UDP using a syslog like format, and, depending on rule matching, loads
+named portions of the data stream into a destination table.
 
     LOAD MESSAGES
         FROM syslog://localhost:10514/
