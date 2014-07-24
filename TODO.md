@@ -44,7 +44,6 @@ Add support for full data and schema migrations for the following:
 
 ### MySQL Support
 
-  - MATERIALIZE ALL VIEWS
   - Convert SQL dialect for SQL views
   - Triggers and Stored Procedures
   
