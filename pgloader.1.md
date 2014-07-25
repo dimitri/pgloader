@@ -1356,9 +1356,9 @@ The `sqlite` command accepts the following clauses and options:
 
 	  - *schema only*
 
-	     When this option is listed pgloader will refrain from migrating the
-	     data over. Note that the schema in this context includes the
-	     indexes when the option *create indexes* has been listed.
+	    When this option is listed pgloader will refrain from migrating the
+	    data over. Note that the schema in this context includes the indexes
+	    when the option *create indexes* has been listed.
 
 	  - *data only*
 
