@@ -165,24 +165,29 @@
                            (string-equal "bytea" (cast (coldef-type field))))
                          (fields sqlite))
                  'vector)))
-   (loop
-      with statement = (sqlite:prepare-statement (db sqlite) sql)
-      with len = (loop :for name :in (sqlite:statement-column-names statement)
-                    :count name)
-      while (sqlite:step-statement statement)
-      for row = (let ((v (make-array len)))
-                  (loop :for x :below len
-                     :for raw := (sqlite:statement-column-value statement x)
-                     :for val := (if (and (aref blobs-p x) (stringp raw))
-                                     (base64:base64-string-to-usb8-array raw)
-                                     raw)
-                     :do (setf (aref v x) val))
-                  v)
-      counting t into rows
-      do (funcall process-row-fn row)
-      finally
-        (sqlite:finalize-statement statement)
-        (return rows))))
+    (handler-case
+        (loop
+           with statement = (sqlite:prepare-statement (db sqlite) sql)
+           with len = (loop :for name :in (sqlite:statement-column-names statement)
+                         :count name)
+           while (sqlite:step-statement statement)
+           for row = (let ((v (make-array len)))
+                       (loop :for x :below len
+                          :for raw := (sqlite:statement-column-value statement x)
+                          :for val := (if (and (aref blobs-p x) (stringp raw))
+                                          (base64:base64-string-to-usb8-array raw)
+                                          raw)
+                          :do (setf (aref v x) val))
+                       v)
+           counting t into rows
+           do (funcall process-row-fn row)
+           finally
+             (sqlite:finalize-statement statement)
+             (return rows))
+      (condition (e)
+        (progn
+          (log-message :error "~a" e)
+          (pgstate-incf *state* (target sqlite) :errs 1))))))
 
 
 (defmethod copy-to-queue ((sqlite copy-sqlite) queue)
