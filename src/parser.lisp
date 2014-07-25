@@ -1090,6 +1090,15 @@ load database
 
   set work_mem to '16MB', maintenance_work_mem to '512 MB';
 |#
+(defrule option-encoding (and kw-encoding encoding)
+  (:lambda (enc)
+    (cons :encoding
+          (if enc
+              (destructuring-bind (kw-encoding encoding) enc
+                (declare (ignore kw-encoding))
+                encoding)
+              :utf-8))))
+
 (defrule sqlite-option (or option-batch-rows
                            option-batch-size
                            option-batch-concurrency
@@ -1099,7 +1108,8 @@ load database
 			   option-include-drop
 			   option-create-tables
 			   option-create-indexes
-			   option-reset-sequences))
+			   option-reset-sequences
+                           option-encoding))
 
 (defrule another-sqlite-option (and comma sqlite-option)
   (:lambda (source)

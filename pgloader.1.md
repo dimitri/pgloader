@@ -1364,6 +1364,11 @@ The `sqlite` command accepts the following clauses and options:
 
 	    When this option is listed pgloader only issues the `COPY`
 	    statements, without doing any other processing.
+        
+      - *encoding*
+      
+        This option allows to control which encoding to parse the SQLite
+        text data with. Defaults to UTF-8.
 
   - *INCLUDING ONLY TABLE NAMES MATCHING*
 

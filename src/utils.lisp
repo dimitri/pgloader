@@ -335,6 +335,11 @@
 			    (*myconn-pass*        . ,*myconn-pass*)
 			    (*state*              . ,*state*)
                             (*client-min-messages* . ,*client-min-messages*)
-                            (*log-min-messages*    . ,*log-min-messages*))))
+                            (*log-min-messages*    . ,*log-min-messages*)
+
+                            ;; bindings updates for libs
+                            ;; CFFI is used by the SQLite lib
+                            (cffi:*default-foreign-encoding*
+                             . ,cffi:*default-foreign-encoding*))))
   "Wrapper around lparallel:make-kernel that sets our usual bindings."
   (lp:make-kernel worker-count :bindings bindings))

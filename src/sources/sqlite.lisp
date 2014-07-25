@@ -235,13 +235,15 @@
 			    only-tables
 			    including
 			    excluding
-                            (identifier-case :downcase))
+                            (identifier-case :downcase)
+                            (encoding :utf-8))
   "Stream the given SQLite database down to PostgreSQL."
   (let* ((summary       (null *state*))
 	 (*state*       (or *state* (make-pgstate)))
 	 (state-before  (or state-before (make-pgstate)))
 	 (idx-state     (make-pgstate))
 	 (seq-state     (make-pgstate))
+         (cffi:*default-foreign-encoding* encoding)
          (copy-kernel   (make-kernel 2))
          (all-columns   (filter-column-list (list-all-columns (db sqlite))
 					    :only-tables only-tables
