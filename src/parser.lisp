@@ -1171,7 +1171,10 @@ load database
   (:lambda (source)
     (destructuring-bind (sqlite-uri pg-db-uri
                                     &key
-                                    ((:sqlite-options options)) gucs incl excl)
+                                    gucs
+                                    ((:sqlite-options options))
+                                    ((:including incl))
+                                    ((:excluding excl)))
         source
       (destructuring-bind (&key dbname table-name &allow-other-keys)
 	  pg-db-uri
