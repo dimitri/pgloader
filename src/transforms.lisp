@@ -24,7 +24,8 @@
                  empty-string-to-null
 		 set-to-enum-array
 		 right-trim
-		 byte-vector-to-bytea))
+		 byte-vector-to-bytea
+                 sqlite-timestamp-to-timestamp))
 
 
 ;;;
@@ -197,3 +198,27 @@
 	      (setf (aref bytea pos)       (aref hex-digits high))
 	      (setf (aref bytea (+ pos 1)) (aref hex-digits low)))
 	 finally (return bytea)))))
+
+(defun sqlite-timestamp-to-timestamp (date-string-or-integer)
+  (declare (type (or integer simple-string) date-string-or-integer))
+  (when date-string-or-integer
+    (cond ((and (typep date-string-or-integer 'integer)
+                (= 0 date-string-or-integer))
+           nil)
+
+          ((typep date-string-or-integer 'integer)
+           ;; a non-zero integer is a year
+           (format nil "~a-01-01" date-string-or-integer))
+
+          ((stringp date-string-or-integer)
+           ;; default values are sent as strings
+           (let ((maybe-integer
+                  (ignore-errors (parse-integer date-string-or-integer))))
+             (cond ((and maybe-integer (= 0 maybe-integer))
+                    nil)
+
+                   (maybe-integer
+                    (format nil "~a-01-01" maybe-integer))
+
+                   (t
+                    date-string-or-integer)))))))

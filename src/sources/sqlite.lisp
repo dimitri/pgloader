@@ -17,7 +17,9 @@
     ("double precision" . pgloader.transforms::float-to-string)
     ("numeric"          . pgloader.transforms::float-to-string)
     ("text"             . nil)
-    ("bytea"            . pgloader.transforms::byte-vector-to-bytea))
+    ("bytea"            . pgloader.transforms::byte-vector-to-bytea)
+    ("timestamp"        . pgloader.transforms::sqlite-timestamp-to-timestamp)
+    ("timestamptz"      . pgloader.transforms::sqlite-timestamp-to-timestamp))
   "Transformation functions to use when migrating from SQLite to PostgreSQL.")
 
 ;;;
