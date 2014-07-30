@@ -7,6 +7,19 @@
 (defvar *sqlite-db* nil
   "The SQLite database connection handler.")
 
+;;
+;; The SQLite drive we use maps the CFFI data type mapping functions and
+;; gets back proper CL typed objects, where we only want to deal with text.
+;;
+(defvar *sqlite-to-pgsql*
+  '(("float"            . pgloader.transforms::float-to-string)
+    ("real"             . pgloader.transforms::float-to-string)
+    ("double precision" . pgloader.transforms::float-to-string)
+    ("numeric"          . pgloader.transforms::float-to-string)
+    ("text"             . nil)
+    ("bytea"            . pgloader.transforms::byte-vector-to-bytea))
+  "Transformation functions to use when migrating from SQLite to PostgreSQL.")
+
 ;;;
 ;;; SQLite tools connecting to a database
 ;;;
@@ -32,6 +45,32 @@
 
           (t sqlite-type-name))))
 
+(defun transformation-function (pgsql-type-name)
+  "Return the transformation function to use to switch a SQLite value to a
+  PostgreSQL value of type PGSQL-TYPE-NAME."
+  (let* ((type-name
+          (cond ((and (<= 7 (length pgsql-type-name))
+                      (string-equal "numeric" pgsql-type-name :end2 7))
+                 "numeric")
+                (t pgsql-type-name)))
+         (transform (assoc type-name *sqlite-to-pgsql* :test #'string=)))
+    (if transform
+        (cdr transform)
+        (compile nil (lambda (c) (when c (format nil "~a" c)))))))
+
+(defun format-pgsql-default-value (col)
+  "Return the PostgreSQL representation for the default value of COL."
+  (declare (type coldef col))
+  (let ((default (coldef-default col)))
+    (cond
+      ((null default)                        "NULL")
+      ((string= "NULL" default)              default)
+      ((string= "CURRENT_TIMESTAMP" default) default)
+      (t
+       ;; apply the transformation function to the default value
+       (let ((fn (transformation-function (cast (coldef-type col)))))
+         (if fn (funcall fn default) (format nil "'~a'" default)))))))
+
 (defmethod format-pgsql-column ((col coldef) &key identifier-case)
   "Return a string representing the PostgreSQL column definition."
   (let* ((column-name
@@ -41,7 +80,7 @@
 		  "~a~:[~; not null~]~@[ default ~a~]"
 		  (cast (coldef-type col))
 		  (coldef-nullable col)
-		  (coldef-default col))))
+		  (format-pgsql-default-value col))))
     (format nil "~a ~22t ~a" column-name type-definition)))
 
 (defun list-tables (&optional (db *sqlite-db*))
@@ -131,28 +170,7 @@
 	      (loop for field in fields
 		 collect
 		   (let ((coltype (cast (coldef-type field))))
-		     ;;
-		     ;; The SQLite drive we use maps the CFFI data type
-		     ;; mapping functions and gets back proper CL typed
-		     ;; objects, where we only want to deal with text.
-		     ;;
-		     (cond ((or (string-equal "float" coltype)
-                                (string-equal "real" coltype)
-                                (string-equal "double precision" coltype)
-				(and (<= 7 (length coltype))
-				     (string-equal "numeric" coltype :end2 7)))
-			    #'pgloader.transforms::float-to-string)
-
-			   ((string-equal "text" coltype)
-			    nil)
-
-                           ((string-equal "bytea" coltype)
-                            #'pgloader.transforms::byte-vector-to-bytea)
-
-			   (t
-			    (compile nil (lambda (c)
-					   (when c
-					     (format nil "~a" c)))))))))))))
+                     (transformation-function coltype))))))))
 
 ;;; Map a function to each row extracted from SQLite
 ;;;
