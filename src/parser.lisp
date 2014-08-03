@@ -2365,14 +2365,11 @@ load database
 
       ;; maybe duplicate the summary to a file
       (let* ((summary-stream (when summary-pathname
-                              (open summary-pathname
-                                    :direction :output
-                                    :if-exists :rename
-                                    :if-does-not-exist :create)))
-             (*report-stream* (apply
-                               #'make-broadcast-stream
-                               (remove-if #'null (list *terminal-io*
-                                                       summary-stream)))))
+                               (open summary-pathname
+                                     :direction :output
+                                     :if-exists :rename
+                                     :if-does-not-exist :create)))
+             (*report-stream* (or summary-stream *terminal-io*)))
         (unwind-protect
              ;; run the commands
              (loop for func in funcs do (funcall func))
