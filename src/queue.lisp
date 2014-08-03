@@ -49,16 +49,13 @@
   ;; All the data transformation takes place here, so that we batch fully
   ;; formed COPY TEXT string ready to go in the PostgreSQL stream.
   (handler-case
-      (let ((copy-string (with-output-to-string (s)
-                           (format-vector-row s row (transforms copy)))))
-        (with-slots (data count bytes) *current-batch*
+      (with-slots (data count bytes) *current-batch*
+        (let ((copy-string
+               (with-output-to-string (s)
+                 (let ((c-s-bytes (format-vector-row s row (transforms copy))))
+                   (when *copy-batch-size* ; running under memory watch
+                     (incf bytes c-s-bytes))))))
           (setf (aref data count) copy-string)
-          (when *copy-batch-size*          ; running under memory watch
-            (incf bytes
-                  #+sbcl (length
-                          (sb-ext:string-to-octets copy-string :external-format :utf-8))
-                  #+ccl (ccl:string-size-in-octets copy-string :external-format :utf-8)
-                  #- (or sbcl ccl) (length copy-string)))
           (incf count)))
 
     (condition (e)
