@@ -42,11 +42,47 @@
     ;; return the pathname where we just downloaded the file
     archive-filename))
 
+(defun archive-type (archive-file)
+  "Return one of :tar, :gz or :zip depending on ARCHIVE-FILE pathname extension."
+  (multiple-value-bind (abs paths filename no-path-p)
+      (uiop:split-unix-namestring-directory-components
+       (uiop:native-namestring archive-file))
+    (declare (ignore abs paths no-path-p))
+    (let ((dotted-parts (reverse (sq:split-sequence #\. filename))))
+      (destructuring-bind (extension name-or-ext &rest parts)
+          dotted-parts
+        (declare (ignore parts))
+        (if (string-equal "tar" name-or-ext) :tar
+              (intern (string-upcase extension) :keyword))))))
+
 (defun unzip (archive-file expand-directory)
   "Unzip an archive"
   ;; TODO: fallback to the following if the unzip command is not found
   ;; (zip:unzip archive-file expand-directory :if-exists :supersede)
-  (let ((command (format nil "unzip -o ~a -d ~a" archive-file expand-directory)))
+  (let ((command (format nil "unzip -o ~s -d ~s"
+                         (uiop:native-namestring archive-file)
+                         (uiop:native-namestring expand-directory))))
+    (log-message :notice "~a" command)
+    (uiop:run-program command)))
+
+(defun gunzip (archive-file expand-directory)
+  "Unzip a gzip formated archive"
+  (let ((command (format nil "gunzip -c ~s > ~s"
+                         (uiop:native-namestring archive-file)
+                         (uiop:native-namestring (pathname-name archive-file))))
+        (cwd     (uiop:getcwd)))
+    (log-message :notice "~a" command)
+    (unwind-protect
+         (progn
+           (uiop:chdir expand-directory)
+           (uiop:run-program command))
+      (uiop:chdir cwd))))
+
+(defun untar (archive-file expand-directory)
+  "Untar an archive"
+  (let ((command (format nil "tar xf ~s -C ~s"
+                         (uiop:native-namestring archive-file)
+                         (uiop:native-namestring expand-directory))))
     (log-message :notice "~a" command)
     (uiop:run-program command)))
 
@@ -61,12 +97,15 @@
     (error "File does not exists: '~a'." archive-file))
 
   (let* ((archive-name (pathname-name archive-file))
-	 (archive-type
-	  (intern (string-upcase (pathname-type archive-file)) :keyword))
+	 (archive-type (archive-type archive-file))
 	 (expand-directory
 	  (fad:pathname-as-directory (merge-pathnames archive-name tmpdir))))
     (ensure-directories-exist expand-directory)
+
     (ecase archive-type
+      (:tar (untar archive-file expand-directory))
+      (:tgz (untar archive-file expand-directory))
+      (:gz  (gunzip archive-file expand-directory))
       (:zip (unzip archive-file expand-directory)))
     ;; return the pathname where we did expand the archive
     expand-directory))
