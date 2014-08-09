@@ -8,14 +8,13 @@
 
 (defun apply-identifier-case (identifier case)
   "Return given IDENTIFIER with CASE handled to be PostgreSQL compatible."
-  (let ((case
-	    (if (member identifier *pgsql-reserved-keywords* :test #'string=)
-		:quote
-		case)))
-   (ecase case
-     (:downcase (cl-ppcre:regex-replace-all
-		 "[^a-zA-Z0-9.]" (string-downcase identifier) "_"))
-     (:quote    (format nil "\"~a\"" identifier)))))
+  (ecase case
+    (:downcase (let ((lowered (cl-ppcre:regex-replace-all
+                                "[^a-zA-Z0-9.]" (string-downcase identifier) "_")))
+                 (if (member lowered *pgsql-reserved-keywords* :test #'string=)
+                   (format nil "\"~a\"" lowered)
+                   lowered)))
+    (:quote    (format nil "\"~a\"" identifier))))
 
 ;;;
 ;;; Some parts of the logic here needs to be specialized depending on the
