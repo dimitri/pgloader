@@ -93,6 +93,12 @@ Here, the code from the *git clone* will be used at run-time. Self-upgrade
 is done first, then the main program entry point is called again with the
 new coded loaded in.
 
+Please note that the *binary* file (`/usr/bin/pgloader` or
+`./build/bin/pgloader`) is not modified in-place, so that if you want to run
+the same upgraded code again you will have to use the `--self-upgrade`
+command again. It might warrant for an option rename before `3.1.0` stable
+release.
+
 ## The pgloader.lisp script
 
 Now you can use the `#!` script or build a self-contained binary executable
