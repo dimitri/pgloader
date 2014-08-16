@@ -155,10 +155,20 @@ order by table_name" dbname only-tables))))
   "Associate internal table type symbol with what's found in MySQL
   information_schema.tables.table_type column.")
 
+(defun filter-list-to-where-clause (filter-list)
+  "Given an INCLUDING or EXCLUDING clause, turn it into a MySQL WHERE clause."
+  (mapcar (lambda (filter)
+            (typecase filter
+              (string (format nil "= '~a'" filter))
+              (cons   (format nil "REGEXP '~a'" (cadr filter)))))
+          filter-list))
+
 (defun list-all-columns (&key
                            (dbname *my-dbname*)
-			   only-tables
 			   (table-type :table)
+			   only-tables
+                           including
+                           excluding
 			 &aux
 			   (table-type-name (cdr (assoc table-type *table-type*))))
   "Get the list of MySQL column names per table."
@@ -174,7 +184,14 @@ order by table_name" dbname only-tables))))
          join information_schema.tables t using(table_schema, table_name)
    where c.table_schema = '~a' and t.table_type = '~a'
          ~@[and table_name in (~{'~a'~^,~})~]
-order by table_name, ordinal_position" dbname table-type-name only-tables))
+         ~@[and (~{table_name ~a~^ and ~})~]
+         ~@[and not (~{table_name '~a'~^ and ~})~]
+order by table_name, ordinal_position"
+                            dbname
+                            table-type-name
+                            only-tables
+                            (filter-list-to-where-clause including)
+                            (filter-list-to-where-clause excluding)))
      do
        (let ((entry  (assoc table-name schema :test 'equal))
              (column
@@ -191,7 +208,11 @@ order by table_name, ordinal_position" dbname table-type-name only-tables))
                   for cols = (cdr (assoc name schema :test #'string=))
                   collect (cons name (reverse cols))))))
 
-(defun list-all-indexes (&optional (dbname *my-dbname*))
+(defun list-all-indexes (&key
+                           (dbname *my-dbname*)
+                           only-tables
+                           including
+                           excluding)
   "Get the list of MySQL index definitions per table."
   (loop
      with schema = nil
@@ -201,7 +222,14 @@ order by table_name, ordinal_position" dbname table-type-name only-tables))
          cast(GROUP_CONCAT(column_name order by seq_in_index) as char)
     FROM information_schema.statistics
    WHERE table_schema = '~a'
-GROUP BY table_name, index_name;" dbname))
+         ~@[and table_name in (~{'~a'~^,~})~]
+         ~@[and (~{table_name ~a~^ and ~})~]
+         ~@[and not (~{table_name '~a'~^ and ~})~]
+GROUP BY table_name, index_name;"
+                             dbname
+                             only-tables
+                             (filter-list-to-where-clause including)
+                             (filter-list-to-where-clause excluding)))
      do (let ((entry (assoc table-name schema :test 'equal))
               (index
                (make-pgsql-index :name name
@@ -239,7 +267,11 @@ GROUP BY table_name, index_name;" dbname))
 ;;;
 ;;; MySQL Foreign Keys
 ;;;
-(defun list-all-fkeys (&optional (dbname *my-dbname*))
+(defun list-all-fkeys (&key
+                         (dbname *my-dbname*)
+                         only-tables
+                         including
+                         excluding)
   "Get the list of MySQL Foreign Keys definitions per table."
   (loop
      with schema = nil
@@ -261,7 +293,15 @@ GROUP BY table_name, index_name;" dbname))
           AND k.referenced_table_schema = '~a'
           AND i.constraint_type = 'FOREIGN KEY'
 
- GROUP BY table_name, constraint_name, ft;" dbname dbname))
+       ~@[AND table_name in (~{'~a'~^,~})~]
+       ~@[AND (~{table_name ~a~^ and ~})~]
+       ~@[AND not (~{table_name '~a'~^ and ~})~]
+
+ GROUP BY table_name, constraint_name, ft;"
+                             dbname dbname
+                             only-tables
+                             (filter-list-to-where-clause including)
+                             (filter-list-to-where-clause excluding)))
      do (let ((entry (assoc table-name schema :test 'equal))
               (fk
                (make-pgsql-fkey :name name

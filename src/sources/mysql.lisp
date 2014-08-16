@@ -256,20 +256,17 @@
        (when (and materialize-views (not (eq :all materialize-views)))
          (create-my-views materialize-views))
 
-       (setf all-columns   (filter-column-list (list-all-columns)
-                                               :only-tables only-tables
-                                               :including including
-                                               :excluding excluding)
+       (setf all-columns   (list-all-columns :only-tables only-tables
+                                             :including including
+                                             :excluding excluding)
 
-             all-fkeys     (filter-column-list (list-all-fkeys)
-                                               :only-tables only-tables
-                                               :including including
-                                               :excluding excluding)
+             all-fkeys     (list-all-fkeys :only-tables only-tables
+                                           :including including
+                                           :excluding excluding)
 
-             all-indexes   (filter-column-list (list-all-indexes)
-                                               :only-tables only-tables
-                                               :including including
-                                               :excluding excluding)
+             all-indexes   (list-all-indexes :only-tables only-tables
+                                             :including including
+                                             :excluding excluding)
 
              view-columns  (cond (view-names
                                   (list-all-columns :only-tables view-names
