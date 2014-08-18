@@ -31,10 +31,13 @@ make pgloader
 %install
 install -m 755 -d %{buildroot}/%{_bindir}
 cp build/bin/pgloader %{buildroot}/%{_bindir}/pgloader
+mkdir -p $RPM_BUILD_ROOT/etc/prelink.conf.d
+echo '-b /usr/bin/pgloader' > $RPM_BUILD_ROOT/etc/prelink.conf.d/%{name}.conf
 
 %files
 %doc README.md pgloader.1.md
 %{_bindir}/*
+/etc/prelink.conf.d/%{name}.conf
 
 %changelog
 * Tue Apr 29 2014 Dimitri Fontaine <dimitri@2ndQuadrant.fr> 3.0.99
