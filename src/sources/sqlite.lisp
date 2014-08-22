@@ -44,6 +44,7 @@
           ((string-equal sqlite-type-name "datetime") "timestamptz")
           ((string-equal sqlite-type-name "double")   "double precision")
           ((string-equal sqlite-type-name "blob")     "bytea")
+          ((string-equal sqlite-type-name "clob")     "text")
 
           (t sqlite-type-name))))
 
