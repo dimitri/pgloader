@@ -18,10 +18,10 @@ never had a *year zero*).
 
 ## Versioning
 
-The pgloader version 1.x from a long time ago was developed in `TCL`.
+pgloader version 1.x is quite old and was devleoped in `TCL`.
 When faced with maintaining that code, the new emerging development
 team (hi!) picked `python` instead because that made sense at the
-time. So pgloader version 2.x were in python.
+time. So pgloader version 2.x was written in python.
 
 The current version of pgloader is the 3.x series, which is written in
 [Common Lisp](http://cliki.net/) for better development flexibility,
