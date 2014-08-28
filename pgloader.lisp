@@ -16,8 +16,6 @@ exec sbcl --script "$0" $@
 (format t "Loading quicklisp and the pgloader project and its dependencies...")
 (terpri)
 (with-output-to-string (*standard-output*)
-  (pushnew :lparallel.with-vector-queue *features*)
-  (pushnew :lparallel.without-stealing-scheduler *features*)
   (ql:quickload '(:pgloader)))
 
 (in-package #:pgloader)
