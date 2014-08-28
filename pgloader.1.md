@@ -1280,7 +1280,7 @@ Here's an example:
          from sqlite:///Users/dim/Downloads/lastfm_tags.db
          into postgresql:///tags
 
-     with drop tables, create tables, create indexes, reset sequences
+     with include drop, create tables, create indexes, reset sequences
 
       set work_mem to '16MB', maintenance_work_mem to '512 MB';
 

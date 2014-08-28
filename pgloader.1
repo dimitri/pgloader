@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "July 2014" "ff" ""
+.TH "PGLOADER" "1" "August 2014" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -1561,7 +1561,7 @@ load database
      from sqlite:///Users/dim/Downloads/lastfm_tags\.db
      into postgresql:///tags
 
- with drop tables, create tables, create indexes, reset sequences
+ with include drop, create tables, create indexes, reset sequences
 
   set work_mem to \'16MB\', maintenance_work_mem to \'512 MB\';
 .
