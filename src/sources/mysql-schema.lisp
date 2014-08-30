@@ -155,12 +155,12 @@ order by table_name" dbname only-tables))))
   "Associate internal table type symbol with what's found in MySQL
   information_schema.tables.table_type column.")
 
-(defun filter-list-to-where-clause (filter-list)
+(defun filter-list-to-where-clause (filter-list &optional not)
   "Given an INCLUDING or EXCLUDING clause, turn it into a MySQL WHERE clause."
   (mapcar (lambda (filter)
             (typecase filter
-              (string (format nil "= '~a'" filter))
-              (cons   (format nil "REGEXP '~a'" (cadr filter)))))
+              (string (format nil "~:[~;!~]= '~a'" not filter))
+              (cons   (format nil "~:[~;NOT ~]REGEXP '~a'" not (cadr filter)))))
           filter-list))
 
 (defun list-all-columns (&key
@@ -183,15 +183,18 @@ order by table_name" dbname only-tables))))
     from information_schema.columns c
          join information_schema.tables t using(table_schema, table_name)
    where c.table_schema = '~a' and t.table_type = '~a'
-         ~@[and table_name in (~{'~a'~^,~})~]
-         ~@[and (~{table_name ~a~^ and ~})~]
-         ~@[and not (~{table_name '~a'~^ and ~})~]
+         ~:[~*~;and table_name in (~{'~a'~^,~})~]
+         ~:[~*~;and (~{table_name ~a~^ and ~})~]
+         ~:[~*~;and (~{table_name ~a~^ and ~})~]
 order by table_name, ordinal_position"
                             dbname
                             table-type-name
+                            only-tables ; do we print the clause?
                             only-tables
+                            including   ; do we print the clause?
                             (filter-list-to-where-clause including)
-                            (filter-list-to-where-clause excluding)))
+                            excluding   ; do we print the clause?
+                            (filter-list-to-where-clause excluding t)))
      do
        (let ((entry  (assoc table-name schema :test 'equal))
              (column
@@ -222,14 +225,17 @@ order by table_name, ordinal_position"
          cast(GROUP_CONCAT(column_name order by seq_in_index) as char)
     FROM information_schema.statistics
    WHERE table_schema = '~a'
-         ~@[and table_name in (~{'~a'~^,~})~]
-         ~@[and (~{table_name ~a~^ and ~})~]
-         ~@[and not (~{table_name '~a'~^ and ~})~]
+         ~:[~*~;and table_name in (~{'~a'~^,~})~]
+         ~:[~*~;and (~{table_name ~a~^ and ~})~]
+         ~:[~*~;and (~{table_name ~a~^ and ~})~]
 GROUP BY table_name, index_name;"
                              dbname
+                             only-tables ; do we print the clause?
                              only-tables
+                             including   ; do we print the clause?
                              (filter-list-to-where-clause including)
-                             (filter-list-to-where-clause excluding)))
+                             excluding   ; do we print the clause?
+                             (filter-list-to-where-clause excluding t)))
      do (let ((entry (assoc table-name schema :test 'equal))
               (index
                (make-pgsql-index :name name
@@ -292,16 +298,18 @@ GROUP BY table_name, index_name;"
     WHERE     i.table_schema = '~a'
           AND k.referenced_table_schema = '~a'
           AND i.constraint_type = 'FOREIGN KEY'
-
-       ~@[AND table_name in (~{'~a'~^,~})~]
-       ~@[AND (~{table_name ~a~^ and ~})~]
-       ~@[AND not (~{table_name '~a'~^ and ~})~]
+         ~:[~*~;and table_name in (~{'~a'~^,~})~]
+         ~:[~*~;and (~{table_name ~a~^ and ~})~]
+         ~:[~*~;and (~{table_name ~a~^ and ~})~]
 
  GROUP BY table_name, constraint_name, ft;"
                              dbname dbname
+                             only-tables ; do we print the clause?
                              only-tables
+                             including   ; do we print the clause?
                              (filter-list-to-where-clause including)
-                             (filter-list-to-where-clause excluding)))
+                             excluding   ; do we print the clause?
+                             (filter-list-to-where-clause excluding t)))
      do (let ((entry (assoc table-name schema :test 'equal))
               (fk
                (make-pgsql-fkey :name name
