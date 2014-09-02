@@ -39,8 +39,8 @@
     (("logfile" #\L) :type string
      :documentation "Filename where to send the logs.")
 
-    (("load" #\l) :type string :list t :optional t
-     :documentation "Read user code from file")
+    (("load-lisp-file" #\l) :type string :list t :optional t
+     :documentation "Read user code from files")
 
     ("self-upgrade" :type string :optional t
      :documentation "Path to pgloader newer sources")))
@@ -118,6 +118,19 @@
       (mkdir-or-die summary-dir debug)
       summary-pathname)))
 
+(defvar *--load-list-file-extension-whitelist* '("lisp" "lsp" "cl" "asd")
+  "White list of file extensions allowed with the --load option.")
+
+(defun load-extra-transformation-functions (filename)
+  "Load an extra filename to tweak pgloader's behavior."
+  (let ((pathname (uiop:parse-native-namestring filename)))
+    (unless (member (pathname-type pathname)
+                    *--load-list-file-extension-whitelist*
+                    :test #'string=)
+      (error "Unknown lisp file extension: ~s" (pathname-type pathname)))
+
+    (load (compile-file pathname :verbose nil :print nil))))
+
 (defun main (argv)
   "Entry point when building an executable image with buildapp"
   (let ((args (rest argv)))
@@ -130,7 +143,8 @@
             (usage argv :quit t)))
 
       (destructuring-bind (&key help version quiet verbose debug logfile
-				list-encodings upgrade-config load
+				list-encodings upgrade-config
+                                ((:load-lisp-file load))
 				client-min-messages log-min-messages summary
 				root-dir self-upgrade)
 	  options
@@ -200,8 +214,15 @@
 	  (uiop:quit))
 
 	(when load
-	  (loop for filename in load
-	     do (load (compile-file filename :verbose nil :print nil))))
+          (loop for filename in load do
+               (handler-case
+                   (load-extra-transformation-functions filename)
+                 (condition (e)
+                   (format *standard-output*
+                           "Failed to load lisp source file ~s~%"
+                           filename)
+                   (format *standard-output* "~a~%" e)
+                   (uiop:quit 3)))))
 
 	;; Now process the arguments
 	(when arguments

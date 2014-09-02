@@ -59,13 +59,13 @@ pgloader operates using commands which are read from files:
    `INI` syntax that was in use in pgloader versions 2.x, and output the
    new command syntax for pgloader on standard output.
 
-  * -l <file>, --load <file>:
+  * `-l <file>`, `--load-lisp-file <file>`:
     Specify a lisp <file> to compile and load into the pgloader image before
     reading the commands, allowing to define extra transformation function.
     Those functions should be defined in the `pgloader.transforms` package.
     This option can appear more than once in the command line.
 
-  * --self-upgrade <directory>:
+  * `--self-upgrade <directory>`:
 
     Specify a <directory> where to find pgloader sources so that one of the
     very first things it does is dynamically loading-in (and compiling to

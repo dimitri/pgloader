@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "August 2014" "ff" ""
+.TH "PGLOADER" "1" "September 2014" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -76,11 +76,11 @@ List known encodings in this version of pgloader\.
 Parse given files in the command line as \fBpgloader\.conf\fR files with the \fBINI\fR syntax that was in use in pgloader versions 2\.x, and output the new command syntax for pgloader on standard output\.
 .
 .TP
-\-l \fIfile\fR, \-\-load \fIfile\fR
+\fB\-l <file>\fR, \fB\-\-load\-lisp\-file <file>\fR
 Specify a lisp \fIfile\fR to compile and load into the pgloader image before reading the commands, allowing to define extra transformation function\. Those functions should be defined in the \fBpgloader\.transforms\fR package\. This option can appear more than once in the command line\.
 .
 .TP
-\-\-self\-upgrade \fIdirectory\fR:
+\fB\-\-self\-upgrade <directory>\fR:
 .
 .IP
 Specify a \fIdirectory\fR where to find pgloader sources so that one of the very first things it does is dynamically loading\-in (and compiling to machine code) another version of itself, usually a newer one like a very recent git checkout\.
