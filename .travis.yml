@@ -7,7 +7,7 @@ install:
   - wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
   - echo "deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
   - sudo apt-get update
-  - sudo apt-get upgrade
+  - sudo apt-get -y upgrade
   - sudo apt-get install postgresql-9.1-ip4r
 before_script:
   - sudo -u postgres createuser -S -R -D -E -l pgloader
