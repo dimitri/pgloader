@@ -149,8 +149,7 @@ Give as many command files that you need to pgloader:
     $ ./build/pgloader.exe <file.load>
 	
 See the documentation file `pgloader.1.md` for details. You can compile that
-file into a manual page or an HTML page thanks to the `pandoc` application:
+file into a manual page or an HTML page thanks to the `ronn` application:
 
-    $ apt-get install pandoc
-	$ pandoc pgloader.1.md -o pgloader.1
-	$ pandoc pgloader.1.md -o pgloader.html
+    $ apt-get install ruby-ronn
+	$ make docs
