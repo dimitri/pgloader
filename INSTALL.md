@@ -30,6 +30,12 @@ We suppose you already have `git` and `make` available, if that's not the
 case now is the time to install those tools. The SQLite lib that comes in
 MacOSX is fine, no need for extra software here.
 
+You will need to install either SBCL or CCL separately, and when using
+[brew](http://brew.sh/) it's as simple as:
+
+    brew install sbcl
+    brew install clozure-cl
+
 ## Building pgloader
 
 Now that the dependences are installed, just type make.
@@ -48,3 +54,11 @@ Then you will have a new tool to play with:
     
 This command should spit out the *usage* information on which parameters are
 accepted in the command line actually.
+
+
+## Building pgloader with CCL
+
+It's possible to pick [ccl](http://ccl.clozure.com/) rather than SBCL when
+compiling pgloader:
+
+    make CL=ccl
