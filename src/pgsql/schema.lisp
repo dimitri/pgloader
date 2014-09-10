@@ -186,7 +186,7 @@
 (defun truncate-tables (dbname table-name-list
                         &key (identifier-case :downcase))
   "Truncate given TABLE-NAME in database DBNAME"
-  (pomo:with-connection (get-connection-spec dbname)
+  (with-pgsql-transaction (:dbname dbname)
     (set-session-gucs *pg-settings*)
     (let ((sql (format nil "TRUNCATE ~{~a~^,~};"
                        (loop :for table-name :in table-name-list
