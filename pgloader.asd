@@ -18,7 +18,6 @@
 		 #:esrap		; parser generator
 		 #:alexandria		; utils
 		 #:drakma		; http client, download archives
-		 #:zip			; support for zip archive files
 		 #:flexi-streams	; streams
 		 #:usocket		; UDP / syslog
 		 #:local-time		; UDP date parsing
