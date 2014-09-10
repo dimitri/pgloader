@@ -1,9 +1,10 @@
 Source: pgloader
 Section: database
 Priority: extra
-Maintainer: Dimitri Fontaine <dimitri@2ndQuadrant.fr>
-Build-Depends: debhelper (>= 8.0.0), sbcl (>= 1.1.13), ruby-ronn, buildapp (>= 1.5), cl-asdf (>= 3.0.3), cl-log, cl-postmodern, cl-qmynd, cl-split-sequence, cl-csv, cl-fad, cl-lparallel, cl-esrap, cl-alexandria, cl-drakma, cl-zip, cl-flexi-streams, cl-usocket, cl-local-time, cl-command-line-arguments, cl-abnf, cl-db3, cl-py-configparser, cl-sqlite, cl-trivial-backtrace, cl-markdown, cl-md5, cl-asdf-finalizers, cl-asdf-system-connections, cl-cffi (>= 1:0.12.0), gawk
-Standards-Version: 3.9.3
+Maintainer: Dimitri Fontaine <dim@tapoueh.org>
+Uploaders: Christoph Berg <myon@debian.org>
+Build-Depends: debhelper (>= 8.0.0), sbcl (>= 1.1.13), ruby-ronn, buildapp (>= 1.5), cl-asdf (>= 3.0.3), cl-log, cl-postmodern, cl-simple-date, cl-qmynd, cl-split-sequence, cl-unicode, cl-interpol, cl-csv, cl-fad, cl-lparallel, cl-esrap, cl-alexandria, cl-drakma, cl-flexi-streams, cl-usocket, cl-local-time, cl-command-line-arguments, cl-abnf, cl-db3, cl-py-configparser, cl-sqlite, cl-trivial-backtrace, cl-markdown, cl-md5, cl-asdf-finalizers, cl-asdf-system-connections, cl-cffi (>= 1:0.12.0), cl-ixf, gawk, cl-bordeaux-threads (>= 0.8.3)
+Standards-Version: 3.9.5
 Homepage: https://github.com/dimitri/pgloader
 Vcs-Git: https://github.com/dimitri/pgloader.git
 Vcs-Browser: https://github.com/dimitri/pgloader
@@ -15,9 +16,9 @@ Description: extract, transform and load data into PostgreSQL
  pgloader imports data from different kind of sources and COPY it into
  PostgreSQL.
  .
- The command language is described in the manual page and allows to describe
- where to find the data source, its format, and to describe data processing
- and transformation.
+ The command language is described in the manual page and allows one to
+ describe where to find the data source, its format, and to describe data
+ processing and transformation.
  .
  Supported source formats include CSV, fixed width flat files, dBase3 files
  (DBF), and SQLite and MySQL databases. In most of those formats, pgloader
@@ -27,14 +28,14 @@ Description: extract, transform and load data into PostgreSQL
 
 Package: cl-pgloader
 Architecture: all
-Depends: ${shlibs:Depends}, cl-asdf (>= 3.0.3), cl-log, cl-postmodern, cl-qmynd, cl-split-sequence, cl-csv, cl-fad, cl-lparallel, cl-esrap, cl-alexandria, cl-drakma, cl-zip, cl-flexi-streams, cl-usocket, cl-local-time, cl-command-line-arguments, cl-abnf, cl-db3, cl-py-configparser, cl-sqlite, cl-trivial-backtrace, cl-markdown, cl-md5, cl-asdf-finalizers, cl-asdf-system-connections, cl-cffi (>= 1:0.12.0)
+Depends: ${misc:Depends}, cl-asdf (>= 3.0.3), cl-log, cl-postmodern, cl-simple-date, cl-qmynd, cl-split-sequence, cl-unicode, cl-interpol, cl-csv, cl-fad, cl-lparallel, cl-esrap, cl-alexandria, cl-drakma, cl-flexi-streams, cl-usocket, cl-local-time, cl-command-line-arguments, cl-abnf, cl-db3, cl-py-configparser, cl-sqlite, cl-trivial-backtrace, cl-markdown, cl-md5, cl-asdf-finalizers, cl-asdf-system-connections, cl-cffi (>= 1:0.12.0), cl-bordeaux-threads (>= 0.8.3)
 Description: extract, transform and load data into PostgreSQL
  pgloader imports data from different kind of sources and COPY it into
  PostgreSQL.
  .
- The command language is described in the manual page and allows to describe
- where to find the data source, its format, and to describe data processing
- and transformation.
+ The command language is described in the manual page and allows one to
+ describe where to find the data source, its format, and to describe data
+ processing and transformation.
  .
  Supported source formats include CSV, fixed width flat files, dBase3 files
  (DBF), and SQLite and MySQL databases. In most of those formats, pgloader

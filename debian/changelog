@@ -1,3 +1,9 @@
+pgloader (3.1.0-1) unstable; urgency=medium
+
+  * Stable release of the new pgloader version, 3.1
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Wed, 10 Sep 2014 16:48:11 +0400
+
 pgloader (3.0.99-1) unstable; urgency=medium
 
   * Release Candidate 9
@@ -5,7 +11,7 @@ pgloader (3.0.99-1) unstable; urgency=medium
   * Lots of bug fixes
   * Smarted batch memory usage
 
- -- Dimitri Fontaine <dimitri@2ndQuadrant.fr>  Tue, 29 Apr 2014 13:50:26 +0400
+ -- Dimitri Fontaine <dim@tapoueh.org>  Tue, 29 Apr 2014 13:50:26 +0400
 
 pgloader (3.0.98-1) unstable; urgency=low
 
@@ -13,7 +19,7 @@ pgloader (3.0.98-1) unstable; urgency=low
   * Fixes retry behavior
   * Assorted fixes
 
- -- Dimitri Fontaine <dimitri@2ndQuadrant.fr>  Thu, 23 Jan 2014 03:19:07 +0400
+ -- Dimitri Fontaine <dim@tapoueh.org>  Thu, 23 Jan 2014 03:19:07 +0400
 
 pgloader (3.0.97-1) unstable; urgency=low
 
@@ -23,7 +29,7 @@ pgloader (3.0.97-1) unstable; urgency=low
   * Add a documentation website with tutorials
   * Fix ASDF dependencies
 
- -- Dimitri Fontaine <dimitri@2ndQuadrant.fr>  Thu, 15 Jan 2014 01:33:16 +0400
+ -- Dimitri Fontaine <dim@tapoueh.org>  Thu, 15 Jan 2014 01:33:16 +0400
 
 pgloader (3.0.96-1) unstable; urgency=low
 
@@ -31,17 +37,17 @@ pgloader (3.0.96-1) unstable; urgency=low
   * Document then rework the batch retry behavior.
   * Various bug fixes, including CCL compatibility.
   
- -- Dimitri Fontaine <dimitri@2ndQuadrant.fr>  Fri, 27 Dec 2013 15:11:02 +0400
+ -- Dimitri Fontaine <dim@tapoueh.org>  Fri, 27 Dec 2013 15:11:02 +0400
 
 pgloader (3.0.95-1) unstable; urgency=low
 
   * Release Candidate 5.
   * Minimize memory usage, bug fixes.
 
- -- Dimitri Fontaine <dimitri@2ndQuadrant.fr>  Wed, 18 Dec 2013 23:32:33 +0100
+ -- Dimitri Fontaine <dim@tapoueh.org>  Wed, 18 Dec 2013 23:32:33 +0100
 
 pgloader (3.0.94-1) unstable; urgency=low
 
   * Release Candidate 4.
 
- -- Dimitri Fontaine <dimitri@2ndQuadrant.fr>  Mon, 09 Dec 2013 14:58:51 +0400
+ -- Dimitri Fontaine <dim@tapoueh.org>  Mon, 09 Dec 2013 14:58:51 +0400

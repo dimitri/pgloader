@@ -17,12 +17,13 @@ orig: clean
 
 override_dh_auto_build:
 	make docs
+	mkdir -p build/bin
 	buildapp --logfile /tmp/pgloader-build.log          \
                  --require sb-posix                         \
                  --require sb-bsd-sockets                   \
+                 --load /usr/share/common-lisp/source/cl-asdf/build/asdf.lisp \
                  --asdf-path .                              \
                  --asdf-tree /usr/share/common-lisp/systems \
-                 --load-system asdf               	    \
                  --load-system asdf-finalizers         	    \
                  --load-system asdf-system-connections 	    \
                  --load-system pgloader               	    \
@@ -33,7 +34,7 @@ override_dh_auto_build:
                  --output build/bin/pgloader
 
 override_dh_auto_test:
-	# do nothing
+	# no nothing
 
 override_dh_strip:
 	# do nothing
