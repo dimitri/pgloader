@@ -1,6 +1,6 @@
 # pgloader build tool
 APP_NAME   = pgloader
-VERSION    = 3.0.99
+VERSION    = 3.1.0
 
 # use either sbcl or ccl
 CL	   = sbcl
@@ -136,7 +136,7 @@ deb: docs
 	rsync -Ca --exclude=build/* ./ $(DEBUILD_ROOT)/
 	cd $(DEBUILD_ROOT) && make -f debian/rules orig
 	cd $(DEBUILD_ROOT) && debuild -us -uc -sa
-	cp -a /tmp/pgloader_* build/
+	cp -a /tmp/pgloader_* /tmp/cl-pgloader* build/
 
 rpm:
 	# intended for use on a CentOS or other RPM based system
