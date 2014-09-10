@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
 
+if [ ! -f /etc/apt/sources.list.old ]
+then
+    sudo mv /etc/apt/sources.list /etc/apt/sources.list.old
+    sudo cp /vagrant/conf/sources.list /etc/apt/sources.list
+fi
+
+sudo apt-get update
+sudo apt-get dist-upgrade -y
+
+cat /vagrant/conf/bashrc.sh >> ~/.bashrc
+
 # PostgreSQL
 sidsrc=/etc/apt/sources.list.d/sid-src.list
 echo "deb-src http://ftp.fr.debian.org/debian/ sid main" | sudo tee $sidsrc
@@ -21,7 +32,8 @@ sudo apt-get install -y postgresql-9.3 postgresql-contrib-9.3 \
                         sbcl                                  \
                         git patch unzip                       \
                         devscripts pandoc                     \
-                        libsqlite3-dev
+                        libsqlite3-dev                        \
+                        gnupg gnupg-agent
 
 sudo DEBIAN_FRONTEND=noninteractive \
      apt-get install -y --allow-unauthenticated mariadb-server

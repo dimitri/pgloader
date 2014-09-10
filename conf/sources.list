@@ -1,0 +1,5 @@
+deb http://ftp.fr.debian.org/debian sid main non-free contrib
+deb-src http://ftp.fr.debian.org/debian sid main non-free contrib
+
+# deb http://security.debian.org/ wheezy/updates main contrib non-free
+# deb-src http://security.debian.org/ wheezy/updates main contrib non-free
