@@ -49,7 +49,7 @@ DEBUILD_ROOT = /tmp/pgloader
 all: $(PGLOADER)
 
 clean:
-	rm -rf $(LIBS) $(QLDIR) $(MANIFEST) $(BUILDAPP) $(PGINSTALL)
+	rm -rf $(LIBS) $(QLDIR) $(MANIFEST) $(BUILDAPP) $(PGLOADER)
 
 docs:
 	ronn -roff pgloader.1.md
@@ -133,7 +133,14 @@ test: $(PGLOADER)
 deb:
 	# intended for use on a debian system
 	mkdir -p $(DEBUILD_ROOT) && rm -rf $(DEBUILD_ROOT)/*
-	rsync -Ca --exclude 'build' --exclude '.vagrant' ./ $(DEBUILD_ROOT)/
+	rsync -Ca --exclude 'build'                      		  \
+		  --exclude '.vagrant'                   		  \
+		  --exclude 'test/sqlite-chinook.load'   		  \
+		  --exclude 'test/sqlite'                		  \
+		  --exclude 'test/data/2013_Gaz_113CDs_national.txt'      \
+		  --exclude 'test/data/reg2013.dbf'      		  \
+		  --exclude 'test/data/sakila-db.zip'    		  \
+              ./ $(DEBUILD_ROOT)/
 	cd $(DEBUILD_ROOT) && make -f debian/rules orig
 	cd $(DEBUILD_ROOT) && debuild -us -uc -sa
 	cp -a /tmp/pgloader_* /tmp/cl-pgloader* build/
