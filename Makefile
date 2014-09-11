@@ -130,17 +130,17 @@ pgloader-standalone:
 test: $(PGLOADER)
 	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) -C test regress
 
-deb: docs
+deb:
 	# intended for use on a debian system
 	mkdir -p $(DEBUILD_ROOT) && rm -rf $(DEBUILD_ROOT)/*
-	rsync -Ca --exclude=build/* ./ $(DEBUILD_ROOT)/
+	rsync -Ca --exclude 'build' --exclude '.vagrant' ./ $(DEBUILD_ROOT)/
 	cd $(DEBUILD_ROOT) && make -f debian/rules orig
 	cd $(DEBUILD_ROOT) && debuild -us -uc -sa
 	cp -a /tmp/pgloader_* /tmp/cl-pgloader* build/
 
 rpm:
 	# intended for use on a CentOS or other RPM based system
-	mkdir -p $(DEBUILD_ROOT) && rm -rf $(DEBUILD_ROOT)/*
+	mkdir -p $(DEBUILD_ROOT) && rm -rf $(DEBUILD_ROOT)
 	rsync -Ca --exclude=build/* ./ $(DEBUILD_ROOT)/
 	cd /tmp && tar czf $(HOME)/rpmbuild/SOURCES/pgloader-$(VERSION).tar.gz pgloader
 	cd $(DEBUILD_ROOT) && rpmbuild -ba pgloader.spec
