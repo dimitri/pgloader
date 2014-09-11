@@ -10,7 +10,7 @@
 #export DH_VERBOSE=1
 
 PKGVERS = $(shell dpkg-parsechangelog | awk -F '[:-]' '/^Version:/ { print substr($$2, 2) }')
-EXCLUDE = --exclude-vcs --exclude=debian --exclude=build
+EXCLUDE = --exclude-vcs --exclude=debian --exclude=build --exclude=.vagrant
 
 orig: clean
 	cd .. && tar czf pgloader_$(PKGVERS).orig.tar.gz $(EXCLUDE) pgloader

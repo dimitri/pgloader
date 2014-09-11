@@ -1,4 +1,4 @@
-pgloader (3.1.0-1) unstable; urgency=medium
+pgloader (3.1.0+dfsg-1) unstable; urgency=medium
 
   * Stable release of the new pgloader version, 3.1
 
@@ -51,3 +51,185 @@ pgloader (3.0.94-1) unstable; urgency=low
   * Release Candidate 4.
 
  -- Dimitri Fontaine <dim@tapoueh.org>  Mon, 09 Dec 2013 14:58:51 +0400
+
+pgloader (2.3.3~dev3-1.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Don't hardcode dependency on python-support, use ${python:Depends}
+    (closes: #542052). Thanks to Faheem Mitha for the bug report.
+
+ -- Jakub Wilk <jwilk@debian.org>  Fri, 06 Jan 2012 02:19:25 +0100
+
+pgloader (2.3.3~dev3-1) unstable; urgency=low
+
+  * Implement -f --field-sep to overwrite the default from command line
+  * Add support for filename arguments, which use defaults
+  * Implement --reject-log and --reject-data
+  * Add support for --max-parallel-sections and --section-threads
+  * Support setting any PG option (-o and config file)
+  * Have --debug show a traceback
+  * Fix a bug where pgloader would freeze on early error (no such file)
+  * Implement an option to set csv field size limit
+  * Implement --load-from-stdin
+  * Implement --boundaries
+  * use gettempdir() rather than hard-coded "/tmp"
+  * Handle C-c the default system's way
+  * Fix pgloader thread error management
+  * Fix exit status to be non-zero in case of known errors
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Tue, 09 Nov 2010 16:10:01 +0100
+
+pgloader (2.3.2-1) unstable; urgency=low
+
+  * Implement --from support in all readers (Closes: #531034)
+  * Use psycopg cursor.copy_expert() when available (> 2.0.6)
+  * FIX fixedreader: it now know about -C
+  * FIX Round Robin Reader with respect to offsets in readlines()
+  * support python 2.3 if not using RRR (not importing collections.deque)
+  * change logger initialisation to support python 2.3
+  * FIX bad usage of STDERR in the code
+  * Implement skip_head_lines option in configuration (superseded by -F)
+  * Do not sort() section list when it's been given on command line
+  * Catch InterfaceError when trying to close connection
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Mon, 29 Jun 2009 09:39:33 +0200
+
+pgloader (2.3.1-2) unstable; urgency=low
+
+  * FIX Missing Build-Depends (Closes: #485067)
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Mon, 09 Jun 2008 15:23:56 +0200
+
+pgloader (2.3.1-1) unstable; urgency=low
+
+  * FIX: Add database opening into critical path (BoundedSemaphore)
+  * FIX: close database connection as soon as possible
+  * Add support for fixed format
+  * Add support for escaped field_sep, such as \t
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Wed, 21 May 2008 12:19:42 +0200
+
+pgloader (2.3.0-1) unstable; urgency=low
+
+  * FIX the cluttered test case, see BUGS.txt
+  * Better release it as stable now and fix bugs when found than wait for
+    more testing of the ~dev release candidates.
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Mon, 10 Mar 2008 15:36:04 +0100
+
+pgloader (2.3.0~dev3-1) experimental; urgency=low
+
+  * Add options for forcing psycopg version to use (-1, -2, --psycopg-version)
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Wed, 27 Feb 2008 12:54:46 +0100
+
+pgloader (2.3.0~dev2-1) experimental; urgency=low
+
+  * columns = * is now supported
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Mon, 25 Feb 2008 14:58:46 +0100
+
+pgloader (2.3.0~dev-1) unstable; urgency=low
+
+  * Mutli-threaded pgloader (see options max_parallel_sections,
+                             section_threads and split_file_reading)
+  * FIX for -C and -I options (replace sys.log with self.log), per user request
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Mon, 11 Feb 2008 15:04:40 +0100
+
+pgloader (2.2.6-1) unstable; urgency=low
+
+  * pgloader -V now VACUUM each table separately, no more vacuumdb issued
+  * New option -D to DISABLE Triggers while loading (ENABLE them one done)
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Fri, 01 Feb 2008 11:01:34 +0100
+
+pgloader (2.2.5-1) unstable; urgency=low
+
+  * Now using proper python logging module
+  * New client_min_messages, log_min_messages, log_file and lc_messages options
+  * Better reporting of DatabaseError (pkey violation, e.g.)
+  * Have logging of error data work again in all cases (DatabaseError)
+  * Protect some more settings from begin overwritten when using templates
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Fri, 07 Dec 2007 23:24:58 +0100
+
+pgloader (2.2.5~dev-1) unstable; urgency=low
+
+  * Configuration now supports templates
+  * Command line option for setting --reformat_path, -R
+  * Upload to Debian (Closes: #453434)
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Mon, 26 Nov 2007 21:53:11 +0100
+
+pgloader (2.2.4) unstable; urgency=low
+
+  * Reformat modules to change input on-the-fly
+  * mysql module with timestamp function provided
+  * some fixes, all tests green again
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Tue, 20 Nov 2007 16:48:19 +0100
+
+pgloader (2.2.3) unstable; urgency=low
+
+  * User Defined Columns
+  * Temporary files with copy data content now suffixed .pgloader
+  * New option --version
+  * Fix TextReader newline_escapes configuration option reading
+  * Fix Reader reject initialisation
+  * Skip database related settings when in DRY_RUN mode (-n)
+  * List all command line options from man page synopsis
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Wed, 14 Nov 2007 21:57:39 +0100
+
+pgloader (2.2.2) unstable; urgency=low
+
+  * New command line options --quiet and --summary (-qs for short)
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Sat, 20 Oct 2007 16:20:18 +0200
+
+pgloader (2.2.1) unstable; urgency=low
+
+  * Support for datestyle setting
+  * Support for omiting column numbering
+  * Change documentation source format from SGML to asciidoc
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Thu, 23 Aug 2007 12:35:34 +0200
+
+pgloader (2.2.0) unstable; urgency=low
+
+  * Support for partial loading of data (subrange(s) of columns)
+  * COPY table (col1, col2, ..., coln) systematically used
+  * Support for CSV format (with quoting)
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Mon, 04 Jun 2007 11:13:21 +0200
+
+pgloader (2.1.0) unstable; urgency=low
+
+  * Added support for partial COPY table definition
+  * Documentation and example update (see serial)
+
+ -- Dimitri Fontaine <dim@dalibo.com>  Fri, 19 Jan 2007 12:25:39 +0100
+
+pgloader (2.0.2) unstable; urgency=low
+
+  * configurable null and empty_string representations
+  * bugfix on newline_escapes behavior when all lines are not escaped
+  * new global newline_escapes setting
+  * uses by default psycopg2, failback to psycopg1 if not available
+  * client_encoding can now be set on each table
+  * documentation (manpage) update
+
+ -- Dimitri Fontaine <dim@dalibo.com>  Wed, 15 Nov 2006 22:26:46 +0100
+
+pgloader (2.0.1-2) unstable; urgency=low
+
+  * package cleaning (lintian warnings and error)
+
+ -- Dimitri Fontaine <dim@dalibo.com>  Tue, 14 Nov 2006 18:14:57 +0100
+
+pgloader (2.0.1-1) unstable; urgency=low
+
+  * Initial release
+
+ -- Dimitri Fontaine <dim@dalibo.com>  Mon, 13 Nov 2006 22:56:15 +0100
