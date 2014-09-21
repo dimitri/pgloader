@@ -306,14 +306,14 @@
 			    state-before
 			    state-after
 			    state-indexes
-			    truncate
-			    data-only
-			    schema-only
-			    create-tables
-			    include-drop
-			    create-indexes
-			    reset-sequences
-			    foreign-keys
+			    (truncate        nil)
+			    (data-only       nil)
+			    (schema-only     nil)
+			    (create-tables   t)
+			    (include-drop    t)
+			    (create-indexes  t)
+			    (reset-sequences t)
+			    (foreign-keys    t)
 			    (identifier-case :downcase) ; or :quote
 			    only-tables
 			    including
