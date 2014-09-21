@@ -921,7 +921,11 @@ The `database` command accepts the following clauses and options:
   - *WITH*
 
     When loading from a `MySQL` database, the following options are
-    supported:
+    supported, and the efault *WITH* clause is: *no truncate*, *create
+    tables*, *include drop*, *create indexes*, *reset sequences*, *foreign
+    keys*, *downcase identifiers*.
+
+    *WITH* options:
 
       - *include drop*
 

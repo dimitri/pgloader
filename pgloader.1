@@ -1069,7 +1069,10 @@ If the connection URI contains a table name, then only this table is migrated fr
 \fIWITH\fR
 .
 .IP
-When loading from a \fBMySQL\fR database, the following options are supported:
+When loading from a \fBMySQL\fR database, the following options are supported, and the efault \fIWITH\fR clause is: \fIno truncate\fR, \fIcreate tables\fR, \fIinclude drop\fR, \fIcreate indexes\fR, \fIreset sequences\fR, \fIforeign keys\fR, \fIdowncase identifiers\fR\.
+.
+.IP
+\fIWITH\fR options:
 .
 .IP "\(bu" 4
 \fIinclude drop\fR
