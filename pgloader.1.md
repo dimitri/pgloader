@@ -1299,6 +1299,11 @@ The `sqlite` command accepts the following clauses and options:
     When loading from a `SQLite` database, the following options are
     supported:
 
+    When loading from a `SQLite` database, the following options are
+    supported, and the default *WITH* clause is: *no truncate*, *create
+    tables*, *include drop*, *create indexes*, *reset sequences*, *downcase
+    identifiers*, *encoding 'utf-8'*.
+
       - *include drop*
 
 		When this option is listed, pgloader drop in the PostgreSQL

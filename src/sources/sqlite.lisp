@@ -246,13 +246,13 @@
 (defmethod copy-database ((sqlite copy-sqlite)
 			  &key
 			    state-before
-			    truncate
 			    data-only
 			    schema-only
-			    create-tables
-			    include-drop
-			    create-indexes
-			    reset-sequences
+			    (truncate        nil)
+			    (create-tables   t)
+			    (include-drop    t)
+			    (create-indexes  t)
+			    (reset-sequences t)
 			    only-tables
 			    including
 			    excluding
