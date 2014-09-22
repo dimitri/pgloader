@@ -12,6 +12,13 @@
 PKGVERS = $(shell dpkg-parsechangelog | awk -F '[:-]' '/^Version:/ { print substr($$2, 2) }')
 EXCLUDE = --exclude-vcs --exclude=debian --exclude=build --exclude=.vagrant
 
+BITS = $(shell dpkg-architecture -qDEB_BUILD_ARCH_BITS)
+ifeq ($(BITS),32)
+SIZE=1024
+else
+SIZE=4096
+endif
+
 orig: clean
 	cd .. && tar czf pgloader_$(PKGVERS).orig.tar.gz $(EXCLUDE) pgloader
 
@@ -29,7 +36,7 @@ override_dh_auto_build:
                  --load-system pgloader               	    \
                  --load src/hooks.lisp                      \
                  --entry pgloader:main                      \
-                 --dynamic-space-size 4096                  \
+                 --dynamic-space-size $(SIZE)               \
                  --compress-core                    	    \
                  --output build/bin/pgloader
 
