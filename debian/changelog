@@ -1,3 +1,9 @@
+pgloader (3.1.0+dfsg-2) unstable; urgency=medium
+
+  * Fix building on i386 machines, using 1GB of dynamic space there.
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Mon, 22 Sep 2014 23:04:18 +0400
+
 pgloader (3.1.0+dfsg-1) unstable; urgency=medium
 
   * Stable release of the new pgloader version, 3.1
