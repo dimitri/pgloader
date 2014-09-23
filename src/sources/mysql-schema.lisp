@@ -184,7 +184,7 @@ order by table_name" dbname only-tables))))
          join information_schema.tables t using(table_schema, table_name)
    where c.table_schema = '~a' and t.table_type = '~a'
          ~:[~*~;and table_name in (~{'~a'~^,~})~]
-         ~:[~*~;and (~{table_name ~a~^ and ~})~]
+         ~:[~*~;and (~{table_name ~a~^ or ~})~]
          ~:[~*~;and (~{table_name ~a~^ and ~})~]
 order by table_name, ordinal_position"
                             dbname
@@ -226,7 +226,7 @@ order by table_name, ordinal_position"
     FROM information_schema.statistics
    WHERE table_schema = '~a'
          ~:[~*~;and table_name in (~{'~a'~^,~})~]
-         ~:[~*~;and (~{table_name ~a~^ and ~})~]
+         ~:[~*~;and (~{table_name ~a~^ or ~})~]
          ~:[~*~;and (~{table_name ~a~^ and ~})~]
 GROUP BY table_name, index_name;"
                              dbname
@@ -299,7 +299,7 @@ GROUP BY table_name, index_name;"
           AND k.referenced_table_schema = '~a'
           AND i.constraint_type = 'FOREIGN KEY'
          ~:[~*~;and table_name in (~{'~a'~^,~})~]
-         ~:[~*~;and (~{table_name ~a~^ and ~})~]
+         ~:[~*~;and (~{table_name ~a~^ or ~})~]
          ~:[~*~;and (~{table_name ~a~^ and ~})~]
 
  GROUP BY table_name, constraint_name, ft;"

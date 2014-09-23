@@ -2,7 +2,8 @@ LOAD DATABASE
      FROM      mysql://root@unix:/tmp/mysql.sock:/goeuro
      INTO postgresql://dim@unix:/tmp:/godollar
 
- -- INCLUDING ONLY TABLE NAMES MATCHING ~/encoding/
+ INCLUDING ONLY TABLE NAMES MATCHING ~/encoding/, ~/b/
+ EXCLUDING TABLE NAMES MATCHING ~/encoding/
 
  DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf-8
 
