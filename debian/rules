@@ -19,14 +19,19 @@ else
 SIZE=4096
 endif
 
+# buildd provides a build environment where $HOME is not writable, but the
+# CL compilers here will need to fill-in a per-user cache
+export HOME = $(CURDIR)/debian/home
+
 orig: clean
+	rm -rf $(HOME)
 	cd .. && tar czf pgloader_$(PKGVERS).orig.tar.gz $(EXCLUDE) pgloader
 
 override_dh_auto_build:
 	make docs
 	mkdir -p build/bin
-	buildapp --logfile /tmp/pgloader-build.log          \
-                 --require sb-posix                         \
+	mkdir -p $(HOME)
+	buildapp --require sb-posix                         \
                  --require sb-bsd-sockets                   \
                  --load /usr/share/common-lisp/source/cl-asdf/build/asdf.lisp \
                  --asdf-path .                              \
