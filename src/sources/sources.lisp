@@ -229,17 +229,29 @@
 	       (list (pgloader.transforms:intern-symbol (car field-name-or-list)))
 	       (t    (pgloader.transforms:intern-symbol field-name-or-list))))
 
-	   (field-process-null-fn (field-name-or-list)
+	   (process-field (field-name-or-list)
 	     "Given a field entry, return a function dealing with nulls for it"
-	     (destructuring-bind (&key null-as date-format &allow-other-keys)
+	     (destructuring-bind (&key null-as
+                                       date-format
+                                       trim-both
+                                       trim-left
+                                       trim-right
+                                       &allow-other-keys)
 		 (typecase field-name-or-list
 		   (list (cdr field-name-or-list))
 		   (t    (cdr (assoc field-name-or-list fields
                                      :test #'string-equal))))
 	       (declare (ignore date-format)) ; TODO
-	       (if (null null-as)
-		   #'identity
-		   (null-as-processing-fn null-as)))))
+               ;; now prepare a function of a column
+               (lambda (col)
+                 (let ((value-or-null
+                        (if (null null-as) col
+                            (funcall (null-as-processing-fn null-as) col))))
+                   (when value-or-null
+                     (cond (trim-both  (string-trim '(#\Space) value-or-null))
+                           (trim-left  (string-left-trim '(#\Space) value-or-null))
+                           (trim-right (string-right-trim '(#\Space) value-or-null))
+                           (t          value-or-null))))))))
 
     (let* ((projection
 	    (cond
@@ -254,7 +266,7 @@
 	       ;; null-as, or the generic one if none has been given for
 	       ;; that field.
 	       (let ((process-nulls
-		      (mapcar (function field-process-null-fn) fields)))
+		      (mapcar (function process-field) fields)))
 		 `(lambda (row)
                     (let ((v (make-array (length row))))
                      (loop
@@ -279,7 +291,7 @@
                        (loop for field-name in args
                           collect (list
                                    field-name
-                                   `(funcall ,(field-process-null-fn field-name)
+                                   `(funcall ,(process-field field-name)
                                              ,field-name))))
 		      (newrow
 		       (loop for (name type fn) in columns
@@ -287,7 +299,7 @@
 			  ;; we expect the name of a COLUMN to be the same
 			  ;; as the name of its derived FIELD when we
 			  ;; don't have any transformation function
-			    (or fn `(funcall ,(field-process-null-fn name)
+			    (or fn `(funcall ,(process-field name)
 					     ,(field-name-as-symbol name))))))
 		 `(lambda (row)
 		    (declare (optimize speed) (type list row))

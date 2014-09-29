@@ -12,7 +12,13 @@
  */
 
 LOAD FIXED
-     FROM inline (a 0 10, b 10 8, c 18 8, d 26 17)
+     FROM inline
+          ( -- col start length opts
+               a    0     10,
+               b    10     8,
+               c    18     8,
+               d    26    17 null if blanks trim right whitespace
+          )
      INTO postgresql:///pgloader?fixed
           (
              a, b,
@@ -42,3 +48,5 @@ LOAD FIXED
 01234567892008052011431250firstline        
    01234562008052115182300left blank-padded
 12345678902008052208231560another line     
+ 2345609872014092914371500                 
+ 2345678902014092914371520

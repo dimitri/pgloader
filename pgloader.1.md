@@ -494,6 +494,12 @@ The `csv` format command accepts the following clauses and options:
 		field value, then the field value is automatically converted to an
 		SQL `NULL` value.
 
+	  - *trim both whitespace*, *trim left whitespace*, *trim right whitespace*
+
+	    This option allows to trim whitespaces in the read data, either from
+	    both sides of the data, or only the whitespace characters found on
+	    the left of the streaing, or only those on the right of the string.
+
   - *WITH*
 
     When loading from a `CSV` file, the following options are supported:
@@ -661,6 +667,12 @@ The `fixed` format command accepts the following clauses and options:
 		When a double-quoted string is used and that string is read as the
 		field value, then the field value is automatically converted to an
 		SQL `NULL` value.
+
+	  - *trim both whitespace*, *trim left whitespace*, *trim right whitespace*
+
+	    This option allows to trim whitespaces in the read data, either from
+	    both sides of the data, or only the whitespace characters found on
+	    the left of the streaing, or only those on the right of the string.
 
   - *WITH*
 

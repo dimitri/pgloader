@@ -115,6 +115,11 @@
   (def-keyword-rule "terminated")
   (def-keyword-rule "nullif")
   (def-keyword-rule "blank")
+  (def-keyword-rule "trim")
+  (def-keyword-rule "both")
+  (def-keyword-rule "left")
+  (def-keyword-rule "right")
+  (def-keyword-rule "whitespace")
   (def-keyword-rule "skip")
   (def-keyword-rule "header")
   (def-keyword-rule "null")
@@ -1700,9 +1705,21 @@ load database
       (declare (ignore null if))
       (cons :null-as opt))))
 
+(defrule option-trim-both-whitespace (and kw-trim kw-both kw-whitespace)
+  (:constant (cons :trim-both t)))
+
+(defrule option-trim-left-whitespace (and kw-trim kw-left kw-whitespace)
+  (:constant (cons :trim-left t)))
+
+(defrule option-trim-right-whitespace (and kw-trim kw-right kw-whitespace)
+  (:constant (cons :trim-right t)))
+
 (defrule csv-field-option (or option-terminated-by
 			      option-date-format
-			      option-null-if))
+			      option-null-if
+                              option-trim-both-whitespace
+                              option-trim-left-whitespace
+                              option-trim-right-whitespace))
 
 (defrule csv-field-options (* csv-field-option)
   (:lambda (options)
