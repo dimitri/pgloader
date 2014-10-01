@@ -15,7 +15,7 @@ LOAD CSV
     $$ drop table if exists dateformat; $$,
     $$ create table dateformat (
         rownum smallint,
-        ts     timestamptz
+        ts     timestamp
        );
     $$;
 
