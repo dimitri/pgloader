@@ -35,53 +35,28 @@
     ((:module "src"
 	      :components
 	      ((:file "params")
-
 	       (:file "package" :depends-on ("params"))
+               (:file "queue"   :depends-on ("params" "package"))
 
-	       (:file "logs"    :depends-on ("package" "params"))
+               (:module "utils"
+                        :depends-on ("package" "params")
+                        :components
+                        ((:file "charsets")
+                         (:file "archive")
+                         (:file "threads")
+                         (:file "logs")
+                         (:file "monitor" :depends-on ("logs"))
+                         (:file "state")
+                         (:file "report"  :depends-on ("state"))
+                         (:file "utils"   :depends-on ("charsets" "monitor"))
 
-	       (:file "monitor" :depends-on ("params"
-                                             "package"
-                                             "logs"))
-
-	       (:file "charsets":depends-on ("package"))
-	       (:file "utils"   :depends-on ("params"
-                                             "package"
-                                             "charsets"
-                                             "monitor"))
-
-	       ;; those are one-package-per-file
-	       (:file "transforms")
-	       (:file "queue"     :depends-on ("params" "package"))
-
-               (:file "read-sql-files" :depends-on ("package"))
-
-	       (:file "parser"    :depends-on ("package"
-                                               "params"
-                                               "transforms"
-                                               "utils"
-                                               "monitor"
-                                               "read-sql-files"
-                                               "pgsql"))
-
-	       (:file "parse-ini" :depends-on ("package"
-                                               "params"
-                                               "utils"))
-
-	       (:file "archive"   :depends-on ("params"
-                                               "package"
-                                               "utils"
-                                               "sources"
-                                               "pgsql"))
+                         ;; those are one-package-per-file
+                         (:file "transforms")
+                         (:file "read-sql-files")))
 
 	       ;; package pgloader.pgsql
 	       (:module pgsql
-			:depends-on ("package"
-                                     "params"
-                                     "queue"
-                                     "utils"
-                                     "logs"
-                                     "monitor")
+			:depends-on ("package" "params" "utils")
 			:components
 			((:file "copy-format")
 			 (:file "queries")
@@ -91,37 +66,49 @@
                                              "queries"
                                              "schema"))))
 
+               (:module "parsers"
+                        :depends-on ("params" "package" "utils" "pgsql")
+                        :components
+                        ((:file "parse-ini")
+                         (:file "parser")))
+
+               ;; generic API for Sources
+               (:file "sources-api"
+                      :pathname "sources"
+                      :depends-on ("params" "package" "utils"))
+
 	       ;; Source format specific implementations
 	       (:module sources
 			:depends-on ("params"
                                      "package"
+                                     "sources-api"
                                      "pgsql"
                                      "utils"
-                                     "logs"
-                                     "monitor"
-                                     "queue"
-                                     "transforms")
+                                     "queue")
 			:components
-			((:file "sources")
-			 (:file "csv"     :depends-on ("sources"))
-			 (:file "fixed"   :depends-on ("sources"))
-			 (:file "db3"     :depends-on ("sources"))
-			 (:file "ixf"     :depends-on ("sources"))
-			 (:file "sqlite"  :depends-on ("sources"))
-			 (:file "syslog"  :depends-on ("sources"))
-			 (:file "mysql-cast-rules")
-			 (:file "mysql-schema")
-			 (:file "mysql-csv" :depends-on ("mysql-schema"))
-			 (:file "mysql" :depends-on ("mysql-cast-rules"
-						     "mysql-schema"))))
+			((:file "csv")
+			 (:file "fixed")
+			 (:file "db3")
+			 (:file "ixf")
+			 (:file "sqlite")
+			 (:file "syslog")
+
+                         (:module "mysql-utils"
+                                  :pathname "mysql"
+                                  :components
+                                  ((:file "mysql-cast-rules")
+                                   (:file "mysql-schema")
+                                   (:file "mysql-csv"
+                                          :depends-on ("mysql-schema"))))
+
+			 (:file "mysql" :depends-on ("mysql-utils"))))
 
 	       ;; the main entry file, used when building a stand-alone
 	       ;; executable image
 	       (:file "main" :depends-on ("params"
                                           "package"
-                                          "monitor"
                                           "utils"
-                                          "parser"
+                                          "parsers"
                                           "sources"))))
 
      ;; to produce the website

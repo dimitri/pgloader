@@ -289,15 +289,10 @@
 ;; Not really a source, more a util package to deal with http and zip
 ;;
 (defpackage #:pgloader.archive
-  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.csv)
-  (:import-from #:pgloader.pgsql
-		#:with-pgsql-transaction
-		#:pgsql-execute)
-  (:export #:*default-tmpdir*
-	   #:http-fetch-file
+  (:use #:cl #:pgloader.params)
+  (:export #:http-fetch-file
 	   #:expand-archive
-	   #:get-matching-filenames
-	   #:import-csv-from-zip))
+	   #:get-matching-filenames))
 
 
 

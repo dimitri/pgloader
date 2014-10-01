@@ -1745,10 +1745,6 @@ load database
 
 (defrule csv-field-options (? (or csv-field-option csv-field-option-list)))
 
-(defrule csv-field-options (* csv-field-option)
-  (:lambda (options)
-    (alexandria:alist-plist options)))
-
 (defrule csv-raw-field-name (and (or #\_ (alpha-char-p character))
                                   (* (or (alpha-char-p character)
                                          (digit-char-p character)
