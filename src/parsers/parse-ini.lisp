@@ -375,7 +375,7 @@
 				   :type "sql"))
 		   (sql-file-exists (probe-file sqlfile))
 		   (sql-commands    (when sql-file-exists
-				      (slurp-file-into-string sqlfile))))
+                                      (read-file-into-string sqlfile))))
 	      ;; First
 	      (if include-sql-file
 		  (if sql-file-exists
@@ -400,5 +400,5 @@
 			(merge-pathnames (params-filename params)
 					 (directory-namestring filename))))
 		  (format c "~%~%~%~%~a"
-			  (slurp-file-into-string datafile))))))
+                          (read-file-into-string datafile))))))
        and collect target)))

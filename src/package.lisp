@@ -28,6 +28,7 @@
 
 (defpackage #:pgloader.utils
   (:use #:cl #:pgloader.params)
+  (:import-from #:alexandria #:read-file-into-string)
   (:import-from #:pgloader.monitor
                 #:with-monitor
                 #:*monitoring-queue*
@@ -134,6 +135,7 @@
 ;;;
 (defpackage #:pgloader.ini
   (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:import-from #:alexandria #:read-file-into-string)
   (:import-from #:pgloader.pgsql
 		#:list-columns
 		#:with-pgsql-transaction
@@ -150,6 +152,7 @@
 
 (defpackage #:pgloader.parser
   (:use #:cl #:esrap #:pgloader.params #:pgloader.utils #:pgloader.sql)
+  (:import-from #:alexandria #:read-file-into-string)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
 		#:pgsql-execute)

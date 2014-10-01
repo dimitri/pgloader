@@ -2342,7 +2342,7 @@ load database
    filename
    (let ((*cwd* (directory-namestring filename))
          (*data-expected-inline* nil)
-	 (content (slurp-file-into-string filename)))
+	 (content (read-file-into-string filename)))
      (multiple-value-bind (commands end-commands-position)
 	 (parse 'commands content :junk-allowed t)
 
@@ -2460,7 +2460,7 @@ load database
        collect
 	 (cons filename
 	       (ignore-errors
-		 (parse-commands (slurp-file-into-string filename)))))))
+		 (parse-commands (read-file-into-string filename)))))))
 
 (defun list-failing-tests (&rest tests)
   "Return the list of test files we can't parse."
