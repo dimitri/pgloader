@@ -300,6 +300,8 @@
 ;;
 (defpackage #:pgloader.archive
   (:use #:cl #:pgloader.params)
+  (:import-from #:pgloader.monitor
+                #:log-message)
   (:export #:http-fetch-file
 	   #:expand-archive
 	   #:get-matching-filenames))
