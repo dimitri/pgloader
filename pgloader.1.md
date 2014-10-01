@@ -465,8 +465,8 @@ The `csv` format command accepts the following clauses and options:
 	optionally introduced by the clause `HAVING FIELDS`.
 
 	Each field name can be either only one name or a name following with
-	specific reader options for that field. Supported per-field reader
-	options are:
+	specific reader options for that field, enclosed in square brackets and
+	comma-separated. Supported per-field reader options are:
 
 	  - *terminated by*
 
@@ -576,7 +576,13 @@ This command instructs pgloader to load data from a text file containing
 columns arranged in a *fixed size* manner. Here's an example:
 
     LOAD FIXED
-         FROM inline (a 0 10, b 10 8, c 18 8, d 26 17)
+         FROM inline
+              (
+               a from  0 for 10,
+               b from 10 for  8,
+               c from 18 for  8,
+               d from 26 for 17 [null if blanks, trim right whitespace]
+              )
          INTO postgresql:///pgloader?fixed
               (
                  a, b,
@@ -603,6 +609,8 @@ columns arranged in a *fixed size* manner. Here's an example:
      01234567892008052011431250firstline
         01234562008052115182300left blank-padded
      12345678902008052208231560another line
+      2345609872014092914371500                 
+      2345678902014092914371520
 
 The `fixed` format command accepts the following clauses and options:
 
@@ -641,6 +649,9 @@ The `fixed` format command accepts the following clauses and options:
 
 	    How many bytes to read from the *start* position to read that
 	    field's value. Same format as *start*.
+
+    Those optional parameters can enclosed in square brackets and
+	comma-separated:
 
 	  - *terminated by*
 

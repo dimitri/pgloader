@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "September 2014" "ff" ""
+.TH "PGLOADER" "1" "October 2014" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -516,7 +516,7 @@ The optional \fIIN DIRECTORY\fR clause allows specifying which directory to walk
 The \fIFROM\fR option also supports an optional comma separated list of \fIfield\fR names describing what is expected in the \fBCSV\fR data file, optionally introduced by the clause \fBHAVING FIELDS\fR\.
 .
 .IP
-Each field name can be either only one name or a name following with specific reader options for that field\. Supported per\-field reader options are:
+Each field name can be either only one name or a name following with specific reader options for that field, enclosed in square brackets and comma\-separated\. Supported per\-field reader options are:
 .
 .IP "\(bu" 4
 \fIterminated by\fR
@@ -639,7 +639,13 @@ This command instructs pgloader to load data from a text file containing columns
 .nf
 
 LOAD FIXED
-     FROM inline (a 0 10, b 10 8, c 18 8, d 26 17)
+     FROM inline
+          (
+           a from  0 for 10,
+           b from 10 for  8,
+           c from 18 for  8,
+           d from 26 for 17 [null if blanks, trim right whitespace]
+          )
      INTO postgresql:///pgloader?fixed
           (
              a, b,
@@ -666,6 +672,8 @@ BEFORE LOAD DO
  01234567892008052011431250firstline
     01234562008052115182300left blank\-padded
  12345678902008052208231560another line
+  2345609872014092914371500
+  2345678902014092914371520
 .
 .fi
 .
@@ -714,6 +722,11 @@ Position in the line where to start reading that field\'s value\. Can be entered
 .
 .IP
 How many bytes to read from the \fIstart\fR position to read that field\'s value\. Same format as \fIstart\fR\.
+.
+.IP "" 0
+.
+.IP
+Those optional parameters can enclosed in square brackets and comma\-separated:
 .
 .IP "\(bu" 4
 \fIterminated by\fR

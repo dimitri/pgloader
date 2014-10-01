@@ -120,6 +120,8 @@
   (def-keyword-rule "left")
   (def-keyword-rule "right")
   (def-keyword-rule "whitespace")
+  (def-keyword-rule "from")
+  (def-keyword-rule "for")
   (def-keyword-rule "skip")
   (def-keyword-rule "header")
   (def-keyword-rule "null")
@@ -1721,6 +1723,28 @@ load database
                               option-trim-left-whitespace
                               option-trim-right-whitespace))
 
+(defrule another-csv-field-option (and comma csv-field-option)
+  (:lambda (field-option)
+    (destructuring-bind (comma option) field-option
+      (declare (ignore comma))
+      option)))
+
+(defrule open-square-bracket (and ignore-whitespace #\[ ignore-whitespace)
+  (:constant :open-square-bracket))
+(defrule close-square-bracket (and ignore-whitespace #\] ignore-whitespace)
+  (:constant :close-square-bracket))
+
+(defrule csv-field-option-list (and open-square-bracket
+                                    csv-field-option
+                                    (* another-csv-field-option)
+                                    close-square-bracket)
+  (:lambda (option)
+    (destructuring-bind (open opt1 opts close) option
+      (declare (ignore open close))
+      (alexandria:alist-plist `(,opt1 ,@opts)))))
+
+(defrule csv-field-options (? (or csv-field-option csv-field-option-list)))
+
 (defrule csv-field-options (* csv-field-option)
   (:lambda (options)
     (alexandria:alist-plist options)))
@@ -2038,11 +2062,11 @@ load database
 
 (defrule number (or hex-number dec-number))
 
-(defrule field-start-position (and ignore-whitespace number)
-  (:destructure (ws pos) (declare (ignore ws)) pos))
+(defrule field-start-position (and (? kw-from) ignore-whitespace number)
+  (:destructure (from ws pos) (declare (ignore from ws)) pos))
 
-(defrule fixed-field-length (and ignore-whitespace number)
-  (:destructure (ws len) (declare (ignore ws)) len))
+(defrule fixed-field-length (and (? kw-for) ignore-whitespace number)
+  (:destructure (for ws len) (declare (ignore for ws)) len))
 
 (defrule fixed-source-field (and csv-field-name
 				 field-start-position fixed-field-length
