@@ -1,5 +1,5 @@
 LOAD CSV
-     FROM INLINE (id, number null if '\N', data)
+     FROM INLINE (id, number [null if '\N'], data)
      INTO postgresql:///pgloader?nullif
 
      BEFORE LOAD DO

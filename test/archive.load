@@ -19,13 +19,13 @@ LOAD ARCHIVE
              (
                 locId,
                 country,
-                region     null if blanks,
-                city       null if blanks,
-                postalCode null if blanks,
+                region     [ null if blanks ],
+                city       [ null if blanks ],
+                postalCode [ null if blanks ],
                 latitude,
                 longitude,
-                metroCode  null if blanks,
-                areaCode   null if blanks
+                metroCode  [ null if blanks ],
+                areaCode   [ null if blanks ]
              )
         INTO postgresql:///ip4r?geolite.location
              (

@@ -1743,7 +1743,7 @@ load database
       (declare (ignore open close))
       (alexandria:alist-plist `(,opt1 ,@opts)))))
 
-(defrule csv-field-options (? (or csv-field-option csv-field-option-list)))
+(defrule csv-field-options (? csv-field-option-list))
 
 (defrule csv-raw-field-name (and (or #\_ (alpha-char-p character))
                                   (* (or (alpha-char-p character)

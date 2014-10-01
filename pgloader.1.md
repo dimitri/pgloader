@@ -668,7 +668,7 @@ The `fixed` format command accepts the following clauses and options:
 	    How many bytes to read from the *start* position to read that
 	    field's value. Same format as *start*.
 
-    Those optional parameters can enclosed in square brackets and
+    Those optional parameters must be enclosed in square brackets and
 	comma-separated:
 
 	  - *terminated by*
