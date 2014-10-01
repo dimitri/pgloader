@@ -54,7 +54,6 @@
 	   #:report-summary
 	   #:report-full-summary
 	   #:with-stats-collection
-	   #:slurp-file-into-string
 	   #:camelCase-to-colname
            #:make-kernel
            #:list-encodings-and-aliases
@@ -96,8 +95,16 @@
 	   #:format-pgsql-create-index
 	   #:create-indexes-in-kernel))
 
+(defpackage #:pgloader.parse-date
+  (:use #:cl #:esrap)
+  (:export #:parse-date-string
+           #:parse-date-format))
+
 (defpackage #:pgloader.sources
   (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:import-from #:pgloader.parse-date
+                #:parse-date-string
+                #:parse-date-format)
   (:export #:copy
 	   #:source-db
 	   #:target-db

@@ -534,7 +534,56 @@ The processing of this option is not currently implemented\.
 When the field is expected of the date type, then this option allows to specify the date format used in the file\.
 .
 .IP
-The processing of this option is not currently implemented\.
+Date format string are template strings modeled against the PostgreSQL \fBto_char\fR template strings support, limited to the following patterns:
+.
+.IP "\(bu" 4
+YYYY, YYY, YY for the year part
+.
+.IP "\(bu" 4
+MM for the numeric month part
+.
+.IP "\(bu" 4
+DD for the numeric day part
+.
+.IP "\(bu" 4
+HH, HH12, HH24 for the hour part
+.
+.IP "\(bu" 4
+am, AM, a\.m\., A\.M\.
+.
+.IP "\(bu" 4
+pm, PM, p\.m\., P\.M\.
+.
+.IP "\(bu" 4
+MI for the minutes part
+.
+.IP "\(bu" 4
+SS for the seconds part
+.
+.IP "\(bu" 4
+MS for the milliseconds part (4 digits)
+.
+.IP "\(bu" 4
+US for the microseconds part (6 digits)
+.
+.IP "\(bu" 4
+unparsed punctuation signs: \- \. * # @ T / \e and space
+.
+.IP "" 0
+.
+.IP
+Here\'s an example of a \fIdate format\fR specification:
+.
+.IP "" 4
+.
+.nf
+
+column\-name [date format \'YYYY\-MM\-DD HH24\-MI\-SS\.US\']
+.
+.fi
+.
+.IP "" 0
+
 .
 .IP "\(bu" 4
 \fInull if\fR
@@ -744,7 +793,56 @@ The processing of this option is not currently implemented\.
 When the field is expected of the date type, then this option allows to specify the date format used in the file\.
 .
 .IP
-The processing of this option is not currently implemented\.
+Date format string are template strings modeled against the PostgreSQL \fBto_char\fR template strings support, limited to the following patterns:
+.
+.IP "\(bu" 4
+YYYY, YYY, YY for the year part
+.
+.IP "\(bu" 4
+MM for the numeric month part
+.
+.IP "\(bu" 4
+DD for the numeric day part
+.
+.IP "\(bu" 4
+HH, HH12, HH24 for the hour part
+.
+.IP "\(bu" 4
+am, AM, a\.m\., A\.M\.
+.
+.IP "\(bu" 4
+pm, PM, p\.m\., P\.M\.
+.
+.IP "\(bu" 4
+MI for the minutes part
+.
+.IP "\(bu" 4
+SS for the seconds part
+.
+.IP "\(bu" 4
+MS for the milliseconds part (4 digits)
+.
+.IP "\(bu" 4
+US for the microseconds part (6 digits)
+.
+.IP "\(bu" 4
+unparsed punctuation signs: \- \. * # @ T / \e and space
+.
+.IP "" 0
+.
+.IP
+Here\'s an example of a \fIdate format\fR specification:
+.
+.IP "" 4
+.
+.nf
+
+column\-name [date format \'YYYY\-MM\-DD HH24\-MI\-SS\.US\']
+.
+.fi
+.
+.IP "" 0
+
 .
 .IP "\(bu" 4
 \fInull if\fR

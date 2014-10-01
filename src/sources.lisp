@@ -248,10 +248,19 @@
                         (if (null null-as) col
                             (funcall (null-as-processing-fn null-as) col))))
                    (when value-or-null
-                     (cond (trim-both  (string-trim '(#\Space) value-or-null))
-                           (trim-left  (string-left-trim '(#\Space) value-or-null))
-                           (trim-right (string-right-trim '(#\Space) value-or-null))
-                           (t          value-or-null))))))))
+                     (let ((value-or-null
+                            (cond (trim-both
+                                   (string-trim '(#\Space) value-or-null))
+                                  (trim-left
+                                   (string-left-trim '(#\Space) value-or-null))
+                                  (trim-right
+                                   (string-right-trim '(#\Space) value-or-null))
+                                  (t          value-or-null))))
+                       ;; now apply the date format, when given
+                       (if date-format
+                           (parse-date-string value-or-null
+                                              (parse-date-format date-format))
+                           value-or-null))))))))
 
     (let* ((projection
 	    (cond
@@ -269,12 +278,12 @@
 		      (mapcar (function process-field) fields)))
 		 `(lambda (row)
                     (let ((v (make-array (length row))))
-                     (loop
-                        :for i :from 0
-                        :for col :in row
-                        :for fn :in ',process-nulls
-                        :do (setf (aref v i) (funcall fn col)))
-                     v))))
+                      (loop
+                         :for i :from 0
+                         :for col :in row
+                         :for fn :in ',process-nulls
+                         :do (setf (aref v i) (funcall fn col)))
+                      v))))
 
 	      (t
 	       ;; project some number of FIELDS into a possibly different

@@ -7,6 +7,7 @@ LOCAL  = $(filter-out $(REMOTE:.load=.out),$(OUT))
 REGRESS= allcols.load 		    \
          csv-before-after.load 	    \
          csv-districts.load 	    \
+         csv-parse-date.load 	    \
          csv-error.load 	    \
          csv-filename-pattern.load  \
          csv-keep-extra-blanks.load \

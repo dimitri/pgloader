@@ -479,7 +479,25 @@ The `csv` format command accepts the following clauses and options:
 	    When the field is expected of the date type, then this option allows
 	    to specify the date format used in the file.
 
-		The processing of this option is not currently implemented.
+		Date format string are template strings modeled against the
+		PostgreSQL `to_char` template strings support, limited to the
+		following patterns:
+        
+          - YYYY, YYY, YY for the year part
+          - MM for the numeric month part
+          - DD for the numeric day part
+          - HH, HH12, HH24 for the hour part
+          - am, AM, a.m., A.M.
+          - pm, PM, p.m., P.M.
+          - MI for the minutes part
+          - SS for the seconds part
+          - MS for the milliseconds part (4 digits)
+          - US for the microseconds part (6 digits)
+          - unparsed punctuation signs: - . * # @ T / \ and space
+          
+        Here's an example of a *date format* specification:
+        
+            column-name [date format 'YYYY-MM-DD HH24-MI-SS.US']
 
       - *null if*
 
@@ -664,7 +682,25 @@ The `fixed` format command accepts the following clauses and options:
 	    When the field is expected of the date type, then this option allows
 	    to specify the date format used in the file.
 
-		The processing of this option is not currently implemented.
+		Date format string are template strings modeled against the
+		PostgreSQL `to_char` template strings support, limited to the
+		following patterns:
+        
+          - YYYY, YYY, YY for the year part
+          - MM for the numeric month part
+          - DD for the numeric day part
+          - HH, HH12, HH24 for the hour part
+          - am, AM, a.m., A.M.
+          - pm, PM, p.m., P.M.
+          - MI for the minutes part
+          - SS for the seconds part
+          - MS for the milliseconds part (4 digits)
+          - US for the microseconds part (6 digits)
+          - unparsed punctuation signs: - . * # @ T / \ and space
+          
+        Here's an example of a *date format* specification:
+        
+            column-name [date format 'YYYY-MM-DD HH24-MI-SS.US']
 
       - *null if*
 

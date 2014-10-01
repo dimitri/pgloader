@@ -42,13 +42,13 @@
                         :depends-on ("package" "params")
                         :components
                         ((:file "charsets")
-                         (:file "archive")
                          (:file "threads")
                          (:file "logs")
                          (:file "monitor" :depends-on ("logs"))
                          (:file "state")
                          (:file "report"  :depends-on ("state"))
                          (:file "utils"   :depends-on ("charsets" "monitor"))
+                         (:file "archive" :depends-on ("logs"))
 
                          ;; those are one-package-per-file
                          (:file "transforms")
@@ -70,12 +70,13 @@
                         :depends-on ("params" "package" "utils" "pgsql")
                         :components
                         ((:file "parse-ini")
-                         (:file "parser")))
+                         (:file "parser")
+                         (:file "date-format")))
 
                ;; generic API for Sources
                (:file "sources-api"
                       :pathname "sources"
-                      :depends-on ("params" "package" "utils"))
+                      :depends-on ("params" "package" "utils" "parsers"))
 
 	       ;; Source format specific implementations
 	       (:module sources
