@@ -253,7 +253,7 @@ Some clauses are common to all commands:
 
 ### Connection String
 
-The `<source-url>` parameter is expected to be given as a *Connection URI*
+The `<postgresql-url>` parameter is expected to be given as a *Connection URI*
 as documented in the PostgreSQL documentation at
 http://www.postgresql.org/docs/9.3/static/libpq-connect.html#LIBPQ-CONNSTRING.
 
