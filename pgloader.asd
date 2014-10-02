@@ -30,6 +30,7 @@
                  #:cl-base64            ; Decode base64 data
 		 #:trivial-backtrace  	; For --debug cli usage
                  #:cl-markdown          ; To produce the website
+                 #:metabang-bind        ; the bind macro
 		 )
     :components
     ((:module "src"
@@ -37,6 +38,10 @@
 	      ((:file "params")
 	       (:file "package" :depends-on ("params"))
                (:file "queue"   :depends-on ("params" "package"))
+
+               (:module "monkey"
+                        :components
+                        ((:file "bind")))
 
                (:module "utils"
                         :depends-on ("package" "params")
@@ -67,7 +72,7 @@
                                              "schema"))))
 
                (:module "parsers"
-                        :depends-on ("params" "package" "utils" "pgsql")
+                        :depends-on ("params" "package" "utils" "pgsql" "monkey")
                         :components
                         ((:file "parse-ini")
                          (:file "parser")

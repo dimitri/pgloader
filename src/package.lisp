@@ -158,7 +158,8 @@
   (:export #:read-queries))
 
 (defpackage #:pgloader.parser
-  (:use #:cl #:esrap #:pgloader.params #:pgloader.utils #:pgloader.sql)
+  (:use #:cl #:esrap #:metabang.bind
+        #:pgloader.params #:pgloader.utils #:pgloader.sql)
   (:import-from #:alexandria #:read-file-into-string)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction

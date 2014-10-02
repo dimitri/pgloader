@@ -177,9 +177,8 @@
 ;;;
 (defun process-quoted-regex (pr)
   "Helper function to process different kinds of quotes for regexps"
-  (destructuring-bind (open regex close) pr
-      (declare (ignore open close))
-      `(:regex ,(text regex))))
+  (bind (((_ regex _) pr))
+    (list :regex (text regex))))
 
 (defrule single-quoted-regex (and #\' (+ (not #\')) #\')
   (:function process-quoted-regex))
@@ -218,9 +217,7 @@
 				   pipe-quoted-regex
 				   sharp-quoted-regex))
   (:lambda (qr)
-    (destructuring-bind (tilde regex) qr
-      (declare (ignore tilde))
-      regex)))
+    (bind (((_ regex) qr)) regex)))
 
 
 ;;;
@@ -239,10 +236,10 @@
 ;; strings, using the same model.
 ;;
 (defrule dsn-port (and ":" (* (digit-char-p character)))
-  (:destructure (colon digits &aux (port (coerce digits 'string)))
-		(declare (ignore colon))
-		(list :port (if (null digits) digits
-				(parse-integer port)))))
+  (:lambda (port)
+    (bind (((_ digits &aux (port (coerce digits 'string))) port))
+      (list :port (if (null digits) digits
+                      (parse-integer port))))))
 
 (defrule doubled-at-sign (and "@@") (:constant "@"))
 (defrule doubled-colon   (and "::") (:constant ":"))
@@ -254,8 +251,7 @@
 				(? (and ":" (? password)))
 				"@")
   (:lambda (args)
-    (destructuring-bind (username &optional password)
-	(butlast args)
+    (bind (((username &optional password) (butlast args)))
       ;; password looks like '(":" "password")
       (list :user username :password (cadr password)))))
 
@@ -308,8 +304,7 @@
 
 (defrule dsn-prefix (and (or "postgresql" "pgsql" "mysql" "syslog") "://")
   (:lambda (db)
-    (destructuring-bind (prefix colon-slash-slash) db
-      (declare (ignore colon-slash-slash))
+    (bind (((prefix _) db))
       (cond ((string= "postgresql" prefix) (list :type :postgresql))
             ((string= "pgsql" prefix)      (list :type :postgresql))
             ((string= "mysql" prefix)      (list :type :mysql))
@@ -371,8 +366,7 @@
 
 (defrule get-dburi-from-environment-variable (and kw-getenv name)
   (:lambda (p-e-v)
-    (destructuring-bind (g varname) p-e-v
-      (declare (ignore g))
+    (bind (((_ varname) p-e-v))
       (let ((connstring (getenv-default varname)))
         (unless connstring
           (error "Environment variable ~s is unset." varname))
@@ -446,8 +440,7 @@
 
 (defrule quoted-filename (and #\' (+ (not #\')) #\')
   (:lambda (q-f)
-    (destructuring-bind (open f close) q-f
-      (declare (ignore open close))
+    (bind (((_ f _) q-f))
       (list :filename (parse-namestring (coerce f 'string))))))
 
 (defrule maybe-quoted-filename (or quoted-filename filename)
@@ -489,9 +482,7 @@
 			      (or db-connection-uri
                                   get-dburi-from-environment-variable))
   (:lambda (source)
-    (destructuring-bind (l d f uri) source
-      (declare (ignore l d f))
-      uri)))
+    (bind (((_ _ _ uri) source)) uri)))
 
 
 ;;;
@@ -521,15 +512,13 @@
 
 (defrule option-workers (and kw-workers equal-sign (+ (digit-char-p character)))
   (:lambda (workers)
-    (destructuring-bind (w e nb) workers
-      (declare (ignore w e))
+    (bind (((_ _ nb) workers))
       (cons :workers (parse-integer (text nb))))))
 
 (defrule option-batch-rows (and kw-batch kw-rows equal-sign
                                 (+ (digit-char-p character)))
   (:lambda (batch-rows)
-    (destructuring-bind (b r e nb) batch-rows
-      (declare (ignore b r e))
+    (bind (((_ _ _ nb) batch-rows))
       (cons :batch-rows (parse-integer (text nb))))))
 
 (defrule byte-size-multiplier (or #\k #\M #\G #\T #\P)
@@ -543,8 +532,7 @@
 
 (defrule byte-size-unit (and ignore-whitespace (? byte-size-multiplier) #\B)
   (:lambda (unit)
-    (destructuring-bind (ws &optional (multiplier 1) byte) unit
-      (declare (ignore ws byte))
+    (bind (((_ &optional (multiplier 1) _) unit))
       (expt 2 multiplier))))
 
 (defrule batch-size (and (+ (digit-char-p character)) byte-size-unit)
@@ -554,15 +542,13 @@
 
 (defrule option-batch-size (and kw-batch kw-size equal-sign batch-size)
   (:lambda (batch-size)
-    (destructuring-bind (b s e val) batch-size
-      (declare (ignore b s e))
+    (bind (((_ _ _ val) batch-size))
       (cons :batch-size val))))
 
 (defrule option-batch-concurrency (and kw-batch kw-concurrency equal-sign
                                        (+ (digit-char-p character)))
   (:lambda (batch-concurrency)
-    (destructuring-bind (b c e nb) batch-concurrency
-      (declare (ignore b c e))
+    (bind (((_ _ _ nb) batch-concurrency))
       (cons :batch-concurrency (parse-integer (text nb))))))
 
 (defun batch-control-bindings (options)
@@ -613,8 +599,7 @@
 
 (defrule option-identifiers-case (and (or kw-downcase kw-quote) kw-identifiers)
   (:lambda (id-case)
-    (destructuring-bind (action id) id-case
-      (declare (ignore id))
+    (bind (((action _) id-case))
       (cons :identifier-case action))))
 
 (defrule mysql-option (or option-workers
@@ -636,9 +621,7 @@
 
 (defrule another-mysql-option (and comma mysql-option)
   (:lambda (source)
-    (destructuring-bind (comma option) source
-      (declare (ignore comma))
-      option)))
+    (bind (((_ option) source)) option)))
 
 (defrule mysql-option-list (and mysql-option (* another-mysql-option))
   (:lambda (source)
@@ -647,8 +630,7 @@
 
 (defrule mysql-options (and kw-with mysql-option-list)
   (:lambda (source)
-    (destructuring-bind (w opts) source
-      (declare (ignore w))
+    (bind (((_ opts) source))
       (cons :mysql-options opts))))
 
 ;; we don't validate GUCs, that's PostgreSQL job.
@@ -665,15 +647,12 @@
 			     (or equal-sign kw-to)
 			     generic-value)
   (:lambda (source)
-    (destructuring-bind (name es value) source
-      (declare (ignore es))
+    (bind (((name _ value) source))
       (cons name value))))
 
 (defrule another-generic-option (and comma generic-option)
   (:lambda (source)
-    (destructuring-bind (comma option) source
-      (declare (ignore comma))
-      option)))
+    (bind (((_ option) source)) option)))
 
 (defrule generic-option-list (and generic-option (* another-generic-option))
   (:lambda (source)
@@ -683,8 +662,7 @@
 
 (defrule gucs (and kw-set generic-option-list)
   (:lambda (source)
-    (destructuring-bind (set gucs) source
-      (declare (ignore set))
+    (bind (((_ gucs) source))
       (cons :gucs gucs))))
 
 
@@ -701,15 +679,12 @@
 
 (defrule dollar-quoted (and double-dollar (* (not double-dollar)) double-dollar)
   (:lambda (dq)
-    (destructuring-bind (open quoted close) dq
-      (declare (ignore open close))
+    (bind (((_ quoted _) dq))
       (text quoted))))
 
 (defrule another-dollar-quoted (and comma dollar-quoted)
   (:lambda (source)
-    (destructuring-bind (comma quoted) source
-      (declare (ignore comma))
-      quoted)))
+    (bind (((_ quoted) source)) quoted)))
 
 (defrule dollar-quoted-list (and dollar-quoted (* another-dollar-quoted))
   (:lambda (source)
@@ -731,9 +706,7 @@
 
 (defrule before-load-execute (and kw-before kw-load kw-execute sql-file)
   (:lambda (ble)
-    (destructuring-bind (before load execute sql) ble
-      (declare (ignore before load execute))
-      sql)))
+    (bind (((_ _ _ sql) ble)) sql)))
 
 (defrule before-load (or before-load-do before-load-execute)
   (:lambda (before)
@@ -741,15 +714,11 @@
 
 (defrule finally-do (and kw-finally kw-do dollar-quoted-list)
   (:lambda (fd)
-    (destructuring-bind (finally do quoted) fd
-      (declare (ignore finally do))
-      quoted)))
+    (bind (((_ _ quoted) fd)) quoted)))
 
 (defrule finally-execute (and kw-finally kw-execute sql)
   (:lambda (fe)
-    (destructuring-bind (finally execute sql) fe
-      (declare (ignore finally execute))
-      sql)))
+    (bind (((_ _ sql) fe)) sql)))
 
 (defrule finally (or finally-do finally-execute)
   (:lambda (finally)
@@ -757,15 +726,11 @@
 
 (defrule after-load-do (and kw-after kw-load kw-do dollar-quoted-list)
   (:lambda (fd)
-    (destructuring-bind (after load do quoted) fd
-      (declare (ignore after load do))
-      quoted)))
+    (bind (((_ _ _ quoted) fd)) quoted)))
 
 (defrule after-load-execute (and kw-after kw-load kw-execute sql-file)
   (:lambda (fd)
-    (destructuring-bind (after load execute sql) fd
-      (declare (ignore after load execute))
-      sql)))
+    (bind (((_ _ _ sql) fd)) sql)))
 
 (defrule after-load (or after-load-do after-load-execute)
   (:lambda (after)
@@ -822,19 +787,16 @@
 			  (? cast-source-guards)
 			  ignore-whitespace)
   (:lambda (source)
-    (destructuring-bind (name-and-type opts guards ws) source
-      (declare (ignore ws))
-      (destructuring-bind (&key (default nil d-s-p)
-				(typemod nil t-s-p)
-				&allow-other-keys)
-	  guards
-	(destructuring-bind (&key (auto-increment nil ai-s-p)
-				  &allow-other-keys)
-	    opts
-	  `(,@name-and-type
+    (bind (((name-and-type opts guards _)       source)
+           ((&key (default nil d-s-p)
+                  (typemod nil t-s-p)
+                  &allow-other-keys)            guards)
+           ((&key (auto-increment nil ai-s-p)
+                  &allow-other-keys)            opts))
+      `(,@name-and-type
 		,@(when t-s-p (list :typemod typemod))
 		,@(when d-s-p (list :default default))
-		,@(when ai-s-p (list :auto-increment auto-increment))))))))
+		,@(when ai-s-p (list :auto-increment auto-increment))))))
 
 (defrule cast-type-name (and (alpha-char-p character)
 			     (* (or (alpha-char-p character)
@@ -843,8 +805,7 @@
 
 (defrule cast-to-type (and kw-to cast-type-name ignore-whitespace)
   (:lambda (source)
-    (destructuring-bind (to type-name ws) source
-      (declare (ignore to ws))
+    (bind (((_ type-name _) source))
       (list :type type-name))))
 
 (defrule cast-keep-default  (and kw-keep kw-default)
@@ -890,8 +851,7 @@
 
 (defrule cast-function (and kw-using function-name)
   (:lambda (function)
-    (destructuring-bind (using fname) function
-      (declare (ignore using))
+    (bind (((_ fname) function))
       (intern (string-upcase fname) :pgloader.transforms))))
 
 (defun fix-target-type (source target)
@@ -911,9 +871,7 @@
 
 (defrule another-cast-rule (and comma cast-rule)
   (:lambda (source)
-    (destructuring-bind (comma rule) source
-      (declare (ignore comma))
-      rule)))
+    (bind (((_ rule) source)) rule)))
 
 (defrule cast-rule-list (and cast-rule (* another-cast-rule))
   (:lambda (source)
@@ -922,8 +880,7 @@
 
 (defrule casts (and kw-cast cast-rule-list)
   (:lambda (source)
-    (destructuring-bind (c casts) source
-      (declare (ignore c))
+    (bind (((_ casts) source))
       (cons :casts casts))))
 
 
@@ -946,9 +903,7 @@
 
 (defrule another-view-definition (and comma view-definition)
   (:lambda (source)
-    (destructuring-bind (comma view) source
-      (declare (ignore comma))
-      view)))
+    (bind (((_ view) source)) view)))
 
 (defrule views-list (and view-definition (* another-view-definition))
   (:lambda (vlist)
@@ -973,9 +928,7 @@
 
 (defrule another-namestring-or-regex (and comma namestring-or-regex)
   (:lambda (source)
-    (destructuring-bind (comma re) source
-      (declare (ignore comma))
-      re)))
+    (bind (((_ re) source)) re)))
 
 (defrule filter-list (and namestring-or-regex (* another-namestring-or-regex))
   (:lambda (source)
@@ -985,14 +938,12 @@
 (defrule including (and kw-including kw-only kw-table kw-names kw-matching
 			filter-list)
   (:lambda (source)
-    (destructuring-bind (i o table n m filter-list) source
-      (declare (ignore i o table n m))
+    (bind (((_ _ _ _ _ filter-list) source))
       (cons :including filter-list))))
 
 (defrule excluding (and kw-excluding kw-table kw-names kw-matching filter-list)
   (:lambda (source)
-    (destructuring-bind (e table n m filter-list) source
-      (declare (ignore e table n m))
+    (bind (((_ _ _ _ filter-list) source))
       (cons :excluding filter-list))))
 
 
@@ -1003,8 +954,7 @@
                                 filter-list
                                 kw-as encoding)
   (:lambda (source)
-    (destructuring-bind (d table n m filter-list as encoding) source
-      (declare (ignore d table n m as))
+    (bind (((_ _ _ _ filter-list _ encoding) source))
       (cons encoding filter-list))))
 
 (defrule decoding-tables-as (+ decoding-table-as)
@@ -1037,52 +987,52 @@
 ;;; LOAD DATABASE FROM mysql://
 (defrule load-mysql-database load-mysql-command
   (:lambda (source)
-    (destructuring-bind (my-db-uri pg-db-uri
-                                   &key
-				   gucs casts views before after
-                                   ((:mysql-options options))
-				   ((:including incl))
-                                   ((:excluding excl))
-                                   ((:decoding decoding-as)))
-	source
-      (destructuring-bind (&key ((:dbname mydb)) table-name
-				&allow-other-keys)
-	  my-db-uri
-        (destructuring-bind (&key ((:dbname pgdb)) &allow-other-keys) pg-db-uri
-          `(lambda ()
-             (let* ((state-before  (pgloader.utils:make-pgstate))
-                    (*state*       (or *state* (pgloader.utils:make-pgstate)))
-                    (state-idx     (pgloader.utils:make-pgstate))
-                    (state-after   (pgloader.utils:make-pgstate))
-                    (pgloader.mysql:*cast-rules* ',casts)
-                    ,@(mysql-connection-bindings my-db-uri)
-                    ,@(pgsql-connection-bindings pg-db-uri gucs)
-                    ,@(batch-control-bindings options)
-		    (source
-		     (make-instance 'pgloader.mysql::copy-mysql
-				    :target-db ,pgdb
-				    :source-db ,mydb)))
+    (bind (((my-db-uri pg-db-uri
+                       &key
+                       gucs casts views before after
+                       ((:mysql-options options))
+                       ((:including incl))
+                       ((:excluding excl))
+                       ((:decoding decoding-as)))           source)
 
-               ,(sql-code-block pgdb 'state-before before "before load")
+           ((&key ((:dbname mydb)) table-name
+                  &allow-other-keys)                        my-db-uri)
 
-               (pgloader.mysql:copy-database source
-                                             ,@(when table-name
-                                                     `(:only-tables ',(list table-name)))
-                                             :including ',incl
-                                             :excluding ',excl
-                                             :decoding-as ',decoding-as
-                                             :materialize-views ',views
-                                             :state-before state-before
-                                             :state-after state-after
-                                             :state-indexes state-idx
-                                             ,@(remove-batch-control-option options))
+           ((&key ((:dbname pgdb)) &allow-other-keys)       pg-db-uri))
+      `(lambda ()
+         (let* ((state-before  (pgloader.utils:make-pgstate))
+                (*state*       (or *state* (pgloader.utils:make-pgstate)))
+                (state-idx     (pgloader.utils:make-pgstate))
+                (state-after   (pgloader.utils:make-pgstate))
+                (pgloader.mysql:*cast-rules* ',casts)
+                ,@(mysql-connection-bindings my-db-uri)
+                ,@(pgsql-connection-bindings pg-db-uri gucs)
+                ,@(batch-control-bindings options)
+                (source
+                 (make-instance 'pgloader.mysql::copy-mysql
+                                :target-db ,pgdb
+                                :source-db ,mydb)))
 
-               ,(sql-code-block pgdb 'state-after after "after load")
+           ,(sql-code-block pgdb 'state-before before "before load")
 
-               (report-full-summary "Total import time" *state*
-                                    :before   state-before
-                                    :finally  state-after
-                                    :parallel state-idx))))))))
+           (pgloader.mysql:copy-database source
+                                         ,@(when table-name
+                                                 `(:only-tables ',(list table-name)))
+                                         :including ',incl
+                                         :excluding ',excl
+                                         :decoding-as ',decoding-as
+                                         :materialize-views ',views
+                                         :state-before state-before
+                                         :state-after state-after
+                                         :state-indexes state-idx
+                                         ,@(remove-batch-control-option options))
+
+           ,(sql-code-block pgdb 'state-after after "after load")
+
+           (report-full-summary "Total import time" *state*
+                                :before   state-before
+                                :finally  state-after
+                                :parallel state-idx))))))
 
 
 ;;;
@@ -1120,9 +1070,7 @@ load database
 
 (defrule another-sqlite-option (and comma sqlite-option)
   (:lambda (source)
-    (destructuring-bind (comma option) source
-      (declare (ignore comma))
-      option)))
+    (bind (((_ option) source)) option)))
 
 (defrule sqlite-option-list (and sqlite-option (* another-sqlite-option))
   (:lambda (source)
@@ -1131,35 +1079,30 @@ load database
 
 (defrule sqlite-options (and kw-with sqlite-option-list)
   (:lambda (source)
-    (destructuring-bind (w opts) source
-      (declare (ignore w))
+    (bind (((_ opts) source))
       (cons :sqlite-options opts))))
 
 (defrule sqlite-db-uri (and "sqlite://" filename)
   (:lambda (source)
-    (destructuring-bind (prefix filename) source
-      (declare (ignore prefix))
-      (destructuring-bind (type path) filename
-	(declare (ignore type))
-	(list :sqlite path)))))
+    (bind (((_ filename) source)        ; (prefix filename)
+           ((_ path)     filename))     ; (type path)
+      (list :sqlite path))))
 
 (defrule sqlite-uri (or sqlite-db-uri http-uri maybe-quoted-filename))
 
 (defrule get-sqlite-uri-from-environment-variable (and kw-getenv name)
   (:lambda (p-e-v)
-    (destructuring-bind (g varname) p-e-v
-      (declare (ignore g))
-      (let ((connstring (getenv-default varname)))
-        (unless connstring
+    (bind (((_ varname) p-e-v)
+           (connstring  (getenv-default varname)))
+      (unless connstring
           (error "Environment variable ~s is unset." varname))
-        (parse 'sqlite-uri connstring)))))
+        (parse 'sqlite-uri connstring))))
 
 (defrule sqlite-source (and kw-load kw-database kw-from
                             (or get-sqlite-uri-from-environment-variable
                                 sqlite-uri))
-  (:destructure (l d f u)
-		(declare (ignore l d f))
-		u))
+  (:lambda (source)
+    (bind (((_ _ _ uri) source)) uri)))
 
 (defrule load-sqlite-optional-clauses (* (or sqlite-options
                                              gucs
@@ -1176,49 +1119,48 @@ load database
 
 (defrule load-sqlite-database load-sqlite-command
   (:lambda (source)
-    (destructuring-bind (sqlite-uri pg-db-uri
-                                    &key
-                                    gucs
-                                    ((:sqlite-options options))
-                                    ((:including incl))
-                                    ((:excluding excl)))
-        source
-      (destructuring-bind (&key dbname table-name &allow-other-keys)
-	  pg-db-uri
-	`(lambda ()
-	   (let* ((state-before   (pgloader.utils:make-pgstate))
-		  (*state*        (pgloader.utils:make-pgstate))
-                  ,@(pgsql-connection-bindings pg-db-uri gucs)
-                  ,@(batch-control-bindings options)
-		  (db
-		   ,(destructuring-bind (kind url) sqlite-uri
-		     (ecase kind
-		       (:http     `(with-stats-collection
-				       ("download" :state state-before)
-				     (pgloader.archive:http-fetch-file ,url)))
-		       (:sqlite url)
-		       (:filename url))))
-		  (db
-		   (if (string= "zip" (pathname-type db))
-		       (progn
-			 (with-stats-collection ("extract" :state state-before)
-			   (let ((d (pgloader.archive:expand-archive db)))
-			     (merge-pathnames
-			      (make-pathname :name (pathname-name db)
-					     :type "db")
-			      d))))
-		       db))
-		  (source
-		   (make-instance 'pgloader.sqlite::copy-sqlite
-				  :target-db ,dbname
-				  :source-db db)))
-	     (pgloader.sqlite:copy-database source
-					    :state-before state-before
-					   ,@(when table-name
-					     `(:only-tables ',(list table-name)))
-					   :including ',incl
-					   :excluding ',excl
-					   ,@(remove-batch-control-option options))))))))
+    (bind (((sqlite-uri pg-db-uri
+                        &key
+                        gucs
+                        ((:sqlite-options options))
+                        ((:including incl))
+                        ((:excluding excl)))           source)
+           ((&key dbname table-name &allow-other-keys) pg-db-uri))
+      `(lambda ()
+         (let* ((state-before   (pgloader.utils:make-pgstate))
+                (*state*        (pgloader.utils:make-pgstate))
+                ,@(pgsql-connection-bindings pg-db-uri gucs)
+                ,@(batch-control-bindings options)
+                (db
+                 ,(bind (((kind url) sqlite-uri))
+                        (ecase kind
+                          (:http     `(with-stats-collection
+                                          ("download" :state state-before)
+                                        (pgloader.archive:http-fetch-file ,url)))
+                          (:sqlite url)
+                          (:filename url))))
+                (db
+                 (if (string= "zip" (pathname-type db))
+                     (progn
+                       (with-stats-collection ("extract" :state state-before)
+                         (let ((d (pgloader.archive:expand-archive db)))
+                           (merge-pathnames
+                            (make-pathname :name (pathname-name db)
+                                           :type "db")
+                            d))))
+                     db))
+                (source
+                 (make-instance 'pgloader.sqlite::copy-sqlite
+                                :target-db ,dbname
+                                :source-db db)))
+           (pgloader.sqlite:copy-database
+            source
+            :state-before state-before
+            ,@(when table-name
+                    `(:only-tables ',(list table-name)))
+            :including ',incl
+            :excluding ',excl
+            ,@(remove-batch-control-option options)))))))
 
 
 
@@ -1268,24 +1210,21 @@ load database
 
 (defrule syslog-grammar (and kw-with rule-name equal-sign rule-name rules)
   (:lambda (grammar)
-    (destructuring-bind (w top-level e gram abnf) grammar
-      (declare (ignore w e))
-      (let* ((default-abnf-grammars
+    (bind (((_ top-level _ gram abnf) grammar)
+           (default-abnf-grammars
 	      `(("rsyslog" . ,abnf:*abnf-rsyslog*)
 		("syslog"  . ,abnf:*abnf-rfc5424-syslog-protocol*)
 		("syslog-draft-15" . ,abnf:*abnf-rfc-syslog-draft-15*)))
-	     (grammar (cdr (assoc gram default-abnf-grammars :test #'string=))))
-	(cons top-level
+           (grammar (cdr (assoc gram default-abnf-grammars :test #'string=))))
+      (cons top-level
 	      (concatenate 'string
 			   abnf
 			   '(#\Newline #\Newline)
-			   grammar))))))
+			   grammar)))))
 
 (defrule register-groups (and kw-registering rule-name-list)
   (:lambda (groups)
-    (destructuring-bind (reg rule-names) groups
-      (declare (ignore reg))
-      rule-names)))
+    (bind (((_ rule-names) groups)) rule-names)))
 
 (defrule syslog-match (and kw-when
 			   kw-matches rule-name kw-in rule-name
@@ -1293,8 +1232,7 @@ load database
 			   target
 			   (? gucs))
   (:lambda (matches)
-    (destructuring-bind (w m top-level i rule-name groups target gucs) matches
-      (declare (ignore w m i))
+    (bind (((_ _ top-level _ rule-name groups target gucs) matches))
       (list :target target
 	    :gucs gucs
 	    :top-level top-level
@@ -1303,54 +1241,48 @@ load database
 
 (defrule syslog-connection-uri (and dsn-prefix dsn-hostname (? "/"))
   (:lambda (syslog)
-    (destructuring-bind (prefix host-port slash) syslog
-      (declare (ignore slash))
-      (destructuring-bind (&key type host port)
-	  (append prefix host-port)
-	(list :type type
-	      :host host
-	      :port port)))))
+    (bind (((prefix host-port _)  syslog)
+           ((&key type host port) (append prefix host-port)))
+      (list :type type
+            :host host
+            :port port))))
 
 (defrule syslog-source (and ignore-whitespace
 			      kw-load kw-messages kw-from
 			      syslog-connection-uri)
   (:lambda (source)
-    (destructuring-bind (nil l d f uri) source
-      (declare (ignore l d f))
-      uri)))
+    (bind (((_ _ _ _ uri) source)) uri)))
 
 (defrule load-syslog-messages (and syslog-source
 				   (+ syslog-match)
 				   (+ syslog-grammar))
   (:lambda (syslog)
-    (destructuring-bind (syslog-server matches grammars)
-	syslog
-      (destructuring-bind (&key ((:host syslog-host))
-				((:port syslog-port))
-				&allow-other-keys)
-	  syslog-server
-	(let ((scanners
-	       (loop
-		  for match in matches
-		  collect (destructuring-bind (&key target
-						    gucs
-						    top-level
-						    grammar
-						    groups)
-			      match
-			    (list :target target
-				  :gucs gucs
-				  :parser (abnf:parse-abnf-grammar
-					    (cdr (assoc grammar grammars
-							:test #'string=))
-					    top-level
-					    :registering-rules groups)
-				  :groups groups)))))
-	  `(lambda ()
-	     (let ((scanners ',scanners))
-	       (pgloader.syslog:stream-messages :host ,syslog-host
-						:port ,syslog-port
-						:scanners scanners))))))))
+    (bind (((syslog-server matches grammars) syslog)
+           ((&key ((:host syslog-host))
+                  ((:port syslog-port))
+                  &allow-other-keys)         syslog-server)
+           (scanners
+            (loop
+               for match in matches
+               collect (destructuring-bind (&key target
+                                                 gucs
+                                                 top-level
+                                                 grammar
+                                                 groups)
+                           match
+                         (list :target target
+                               :gucs gucs
+                               :parser (abnf:parse-abnf-grammar
+                                        (cdr (assoc grammar grammars
+                                                    :test #'string=))
+                                        top-level
+                                        :registering-rules groups)
+                               :groups groups)))))
+      `(lambda ()
+         (let ((scanners ',scanners))
+           (pgloader.syslog:stream-messages :host ,syslog-host
+                                            :port ,syslog-port
+                                            :scanners scanners))))))
 
 
 #|
@@ -1363,14 +1295,11 @@ load database
 
 (defrule quoted-table-name (and #\' (or qualified-table-name namestring) #\')
   (:lambda (qtn)
-    (destructuring-bind (open name close) qtn
-      (declare (ignore open close))
-      name)))
+    (bind (((_ name _) qtn)) name)))
 
 (defrule option-table-name (and kw-table kw-name equal-sign quoted-table-name)
   (:lambda (tn)
-    (destructuring-bind (table name e table-name) tn
-      (declare (ignore table name e))
+    (bind (((_ _ _ table-name) tn))
       (cons :table-name (text table-name)))))
 
 (defrule dbf-option (or option-batch-rows
@@ -1382,9 +1311,7 @@ load database
 
 (defrule another-dbf-option (and comma dbf-option)
   (:lambda (source)
-    (destructuring-bind (comma option) source
-      (declare (ignore comma))
-      option)))
+    (bind (((_ option) source)) option)))
 
 (defrule dbf-option-list (and dbf-option (* another-dbf-option))
   (:lambda (source)
@@ -1393,15 +1320,12 @@ load database
 
 (defrule dbf-options (and kw-with dbf-option-list)
   (:lambda (source)
-    (destructuring-bind (w opts) source
-      (declare (ignore w))
+    (bind (((_ opts) source))
       (cons :dbf-options opts))))
 
 (defrule dbf-source (and kw-load kw-dbf kw-from filename-or-http-uri)
   (:lambda (src)
-    (destructuring-bind (load dbf from source) src
-      (declare (ignore load dbf from))
-      source)))
+    (bind (((_ _ _ source) src)) source)))
 
 (defrule load-dbf-optional-clauses (* (or dbf-options
                                           gucs
@@ -1417,54 +1341,52 @@ load database
 
 (defrule load-dbf-file load-dbf-command
   (:lambda (command)
-    (destructuring-bind (source pg-db-uri
-                                &key ((:dbf-options options)) gucs before after)
-        command
-      (destructuring-bind (&key dbname table-name &allow-other-keys)
-	  pg-db-uri
-	`(lambda ()
-	   (let* ((state-before   (pgloader.utils:make-pgstate))
-                  (summary        (null *state*))
-		  (*state*        (or *state* (pgloader.utils:make-pgstate)))
-                  (state-after   ,(when after `(pgloader.utils:make-pgstate)))
-                  ,@(pgsql-connection-bindings pg-db-uri gucs)
-                  ,@(batch-control-bindings options)
-		  (source
-		   ,(destructuring-bind (kind url) source
-		     (ecase kind
-		       (:http     `(with-stats-collection
-				       ("download" :state state-before)
-				     (pgloader.archive:http-fetch-file ,url)))
-		       (:filename url))))
-		  (source
-		   (if (string= "zip" (pathname-type source))
-		       (progn
-			 (with-stats-collection ("extract" :state state-before)
-			   (let ((d (pgloader.archive:expand-archive source)))
-			     (merge-pathnames
-			      (make-pathname :name (pathname-name source)
-					     :type "dbf")
-			      d))))
-		       source))
-		  (source
-		   (make-instance 'pgloader.db3:copy-db3
-				  :target-db ,dbname
-				  :source source
-				  :target ,table-name)))
+    (bind (((source pg-db-uri
+                    &key ((:dbf-options options)) gucs before after) command)
+           ((&key dbname table-name &allow-other-keys)               pg-db-uri))
+      `(lambda ()
+         (let* ((state-before   (pgloader.utils:make-pgstate))
+                (summary        (null *state*))
+                (*state*        (or *state* (pgloader.utils:make-pgstate)))
+                (state-after   ,(when after `(pgloader.utils:make-pgstate)))
+                ,@(pgsql-connection-bindings pg-db-uri gucs)
+                ,@(batch-control-bindings options)
+                (source
+                 ,(bind (((kind url) source))
+                        (ecase kind
+                          (:http     `(with-stats-collection
+                                          ("download" :state state-before)
+                                        (pgloader.archive:http-fetch-file ,url)))
+                          (:filename url))))
+                (source
+                 (if (string= "zip" (pathname-type source))
+                     (progn
+                       (with-stats-collection ("extract" :state state-before)
+                         (let ((d (pgloader.archive:expand-archive source)))
+                           (merge-pathnames
+                            (make-pathname :name (pathname-name source)
+                                           :type "dbf")
+                            d))))
+                     source))
+                (source
+                 (make-instance 'pgloader.db3:copy-db3
+                                :target-db ,dbname
+                                :source source
+                                :target ,table-name)))
 
-             ,(sql-code-block dbname 'state-before before "before load")
+           ,(sql-code-block dbname 'state-before before "before load")
 
-	     (pgloader.sources:copy-from source
-					 :state-before state-before
-					 ,@(remove-batch-control-option options))
+           (pgloader.sources:copy-from source
+                                       :state-before state-before
+                                       ,@(remove-batch-control-option options))
 
-             ,(sql-code-block dbname 'state-after after "after load")
+           ,(sql-code-block dbname 'state-after after "after load")
 
-             ;; reporting
-             (when summary
-               (report-full-summary "Total import time" *state*
-                                    :before state-before
-                                    :finally state-after))))))))
+           ;; reporting
+           (when summary
+             (report-full-summary "Total import time" *state*
+                                  :before state-before
+                                  :finally state-after)))))))
 
 
 #|
@@ -1478,15 +1400,12 @@ load database
 ;;; piggyback on DBF parsing
 (defrule ixf-options (and kw-with dbf-option-list)
   (:lambda (source)
-    (destructuring-bind (w opts) source
-      (declare (ignore w))
+    (bind (((_ opts) source))
       (cons :ixf-options opts))))
 
 (defrule ixf-source (and kw-load kw-ixf kw-from filename-or-http-uri)
   (:lambda (src)
-    (destructuring-bind (load ixf from source) src
-      (declare (ignore load ixf from))
-      source)))
+    (bind (((_ _ _ source) src)) source)))
 
 (defrule load-ixf-optional-clauses (* (or ixf-options
                                           gucs
@@ -1502,53 +1421,51 @@ load database
 
 (defrule load-ixf-file load-ixf-command
   (:lambda (command)
-    (destructuring-bind (source pg-db-uri
-                                &key ((:ixf-options options)) gucs before after)
-        command
-      (destructuring-bind (&key dbname table-name &allow-other-keys)
-	  pg-db-uri
-	`(lambda ()
-	   (let* ((state-before   (pgloader.utils:make-pgstate))
-                  (summary        (null *state*))
-		  (*state*        (or *state* (pgloader.utils:make-pgstate)))
-		  (state-after   ,(when after `(pgloader.utils:make-pgstate)))
-                  ,@(pgsql-connection-bindings pg-db-uri gucs)
-                  ,@(batch-control-bindings options)
-		  (source
-		   ,(destructuring-bind (kind url) source
-		     (ecase kind
-		       (:http     `(with-stats-collection
-				       ("download" :state state-before)
-				     (pgloader.archive:http-fetch-file ,url)))
-		       (:filename url))))
-		  (source
-		   (if (string= "zip" (pathname-type source))
-		       (progn
-			 (with-stats-collection ("extract" :state state-before)
-			   (let ((d (pgloader.archive:expand-archive source)))
-			     (merge-pathnames
-			      (make-pathname :name (pathname-name source)
-					     :type "ixf")
-			      d))))
-		       source))
-		  (source
-		   (make-instance 'pgloader.ixf:copy-ixf
-				  :target-db ,dbname
-				  :source source
-				  :target ,table-name)))
+    (bind (((source pg-db-uri
+                    &key ((:ixf-options options)) gucs before after) command)
+           ((&key dbname table-name &allow-other-keys)               pg-db-uri))
+      `(lambda ()
+         (let* ((state-before   (pgloader.utils:make-pgstate))
+                (summary        (null *state*))
+                (*state*        (or *state* (pgloader.utils:make-pgstate)))
+                (state-after   ,(when after `(pgloader.utils:make-pgstate)))
+                ,@(pgsql-connection-bindings pg-db-uri gucs)
+                ,@(batch-control-bindings options)
+                (source
+                 ,(bind (((kind url) source))
+                        (ecase kind
+                          (:http     `(with-stats-collection
+                                          ("download" :state state-before)
+                                        (pgloader.archive:http-fetch-file ,url)))
+                          (:filename url))))
+                (source
+                 (if (string= "zip" (pathname-type source))
+                     (progn
+                       (with-stats-collection ("extract" :state state-before)
+                         (let ((d (pgloader.archive:expand-archive source)))
+                           (merge-pathnames
+                            (make-pathname :name (pathname-name source)
+                                           :type "ixf")
+                            d))))
+                     source))
+                (source
+                 (make-instance 'pgloader.ixf:copy-ixf
+                                :target-db ,dbname
+                                :source source
+                                :target ,table-name)))
 
-             ,(sql-code-block dbname 'state-before before "before load")
+           ,(sql-code-block dbname 'state-before before "before load")
 
-	     (pgloader.sources:copy-from source
-					 :state-before state-before
-					 ,@(remove-batch-control-option options))
+           (pgloader.sources:copy-from source
+                                       :state-before state-before
+                                       ,@(remove-batch-control-option options))
 
-             ,(sql-code-block dbname 'state-after after "after load")
+           ,(sql-code-block dbname 'state-after after "after load")
 
-             (when summary
-               (report-full-summary "Total import time" *state*
-                                    :before state-before
-                                    :finally state-after))))))))
+           (when summary
+             (report-full-summary "Total import time" *state*
+                                  :before state-before
+                                  :finally state-after)))))))
 
 
 #|
@@ -1578,17 +1495,14 @@ load database
 |#
 (defrule hex-char-code (and "0x" (+ (hexdigit-char-p character)))
   (:lambda (hex)
-    (destructuring-bind (prefix digits) hex
-      (declare (ignore prefix))
+    (bind (((_ digits) hex))
       (code-char (parse-integer (text digits) :radix 16)))))
 
 (defrule tab (and #\\ #\t) (:constant #\Tab))
 
 (defrule separator (and #\' (or hex-char-code tab character ) #\')
   (:lambda (sep)
-    (destructuring-bind (open char close) sep
-      (declare (ignore open close))
-      char)))
+    (bind (((_ char _) sep)) char)))
 
 ;;
 ;; Main CSV options (WITH ... in the command grammar)
@@ -1596,15 +1510,13 @@ load database
 (defrule option-skip-header (and kw-skip kw-header equal-sign
 				 (+ (digit-char-p character)))
   (:lambda (osh)
-    (destructuring-bind (skip header eqs digits) osh
-      (declare (ignore skip header eqs))
+    (bind (((_ _ _ digits) osh))
       (cons :skip-lines (parse-integer (text digits))))))
 
 (defrule option-fields-enclosed-by
     (and kw-fields (? kw-optionally) kw-enclosed kw-by separator)
   (:lambda (enc)
-    (destructuring-bind (f e o b sep) enc
-      (declare (ignore f e o b))
+    (bind (((_ _ _ _ sep) enc))
       (cons :quote sep))))
 
 (defrule option-fields-not-enclosed (and kw-fields kw-not kw-enclosed)
@@ -1618,26 +1530,21 @@ load database
 
 (defrule option-fields-escaped-by (and kw-fields kw-escaped kw-by escaped-quote)
   (:lambda (esc)
-    (destructuring-bind (f e b sep) esc
-      (declare (ignore f e b))
+    (bind (((_ _ _ sep) esc))
       (cons :escape sep))))
 
 (defrule option-terminated-by (and kw-terminated kw-by separator)
   (:lambda (term)
-    (destructuring-bind (terminated by sep) term
-      (declare (ignore terminated by))
+    (bind (((_ _ sep) term))
       (cons :separator sep))))
 
 (defrule option-fields-terminated-by (and kw-fields option-terminated-by)
   (:lambda (term)
-    (destructuring-bind (fields sep) term
-      (declare (ignore fields ))
-      sep)))
+    (bind (((_ sep) term)) sep)))
 
 (defrule option-lines-terminated-by (and kw-lines kw-terminated kw-by separator)
   (:lambda (term)
-    (destructuring-bind (lines terminated by sep) term
-      (declare (ignore lines terminated by))
+    (bind (((_ _ _ sep) term))
       (cons :newline sep))))
 
 (defrule option-keep-unquoted-blanks (and kw-keep kw-unquoted kw-blanks)
@@ -1661,9 +1568,7 @@ load database
 
 (defrule another-csv-option (and comma csv-option)
   (:lambda (source)
-    (destructuring-bind (comma option) source
-      (declare (ignore comma))
-      option)))
+    (bind (((_ option) source)) option)))
 
 (defrule csv-option-list (and csv-option (* another-csv-option))
   (:lambda (source)
@@ -1672,8 +1577,7 @@ load database
 
 (defrule csv-options (and kw-with csv-option-list)
   (:lambda (source)
-    (destructuring-bind (w opts) source
-      (declare (ignore w))
+    (bind (((_ opts) source))
       (cons :csv-options opts))))
 
 ;;
@@ -1681,30 +1585,26 @@ load database
 ;;
 (defrule single-quoted-string (and #\' (* (not #\')) #\')
   (:lambda (qs)
-    (destructuring-bind (open string close) qs
-      (declare (ignore open close))
+    (bind (((_ string _) qs))
       (text string))))
 
 (defrule double-quoted-string (and #\" (* (not #\")) #\")
   (:lambda (qs)
-    (destructuring-bind (open string close) qs
-      (declare (ignore open close))
+    (bind (((_ string _) qs))
       (text string))))
 
 (defrule quoted-string (or single-quoted-string double-quoted-string))
 
 (defrule option-date-format (and kw-date kw-format quoted-string)
   (:lambda (df)
-    (destructuring-bind (date format date-format) df
-      (declare (ignore date format))
+    (bind (((_ _ date-format) df))
       (cons :date-format date-format))))
 
 (defrule blanks kw-blanks (:constant :blanks))
 
 (defrule option-null-if (and kw-null kw-if (or blanks quoted-string))
   (:lambda (nullif)
-    (destructuring-bind (null if opt) nullif
-      (declare (ignore null if))
+    (bind (((_ _ opt) nullif))
       (cons :null-as opt))))
 
 (defrule option-trim-both-whitespace (and kw-trim kw-both kw-whitespace)
@@ -1725,9 +1625,7 @@ load database
 
 (defrule another-csv-field-option (and comma csv-field-option)
   (:lambda (field-option)
-    (destructuring-bind (comma option) field-option
-      (declare (ignore comma))
-      option)))
+    (bind (((_ option) field-option)) option)))
 
 (defrule open-square-bracket (and ignore-whitespace #\[ ignore-whitespace)
   (:constant :open-square-bracket))
@@ -1739,8 +1637,7 @@ load database
                                     (* another-csv-field-option)
                                     close-square-bracket)
   (:lambda (option)
-    (destructuring-bind (open opt1 opts close) option
-      (declare (ignore open close))
+    (bind (((_ opt1 opts _) option))
       (alexandria:alist-plist `(,opt1 ,@opts)))))
 
 (defrule csv-field-options (? csv-field-option-list))
@@ -1757,9 +1654,7 @@ load database
 
 (defrule csv-quoted-field-name (and #\" csv-raw-field-name #\")
   (:lambda (csv-field-name)
-    (destructuring-bind (open name close) csv-field-name
-      (declare (ignore open close))
-      name)))
+    (bind (((_ name _) csv-field-name)) name)))
 
 (defrule csv-field-name (or csv-quoted-field-name csv-bare-field-name))
 
@@ -1769,9 +1664,7 @@ load database
 
 (defrule another-csv-source-field (and comma csv-source-field)
   (:lambda (source)
-    (destructuring-bind (comma field) source
-      (declare (ignore comma))
-      field)))
+    (bind (((_ field) source)) field)))
 
 (defrule csv-source-fields (and csv-source-field (* another-csv-source-field))
   (:lambda (source)
@@ -1788,9 +1681,7 @@ load database
 (defrule csv-source-field-list (and (? having-fields)
                                     open-paren csv-source-fields close-paren)
   (:lambda (source)
-    (destructuring-bind (having open field-defs close) source
-      (declare (ignore having open close))
-      field-defs)))
+    (bind (((_ _ field-defs _) source)) field-defs)))
 
 ;;
 ;; csv-target-column-list
@@ -1834,34 +1725,25 @@ load database
 (defrule sexp-atom (and ignore-whitespace
 			(or sexp-string sexp-integer sexp-symbol))
   (:lambda (atom)
-    (destructuring-bind (ws a) atom
-      (declare (ignore ws))
-      a)))
+    (bind (((_ a) atom)) a)))
 
 (defrule sexp (or sexp-atom sexp-list))
 
 (defrule column-expression (and kw-using sexp)
   (:lambda (expr)
-    (destructuring-bind (using sexp) expr
-      (declare (ignore using))
-      sexp)))
+    (bind (((_ sexp) expr)) sexp)))
 
 (defrule csv-target-column (and column-name
 				(? (and ignore-whitespace column-type
 					column-expression)))
   (:lambda (col)
-    (destructuring-bind (name opts) col
-      (if opts
-	  (destructuring-bind (ws type expr) opts
-	    (declare (ignore ws))
-	    (list name type expr))
-	  (list name nil nil)))))
+    (bind (((name opts)   col)
+           ((_ type expr) (or opts (list nil nil nil))))
+      (list name type expr))))
 
 (defrule another-csv-target-column (and comma csv-target-column)
   (:lambda (source)
-    (destructuring-bind (comma col) source
-      (declare (ignore comma))
-      col)))
+    (bind (((_ col) source)) col)))
 
 (defrule csv-target-columns (and csv-target-column
 				 (* another-csv-target-column))
@@ -1874,9 +1756,7 @@ load database
 (defrule csv-target-column-list (and (? target-columns)
                                      open-paren csv-target-columns close-paren)
   (:lambda (source)
-    (destructuring-bind (target-columns open columns close) source
-      (declare (ignore target-columns open close))
-      columns)))
+    (bind (((_ _ columns _) source)) columns)))
 ;;
 ;; The main command parsing
 ;;
@@ -1897,52 +1777,46 @@ load database
 (defrule file-encoding (? (and kw-with kw-encoding encoding))
   (:lambda (enc)
     (if enc
-	(destructuring-bind (with kw-encoding encoding) enc
-	  (declare (ignore with kw-encoding))
-	  encoding)
+        (bind (((_ _ encoding) enc)) encoding)
 	:utf-8)))
 
 (defrule first-filename-matching
     (and (? kw-first) kw-filename kw-matching quoted-regex)
   (:lambda (fm)
-    (destructuring-bind (first filename matching regex) fm
-      (declare (ignore first filename matching))
-      ;; regex is a list with first the symbol :regex and second the regexp
-      ;; as a string
+    (bind (((_ _ _ regex) fm))
+       ;; regex is a list with first the symbol :regex and second the regexp
+       ;; as a string
       (list* :regex :first (cdr regex)))))
 
 (defrule all-filename-matching
     (and kw-all (or kw-filenames kw-filename) kw-matching quoted-regex)
   (:lambda (fm)
-    (destructuring-bind (all filename matching regex) fm
-      (declare (ignore all filename matching))
+    (bind (((_ _ _ regex) fm))
       ;; regex is a list with first the symbol :regex and second the regexp
       ;; as a string
       (list* :regex :all (cdr regex)))))
 
 (defrule in-directory (and kw-in kw-directory maybe-quoted-filename)
   (:lambda (in-d)
-    (destructuring-bind (in d dir) in-d
-      (declare (ignore in d))
-      dir)))
+    (bind (((_ _ dir) in-d)) dir)))
 
 (defrule filename-matching (and (or first-filename-matching
                                     all-filename-matching)
                                 (? in-directory))
   (:lambda (filename-matching)
-    (destructuring-bind (matching directory) filename-matching
-      (let ((directory (or directory `(:filename ,*cwd*))))
-        (destructuring-bind (m-type first-or-all regex) matching
-          (assert (eq m-type :regex))
-          (destructuring-bind (d-type dir) directory
-            (assert (eq d-type :filename))
-            (let ((root (uiop:directory-exists-p
-                         (if (uiop:absolute-pathname-p dir) dir
-                             (uiop:merge-pathnames* dir *cwd*)))))
-              (unless root
-                (error "Directory ~s does not exists."
-                       (uiop:native-namestring dir)))
-             `(:regex ,first-or-all ,regex ,root))))))))
+    (bind (((matching directory)        filename-matching)
+           (directory                   (or directory `(:filename ,*cwd*)))
+           ((m-type first-or-all regex) matching)
+           ((d-type dir)                directory)
+           (root                        (uiop:directory-exists-p
+                                         (if (uiop:absolute-pathname-p dir) dir
+                                             (uiop:merge-pathnames* dir *cwd*)))))
+      (assert (eq m-type :regex))
+      (assert (eq d-type :filename))
+      (unless root
+        (error "Directory ~s does not exists."
+               (uiop:native-namestring dir)))
+      `(:regex ,first-or-all ,regex ,root))))
 
 (defrule csv-file-source (or stdin
 			     inline
@@ -1951,27 +1825,24 @@ load database
 
 (defrule get-csv-file-source-from-environment-variable (and kw-getenv name)
   (:lambda (p-e-v)
-    (destructuring-bind (g varname) p-e-v
-      (declare (ignore g))
-      (let ((connstring (getenv-default varname)))
-        (unless connstring
-          (error "Environment variable ~s is unset." varname))
-        (parse 'csv-file-source connstring)))))
+    (bind (((_ varname) p-e-v)
+           (connstring  (getenv-default varname)))
+      (unless connstring
+        (error "Environment variable ~s is unset." varname))
+      (parse 'csv-file-source connstring))))
 
 (defrule csv-source (and kw-load kw-csv kw-from
                          (or get-csv-file-source-from-environment-variable
                              csv-file-source))
   (:lambda (src)
-    (destructuring-bind (load csv from source) src
-      (declare (ignore load csv from))
-      ;; source is (:filename #P"pathname/here")
-      (destructuring-bind (type &rest data) source
-	(declare (ignore data))
-	(ecase type
-	  (:stdin    source)
-	  (:inline   source)
-	  (:filename source)
-	  (:regex    source))))))
+    (bind (((_ _ _ source)    src)
+           ;; source is (:filename #P"pathname/here")
+           ((type &rest _) source))
+      (ecase type
+        (:stdin    source)
+        (:inline   source)
+        (:filename source)
+        (:regex    source)))))
 
 (defun list-symbols (expression &optional s)
   "Return a list of the symbols used in EXPRESSION."
@@ -2002,12 +1873,10 @@ load database
 
 (defrule load-csv-file load-csv-file-command
   (:lambda (command)
-    (destructuring-bind (source encoding fields pg-db-uri columns
-                                &key ((:csv-options options)) gucs before after)
-        command
-      (destructuring-bind (&key dbname table-name &allow-other-keys)
-	  pg-db-uri
-	`(lambda ()
+    (bind (((source encoding fields pg-db-uri columns
+                    &key ((:csv-options options)) gucs before after) command)
+           ((&key dbname table-name &allow-other-keys)               pg-db-uri))
+      `(lambda ()
 	   (let* ((state-before  ,(when before `(pgloader.utils:make-pgstate)))
 		  (summary       (null *state*))
 		  (*state*       (or *state* (pgloader.utils:make-pgstate)))
@@ -2037,7 +1906,7 @@ load database
 	       (when summary
 		 (report-full-summary "Total import time" *state*
 				      :before  state-before
-				      :finally state-after)))))))))
+				      :finally state-after))))))))
 
 
 ;;;
@@ -2048,8 +1917,7 @@ load database
 ;;;
 (defrule hex-number (and "0x" (+ (hexdigit-char-p character)))
   (:lambda (hex)
-    (destructuring-bind (prefix digits) hex
-      (declare (ignore prefix))
+    (bind (((_ digits) hex))
       (parse-integer (text digits) :radix 16))))
 
 (defrule dec-number (+ (digit-char-p character))
@@ -2072,9 +1940,7 @@ load database
 
 (defrule another-fixed-source-field (and comma fixed-source-field)
   (:lambda (source)
-    (destructuring-bind (comma field) source
-      (declare (ignore comma))
-      field)))
+    (bind (((_ field) source)) field)))
 
 (defrule fixed-source-fields (and fixed-source-field (* another-fixed-source-field))
   (:lambda (source)
@@ -2083,9 +1949,7 @@ load database
 
 (defrule fixed-source-field-list (and open-paren fixed-source-fields close-paren)
   (:lambda (source)
-    (destructuring-bind (open field-defs close) source
-      (declare (ignore open close))
-      field-defs)))
+    (bind (((_ field-defs _) source)) field-defs)))
 
 (defrule fixed-option (or option-batch-rows
                           option-batch-size
@@ -2095,9 +1959,7 @@ load database
 
 (defrule another-fixed-option (and comma fixed-option)
   (:lambda (source)
-    (destructuring-bind (comma option) source
-      (declare (ignore comma))
-      option)))
+    (bind (((_ option) source)) option)))
 
 (defrule fixed-option-list (and fixed-option (* another-fixed-option))
   (:lambda (source)
@@ -2106,8 +1968,7 @@ load database
 
 (defrule fixed-options (and kw-with csv-option-list)
   (:lambda (source)
-    (destructuring-bind (w opts) source
-      (declare (ignore w))
+    (bind (((_ opts) source))
       (cons :fixed-options opts))))
 
 
@@ -2118,27 +1979,24 @@ load database
 
 (defrule get-fixed-file-source-from-environment-variable (and kw-getenv name)
   (:lambda (p-e-v)
-    (destructuring-bind (g varname) p-e-v
-      (declare (ignore g))
-      (let ((connstring (getenv-default varname)))
-        (unless connstring
+    (bind (((_ varname) p-e-v)
+           (connstring (getenv-default varname)))
+      (unless connstring
           (error "Environment variable ~s is unset." varname))
-        (parse 'fixed-file-source connstring)))))
+        (parse 'fixed-file-source connstring))))
 
 (defrule fixed-source (and kw-load kw-fixed kw-from
                            (or get-fixed-file-source-from-environment-variable
                                fixed-file-source))
   (:lambda (src)
-    (destructuring-bind (load fixed from source) src
-      (declare (ignore load fixed from))
-      ;; source is (:filename #P"pathname/here")
-      (destructuring-bind (type &rest data) source
-	(declare (ignore data))
-	(ecase type
+    (bind (((_ _ _ source) src)
+           ;; source is (:filename #P"pathname/here")
+           ((type &rest _) source))
+      (ecase type
 	  (:stdin    source)
 	  (:inline   source)
 	  (:filename source)
-	  (:regex    source))))))
+	  (:regex    source)))))
 
 (defrule load-fixed-cols-file-optional-clauses (* (or fixed-options
                                                       gucs
@@ -2158,41 +2016,39 @@ load database
 
 (defrule load-fixed-cols-file load-fixed-cols-file-command
   (:lambda (command)
-    (destructuring-bind (source encoding fields pg-db-uri columns
-                                &key ((:fixed-options options)) gucs before after)
-        command
-      (destructuring-bind (&key dbname table-name &allow-other-keys)
-	  pg-db-uri
-	`(lambda ()
-	   (let* ((state-before  ,(when before `(pgloader.utils:make-pgstate)))
-		  (summary       (null *state*))
-		  (*state*       (or *state* (pgloader.utils:make-pgstate)))
-		  (state-after   ,(when after `(pgloader.utils:make-pgstate)))
-                  ,@(pgsql-connection-bindings pg-db-uri gucs)
-                  ,@(batch-control-bindings options))
+    (bind (((source encoding fields pg-db-uri columns
+                    &key ((:fixed-options options)) gucs before after) command)
+           ((&key dbname table-name &allow-other-keys)                 pg-db-uri))
+      `(lambda ()
+         (let* ((state-before  ,(when before `(pgloader.utils:make-pgstate)))
+                (summary       (null *state*))
+                (*state*       (or *state* (pgloader.utils:make-pgstate)))
+                (state-after   ,(when after `(pgloader.utils:make-pgstate)))
+                ,@(pgsql-connection-bindings pg-db-uri gucs)
+                ,@(batch-control-bindings options))
 
-	     (progn
-	       ,(sql-code-block dbname 'state-before before "before load")
+           (progn
+             ,(sql-code-block dbname 'state-before before "before load")
 
-	       (let ((truncate ,(getf options :truncate))
-		     (source
-		      (make-instance 'pgloader.fixed:copy-fixed
-				     :target-db ,dbname
-				     :source ',source
-				     :target ,table-name
-				     :encoding ,encoding
-				     :fields ',fields
-				     :columns ',columns
-				     :skip-lines ,(or (getf options :skip-line) 0))))
-		 (pgloader.sources:copy-from source :truncate truncate))
+             (let ((truncate ,(getf options :truncate))
+                   (source
+                    (make-instance 'pgloader.fixed:copy-fixed
+                                   :target-db ,dbname
+                                   :source ',source
+                                   :target ,table-name
+                                   :encoding ,encoding
+                                   :fields ',fields
+                                   :columns ',columns
+                                   :skip-lines ,(or (getf options :skip-line) 0))))
+               (pgloader.sources:copy-from source :truncate truncate))
 
-	       ,(sql-code-block dbname 'state-after after "after load")
+             ,(sql-code-block dbname 'state-after after "after load")
 
-	       ;; reporting
-	       (when summary
-		 (report-full-summary "Total import time" *state*
-				      :before  state-before
-				      :finally state-after)))))))))
+             ;; reporting
+             (when summary
+               (report-full-summary "Total import time" *state*
+                                    :before  state-before
+                                    :finally state-after))))))))
 
 
 ;;;
@@ -2204,9 +2060,7 @@ load database
 
 (defrule another-archive-command (and kw-and archive-command)
   (:lambda (source)
-    (destructuring-bind (and col) source
-      (declare (ignore and))
-      col)))
+    (bind (((_ col) source)) col)))
 
 (defrule archive-command-list (and archive-command (* another-archive-command))
   (:lambda (source)
@@ -2215,9 +2069,7 @@ load database
 
 (defrule archive-source (and kw-load kw-archive kw-from filename-or-http-uri)
   (:lambda (src)
-    (destructuring-bind (load from archive source) src
-      (declare (ignore load from archive))
-      source)))
+    (bind (((_ _ _ source) src)) source)))
 
 (defrule load-archive-clauses (and archive-source
                                    (? target)
@@ -2225,53 +2077,54 @@ load database
                                    archive-command-list
                                    (? finally))
   (:lambda (command)
-    (destructuring-bind (source target before commands finally) command
-      (destructuring-bind (&key before commands finally)
-          (alexandria:alist-plist (remove-if #'null (list before commands finally)))
-        (list source target
-              :before before
-              :commands commands
-              :finally finally)))))
+    (bind (((source target before commands finally) command)
+           ((&key before commands finally)
+            (alexandria:alist-plist (remove-if #'null
+                                               (list before commands finally)))))
+      (list source target
+            :before before
+            :commands commands
+            :finally finally))))
 
 (defrule load-archive load-archive-clauses
   (:lambda (archive)
     (destructuring-bind (source pg-db-uri &key before commands finally) archive
       (when (and (or before finally) (null pg-db-uri))
-	(error "When using a BEFORE LOAD DO or a FINALLY block, you must provide an archive level target database connection."))
+        (error "When using a BEFORE LOAD DO or a FINALLY block, you must provide an archive level target database connection."))
       (destructuring-bind (&key host port user password dbname &allow-other-keys)
-	  pg-db-uri
-	`(lambda ()
-	   (let* ((state-before   (pgloader.utils:make-pgstate))
-		  (*state*        (pgloader.utils:make-pgstate))
+          pg-db-uri
+        `(lambda ()
+           (let* ((state-before   (pgloader.utils:make-pgstate))
+                  (*state*        (pgloader.utils:make-pgstate))
                   (*pgconn-host* ',host)
-		  (*pgconn-port* ,port)
-		  (*pgconn-user* ,user)
-		  (*pgconn-pass* ,password)
-		  (*pg-dbname*   ,dbname)
-		  (state-finally ,(when finally `(pgloader.utils:make-pgstate)))
-		  (archive-file
-		   ,(destructuring-bind (kind url) source
-		     (ecase kind
-		       (:http     `(with-stats-collection
-				       ("download" :state state-before)
-				     (pgloader.archive:http-fetch-file ,url)))
-		       (:filename url))))
-		  (*csv-path-root*
-		   (with-stats-collection ("extract" :state state-before)
-		     (pgloader.archive:expand-archive archive-file))))
-	     (progn
-	       ,(sql-code-block dbname 'state-before before "before load")
+                  (*pgconn-port* ,port)
+                  (*pgconn-user* ,user)
+                  (*pgconn-pass* ,password)
+                  (*pg-dbname*   ,dbname)
+                  (state-finally ,(when finally `(pgloader.utils:make-pgstate)))
+                  (archive-file
+                   ,(destructuring-bind (kind url) source
+                                        (ecase kind
+                                          (:http     `(with-stats-collection
+                                                          ("download" :state state-before)
+                                                        (pgloader.archive:http-fetch-file ,url)))
+                                          (:filename url))))
+                  (*csv-path-root*
+                   (with-stats-collection ("extract" :state state-before)
+                     (pgloader.archive:expand-archive archive-file))))
+             (progn
+               ,(sql-code-block dbname 'state-before before "before load")
 
-	       ;; import from files block
-	       ,@(loop for command in commands
-		    collect `(funcall ,command))
+               ;; import from files block
+               ,@(loop for command in commands
+                    collect `(funcall ,command))
 
-	       ,(sql-code-block dbname 'state-finally finally "finally")
+               ,(sql-code-block dbname 'state-finally finally "finally")
 
-	       ;; reporting
-	       (report-full-summary "Total import time" *state*
-				    :before state-before
-				    :finally state-finally))))))))
+               ;; reporting
+               (report-full-summary "Total import time" *state*
+                                    :before state-before
+                                    :finally state-finally))))))))
 
 
 ;;;
@@ -2294,9 +2147,7 @@ load database
 			  load-syslog-messages)
 		      end-of-command)
   (:lambda (cmd)
-    (destructuring-bind (command eoc) cmd
-      (declare (ignore eoc))
-      command)))
+    (bind (((command _) cmd)) command)))
 
 (defrule commands (+ command))
 
