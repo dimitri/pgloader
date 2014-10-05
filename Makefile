@@ -5,6 +5,9 @@ VERSION    = 3.1.0
 # use either sbcl or ccl
 CL	   = sbcl
 
+# default to 4096 MB of RAM size in the image
+DYNSIZE    = 4096
+
 LISP_SRC   = $(wildcard src/*lisp) \
              $(wildcard src/pgsql/*lisp) \
              $(wildcard src/sources/*lisp) \
@@ -111,7 +114,7 @@ $(PGLOADER): $(MANIFEST) $(BUILDAPP) $(LISP_SRC)
                          --load-system $(APP_NAME)               \
                          --load src/hooks.lisp                   \
                          --entry pgloader:main                   \
-                         --dynamic-space-size 4096               \
+                         --dynamic-space-size $(DYNSIZE)         \
                          $(COMPRESS_CORE_OPT)                    \
                          --output $@
 
@@ -123,7 +126,7 @@ pgloader-standalone:
                        --require sb-rotate-byte                \
                        --load-system pgloader                  \
                        --entry pgloader:main                   \
-                       --dynamic-space-size 4096               \
+                       --dynamic-space-size $(DYNSIZE)         \
                        --compress-core                         \
                        --output $(PGLOADER)
 

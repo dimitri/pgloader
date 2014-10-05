@@ -62,3 +62,12 @@ It's possible to pick [ccl](http://ccl.clozure.com/) rather than SBCL when
 compiling pgloader:
 
     make CL=ccl
+
+## Building pgloader for use in low RAM environments
+
+It's possible to tweak the size of RAM pgloader will use in its binary
+image, ac compile time. This defaults to 4 GB.
+
+    make DYNSIZE=1024
+    
+Now the `./build/bin/pgloader` that you get only uses 1GB.
