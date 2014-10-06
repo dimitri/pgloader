@@ -66,7 +66,7 @@ compiling pgloader:
 ## Building pgloader for use in low RAM environments
 
 It's possible to tweak the size of RAM pgloader will use in its binary
-image, ac compile time. This defaults to 4 GB.
+image, at compile time. This defaults to 4 GB.
 
     make DYNSIZE=1024
     
