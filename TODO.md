@@ -40,6 +40,18 @@ Add support for full data and schema migrations for the following:
   - Sybase
   - Oracle
 
+## User Interface, User Experience
+
+### Improve parse error messages
+
+WIP, see https://github.com/nikodemus/esrap/issues/26
+
+### Graphical User Interface
+
+Most probably a web based tool, with guidance to setup the migration, maybe
+not even something very sophisticated, but making the simple cases way
+simpler.
+
 ## Database support
 
 ### MySQL Support
