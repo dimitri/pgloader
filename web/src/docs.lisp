@@ -1,5 +1,6 @@
 (defpackage #:pgloader.docs
-  (:use #:cl #:cl-markdown #:pgloader.utils #:pgloader.params)
+  (:use #:cl #:cl-markdown #:pgloader.params)
+  (:import-from #:alexandria #:read-file-into-string)
   (:export #:build-docs))
 
 (in-package #:pgloader.docs)
@@ -32,9 +33,9 @@
                        :external-format :utf-8
                        :if-exists :supersede
                        :if-does-not-exist :create)
-      (write-string (slurp-file-into-string *header*) s)
-      (markdown (slurp-file-into-string file) :stream s)
-      (write-string (slurp-file-into-string *footer*) s))))
+      (write-string (read-file-into-string *header* :external-format :utf-8) s)
+      (markdown (read-file-into-string file :external-format :utf-8) :stream s)
+      (write-string (read-file-into-string *footer* :external-format :utf-8) s))))
 
 (defun build-docs ()
   "Build the HTML files from the Markdown ones."
