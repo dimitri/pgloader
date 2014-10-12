@@ -7,83 +7,93 @@
 (defvar *sqlite-db* nil
   "The SQLite database connection handler.")
 
-;;
-;; The SQLite drive we use maps the CFFI data type mapping functions and
-;; gets back proper CL typed objects, where we only want to deal with text.
-;;
-(defvar *sqlite-to-pgsql*
-  '(("float"            . pgloader.transforms::float-to-string)
-    ("real"             . pgloader.transforms::float-to-string)
-    ("double precision" . pgloader.transforms::float-to-string)
-    ("numeric"          . pgloader.transforms::float-to-string)
-    ("text"             . nil)
-    ("bytea"            . pgloader.transforms::byte-vector-to-bytea)
-    ("timestamp"        . pgloader.transforms::sqlite-timestamp-to-timestamp)
-    ("timestamptz"      . pgloader.transforms::sqlite-timestamp-to-timestamp))
-  "Transformation functions to use when migrating from SQLite to PostgreSQL.")
+(defparameter *sqlite-default-cast-rules*
+  `((:source (:type "character") :target (:type "text" :drop-typemod t))
+    (:source (:type "varchar")   :target (:type "text" :drop-typemod t))
+    (:source (:type "nvarchar")  :target (:type "text" :drop-typemod t))
+    (:source (:type "char")      :target (:type "text" :drop-typemod t))
+    (:source (:type "nchar")     :target (:type "text" :drop-typemod t))
+    (:source (:type "clob")      :target (:type "text" :drop-typemod t))
+
+    (:source (:type "tinyint") :target (:type "smallint"))
+
+    (:source (:type "float") :target (:type "float")
+             :using pgloader.transforms::float-to-string)
+
+    (:source (:type "real") :target (:type "real")
+             :using pgloader.transforms::float-to-string)
+
+    (:source (:type "double") :target (:type "double precision")
+             :using pgloader.transforms::float-to-string)
+
+    (:source (:type "numeric") :target (:type "numeric")
+             :using pgloader.transforms::float-to-string)
+
+    (:source (:type "blob") :target (:type "bytea")
+             :using pgloader.transforms::byte-vector-to-bytea)
+
+    (:source (:type "datetime") :target (:type "timestamptz")
+             :using pgloader.transforms::sqlite-timestamp-to-timestamp)
+
+    (:source (:type "timestamp") :target (:type "timestamp")
+             :using pgloader.transforms::sqlite-timestamp-to-timestamp)
+
+    (:source (:type "timestamptz") :target (:type "timestamptz")
+             :using pgloader.transforms::sqlite-timestamp-to-timestamp))
+  "Data Type Casting to migrate from SQLite to PostgreSQL")
 
 ;;;
 ;;; SQLite tools connecting to a database
 ;;;
 (defstruct (coldef
-	     (:constructor make-coldef (seq name type nullable default pk-id)))
-  seq name type nullable default pk-id)
+	     (:constructor make-coldef (table-name
+                                        seq name dtype ctype
+                                        nullable default pk-id)))
+  table-name seq name dtype ctype nullable default pk-id)
 
-(defun cast (sqlite-type-name)
-  "Return the PostgreSQL type name for a given SQLite type name."
-  (let* ((tokens (remove-if (lambda (token)
-                              (member token '("unsigned" "short")
+(defun normalize (sqlite-type-name)
+  "SQLite only has a notion of what MySQL calls column_type, or ctype in the
+   CAST machinery. Transform it to the data_type, or dtype."
+  (let* ((sqlite-type-name (string-downcase sqlite-type-name))
+         (tokens (remove-if (lambda (token)
+                              (member token '("unsigned" "short"
+                                              "varying" "native")
                                       :test #'string-equal))
-                            (sq:split-sequence #\Space sqlite-type-name)))
-         (sqlite-type-name (first tokens)))
+                            (sq:split-sequence #\Space sqlite-type-name))))
     (assert (= 1 (length tokens)))
-    (cond ((and (<= 8 (length sqlite-type-name))
-                (string-equal sqlite-type-name "nvarchar" :end1 8)) "text")
+    (first tokens)))
 
-          ((string-equal sqlite-type-name "tinyint")  "smallint")
-          ((string-equal sqlite-type-name "datetime") "timestamptz")
-          ((string-equal sqlite-type-name "double")   "double precision")
-          ((string-equal sqlite-type-name "blob")     "bytea")
-          ((string-equal sqlite-type-name "clob")     "text")
+(defun ctype-to-dtype (sqlite-type-name)
+  "In SQLite we only get the ctype, e.g. int(7), but here we want the base
+   data type behind it, e.g. int."
+  (let* ((ctype     (normalize sqlite-type-name))
+         (paren-pos (position #\( ctype)))
+    (if paren-pos (subseq ctype 0 paren-pos) ctype)))
 
-          (t sqlite-type-name))))
+(defun cast-sqlite-column-definition-to-pgsql (sqlite-column)
+  "Return the PostgreSQL column definition from the MySQL one."
+  (multiple-value-bind (column fn)
+      (with-slots (table-name name dtype ctype default nullable)
+          sqlite-column
+        (cast table-name name dtype ctype default nullable nil))
+    ;; the SQLite driver smartly maps data to the proper CL type, but the
+    ;; pgloader API only wants to see text representations to send down the
+    ;; COPY protocol.
+    (values column (or fn (lambda (val) (if val (format nil "~a" val) :null))))))
 
-(defun transformation-function (pgsql-type-name)
-  "Return the transformation function to use to switch a SQLite value to a
-  PostgreSQL value of type PGSQL-TYPE-NAME."
-  (let* ((type-name
-          (cond ((and (<= 7 (length pgsql-type-name))
-                      (string-equal "numeric" pgsql-type-name :end2 7))
-                 "numeric")
-                (t pgsql-type-name)))
-         (transform (assoc type-name *sqlite-to-pgsql* :test #'string=)))
-    (if transform
-        (cdr transform)
-        (compile nil (lambda (c) (when c (format nil "~a" c)))))))
-
-(defun format-pgsql-default-value (col)
-  "Return the PostgreSQL representation for the default value of COL."
-  (declare (type coldef col))
-  (let ((default (coldef-default col)))
-    (cond
-      ((null default)                        "NULL")
-      ((string= "NULL" default)              default)
-      ((string= "CURRENT_TIMESTAMP" default) default)
-      (t
-       ;; apply the transformation function to the default value
-       (let ((fn (transformation-function (cast (coldef-type col)))))
-         (if fn (funcall fn default) (format nil "'~a'" default)))))))
+(defmethod cast-to-bytea-p ((col coldef))
+  "Returns a generalized boolean, non-nil when the column is casted to a
+   PostgreSQL bytea column."
+  (string= "bytea" (cast-sqlite-column-definition-to-pgsql col)))
 
 (defmethod format-pgsql-column ((col coldef) &key identifier-case)
   "Return a string representing the PostgreSQL column definition."
   (let* ((column-name
 	  (apply-identifier-case (coldef-name col) identifier-case))
 	 (type-definition
-	  (format nil
-		  "~a~:[~; not null~]~@[ default ~a~]"
-		  (cast (coldef-type col))
-		  (coldef-nullable col)
-		  (format-pgsql-default-value col))))
+          (with-slots (table-name name dtype ctype nullable default)
+              col
+            (cast table-name name dtype ctype default nullable nil))))
     (format nil "~a ~22t ~a" column-name type-definition)))
 
 (defun list-tables (&optional (db *sqlite-db*))
@@ -99,7 +109,14 @@
   (let ((sql (format nil "PRAGMA table_info(~a)" table-name)))
     (loop for (seq name type nullable default pk-id) in
 	 (sqlite:execute-to-list db sql)
-       collect (make-coldef seq name type (= 1 nullable) default pk-id))))
+       collect (make-coldef table-name
+                            seq
+                            name
+                            (ctype-to-dtype (normalize type))
+                            (normalize type)
+                            (= 1 nullable)
+                            (unquote default)
+                            pk-id))))
 
 (defun list-all-columns (&optional (db *sqlite-db*))
   "Get the list of SQLite column definitions per table."
@@ -168,12 +185,15 @@
       (unless (slot-boundp source 'fields)
 	(setf (slot-value source 'fields) fields))
 
-      (unless transforms
-	(setf (slot-value source 'transforms)
-	      (loop for field in fields
-		 collect
-		   (let ((coltype (cast (coldef-type field))))
-                     (transformation-function coltype))))))))
+      (loop for field in fields
+         for (column fn) = (multiple-value-bind (column fn)
+                               (cast-sqlite-column-definition-to-pgsql field)
+                             (list column fn))
+         collect column into columns
+         collect fn into fns
+         finally (progn (setf (slot-value source 'columns) columns)
+                        (unless transforms
+                          (setf (slot-value source 'transforms) fns)))))))
 
 ;;; Map a function to each row extracted from SQLite
 ;;;
@@ -182,10 +202,7 @@
    argument (a list of column values) for each row"
   (let ((sql      (format nil "SELECT * FROM ~a" (source sqlite)))
         (blobs-p
-         (coerce (mapcar (lambda (field)
-                           (string-equal "bytea" (cast (coldef-type field))))
-                         (fields sqlite))
-                 'vector)))
+         (coerce (mapcar #'cast-to-bytea-p (fields sqlite)) 'vector)))
     (handler-case
         (loop
            with statement = (sqlite:prepare-statement (db sqlite) sql)

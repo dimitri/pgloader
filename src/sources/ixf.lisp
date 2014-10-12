@@ -20,7 +20,7 @@
     (#. ixf:+char+      . "text")
     (#. ixf:+varchar+   . "text")))
 
-(defun cast (ixf-type)
+(defun cast-ixf-type (ixf-type)
   "Return the PostgreSQL type name for a given IXF type name."
   (cdr (assoc ixf-type *ixf-pgsql-type-mapping*)))
 
@@ -31,7 +31,7 @@
          (type-definition
           (format nil
                   "~a~:[ not null~;~]~:[~*~; default ~a~]"
-                  (cast (ixf:ixf-column-type col))
+                  (cast-ixf-type (ixf:ixf-column-type col))
                   (ixf:ixf-column-nullable col)
                   (ixf:ixf-column-has-default col)
                   (ixf:ixf-column-default col))))
@@ -71,7 +71,7 @@
 	(setf (slot-value source 'transforms)
 	      (loop :for field :in fields
 		 :collect
-		   (let ((coltype (cast (ixf:ixf-column-type field))))
+		   (let ((coltype (cast-ixf-type (ixf:ixf-column-type field))))
 		     ;;
 		     ;; The IXF driver we use maps the data type and gets
 		     ;; back proper CL typed objects, where we only want to

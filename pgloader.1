@@ -1798,6 +1798,15 @@ This option allows to control which encoding to parse the SQLite text data with\
 
 .
 .IP "\(bu" 4
+\fICAST\fR
+.
+.IP
+The cast clause allows to specify custom casting rules, either to overload the default casting rules or to amend them with special cases\.
+.
+.IP
+Please refer to the MySQL CAST clause for details\.
+.
+.IP "\(bu" 4
 \fIINCLUDING ONLY TABLE NAMES MATCHING\fR
 .
 .IP
@@ -1833,6 +1842,77 @@ EXCLUDING TABLE NAMES MATCHING ~<ory>
 .
 .IP "" 0
 
+.
+.IP "" 0
+.
+.SS "DEFAULT SQLite CASTING RULES"
+When migrating from SQLite the following Casting Rules are provided:
+.
+.P
+Numbers:
+.
+.IP "\(bu" 4
+type tinyint to smallint
+.
+.IP "\(bu" 4
+type float to float using float\-to\-string
+.
+.IP "\(bu" 4
+type real to real using float\-to\-string
+.
+.IP "\(bu" 4
+type double to double precision using float\-to\-string
+.
+.IP "\(bu" 4
+type numeric to numeric using float\-to\-string
+.
+.IP "" 0
+.
+.P
+Texts:
+.
+.IP "\(bu" 4
+type character to text drop typemod
+.
+.IP "\(bu" 4
+type varchar to text drop typemod
+.
+.IP "\(bu" 4
+type nvarchar to text drop typemod
+.
+.IP "\(bu" 4
+type char to text drop typemod
+.
+.IP "\(bu" 4
+type nchar to text drop typemod
+.
+.IP "\(bu" 4
+type nvarchar to text drop typemod
+.
+.IP "\(bu" 4
+type clob to text drop typemod
+.
+.IP "" 0
+.
+.P
+Binary:
+.
+.IP "\(bu" 4
+type blob to bytea
+.
+.IP "" 0
+.
+.P
+Date:
+.
+.IP "\(bu" 4
+type datetime to timestamptz using sqlite\-timestamp\-to\-timestamp
+.
+.IP "\(bu" 4
+type timestamp to timestamptz using sqlite\-timestamp\-to\-timestamp
+.
+.IP "\(bu" 4
+type timestamptz to timestamptz using sqlite\-timestamp\-to\-timestamp
 .
 .IP "" 0
 .

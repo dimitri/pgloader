@@ -1004,7 +1004,8 @@
                 (*state*       (or *state* (pgloader.utils:make-pgstate)))
                 (state-idx     (pgloader.utils:make-pgstate))
                 (state-after   (pgloader.utils:make-pgstate))
-                (pgloader.mysql:*cast-rules* ',casts)
+                (*default-cast-rules* ',*mysql-default-cast-rules*)
+                (*cast-rules*         ',casts)
                 ,@(mysql-connection-bindings my-db-uri)
                 ,@(pgsql-connection-bindings pg-db-uri gucs)
                 ,@(batch-control-bindings options)
@@ -1106,6 +1107,7 @@ load database
 
 (defrule load-sqlite-optional-clauses (* (or sqlite-options
                                              gucs
+                                             casts
                                              including
                                              excluding))
   (:lambda (clauses-list)
@@ -1122,6 +1124,7 @@ load database
     (bind (((sqlite-uri pg-db-uri
                         &key
                         gucs
+                        casts
                         ((:sqlite-options options))
                         ((:including incl))
                         ((:excluding excl)))           source)
@@ -1129,6 +1132,8 @@ load database
       `(lambda ()
          (let* ((state-before   (pgloader.utils:make-pgstate))
                 (*state*        (pgloader.utils:make-pgstate))
+                (*default-cast-rules* ',*sqlite-default-cast-rules*)
+                (*cast-rules*         ',casts)
                 ,@(pgsql-connection-bindings pg-db-uri gucs)
                 ,@(batch-control-bindings options)
                 (db

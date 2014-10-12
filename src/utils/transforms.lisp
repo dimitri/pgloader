@@ -5,10 +5,6 @@
 ;;; up in the pgloader.transforms package, when using the default USING
 ;;; syntax for transformations.
 
-(defpackage #:pgloader.transforms
-  (:use #:cl)
-  (:export #:intern-symbol))
-
 (in-package :pgloader.transforms)
 
 (declaim (inline intern-symbol

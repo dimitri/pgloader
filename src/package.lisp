@@ -2,6 +2,11 @@
 ;;;
 ;;; To avoid circular files dependencies, define all the packages here
 ;;;
+(defpackage #:pgloader.transforms
+  (:use #:cl)
+  (:export #:precision
+           #:scale
+           #:intern-symbol))
 
 (defpackage #:pgloader.logs
   (:use #:cl #:pgloader.params)
@@ -55,6 +60,7 @@
 	   #:report-full-summary
 	   #:with-stats-collection
 	   #:camelCase-to-colname
+           #:unquote
            #:make-kernel
            #:list-encodings-and-aliases
            #:show-encodings
@@ -102,6 +108,7 @@
 
 (defpackage #:pgloader.sources
   (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:import-from #:pgloader.transforms #:precision #:scale)
   (:import-from #:pgloader.parse-date
                 #:parse-date-string
                 #:parse-date-format)
@@ -118,12 +125,19 @@
 	   #:copy-to-queue
 	   #:copy-to
 	   #:copy-database
+
+           ;; file based utils for CSV, fixed etc
 	   #:filter-column-list
            #:with-open-file-or-stream
 	   #:get-pathname
 	   #:get-absolute-pathname
 	   #:project-fields
-	   #:reformat-then-process))
+	   #:reformat-then-process
+
+           ;; database cast machinery
+           #:*default-cast-rules*
+           #:*cast-rules*
+           #:cast))
 
 (defpackage #:pgloader.queue
   (:use #:cl #:pgloader.params)
@@ -156,17 +170,6 @@
 (defpackage #:pgloader.sql
   (:use #:cl)
   (:export #:read-queries))
-
-(defpackage #:pgloader.parser
-  (:use #:cl #:esrap #:metabang.bind
-        #:pgloader.params #:pgloader.utils #:pgloader.sql)
-  (:import-from #:alexandria #:read-file-into-string)
-  (:import-from #:pgloader.pgsql
-		#:with-pgsql-transaction
-		#:pgsql-execute)
-  (:export #:parse-commands
-	   #:run-commands
-	   #:with-database-uri))
 
 
 ;;
@@ -232,6 +235,7 @@
   (:use #:cl
         #:pgloader.params #:pgloader.utils
         #:pgloader.sources #:pgloader.queue)
+  (:import-from #:pgloader.transforms #:precision #:scale)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
 		#:pgsql-execute
@@ -251,8 +255,7 @@
 		#:create-indexes-in-kernel
                 #:format-vector-row)
   (:export #:copy-mysql
-	   #:*cast-rules*
-	   #:*default-cast-rules*
+	   #:*mysql-default-cast-rules*
            #:with-mysql-connection
 	   #:map-rows
 	   #:copy-to
@@ -267,6 +270,7 @@
   (:use #:cl
         #:pgloader.params #:pgloader.utils
         #:pgloader.sources #:pgloader.queue)
+  (:import-from #:pgloader.transforms #:precision #:scale)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
 		#:pgsql-execute
@@ -280,6 +284,7 @@
 		#:format-pgsql-create-index
 		#:create-indexes-in-kernel)
   (:export #:copy-sqlite
+           #:*sqlite-default-cast-rules*
 	   #:map-rows
 	   #:copy-to
 	   #:copy-from
@@ -306,6 +311,26 @@
   (:export #:http-fetch-file
 	   #:expand-archive
 	   #:get-matching-filenames))
+
+
+;;;
+;;; The Command Parser
+;;;
+(defpackage #:pgloader.parser
+  (:use #:cl #:esrap #:metabang.bind
+        #:pgloader.params #:pgloader.utils #:pgloader.sql)
+  (:import-from #:alexandria #:read-file-into-string)
+  (:import-from #:pgloader.pgsql
+		#:with-pgsql-transaction
+		#:pgsql-execute)
+  (:import-from #:pgloader.sources
+                #:*default-cast-rules*
+                #:*cast-rules*)
+  (:import-from #:pgloader.mysql  #:*mysql-default-cast-rules*)
+  (:import-from #:pgloader.sqlite #:*sqlite-default-cast-rules*)
+  (:export #:parse-commands
+	   #:run-commands
+	   #:with-database-uri))
 
 
 

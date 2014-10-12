@@ -61,3 +61,15 @@
       when (and new-word (not (char= char #\_))) collect #\_
       collect (char-downcase char))
    'string))
+
+;;;
+;;; Unquote SQLite default values, might be useful elsewhere
+;;;
+(defun unquote (string &optional (quote #\'))
+  "Given '0', returns 0."
+  (declare (type (or null simple-string) string))
+  (when string
+    (let ((l (length string)))
+      (if (char= quote (aref string 0) (aref string (1- l)))
+          (subseq string 1 (1- l))
+          string))))

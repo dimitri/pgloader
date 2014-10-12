@@ -1438,6 +1438,13 @@ The `sqlite` command accepts the following clauses and options:
         This option allows to control which encoding to parse the SQLite
         text data with. Defaults to UTF-8.
 
+  - *CAST*
+
+	The cast clause allows to specify custom casting rules, either to
+	overload the default casting rules or to amend them with special cases.
+
+    Please refer to the MySQL CAST clause for details.
+
   - *INCLUDING ONLY TABLE NAMES MATCHING*
 
 	Introduce a comma separated list of table names or *regular expression*
@@ -1454,6 +1461,40 @@ The `sqlite` command accepts the following clauses and options:
     to the result of the *INCLUDING* filter.
 
 	    EXCLUDING TABLE NAMES MATCHING ~<ory>
+
+### DEFAULT SQLite CASTING RULES
+
+When migrating from SQLite the following Casting Rules are provided:
+
+Numbers:
+
+  - type tinyint to smallint
+
+  - type float to float   using float-to-string
+  - type real to real     using float-to-string
+  - type double to double precision     using float-to-string
+  - type numeric to numeric     using float-to-string
+
+Texts:
+
+  - type character  to text drop typemod
+  - type varchar    to text drop typemod
+  - type nvarchar   to text drop typemod
+  - type char       to text drop typemod
+  - type nchar      to text drop typemod
+  - type nvarchar   to text drop typemod
+  - type clob       to text drop typemod
+
+Binary:
+
+  - type blob       to bytea
+
+Date:
+
+  - type datetime    to timestamptz using sqlite-timestamp-to-timestamp
+  - type timestamp   to timestamptz using sqlite-timestamp-to-timestamp
+  - type timestamptz to timestamptz using sqlite-timestamp-to-timestamp
+
 
 ## TRANSFORMATION FUNCTIONS
 
