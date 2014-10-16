@@ -195,6 +195,16 @@
 	      (setf (aref bytea (+ pos 1)) (aref hex-digits low)))
 	 finally (return bytea)))))
 
+(defun ensure-parse-integer (string-or-integer)
+  "Return an integer value if string-or-integer is an integer or a string
+   containing only an integer value, in all other cases return nil."
+  (typecase string-or-integer
+    (string (multiple-value-bind (integer position)
+                (parse-integer string-or-integer :junk-allowed t)
+              (when (= (length string-or-integer) position)
+                integer)))
+    (integer string-or-integer)))
+
 (defun sqlite-timestamp-to-timestamp (date-string-or-integer)
   (declare (type (or integer simple-string) date-string-or-integer))
   (when date-string-or-integer
@@ -208,8 +218,7 @@
 
           ((stringp date-string-or-integer)
            ;; default values are sent as strings
-           (let ((maybe-integer
-                  (ignore-errors (parse-integer date-string-or-integer))))
+           (let ((maybe-integer (ensure-parse-integer date-string-or-integer)))
              (cond ((and maybe-integer (= 0 maybe-integer))
                     nil)
 
