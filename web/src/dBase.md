@@ -6,9 +6,9 @@ support in modern tools, pgloader is right there on the list too!
 
 ## The Command
 
-To load data with [pgloader](http://pgloader.tapoueh.org/) you need to
-define in a *command* the operations in some details. Here's our example for
-loading a dBase file, using a file provided by the french administration.
+To load data with [pgloader](http://pgloader.io/) you need to define in a
+*command* the operations in some details. Here's our example for loading a
+dBase file, using a file provided by the french administration.
 
 You can find more files from them at the
 [Insee](http://www.insee.fr/fr/methodes/nomenclatures/cog/telechargement.asp)
@@ -50,8 +50,8 @@ Let's start the `pgloader` command with our `dbf-zip.load` command file:
     -----------------  ---------  ---------  ---------  --------------
     Total import time       9181       9181          0          1.906s
 
-We can see that [http://pgloader.tapoueh.org](pgloader) did download the
-file from its HTTP URL location then *unziped* it before the loading itself.
+We can see that [http://pgloader.io](pgloader) did download the file from
+its HTTP URL location then *unziped* it before the loading itself.
 
 Note that the output of the command has been edited to facilitate its
 browsing online.

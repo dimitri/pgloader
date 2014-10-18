@@ -43,8 +43,8 @@ You can see the full list of options in the
 of the options you see here.
 
 Note that here pgloader will benefit from the meta-data information found in
-the MySQL database to create a PostgreSQL table capable of hosting the data
-as described, then load the data.
+the MySQL database to create a PostgreSQL database capable of hosting the
+data as described, then load the data.
 
 In particular, some specific *casting rules* are given here, to cope with
 date values such as `0000-00-00` that MySQL allows and PostgreSQL rejects
@@ -56,9 +56,9 @@ Finaly note that we are using the *MATERIALIZE VIEWS* clause of pgloader:
 the selected views here will be migrated over to PostgreSQL *with their
 contents*.
 
-It's possible to use the *MATERIALIZE VIEWS* clause and given both the name
-and the SQL (in MySQL dialect) definition of view, then pgloader created the
-view for the duration of the data loading.
+It's possible to use the *MATERIALIZE VIEWS* clause and give both the name
+and the SQL (in MySQL dialect) definition of view, then pgloader creates the
+view at bofore loading the data, then drops it again at the end.
 
 ## Loading the data
 

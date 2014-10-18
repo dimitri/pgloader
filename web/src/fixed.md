@@ -6,9 +6,9 @@ blank-padded when the data is shorter than the full reserved range.
 
 ## The Command
 
-To load data with [pgloader](http://pgloader.tapoueh.org/) you need to
-define in a *command* the operations in some details. Here's our example for
-loading Fixed Width Data, using a file provided by the US census.
+To load data with [pgloader](http://pgloader.io/) you need to define in a
+*command* the operations in some details. Here's our example for loading
+Fixed Width Data, using a file provided by the US census.
 
 You can find more files from them at the
 [Census 2000 Gazetteer Files](http://www.census.gov/geo/maps-data/data/gazetteer2000.html).
@@ -29,29 +29,27 @@ Here's our command:
               loc_name  varchar(64)
            );
          $$
-    
+         
        LOAD FIXED
             FROM FILENAME MATCHING ~/places2k.txt/
                  WITH ENCODING latin1
                  (
-                 -- name   start  length
-                    usps       0  2,
-                    fips       2  2,
-                    fips_code  4  5,
-                    loc_name   9 64,
-                    p         73  9,
-                    h         82  9,
-                    land      91 14,
-                    water    105 14,
-                    ldm      119 14,
-                    wtm      131 14,
-                    lat      143 10,
-                    long     153 11
+                    usps           from   0 for  2,
+                    fips           from   2 for  2,
+                    fips_code      from   4 for  5,
+                    "LocationName" from   9 for 64 [trim right whitespace],
+                    p              from  73 for  9,
+                    h              from  82 for  9,
+                    land           from  91 for 14,
+                    water          from 105 for 14,
+                    ldm            from 119 for 14,
+                    wtm            from 131 for 14,
+                    lat            from 143 for 10,
+                    long           from 153 for 11
                  )
             INTO postgresql:///pgloader?places
                  (
-    	        usps, fips, fips_code,
-                    loc_name text using (right-trim loc_name)
+    	        usps, fips, fips_code, "LocationName"
                  );
 
 You can see the full list of options in the
@@ -91,8 +89,8 @@ Let's start the `pgloader` command with our `census-places.load` command file:
     -----------------  ---------  ---------  ---------  --------------
     Total import time      25375      25375          0          3.019s
 
-We can see that [http://pgloader.tapoueh.org](pgloader) did download the
-file from its HTTP URL location then *unziped* it before the loading itself.
+We can see that [http://pgloader.io](pgloader) did download the file from
+its HTTP URL location then *unziped* it before the loading itself.
 
 Note that the output of the command has been edited to facilitate its
 browsing online.

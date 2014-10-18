@@ -7,9 +7,9 @@ content into your database directly.
 
 ## The Command
 
-To load data with [pgloader](http://pgloader.tapoueh.org/) you need to
-define in a *command* the operations in some details. Here's our example for
-loading the Geolite data:
+To load data with [pgloader](http://pgloader.io/) you need to define in a
+*command* the operations in some details. Here's our example for loading the
+Geolite data:
 
     /*
      * Loading from a ZIP archive containing CSV files. The full test can be

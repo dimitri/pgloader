@@ -5,9 +5,9 @@ specifications. pgloader allows you to describe those specs in its command.
 
 ## The Command
 
-To load data with [pgloader](http://pgloader.tapoueh.org/) you need to
-define in a *command* the operations in some details. Here's our example for
-loading CSV data:
+To load data with [pgloader](http://pgloader.io/) you need to define in a
+*command* the operations in some details. Here's our example for loading CSV
+data:
 
      LOAD CSV
           FROM 'path/to/file.csv' (x, y, a, b, c, d)

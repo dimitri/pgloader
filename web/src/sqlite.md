@@ -7,7 +7,7 @@ very good at. pgloader can help you there.
 
 ## The Command
 
-To load data with [pgloader](http://pgloader.tapoueh.org/) you need to
+To load data with [pgloader](http://pgloader.io/) you need to
 define in a *command* the operations in some details. Here's our command:
 
     load database
@@ -23,8 +23,8 @@ You can see the full list of options in the
 of the options you see here.
 
 Note that here pgloader will benefit from the meta-data information found in
-the SQLite file to create a PostgreSQL table capable of hosting the data as
-described, then load the data.
+the SQLite file to create a PostgreSQL database capable of hosting the data
+as described, then load the data.
 
 ## Loading the data
 
@@ -65,8 +65,8 @@ Let's start the `pgloader` command with our `sqlite.load` command file:
     ----------------------  ---------  ---------  ---------  --------------
       Total streaming time      15607      15607          0          0.476s
 
-We can see that [http://pgloader.tapoueh.org](pgloader) did download the
-file from its HTTP URL location then *unziped* it before the loading itself.
+We can see that [http://pgloader.io](pgloader) did download the file from
+its HTTP URL location then *unziped* it before loading it.
 
 Also, the *WARNING* messages we see here are expected as the PostgreSQL
 database is empty when running the command, and pgloader is using the SQL

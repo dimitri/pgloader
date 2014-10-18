@@ -17,22 +17,20 @@ LOAD ARCHIVE
         FROM FILENAME MATCHING ~/places2k.txt/
              WITH ENCODING latin1
              (
-             -- name   start  length
-                usps             0  2,
-                fips             2  2,
-                fips_code        4  5,
-                "LocationName"   9 64,
-                p               73  9,
-                h               82  9,
-                land            91 14,
-                water          105 14,
-                ldm            119 14,
-                wtm            131 14,
-                lat            143 10,
-                long           153 11
+                usps           from   0 for  2,
+                fips           from   2 for  2,
+                fips_code      from   4 for  5,
+                "LocationName" from   9 for 64 [trim right whitespace],
+                p              from  73 for  9,
+                h              from  82 for  9,
+                land           from  91 for 14,
+                water          from 105 for 14,
+                ldm            from 119 for 14,
+                wtm            from 131 for 14,
+                lat            from 143 for 10,
+                long           from 153 for 11
              )
         INTO postgresql:///pgloader?places
              (
-	        usps, fips, fips_code,
-                "LocationName" text using (right-trim LocationName)
+	        usps, fips, fips_code, "LocationName"
              );
