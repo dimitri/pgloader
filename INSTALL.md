@@ -36,16 +36,16 @@ You will need to install either SBCL or CCL separately, and when using
     brew install sbcl
     brew install clozure-cl
 
-### Compiling SBCL yourself
+### Compiling SBCL by yourself
 
-If you ended up building SBCL yourself or you may want to do that, you can
-download the source from http://www.sbcl.org/getting.html .
+If you ended up building SBCL yourself or you just want to do that, you can
+download the source from http://www.sbcl.org/ .
 
-You will need to build SBCL with the following options:
+You will need to build SBCL with the following command and options:
 
     sh make.sh --with-sb-core-compression --with-sb-thread
     
-Note that you could also remove the --compress-core option.
+NOTE: You could also remove the --compress-core option.
 
 
 ## Building pgloader
