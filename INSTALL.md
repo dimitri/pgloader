@@ -15,7 +15,7 @@ started.
 You will note in particular:
 
     sudo apt-get install -y sbcl                                  \
-                            git patch unzip                       \
+                            git curl patch unzip                  \
                             devscripts pandoc                     \
                             libsqlite3-dev
 
