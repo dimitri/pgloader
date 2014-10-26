@@ -15,7 +15,7 @@ started.
 You will note in particular:
 
     sudo apt-get install -y sbcl                                  \
-                            git patch unzip                       \
+                            git curl patch unzip                  \
                             devscripts pandoc                     \
                             libsqlite3-dev
 
@@ -35,6 +35,18 @@ You will need to install either SBCL or CCL separately, and when using
 
     brew install sbcl
     brew install clozure-cl
+
+### Compiling SBCL by yourself
+
+If you ended up building SBCL yourself or you just want to do that, you can
+download the source from http://www.sbcl.org/ .
+
+You will need to build SBCL with the following command and options:
+
+    sh make.sh --with-sb-core-compression --with-sb-thread
+    
+NOTE: You could also remove the --compress-core option.
+
 
 ## Building pgloader
 
