@@ -9,10 +9,9 @@
 ;;;
 (defun explode-mysql-enum (ctype)
   "Convert MySQL ENUM expression into a list of labels."
-  ;; from: "ENUM('small', 'medium', 'large')"
-  ;;   to: ("small" "medium" "large")
-  (mapcar (lambda (x) (string-trim "' )" x))
-	  (sq:split-sequence #\, ctype  :start (position #\' ctype))))
+  (cl-ppcre:register-groups-bind (list)
+      ("(?i)(?:ENUM|SET)\\s*\\((.*)\\)" ctype)
+    (first (cl-csv:read-csv list :separator #\, :quote #\' :escape "\\"))))
 
 (defun get-enum-type-name (table-name column-name identifier-case)
   "Return the Type Name we're going to use in PostgreSQL."
