@@ -1,3 +1,9 @@
+pgloader (3.1.0+dfsg-3) unstable; urgency=medium
+
+  * Fix build dependencies problems, see Bug#765162
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Tue, 28 Oct 2014 12:41:23 +0300
+
 pgloader (3.1.0+dfsg-2) unstable; urgency=medium
 
   * Fix building on i386 machines, using 1GB of dynamic space there.
