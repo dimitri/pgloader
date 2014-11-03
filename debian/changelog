@@ -1,3 +1,9 @@
+pgloader (3.1.1+dfsg-1) unstable; urgency=medium
+
+  * Fix --root-dir option when target directory doesn't exists (Closes:#767288)
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Mon, 03 Nov 2014 16:08:19 +0300
+
 pgloader (3.1.0+dfsg-3) unstable; urgency=medium
 
   * Fix build dependencies problems, see Bug#765162
