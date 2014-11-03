@@ -56,7 +56,10 @@
   "Create a directory at given PATH and exit with an error message when
    that's not possible."
   (handler-case
-      (ensure-directories-exist path)
+      (let ((dir (uiop:ensure-directory-pathname path)))
+        (when debug
+          (format stream "mkdir -p ~s~%" dir))
+        (uiop:parse-unix-namestring (ensure-directories-exist dir)))
     (condition (e)
       ;; any error here is a panic
       (if debug
@@ -171,10 +174,9 @@
 
 	;; First care about the root directory where pgloader is supposed to
 	;; output its data logs and reject files
-        (let ((root-dir-truename (probe-file root-dir)))
-          (if root-dir-truename
-              (setf *root-dir* (fad:pathname-as-directory root-dir-truename))
-              (mkdir-or-die *root-dir* debug)))
+        (let ((root-dir-truename (or (probe-file root-dir)
+                                     (mkdir-or-die root-dir debug))))
+          (setf *root-dir* (uiop:ensure-directory-pathname root-dir-truename)))
 
 	;; Set parameters that come from the environement
 	(init-params-from-environment)
