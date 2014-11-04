@@ -2262,7 +2262,7 @@ load database
                                      :direction :output
                                      :if-exists :rename
                                      :if-does-not-exist :create)))
-             (*report-stream* (or summary-stream *terminal-io*)))
+             (*report-stream* (or summary-stream *standard-output*)))
         (unwind-protect
              ;; run the commands
              (loop for func in funcs do (funcall func))
