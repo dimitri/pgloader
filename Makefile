@@ -1,6 +1,6 @@
 # pgloader build tool
 APP_NAME   = pgloader
-VERSION    = 3.1.0
+VERSION    = 3.1.1
 
 # use either sbcl or ccl
 CL	   = sbcl
