@@ -71,7 +71,7 @@
   " If the logfile has not been given by the user, default to using
     pgloader.log within *root-dir*."
   (cond ((null logfile)
-	 (make-pathname :directory (directory-namestring *root-dir*)
+	 (make-pathname :defaults *root-dir*
 			:name "pgloader"
 			:type "log"))
 

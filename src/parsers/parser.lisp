@@ -332,8 +332,12 @@
       (let ((user
 	     (or user
 		 (case type
-		   (:postgresql (getenv-default "PGUSER" (getenv-default "USER")))
-		   (:mysql      (getenv-default "USER")))))
+		   (:postgresql
+                    (getenv-default "PGUSER"
+                                    #+unix (getenv-default "USER")
+                                    #-unix (getenv-default "UserName")))
+		   (:mysql
+                    (getenv-default "USER")))))
           (password (or password
               (case type
                 (:postgresql (getenv-default "PGPASSWORD"))
@@ -702,7 +706,7 @@
     (destructuring-bind (kind path) filename
       (ecase kind
         (:filename
-         (pgloader.sql:read-queries (merge-pathnames path *cwd*)))))))
+         (pgloader.sql:read-queries (uiop:merge-pathnames* path *cwd*)))))))
 
 (defrule before-load-execute (and kw-before kw-load kw-execute sql-file)
   (:lambda (ble)
@@ -1149,10 +1153,9 @@ load database
                      (progn
                        (with-stats-collection ("extract" :state state-before)
                          (let ((d (pgloader.archive:expand-archive db)))
-                           (merge-pathnames
-                            (make-pathname :name (pathname-name db)
-                                           :type "db")
-                            d))))
+                           (make-pathname :defaults d
+                                          :name (pathname-name db)
+                                          :type "db"))))
                      db))
                 (source
                  (make-instance 'pgloader.sqlite::copy-sqlite
@@ -1368,10 +1371,9 @@ load database
                      (progn
                        (with-stats-collection ("extract" :state state-before)
                          (let ((d (pgloader.archive:expand-archive source)))
-                           (merge-pathnames
-                            (make-pathname :name (pathname-name source)
-                                           :type "dbf")
-                            d))))
+                           (make-pathname :defaults d
+                                          :name (pathname-name source)
+                                          :type "dbf"))))
                      source))
                 (source
                  (make-instance 'pgloader.db3:copy-db3
@@ -1448,10 +1450,9 @@ load database
                      (progn
                        (with-stats-collection ("extract" :state state-before)
                          (let ((d (pgloader.archive:expand-archive source)))
-                           (merge-pathnames
-                            (make-pathname :name (pathname-name source)
-                                           :type "ixf")
-                            d))))
+                           (make-pathname :defaults d
+                                          :name (pathname-name source)
+                                          :type "ixf"))))
                      source))
                 (source
                  (make-instance 'pgloader.ixf:copy-ixf
@@ -2175,8 +2176,8 @@ load database
   (loop
      for s-exp in command
      when (pathnamep s-exp)
-     collect (if (fad:pathname-relative-p s-exp)
-		 (merge-pathnames s-exp (directory-namestring filename))
+     collect (if (uiop:relative-pathname-p s-exp)
+		 (uiop:merge-pathnames* s-exp filename)
 		 s-exp)
      else
      collect (if (and (consp s-exp) (listp (cdr s-exp)))
@@ -2196,7 +2197,7 @@ load database
 
   (process-relative-pathnames
    filename
-   (let ((*cwd* (directory-namestring filename))
+   (let ((*cwd* (make-pathname :defaults filename :name nil :type nil))
          (*data-expected-inline* nil)
 	 (content (read-file-into-string filename)))
      (multiple-value-bind (commands end-commands-position)

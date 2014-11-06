@@ -12,7 +12,7 @@
   (log-message :log "Fetching '~a'" url)
 
   (ensure-directories-exist tmpdir)
-  (let ((archive-filename (make-pathname :directory (namestring tmpdir)
+  (let ((archive-filename (make-pathname :defaults tmpdir
 					 :name (pathname-name url)
 					 :type (pathname-type url))))
     (multiple-value-bind (http-stream

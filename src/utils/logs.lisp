@@ -28,7 +28,7 @@
 		       :message-class 'formatted-message))
 
   ;; we need an existing place where to log our messages
-  (ensure-directories-exist (directory-namestring log-filename))
+  (ensure-directories-exist log-filename)
 
   (push (cl-log:start-messenger 'text-file-messenger
 				:name "logfile"

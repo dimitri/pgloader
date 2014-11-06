@@ -18,10 +18,18 @@ LIBS       = $(BUILDDIR)/libs.stamp
 QLDIR      = $(BUILDDIR)/quicklisp
 MANIFEST   = $(BUILDDIR)/manifest.ql
 LATEST     = $(BUILDDIR)/pgloader-latest.tgz
-PGLOADER   = $(BUILDDIR)/bin/$(APP_NAME)
 
-BUILDAPP_CCL  = $(BUILDDIR)/bin/buildapp.ccl
-BUILDAPP_SBCL = $(BUILDDIR)/bin/buildapp.sbcl
+ifeq ($(OS),Windows_NT)
+EXE           = .exe
+COMPRESS_CORE = no
+DYNSIZE       = 1024		# support for windows 32 bits
+else
+EXE =
+endif
+
+PGLOADER   = $(BUILDDIR)/bin/$(APP_NAME)$(EXE)
+BUILDAPP_CCL  = $(BUILDDIR)/bin/buildapp.ccl$(EXE)
+BUILDAPP_SBCL = $(BUILDDIR)/bin/buildapp.sbcl$(EXE)
 
 ifeq ($(CL),sbcl)
 BUILDAPP   = $(BUILDAPP_SBCL)
@@ -116,7 +124,9 @@ $(PGLOADER): $(MANIFEST) $(BUILDAPP) $(LISP_SRC)
                          --entry pgloader:main                   \
                          --dynamic-space-size $(DYNSIZE)         \
                          $(COMPRESS_CORE_OPT)                    \
-                         --output $@
+                         --output $@.tmp
+	# that's ugly, but necessary when building on Windows :(
+	mv $@.tmp $@
 
 pgloader: $(PGLOADER) ;
 

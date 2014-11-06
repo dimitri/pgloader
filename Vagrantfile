@@ -40,4 +40,18 @@ Vagrant.configure("2") do |config|
       s.privileged = false
     end
   end
+
+  config.vm.define "w7" do |centos|
+    centos.vm.box = "w7"
+    config.vm.communicator = "winrm"
+
+    config.vm.network :forwarded_port, guest: 5985, host: 5985,
+                      id: "winrm", auto_correct: true
+
+    config.vm.network :forwarded_port, guest: 3389, host: 3389,
+                      id: "rdp", auto_correct: true
+
+    config.vm.network :forwarded_port, guest: 1433, host: 1433,
+                      id: "mssql", auto_correct: true
+  end
 end

@@ -31,7 +31,7 @@
 	     (set-session-gucs *pg-settings* :transaction t)
 	     ,@forms)))
       ;; no database given, create a new database connection
-      `(let ((cl-postgres::*unix-socket-dir* (get-unix-socket-dir))
+      `(let (#+unix (cl-postgres::*unix-socket-dir* (get-unix-socket-dir))
              ;; if no dbname is given at macro-expansion time, we want to
              ;; use the current value of *pg-dbname* at run time
              (*pg-dbname* (or ,dbname *pg-dbname*)))
@@ -46,7 +46,7 @@
 (defmacro with-pgsql-connection ((dbname) &body forms)
   "Run FROMS within a PostgreSQL connection to DBNAME. To get the connection
    spec from the DBNAME, use `get-connection-spec'."
-  `(let ((cl-postgres::*unix-socket-dir*  (get-unix-socket-dir)))
+  `(let (#+unix (cl-postgres::*unix-socket-dir*  (get-unix-socket-dir)))
      (pomo:with-connection (get-connection-spec ,dbname)
        (log-message :debug "CONNECT ~s" (get-connection-spec ,dbname))
        (set-session-gucs *pg-settings*)

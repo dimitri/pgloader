@@ -31,6 +31,7 @@
 		 #:trivial-backtrace  	; For --debug cli usage
                  #:cl-markdown          ; To produce the website
                  #:metabang-bind        ; the bind macro
+                 ;#:cl-mssql             ; M$ SQL connectivity
 		 )
     :components
     ((:module "src"

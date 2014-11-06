@@ -32,30 +32,30 @@
   (or (pgstate-get-table pgstate table-name)
       (let* ((table (setf (gethash table-name (pgstate-tables pgstate))
 			  (make-pgtable :name table-name)))
-	     (reject-dir (pathname-directory
-			  (merge-pathnames
-			   (format nil "~a/" dbname) *root-dir*)))
-	     (data-pathname
-	      (make-pathname :directory reject-dir :name table-name :type "dat"))
-	     (logs-pathname
-	      (make-pathname :directory reject-dir :name table-name :type "log")))
+	     (reject-dir    (merge-pathnames (format nil "~a/" dbname) *root-dir*))
+	     (data-pathname (make-pathname :defaults reject-dir
+                                           :name table-name :type "dat"))
+	     (logs-pathname (make-pathname :defaults reject-dir
+                                           :name table-name :type "log")))
 
         ;; maintain the ordering
         (push table-name (pgstate-tabnames pgstate))
 
 	;; create the per-database directory if it does not exists yet
-	(ensure-directories-exist (directory-namestring data-pathname))
+	(ensure-directories-exist reject-dir)
 
 	;; rename the existing files if there are some
-	(with-open-file (data data-pathname
-			      :direction :output
-			      :if-exists :rename
-			      :if-does-not-exist nil))
+        (when (probe-file data-pathname)
+          (with-open-file (data data-pathname
+                                :direction :output
+                                :if-exists :rename
+                                :if-does-not-exist nil)))
 
-	(with-open-file (logs logs-pathname
-			      :direction :output
-			      :if-exists :rename
-			      :if-does-not-exist nil))
+        (when (probe-file logs-pathname)
+          (with-open-file (logs logs-pathname
+                                :direction :output
+                                :if-exists :rename
+                                :if-does-not-exist nil)))
 
 	;; set the properties to the right pathnames
 	(setf (pgtable-reject-data table) data-pathname
