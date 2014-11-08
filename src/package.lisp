@@ -291,6 +291,31 @@
 	   #:copy-database
 	   #:list-tables))
 
+(defpackage #:pgloader.mssql
+  (:use #:cl
+        #:pgloader.params #:pgloader.utils
+        #:pgloader.sources #:pgloader.queue)
+  (:import-from #:pgloader.transforms #:precision #:scale)
+  (:import-from #:pgloader.pgsql
+		#:with-pgsql-transaction
+		#:pgsql-execute
+		#:pgsql-execute-with-timing
+		#:apply-identifier-case
+		#:create-tables
+                #:truncate-tables
+		#:format-pgsql-column
+		#:make-pgsql-index
+		#:index-table-name
+		#:format-pgsql-create-index
+		#:create-indexes-in-kernel)
+  (:export #:copy-mssql
+           #:*mssql-default-cast-rules*
+	   #:map-rows
+	   #:copy-to
+	   #:copy-from
+	   #:copy-database
+	   #:list-tables))
+
 (defpackage #:pgloader.syslog
   (:use #:cl #:pgloader.params #:pgloader.utils)
   (:import-from #:pgloader.pgsql
