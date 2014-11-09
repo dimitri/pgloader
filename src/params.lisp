@@ -26,6 +26,11 @@
 	   #:*myconn-user*
 	   #:*myconn-pass*
 	   #:*my-dbname*
+	   #:*msconn-host*
+	   #:*msconn-port*
+	   #:*msconn-user*
+	   #:*msconn-pass*
+	   #:*ms-dbname*
 	   #:*state*
 	   #:*default-tmpdir*
 	   #:init-params-from-environment
@@ -119,6 +124,15 @@
 (defparameter *myconn-user* (uiop:getenv "USER"))
 (defparameter *myconn-pass* nil)
 (defparameter *my-dbname* nil)
+
+;;;
+;;; MSSQL Connection Credentials
+;;;
+(defparameter *msconn-host* "localhost")
+(defparameter *msconn-port* 1433)
+(defparameter *msconn-user* (uiop:getenv "USER"))
+(defparameter *msconn-pass* nil)
+(defparameter *ms-dbname* nil)
 
 ;;;
 ;;; Archive processing: downloads and unzip.
