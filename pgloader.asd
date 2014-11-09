@@ -97,8 +97,16 @@
 			 (:file "fixed")
 			 (:file "db3")
 			 (:file "ixf")
-			 (:file "sqlite")
 			 (:file "syslog")
+
+                         (:module "sqlite-utils"
+                                  :pathname "sqlite"
+                                  :components
+                                  ((:file "sqlite-cast-rules")
+                                   (:file "sqlite-schema"
+                                          :depends-on ("sqlite-cast-rules"))))
+
+			 (:file "sqlite" :depends-on ("sqlite-utils"))
 
                          (:module "mysql-utils"
                                   :pathname "mysql"
