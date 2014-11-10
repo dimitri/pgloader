@@ -9,7 +9,7 @@
     (:source (:type "nchar")     :target (:type "text" :drop-typemod t))
     (:source (:type "varchar")   :target (:type "text" :drop-typemod t))
     (:source (:type "nvarchar")  :target (:type "text" :drop-typemod t))
-    (:source (:type "xml")       :target (:type "xml" :drop-typemod t))
+    (:source (:type "xml")       :target (:type "text" :drop-typemod t))
 
     (:source (:type "bit") :target (:type "boolean"))
 
@@ -45,8 +45,7 @@
     (:source (:type "varbinary") :target (:type "bytea")
              :using pgloader.transforms::byte-vector-to-bytea)
 
-    (:source (:type "datetime") :target (:type "timestamptz")
-             :using pgloader.transforms::sqlite-timestamp-to-timestamp))
+    (:source (:type "datetime") :target (:type "timestamptz")))
   "Data Type Casting to migrate from MSSQL to PostgreSQL")
 
 ;;;
@@ -98,3 +97,17 @@
             (let ((ctype (mssql-column-ctype col)))
               (cast table-name name type ctype default nullable nil)))))
     (format nil "~a ~22t ~a" column-name type-definition)))
+
+(defun cast-mssql-column-definition-to-pgsql (mssql-column)
+  "Return the PostgreSQL column definition from the MS SQL one."
+  (multiple-value-bind (column fn)
+      (with-slots (schema table-name name type default nullable)
+          mssql-column
+        (declare (ignore schema))       ; FIXME
+        (let ((ctype (mssql-column-ctype mssql-column)))
+          (cast table-name name type ctype default nullable nil)))
+
+    ;; the MS SQL driver smartly maps data to the proper CL type, but the
+    ;; pgloader API only wants to see text representations to send down the
+    ;; COPY protocol.
+    (values column (or fn (lambda (val) (if val (format nil "~a" val) :null))))))

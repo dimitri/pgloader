@@ -105,6 +105,7 @@
 
    where     c.table_catalog = '~a'
          and t.table_type = '~a'
+         and c.table_schema != 'dbo'
 
 order by table_schema, table_name, ordinal_position"
                           dbname
@@ -174,3 +175,21 @@ ORDER BY T.[name], I.[index_id], IC.[key_ordinal];")
                  (cons schema
                        (reverse (loop :for (table-name . cols) :in tables
                                    :collect (cons table-name (reverse cols))))))))))
+
+
+;;;
+;;; Tools to handle row queries.
+;;;
+(defun get-column-sql-expression (name type)
+  "Return per-TYPE SQL expression to use given a column NAME.
+
+   Mostly we just use the name, and make try to avoid parsing dates."
+  (case (intern (string-upcase type) "KEYWORD")
+    (:datetime  (format nil "convert(varchar, ~a, 126)" name))
+    (t          (format nil "~a" name))))
+
+(defun get-column-list (columns)
+  "Tweak how we fetch the column values to avoid parsing when possible."
+  (loop :for col :in columns
+     :collect (with-slots (name type) col
+                (get-column-sql-expression name type))))

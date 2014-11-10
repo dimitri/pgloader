@@ -10,14 +10,6 @@
              :initform nil))
   (:documentation "pgloader MS SQL Data Source"))
 
-(defun cast-mssql-column-definition-to-pgsql (mssql-column)
-  "Return the PostgreSQL column definition from the MySQL one."
-  (with-slots (schema table-name name type default nullable)
-      mssql-column
-    (declare (ignore schema))   ; FIXME
-    (let ((ctype (mssql-column-ctype mssql-column)))
-      (cast table-name name type ctype default nullable nil))))
-
 (defmethod initialize-instance :after ((source copy-mssql) &key)
   "Add a default value for transforms in case it's not been provided."
   (let* ((source-db  (slot-value source 'source-db))
@@ -50,13 +42,69 @@
 
       (loop :for field :in fields
          :for (column fn) := (multiple-value-bind (column fn)
-                               (cast-mysql-column-definition-to-pgsql field)
+                               (cast-mssql-column-definition-to-pgsql field)
                              (list column fn))
          :collect column :into columns
          :collect fn :into fns
          :finally (progn (setf (slot-value source 'columns) columns)
                         (unless transforms
                           (setf (slot-value source 'transforms) fns)))))))
+
+(defmethod map-rows ((mssql copy-mssql) &key process-row-fn)
+  "Extract Mssql data and call PROCESS-ROW-FN function with a single
+   argument (a list of column values) for each row."
+  (with-mssql-connection ((source-db mssql))
+    (let* ((sql  (destructuring-bind (schema . table-name)
+                     (source mssql)
+                   (format nil "SELECT ~{~a~^, ~} FROM ~a.~a;"
+                           (get-column-list (fields mssql))
+                           schema
+                           table-name)))
+           (row-fn
+            (lambda (row)
+              (pgstate-incf *state* (target mssql) :read 1)
+              (funcall process-row-fn row))))
+      (log-message :warning "~a" sql)
+      (handler-case
+          (mssql::map-query-results sql :row-fn row-fn :connection *mssql-db*)
+        (condition (e)
+          (progn
+            (log-message :error "~a" e)
+            (pgstate-incf *state* (target mssql) :errs 1)))))))
+
+(defmethod copy-to-queue ((mssql copy-mssql) queue)
+  "Copy data from MSSQL table DBNAME.TABLE-NAME into queue DATAQ"
+  (map-push-queue mssql queue))
+
+(defmethod copy-from ((mssql copy-mssql) &key (kernel nil k-s-p) truncate)
+  "Connect in parallel to MSSQL and PostgreSQL and stream the data."
+  (let* ((summary        (null *state*))
+	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
+	 (lp:*kernel*    (or kernel (make-kernel 2)))
+	 (channel        (lp:make-channel))
+	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*))
+	 (table-name     (target mssql)))
+
+    ;; we account stats against the target table-name, because that's all we
+    ;; know on the PostgreSQL thread
+    (with-stats-collection (table-name :state *state* :summary summary)
+      (log-message :notice "COPY ~a" table-name)
+      ;; read data from Mssql
+      (lp:submit-task channel #'copy-to-queue mssql queue)
+
+      ;; and start another task to push that data from the queue to PostgreSQL
+      (lp:submit-task channel #'pgloader.pgsql:copy-from-queue
+		      (target-db mssql) (target mssql) queue
+		      :truncate truncate)
+
+      ;; now wait until both the tasks are over
+      (loop for tasks below 2 do (lp:receive-result channel)
+	 finally
+	   (log-message :info "COPY ~a done." table-name)
+	   (unless k-s-p (lp:end-kernel))))
+
+    ;; return the copy-mssql object we just did the COPY for
+    mssql))
 
 (defmethod copy-database ((mssql copy-mssql)
                           &key
@@ -81,7 +129,7 @@
 	 (idx-state     (make-pgstate))
 	 (seq-state     (make-pgstate))
          (cffi:*default-foreign-encoding* encoding)
-         ;; (copy-kernel   (make-kernel 2))
+         (copy-kernel   (make-kernel 2))
          (all-columns   (filter-column-list (list-all-columns)
 					    :only-tables only-tables
 					    :including including
@@ -97,7 +145,6 @@
          ;; (idx-channel   (when idx-kernel
 	 ;;        	  (let ((lp:*kernel* idx-kernel))
 	 ;;        	    (lp:make-channel))))
-	 ;; (pg-dbname     (target-db mssql))
          )
 
     ;; if asked, first drop/create the tables on the PostgreSQL side
@@ -128,10 +175,31 @@
            (let ((qualified-table-name-list
                   (qualified-table-name-list all-columns
                                              :identifier-case identifier-case)))
-             (truncate-tables *pg-dbname*
+             (truncate-tables (target-db mssql)
                               ;; here we really do want only the name
                               (mapcar #'car qualified-table-name-list)
                               :identifier-case identifier-case))))
+
+    ;; Transfert the data
+    (loop :for (schema . tables) :in all-columns
+       :do (loop :for (table-name . columns) :in tables
+              :do
+              (let ((table-source
+                     (make-instance 'copy-mssql
+                                    :source-db (source-db mssql)
+                                    :target-db (target-db mssql)
+                                    :source    (cons schema table-name)
+                                    :target    (qualify-name schema table-name
+                                                             :identifier-case
+                                                             identifier-case)
+                                    :fields    columns)))
+                (log-message :debug "TARGET: ~a" (target table-source))
+                ;; COPY the data to PostgreSQL, using copy-kernel
+                (unless schema-only
+                  (copy-from table-source :kernel copy-kernel)))))
+
+      ;; now end the kernels
+    (let ((lp:*kernel* copy-kernel))  (lp:end-kernel))
 
     ;; and report the total time spent on the operation
     (report-full-summary "Total streaming time" *state*

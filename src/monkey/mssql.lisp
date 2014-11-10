@@ -98,3 +98,26 @@
            vector))
         (otherwise (error "not supported type ~A"
                           (foreign-enum-keyword '%syb-value-type type))))))
+
+
+(defun map-query-results (query &key row-fn (connection *database*))
+  "Map the query results through the map-fn function."
+  (let ((%dbproc (slot-value connection 'dbproc))
+        (cffi:*default-foreign-encoding* (slot-value connection 'external-format)))
+    (with-foreign-string (%query query)
+      (%dbcmd %dbproc %query))
+    (%dbsqlexec %dbproc)
+    (unwind-protect
+         (unless (= +no-more-results+ (%dbresults %dbproc))
+           (loop :for rtc := (%dbnextrow %dbproc)
+              :until (= rtc +no-more-rows+)
+              :do (let ((row (make-array (%dbnumcols %dbproc))))
+                    (loop :for i :from 1 :to (%dbnumcols %dbproc)
+                       :for value := (sysdb-data-to-lisp %dbproc
+                                                         (%dbdata %dbproc i)
+                                                         (%dbcoltype %dbproc i)
+                                                         (%dbdatlen %dbproc i))
+                       :do (setf (aref row (- i 1)) value))
+
+                    (funcall row-fn row))))
+      (%dbcancel %dbproc))))

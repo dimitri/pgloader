@@ -230,5 +230,6 @@
                     date-string-or-integer)))))))
 
 (defun sql-server-uniqueidentifier-to-uuid (id)
-  (declare (type (array (unsigned-byte 8) (16)) id))
-  (format nil "~a" (uuid:byte-array-to-uuid id)))
+  (declare (type (or null (array (unsigned-byte 8) (16))) id))
+  (when id
+    (format nil "~a" (uuid:byte-array-to-uuid id))))
