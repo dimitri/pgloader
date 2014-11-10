@@ -2,7 +2,7 @@
 ;;; Tools to query the MySQL Schema to reproduce in PostgreSQL
 ;;;
 
-(in-package pgloader.mysql)
+(in-package :pgloader.mysql)
 
 (defvar *connection* nil "Current MySQL connection")
 
