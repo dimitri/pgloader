@@ -21,7 +21,8 @@
 		 set-to-enum-array
 		 right-trim
 		 byte-vector-to-bytea
-                 sqlite-timestamp-to-timestamp))
+                 sqlite-timestamp-to-timestamp
+                 sql-server-uniqueidentifier-to-uuid))
 
 
 ;;;
@@ -227,3 +228,7 @@
 
                    (t
                     date-string-or-integer)))))))
+
+(defun sql-server-uniqueidentifier-to-uuid (id)
+  (declare (type (array (unsigned-byte 8) (16)) id))
+  (format nil "~a" (uuid:byte-array-to-uuid id)))

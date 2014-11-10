@@ -32,6 +32,7 @@
                  #:cl-markdown          ; To produce the website
                  #:metabang-bind        ; the bind macro
                  #:mssql                ; M$ SQL connectivity
+                 #:uuid                 ; Transforming MS SQL unique identifiers
 		 )
     :components
     ((:module "src"
@@ -42,7 +43,8 @@
 
                (:module "monkey"
                         :components
-                        ((:file "bind")))
+                        ((:file "bind")
+                         (:file "mssql")))
 
                (:module "utils"
                         :depends-on ("package" "params")
@@ -108,11 +110,21 @@
 
 			 (:file "sqlite" :depends-on ("sqlite-utils"))
 
+                         (:module "mssql-utils"
+                                  :pathname "mssql"
+                                  :components
+                                  ((:file "mssql-cast-rules")
+                                   (:file "mssql-schema"
+                                          :depends-on ("mssql-cast-rules"))))
+
+			 (:file "mssql" :depends-on ("mssql-utils"))
+
                          (:module "mysql-utils"
                                   :pathname "mysql"
                                   :components
                                   ((:file "mysql-cast-rules")
-                                   (:file "mysql-schema")
+                                   (:file "mysql-schema"
+                                          :depends-on ("mysql-cast-rules"))
                                    (:file "mysql-csv"
                                           :depends-on ("mysql-schema"))))
 
