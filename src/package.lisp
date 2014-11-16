@@ -352,6 +352,7 @@
                 #:*default-cast-rules*
                 #:*cast-rules*)
   (:import-from #:pgloader.mysql  #:*mysql-default-cast-rules*)
+  (:import-from #:pgloader.mssql  #:*mssql-default-cast-rules*)
   (:import-from #:pgloader.sqlite #:*sqlite-default-cast-rules*)
   (:export #:parse-commands
 	   #:run-commands

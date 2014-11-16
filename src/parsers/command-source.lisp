@@ -62,9 +62,3 @@
   (:destructure (load-from ws source)
     (declare (ignore load-from ws))
     source))
-
-(defrule database-source (and kw-load kw-database kw-from
-			      (or db-connection-uri
-                                  get-dburi-from-environment-variable))
-  (:lambda (source)
-    (bind (((_ _ _ uri) source)) uri)))

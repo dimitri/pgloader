@@ -112,7 +112,44 @@
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
 
-(defrule load-mysql-command (and database-source target
+(defrule mysql-prefix "mysql://" (:constant (list :type :mysql)))
+
+(defrule mysql-uri (and mysql-prefix
+                        (? dsn-user-password)
+                        (? dsn-hostname)
+                        dsn-dbname)
+  (:lambda (uri)
+    (destructuring-bind (&key type
+                              user
+			      password
+			      host
+			      port
+			      dbname)
+        (apply #'append uri)
+      ;; Default to environment variables as described in
+      ;;  http://dev.mysql.com/doc/refman/5.0/en/environment-variables.html
+      (list :type      type
+            :user      (or user     (getenv-default "USER"))
+            :password  (or password (getenv-default "MYSQL_PWD"))
+            :host      (or host     (getenv-default "MYSQL_HOST" "localhost"))
+            :port      (or port     (parse-integer
+                                     (getenv-default "MYSQL_TCP_PORT" "3306")))
+            :dbname    dbname))))
+
+(defrule get-mysql-uri-from-environment-variable (and kw-getenv name)
+  (:lambda (p-e-v)
+    (bind (((_ varname) p-e-v))
+      (let ((connstring (getenv-default varname)))
+        (unless connstring
+          (error "Environment variable ~s is unset." varname))
+        (parse 'mysql-uri connstring)))))
+
+(defrule mysql-source (and kw-load kw-database kw-from
+                           (or mysql-uri
+                               get-mysql-uri-from-environment-variable))
+  (:lambda (source) (bind (((_ _ _ uri) source)) uri)))
+
+(defrule load-mysql-command (and mysql-source target
                                  load-mysql-optional-clauses)
   (:lambda (command)
     (destructuring-bind (source target clauses) command

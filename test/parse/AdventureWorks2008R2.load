@@ -1,0 +1,16 @@
+load database
+     from      mssql://dim:pass@localhost/AdventureWorks2008R2
+     into postgresql:///advworks
+
+ -- WITH include drop, create tables, no truncate,
+ --      create indexes, reset sequences, foreign keys
+
+  SET maintenance_work_mem to '128MB', work_mem to '12MB'
+
+ BEFORE LOAD DO
+   $$ drop schema if exists humanresources cascade; $$,
+   $$ drop schema if exists person         cascade; $$,
+   $$ drop schema if exists production     cascade; $$,
+   $$ drop schema if exists public         cascade; $$,
+   $$ drop schema if exists purchasing     cascade; $$,
+   $$ drop schema if exists sales          cascade; $$;

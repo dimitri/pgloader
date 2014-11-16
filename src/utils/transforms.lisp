@@ -151,8 +151,10 @@
    accepted by PostgreSQL, that is 100.0 rather than 100.0d0."
   (declare (type (or null float) float))
   (when float
-    (let ((*read-default-float-format* 'double-float))
-      (princ-to-string float))))
+    (typecase float
+      (double-float (let ((*read-default-float-format* 'double-float))
+                      (princ-to-string float)))
+      (t            (princ-to-string float)))))
 
 (defun set-to-enum-array (set-string)
   "Transform a MySQL SET value into a PostgreSQL ENUM Array"

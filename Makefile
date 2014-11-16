@@ -8,8 +8,11 @@ CL	   = sbcl
 # default to 4096 MB of RAM size in the image
 DYNSIZE    = 4096
 
-LISP_SRC   = $(wildcard src/*lisp) \
-             $(wildcard src/pgsql/*lisp) \
+LISP_SRC   = $(wildcard src/*lisp)         \
+             $(wildcard src/monkey/*lisp)  \
+             $(wildcard src/utils/*lisp)   \
+             $(wildcard src/parsers/*lisp) \
+             $(wildcard src/pgsql/*lisp)   \
              $(wildcard src/sources/*lisp) \
              pgloader.asd
 

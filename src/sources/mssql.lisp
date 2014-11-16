@@ -109,31 +109,32 @@
 (defmethod copy-database ((mssql copy-mssql)
                           &key
 			    state-before
-			    data-only
-			    schema-only
+			    state-after
+			    state-indexes
 			    (truncate        nil)
+			    (data-only       nil)
+			    (schema-only     nil)
 			    (create-tables   t)
 			    (include-drop    t)
 			    (create-indexes  t)
 			    (reset-sequences t)
-			    only-tables
-			    including
-			    excluding
+			    (foreign-keys    t)
                             (identifier-case :downcase)
-                            (encoding :utf-8))
+                            (encoding        :utf-8)
+			    only-tables)
   "Stream the given MS SQL database down to PostgreSQL."
-  (declare (ignore create-indexes reset-sequences))
+  (declare (ignore create-indexes reset-sequences foreign-keys))
   (let* ((summary       (null *state*))
 	 (*state*       (or *state* (make-pgstate)))
+	 (idx-state     (or state-indexes (make-pgstate)))
 	 (state-before  (or state-before (make-pgstate)))
-	 (idx-state     (make-pgstate))
-	 (seq-state     (make-pgstate))
+	 (state-after   (or state-after   (make-pgstate)))
          (cffi:*default-foreign-encoding* encoding)
          (copy-kernel   (make-kernel 2))
-         (all-columns   (filter-column-list (list-all-columns)
-					    :only-tables only-tables
-					    :including including
-					    :excluding excluding))
+         (all-columns   (filter-column-list
+                         (with-mssql-connection ()
+                           (list-all-columns))
+                         :only-tables only-tables))
          ;; (all-indexes   (filter-column-list (list-all-indexes)
 	 ;;        			    :only-tables only-tables
 	 ;;        			    :including including
@@ -194,6 +195,7 @@
                                                              identifier-case)
                                     :fields    columns)))
                 (log-message :debug "TARGET: ~a" (target table-source))
+                (log-message :log "target: ~s" table-source)
                 ;; COPY the data to PostgreSQL, using copy-kernel
                 (unless schema-only
                   (copy-from table-source :kernel copy-kernel)))))
@@ -202,7 +204,8 @@
     (let ((lp:*kernel* copy-kernel))  (lp:end-kernel))
 
     ;; and report the total time spent on the operation
-    (report-full-summary "Total streaming time" *state*
-                         :before state-before
-                         :finally seq-state
-                         :parallel idx-state)))
+    (when summary
+      (report-full-summary "Total streaming time" *state*
+                           :before state-before
+                           :finally state-after
+                           :parallel idx-state))))

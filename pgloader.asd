@@ -92,6 +92,7 @@
                          (:file "command-dbf")
                          (:file "command-cast-rules")
                          (:file "command-mysql")
+                         (:file "command-mssql")
                          (:file "command-sqlite")
                          (:file "command-archive")
                          (:file "command-parser")
@@ -104,7 +105,8 @@
 
 	       ;; Source format specific implementations
 	       (:module sources
-			:depends-on ("params"
+			:depends-on ("monkey"  ; mssql driver patches
+                                     "params"
                                      "package"
                                      "sources-api"
                                      "pgsql"

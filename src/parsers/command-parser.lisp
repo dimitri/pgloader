@@ -17,6 +17,7 @@
 			  load-dbf-file
                           load-ixf-file
 			  load-mysql-database
+                          load-mssql-database
 			  load-sqlite-database
 			  ;; load-syslog-messages
                           )

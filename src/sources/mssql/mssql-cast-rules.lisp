@@ -36,7 +36,7 @@
     (:source (:type "numeric") :target (:type "numeric")
              :using pgloader.transforms::float-to-string)
 
-        (:source (:type "money") :target (:type "numeric")
+    (:source (:type "money") :target (:type "numeric")
              :using pgloader.transforms::float-to-string)
 
     (:source (:type "smallmoney") :target (:type "numeric")

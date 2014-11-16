@@ -65,8 +65,16 @@
   (:identity t))
 
 (defrule dsn-hostname (and (? hostname) (? dsn-port))
-  (:destructure (hostname &optional port)
-		(append (list :host hostname) port)))
+  (:lambda (host-port)
+    (destructuring-bind (host &optional port) host-port
+      (append (list :host
+                    (when host
+                      (destructuring-bind (type &optional name) host
+                        (ecase type
+                          (:unix  (if name (cons :unix name) :unix))
+                          (:ipv4  name)
+                          (:host  name)))))
+              port))))
 
 (defrule dsn-dbname (and "/" (? namestring))
   (:destructure (slash dbname)
@@ -83,90 +91,52 @@
     (declare (ignore qm))
     (list :table-name name)))
 
-(defrule dsn-prefix (and (or "postgresql" "pgsql" "mysql" "syslog") "://")
-  (:lambda (db)
-    (bind (((prefix _) db))
-      (cond ((string= "postgresql" prefix) (list :type :postgresql))
-            ((string= "pgsql" prefix)      (list :type :postgresql))
-            ((string= "mysql" prefix)      (list :type :mysql))
-            ((string= "syslog" prefix)     (list :type :syslog))))))
+(defrule pgsql-prefix (and (or "postgresql" "pgsql") "://")
+  (:constant (list :type :postgresql)))
 
-(defrule db-connection-uri (and dsn-prefix
-				(? dsn-user-password)
-				(? dsn-hostname)
-				dsn-dbname
-				(? dsn-table-name))
+(defrule pgsql-uri (and pgsql-prefix
+                        (? dsn-user-password)
+                        (? dsn-hostname)
+                        dsn-dbname
+                        (? dsn-table-name))
   (:lambda (uri)
     (destructuring-bind (&key type
-			      user
+                              user
 			      password
 			      host
 			      port
 			      dbname
-			      table-name)
-	(apply #'append uri)
-      ;;
+                              table-name)
+        (apply #'append uri)
       ;; Default to environment variables as described in
       ;;  http://www.postgresql.org/docs/9.3/static/app-psql.html
-      ;;  http://dev.mysql.com/doc/refman/5.0/en/environment-variables.html
-      ;;
-      (let ((user
-	     (or user
-		 (case type
-		   (:postgresql
-                    (getenv-default "PGUSER"
-                                    #+unix (getenv-default "USER")
-                                    #-unix (getenv-default "UserName")))
-		   (:mysql
-                    (getenv-default "USER")))))
-          (password (or password
-              (case type
-                (:postgresql (getenv-default "PGPASSWORD"))
-                (:mysql (getenv-default "MYSQL_PWD"))))))
-       (list :type type
-	     :user user
-	     :password password
-	     :host (or (when host
-			 (destructuring-bind (type &optional name) host
-			   (ecase type
-			     (:unix  (if name (cons :unix name) :unix))
-			     (:ipv4  name)
-			     (:host  name))))
-		       (case type
-			 (:postgresql (getenv-default "PGHOST"
-						      #+unix :unix
-						      #-unix "localhost"))
-			 (:mysql      (getenv-default "MYSQL_HOST" "localhost"))))
-	     :port (or port
-		       (parse-integer
-			;; avoid a NIL is not a STRING style warning by
-			;; using ecase here
-			(ecase type
-			  (:postgresql (getenv-default "PGPORT" "5432"))
-			  (:mysql      (getenv-default "MYSQL_TCP_PORT" "3306")))))
-	     :dbname (or dbname
-			 (case type
-			   (:postgresql (getenv-default "PGDATABASE" user))))
-	     :table-name table-name)))))
+      (list :type       type
+            :user       (or user
+                            (getenv-default "PGUSER"
+                                            #+unix (getenv-default "USER")
+                                            #-unix (getenv-default "UserName")))
+            :password   (or password (getenv-default "PGPASSWORD"))
+            :host       (or host     (getenv-default "PGHOST"
+                                                     #+unix :unix
+                                                     #-unix "localhost"))
+            :port       (or port     (parse-integer
+                                      (getenv-default "PGPORT" "5432")))
+            :dbname     (or dbname   (getenv-default "PGDATABASE" user))
+            :table-name table-name))))
 
-(defrule get-dburi-from-environment-variable (and kw-getenv name)
+(defrule get-pgsql-uri-from-environment-variable (and kw-getenv name)
   (:lambda (p-e-v)
     (bind (((_ varname) p-e-v))
       (let ((connstring (getenv-default varname)))
         (unless connstring
           (error "Environment variable ~s is unset." varname))
-        (parse 'db-connection-uri connstring)))))
+        (parse 'pgsql-uri connstring)))))
 
-(defrule target (and kw-into (or db-connection-uri
-                                 get-dburi-from-environment-variable))
+(defrule target (and kw-into (or pgsql-uri
+                                 get-pgsql-uri-from-environment-variable))
   (:destructure (into target)
     (declare (ignore into))
-    (destructuring-bind (&key type &allow-other-keys) target
-      (unless (eq type :postgresql)
-	(error "The target must be a PostgreSQL connection string."))
-      target)))
-
-
+    target))
 
 
 (defun pgsql-connection-bindings (pg-db-uri gucs)
