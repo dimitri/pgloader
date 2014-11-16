@@ -22,9 +22,6 @@
     (:source (:type "geography") :target (:type "bytea")
          :using pgloader.transforms::byte-vector-to-bytea)
 
-    (:source (:type "money") :target (:type "numeric"))
-    (:source (:type "smallmoney") :target (:type "numeric"))
-
     (:source (:type "tinyint") :target (:type "smallint"))
 
     (:source (:type "float") :target (:type "float")
@@ -37,6 +34,12 @@
              :using pgloader.transforms::float-to-string)
 
     (:source (:type "numeric") :target (:type "numeric")
+             :using pgloader.transforms::float-to-string)
+
+        (:source (:type "money") :target (:type "numeric")
+             :using pgloader.transforms::float-to-string)
+
+    (:source (:type "smallmoney") :target (:type "numeric")
              :using pgloader.transforms::float-to-string)
 
     (:source (:type "binary") :target (:type "bytea")
