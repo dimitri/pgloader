@@ -32,7 +32,7 @@
                  #:cl-markdown          ; To produce the website
                  #:metabang-bind        ; the bind macro
                  #:mssql                ; M$ SQL connectivity
-                 #:uuid                 ; Transforming MS SQL unique identifiers
+                 #:uuid             ; Transforming MS SQL unique identifiers
 		 )
     :components
     ((:module "src"
@@ -76,9 +76,25 @@
 
                (:module "parsers"
                         :depends-on ("params" "package" "utils" "pgsql" "monkey")
+                        :serial t
                         :components
                         ((:file "parse-ini")
-                         (:file "parser")
+                         (:file "command-utils")
+                         (:file "command-keywords")
+                         (:file "command-regexp")
+                         (:file "command-db-uri")
+                         (:file "command-source")
+                         (:file "command-options")
+                         (:file "command-sql-block")
+                         (:file "command-csv")
+                         (:file "command-ixf")
+                         (:file "command-fixed")
+                         (:file "command-dbf")
+                         (:file "command-cast-rules")
+                         (:file "command-mysql")
+                         (:file "command-sqlite")
+                         (:file "command-archive")
+                         (:file "command-parser")
                          (:file "date-format")))
 
                ;; generic API for Sources
