@@ -56,7 +56,7 @@
   (with-mssql-connection ((source-db mssql))
     (let* ((sql  (destructuring-bind (schema . table-name)
                      (source mssql)
-                   (format nil "SELECT ~{~a~^, ~} FROM ~a.~a;"
+                   (format nil "SELECT ~{~a~^, ~} FROM [~a].[~a];"
                            (get-column-list (fields mssql))
                            schema
                            table-name)))
@@ -64,7 +64,7 @@
             (lambda (row)
               (pgstate-incf *state* (target mssql) :read 1)
               (funcall process-row-fn row))))
-      (log-message :warning "~a" sql)
+      (log-message :log "~a" sql)
       (handler-case
           (mssql::map-query-results sql :row-fn row-fn :connection *mssql-db*)
         (condition (e)
