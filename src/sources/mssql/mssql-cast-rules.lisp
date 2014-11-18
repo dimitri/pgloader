@@ -48,7 +48,8 @@
     (:source (:type "varbinary") :target (:type "bytea")
              :using pgloader.transforms::byte-vector-to-bytea)
 
-    (:source (:type "datetime") :target (:type "timestamptz")))
+    (:source (:type "datetime") :target (:type "timestamptz"))
+    (:source (:type "datetime2") :target (:type "timestamptz")))
   "Data Type Casting to migrate from MSSQL to PostgreSQL")
 
 ;;;
