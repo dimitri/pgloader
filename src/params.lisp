@@ -47,12 +47,17 @@
 
 (defun git-hash ()
   "Return the current abbreviated git hash of the development tree."
-  (let ((git-hash `("git" "--no-pager" "log" "-n1" "--format=format:%h")))
-    (uiop:with-current-directory ((asdf:system-source-directory :pgloader))
-      (multiple-value-bind (stdout stderr code)
-          (uiop:run-program git-hash :output :string)
-        (declare (ignore code stderr))
-        stdout))))
+  (handler-case
+      (let ((git-hash `("git" "--no-pager" "log" "-n1" "--format=format:%h")))
+        (uiop:with-current-directory ((asdf:system-source-directory :pgloader))
+          (multiple-value-bind (stdout stderr code)
+              (uiop:run-program git-hash :output :string)
+            (declare (ignore code stderr))
+            stdout)))
+    (condition (e)
+      ;; in case anything happen, just return X.Y.Z~devel
+      (declare (ignore e))
+      (format nil "~a~~devel" *minor-version*))))
 
 (defparameter *version-string*
   (concatenate 'string *major-version* "."
