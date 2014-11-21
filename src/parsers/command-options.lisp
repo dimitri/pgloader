@@ -72,11 +72,16 @@
     (*copy-batch-size*    (or ,(getf options :batch-size) *copy-batch-size*))
     (*concurrent-batches* (or ,(getf options :batch-concurrency) *concurrent-batches*))))
 
+(defun identifier-case-binding (options)
+  "Generate the code needed to bind *identifer-case* to the proper value."
+  `((*identifier-case*  (or ,(getf options :identifier-case) *identifier-case*))))
+
 (defun remove-batch-control-option (options
                                     &key
                                       (option-list '(:batch-rows
                                                      :batch-size
-                                                     :batch-concurrency))
+                                                     :batch-concurrency
+                                                     :identifier-case))
                                       extras)
   "Given a list of options, remove the generic ones that should already have
    been processed."

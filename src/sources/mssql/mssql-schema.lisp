@@ -40,20 +40,17 @@
 ;;;     - where tables is an alist of (name . cols)
 ;;;        - where cols is a list of mssql-column struct instances
 ;;;
-(defun qualify-name (schema table-name &key (identifier-case :downcase))
+(defun qualify-name (schema table-name)
   "Return the fully qualified name."
-  (let ((sn (apply-identifier-case schema identifier-case))
-        (tn (apply-identifier-case table-name identifier-case)))
+  (let ((sn (apply-identifier-case schema))
+        (tn (apply-identifier-case table-name)))
     (format nil "~a.~a" sn tn)))
 
-(defun qualified-table-name-list (schema-table-cols-alist
-                                  &key (identifier-case :downcase))
+(defun qualified-table-name-list (schema-table-cols-alist)
   "Return a flat list of qualified table names."
   (loop :for (schema . tables) :in schema-table-cols-alist
      :append (loop :for (table . cols) :in tables
-                :collect (cons (qualify-name schema table
-                                             :identifier-case identifier-case)
-                               cols))))
+                :collect (cons (qualify-name schema table) cols))))
 
 
 ;;;
@@ -141,27 +138,35 @@ order by table_schema, table_name, ordinal_position"
   "Get the list of MSSQL index definitions per table."
   (loop
      :with result := nil
-     :for (schema table-name name unique col)
-     :in
-     (mssql:query (format nil "
-SELECT OBJECT_SCHEMA_NAME(T.[object_id],DB_ID()) AS [Schema],
-  T.[name] AS [table_name], I.[name] AS [index_name], AC.[name] AS [column_name],
-  I.[type_desc], I.[is_unique], I.[data_space_id], I.[ignore_dup_key], I.[is_primary_key], 
-  I.[is_unique_constraint], I.[fill_factor],    I.[is_padded], I.[is_disabled], I.[is_hypothetical], 
-  I.[allow_row_locks], I.[allow_page_locks], IC.[is_descending_key], IC.[is_included_column] 
-FROM sys.[tables] AS T  
-  INNER JOIN sys.[indexes] I ON T.[object_id] = I.[object_id]  
-  INNER JOIN sys.[index_columns] IC ON I.[object_id] = IC.[object_id] 
-  INNER JOIN sys.[all_columns] AC ON T.[object_id] = AC.[object_id] AND IC.[column_id] = AC.[column_id] 
-WHERE T.[is_ms_shipped] = 0 AND I.[type_desc] <> 'HEAP' 
-ORDER BY T.[name], I.[index_id], IC.[key_ordinal];")
-                  :connection *mssql-db*)
+     :for (schema table-name name col unique pkey)
+     :in  (mssql-query (format nil "
+    select schema_name(schema_id) as SchemaName
+           o.name as TableName,
+           i.name as IndexName,
+           ic.key_ordinal as ColumnOrder,
+           ic.is_included_column as IsIncluded,
+           co.[name] as ColumnName,
+           i.is_unique,
+           i.is_primary_key
+
+    from sys.indexes i
+         join sys.objects o on i.object_id = o.object_id
+         join sys.index_columns ic on ic.object_id = i.object_id
+             and ic.index_id = i.index_id
+         join sys.columns co on co.object_id = i.object_id
+             and co.column_id = ic.column_id
+
+order by SchemaName,
+          o.[name],
+          i.[name],
+          ic.is_included_column,
+          ic.key_ordinal"))
      :do
      (let* ((s-entry    (assoc schema result :test 'equal))
-            (i-entry    (when s-entry
-                          (assoc table-name (cdr s-entry) :test 'equal)))
-            (index
-             ))
+            (t-entry    (when s-entry
+                          (assoc table-name (cdr t-entry) :test 'equal)))
+            (index      (when t-entry
+                          (assoc name (cdr t-entry) :test 'equal))))
        (if s-entry
            (if t-entry
                (push column (cdr t-entry))

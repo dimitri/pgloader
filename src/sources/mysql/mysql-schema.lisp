@@ -16,18 +16,16 @@
 			   (table-name name dtype ctype default nullable extra)))
   table-name name dtype ctype default nullable extra)
 
-(defmethod format-pgsql-column ((col mysql-column) &key identifier-case)
+(defmethod format-pgsql-column ((col mysql-column))
   "Return a string representing the PostgreSQL column definition."
-  (let* ((column-name
-	  (apply-identifier-case (mysql-column-name col) identifier-case))
+  (let* ((column-name (apply-identifier-case (mysql-column-name col)))
 	 (type-definition
 	  (with-slots (table-name name dtype ctype default nullable extra)
 	      col
 	    (cast table-name name dtype ctype default nullable extra))))
     (format nil "~a ~22t ~a" column-name type-definition)))
 
-(defmethod format-extra-type ((col mysql-column)
-			      &key identifier-case include-drop)
+(defmethod format-extra-type ((col mysql-column) &key include-drop)
   "Return a string representing the extra needed PostgreSQL CREATE TYPE
    statement, if such is needed"
   (let ((dtype (mysql-column-dtype col)))
@@ -37,14 +35,12 @@
        (when include-drop
 	 (let* ((type-name
 		 (get-enum-type-name (mysql-column-table-name col)
-				     (mysql-column-name col)
-				     identifier-case)))
+				     (mysql-column-name col))))
 		 (format nil "DROP TYPE IF EXISTS ~a;" type-name)))
 
        (get-create-enum (mysql-column-table-name col)
 			(mysql-column-name col)
-			(mysql-column-ctype col)
-			:identifier-case identifier-case)))))
+			(mysql-column-ctype col))))))
 
 
 ;;;
@@ -252,19 +248,18 @@ GROUP BY table_name, index_name;"
                            for (name . indexes) in schema
                            collect (cons name (reverse indexes)))))))
 
-(defun set-table-oids (all-indexes &key identifier-case)
+(defun set-table-oids (all-indexes)
   "MySQL allows using the same index name against separate tables, which
    PostgreSQL forbids. To get unicity in index names without running out of
    characters (we are allowed only 63), we use the table OID instead.
 
    This function grabs the table OIDs in the PostgreSQL database and update
    the definitions with them."
-  (let* ((table-names (mapcar #'(lambda (table-name)
-                                  (apply-identifier-case table-name identifier-case))
+  (let* ((table-names (mapcar #'apply-identifier-case
                               (mapcar #'car all-indexes)))
 	 (table-oids  (pgloader.pgsql:list-table-oids table-names)))
     (loop for (table-name-raw . indexes) in all-indexes
-       for table-name = (apply-identifier-case table-name-raw identifier-case)
+       for table-name = (apply-identifier-case table-name-raw)
        for table-oid = (cdr (assoc table-name table-oids :test #'string=))
        unless table-oid do (error "OID not found for ~s." table-name)
        do (loop for index in indexes
@@ -326,15 +321,14 @@ GROUP BY table_name, index_name;"
                            for (name . fks) in schema
                            collect (cons name (reverse fks)))))))
 
-(defun drop-pgsql-fkeys (all-fkeys &key (dbname *pg-dbname*) identifier-case)
+(defun drop-pgsql-fkeys (all-fkeys &key (dbname *pg-dbname*))
   "Drop all Foreign Key Definitions given, to prepare for a clean run."
   (let ((all-pgsql-fkeys (list-tables-and-fkeys dbname)))
     (loop for (table-name . fkeys) in all-fkeys
        do
 	 (loop for fkey in fkeys
 	    for sql = (format-pgsql-drop-fkey fkey
-					      :all-pgsql-fkeys all-pgsql-fkeys
-					      :identifier-case identifier-case)
+					      :all-pgsql-fkeys all-pgsql-fkeys)
 	    when sql
 	    do
 	      (log-message :notice "~a;" sql)
@@ -344,15 +338,13 @@ GROUP BY table_name, index_name;"
                            &key
                              (dbname *pg-dbname*)
                              state
-                             identifier-case
                              (label "Foreign Keys"))
   "Actually create the Foreign Key References that where declared in the
    MySQL database"
   (pgstate-add-table state dbname label)
   (loop for (table-name . fkeys) in all-fkeys
      do (loop for fkey in fkeys
-	   for sql =
-	     (format-pgsql-create-fkey fkey :identifier-case identifier-case)
+	   for sql = (format-pgsql-create-fkey fkey)
 	   do
 	     (log-message :notice "~a;" sql)
 	     (pgsql-execute-with-timing dbname "Foreign Keys" sql state))))
@@ -362,11 +354,11 @@ GROUP BY table_name, index_name;"
 ;;; Sequences
 ;;;
 (defun reset-pgsql-sequences (all-columns
-                              &key (dbname *pg-dbname*) state identifier-case)
+                              &key (dbname *pg-dbname*) state)
   "Reset all sequences created during this MySQL migration."
   (let ((tables
 	 (mapcar
-	  (lambda (name) (apply-identifier-case name identifier-case))
+	  (lambda (name) (apply-identifier-case name))
 	  (mapcar #'car all-columns))))
     (log-message :notice "Reset sequences")
     (with-stats-collection ("Reset Sequences"

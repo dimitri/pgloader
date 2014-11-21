@@ -24,10 +24,9 @@
   "Return the PostgreSQL type name for a given IXF type name."
   (cdr (assoc ixf-type *ixf-pgsql-type-mapping*)))
 
-(defmethod format-pgsql-column ((col ixf:ixf-column) &key identifier-case)
+(defmethod format-pgsql-column ((col ixf:ixf-column))
   "Return a string reprensenting the PostgreSQL column definition"
-  (let* ((column-name (apply-identifier-case (ixf:ixf-column-name col)
-                                             identifier-case))
+  (let* ((column-name (apply-identifier-case (ixf:ixf-column-name col)))
          (type-definition
           (format nil
                   "~a~:[ not null~;~]~:[~*~; default ~a~]"

@@ -38,9 +38,8 @@
 (defmethod index-table-name ((index sqlite-idx))
   (sqlite-idx-table-name index))
 
-(defmethod format-pgsql-create-index ((index sqlite-idx) &key identifier-case)
+(defmethod format-pgsql-create-index ((index sqlite-idx))
   "Generate the PostgresQL statement to build the given SQLite index definition."
-  (declare (ignore identifier-case))
   (sqlite-idx-sql index))
 
 (defun list-all-indexes (&optional (db *sqlite-db*))

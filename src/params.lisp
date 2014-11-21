@@ -12,6 +12,7 @@
 	   #:*client-min-messages*
 	   #:*log-min-messages*
            #:*report-stream*
+           #:*identifier-case*
 	   #:*copy-batch-rows*
            #:*copy-batch-size*
            #:*concurrent-batches*
@@ -93,6 +94,12 @@
 
 (defparameter *report-stream* *terminal-io*
   "Stream where to format the output stream.")
+
+;;;
+;;; When converting from other databases, how to deal with case sensitivity?
+;;;
+(defparameter *identifier-case* :downcase
+  "Dealing with source databases casing rules.")
 
 ;;;
 ;;; How to split batches in case of data loading errors.

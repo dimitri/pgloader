@@ -167,7 +167,6 @@
                                materialize-views view-columns
                                &key
                                  state
-                                 identifier-case
                                  foreign-keys
                                  include-drop)
   "Prepare the target PostgreSQL database: create tables casting datatypes
@@ -187,32 +186,27 @@
       ;; we need to first drop the Foreign Key Constraints, so that we
       ;; can DROP TABLE when asked
       (when (and foreign-keys include-drop)
-        (drop-pgsql-fkeys all-fkeys :identifier-case identifier-case))
+        (drop-pgsql-fkeys all-fkeys))
 
       ;; now drop then create tables and types, etc
       (prog1
-          (create-tables all-columns
-                         :identifier-case identifier-case
-                         :include-drop include-drop)
+          (create-tables all-columns :include-drop include-drop)
 
         ;; MySQL allows the same index name being used against several
         ;; tables, so we add the PostgreSQL table OID in the index name,
         ;; to differenciate. Set the table oids now.
-        (set-table-oids all-indexes :identifier-case identifier-case)
+        (set-table-oids all-indexes)
 
         ;; We might have to MATERIALIZE VIEWS
         (when materialize-views
-          (create-tables view-columns
-                         :identifier-case identifier-case
-                         :include-drop include-drop))))))
+          (create-tables view-columns :include-drop include-drop))))))
 
 (defun complete-pgsql-database (all-columns all-fkeys
                                 &key
                                   state
                                   data-only
                                   foreign-keys
-                                  reset-sequences
-                                  identifier-case)
+                                  reset-sequences)
     "After loading the data into PostgreSQL, we can now reset the sequences
      and declare foreign keys."
     ;;
@@ -222,9 +216,7 @@
     ;; while CREATE INDEX statements are in flight (avoid locking).
     ;;
     (when reset-sequences
-      (reset-pgsql-sequences all-columns
-                             :state state
-                             :identifier-case identifier-case))
+      (reset-pgsql-sequences all-columns :state state))
 
     ;;
     ;; Foreign Key Constraints
@@ -234,7 +226,7 @@
     ;; and indexes are imported before doing that.
     ;;
     (when (and foreign-keys (not data-only))
-      (create-pgsql-fkeys all-fkeys :state state :identifier-case identifier-case)))
+      (create-pgsql-fkeys all-fkeys :state state)))
 
 (defun fetch-mysql-metadata (&key
                                state
@@ -314,7 +306,6 @@
 			    (create-indexes  t)
 			    (reset-sequences t)
 			    (foreign-keys    t)
-			    (identifier-case :downcase) ; or :quote
 			    only-tables
 			    including
 			    excluding
@@ -361,13 +352,10 @@
                                          view-columns
                                          :state state-before
                                          :foreign-keys foreign-keys
-                                         :identifier-case identifier-case
                                          :include-drop include-drop))
                 (t
                  (when truncate
-                   (truncate-tables *pg-dbname*
-                                    (mapcar #'car all-columns)
-                                    :identifier-case identifier-case))))
+                   (truncate-tables *pg-dbname* (mapcar #'car all-columns)))))
         ;;
         ;; In case some error happens in the preparatory transaction, we
         ;; need to stop now and refrain from trying to load the data into
@@ -405,8 +393,7 @@
                                   :source-db  dbname
                                   :target-db  pg-dbname
                                   :source     table-name
-                                  :target     (apply-identifier-case table-name
-                                                                     identifier-case)
+                                  :target     (apply-identifier-case table-name)
                                   :fields     columns
                                   :encoding   encoding)))
 
@@ -429,8 +416,7 @@
                        (cdr (assoc table-name all-indexes :test #'string=))))
                  (create-indexes-in-kernel pg-dbname indexes
                                            idx-kernel idx-channel
-                                           :state idx-state
-                                           :identifier-case identifier-case)))))
+                                           :state idx-state)))))
 
       ;; now end the kernels
       (let ((lp:*kernel* copy-kernel))  (lp:end-kernel))
@@ -456,8 +442,7 @@
                                :state state-after
                                :data-only data-only
                                :foreign-keys foreign-keys
-                               :reset-sequences reset-sequences
-                               :identifier-case identifier-case)
+                               :reset-sequences reset-sequences)
 
       ;; and report the total time spent on the operation
       (when summary

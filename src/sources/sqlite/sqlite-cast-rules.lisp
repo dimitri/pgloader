@@ -83,10 +83,9 @@
    PostgreSQL bytea column."
   (string= "bytea" (cast-sqlite-column-definition-to-pgsql col)))
 
-(defmethod format-pgsql-column ((col coldef) &key identifier-case)
+(defmethod format-pgsql-column ((col coldef))
   "Return a string representing the PostgreSQL column definition."
-  (let* ((column-name
-	  (apply-identifier-case (coldef-name col) identifier-case))
+  (let* ((column-name (apply-identifier-case (coldef-name col)))
 	 (type-definition
           (with-slots (table-name name dtype ctype nullable default)
               col

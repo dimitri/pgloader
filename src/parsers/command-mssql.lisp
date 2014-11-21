@@ -97,6 +97,7 @@
                 ,@(mssql-connection-bindings ms-db-uri)
                 ,@(pgsql-connection-bindings pg-db-uri gucs)
                 ,@(batch-control-bindings options)
+                ,@(identifier-case-binding options)
                 (source
                  (make-instance 'pgloader.mssql::copy-mssql
                                 :target-db ,pgdb

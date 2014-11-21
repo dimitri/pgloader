@@ -67,6 +67,7 @@
                 (state-after   ,(when after `(pgloader.utils:make-pgstate)))
                 ,@(pgsql-connection-bindings pg-db-uri gucs)
                 ,@(batch-control-bindings options)
+                ,@(identifier-case-binding options)
                 (source
                  ,(bind (((kind url) source))
                         (ecase kind

@@ -90,10 +90,9 @@
 
           (t type))))
 
-(defmethod format-pgsql-column ((col mssql-column) &key identifier-case)
+(defmethod format-pgsql-column ((col mssql-column))
   "Return a string representing the PostgreSQL column definition."
-  (let* ((column-name
-	  (apply-identifier-case (mssql-column-name col) identifier-case))
+  (let* ((column-name (apply-identifier-case (mssql-column-name col)))
 	 (type-definition
 	  (with-slots (schema table-name name type default nullable)
 	      col

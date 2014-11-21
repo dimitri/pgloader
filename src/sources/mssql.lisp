@@ -119,7 +119,6 @@
 			    (create-indexes  t)
 			    (reset-sequences t)
 			    (foreign-keys    t)
-                            (identifier-case :downcase)
                             (encoding        :utf-8)
 			    only-tables)
   "Stream the given MS SQL database down to PostgreSQL."
@@ -156,8 +155,7 @@
                                    :summary summary)
              (with-pgsql-transaction ()
                (loop :for (schema . tables) :in all-columns
-                  :do (let ((schema
-                             (apply-identifier-case schema identifier-case)))
+                  :do (let ((schema (apply-identifier-case schema)))
                         ;; create schema
                         (let ((sql (format nil "CREATE SCHEMA ~a;" schema)))
                           (log-message :notice "~a" sql)
@@ -168,18 +166,14 @@
                          (format nil "SET LOCAL search_path TO ~a;" schema))
 
                         ;; and now create the tables within that schema
-                        (create-tables tables
-                                       :include-drop include-drop
-                                       :identifier-case identifier-case))))))
+                        (create-tables tables :include-drop include-drop))))))
 
           (truncate
            (let ((qualified-table-name-list
-                  (qualified-table-name-list all-columns
-                                             :identifier-case identifier-case)))
+                  (qualified-table-name-list all-columns)))
              (truncate-tables (target-db mssql)
                               ;; here we really do want only the name
-                              (mapcar #'car qualified-table-name-list)
-                              :identifier-case identifier-case))))
+                              (mapcar #'car qualified-table-name-list)))))
 
     ;; Transfert the data
     (loop :for (schema . tables) :in all-columns
@@ -190,9 +184,7 @@
                                     :source-db (source-db mssql)
                                     :target-db (target-db mssql)
                                     :source    (cons schema table-name)
-                                    :target    (qualify-name schema table-name
-                                                             :identifier-case
-                                                             identifier-case)
+                                    :target    (qualify-name schema table-name)
                                     :fields    columns)))
                 (log-message :debug "TARGET: ~a" (target table-source))
                 (log-message :log "target: ~s" table-source)

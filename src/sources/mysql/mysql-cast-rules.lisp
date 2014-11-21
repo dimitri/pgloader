@@ -13,17 +13,15 @@
       ("(?i)(?:ENUM|SET)\\s*\\((.*)\\)" ctype)
     (first (cl-csv:read-csv list :separator #\, :quote #\' :escape "\\"))))
 
-(defun get-enum-type-name (table-name column-name identifier-case)
+(defun get-enum-type-name (table-name column-name)
   "Return the Type Name we're going to use in PostgreSQL."
-  (apply-identifier-case (format nil "~a_~a" table-name column-name)
-			 identifier-case))
+  (apply-identifier-case (format nil "~a_~a" table-name column-name)))
 
-(defun get-create-enum (table-name column-name ctype
-			&key (identifier-case :downcase))
+(defun get-create-enum (table-name column-name ctype)
   "Return a PostgreSQL CREATE ENUM TYPE statement from MySQL enum column."
   (with-output-to-string (s)
     (format s "CREATE TYPE ~a AS ENUM (~{'~a'~^, ~});"
-	    (get-enum-type-name table-name column-name identifier-case)
+	    (get-enum-type-name table-name column-name)
 	    (explode-mysql-enum ctype))))
 
 (defun cast-enum (table-name column-name type ctype typemod)
@@ -31,7 +29,7 @@
 
    The type naming is hardcoded to be table-name_column-name"
   (declare (ignore type ctype typemod))
-  (format nil "\"~a_~a\"" table-name column-name))
+  (get-enum-type-name table-name column-name))
 
 (defun cast-set (table-name column-name type ctype typemod)
   "Cast MySQL inline SET type to using a PostgreSQL ENUM Array.

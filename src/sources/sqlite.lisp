@@ -125,7 +125,6 @@
 			    only-tables
 			    including
 			    excluding
-                            (identifier-case :downcase)
                             (encoding :utf-8))
   "Stream the given SQLite database down to PostgreSQL."
   (let* ((summary       (null *state*))
@@ -159,13 +158,10 @@
                                    :state state-before
                                    :summary summary)
              (with-pgsql-transaction ()
-               (create-tables all-columns
-                              :include-drop include-drop
-                              :identifier-case identifier-case))))
+               (create-tables all-columns :include-drop include-drop))))
 
           (truncate
-           (truncate-tables *pg-dbname* (mapcar #'car all-columns)
-                            :identifier-case identifier-case)))
+           (truncate-tables *pg-dbname* (mapcar #'car all-columns))))
 
     (loop
        for (table-name . columns) in all-columns

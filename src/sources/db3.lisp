@@ -15,10 +15,10 @@
 	     (:constructor make-db3-field (name type length)))
   name type length)
 
-(defmethod format-pgsql-column ((col db3-field) &key identifier-case)
+(defmethod format-pgsql-column ((col db3-field))
   "Return a string representing the PostgreSQL column definition."
   (let* ((column-name
-	  (apply-identifier-case (db3-field-name col) identifier-case))
+	  (apply-identifier-case (db3-field-name col)))
 	 (type-definition
 	  (cdr (assoc (db3-field-type col)
 		      *db3-pgsql-type-mapping*
