@@ -431,8 +431,8 @@
   "Returns suitably quoted default value for CREATE TABLE command."
   (cond
     ((null default) "NULL")
-    ((string= "NULL" default) default)
-    ((string= "CURRENT_TIMESTAMP" default) default)
+    ((and (stringp default) (string= "NULL" default)) default)
+    ((and (stringp default) (string= "CURRENT_TIMESTAMP" default)) default)
     (t
      ;; apply the transformation function to the default value
      (if using-cast-fn (format-pgsql-default-value

@@ -159,6 +159,15 @@ order by table_name" dbname only-tables))))
               (cons   (format nil "~:[~;NOT ~]REGEXP '~a'" not (cadr filter)))))
           filter-list))
 
+(defun cleanup-default-value (dtype default)
+  "MySQL catalog query always returns the default value as a string, but in
+   the case of a binary data type we actually want a byte vector."
+  (cond ((string= "binary" dtype)
+         (when default
+           (babel:string-to-octets default)))
+
+        (t default)))
+
 (defun list-all-columns (&key
                            (dbname *my-dbname*)
 			   (table-type :table)
@@ -192,10 +201,10 @@ order by table_name, ordinal_position"
                             excluding   ; do we print the clause?
                             (filter-list-to-where-clause excluding t)))
      do
-       (let ((entry  (assoc table-name schema :test 'equal))
-             (column
-              (make-mysql-column
-               table-name name dtype ctype default nullable extra)))
+       (let* ((entry   (assoc table-name schema :test 'equal))
+              (def-val (cleanup-default-value dtype default))
+              (column  (make-mysql-column
+                        table-name name dtype ctype def-val nullable extra)))
          (if entry
              (push column (cdr entry))
              (push (cons table-name (list column)) schema)))
