@@ -133,18 +133,15 @@ order by table_schema, table_name, ordinal_position"
                        (reverse (loop :for (table-name . cols) :in tables
                                    :collect (cons table-name (reverse cols))))))))))
 
-(defun list-all-indexes (&key
-                           (dbname *my-dbname*))
+(defun list-all-indexes ()
   "Get the list of MSSQL index definitions per table."
   (loop
      :with result := nil
-     :for (schema table-name name col unique pkey)
+     :for (schema table name col unique pkey)
      :in  (mssql-query (format nil "
-    select schema_name(schema_id) as SchemaName
+    select schema_name(schema_id) as SchemaName,
            o.name as TableName,
            i.name as IndexName,
-           ic.key_ordinal as ColumnOrder,
-           ic.is_included_column as IsIncluded,
            co.[name] as ColumnName,
            i.is_unique,
            i.is_primary_key
@@ -156,30 +153,53 @@ order by table_schema, table_name, ordinal_position"
          join sys.columns co on co.object_id = i.object_id
              and co.column_id = ic.column_id
 
+   where schema_name(schema_id) not in ('dto', 'sys')
+
 order by SchemaName,
-          o.[name],
-          i.[name],
-          ic.is_included_column,
-          ic.key_ordinal"))
+         o.[name],
+         i.[name],
+         ic.is_included_column,
+         ic.key_ordinal"))
      :do
      (let* ((s-entry    (assoc schema result :test 'equal))
             (t-entry    (when s-entry
-                          (assoc table-name (cdr t-entry) :test 'equal)))
-            (index      (when t-entry
-                          (assoc name (cdr t-entry) :test 'equal))))
+                          (assoc table (cdr s-entry) :test 'equal)))
+            (i-entry    (when t-entry
+                          (assoc name (cdr t-entry) :test 'equal)))
+            (index      (make-pgsql-index :name name
+                                          :primary (= pkey 1)
+                                          :table-name (qualify-name schema table)
+                                          :unique (= unique 1)
+                                          :columns (list col))))
        (if s-entry
            (if t-entry
-               (push column (cdr t-entry))
-               (push (cons table-name (list column)) (cdr s-entry)))
-           (push (cons schema (list (cons table-name (list column)))) result)))
+               (if i-entry
+                   (push col
+                         (pgloader.pgsql::pgsql-index-columns (cdr i-entry)))
+                   (push (cons name index) (cdr t-entry)))
+               (push (cons table (list (cons name index))) (cdr s-entry)))
+           (push (cons schema
+                       (list (cons table
+                                   (list (cons name index))))) result)))
      :finally
      ;; we did push, we need to reverse here
-     (return (reverse
-              (loop :for (schema . tables) :in result
-                 :collect
-                 (cons schema
-                       (reverse (loop :for (table-name . cols) :in tables
-                                   :collect (cons table-name (reverse cols))))))))))
+     (return
+       (labels ((reverse-index-cols (index)
+                  (setf (pgloader.pgsql::pgsql-index-columns index)
+                        (nreverse (pgloader.pgsql::pgsql-index-columns index)))
+                  index)
+
+                (reverse-indexes-cols (list-of-indexes)
+                  (loop :for (name . index) :in list-of-indexes
+                     :collect (cons name (reverse-index-cols index))))
+
+                (reverse-indexes-cols (list-of-tables)
+                  (reverse
+                   (loop :for (table . indexes) :in list-of-tables
+                      :collect (cons table (reverse-indexes-cols indexes))))))
+         (reverse
+          (loop :for (schema . tables) :in result
+             :collect (cons schema (reverse-indexes-cols tables))))))))
 
 
 ;;;
