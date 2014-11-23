@@ -68,8 +68,14 @@ clean:
 docs:
 	ronn -roff pgloader.1.md
 
+$(QLDIR)/local-projects/qmynd:
+	git clone https://github.com/qitab/qmynd.git $@
+
 $(QLDIR)/local-projects/cl-ixf:
 	git clone https://github.com/dimitri/cl-ixf.git $@
+
+$(QLDIR)/local-projects/esrap:
+	git clone -b wip-better-errors https://github.com/scymtym/esrap.git $@
 
 $(QLDIR)/setup.lisp:
 	mkdir -p $(BUILDDIR)
@@ -80,7 +86,11 @@ $(QLDIR)/setup.lisp:
 
 quicklisp: $(QLDIR)/setup.lisp ;
 
-$(LIBS): $(QLDIR)/setup.lisp $(QLDIR)/local-projects/cl-ixf
+clones: $(QLDIR)/local-projects/cl-ixf \
+        $(QLDIR)/local-projects/qmynd  \
+        $(QLDIR)/local-projects/esrap ;
+
+$(LIBS): $(QLDIR)/setup.lisp clones
 	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp                 \
              --eval '(push "$(PWD)/" asdf:*central-registry*)'      \
              --eval '(ql:quickload "pgloader")'                     \
