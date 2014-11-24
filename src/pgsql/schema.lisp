@@ -53,7 +53,6 @@
   nil)
 
 
-
 ;;;
 ;;; API for Foreign Keys
 ;;;
@@ -96,6 +95,34 @@
       ;; we could do that without all-pgsql-fkeys in 9.2 and following with:
       ;; alter table if exists ... drop constraint if exists ...
       (format nil "ALTER TABLE ~a DROP CONSTRAINT ~a" table-name constraint-name))))
+
+(defun drop-pgsql-fkeys (all-fkeys &key (dbname *pg-dbname*))
+  "Drop all Foreign Key Definitions given, to prepare for a clean run."
+  (let ((all-pgsql-fkeys (list-tables-and-fkeys dbname)))
+    (loop for (table-name . fkeys) in all-fkeys
+       do
+	 (loop for fkey in fkeys
+	    for sql = (format-pgsql-drop-fkey fkey
+					      :all-pgsql-fkeys all-pgsql-fkeys)
+	    when sql
+	    do
+	      (log-message :notice "~a;" sql)
+	      (pgsql-execute sql)))))
+
+(defun create-pgsql-fkeys (all-fkeys
+                           &key
+                             (dbname *pg-dbname*)
+                             state
+                             (label "Foreign Keys"))
+  "Actually create the Foreign Key References that where declared in the
+   MySQL database"
+  (pgstate-add-table state dbname label)
+  (loop for (table-name . fkeys) in all-fkeys
+     do (loop for fkey in fkeys
+	   for sql = (format-pgsql-create-fkey fkey)
+	   do
+	     (log-message :notice "~a;" sql)
+	     (pgsql-execute-with-timing dbname "Foreign Keys" sql state))))
 
 
 ;;;
@@ -247,3 +274,17 @@
 
                   ;; return the pkey "upgrade" statement
                   pkey))))
+
+
+;;;
+;;; Sequences
+;;;
+(defun reset-sequences (table-names
+                              &key (dbname *pg-dbname*) state)
+  "Reset all sequences created during this MySQL migration."
+  (log-message :notice "Reset sequences")
+  (with-stats-collection ("Reset Sequences"
+                          :dbname dbname
+                          :use-result-as-rows t
+                          :state state)
+    (reset-all-sequences dbname :tables table-names)))

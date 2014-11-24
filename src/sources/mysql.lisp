@@ -216,7 +216,7 @@
     ;; while CREATE INDEX statements are in flight (avoid locking).
     ;;
     (when reset-sequences
-      (reset-pgsql-sequences all-columns :state state))
+      (reset-sequences all-columns :state state))
 
     ;;
     ;; Turn UNIQUE indexes into PRIMARY KEYS now

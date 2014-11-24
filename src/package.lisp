@@ -96,10 +96,13 @@
 	   #:make-pgsql-fkey
 	   #:format-pgsql-create-fkey
 	   #:format-pgsql-drop-fkey
+           #:drop-pgsql-fkeys
+           #:create-pgsql-fkeys
 	   #:make-pgsql-index
 	   #:index-table-name
 	   #:format-pgsql-create-index
-	   #:create-indexes-in-kernel))
+	   #:create-indexes-in-kernel
+           #:reset-sequences))
 
 (defpackage #:pgloader.parse-date
   (:use #:cl #:esrap)
@@ -250,10 +253,13 @@
 		#:make-pgsql-fkey
 		#:format-pgsql-create-fkey
 		#:format-pgsql-drop-fkey
+                #:drop-pgsql-fkeys
+                #:create-pgsql-fkeys
 		#:make-pgsql-index
 		#:format-pgsql-create-index
 		#:create-indexes-in-kernel
-                #:format-vector-row)
+                #:format-vector-row
+                #:reset-sequences)
   (:export #:copy-mysql
 	   #:*mysql-default-cast-rules*
            #:with-mysql-connection
@@ -282,7 +288,8 @@
 		#:make-pgsql-index
 		#:index-table-name
 		#:format-pgsql-create-index
-		#:create-indexes-in-kernel)
+		#:create-indexes-in-kernel
+                #:reset-sequences)
   (:export #:copy-sqlite
            #:*sqlite-default-cast-rules*
 	   #:map-rows
@@ -301,13 +308,22 @@
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
 		#:apply-identifier-case
+		#:list-tables-and-fkeys
+		#:list-table-oids
 		#:create-tables
                 #:truncate-tables
 		#:format-pgsql-column
+		#:format-extra-type
+		#:make-pgsql-fkey
+		#:format-pgsql-create-fkey
+		#:format-pgsql-drop-fkey
+                #:drop-pgsql-fkeys
+                #:create-pgsql-fkeys
 		#:make-pgsql-index
-		#:index-table-name
 		#:format-pgsql-create-index
-		#:create-indexes-in-kernel)
+		#:create-indexes-in-kernel
+                #:format-vector-row
+                #:reset-sequences)
   (:export #:copy-mssql
            #:*mssql-default-cast-rules*
 	   #:map-rows

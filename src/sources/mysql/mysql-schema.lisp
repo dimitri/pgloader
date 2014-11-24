@@ -330,52 +330,6 @@ GROUP BY table_name, index_name;"
                            for (name . fks) in schema
                            collect (cons name (reverse fks)))))))
 
-(defun drop-pgsql-fkeys (all-fkeys &key (dbname *pg-dbname*))
-  "Drop all Foreign Key Definitions given, to prepare for a clean run."
-  (let ((all-pgsql-fkeys (list-tables-and-fkeys dbname)))
-    (loop for (table-name . fkeys) in all-fkeys
-       do
-	 (loop for fkey in fkeys
-	    for sql = (format-pgsql-drop-fkey fkey
-					      :all-pgsql-fkeys all-pgsql-fkeys)
-	    when sql
-	    do
-	      (log-message :notice "~a;" sql)
-	      (pgsql-execute sql)))))
-
-(defun create-pgsql-fkeys (all-fkeys
-                           &key
-                             (dbname *pg-dbname*)
-                             state
-                             (label "Foreign Keys"))
-  "Actually create the Foreign Key References that where declared in the
-   MySQL database"
-  (pgstate-add-table state dbname label)
-  (loop for (table-name . fkeys) in all-fkeys
-     do (loop for fkey in fkeys
-	   for sql = (format-pgsql-create-fkey fkey)
-	   do
-	     (log-message :notice "~a;" sql)
-	     (pgsql-execute-with-timing dbname "Foreign Keys" sql state))))
-
-
-;;;
-;;; Sequences
-;;;
-(defun reset-pgsql-sequences (all-columns
-                              &key (dbname *pg-dbname*) state)
-  "Reset all sequences created during this MySQL migration."
-  (let ((tables
-	 (mapcar
-	  (lambda (name) (apply-identifier-case name))
-	  (mapcar #'car all-columns))))
-    (log-message :notice "Reset sequences")
-    (with-stats-collection ("Reset Sequences"
-                            :dbname dbname
-                            :use-result-as-rows t
-                            :state state)
-      (pgloader.pgsql:reset-all-sequences dbname :tables tables))))
-
 
 ;;;
 ;;; Tools to handle row queries, issuing separate is null statements and

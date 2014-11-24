@@ -201,6 +201,85 @@ order by SchemaName,
           (loop :for (schema . tables) :in result
              :collect (cons schema (reverse-indexes-cols tables))))))))
 
+(defun list-all-fkeys (&key (dbname *ms-dbname*))
+  "Get the list of MSSQL index definitions per table."
+  (loop
+     :with result := nil
+     :for (name schema table col fschema ftable fcol)
+     :in  (mssql-query (format nil "
+   SELECT
+           KCU1.CONSTRAINT_NAME AS 'CONSTRAINT_NAME'
+         , KCU1.TABLE_SCHEMA AS 'TABLE_SCHEMA'
+         , KCU1.TABLE_NAME AS 'TABLE_NAME'
+         , KCU1.COLUMN_NAME AS 'COLUMN_NAME'
+         , KCU2.TABLE_SCHEMA AS 'UNIQUE_TABLE_SCHEMA'
+         , KCU2.TABLE_NAME AS 'UNIQUE_TABLE_NAME'
+         , KCU2.COLUMN_NAME AS 'UNIQUE_COLUMN_NAME'
+
+    FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS RC
+         JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE KCU1
+              ON KCU1.CONSTRAINT_CATALOG = RC.CONSTRAINT_CATALOG
+                 AND KCU1.CONSTRAINT_SCHEMA = RC.CONSTRAINT_SCHEMA
+                 AND KCU1.CONSTRAINT_NAME = RC.CONSTRAINT_NAME
+         JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE KCU2
+              ON KCU2.CONSTRAINT_CATALOG = RC.UNIQUE_CONSTRAINT_CATALOG
+                 AND KCU2.CONSTRAINT_SCHEMA = RC.UNIQUE_CONSTRAINT_SCHEMA
+                 AND KCU2.CONSTRAINT_NAME = RC.UNIQUE_CONSTRAINT_NAME
+
+   WHERE KCU1.ORDINAL_POSITION = KCU2.ORDINAL_POSITION
+         AND KCU1.TABLE_CATALOG = '~a'
+         AND KCU1.CONSTRAINT_CATALOG = '~a'
+         AND KCU1.TABLE_SCHEMA NOT IN ('dto', 'sys')
+
+ORDER BY CONSTRAINT_NAME, KCU1.ORDINAL_POSITION
+"
+                               dbname dbname))
+     :do
+     (let* ((s-entry    (assoc schema result :test 'equal))
+            (t-entry    (when s-entry
+                          (assoc table (cdr s-entry) :test 'equal)))
+            (f-entry    (when t-entry
+                          (assoc name (cdr t-entry) :test 'equal)))
+            (fkey
+             (make-pgsql-fkey :name name
+                              :table-name (qualify-name schema table)
+                              :columns (list col)
+                              :foreign-table (qualify-name fschema ftable)
+                              :foreign-columns (list fcol))))
+       (if s-entry
+           (if t-entry
+               (if f-entry
+                   (let ((fkey (cdr f-entry)))
+                     (push col (pgloader.pgsql::pgsql-fkey-columns fkey))
+                     (push fcol (pgloader.pgsql::pgsql-fkey-foreign-columns fkey)))
+                   (push (cons name fkey) (cdr t-entry)))
+               (push (cons table (list (cons name fkey))) (cdr s-entry)))
+           (push (cons schema
+                       (list (cons table
+                                   (list (cons name fkey))))) result)))
+     :finally
+     ;; we did push, we need to reverse here
+     (return
+       (labels ((reverse-fkey-cols (fkey)
+                  (setf (pgloader.pgsql::pgsql-fkey-columns fkey)
+                        (nreverse (pgloader.pgsql::pgsql-fkey-columns fkey)))
+                  (setf (pgloader.pgsql::pgsql-fkey-foreign-columns fkey)
+                        (nreverse
+                         (pgloader.pgsql::pgsql-fkey-foreign-columns fkey)))
+                  fkey)
+
+                (reverse-fkeys-cols (list-of-fkeys)
+                  (loop :for (name . fkeys) :in list-of-fkeys
+                     :collect (cons name (reverse-fkey-cols fkeys))))
+
+                (reverse-fkeys-cols (list-of-tables)
+                  (reverse
+                   (loop :for (table . fkeys) :in list-of-tables
+                      :collect (cons table (reverse-fkeys-cols fkeys))))))
+         (reverse
+          (loop :for (schema . tables) :in result
+             :collect (cons schema (reverse-fkeys-cols tables))))))))
+
 
 ;;;
 ;;; Tools to handle row queries.

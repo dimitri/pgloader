@@ -64,7 +64,7 @@
             (lambda (row)
               (pgstate-incf *state* (target mssql) :read 1)
               (funcall process-row-fn row))))
-      (log-message :log "~a" sql)
+      (log-message :debug "~a" sql)
       (handler-case
           (mssql::map-query-results sql :row-fn row-fn :connection *mssql-db*)
         (condition (e)
@@ -106,9 +106,53 @@
     ;; return the copy-mssql object we just did the COPY for
     mssql))
 
+(defun complete-pgsql-database (all-columns all-fkeys pkeys
+                                &key
+                                  state
+                                  data-only
+                                  foreign-keys
+                                  reset-sequences)
+    "After loading the data into PostgreSQL, we can now reset the sequences
+     and declare foreign keys."
+    ;;
+    ;; Now Reset Sequences, the good time to do that is once the whole data
+    ;; has been imported and once we have the indexes in place, as max() is
+    ;; able to benefit from the indexes. In particular avoid doing that step
+    ;; while CREATE INDEX statements are in flight (avoid locking).
+    ;;
+    (when reset-sequences
+      (let ((table-names (mapcar #'car (qualified-table-name-list all-columns))))
+        (reset-sequences table-names  :state state)))
+
+    ;;
+    ;; Turn UNIQUE indexes into PRIMARY KEYS now
+    ;;
+    (pgstate-add-table state *pg-dbname* "Primary Keys")
+    (loop :for sql :in pkeys
+       :when sql
+       :do (progn
+             (log-message :notice "~a" sql)
+             (pgsql-execute-with-timing *pg-dbname* "Primary Keys" sql state)))
+
+    ;;
+    ;; Foreign Key Constraints
+    ;;
+    ;; We need to have finished loading both the reference and the refering
+    ;; tables to be able to build the foreign keys, so wait until all tables
+    ;; and indexes are imported before doing that.
+    ;;
+    (when (and foreign-keys (not data-only))
+      ;; convert to schema-less list of fkeys
+      ;; TODO: fix the MySQL support inherited API
+      (let ((all-fkeys
+             (loop :for (schema . tables) :in all-fkeys
+                :append (loop :for (table-name . fkeys) :in tables
+                           :collect (cons table-name (mapcar #'cdr fkeys))))))
+        (create-pgsql-fkeys all-fkeys :state state))))
+
 (defun fetch-mssql-metadata (&key state only-tables)
   "MS SQL introspection to prepare the migration."
-  (let (all-columns all-indexes)
+  (let (all-columns all-indexes all-fkeys)
     (with-stats-collection ("fetch meta data"
                             :use-result-as-rows t
                             :use-result-as-read t
@@ -120,6 +164,9 @@
         (setf all-indexes (filter-column-list (list-all-indexes)
                                               :only-tables only-tables))
 
+        (setf all-fkeys   (filter-column-list (list-all-fkeys)
+                                              :only-tables only-tables))
+
         ;; return how many objects we're going to deal with in total
         ;; for stats collection
         (+ (loop :for (schema . tables) :in all-columns :sum (length tables))
@@ -128,7 +175,9 @@
                       :sum (length indexes))))))
 
     ;; now return a plist to the caller
-    (list :all-columns all-columns :all-indexes all-indexes)))
+    (list :all-columns all-columns
+          :all-indexes all-indexes
+          :all-fkeys all-fkeys)))
 
 (defmethod copy-database ((mssql copy-mssql)
                           &key
@@ -146,7 +195,6 @@
                             (encoding        :utf-8)
 			    only-tables)
   "Stream the given MS SQL database down to PostgreSQL."
-  (declare (ignore reset-sequences foreign-keys))
   (let* ((summary       (null *state*))
 	 (*state*       (or *state* (make-pgstate)))
 	 (idx-state     (or state-indexes (make-pgstate)))
@@ -156,7 +204,7 @@
          (copy-kernel   (make-kernel 2))
          idx-kernel idx-channel)
 
-    (destructuring-bind (&key all-columns all-indexes)
+    (destructuring-bind (&key all-columns all-indexes all-fkeys pkeys)
         ;; to prepare the run we need to fetch MS SQL meta-data
         (fetch-mssql-metadata :state state-before
                               :only-tables only-tables)
@@ -223,8 +271,9 @@
                                       :source    (cons schema table-name)
                                       :target    (qualify-name schema table-name)
                                       :fields    columns)))
+
                   (log-message :debug "TARGET: ~a" (target table-source))
-                  (log-message :log "target: ~s" table-source)
+
                   ;; COPY the data to PostgreSQL, using copy-kernel
                   (unless schema-only
                     (copy-from table-source :kernel copy-kernel))
@@ -241,11 +290,14 @@
                     (let* ((s-entry  (assoc schema all-indexes :test 'equal))
                            (indexes-with-names
                             (cdr (assoc table-name (cdr s-entry) :test 'equal))))
-                      (create-indexes-in-kernel (target-db mssql)
-                                                (mapcar #'cdr indexes-with-names)
-                                                idx-kernel
-                                                idx-channel
-                                                :state idx-state))))))
+
+                      (alexandria:appendf
+                       pkeys
+                       (create-indexes-in-kernel (target-db mssql)
+                                                 (mapcar #'cdr indexes-with-names)
+                                                 idx-kernel
+                                                 idx-channel
+                                                 :state idx-state)))))))
 
       ;; now end the kernels
       (let ((lp:*kernel* copy-kernel))  (lp:end-kernel))
@@ -256,6 +308,15 @@
           (with-stats-collection ("Index Build Completion" :state *state*)
             (loop for idx in all-indexes do (lp:receive-result idx-channel))))
         (lp:end-kernel))
+
+      ;;
+      ;; Complete the PostgreSQL database before handing over.
+      ;;
+      (complete-pgsql-database all-columns all-fkeys pkeys
+                               :state state-after
+                               :data-only data-only
+                               :foreign-keys foreign-keys
+                               :reset-sequences reset-sequences)
 
       ;; and report the total time spent on the operation
       (when summary
