@@ -102,6 +102,7 @@
 	   #:index-table-name
 	   #:format-pgsql-create-index
 	   #:create-indexes-in-kernel
+           #:set-table-oids
            #:reset-sequences))
 
 (defpackage #:pgloader.parse-date
@@ -258,6 +259,7 @@
 		#:make-pgsql-index
 		#:format-pgsql-create-index
 		#:create-indexes-in-kernel
+                #:set-table-oids
                 #:format-vector-row
                 #:reset-sequences)
   (:export #:copy-mysql
@@ -289,6 +291,7 @@
 		#:index-table-name
 		#:format-pgsql-create-index
 		#:create-indexes-in-kernel
+                #:set-table-oids
                 #:reset-sequences)
   (:export #:copy-sqlite
            #:*sqlite-default-cast-rules*
@@ -322,6 +325,7 @@
 		#:make-pgsql-index
 		#:format-pgsql-create-index
 		#:create-indexes-in-kernel
+                #:set-table-oids
                 #:format-vector-row
                 #:reset-sequences)
   (:export #:copy-mssql

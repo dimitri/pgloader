@@ -14,7 +14,8 @@
                  (if (member lowered *pgsql-reserved-keywords* :test #'string=)
                    (format nil "\"~a\"" lowered)
                    lowered)))
-    (:quote    (format nil "\"~a\"" identifier))))
+    (:quote    (format nil "\"~a\"" identifier))
+    (:none     identifier)))
 
 ;;;
 ;;; Some parts of the logic here needs to be specialized depending on the
@@ -274,6 +275,28 @@
 
                   ;; return the pkey "upgrade" statement
                   pkey))))
+
+;;;
+;;; Protect from non-unique index names
+;;;
+(defun set-table-oids (all-indexes)
+  "MySQL allows using the same index name against separate tables, which
+   PostgreSQL forbids. To get unicity in index names without running out of
+   characters (we are allowed only 63), we use the table OID instead.
+
+   This function grabs the table OIDs in the PostgreSQL database and update
+   the definitions with them."
+  (log-message :debug "set-table-oids: ~s" all-indexes)
+  (let* ((table-names (mapcar #'apply-identifier-case
+                              (mapcar #'car all-indexes)))
+	 (table-oids  (pgloader.pgsql:list-table-oids table-names)))
+    (loop for (table-name-raw . indexes) in all-indexes
+       for table-name = (apply-identifier-case table-name-raw)
+       for table-oid = (cdr (assoc table-name table-oids :test #'string=))
+       unless table-oid do (error "OID not found for ~s." table-name)
+       do (loop for index in indexes
+	     do (setf (pgloader.pgsql::pgsql-index-table-oid index) table-oid)))))
+
 
 
 ;;;

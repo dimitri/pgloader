@@ -148,7 +148,8 @@
              (loop :for (schema . tables) :in all-fkeys
                 :append (loop :for (table-name . fkeys) :in tables
                            :collect (cons table-name (mapcar #'cdr fkeys))))))
-        (create-pgsql-fkeys all-fkeys :state state))))
+        (let ((*identifier-case* :none))
+          (create-pgsql-fkeys all-fkeys :state state)))))
 
 (defun fetch-mssql-metadata (&key state only-tables)
   "MS SQL introspection to prepare the migration."
@@ -240,7 +241,17 @@
                                (format nil "SET LOCAL search_path TO ~a;" schema))
 
                               ;; and now create the tables within that schema
-                              (create-tables tables :include-drop include-drop))))))
+                              (create-tables tables :include-drop include-drop)))
+
+                     ;; and set indexes OIDs now
+                     ;; TODO: fix the MySQL centric API here
+                     (loop :for (schema . tables) :in all-indexes
+                        :do (progn
+                              (pgsql-execute
+                               (format nil "SET LOCAL search_path TO ~a;" schema))
+                              (loop :for (table . indexes) :in tables
+                                 :for idx := (mapcar #'cdr indexes)
+                                 :do (set-table-oids (list (cons table idx)))))))))
 
                 (truncate
                  (let ((qualified-table-name-list
@@ -287,7 +298,8 @@
                   ;; index build might get unsync: indexes for different tables
                   ;; will get built in parallel --- not a big problem.
                   (when (and create-indexes (not data-only))
-                    (let* ((s-entry  (assoc schema all-indexes :test 'equal))
+                    (let* ((*identifier-case* :none)
+                           (s-entry  (assoc schema all-indexes :test 'equal))
                            (indexes-with-names
                             (cdr (assoc table-name (cdr s-entry) :test 'equal))))
 
