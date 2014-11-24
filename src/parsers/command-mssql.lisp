@@ -81,7 +81,7 @@
     (bind (((ms-db-uri pg-db-uri
                        &key
                        gucs casts before after
-                       ((:mssql-options options)))           source)
+                       ((:mysql-options options)))           source)
 
            ((&key ((:dbname msdb)) table-name
                   &allow-other-keys)                        ms-db-uri)
