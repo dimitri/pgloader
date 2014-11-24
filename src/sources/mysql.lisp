@@ -201,7 +201,7 @@
         (when materialize-views
           (create-tables view-columns :include-drop include-drop))))))
 
-(defun complete-pgsql-database (all-columns all-fkeys
+(defun complete-pgsql-database (all-columns all-fkeys pkeys
                                 &key
                                   state
                                   data-only
@@ -217,6 +217,16 @@
     ;;
     (when reset-sequences
       (reset-pgsql-sequences all-columns :state state))
+
+    ;;
+    ;; Turn UNIQUE indexes into PRIMARY KEYS now
+    ;;
+    (pgstate-add-table state *pg-dbname* "Primary Keys")
+    (loop :for sql :in pkeys
+       :when sql
+       :do (progn
+             (log-message :notice "~a" sql)
+             (pgsql-execute-with-timing *pg-dbname* "Primary Keys" sql state)))
 
     ;;
     ;; Foreign Key Constraints
@@ -322,7 +332,7 @@
 	 (pg-dbname     (target-db mysql))
          idx-kernel idx-channel)
 
-    (destructuring-bind (&key view-columns all-columns all-fkeys all-indexes)
+    (destructuring-bind (&key view-columns all-columns all-fkeys all-indexes pkeys)
         ;; to prepare the run, we need to fetch MySQL meta-data
         (fetch-mysql-metadata :state state-before
                               :materialize-views materialize-views
@@ -414,9 +424,11 @@
              (when (and create-indexes (not data-only))
                (let* ((indexes
                        (cdr (assoc table-name all-indexes :test #'string=))))
-                 (create-indexes-in-kernel pg-dbname indexes
-                                           idx-kernel idx-channel
-                                           :state idx-state)))))
+                 (alexandria:appendf
+                  pkeys
+                  (create-indexes-in-kernel pg-dbname indexes
+                                            idx-kernel idx-channel
+                                            :state idx-state))))))
 
       ;; now end the kernels
       (let ((lp:*kernel* copy-kernel))  (lp:end-kernel))
@@ -438,7 +450,7 @@
       ;;
       ;; Complete the PostgreSQL database before handing over.
       ;;
-      (complete-pgsql-database all-columns all-fkeys
+      (complete-pgsql-database all-columns all-fkeys pkeys
                                :state state-after
                                :data-only data-only
                                :foreign-keys foreign-keys

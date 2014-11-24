@@ -195,7 +195,7 @@
   (pgsql-index-table-name index))
 
 (defmethod format-pgsql-create-index ((index pgsql-index))
-  "Generate the PostgreSQL statement to rebuild a MySQL Foreign Key"
+  "Generate the PostgreSQL statement list to rebuild a Foreign Key"
   (let* ((index-name (format nil "idx_~a_~a"
 			     (pgsql-index-table-oid index)
 			     (pgsql-index-name index)))
@@ -205,15 +205,21 @@
 	 (cols (mapcar #'apply-identifier-case (pgsql-index-columns index))))
     (cond
       ((pgsql-index-primary index)
-       (format nil
-	       "ALTER TABLE ~a ADD PRIMARY KEY (~{~a~^, ~});" table-name cols))
+       (values
+        ;; ensure good concurrency here, don't take the ACCESS EXCLUSIVE
+        ;; LOCK on the table before we have the index done already
+        (format nil "CREATE UNIQUE INDEX ~a ON ~a (~{~a~^, ~});"
+                index-name table-name cols)
+        (format nil
+                "ALTER TABLE ~a ADD PRIMARY KEY USING INDEX ~a;"
+                table-name index-name)))
 
       (t
        (format nil "CREATE~:[~; UNIQUE~] INDEX ~a ON ~a (~{~a~^, ~});"
-	       (pgsql-index-unique index)
-	       index-name
-	       table-name
-	       cols)))))
+               (pgsql-index-unique index)
+               index-name
+               table-name
+               cols)))))
 
 ;;;
 ;;; Parallel index building.
@@ -230,12 +236,14 @@
     (pgstate-add-table state dbname label)
 
     (loop
-       for index in indexes
-       do
-	 (let ((sql
-		(format-pgsql-create-index index)))
-	   (when sql
-	     (log-message :notice "~a" sql)
-	     (lp:submit-task channel
-			     #'pgsql-execute-with-timing
-			     dbname label sql state))))))
+       :for index :in indexes
+       :collect (multiple-value-bind (sql pkey)
+                    ;; we postpone the pkey upgrade of the index for later.
+                    (format-pgsql-create-index index)
+
+                  (log-message :notice "~a" sql)
+                  (lp:submit-task channel #'pgsql-execute-with-timing
+                                  dbname label sql state)
+
+                  ;; return the pkey "upgrade" statement
+                  pkey))))
