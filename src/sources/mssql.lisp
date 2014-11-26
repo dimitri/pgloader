@@ -88,20 +88,21 @@
     ;; we account stats against the target table-name, because that's all we
     ;; know on the PostgreSQL thread
     (with-stats-collection (table-name :state *state* :summary summary)
-      (log-message :notice "COPY ~a" table-name)
-      ;; read data from Mssql
-      (lp:submit-task channel #'copy-to-queue mssql queue)
+      (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
+        (log-message :notice "COPY ~a" table-name)
+        ;; read data from Mssql
+        (lp:submit-task channel #'copy-to-queue mssql queue)
 
-      ;; and start another task to push that data from the queue to PostgreSQL
-      (lp:submit-task channel #'pgloader.pgsql:copy-from-queue
-		      (target-db mssql) (target mssql) queue
-		      :truncate truncate)
+        ;; and start another task to push that data from the queue to PostgreSQL
+        (lp:submit-task channel #'pgloader.pgsql:copy-from-queue
+                        (target-db mssql) (target mssql) queue
+                        :truncate truncate)
 
-      ;; now wait until both the tasks are over
-      (loop for tasks below 2 do (lp:receive-result channel)
-	 finally
-	   (log-message :info "COPY ~a done." table-name)
-	   (unless k-s-p (lp:end-kernel))))
+        ;; now wait until both the tasks are over
+        (loop for tasks below 2 do (lp:receive-result channel)
+           finally
+             (log-message :info "COPY ~a done." table-name)
+             (unless k-s-p (lp:end-kernel)))))
 
     ;; return the copy-mssql object we just did the COPY for
     mssql))

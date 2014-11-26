@@ -126,23 +126,24 @@
 	 (table-name     (target csv)))
 
     (with-stats-collection (table-name :state *state* :summary summary)
-      (log-message :notice "COPY ~a.~a" dbname table-name)
-      (lp:submit-task channel #'copy-to-queue csv queue)
+      (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
+        (log-message :notice "COPY ~a.~a" dbname table-name)
+        (lp:submit-task channel #'copy-to-queue csv queue)
 
-      ;; and start another task to push that data from the queue to PostgreSQL
-      (lp:submit-task channel
-		      ;; this function update :rows stats
-		      #'pgloader.pgsql:copy-from-queue dbname table-name queue
-		      ;; we only are interested into the column names here
-		      :columns (mapcar (lambda (col)
-                                         ;; always double quote column names
-                                         (format nil "~s" (car col)))
-                                       (columns csv))
-		      :truncate truncate)
+        ;; and start another task to push that data from the queue to PostgreSQL
+        (lp:submit-task channel
+                        ;; this function update :rows stats
+                        #'pgloader.pgsql:copy-from-queue dbname table-name queue
+                        ;; we only are interested into the column names here
+                        :columns (mapcar (lambda (col)
+                                           ;; always double quote column names
+                                           (format nil "~s" (car col)))
+                                         (columns csv))
+                        :truncate truncate)
 
-      ;; now wait until both the tasks are over
-      (loop for tasks below 2 do (lp:receive-result channel)
-	 finally (lp:end-kernel)))))
+        ;; now wait until both the tasks are over
+        (loop for tasks below 2 do (lp:receive-result channel)
+           finally (lp:end-kernel))))))
 
 ;;;
 ;;; When you exported a whole database as a bunch of CSV files to be found

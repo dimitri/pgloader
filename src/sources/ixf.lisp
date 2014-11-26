@@ -139,18 +139,19 @@
            (queue          (lq:make-queue :fixed-capacity *concurrent-batches*)))
 
       (with-stats-collection (table-name :state *state* :summary summary)
-	(log-message :notice "COPY \"~a\" from '~a'" (target ixf) (source ixf))
-	(lp:submit-task channel #'copy-to-queue ixf queue)
+        (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
+          (log-message :notice "COPY \"~a\" from '~a'" (target ixf) (source ixf))
+          (lp:submit-task channel #'copy-to-queue ixf queue)
 
-	;; and start another task to push that data from the queue to PostgreSQL
-	(lp:submit-task channel
-			#'pgloader.pgsql:copy-from-queue
-			dbname table-name queue
-                        :truncate truncate)
+          ;; and start another task to push that data from the queue to PostgreSQL
+          (lp:submit-task channel
+                          #'pgloader.pgsql:copy-from-queue
+                          dbname table-name queue
+                          :truncate truncate)
 
-	;; now wait until both the tasks are over, and kill the kernel
-	(loop for tasks below 2 do (lp:receive-result channel)
-	   finally
-	     (log-message :info "COPY \"~a\" done." table-name)
-	     (lp:end-kernel))))))
+          ;; now wait until both the tasks are over, and kill the kernel
+          (loop for tasks below 2 do (lp:receive-result channel)
+             finally
+               (log-message :info "COPY \"~a\" done." table-name)
+               (lp:end-kernel)))))))
 
