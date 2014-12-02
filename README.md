@@ -61,7 +61,7 @@ pgloader is now a Common Lisp program, tested using the
 [Clozure CL](http://ccl.clozure.com/) implementations with
 [Quicklisp](http://www.quicklisp.org/beta/).
 
-    $ apt-get install sbcl libsqlite3-dev make curl
+    $ apt-get install sbcl unzip libsqlite3-dev make curl gawk freetds-dev libzip-dev
     $ cd /path/to/pgloader
 	$ make pgloader
 	$ ./build/bin/pgloader --help
@@ -145,8 +145,8 @@ file for you to use.
 
 Give as many command files that you need to pgloader:
 
-    $ ./build/pgloader.exe --help
-    $ ./build/pgloader.exe <file.load>
+    $ ./build/bin/pgloader --help
+    $ ./build/bin/pgloader <file.load>
 	
 See the documentation file `pgloader.1.md` for details. You can compile that
 file into a manual page or an HTML page thanks to the `ronn` application:

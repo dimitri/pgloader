@@ -17,7 +17,8 @@ You will note in particular:
     sudo apt-get install -y sbcl                                  \
                             git curl patch unzip                  \
                             devscripts pandoc                     \
-                            libsqlite3-dev
+                            libsqlite3-dev                        \
+                            freetds-dev
 
 We need a recent enough [SBCL](http://sbcl.org/) version and that means
 backporting the one found in `sid` rather than using the very old one found
