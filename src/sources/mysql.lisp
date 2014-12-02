@@ -217,7 +217,7 @@
     ;; while CREATE INDEX statements are in flight (avoid locking).
     ;;
     (when reset-sequences
-      (reset-sequences all-columns :state state))
+      (reset-sequences (mapcar #'car all-columns) :state state))
 
     ;;
     ;; Turn UNIQUE indexes into PRIMARY KEYS now
