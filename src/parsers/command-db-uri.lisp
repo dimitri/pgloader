@@ -59,7 +59,8 @@
 
 (defrule network-name (and namestring (* (and "." namestring)))
   (:lambda (name)
-    (list :host (text name))))
+    (let ((host (text name)))
+      (list :host (unless (string= "" host) host)))))
 
 (defrule hostname (or ipv4 socket-directory network-name)
   (:identity t))
