@@ -149,6 +149,9 @@
         ;; and start another task to push that data from the queue to PostgreSQL
         (lp:submit-task channel #'pgloader.pgsql:copy-from-queue
                         (target-db mysql) (target mysql) queue
+                        :columns (mapcar #'apply-identifier-case
+                                         (mapcar #'mysql-column-name
+                                                 (fields mysql)))
                         :truncate truncate)
 
         ;; now wait until both the tasks are over
