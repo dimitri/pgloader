@@ -92,7 +92,7 @@
     (declare (ignore qm))
     (list :table-name name)))
 
-(defrule pgsql-prefix (and (or "postgresql" "pgsql") "://")
+(defrule pgsql-prefix (and (or "postgresql" "postgres" "pgsql") "://")
   (:constant (list :type :postgresql)))
 
 (defrule pgsql-uri (and pgsql-prefix

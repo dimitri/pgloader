@@ -2,7 +2,7 @@ load csv
     from all filenames matching ~<matching.*csv$>
          in directory 'data'
          having fields (id, field)
-    into postgresql:///pgloader?matching
+    into postgres:///pgloader?matching
     with fields optionally enclosed by '"', 
          fields terminated by ',',
          truncate
