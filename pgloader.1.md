@@ -257,7 +257,7 @@ The `<postgresql-url>` parameter is expected to be given as a *Connection URI*
 as documented in the PostgreSQL documentation at
 http://www.postgresql.org/docs/9.3/static/libpq-connect.html#LIBPQ-CONNSTRING.
 
-    postgresql://[user[:password]@][netloc][:port][/dbname][?schema.table]
+    postgresql://[user[:password]@][netloc][:port][/dbname][?option=value&...]
 
 Where:
 
@@ -307,7 +307,21 @@ Where:
     variable `PGDATABASE`, and if that is unset, to the *user* value as
     determined above.
 
-  - The only optional parameter should be a possibly qualified table name.
+  - *options*
+  
+    The optional parameters must be supplied with the form `name=value`, and
+    you may use several parameters by separating them away using an
+    ampersand (`&`) character.
+    
+    Only two options are supported here, *tablename* (which might be
+    qualified with a schema name) and *sslmode*.
+    
+    The *sslmode* parameter values can be one of `disable`, `allow`,
+    `prefer` or `require`.
+    
+    For backward compatibility reasons, it's possible to specify the
+    *tablename* option directly, without spelling out the `tablename=`
+    parts.
 
 ### Regular Expressions
 

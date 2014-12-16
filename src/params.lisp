@@ -16,11 +16,7 @@
 	   #:*copy-batch-rows*
            #:*copy-batch-size*
            #:*concurrent-batches*
-	   #:*pgconn-host*
-	   #:*pgconn-port*
-	   #:*pgconn-user*
-	   #:*pgconn-pass*
-	   #:*pg-dbname*
+	   #:*pgconn*
 	   #:*pg-settings*
 	   #:*myconn-host*
 	   #:*myconn-port*
@@ -121,11 +117,16 @@
 ;;;
 ;;; PostgreSQL Connection Credentials and Session Settings
 ;;;
-(defparameter *pgconn-host* "localhost")
-(defparameter *pgconn-port* (parse-integer (getenv-default "PGPORT" "5432")))
-(defparameter *pgconn-user* (uiop:getenv "USER"))
-(defparameter *pgconn-pass* "pgpass")
-(defparameter *pg-dbname* nil)
+(defparameter *pgconn*
+  '(:type :postgresql
+    :host "localhost"
+    :port (parse-integer (getenv-default "PGPORT" "5432"))
+    :user (uiop:getenv "USER")
+    :pass "pgpass"
+    :dbname nil
+    :table-name nil
+    :use-ssl nil)
+  "Default PostgreSQL connection string.")
 (defparameter *pg-settings* nil "An alist of GUC names and values.")
 
 ;;;

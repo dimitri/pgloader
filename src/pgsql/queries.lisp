@@ -20,59 +20,66 @@
 	     (muffle-warning))))
      (progn ,@forms)))
 
-(defmacro with-pgsql-transaction ((&key (dbname *pg-dbname*) database) &body forms)
+(defmacro with-pgsql-transaction ((&key dbname username database) &body forms)
   "Run FORMS within a PostgreSQL transaction to DBNAME, reusing DATABASE if
    given. To get the connection spec from the DBNAME, use `get-connection-spec'."
   (if database
       `(let ((pomo:*database* ,database))
 	 (handling-pgsql-notices
-	   (pomo:with-transaction ()
-	     (log-message :debug "BEGIN")
-	     (set-session-gucs *pg-settings* :transaction t)
-	     ,@forms)))
+               (pomo:with-transaction ()
+                 (log-message :debug "BEGIN")
+                 (set-session-gucs *pg-settings* :transaction t)
+                 ,@forms)))
       ;; no database given, create a new database connection
-      `(let (#+unix (cl-postgres::*unix-socket-dir* (get-unix-socket-dir))
-             ;; if no dbname is given at macro-expansion time, we want to
-             ;; use the current value of *pg-dbname* at run time
-             (*pg-dbname* (or ,dbname *pg-dbname*)))
-	 (pomo:with-connection (get-connection-spec *pg-dbname*)
+      `(let (#+unix (cl-postgres::*unix-socket-dir* (get-unix-socket-dir)))
+	 (pomo:with-connection (get-connection-spec :dbname ,dbname
+                                                    :username ,username)
 	   (log-message :debug "CONNECT")
 	   (set-session-gucs *pg-settings*)
 	   (handling-pgsql-notices ()
-				   (pomo:with-transaction ()
-				     (log-message :debug "BEGIN")
-				     ,@forms))))))
+               (pomo:with-transaction ()
+                 (log-message :debug "BEGIN")
+                 ,@forms))))))
 
 (defmacro with-pgsql-connection ((dbname) &body forms)
   "Run FROMS within a PostgreSQL connection to DBNAME. To get the connection
    spec from the DBNAME, use `get-connection-spec'."
   `(let (#+unix (cl-postgres::*unix-socket-dir*  (get-unix-socket-dir)))
-     (pomo:with-connection (get-connection-spec ,dbname)
-       (log-message :debug "CONNECT ~s" (get-connection-spec ,dbname))
+     (pomo:with-connection (get-connection-spec :dbname ,dbname)
+       (log-message :debug "CONNECT ~s" (get-connection-spec :dbname ,dbname))
        (set-session-gucs *pg-settings*)
        (handling-pgsql-notices ()
-			       ,@forms))))
+           ,@forms))))
 
 (defun get-unix-socket-dir ()
-  "When *pgcon-host* is a (cons :unix path) value, return the right value
+  "When *pgconn* host is a (cons :unix path) value, return the right value
    for cl-postgres::*unix-socket-dir*."
-  (if (and (consp *pgconn-host*)
-           (eq :unix (car *pgconn-host*)))
-      ;; set to *pgconn-host* value
-      (directory-namestring (fad:pathname-as-directory (cdr *pgconn-host*)))
-      ;; keep as is.
-      cl-postgres::*unix-socket-dir*))
+  (destructuring-bind (&key host &allow-other-keys) *pgconn*
+    (if (and (consp host) (eq :unix (car host)))
+        ;; set to *pgconn* host value
+        (directory-namestring (fad:pathname-as-directory (cdr host)))
+        ;; keep as is.
+        cl-postgres::*unix-socket-dir*)))
 
-(defun get-connection-spec (dbname &key (with-port t))
+(defun get-connection-spec (&key dbname username (with-port t))
   "pomo:with-connection and cl-postgres:open-database and open-db-writer are
    not using the same connection spec format..."
-  (let* ((host    (if (and (consp *pgconn-host*) (eq :unix (car *pgconn-host*)))
-		      :unix
-		      *pgconn-host*))
-	 (conspec (list dbname *pgconn-user* *pgconn-pass* host)))
-    (if with-port
-      (append conspec (list :port *pgconn-port*))
-      (append conspec (list *pgconn-port*)))))
+  (destructuring-bind (&key type host port user password
+                            ((:dbname pgconn-dbname))
+                            use-ssl
+                            table-name)
+      *pgconn*
+    (declare (ignore type table-name))
+    (let* ((host    (if (and (consp host) (eq :unix (car host))) :unix host))
+           (conspec (list (or dbname pgconn-dbname)
+                          (or username user)
+                          password
+                          host)))
+      (if with-port
+          (setf conspec (append conspec (list :port port)))
+          (setf conspec (append conspec (list port))))
+
+      (if use-ssl (append conspec (list :use-ssl use-ssl)) conspec))))
 
 (defun set-session-gucs (alist &key transaction database)
   "Set given GUCs to given values for the current session."
@@ -113,15 +120,14 @@
 
 (defun list-databases (&optional (username "postgres"))
   "Connect to a local database and get the database list"
-  (let* ((*pgconn-user* username))
-    (with-pgsql-transaction (:dbname "postgres")
-      (loop for (dbname) in (pomo:query
-			     "select datname
+  (with-pgsql-transaction (:dbname "postgres" :username username)
+    (loop for (dbname) in (pomo:query
+                           "select datname
                               from pg_database
                              where datname !~ 'postgres|template'")
-	 collect dbname))))
+       collect dbname)))
 
-(defun list-tables (&optional (dbname *pg-dbname*))
+(defun list-tables (&optional dbname)
   "Return an alist of tables names and list of columns to pay attention to."
   (with-pgsql-transaction (:dbname dbname)
     (loop for (relname colarray) in (pomo:query "

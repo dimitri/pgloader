@@ -82,15 +82,46 @@
 		(declare (ignore slash))
 		(list :dbname dbname)))
 
+(defrule dsn-option-ssl-disable "disable" (:constant :no))
+(defrule dsn-option-ssl-allow   "allow"   (:constant :try))
+(defrule dsn-option-ssl-prefer  "prefer"  (:constant :try))
+(defrule dsn-option-ssl-require "require" (:constant :yes))
+
+(defrule dsn-option-ssl (and "sslmode" "=" (or dsn-option-ssl-disable
+                                               dsn-option-ssl-allow
+                                               dsn-option-ssl-prefer
+                                               dsn-option-ssl-require))
+  (:lambda (ssl)
+    (destructuring-bind (key e val) ssl
+      (declare (ignore key e))
+      (cons :use-ssl val))))
+
 (defrule qualified-table-name (and namestring "." namestring)
   (:destructure (schema dot table)
     (declare (ignore dot))
     (format nil "~a.~a" (text schema) (text table))))
 
-(defrule dsn-table-name (and "?" (or qualified-table-name namestring))
-  (:destructure (qm name)
-    (declare (ignore qm))
-    (list :table-name name)))
+(defrule dsn-table-name (or qualified-table-name namestring)
+  (:lambda (name)
+    (cons :table-name name)))
+
+(defrule dsn-option-table-name (and (? (and "tablename" "="))
+                                    dsn-table-name)
+  (:lambda (opt-tn)
+    (bind (((_ table-name) opt-tn))
+      table-name)))
+
+(defrule dsn-option (or dsn-option-ssl dsn-option-table-name))
+
+(defrule another-dsn-option (and "&" dsn-option)
+  (:lambda (source)
+    (bind (((_ option) source)) option)))
+
+(defrule dsn-options (and "?" dsn-option (* another-dsn-option))
+  (:lambda (options)
+    (destructuring-bind (qm opt1 opts) options
+      (declare (ignore qm))
+      (alexandria:alist-plist `(,opt1 ,@opts)))))
 
 (defrule pgsql-prefix (and (or "postgresql" "postgres" "pgsql") "://")
   (:constant (list :type :postgresql)))
@@ -99,7 +130,7 @@
                         (? dsn-user-password)
                         (? dsn-hostname)
                         dsn-dbname
-                        (? dsn-table-name))
+                        (? dsn-options))
   (:lambda (uri)
     (destructuring-bind (&key type
                               user
@@ -107,7 +138,8 @@
 			      host
 			      port
 			      dbname
-                              table-name)
+                              table-name
+                              use-ssl)
         (apply #'append uri)
       ;; Default to environment variables as described in
       ;;  http://www.postgresql.org/docs/9.3/static/app-psql.html
@@ -122,6 +154,7 @@
                                                      #-unix "localhost"))
             :port       (or port     (parse-integer
                                       (getenv-default "PGPORT" "5432")))
+            :use-ssl    use-ssl
             :dbname     (or dbname   (getenv-default "PGDATABASE" user))
             :table-name table-name))))
 
@@ -142,18 +175,8 @@
 
 (defun pgsql-connection-bindings (pg-db-uri gucs)
   "Generate the code needed to set PostgreSQL connection bindings."
-  (destructuring-bind (&key ((:host pghost))
-                            ((:port pgport))
-                            ((:user pguser))
-                            ((:password pgpass))
-                            ((:dbname pgdb))
-                            &allow-other-keys)
-      pg-db-uri
-    `((*pgconn-host* ',pghost)
-      (*pgconn-port* ,pgport)
-      (*pgconn-user* ,pguser)
-      (*pgconn-pass* ,pgpass)
-      (*pg-dbname*   ,pgdb)
+  (destructuring-bind (&key ((:dbname pgdb)) &allow-other-keys) pg-db-uri
+    `((*pgconn*      ',pg-db-uri)
       (*pg-settings* ',gucs)
       (pgloader.pgsql::*pgsql-reserved-keywords*
        (pgloader.pgsql:list-reserved-keywords ,pgdb)))))
