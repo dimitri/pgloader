@@ -1259,8 +1259,9 @@ Numbers:
   - type int with extra auto_increment to bigserial when (<= 10 precision)
   - type int to int       when  (< precision 10)
   - type int to bigint    when  (<= 10 precision)
-  - type smallint with extra auto_increment to serial
-  - type bigint   with extra auto_increment to bigserial
+  - type smallint  with extra auto_increment to serial
+  - type mediumint with extra auto_increment to serial
+  - type bigint    with extra auto_increment to bigserial
 
   - type tinyint to boolean when (= 1 precision) using tinyint-to-boolean
 

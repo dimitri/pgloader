@@ -54,8 +54,9 @@
     (:source (:type "int" :auto-increment nil :typemod (<= 10 precision))
      :target (:type "bigint"))
 
-    ;; bigint and smallint with auto_increment always are [big]serial
+    ;; bigint mediumint and smallint with auto_increment always are [big]serial
     (:source (:type "smallint" :auto-increment t) :target (:type "serial"))
+    (:source (:type "mediumint" :auto-increment t) :target (:type "serial"))
     (:source (:type "bigint" :auto-increment t) :target (:type "bigserial"))
 
     ;; actually tinyint(1) is most often used as a boolean
@@ -200,7 +201,8 @@
 	   ("l"  "char"      "char(1)"   nil "YES" nil)
 	   ("m"  "integer"   "integer(4)"    nil "YES" nil)
 	   ("o"  "tinyint"   "tinyint(1)" "0" nil nil)
-           ("p"  "smallint"  "smallint(5) unsigned" nil "no" "auto_increment"))))
+	   ("p"  "smallint"  "smallint(5) unsigned" nil "no" "auto_increment")
+	   ("q"  "mediumint" "integer"   nil "NO" "auto_increment"))))
 
     ;;
     ;; format-pgsql-column when given a mysql-column would call `cast' for
