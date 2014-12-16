@@ -198,7 +198,6 @@
 (defun truncate-tables (dbname table-name-list)
   "Truncate given TABLE-NAME in database DBNAME"
   (with-pgsql-transaction (:dbname dbname)
-    (set-session-gucs *pg-settings*)
     (let ((sql (format nil "TRUNCATE ~{~a~^,~};"
                        (loop :for table-name :in table-name-list
                           :collect (apply-identifier-case table-name)))))
