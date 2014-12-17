@@ -2,7 +2,7 @@
 
 ## SYNOPSIS
 
-`pgloader` [<options>] [<command-file>]...
+    pgloader [<options>] [<command-file>]...
 
 ## DESCRIPTION
 
