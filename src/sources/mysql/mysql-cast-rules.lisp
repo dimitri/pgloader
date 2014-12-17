@@ -54,7 +54,8 @@
     (:source (:type "int" :auto-increment nil :typemod (<= 10 precision))
      :target (:type "bigint"))
 
-    ;; bigint mediumint and smallint with auto_increment always are [big]serial
+    ;; bigint mediumint smallint and tinyint with auto_increment always are [big]serial
+    (:source (:type "tinyint" :auto-increment t) :target (:type "serial"))
     (:source (:type "smallint" :auto-increment t) :target (:type "serial"))
     (:source (:type "mediumint" :auto-increment t) :target (:type "serial"))
     (:source (:type "bigint" :auto-increment t) :target (:type "bigserial"))
@@ -202,7 +203,8 @@
 	   ("m"  "integer"   "integer(4)"    nil "YES" nil)
 	   ("o"  "tinyint"   "tinyint(1)" "0" nil nil)
 	   ("p"  "smallint"  "smallint(5) unsigned" nil "no" "auto_increment")
-	   ("q"  "mediumint" "integer"   nil "NO" "auto_increment"))))
+	   ("q"  "mediumint" "integer"   nil "NO" "auto_increment")
+	   ("r"  "tinyint"   "integer"   nil "NO" "auto_increment"))))
 
     ;;
     ;; format-pgsql-column when given a mysql-column would call `cast' for
