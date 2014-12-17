@@ -225,12 +225,12 @@
     ;;
     ;; Turn UNIQUE indexes into PRIMARY KEYS now
     ;;
-    (pgstate-add-table state *pg-dbname* "Primary Keys")
+    (pgstate-add-table state (pgconn-dbname) "Primary Keys")
     (loop :for sql :in pkeys
        :when sql
        :do (progn
              (log-message :notice "~a" sql)
-             (pgsql-execute-with-timing *pg-dbname* "Primary Keys" sql state)))
+             (pgsql-execute-with-timing (pgconn-dbname) "Primary Keys" sql state)))
 
     ;;
     ;; Foreign Key Constraints
@@ -369,7 +369,7 @@
                                          :include-drop include-drop))
                 (t
                  (when truncate
-                   (truncate-tables *pg-dbname* (mapcar #'car all-columns)))))
+                   (truncate-tables (pgconn-dbname) (mapcar #'car all-columns)))))
         ;;
         ;; In case some error happens in the preparatory transaction, we
         ;; need to stop now and refrain from trying to load the data into

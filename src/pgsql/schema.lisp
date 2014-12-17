@@ -97,7 +97,7 @@
       ;; alter table if exists ... drop constraint if exists ...
       (format nil "ALTER TABLE ~a DROP CONSTRAINT ~a" table-name constraint-name))))
 
-(defun drop-pgsql-fkeys (all-fkeys &key (dbname *pg-dbname*))
+(defun drop-pgsql-fkeys (all-fkeys &key (dbname (pgconn-dbname)))
   "Drop all Foreign Key Definitions given, to prepare for a clean run."
   (let ((all-pgsql-fkeys (list-tables-and-fkeys dbname)))
     (loop for (table-name . fkeys) in all-fkeys
@@ -112,7 +112,7 @@
 
 (defun create-pgsql-fkeys (all-fkeys
                            &key
-                             (dbname *pg-dbname*)
+                             (dbname (pgconn-dbname))
                              state
                              (label "Foreign Keys"))
   "Actually create the Foreign Key References that where declared in the
@@ -302,7 +302,7 @@
 ;;; Sequences
 ;;;
 (defun reset-sequences (table-names
-                              &key (dbname *pg-dbname*) state)
+                              &key (dbname (pgconn-dbname)) state)
   "Reset all sequences created during this MySQL migration."
   (log-message :notice "Reset sequences")
   (with-stats-collection ("Reset Sequences"

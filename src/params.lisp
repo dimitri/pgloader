@@ -17,6 +17,7 @@
            #:*copy-batch-size*
            #:*concurrent-batches*
 	   #:*pgconn*
+           #:pgconn-dbname
 	   #:*pg-settings*
 	   #:*myconn-host*
 	   #:*myconn-port*
@@ -127,6 +128,12 @@
     :table-name nil
     :use-ssl nil)
   "Default PostgreSQL connection string.")
+
+(defun pgconn-dbname ()
+  "Return the current dbname from *pgconn* setting."
+  (destructuring-bind (&key dbname &allow-other-keys) *pgconn*
+    dbname))
+
 (defparameter *pg-settings* nil "An alist of GUC names and values.")
 
 ;;;
