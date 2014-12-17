@@ -7,7 +7,12 @@
 \fBpgloader\fR \- PostgreSQL data loader
 .
 .SH "SYNOPSIS"
-\fBpgloader\fR [\fIoptions\fR] [\fIcommand\-file\fR]\.\.\.
+.
+.nf
+
+pgloader [<options>] [<command\-file>]\.\.\.
+.
+.fi
 .
 .SH "DESCRIPTION"
 pgloader loads data from various sources into PostgreSQL\. It can transform the data it reads on the fly and submit raw SQL before and after the loading\. It uses the \fBCOPY\fR PostgreSQL protocol to stream the data into the server, and manages errors by filling a pair of \fIreject\.dat\fR and \fIreject\.log\fR files\.
@@ -1557,6 +1562,9 @@ type int to bigint when (<= 10 precision)
 .
 .IP "\(bu" 4
 type smallint with extra auto_increment to serial
+.
+.IP "\(bu" 4
+type mediumint with extra auto_increment to serial
 .
 .IP "\(bu" 4
 type bigint with extra auto_increment to bigserial
