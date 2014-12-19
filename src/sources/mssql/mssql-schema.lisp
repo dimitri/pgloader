@@ -109,7 +109,6 @@
 
    where     c.table_catalog = '~a'
          and t.table_type = '~a'
-         and c.table_schema != 'dbo'
 
 order by table_schema, table_name, ordinal_position"
                           dbname
@@ -160,7 +159,7 @@ order by table_schema, table_name, ordinal_position"
          join sys.columns co on co.object_id = i.object_id
              and co.column_id = ic.column_id
 
-   where schema_name(schema_id) not in ('dbo', 'dto', 'sys')
+   where schema_name(schema_id) not in ('dto', 'sys')
 
 order by SchemaName,
          o.[name],
@@ -236,9 +235,9 @@ order by SchemaName,
    WHERE KCU1.ORDINAL_POSITION = KCU2.ORDINAL_POSITION
          AND KCU1.TABLE_CATALOG = '~a'
          AND KCU1.CONSTRAINT_CATALOG = '~a'
-         AND KCU1.CONSTRAINT_SCHEMA NOT IN ('dbo', 'dto', 'sys')
-         AND KCU1.TABLE_SCHEMA NOT IN ('dbo', 'dto', 'sys')
-         AND KCU2.TABLE_SCHEMA NOT IN ('dbo', 'dto', 'sys')
+         AND KCU1.CONSTRAINT_SCHEMA NOT IN ('dto', 'sys')
+         AND KCU1.TABLE_SCHEMA NOT IN ('dto', 'sys')
+         AND KCU2.TABLE_SCHEMA NOT IN ('dto', 'sys')
 
 ORDER BY CONSTRAINT_NAME, KCU1.ORDINAL_POSITION
 "
