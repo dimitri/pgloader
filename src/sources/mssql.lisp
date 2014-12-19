@@ -128,12 +128,12 @@
     ;;
     ;; Turn UNIQUE indexes into PRIMARY KEYS now
     ;;
-    (pgstate-add-table state *pg-dbname* "Primary Keys")
+    (pgstate-add-table state (pgconn-dbname) "Primary Keys")
     (loop :for sql :in pkeys
        :when sql
        :do (progn
              (log-message :notice "~a" sql)
-             (pgsql-execute-with-timing *pg-dbname* "Primary Keys" sql state)))
+             (pgsql-execute-with-timing (pgconn-dbname) "Primary Keys" sql state)))
 
     ;;
     ;; Foreign Key Constraints

@@ -404,11 +404,7 @@
 	   #:*state*
 	   #:*csv-path-root*
 	   #:*root-dir*
-	   #:*pgconn-host*
-	   #:*pgconn-port*
-	   #:*pgconn-user*
-	   #:*pgconn-pass*
-	   #:*pg-dbname*
+	   #:*pgconn*
 	   #:*pg-settings*
 	   #:*myconn-host*
 	   #:*myconn-port*

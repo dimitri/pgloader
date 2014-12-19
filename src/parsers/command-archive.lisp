@@ -41,16 +41,11 @@
     (destructuring-bind (source pg-db-uri &key before commands finally) archive
       (when (and (or before finally) (null pg-db-uri))
         (error "When using a BEFORE LOAD DO or a FINALLY block, you must provide an archive level target database connection."))
-      (destructuring-bind (&key host port user password dbname &allow-other-keys)
-          pg-db-uri
+      (destructuring-bind (&key dbname &allow-other-keys) pg-db-uri
         `(lambda ()
            (let* ((state-before   (pgloader.utils:make-pgstate))
                   (*state*        (pgloader.utils:make-pgstate))
-                  (*pgconn-host* ',host)
-                  (*pgconn-port* ,port)
-                  (*pgconn-user* ,user)
-                  (*pgconn-pass* ,password)
-                  (*pg-dbname*   ,dbname)
+                  ,@(pgsql-connection-bindings pg-db-uri nil)
                   (state-finally ,(when finally `(pgloader.utils:make-pgstate)))
                   (archive-file
                    ,(destructuring-bind (kind url) source
