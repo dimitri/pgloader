@@ -32,24 +32,51 @@
                  ,@forms)))
       ;; no database given, create a new database connection
       `(let (#+unix (cl-postgres::*unix-socket-dir* (get-unix-socket-dir)))
-	 (pomo:with-connection (get-connection-spec :dbname ,dbname
-                                                    :username ,username)
-	   (log-message :debug "CONNECT")
-	   (set-session-gucs *pg-settings*)
-	   (handling-pgsql-notices ()
-               (pomo:with-transaction ()
-                 (log-message :debug "BEGIN")
-                 ,@forms))))))
+         (let ((pomo:*database*
+                (handler-case
+                    (apply #'pomo:connect (get-connection-spec :dbname ,dbname
+                                                               :username ,username))
+                  (condition (e)
+                    (destructuring-bind (&key host port user &allow-other-keys)
+                        *pgconn*
+                      (error 'connection-error
+                             :mesg (format nil "~a" e)
+                             :type "PostgreSQL"
+                             :host (if (consp host) (cdr host) host)
+                             :port port
+                             :user user))))))
+           (unwind-protect
+                (progn
+                  (log-message :debug "CONNECT")
+                  (set-session-gucs *pg-settings*)
+                  (handling-pgsql-notices ()
+                      (pomo:with-transaction ()
+                        (log-message :debug "BEGIN")
+                        ,@forms)))
+             (pomo:disconnect pomo:*database*))))))
 
 (defmacro with-pgsql-connection ((dbname) &body forms)
   "Run FROMS within a PostgreSQL connection to DBNAME. To get the connection
    spec from the DBNAME, use `get-connection-spec'."
   `(let (#+unix (cl-postgres::*unix-socket-dir*  (get-unix-socket-dir)))
-     (pomo:with-connection (get-connection-spec :dbname ,dbname)
-       (log-message :debug "CONNECT ~s" (get-connection-spec :dbname ,dbname))
-       (set-session-gucs *pg-settings*)
-       (handling-pgsql-notices ()
-           ,@forms))))
+     (let ((pomo:*database*
+            (handler-case
+                (apply #'pomo:connect (get-connection-spec :dbname ,dbname))
+              (condition (e)
+                (destructuring-bind (&key host port user &allow-other-keys) *pgconn*
+                  (error 'connection-error
+                         :mesg (format nil "~a" e)
+                         :type "PostgreSQL"
+                         :host (if (consp host) (cdr host) host)
+                         :port port
+                         :user user))))))
+       (unwind-protect
+            (progn
+              (log-message :debug "CONNECT ~s" (get-connection-spec :dbname ,dbname))
+              (set-session-gucs *pg-settings*)
+              (handling-pgsql-notices ()
+                  ,@forms))
+         (pomo:disconnect pomo:*database*)))))
 
 (defun get-unix-socket-dir ()
   "When *pgconn* host is a (cons :unix path) value, return the right value

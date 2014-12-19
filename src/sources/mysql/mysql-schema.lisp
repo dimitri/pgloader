@@ -63,16 +63,27 @@
    *myconn-pass*."
   `(let* ((dbname (or ,dbname *my-dbname*))
           (*connection*
-           (if (and (consp *myconn-host*) (eq :unix (car *myconn-host*)))
-               (qmynd:mysql-local-connect :path (cdr *myconn-host*)
-                                          :username *myconn-user*
-                                          :password *myconn-pass*
-                                          :database dbname)
-               (qmynd:mysql-connect :host *myconn-host*
-                                    :port *myconn-port*
-                                    :username *myconn-user*
-                                    :password *myconn-pass*
-                                    :database dbname))))
+           (handler-case
+               (if (and (consp *myconn-host*) (eq :unix (car *myconn-host*)))
+                   (qmynd:mysql-local-connect :path (cdr *myconn-host*)
+                                              :username *myconn-user*
+                                              :password *myconn-pass*
+                                              :database dbname)
+                   (qmynd:mysql-connect :host *myconn-host*
+                                        :port *myconn-port*
+                                        :username *myconn-user*
+                                        :password *myconn-pass*
+                                        :database dbname))
+             (condition (e)
+               (error 'connection-error
+                      :mesg (format nil "~a" e)
+                      :type "MySQL"
+                      :host (if (and (consp *myconn-host*)
+                                     (eq :unix (car *myconn-host*)))
+                                (cdr *myconn-host*)
+                                *myconn-host*)
+                      :port *myconn-port*
+                      :user *myconn-user*)))))
      (unwind-protect
           (progn ,@forms)
        (qmynd:mysql-disconnect *connection*))))

@@ -3,6 +3,20 @@
 ;;;
 (in-package :pgloader.sources)
 
+(define-condition connection-error (error)
+  ((type :initarg :type :reader connection-error-type)
+   (mesg :initarg :mesg :reader connection-error-mesg)
+   (host :initarg :host :reader connection-error-host)
+   (port :initarg :port :reader connection-error-port)
+   (user :initarg :user :reader connection-error-user))
+  (:report (lambda (err stream)
+             (format stream "Failed to connect to ~a at ~s ~@[(port ~d)~]~@[ as user ~s: ~a~]"
+                     (connection-error-type err)
+                     (connection-error-host err)
+                     (connection-error-port err)
+                     (connection-error-user err)
+                     (connection-error-mesg err)))))
+
 ;; Abstract classes to define the API with
 ;;
 ;; The source name might be a table name (database server source) or a

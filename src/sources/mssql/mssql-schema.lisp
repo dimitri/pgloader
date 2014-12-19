@@ -23,10 +23,17 @@
    Connection parameters are *myconn-host*, *myconn-port*, *myconn-user* and
    *myconn-pass*."
   `(let* ((dbname      (or ,dbname *ms-dbname*))
-          (*mssql-db*  (mssql:connect dbname
-                                      *msconn-user*
-                                      *msconn-pass*
-                                      *msconn-host*)))
+          (*mssql-db*  (handler-case
+                           (mssql:connect dbname
+                                          *msconn-user*
+                                          *msconn-pass*
+                                          *msconn-host*)
+                         (condition (e)
+                           (error 'connection-error
+                                  :mesg (format nil "~a" e)
+                                  :type "MS SQL"
+                                  :host *msconn-host*
+                                  :user *msconn-user*)))))
      (unwind-protect
           (progn ,@forms)
        (mssql:disconnect *mssql-db*))))

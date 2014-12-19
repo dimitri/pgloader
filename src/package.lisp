@@ -70,8 +70,51 @@
 ;;;
 ;;; PostgreSQL COPY support, and generic sources API.
 ;;;
+(defpackage #:pgloader.parse-date
+  (:use #:cl #:esrap)
+  (:export #:parse-date-string
+           #:parse-date-format))
+
+(defpackage #:pgloader.sources
+  (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:import-from #:pgloader.transforms #:precision #:scale)
+  (:import-from #:pgloader.parse-date
+                #:parse-date-string
+                #:parse-date-format)
+  (:export #:copy
+	   #:source-db
+	   #:target-db
+	   #:source
+	   #:target
+	   #:fields
+	   #:columns
+	   #:transforms
+	   #:map-rows
+	   #:copy-from
+	   #:copy-to-queue
+	   #:copy-to
+	   #:copy-database
+
+           ;; conditions, error handling
+           #:connection-error
+
+           ;; file based utils for CSV, fixed etc
+	   #:filter-column-list
+           #:with-open-file-or-stream
+	   #:get-pathname
+	   #:get-absolute-pathname
+	   #:project-fields
+	   #:reformat-then-process
+
+           ;; database cast machinery
+           #:*default-cast-rules*
+           #:*cast-rules*
+           #:cast))
+
 (defpackage #:pgloader.pgsql
   (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:import-from #:pgloader.sources
+                #:connection-error)
   (:export #:with-pgsql-transaction
 	   #:with-pgsql-connection
 	   #:pgsql-execute
@@ -104,44 +147,6 @@
 	   #:create-indexes-in-kernel
            #:set-table-oids
            #:reset-sequences))
-
-(defpackage #:pgloader.parse-date
-  (:use #:cl #:esrap)
-  (:export #:parse-date-string
-           #:parse-date-format))
-
-(defpackage #:pgloader.sources
-  (:use #:cl #:pgloader.params #:pgloader.utils)
-  (:import-from #:pgloader.transforms #:precision #:scale)
-  (:import-from #:pgloader.parse-date
-                #:parse-date-string
-                #:parse-date-format)
-  (:export #:copy
-	   #:source-db
-	   #:target-db
-	   #:source
-	   #:target
-	   #:fields
-	   #:columns
-	   #:transforms
-	   #:map-rows
-	   #:copy-from
-	   #:copy-to-queue
-	   #:copy-to
-	   #:copy-database
-
-           ;; file based utils for CSV, fixed etc
-	   #:filter-column-list
-           #:with-open-file-or-stream
-	   #:get-pathname
-	   #:get-absolute-pathname
-	   #:project-fields
-	   #:reformat-then-process
-
-           ;; database cast machinery
-           #:*default-cast-rules*
-           #:*cast-rules*
-           #:cast))
 
 (defpackage #:pgloader.queue
   (:use #:cl #:pgloader.params)
@@ -393,6 +398,8 @@
 		#:run-commands
 		#:parse-commands
 		#:with-database-uri)
+  (:import-from #:pgloader.sources
+                #:connection-error)
   (:export #:*version-string*
 	   #:*state*
 	   #:*csv-path-root*
