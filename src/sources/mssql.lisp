@@ -66,7 +66,13 @@
               (funcall process-row-fn row))))
       (log-message :debug "~a" sql)
       (handler-case
-          (mssql::map-query-results sql :row-fn row-fn :connection *mssql-db*)
+          (handler-bind
+              ((condition
+                #'(lambda (c)
+                    (log-message :error "~a" c)
+                    (pgstate-incf *state* (target mssql) :errs 1)
+                    (invoke-restart 'mssql::use-nil))))
+           (mssql::map-query-results sql :row-fn row-fn :connection *mssql-db*))
         (condition (e)
           (progn
             (log-message :error "~a" e)

@@ -113,10 +113,19 @@
               :until (= rtc +no-more-rows+)
               :do (let ((row (make-array (%dbnumcols %dbproc))))
                     (loop :for i :from 1 :to (%dbnumcols %dbproc)
-                       :for value := (sysdb-data-to-lisp %dbproc
-                                                         (%dbdata %dbproc i)
-                                                         (%dbcoltype %dbproc i)
-                                                         (%dbdatlen %dbproc i))
+                       :for value
+                       := (restart-case
+                              (sysdb-data-to-lisp %dbproc
+                                                  (%dbdata %dbproc i)
+                                                  (%dbcoltype %dbproc i)
+                                                  (%dbdatlen %dbproc i))
+                            (use-nil ()
+                              :report "skip this column's value and use nil instead."
+                              nil)
+                            (use-empty-string ()
+                              :report "skip this column's value and use empty-string instead."
+                              "")
+                            (use-value (value) value))
                        :do (setf (aref row (- i 1)) value))
 
                     (funcall row-fn row))))
