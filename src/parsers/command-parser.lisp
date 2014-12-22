@@ -140,31 +140,3 @@
 
           ;; cleanup
           (when summary-stream (close summary-stream)))))))
-
-
-;;;
-;;; Interactive tool
-;;;
-(defmacro with-database-uri ((database-uri) &body body)
-  "Run the BODY forms with the connection parameters set to proper values
-   from the DATABASE-URI. For a MySQL connection string, that's
-   *myconn-user* and all, for a PostgreSQL connection string, *pgconn-user*
-   and all."
-  (destructuring-bind (&key type user password host port dbname
-                            &allow-other-keys)
-      (parse 'db-connection-uri database-uri)
-    (ecase type
-      (:mysql
-       `(let* ((*myconn-host* ,(if (consp host) (list 'quote host) host))
-	       (*myconn-port* ,port)
-	       (*myconn-user* ,user)
-	       (*myconn-pass* ,password)
-               (*my-dbname*   ,dbname))
-	  ,@body))
-      (:postgresql
-       `(let* ((*pgconn-host* ,(if (consp host) (list 'quote host) host))
-	       (*pgconn-port* ,port)
-	       (*pgconn-user* ,user)
-	       (*pgconn-pass* ,password)
-               (*pg-dbname*   ,dbname))
-	  ,@body)))))
