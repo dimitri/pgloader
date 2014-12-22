@@ -36,31 +36,31 @@
   (:lambda (source)
     (bind (((_ like) source)) like)))
 
-(defrule filter-list (and like-expression (* another-like-expression))
+(defrule filter-list-like (and like-expression (* another-like-expression))
   (:lambda (source)
     (destructuring-bind (filter1 filters) source
       (list* filter1 filters))))
 
 (defrule including-in-schema
-    (and kw-including kw-only kw-table kw-names kw-like filter-list
+    (and kw-including kw-only kw-table kw-names kw-like filter-list-like
          kw-in kw-schema quoted-namestring)
   (:lambda (source)
     (bind (((_ _ _ _ _ filter-list _ _ schema) source))
       (cons schema filter-list))))
 
-(defrule including (and including-in-schema (* including-in-schema))
+(defrule including-like (and including-in-schema (* including-in-schema))
   (:lambda (source)
     (destructuring-bind (inc1 incs) source
       (cons :including (list* inc1 incs)))))
 
 (defrule excluding-in-schema
-    (and kw-excluding kw-table kw-names kw-like filter-list
+    (and kw-excluding kw-table kw-names kw-like filter-list-like
          kw-in kw-schema quoted-namestring)
   (:lambda (source)
     (bind (((_ _ _ _ filter-list _ _ schema) source))
       (cons schema filter-list))))
 
-(defrule excluding (and excluding-in-schema (* excluding-in-schema))
+(defrule excluding-like (and excluding-in-schema (* excluding-in-schema))
   (:lambda (source)
     (destructuring-bind (excl1 excls) source
       (cons :excluding (list* excl1 excls)))))
@@ -74,8 +74,8 @@
                                             casts
                                             before-load
                                             after-load
-                                            including
-                                            excluding))
+                                            including-like
+                                            excluding-like))
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
 

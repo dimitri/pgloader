@@ -65,18 +65,20 @@
   (:lambda (source)
     (bind (((_ re) source)) re)))
 
-(defrule filter-list (and namestring-or-regex (* another-namestring-or-regex))
+(defrule filter-list-matching
+    (and namestring-or-regex (* another-namestring-or-regex))
   (:lambda (source)
     (destructuring-bind (filter1 filters) source
       (list* filter1 filters))))
 
-(defrule including (and kw-including kw-only kw-table kw-names kw-matching
-			filter-list)
+(defrule including-matching
+    (and kw-including kw-only kw-table kw-names kw-matching filter-list-matching)
   (:lambda (source)
     (bind (((_ _ _ _ _ filter-list) source))
       (cons :including filter-list))))
 
-(defrule excluding (and kw-excluding kw-table kw-names kw-matching filter-list)
+(defrule excluding-matching
+    (and kw-excluding kw-table kw-names kw-matching filter-list-matching)
   (:lambda (source)
     (bind (((_ _ _ _ filter-list) source))
       (cons :excluding filter-list))))
@@ -86,7 +88,7 @@
 ;;; Per table encoding options, because MySQL is so bad at encoding...
 ;;;
 (defrule decoding-table-as (and kw-decoding kw-table kw-names kw-matching
-                                filter-list
+                                filter-list-matching
                                 kw-as encoding)
   (:lambda (source)
     (bind (((_ _ _ _ filter-list _ encoding) source))
@@ -104,8 +106,8 @@
                                             gucs
                                             casts
                                             materialize-views
-                                            including
-                                            excluding
+                                            including-matching
+                                            excluding-matching
                                             decoding-tables-as
                                             before-load
                                             after-load))
