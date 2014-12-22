@@ -21,13 +21,61 @@
 
 
 ;;;
+;;; INCLUDING ONLY and EXCLUDING clauses for MS SQL
+;;;
+;;; There's no regexp matching on MS SQL, so we're going to just use the
+;;; classic LIKE support here, as documented at:
+;;;
+;;;  http://msdn.microsoft.com/en-us/library/ms187489(SQL.90).aspx
+;;;
+(defrule like-expression (and "'" (+ (not "'")) "'")
+  (:lambda (le)
+    (bind (((_ like _) le)) (text like))))
+
+(defrule another-like-expression (and comma like-expression)
+  (:lambda (source)
+    (bind (((_ like) source)) like)))
+
+(defrule filter-list (and like-expression (* another-like-expression))
+  (:lambda (source)
+    (destructuring-bind (filter1 filters) source
+      (list* filter1 filters))))
+
+(defrule including-in-schema
+    (and kw-including kw-only kw-table kw-names kw-like filter-list
+         kw-in kw-schema quoted-namestring)
+  (:lambda (source)
+    (bind (((_ _ _ _ _ filter-list _ _ schema) source))
+      (cons schema filter-list))))
+
+(defrule including (and including-in-schema (* including-in-schema))
+  (:lambda (source)
+    (destructuring-bind (inc1 incs) source
+      (cons :including (list* inc1 incs)))))
+
+(defrule excluding-in-schema
+    (and kw-excluding kw-table kw-names kw-like filter-list
+         kw-in kw-schema quoted-namestring)
+  (:lambda (source)
+    (bind (((_ _ _ _ filter-list _ _ schema) source))
+      (cons schema filter-list))))
+
+(defrule excluding (and excluding-in-schema (* excluding-in-schema))
+  (:lambda (source)
+    (destructuring-bind (excl1 excls) source
+      (cons :excluding (list* excl1 excls)))))
+
+
+;;;
 ;;; Allow clauses to appear in any order
 ;;;
 (defrule load-mssql-optional-clauses (* (or mysql-options
                                             gucs
                                             casts
                                             before-load
-                                            after-load))
+                                            after-load
+                                            including
+                                            excluding))
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
 
@@ -80,7 +128,7 @@
   (:lambda (source)
     (bind (((ms-db-uri pg-db-uri
                        &key
-                       gucs casts before after
+                       gucs casts before after including excluding
                        ((:mysql-options options)))           source)
 
            ((&key ((:dbname msdb)) table-name
@@ -111,6 +159,8 @@
                                          :state-before state-before
                                          :state-after state-after
                                          :state-indexes state-idx
+                                         :including ',including
+                                         :excluding ',excluding
                                          ,@(remove-batch-control-option options))
 
            ,(sql-code-block pgdb 'state-after after "after load")

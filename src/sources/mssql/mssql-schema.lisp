@@ -73,9 +73,23 @@
   "Associate internal table type symbol with what's found in MS SQL
   information_schema.tables.table_type column.")
 
+(defun filter-list-to-where-clause (filter-list
+                                    &optional
+                                      not
+                                      (schema-col "table_schema")
+                                      (table-col  "table_name"))
+  "Given an INCLUDING or EXCLUDING clause, turn it into a MS SQL WHERE clause."
+  (loop :for (schema . table-name-list) :in filter-list
+     :append (mapcar (lambda (table-name)
+                       (format nil "(~a = '~a' and ~a ~:[~;NOT ~]LIKE '~a')"
+                               schema-col schema table-col not table-name))
+                     table-name-list)))
+
 (defun list-all-columns (&key
                            (dbname *ms-dbname*)
 			   (table-type :table)
+                           including
+                           excluding
 			 &aux
 			   (table-type-name (cdr (assoc table-type *table-type*))))
   (loop
@@ -109,10 +123,22 @@
 
    where     c.table_catalog = '~a'
          and t.table_type = '~a'
+         ~:[~*~;and (~{~a~^~&~10t or ~})~]
+         ~:[~*~;and (~{~a~^~&~10t and ~})~]
 
 order by table_schema, table_name, ordinal_position"
                           dbname
-                          table-type-name))
+                          table-type-name
+                          including   ; do we print the clause?
+                          (filter-list-to-where-clause including
+                                                       nil
+                                                       "c.table_schema"
+                                                       "c.table_name")
+                          excluding   ; do we print the clause?
+                          (filter-list-to-where-clause excluding
+                                                       t
+                                                       "c.table_schema"
+                                                       "c.table_name")))
      :do
      (let* ((s-entry    (assoc schema result :test 'equal))
             (t-entry    (when s-entry
@@ -139,7 +165,7 @@ order by table_schema, table_name, ordinal_position"
                        (reverse (loop :for (table-name . cols) :in tables
                                    :collect (cons table-name (reverse cols))))))))))
 
-(defun list-all-indexes ()
+(defun list-all-indexes (&key including excluding)
   "Get the list of MSSQL index definitions per table."
   (loop
      :with result := nil
@@ -160,12 +186,26 @@ order by table_schema, table_name, ordinal_position"
              and co.column_id = ic.column_id
 
    where schema_name(schema_id) not in ('dto', 'sys')
+         ~:[~*~;and (~{~a~^ or ~})~]
+         ~:[~*~;and (~{~a~^ and ~})~]
 
 order by SchemaName,
          o.[name],
          i.[name],
          ic.is_included_column,
-         ic.key_ordinal"))
+         ic.key_ordinal"
+                               including ; do we print the clause?
+                               (filter-list-to-where-clause including
+                                                            nil
+                                                            "schema_name(schema_id)"
+                                                            "o.name"
+                                                            )
+                               excluding ; do we print the clause?
+                               (filter-list-to-where-clause excluding
+                                                            t
+                                                            "schema_name(schema_id)"
+                                                            "o.name"
+                                                            )))
      :do
      (let* ((s-entry    (assoc schema result :test 'equal))
             (t-entry    (when s-entry
@@ -207,7 +247,7 @@ order by SchemaName,
           (loop :for (schema . tables) :in result
              :collect (cons schema (reverse-indexes-cols tables))))))))
 
-(defun list-all-fkeys (&key (dbname *ms-dbname*))
+(defun list-all-fkeys (&key (dbname *ms-dbname*) including excluding)
   "Get the list of MSSQL index definitions per table."
   (loop
      :with result := nil
@@ -239,9 +279,21 @@ order by SchemaName,
          AND KCU1.TABLE_SCHEMA NOT IN ('dto', 'sys')
          AND KCU2.TABLE_SCHEMA NOT IN ('dto', 'sys')
 
-ORDER BY CONSTRAINT_NAME, KCU1.ORDINAL_POSITION
-"
-                               dbname dbname))
+         ~:[~*~;and (~{~a~^ or ~})~]
+         ~:[~*~;and (~{~a~^ and ~})~]
+
+ORDER BY CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
+                               dbname dbname
+                               including ; do we print the clause?
+                               (filter-list-to-where-clause including
+                                                            nil
+                                                            "kcu1.table_schema"
+                                                            "kcu1.table_name")
+                               excluding ; do we print the clause?
+                               (filter-list-to-where-clause excluding
+                                                            t
+                                                            "kcu1.table_schema"
+                                                            "kcu1.table_name")))
      :do
      (let* ((s-entry    (assoc schema result :test 'equal))
             (t-entry    (when s-entry

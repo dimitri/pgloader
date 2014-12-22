@@ -109,6 +109,7 @@
   (def-keyword-rule "identifiers")
   (def-keyword-rule "including")
   (def-keyword-rule "excluding")
+  (def-keyword-rule "like")
   ;; option for loading from an archive
   (def-keyword-rule "archive")
   (def-keyword-rule "before")

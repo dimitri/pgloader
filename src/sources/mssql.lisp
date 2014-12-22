@@ -152,7 +152,7 @@
         (let ((*identifier-case* :none))
           (create-pgsql-fkeys all-fkeys :state state)))))
 
-(defun fetch-mssql-metadata (&key state only-tables)
+(defun fetch-mssql-metadata (&key state including excluding)
   "MS SQL introspection to prepare the migration."
   (let (all-columns all-indexes all-fkeys)
     (with-stats-collection ("fetch meta data"
@@ -160,14 +160,14 @@
                             :use-result-as-read t
                             :state state)
       (with-mssql-connection ()
-        (setf all-columns (filter-column-list (list-all-columns)
-                                              :only-tables only-tables))
+        (setf all-columns (list-all-columns :including including
+                                            :excluding excluding))
 
-        (setf all-indexes (filter-column-list (list-all-indexes)
-                                              :only-tables only-tables))
+        (setf all-indexes (list-all-indexes :including including
+                                            :excluding excluding))
 
-        (setf all-fkeys   (filter-column-list (list-all-fkeys)
-                                              :only-tables only-tables))
+        (setf all-fkeys   (list-all-fkeys :including including
+                                          :excluding excluding))
 
         ;; return how many objects we're going to deal with in total
         ;; for stats collection
@@ -195,12 +195,21 @@
 			    (reset-sequences t)
 			    (foreign-keys    t)
                             (encoding        :utf-8)
-			    only-tables)
+                            only-tables
+                            including
+                            excluding)
   "Stream the given MS SQL database down to PostgreSQL."
+
+  ;; only-tables is part of the generic lambda list, but we don't use it
+  ;; here as we didn't implement forcing the schema in the table name, and
+  ;; splitting the schema name and table name for processing in list-all-*
+  ;; filtering functions
+  (declare (ignore only-tables))
+
   (let* ((summary       (null *state*))
 	 (*state*       (or *state* (make-pgstate)))
 	 (idx-state     (or state-indexes (make-pgstate)))
-	 (state-before  (or state-before (make-pgstate)))
+	 (state-before  (or state-before  (make-pgstate)))
 	 (state-after   (or state-after   (make-pgstate)))
          (cffi:*default-foreign-encoding* encoding)
          (copy-kernel   (make-kernel 2))
@@ -209,7 +218,8 @@
     (destructuring-bind (&key all-columns all-indexes all-fkeys pkeys)
         ;; to prepare the run we need to fetch MS SQL meta-data
         (fetch-mssql-metadata :state state-before
-                              :only-tables only-tables)
+                              :including including
+                              :excluding excluding)
 
       (let ((max-indexes (loop :for (schema . tables) :in all-indexes
                             :maximizing (loop :for (table . indexes) :in tables
