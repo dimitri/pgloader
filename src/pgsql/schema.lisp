@@ -285,7 +285,6 @@
 
    This function grabs the table OIDs in the PostgreSQL database and update
    the definitions with them."
-  (log-message :debug "set-table-oids: ~s" all-indexes)
   (let* ((table-names (mapcar #'apply-identifier-case
                               (mapcar #'car all-indexes)))
 	 (table-oids  (pgloader.pgsql:list-table-oids table-names)))
