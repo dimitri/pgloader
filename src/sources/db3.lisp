@@ -125,7 +125,11 @@
     (pgstate-incf *state* (target db3) :read read)))
 
 (defmethod copy-from ((db3 copy-db3)
-		      &key state-before truncate create-table table-name)
+		      &key
+                        table-name
+                        state-before
+                        (truncate     t)
+                        (create-table t))
   "Open the DB3 and stream its content to a PostgreSQL database."
   (let* ((summary     (null *state*))
 	 (*state*     (or *state* (make-pgstate)))

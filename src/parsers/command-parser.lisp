@@ -274,7 +274,7 @@
       :collect (parse (case type
                         (:csv    'csv-option)
                         (:fixed  'fixed-option)
-                        (:db3    'dbf-option)
+                        (:dbf    'dbf-option)
                         (:ixf    'ixf-option)
                         (:sqlite 'sqlite-option)
                         (:mysql  'mysql-option)
