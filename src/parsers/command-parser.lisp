@@ -165,7 +165,7 @@
 (defvar *data-source-filename-extensions*
   '((:csv     . ("csv" "tsv" "txt" "text"))
     (:sqlite  . ("sqlite" "db"))
-    (:db3     . ("db3" "dbf"))
+    (:dbf     . ("db3" "dbf"))
     (:ixf     . ("ixf"))))
 
 (defun parse-filename-for-source-type (filename)
@@ -189,7 +189,7 @@
   (let ((source (case type
                   (:csv        (parse 'csv-file-source      source-string))
                   (:fixed      (parse 'fixed-file-source    source-string))
-                  (:db3        (parse 'filename-or-http-uri source-string))
+                  (:dbf        (parse 'filename-or-http-uri source-string))
                   (:ixf        (parse 'filename-or-http-uri source-string))
                   (:sqlite     (parse 'sqlite-uri           source-string))
                   (:postgresql (parse 'pgsql-uri            source-string))
@@ -237,9 +237,11 @@
   (loop :for guc :in gucs
      :collect (parse 'generic-option guc)))
 
+(defrule dbf-type-name (or "dbf" "db3") (:constant "dbf"))
+
 (defrule cli-type (or "csv"
                       "fixed"
-                      "db3"
+                      dbf-type-name
                       "ixf"
                       "sqlite"
                       "mysql"

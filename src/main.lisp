@@ -294,24 +294,40 @@
                             (log-message :info "SOURCE: ~s" source)
                             (log-message :info "TARGET: ~s" target)
 
-                            (when (and (null source) (null target))
-                              ;; we might actually have just 2 load files to
-                              ;; process
-                              (mapcar #'process-command-file arguments))
+                            (cond ((and (null source) (null target)
+                                        (probe-file
+                                         (uiop:parse-unix-namestring
+                                          (first arguments)))
+                                        (probe-file
+                                         (uiop:parse-unix-namestring
+                                          (second arguments))))
+                                   (mapcar #'process-command-file arguments))
+
+                                  ((null source)
+                                   (log-message :fatal
+                                                "Failed to parse ~s as a source URI."
+                                                (first arguments))
+                                   (log-message :log "You might need to use --type."))
+
+                                  ((null target)
+                                   (log-message :fatal
+                                                "Failed to parse ~s as a PostgreSQL database URI."
+                                                (second arguments))))
 
                             ;; so, we actually have all the specs for the
                             ;; job on the command line now.
-                            (let ((type (or type (getf source :type))))
-                              (load-data :from source
-                                         :into target
-                                         :encoding (parse-cli-encoding encoding)
-                                         :options  (parse-cli-options type with)
-                                         :gucs     (parse-cli-gucs set)
-                                         :type     type
-                                         :fields   (parse-cli-fields type field)
-                                         :casts    (parse-cli-casts cast)
-                                         :before   (parse-sql-file before)
-                                         :after    (parse-sql-file after)))))
+                            (when (and source target)
+                              (let ((type (or type (getf source :type))))
+                                (load-data :from source
+                                           :into target
+                                           :encoding (parse-cli-encoding encoding)
+                                           :options  (parse-cli-options type with)
+                                           :gucs     (parse-cli-gucs set)
+                                           :type     type
+                                           :fields   (parse-cli-fields type field)
+                                           :casts    (parse-cli-casts cast)
+                                           :before   (parse-sql-file before)
+                                           :after    (parse-sql-file after))))))
 
                         ;; process the files
                         (mapcar #'process-command-file arguments)))
@@ -373,7 +389,7 @@
                                                     :before before
                                                     :after after))
 
-        (:db3     (lisp-code-for-loading-from-dbf source target
+        (:dbf     (lisp-code-for-loading-from-dbf source target
                                                   :gucs gucs
                                                   :dbf-options options
                                                   :before before
