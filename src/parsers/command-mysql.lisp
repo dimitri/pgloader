@@ -159,54 +159,70 @@
 
 
 ;;; LOAD DATABASE FROM mysql://
+(defun lisp-code-for-loading-from-mysql (my-db-uri pg-db-uri
+                                         &key
+                                           gucs casts views before after
+                                           ((:mysql-options options))
+                                           ((:including incl))
+                                           ((:excluding excl))
+                                           ((:decoding decoding-as)))
+  (bind (((&key ((:dbname mydb)) table-name
+                &allow-other-keys)                        my-db-uri)
+
+         ((&key ((:dbname pgdb)) &allow-other-keys)       pg-db-uri))
+    `(lambda ()
+       (let* ((state-before  (pgloader.utils:make-pgstate))
+              (*state*       (or *state* (pgloader.utils:make-pgstate)))
+              (state-idx     (pgloader.utils:make-pgstate))
+              (state-after   (pgloader.utils:make-pgstate))
+              (*default-cast-rules* ',*mysql-default-cast-rules*)
+              (*cast-rules*         ',casts)
+              ,@(mysql-connection-bindings my-db-uri)
+              ,@(pgsql-connection-bindings pg-db-uri gucs)
+              ,@(batch-control-bindings options)
+              ,@(identifier-case-binding options)
+              (source
+               (make-instance 'pgloader.mysql::copy-mysql
+                              :target-db ,pgdb
+                              :source-db ,mydb)))
+
+         ,(sql-code-block pgdb 'state-before before "before load")
+
+         (pgloader.mysql:copy-database source
+                                       ,@(when table-name
+                                               `(:only-tables ',(list table-name)))
+                                       :including ',incl
+                                       :excluding ',excl
+                                       :decoding-as ',decoding-as
+                                       :materialize-views ',views
+                                       :state-before state-before
+                                       :state-after state-after
+                                       :state-indexes state-idx
+                                       ,@(remove-batch-control-option options))
+
+         ,(sql-code-block pgdb 'state-after after "after load")
+
+         (report-full-summary "Total import time" *state*
+                              :before   state-before
+                              :finally  state-after
+                              :parallel state-idx)))))
+
 (defrule load-mysql-database load-mysql-command
   (:lambda (source)
-    (bind (((my-db-uri pg-db-uri
-                       &key
-                       gucs casts views before after
-                       ((:mysql-options options))
-                       ((:including incl))
-                       ((:excluding excl))
-                       ((:decoding decoding-as)))           source)
-
-           ((&key ((:dbname mydb)) table-name
-                  &allow-other-keys)                        my-db-uri)
-
-           ((&key ((:dbname pgdb)) &allow-other-keys)       pg-db-uri))
-      `(lambda ()
-         (let* ((state-before  (pgloader.utils:make-pgstate))
-                (*state*       (or *state* (pgloader.utils:make-pgstate)))
-                (state-idx     (pgloader.utils:make-pgstate))
-                (state-after   (pgloader.utils:make-pgstate))
-                (*default-cast-rules* ',*mysql-default-cast-rules*)
-                (*cast-rules*         ',casts)
-                ,@(mysql-connection-bindings my-db-uri)
-                ,@(pgsql-connection-bindings pg-db-uri gucs)
-                ,@(batch-control-bindings options)
-                ,@(identifier-case-binding options)
-                (source
-                 (make-instance 'pgloader.mysql::copy-mysql
-                                :target-db ,pgdb
-                                :source-db ,mydb)))
-
-           ,(sql-code-block pgdb 'state-before before "before load")
-
-           (pgloader.mysql:copy-database source
-                                         ,@(when table-name
-                                                 `(:only-tables ',(list table-name)))
-                                         :including ',incl
-                                         :excluding ',excl
-                                         :decoding-as ',decoding-as
-                                         :materialize-views ',views
-                                         :state-before state-before
-                                         :state-after state-after
-                                         :state-indexes state-idx
-                                         ,@(remove-batch-control-option options))
-
-           ,(sql-code-block pgdb 'state-after after "after load")
-
-           (report-full-summary "Total import time" *state*
-                                :before   state-before
-                                :finally  state-after
-                                :parallel state-idx))))))
+    (destructuring-bind (my-db-uri
+                         pg-db-uri
+                         &key
+                         gucs casts views before after
+                         mysql-options including excluding decoding)
+        source
+      (lisp-code-for-loading-from-mysql my-db-uri pg-db-uri
+                                        :gucs gucs
+                                        :casts casts
+                                        :views views
+                                        :before before
+                                        :after after
+                                        :mysql-options mysql-options
+                                        :including including
+                                        :excluding excluding
+                                        :decoding decoding))))
 

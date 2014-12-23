@@ -104,7 +104,7 @@
 (defun run-commands (source
 		     &key
 		       (start-logger t)
-                       ((:summary summary-pathname))
+                       ((:summary *summary-pathname*) *summary-pathname*)
 		       ((:log-filename *log-filename*) *log-filename*)
 		       ((:log-min-messages *log-min-messages*) *log-min-messages*)
 		       ((:client-min-messages *client-min-messages*) *client-min-messages*))
@@ -128,8 +128,8 @@
                                     (parse-commands source)))))))
 
       ;; maybe duplicate the summary to a file
-      (let* ((summary-stream (when summary-pathname
-                               (open summary-pathname
+      (let* ((summary-stream (when *summary-pathname*
+                               (open *summary-pathname*
                                      :direction :output
                                      :if-exists :rename
                                      :if-does-not-exist :create)))
@@ -140,3 +140,146 @@
 
           ;; cleanup
           (when summary-stream (close summary-stream)))))))
+
+
+;;;
+;;; Parse an URI without knowing before hand what kind of uri it is.
+;;;
+(defvar *db-uri-prefix-list* '((:postgresql . ("pgsql://"
+                                               "postgres://"
+                                               "postgresql://"))
+                               (:sqlite     . ("sqlite://"))
+                               (:mysql      . ("mysql://"))
+                               (:mssql      . ("mssql://"))))
+
+(defun parse-db-uri-prefix (source-string)
+  "See if SOURCE-STRING starts with a known dburi"
+  (loop :for (type . prefixes) :in *db-uri-prefix-list*
+     :for prefix := (loop :for prefix :in prefixes
+                       :when (let ((plen (length prefix)))
+                               (and (< plen (length source-string))
+                                    (string-equal prefix source-string :end2 plen)))
+                       :return prefix)
+     :when prefix :return type))
+
+(defvar *data-source-filename-extensions*
+  '((:csv     . ("csv" "tsv" "txt" "text"))
+    (:sqlite  . ("sqlite" "db"))
+    (:db3     . ("db3" "dbf"))
+    (:ixf     . ("ixf"))))
+
+(defun parse-filename-for-source-type (filename)
+  "Given just an existing filename, decide what data source might be found
+   inside..."
+  (multiple-value-bind (abs paths filename no-path-p)
+      (uiop:split-unix-namestring-directory-components
+       (uiop:native-namestring filename))
+    (declare (ignore abs paths no-path-p))
+    (let ((dotted-parts (reverse (sq:split-sequence #\. filename))))
+      (destructuring-bind (extension name-or-ext &rest parts)
+          dotted-parts
+        (declare (ignore parts))
+        (if (string-equal "tar" name-or-ext) :archive
+            (loop :for (type . extensions) :in *data-source-filename-extensions*
+               :when (member extension extensions :test #'string-equal)
+               :return type))))))
+
+(defun parse-source-string-for-type (type source-string)
+  "use the parse rules as per xxx-source rules"
+  (let ((source (case type
+                  (:csv        (parse 'csv-file-source      source-string))
+                  (:fixed      (parse 'fixed-file-source    source-string))
+                  (:db3        (parse 'filename-or-http-uri source-string))
+                  (:ixf        (parse 'filename-or-http-uri source-string))
+                  (:sqlite     (parse 'sqlite-uri           source-string))
+                  (:postgresql (parse 'pgsql-uri            source-string))
+                  (:mysql      (parse 'mysql-uri            source-string))
+                  (:mssql      (parse 'mssql-uri            source-string)))))
+    (values type source)))
+
+(defun parse-source-string (source-string)
+  "Guess type from SOURCE-STRING then parse it accordingly."
+  (cond ((probe-file (uiop:parse-unix-namestring source-string))
+         (let ((type (parse-filename-for-source-type source-string)))
+           (parse-source-string-for-type type source-string)))
+
+        ((and source-string
+              (< (length "http://") (length source-string))
+              (string-equal "http://" source-string :end2 (length "http://")))
+         (let ((type (parse-filename-for-source-type
+                      (puri:uri-path (puri:parse-uri source-string)))))
+           (case type
+             (:csv    (log-message :fatal "No HTTP support for CSV files yet."))
+             (:fixed  (log-message :fatal "No HTTP support for FIXED files yet."))
+             (:sqlite (parse-source-string-for-type :sqlite source-string))
+             (:db3    (parse-source-string-for-type :db3 source-string))
+             (:ixf    (parse-source-string-for-type :ixf source-string)))))
+
+        ((and source-string (parse-db-uri-prefix source-string))
+         (let* ((type (parse-db-uri-prefix source-string)))
+           (multiple-value-bind (type conn)
+               (parse-source-string-for-type type source-string)
+             (if (eq type (getf conn :type))
+                 (values type conn)
+                 (log-message :fatal "Parsed a ~s connection string for type ~s")))))
+
+        (t nil)))
+
+(defun parse-target-string (target-string)
+  (parse 'pgsql-uri target-string))
+
+
+;;;
+;;; Command line accumulative options parser
+;;;
+(defun parse-cli-gucs (gucs)
+  "Parse PostgreSQL GUCs as per the SET clause when we get them from the CLI."
+  (loop :for guc :in gucs
+     :collect (parse 'generic-option guc)))
+
+(defrule cli-type (or "csv"
+                      "fixed"
+                      "db3"
+                      "ixf"
+                      "sqlite"
+                      "mysql"
+                      "mssql")
+  (:text t))
+
+(defun parse-cli-type (type)
+  "Parse the --type option"
+  (when type
+   (intern (string-upcase (parse 'cli-type type)) (find-package "KEYWORD"))))
+
+(defun parse-cli-encoding (encoding)
+  "Parse the --encoding option"
+  (if encoding
+      (make-external-format (find-encoding-by-name-or-alias encoding))
+      :utf-8))
+
+(defun parse-cli-fields (type fields)
+  "Parse the --fields option."
+  (loop :for field :in fields
+     :collect (parse (case type
+                       (:csv   'csv-source-field)
+                       (:fixed 'fixed-source-field))
+                     field)))
+
+(defun parse-cli-options (type options)
+  "Parse options as per the WITH clause when we get them from the CLI."
+  (alexandria:alist-plist
+   (loop :for option :in options
+      :collect (parse (case type
+                        (:csv    'csv-option)
+                        (:fixed  'fixed-option)
+                        (:db3    'dbf-option)
+                        (:ixf    'ixf-option)
+                        (:sqlite 'sqlite-option)
+                        (:mysql  'mysql-option)
+                        (:mssql  'mysql-option))
+                      option))))
+
+(defun parse-cli-casts (casts)
+  "Parse additional CAST rules when we get them from the CLI."
+  (loop :for cast :in casts
+     :collect (parse 'cast-rule cast)))

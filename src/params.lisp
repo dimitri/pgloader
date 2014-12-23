@@ -9,6 +9,7 @@
 	   #:*csv-path-root*
 	   #:*root-dir*
 	   #:*log-filename*
+           #:*summary-pathname*
 	   #:*client-min-messages*
 	   #:*log-min-messages*
            #:*report-stream*
@@ -90,6 +91,8 @@
                  :name "pgloader"
                  :type "log")
   "Main pgloader log file")
+
+(defparameter *summary-pathname* nil "Pathname where to output the summary.")
 
 (defparameter *client-min-messages* :notice)
 (defparameter *log-min-messages* :info)

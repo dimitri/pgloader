@@ -55,51 +55,61 @@
     (destructuring-bind (source target clauses) command
       `(,source ,target ,@clauses))))
 
+(defun lisp-code-for-loading-from-dbf (source pg-db-uri
+                                       &key
+                                         gucs before after
+                                         ((:dbf-options options)))
+  (bind (((&key dbname table-name &allow-other-keys) pg-db-uri))
+    `(lambda ()
+       (let* ((state-before   (pgloader.utils:make-pgstate))
+              (summary        (null *state*))
+              (*state*        (or *state* (pgloader.utils:make-pgstate)))
+              (state-after   ,(when after `(pgloader.utils:make-pgstate)))
+              ,@(pgsql-connection-bindings pg-db-uri gucs)
+              ,@(batch-control-bindings options)
+              ,@(identifier-case-binding options)
+              (source
+               ,(bind (((kind url) source))
+                      (ecase kind
+                        (:http     `(with-stats-collection
+                                        ("download" :state state-before)
+                                      (pgloader.archive:http-fetch-file ,url)))
+                        (:filename url))))
+              (source
+               (if (string= "zip" (pathname-type source))
+                   (progn
+                     (with-stats-collection ("extract" :state state-before)
+                       (let ((d (pgloader.archive:expand-archive source)))
+                         (make-pathname :defaults d
+                                        :name (pathname-name source)
+                                        :type "dbf"))))
+                   source))
+              (source
+               (make-instance 'pgloader.db3:copy-db3
+                              :target-db ,dbname
+                              :source source
+                              :target ,table-name)))
+
+         ,(sql-code-block dbname 'state-before before "before load")
+
+         (pgloader.sources:copy-from source
+                                     :state-before state-before
+                                     ,@(remove-batch-control-option options))
+
+         ,(sql-code-block dbname 'state-after after "after load")
+
+         ;; reporting
+         (when summary
+           (report-full-summary "Total import time" *state*
+                                :before state-before
+                                :finally state-after))))))
+
 (defrule load-dbf-file load-dbf-command
   (:lambda (command)
     (bind (((source pg-db-uri
-                    &key ((:dbf-options options)) gucs before after) command)
-           ((&key dbname table-name &allow-other-keys)               pg-db-uri))
-      `(lambda ()
-         (let* ((state-before   (pgloader.utils:make-pgstate))
-                (summary        (null *state*))
-                (*state*        (or *state* (pgloader.utils:make-pgstate)))
-                (state-after   ,(when after `(pgloader.utils:make-pgstate)))
-                ,@(pgsql-connection-bindings pg-db-uri gucs)
-                ,@(batch-control-bindings options)
-                ,@(identifier-case-binding options)
-                (source
-                 ,(bind (((kind url) source))
-                        (ecase kind
-                          (:http     `(with-stats-collection
-                                          ("download" :state state-before)
-                                        (pgloader.archive:http-fetch-file ,url)))
-                          (:filename url))))
-                (source
-                 (if (string= "zip" (pathname-type source))
-                     (progn
-                       (with-stats-collection ("extract" :state state-before)
-                         (let ((d (pgloader.archive:expand-archive source)))
-                           (make-pathname :defaults d
-                                          :name (pathname-name source)
-                                          :type "dbf"))))
-                     source))
-                (source
-                 (make-instance 'pgloader.db3:copy-db3
-                                :target-db ,dbname
-                                :source source
-                                :target ,table-name)))
-
-           ,(sql-code-block dbname 'state-before before "before load")
-
-           (pgloader.sources:copy-from source
-                                       :state-before state-before
-                                       ,@(remove-batch-control-option options))
-
-           ,(sql-code-block dbname 'state-after after "after load")
-
-           ;; reporting
-           (when summary
-             (report-full-summary "Total import time" *state*
-                                  :before state-before
-                                  :finally state-after)))))))
+                    &key ((:dbf-options options)) gucs before after) command))
+      (lisp-code-for-loading-from-dbf source pg-db-uri
+                                      :gucs gucs
+                                      :before before
+                                      :after after
+                                      :dbf-options options))))

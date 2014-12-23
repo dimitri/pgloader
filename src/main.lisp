@@ -4,7 +4,7 @@
   "Return the internal value to use given the script parameters."
   (cond ((and debug verbose) :data)
         (debug   :debug)
-	(verbose :info)
+	(verbose :notice)
 	(quiet   :warning)
 	(t       (or (find-symbol (string-upcase min-message) "KEYWORD")
 		     :notice))))
@@ -41,6 +41,24 @@
 
     (("load-lisp-file" #\l) :type string :list t :optional t
      :documentation "Read user code from files")
+
+    (("with") :type string :list t :optional t
+     :documentation "Load options")
+
+    (("set") :type string :list t :optional t
+     :documentation "PostgreSQL options")
+
+    (("field") :type string :list t :optional t
+     :documentation "Source file fields specification")
+
+    (("cast") :type string :list t :optional t
+     :documentation "Specific cast rules")
+
+    (("type") :type string :optional t
+     :documentation "Force input source type")
+
+    (("encoding") :type string :optional t
+     :documentation "Source expected encoding")
 
     ("self-upgrade" :type string :optional t
      :documentation "Path to pgloader newer sources")))
@@ -83,7 +101,8 @@
 
 (defun usage (argv &key quit)
   "Show usage then QUIT if asked to."
-  (format t "~a [ option ... ] command-file ..." (first argv))
+  (format t "~&~a [ option ... ] command-file ..." (first argv))
+  (format t "~&~a [ option ... ] SOURCE TARGET" (first argv))
   (command-line-arguments:show-option-help *opt-spec*)
   (when quit (uiop:quit)))
 
@@ -142,14 +161,16 @@
             (command-line-arguments:process-command-line-options *opt-spec* args)
           (condition (e)
             ;; print out the usage, whatever happens here
-            (declare (ignore e))
+            ;; (declare (ignore e))
+            (format t "~a~%" e)
             (usage argv :quit t)))
 
       (destructuring-bind (&key help version quiet verbose debug logfile
 				list-encodings upgrade-config
                                 ((:load-lisp-file load))
 				client-min-messages log-min-messages summary
-				root-dir self-upgrade)
+				root-dir self-upgrade
+                                with set field cast type encoding)
 	  options
 
         ;; First thing: Self Upgrade?
@@ -229,40 +250,136 @@
 	;; Now process the arguments
 	(when arguments
 	  ;; Start the logs system
-	  (let ((*log-filename* (log-file-name logfile)))
+	  (let ((*log-filename*      (log-file-name logfile))
+                (*summary-pathname*  (parse-summary-filename summary debug)))
 
             (with-monitor ()
               ;; tell the user where to look for interesting things
               (log-message :log "Main logs in '~a'" (probe-file *log-filename*))
               (log-message :log "Data errors in '~a'~%" *root-dir*)
 
-              ;; process the files
-              (loop for filename in arguments
-                 do
-                 ;; The handler-case is to catch unhandled exceptions at the
-                 ;; top level and continue with the next file in the list.
-                 ;;
-                 ;; The handler-bind is to be able to offer a meaningful
-                 ;; backtrace to the user in case of unexpected conditions
-                 ;; being signaled.
-                   (handler-case
-                       (handler-bind
-                           ((condition
-                             #'(lambda (condition)
-                                 (log-message :fatal "We have a situation here.")
-                                 (print-backtrace condition debug *standard-output*))))
-                         (let ((truename (probe-file filename))
-                               (summary-pathname
-                                (parse-summary-filename summary debug)))
-                           (if truename
-                               (run-commands truename
-                                             :summary summary-pathname
-                                             :start-logger nil)
-                               (log-message :error "Can not find file: ~s" filename)))
-                         (format t "~&"))
+              (handler-case
+                  ;; The handler-case is to catch unhandled exceptions at the
+                  ;; top level.
+                  ;;
+                  ;; The handler-bind is to be able to offer a meaningful
+                  ;; backtrace to the user in case of unexpected conditions
+                  ;; being signaled.
+                  (handler-bind
+                      ((condition
+                        #'(lambda (condition)
+                            (log-message :fatal "We have a situation here.")
+                            (print-backtrace condition debug *standard-output*))))
 
-                     (condition (c)
-                       (when debug (invoke-debugger c))
-                       (uiop:quit 1)))))))
+                    ;; if there are exactly two arguments in the command
+                    ;; line, try and process them as source and target
+                    ;; arguments
+                    (if (= 2 (length arguments))
+                        (let ((type   (parse-cli-type type))
+                              (source (first arguments))
+                              (target (parse-target-string (second arguments))))
 
+                          (multiple-value-bind (type source)
+                              (if type
+                                  (parse-source-string-for-type type source)
+                                  (parse-source-string source))
+
+                            ;; some verbosity about the parsing "magic"
+                            (log-message :info "SOURCE: ~s" source)
+                            (log-message :info "TARGET: ~s" target)
+
+                            (when (and (null source) (null target))
+                              ;; we might actually have just 2 load files to
+                              ;; process
+                              (mapcar #'process-command-file arguments))
+
+                            ;; so, we actually have all the specs for the
+                            ;; job on the command line now.
+                            (let ((type (or type (getf source :type))))
+                              (load-data :from source
+                                         :into target
+                                         :encoding (parse-cli-encoding encoding)
+                                         :options  (parse-cli-options type with)
+                                         :gucs     (parse-cli-gucs set)
+                                         :type     type
+                                         :fields   (parse-cli-fields type field)
+                                         :casts    (parse-cli-casts cast)))))
+
+                        ;; process the files
+                        (mapcar #'process-command-file arguments)))
+
+                (condition (c)
+                  (when debug (invoke-debugger c))
+                  (uiop:quit 1))))))
+
+        ;; done.
 	(uiop:quit)))))
+
+(defun process-command-file (filename)
+  "Process FILENAME as a pgloader command file (.load)."
+  (let ((truename (probe-file filename)))
+    (if truename
+        (run-commands truename :start-logger nil)
+        (log-message :error "Can not find file: ~s" filename)))
+  (format t "~&"))
+
+
+;;;
+;;; Main API to use from outside of pgloader.
+;;;
+(defun load-data (&key ((:from source)) ((:into target))
+                    (type (getf source :type))
+                    encoding fields options gucs casts start-logger)
+  "Load data from SOURCE into TARGET."
+  (with-monitor (:start-logger start-logger)
+    ;; some preliminary checks
+    (when (and (eq source :stdin) (null type))
+      (log-message :fatal "When loading from stdin, option --type is mandatory.")
+      (return-from load-data))
+
+    (when (and (member type '(:csv :fixed)) (null fields))
+      (log-message :fatal "Source type ~a requires --fields arguments." type)
+      (return-from load-data))
+
+    (when (and casts (not (member type '(:sqlite :mysql :mssql))))
+      (log-message :log "Cast rules are not considered for ~s sources." type))
+
+    ;; now generates the code for the command
+    (log-message :debug "LOAD DATA ~a FROM ~s" type source)
+    (run-commands
+     (process-relative-pathnames
+      (uiop:getcwd)
+      (case type
+        (:csv     (lisp-code-for-loading-from-csv source fields target
+                                                  :encoding encoding
+                                                  :gucs gucs
+                                                  :csv-options options))
+
+        (:fixed   (lisp-code-for-loading-from-fixed source fields target
+                                                    :encoding encoding
+                                                    :gucs gucs
+                                                    :fixed-options options))
+
+        (:db3     (lisp-code-for-loading-from-dbf source target
+                                                  :gucs gucs
+                                                  :dbf-options options))
+
+        (:ixf     (lisp-code-for-loading-from-ixf source target
+                                                  :gucs gucs
+                                                  :ixf-options options))
+
+        (:sqlite  (lisp-code-for-loading-from-sqlite source target
+                                                     :gucs gucs
+                                                     :casts casts
+                                                     :sqlite-options options))
+
+        (:mysql   (lisp-code-for-loading-from-mysql source target
+                                                    :gucs gucs
+                                                    :casts casts
+                                                    :mysql-options options))
+
+        (:mssql   (lisp-code-for-loading-from-mssql source target
+                                                    :gucs gucs
+                                                    :casts casts
+                                                    :mssql-options options))))
+     :start-logger start-logger)))

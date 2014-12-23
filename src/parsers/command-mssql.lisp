@@ -124,25 +124,24 @@
 
 
 ;;; LOAD DATABASE FROM mssql://
-(defrule load-mssql-database load-mssql-command
-  (:lambda (source)
-    (bind (((ms-db-uri pg-db-uri
-                       &key
-                       gucs casts before after including excluding
-                       ((:mysql-options options)))           source)
+(defun lisp-code-for-loading-from-mssql (source pg-db-uri
+                                         &key
+                                           gucs casts before after
+                                           ((:mssql-options options))
+                                           (including)
+                                           (excluding))
+  (bind (((&key ((:dbname msdb)) table-name
+                  &allow-other-keys)                      source)
 
-           ((&key ((:dbname msdb)) table-name
-                  &allow-other-keys)                        ms-db-uri)
-
-           ((&key ((:dbname pgdb)) &allow-other-keys)       pg-db-uri))
-      `(lambda ()
+         ((&key ((:dbname pgdb)) &allow-other-keys)       pg-db-uri))
+    `(lambda ()
          (let* ((state-before  (pgloader.utils:make-pgstate))
                 (*state*       (or *state* (pgloader.utils:make-pgstate)))
                 (state-idx     (pgloader.utils:make-pgstate))
                 (state-after   (pgloader.utils:make-pgstate))
                 (*default-cast-rules* ',*mssql-default-cast-rules*)
                 (*cast-rules*         ',casts)
-                ,@(mssql-connection-bindings ms-db-uri)
+                ,@(mssql-connection-bindings source)
                 ,@(pgsql-connection-bindings pg-db-uri gucs)
                 ,@(batch-control-bindings options)
                 ,@(identifier-case-binding options)
@@ -168,5 +167,21 @@
            (report-full-summary "Total import time" *state*
                                 :before   state-before
                                 :finally  state-after
-                                :parallel state-idx))))))
+                                :parallel state-idx)))))
+
+(defrule load-mssql-database load-mssql-command
+  (:lambda (source)
+    (bind (((ms-db-uri pg-db-uri
+                       &key
+                       gucs casts before after including excluding
+                       ((:mysql-options options)))
+            source))
+      (lisp-code-for-loading-from-mssql ms-db-uri pg-db-uri
+                                        :gucs gucs
+                                        :casts casts
+                                        :before before
+                                        :after after
+                                        :mssql-options options
+                                        :including including
+                                        :excluding excluding))))
 

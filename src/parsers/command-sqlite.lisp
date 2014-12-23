@@ -73,8 +73,8 @@ load database
 (defrule load-sqlite-optional-clauses (* (or sqlite-options
                                              gucs
                                              casts
-                                             including
-                                             excluding))
+                                             including-matching
+                                             excluding-matching))
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
 
@@ -84,50 +84,60 @@ load database
     (destructuring-bind (source target clauses) command
       `(,source ,target ,@clauses))))
 
+(defun lisp-code-for-loading-from-sqlite (source pg-db-uri
+                                          &key
+                                            gucs casts
+                                            ((:sqlite-options options))
+                                            ((:including incl))
+                                            ((:excluding excl)))
+  (bind (((&key dbname table-name &allow-other-keys) pg-db-uri))
+    `(lambda ()
+       (let* ((state-before   (pgloader.utils:make-pgstate))
+              (*state*        (pgloader.utils:make-pgstate))
+              (*default-cast-rules* ',*sqlite-default-cast-rules*)
+              (*cast-rules*         ',casts)
+              ,@(pgsql-connection-bindings pg-db-uri gucs)
+              ,@(batch-control-bindings options)
+              (db
+               ,(bind (((kind url) source))
+                      (ecase kind
+                        (:http     `(with-stats-collection
+                                        ("download" :state state-before)
+                                      (pgloader.archive:http-fetch-file ,url)))
+                        (:sqlite url)
+                        (:filename url))))
+              (db
+               (if (string= "zip" (pathname-type db))
+                   (progn
+                     (with-stats-collection ("extract" :state state-before)
+                       (let ((d (pgloader.archive:expand-archive db)))
+                         (make-pathname :defaults d
+                                        :name (pathname-name db)
+                                        :type "db"))))
+                   db))
+              (source
+               (make-instance 'pgloader.sqlite::copy-sqlite
+                              :target-db ,dbname
+                              :source-db db)))
+         (pgloader.sqlite:copy-database
+          source
+          :state-before state-before
+          ,@(when table-name
+                  `(:only-tables ',(list table-name)))
+          :including ',incl
+          :excluding ',excl
+          ,@(remove-batch-control-option options))))))
+
 (defrule load-sqlite-database load-sqlite-command
   (:lambda (source)
-    (bind (((sqlite-uri pg-db-uri
-                        &key
-                        gucs
-                        casts
-                        ((:sqlite-options options))
-                        ((:including incl))
-                        ((:excluding excl)))           source)
-           ((&key dbname table-name &allow-other-keys) pg-db-uri))
-      `(lambda ()
-         (let* ((state-before   (pgloader.utils:make-pgstate))
-                (*state*        (pgloader.utils:make-pgstate))
-                (*default-cast-rules* ',*sqlite-default-cast-rules*)
-                (*cast-rules*         ',casts)
-                ,@(pgsql-connection-bindings pg-db-uri gucs)
-                ,@(batch-control-bindings options)
-                (db
-                 ,(bind (((kind url) sqlite-uri))
-                        (ecase kind
-                          (:http     `(with-stats-collection
-                                          ("download" :state state-before)
-                                        (pgloader.archive:http-fetch-file ,url)))
-                          (:sqlite url)
-                          (:filename url))))
-                (db
-                 (if (string= "zip" (pathname-type db))
-                     (progn
-                       (with-stats-collection ("extract" :state state-before)
-                         (let ((d (pgloader.archive:expand-archive db)))
-                           (make-pathname :defaults d
-                                          :name (pathname-name db)
-                                          :type "db"))))
-                     db))
-                (source
-                 (make-instance 'pgloader.sqlite::copy-sqlite
-                                :target-db ,dbname
-                                :source-db db)))
-           (pgloader.sqlite:copy-database
-            source
-            :state-before state-before
-            ,@(when table-name
-                    `(:only-tables ',(list table-name)))
-            :including ',incl
-            :excluding ',excl
-            ,@(remove-batch-control-option options)))))))
+    (destructuring-bind (sqlite-uri
+                         pg-db-uri
+                         &key gucs casts sqlite-options including excluding)
+        source
+      (lisp-code-for-loading-from-sqlite sqlite-uri pg-db-uri
+                                         :gucs gucs
+                                         :casts casts
+                                         :sqlite-options sqlite-options
+                                         :including including
+                                         :excluding excluding))))
 

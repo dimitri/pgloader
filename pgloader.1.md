@@ -3,6 +3,7 @@
 ## SYNOPSIS
 
     pgloader [<options>] [<command-file>]...
+    pgloader [<options>] SOURCE TARGET
 
 ## DESCRIPTION
 
@@ -12,17 +13,39 @@ after the loading.  It uses the `COPY` PostgreSQL protocol to stream
 the data into the server, and manages errors by filling a pair of
 *reject.dat* and *reject.log* files.
 
-pgloader operates using commands which are read from files:
+pgloader operates either using commands which are read from files:
 
     pgloader commands.load
+    
+or by using arguments and options all provided on the command line:
+
+    pgloader SOURCE TARGET
 
 ## OPTIONS
+
+### INQUIRY OPTIONS
+
+Use these options when you want to know more about how to use `pgloader`, as
+those options will cause `pgloader` not to load any data.
 
   * `-h`, `--help`:
     Show command usage summary and exit.
 
   * `-V`, `--version`:
     Show pgloader version string and exit.
+
+  * `-E`, `--list-encodings`:
+    List known encodings in this version of pgloader.
+
+  * `-U`, `--upgrade-config`:
+    Parse given files in the command line as `pgloader.conf` files with the
+   `INI` syntax that was in use in pgloader versions 2.x, and output the
+   new command syntax for pgloader on standard output.
+
+
+### GENERAL OPTIONS
+
+Those options are meant to tweak `pgloader` behavior when loading data.
 
   * `-v`, `--verbose`:
     Be verbose.
@@ -51,14 +74,6 @@ pgloader operates using commands which are read from files:
     A filename where to copy the summary output. When relative, the filename
     is expanded into `*root-dir`.
 
-  * `-E`, `--list-encodings`:
-    List known encodings in this version of pgloader.
-
-  * `-U`, `--upgrade-config`:
-    Parse given files in the command line as `pgloader.conf` files with the
-   `INI` syntax that was in use in pgloader versions 2.x, and output the
-   new command syntax for pgloader on standard output.
-
   * `-l <file>`, `--load-lisp-file <file>`:
     Specify a lisp <file> to compile and load into the pgloader image before
     reading the commands, allowing to define extra transformation function.
@@ -71,6 +86,48 @@ pgloader operates using commands which are read from files:
     very first things it does is dynamically loading-in (and compiling to
     machine code) another version of itself, usually a newer one like a very
     recent git checkout.
+
+### NO COMMAND FILE OPTIONS
+
+Those options are meant to be used when using `pgloader` from the command
+line only, rather than using a command file and the rich command clauses and
+parser. In simple cases, it can be much easier to use the *SOURCE* and
+*TARGET* directly on the command line, then tweak the loading with those
+options:
+
+  * `--with "option"`:
+  
+    Allows setting options from the command line. You can use that option as
+    many times as you want. The option arguments must follow the *WITH*
+    clause for the source type of the `SOURCE` specification, as described
+    later in this document.
+    
+  * `--set "guc_name='value'"`
+  
+    Allows setting PostgreSQL configuration from the command line. Note that
+    the option parsing is the same as when used from the *SET* command
+    clause, in particular you must enclose the guc value with single-quotes.
+    
+  * `--field "..."`
+  
+    Allows setting a source field definition. Fields are accumulated in the
+    order given on the command line. It's then required to use a `--field`
+    option per field in the source file.
+    
+  * `--cast "..."`
+  
+    Allows setting a specific casting rule for loading the data.
+
+  * `--type csv|fixed|db3|ixf|sqlite|mysql|mssql`
+  
+    Allows forcing the source type, in case when the *SOURCE* parsing isn't
+    satisfying.
+    
+  * `--encoding <encoding>`
+  
+    Set the encoding of the source file to load data from.
+
+### MORE DEBUG INFORMATION
 
 To get the maximum amount of debug information, you can use both the
 `--verbose` and the `--debug` switches at the same time, which is equivalent

@@ -42,7 +42,7 @@
 				:stream *standard-output*)
 	*log-messengers*)
 
-  (cl-log:log-message :log "Starting pgloader, log system is ready."))
+  (cl-log:log-message :notice "Starting pgloader, log system is ready."))
 
 (defun stop-logger ()
   "Stop the pgloader manager and messengers."

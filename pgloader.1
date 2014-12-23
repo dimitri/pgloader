@@ -11,6 +11,7 @@
 .nf
 
 pgloader [<options>] [<command\-file>]\.\.\.
+pgloader [<options>] SOURCE TARGET
 .
 .fi
 .
@@ -18,7 +19,7 @@ pgloader [<options>] [<command\-file>]\.\.\.
 pgloader loads data from various sources into PostgreSQL\. It can transform the data it reads on the fly and submit raw SQL before and after the loading\. It uses the \fBCOPY\fR PostgreSQL protocol to stream the data into the server, and manages errors by filling a pair of \fIreject\.dat\fR and \fIreject\.log\fR files\.
 .
 .P
-pgloader operates using commands which are read from files:
+pgloader operates either using commands which are read from files:
 .
 .IP "" 4
 .
@@ -30,7 +31,23 @@ pgloader commands\.load
 .
 .IP "" 0
 .
+.P
+or by using arguments and options all provided on the command line:
+.
+.IP "" 4
+.
+.nf
+
+pgloader SOURCE TARGET
+.
+.fi
+.
+.IP "" 0
+.
 .SH "OPTIONS"
+.
+.SS "INQUIRY OPTIONS"
+Use these options when you want to know more about how to use \fBpgloader\fR, as those options will cause \fBpgloader\fR not to load any data\.
 .
 .TP
 \fB\-h\fR, \fB\-\-help\fR
@@ -39,6 +56,17 @@ Show command usage summary and exit\.
 .TP
 \fB\-V\fR, \fB\-\-version\fR
 Show pgloader version string and exit\.
+.
+.TP
+\fB\-E\fR, \fB\-\-list\-encodings\fR
+List known encodings in this version of pgloader\.
+.
+.TP
+\fB\-U\fR, \fB\-\-upgrade\-config\fR
+Parse given files in the command line as \fBpgloader\.conf\fR files with the \fBINI\fR syntax that was in use in pgloader versions 2\.x, and output the new command syntax for pgloader on standard output\.
+.
+.SS "GENERAL OPTIONS"
+Those options are meant to tweak \fBpgloader\fR behavior when loading data\.
 .
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
@@ -73,14 +101,6 @@ Minimum level of verbosity needed for log message to make it to the console\. On
 A filename where to copy the summary output\. When relative, the filename is expanded into \fB*root\-dir\fR\.
 .
 .TP
-\fB\-E\fR, \fB\-\-list\-encodings\fR
-List known encodings in this version of pgloader\.
-.
-.TP
-\fB\-U\fR, \fB\-\-upgrade\-config\fR
-Parse given files in the command line as \fBpgloader\.conf\fR files with the \fBINI\fR syntax that was in use in pgloader versions 2\.x, and output the new command syntax for pgloader on standard output\.
-.
-.TP
 \fB\-l <file>\fR, \fB\-\-load\-lisp\-file <file>\fR
 Specify a lisp \fIfile\fR to compile and load into the pgloader image before reading the commands, allowing to define extra transformation function\. Those functions should be defined in the \fBpgloader\.transforms\fR package\. This option can appear more than once in the command line\.
 .
@@ -90,7 +110,48 @@ Specify a lisp \fIfile\fR to compile and load into the pgloader image before rea
 .IP
 Specify a \fIdirectory\fR where to find pgloader sources so that one of the very first things it does is dynamically loading\-in (and compiling to machine code) another version of itself, usually a newer one like a very recent git checkout\.
 .
-.P
+.SS "NO COMMAND FILE OPTIONS"
+Those options are meant to be used when using \fBpgloader\fR from the command line only, rather than using a command file and the rich command clauses and parser\. In simple cases, it can be much easier to use the \fISOURCE\fR and \fITARGET\fR directly on the command line, then tweak the loading with those options:
+.
+.IP "\(bu" 4
+\fB\-\-with "option"\fR:
+.
+.IP
+Allows setting options from the command line\. You can use that option as many times as you want\. The option arguments must follow the \fIWITH\fR clause for the source type of the \fBSOURCE\fR specification, as described later in this document\.
+.
+.IP "\(bu" 4
+\fB\-\-set "guc_name=\'value\'"\fR
+.
+.IP
+Allows setting PostgreSQL configuration from the command line\. Note that the option parsing is the same as when used from the \fISET\fR command clause, in particular you must enclose the guc value with single\-quotes\.
+.
+.IP "\(bu" 4
+\fB\-\-field "\.\.\."\fR
+.
+.IP
+Allows setting a source field definition\. Fields are accumulated in the order given on the command line\. It\'s then required to use a \fB\-\-field\fR option per field in the source file\.
+.
+.IP "\(bu" 4
+\fB\-\-cast "\.\.\."\fR
+.
+.IP
+Allows setting a specific casting rule for loading the data\.
+.
+.IP "\(bu" 4
+\fB\-\-type csv|fixed|db3|ixf|sqlite|mysql|mssql\fR
+.
+.IP
+Allows forcing the source type, in case when the \fISOURCE\fR parsing isn\'t satisfying\.
+.
+.IP "\(bu" 4
+\fB\-\-encoding <encoding>\fR
+.
+.IP
+Set the encoding of the source file to load data from\.
+.
+.IP "" 0
+.
+.SS "MORE DEBUG INFORMATION"
 To get the maximum amount of debug information, you can use both the \fB\-\-verbose\fR and the \fB\-\-debug\fR switches at the same time, which is equivalent to saying \fB\-\-client\-min\-messages data\fR\. Then the log messages will show the data being processed, in the cases where the code has explicit support for it\.
 .
 .SH "BATCHES AND RETRY BEHAVIOUR"
@@ -1559,6 +1620,9 @@ type int to int when (< precision 10)
 .
 .IP "\(bu" 4
 type int to bigint when (<= 10 precision)
+.
+.IP "\(bu" 4
+type tinyint with extra auto_increment to serial
 .
 .IP "\(bu" 4
 type smallint with extra auto_increment to serial

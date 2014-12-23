@@ -405,12 +405,14 @@
     (destructuring-bind (source encoding fields target columns clauses) command
       `(,source ,encoding ,fields ,target ,columns ,@clauses))))
 
-(defrule load-csv-file load-csv-file-command
-  (:lambda (command)
-    (bind (((source encoding fields pg-db-uri columns
-                    &key ((:csv-options options)) gucs before after) command)
-           ((&key dbname table-name &allow-other-keys)               pg-db-uri))
-      `(lambda ()
+(defun lisp-code-for-loading-from-csv (source fields pg-db-uri
+                                       &key
+                                         (encoding :utf-8)
+                                         columns
+                                         gucs before after
+                                         ((:csv-options options)))
+  (bind (((&key dbname table-name &allow-other-keys) pg-db-uri))
+    `(lambda ()
 	   (let* ((state-before  ,(when before `(pgloader.utils:make-pgstate)))
 		  (summary       (null *state*))
 		  (*state*       (or *state* (pgloader.utils:make-pgstate)))
@@ -440,4 +442,16 @@
 	       (when summary
 		 (report-full-summary "Total import time" *state*
 				      :before  state-before
-				      :finally state-after))))))))
+				      :finally state-after)))))))
+
+(defrule load-csv-file load-csv-file-command
+  (:lambda (command)
+    (bind (((source encoding fields pg-db-uri columns
+                    &key ((:csv-options options)) gucs before after) command))
+      (lisp-code-for-loading-from-csv source fields pg-db-uri
+                                      :encoding encoding
+                                      :columns columns
+                                      :gucs gucs
+                                      :before before
+                                      :after after
+                                      :csv-options options))))

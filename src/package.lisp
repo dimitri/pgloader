@@ -381,23 +381,38 @@
   (:import-from #:pgloader.sqlite #:*sqlite-default-cast-rules*)
   (:export #:parse-commands
 	   #:run-commands
-	   #:with-database-uri))
 
+           ;; tools to enable complete CLI parsing in main.lisp
+           #:process-relative-pathnames
+	   #:parse-source-string
+	   #:parse-source-string-for-type
+           #:parse-target-string
+           #:parse-cli-options
+           #:parse-cli-gucs
+           #:parse-cli-type
+           #:parse-cli-encoding
+           #:parse-cli-fields
+           #:parse-cli-casts
+
+           ;; functions to generate lisp code from parameters
+           #:lisp-code-for-loading-from-mysql
+           #:lisp-code-for-loading-from-csv
+           #:lisp-code-for-loading-from-fixed
+           #:lisp-code-for-loading-from-dbf
+           #:lisp-code-for-loading-from-ixf
+           #:lisp-code-for-loading-from-sqlite
+           #:lisp-code-for-loading-from-mssql))
 
 
 ;;
 ;; Main package
 ;;
 (defpackage #:pgloader
-  (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.parser)
   (:import-from #:pgloader.pgsql
 		#:copy-from-file
 		#:list-databases
 		#:list-tables)
-  (:import-from #:pgloader.parser
-		#:run-commands
-		#:parse-commands
-		#:with-database-uri)
   (:import-from #:pgloader.sources
                 #:connection-error)
   (:export #:*version-string*

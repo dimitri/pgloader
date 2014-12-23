@@ -106,38 +106,52 @@
     (destructuring-bind (source encoding fields target columns clauses) command
       `(,source ,encoding ,fields ,target ,columns ,@clauses))))
 
+(defun lisp-code-for-loading-from-fixed (source fields pg-db-uri
+                                         &key
+                                           (encoding :utf-8)
+                                           columns
+                                           gucs before after
+                                           ((:fixed-options options)))
+  (bind (((&key dbname table-name &allow-other-keys) pg-db-uri))
+    `(lambda ()
+       (let* ((state-before  ,(when before `(pgloader.utils:make-pgstate)))
+              (summary       (null *state*))
+              (*state*       (or *state* (pgloader.utils:make-pgstate)))
+              (state-after   ,(when after `(pgloader.utils:make-pgstate)))
+              ,@(pgsql-connection-bindings pg-db-uri gucs)
+              ,@(batch-control-bindings options))
+
+         (progn
+           ,(sql-code-block dbname 'state-before before "before load")
+
+           (let ((truncate ,(getf options :truncate))
+                 (source
+                  (make-instance 'pgloader.fixed:copy-fixed
+                                 :target-db ,dbname
+                                 :source ',source
+                                 :target ,table-name
+                                 :encoding ,encoding
+                                 :fields ',fields
+                                 :columns ',columns
+                                 :skip-lines ,(or (getf options :skip-line) 0))))
+             (pgloader.sources:copy-from source :truncate truncate))
+
+           ,(sql-code-block dbname 'state-after after "after load")
+
+           ;; reporting
+           (when summary
+             (report-full-summary "Total import time" *state*
+                                  :before  state-before
+                                  :finally state-after)))))))
+
 (defrule load-fixed-cols-file load-fixed-cols-file-command
   (:lambda (command)
     (bind (((source encoding fields pg-db-uri columns
-                    &key ((:fixed-options options)) gucs before after) command)
-           ((&key dbname table-name &allow-other-keys)                 pg-db-uri))
-      `(lambda ()
-         (let* ((state-before  ,(when before `(pgloader.utils:make-pgstate)))
-                (summary       (null *state*))
-                (*state*       (or *state* (pgloader.utils:make-pgstate)))
-                (state-after   ,(when after `(pgloader.utils:make-pgstate)))
-                ,@(pgsql-connection-bindings pg-db-uri gucs)
-                ,@(batch-control-bindings options))
-
-           (progn
-             ,(sql-code-block dbname 'state-before before "before load")
-
-             (let ((truncate ,(getf options :truncate))
-                   (source
-                    (make-instance 'pgloader.fixed:copy-fixed
-                                   :target-db ,dbname
-                                   :source ',source
-                                   :target ,table-name
-                                   :encoding ,encoding
-                                   :fields ',fields
-                                   :columns ',columns
-                                   :skip-lines ,(or (getf options :skip-line) 0))))
-               (pgloader.sources:copy-from source :truncate truncate))
-
-             ,(sql-code-block dbname 'state-after after "after load")
-
-             ;; reporting
-             (when summary
-               (report-full-summary "Total import time" *state*
-                                    :before  state-before
-                                    :finally state-after))))))))
+                    &key ((:fixed-options options)) gucs before after) command))
+      (lisp-code-for-loading-from-fixed source fields pg-db-uri
+                                        :encoding encoding
+                                        :columns columns
+                                        :gucs gucs
+                                        :before before
+                                        :after after
+                                        :fixed-options options))))
