@@ -99,20 +99,18 @@
         (otherwise (error "not supported type ~A"
                           (foreign-enum-keyword '%syb-value-type type))))))
 
-(defconstant +dbbuffer+ 14)
+;; (defconstant +dbbuffer+ 14)
 
-(define-sybdb-function ("dbsetopt" %dbsetopt) %RETCODE
-  (dbproc %DBPROCESS)
-  (option :int)
-  (char-param :pointer)
-  (int-param :int))
+;; (define-sybdb-function ("dbsetopt" %dbsetopt) %RETCODE
+;;   (dbproc %DBPROCESS)
+;;   (option :int)
+;;   (char-param :pointer)
+;;   (int-param :int))
 
 (defun map-query-results (query &key row-fn (connection *database*))
   "Map the query results through the map-fn function."
   (let ((%dbproc (slot-value connection 'dbproc))
         (cffi:*default-foreign-encoding* (slot-value connection 'external-format)))
-    (with-foreign-string (%nrows "25000")
-      (%dbsetopt %dbproc +dbbuffer+ %nrows 0))
     (with-foreign-string (%query query)
       (%dbcmd %dbproc %query))
     (%dbsqlexec %dbproc)
