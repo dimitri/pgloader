@@ -166,6 +166,105 @@ Parse given filename for SQL queries and run them against the target database af
 .SS "MORE DEBUG INFORMATION"
 To get the maximum amount of debug information, you can use both the \fB\-\-verbose\fR and the \fB\-\-debug\fR switches at the same time, which is equivalent to saying \fB\-\-client\-min\-messages data\fR\. Then the log messages will show the data being processed, in the cases where the code has explicit support for it\.
 .
+.SH "USAGE EXAMPLES"
+Review the command line options and pgloader\'s version:
+.
+.IP "" 4
+.
+.nf
+
+pgloader \-\-help
+pgloader \-\-version
+.
+.fi
+.
+.IP "" 0
+.
+.SS "Loading from a complex command"
+Use the command file as the pgloader command argument, pgloader will parse that file and execute the commands found in it:
+.
+.IP "" 4
+.
+.nf
+
+pgloader \-\-verbose \./test/csv\-districts\.load
+.
+.fi
+.
+.IP "" 0
+.
+.SS "CSV"
+Load data from a CSV file into a pre\-existing table in your database:
+.
+.IP "" 4
+.
+.nf
+
+pgloader \-\-type csv                                   \e
+         \-\-field id \-\-field field                     \e
+         \-\-with truncate                              \e
+         \-\-with "fields terminated by \',\'"            \e
+         \./test/data/matching\-1\.csv                   \e
+         postgres:///pgloader?tablename=matching
+.
+.fi
+.
+.IP "" 0
+.
+.P
+In that example the whole loading is driven from the command line, bypassing the need for writing a command in the pgloader command syntax entirely\. As there\'s no command though, the extra inforamtion needed must be provided on the command line using the \fB\-\-type\fR and \fB\-\-field\fR and \fB\-\-with\fR switches\.
+.
+.P
+For documentation about the available syntaxes for the \fB\-\-field\fR and \fB\-\-with\fR switches, please refer to the CSV section later in the man page\.
+.
+.P
+Note also that the PostgreSQL URI includes the target \fItablename\fR\.
+.
+.SS "Migrating from SQLite"
+The following command will open the SQLite database, discover its tables definitions including indexes and foreign keys, migrate those definitions while \fIcasting\fR the data type specifications to their PostgreSQL equivalent and then migrate the data over:
+.
+.IP "" 4
+.
+.nf
+
+createdb newdb
+pgloader \./test/sqlite/sqlite\.db postgresql:///newdb
+.
+.fi
+.
+.IP "" 0
+.
+.SS "Migrating from MySQL"
+Just create a database where to host the MySQL data and definitions and have pgloader do the migration for you in a single command line:
+.
+.IP "" 4
+.
+.nf
+
+createdb pagila
+pgloader mysql://user@localhost/sakila postgresql:///pagila
+.
+.fi
+.
+.IP "" 0
+.
+.SS "Fetching an archived DBF file from a HTTP remote location"
+It\'s possible for pgloader to download a file from HTTP, unarchive it, and only then open it to discover the schema then load the data:
+.
+.IP "" 4
+.
+.nf
+
+createdb foo
+pgloader \-\-type dbf http://www\.insee\.fr/fr/methodes/nomenclatures/cog/telechargement/2013/dbf/historiq2013\.zip postgresql:///foo
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Here it\'s not possible for pgloader to guess the kind of data source it\'s being given, so it\'s necessary to use the \fB\-\-type\fR command line switch\.
+.
 .SH "BATCHES AND RETRY BEHAVIOUR"
 To load data to PostgreSQL, pgloader uses the \fBCOPY\fR streaming protocol\. While this is the faster way to load data, \fBCOPY\fR has an important drawback: as soon as PostgreSQL emits an error with any bit of data sent to it, whatever the problem is, the whole data set is rejected by PostgreSQL\.
 .
