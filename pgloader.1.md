@@ -126,6 +126,19 @@ options:
   * `--encoding <encoding>`
   
     Set the encoding of the source file to load data from.
+    
+  * `--before <filename>`
+  
+    Parse given filename for SQL queries and run them against the target
+    database before loading the data from the source. The queries are parsed
+    by pgloader itself: they need to be terminated by a semi-colon (;) and
+    the file may include `\i` or `\ir` commands to *include* another file.
+    
+  * `--after <filename>`
+  
+    Parse given filename for SQL queries and run them against the target
+    database after having loaded the data from the source. The queries are
+    parsed in the same way as with the `--before` option, see above.
 
 ### MORE DEBUG INFORMATION
 

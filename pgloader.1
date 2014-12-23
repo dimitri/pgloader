@@ -149,6 +149,18 @@ Allows forcing the source type, in case when the \fISOURCE\fR parsing isn\'t sat
 .IP
 Set the encoding of the source file to load data from\.
 .
+.IP "\(bu" 4
+\fB\-\-before <filename>\fR
+.
+.IP
+Parse given filename for SQL queries and run them against the target database before loading the data from the source\. The queries are parsed by pgloader itself: they need to be terminated by a semi\-colon (;) and the file may include \fB\ei\fR or \fB\eir\fR commands to \fIinclude\fR another file\.
+.
+.IP "\(bu" 4
+\fB\-\-after <filename>\fR
+.
+.IP
+Parse given filename for SQL queries and run them against the target database after having loaded the data from the source\. The queries are parsed in the same way as with the \fB\-\-before\fR option, see above\.
+.
 .IP "" 0
 .
 .SS "MORE DEBUG INFORMATION"

@@ -283,3 +283,9 @@
   "Parse additional CAST rules when we get them from the CLI."
   (loop :for cast :in casts
      :collect (parse 'cast-rule cast)))
+
+(defun parse-sql-file (filename)
+  "Parse FILENAME for SQL statements"
+  (when filename
+    (log-message :notice "reading SQL queries from ~s" filename)
+    (pgloader.sql:read-queries (probe-file filename))))

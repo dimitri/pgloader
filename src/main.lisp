@@ -60,6 +60,12 @@
     (("encoding") :type string :optional t
      :documentation "Source expected encoding")
 
+    (("before") :type string :optional t
+     :documentation "SQL script to run before loading the data")
+
+    (("after") :type string :optional t
+     :documentation "SQL script to run after loading the data")
+
     ("self-upgrade" :type string :optional t
      :documentation "Path to pgloader newer sources")))
 
@@ -170,7 +176,7 @@
                                 ((:load-lisp-file load))
 				client-min-messages log-min-messages summary
 				root-dir self-upgrade
-                                with set field cast type encoding)
+                                with set field cast type encoding before after)
 	  options
 
         ;; First thing: Self Upgrade?
@@ -303,7 +309,9 @@
                                          :gucs     (parse-cli-gucs set)
                                          :type     type
                                          :fields   (parse-cli-fields type field)
-                                         :casts    (parse-cli-casts cast)))))
+                                         :casts    (parse-cli-casts cast)
+                                         :before   (parse-sql-file before)
+                                         :after    (parse-sql-file after)))))
 
                         ;; process the files
                         (mapcar #'process-command-file arguments)))
@@ -329,7 +337,8 @@
 ;;;
 (defun load-data (&key ((:from source)) ((:into target))
                     (type (getf source :type))
-                    encoding fields options gucs casts start-logger)
+                    encoding fields options gucs casts before after
+                    start-logger)
   "Load data from SOURCE into TARGET."
   (with-monitor (:start-logger start-logger)
     ;; some preliminary checks
@@ -353,20 +362,28 @@
         (:csv     (lisp-code-for-loading-from-csv source fields target
                                                   :encoding encoding
                                                   :gucs gucs
-                                                  :csv-options options))
+                                                  :csv-options options
+                                                  :before before
+                                                  :after after))
 
         (:fixed   (lisp-code-for-loading-from-fixed source fields target
                                                     :encoding encoding
                                                     :gucs gucs
-                                                    :fixed-options options))
+                                                    :fixed-options options
+                                                    :before before
+                                                    :after after))
 
         (:db3     (lisp-code-for-loading-from-dbf source target
                                                   :gucs gucs
-                                                  :dbf-options options))
+                                                  :dbf-options options
+                                                  :before before
+                                                  :after after))
 
         (:ixf     (lisp-code-for-loading-from-ixf source target
                                                   :gucs gucs
-                                                  :ixf-options options))
+                                                  :ixf-options options
+                                                  :before before
+                                                  :after after))
 
         (:sqlite  (lisp-code-for-loading-from-sqlite source target
                                                      :gucs gucs
@@ -376,10 +393,14 @@
         (:mysql   (lisp-code-for-loading-from-mysql source target
                                                     :gucs gucs
                                                     :casts casts
-                                                    :mysql-options options))
+                                                    :mysql-options options
+                                                    :before before
+                                                    :after after))
 
         (:mssql   (lisp-code-for-loading-from-mssql source target
                                                     :gucs gucs
                                                     :casts casts
-                                                    :mssql-options options))))
+                                                    :mssql-options options
+                                                    :before before
+                                                    :after after))))
      :start-logger start-logger)))

@@ -393,6 +393,7 @@
            #:parse-cli-encoding
            #:parse-cli-fields
            #:parse-cli-casts
+           #:parse-sql-file
 
            ;; functions to generate lisp code from parameters
            #:lisp-code-for-loading-from-mysql
