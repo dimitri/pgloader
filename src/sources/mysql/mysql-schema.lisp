@@ -46,76 +46,68 @@
 ;;;
 ;;; General utility to manage MySQL connection
 ;;;
+(defclass mysql-connection (db-connection) ())
+
+(defmethod initialize-instance :after ((myconn mysql-connection) &key)
+  "Assign the type slot to mysql."
+  (setf (slot-value myconn 'type) "mysql"))
+
+(defmethod open-connection ((myconn mysql-connection) &key)
+  (setf (conn-handle myconn)
+        (if (and (consp (db-host myconn)) (eq :unix (car (db-host myconn))))
+            (qmynd:mysql-local-connect :path (cdr (db-host myconn))
+                                       :username (db-user myconn)
+                                       :password (db-pass myconn)
+                                       :database (db-name myconn))
+            (qmynd:mysql-connect :host (db-host myconn)
+                                 :port (db-port myconn)
+                                 :username (db-user myconn)
+                                 :password (db-pass myconn)
+                                 :database (db-name myconn))))
+  ;; return the connection object
+  myconn)
+
+(defmethod close-connection ((myconn mysql-connection))
+  (qmynd:mysql-disconnect (conn-handle myconn))
+  (setf (conn-handle myconn) nil)
+  myconn)
+
 (defun mysql-query (query &key row-fn (as-text t) (result-type 'list))
   "Execute given QUERY within the current *connection*, and set proper
    defaults for pgloader."
-  (qmynd:mysql-query *connection* query
+  (qmynd:mysql-query (conn-handle *connection*) query
                      :row-fn row-fn
                      :as-text as-text
                      :result-type result-type))
-
-(defmacro with-mysql-connection ((&optional (dbname *my-dbname*)) &body forms)
-  "Connect to MySQL, use given DBNAME as the current database if provided,
-   and execute FORMS in a protected way so that we always disconnect when
-   done.
-
-   Connection parameters are *myconn-host*, *myconn-port*, *myconn-user* and
-   *myconn-pass*."
-  `(let* ((dbname (or ,dbname *my-dbname*))
-          (*connection*
-           (handler-case
-               (if (and (consp *myconn-host*) (eq :unix (car *myconn-host*)))
-                   (qmynd:mysql-local-connect :path (cdr *myconn-host*)
-                                              :username *myconn-user*
-                                              :password *myconn-pass*
-                                              :database dbname)
-                   (qmynd:mysql-connect :host *myconn-host*
-                                        :port *myconn-port*
-                                        :username *myconn-user*
-                                        :password *myconn-pass*
-                                        :database dbname))
-             (condition (e)
-               (error 'connection-error
-                      :mesg (format nil "~a" e)
-                      :type "MySQL"
-                      :host (if (and (consp *myconn-host*)
-                                     (eq :unix (car *myconn-host*)))
-                                (cdr *myconn-host*)
-                                *myconn-host*)
-                      :port *myconn-port*
-                      :user *myconn-user*)))))
-     (unwind-protect
-          (progn ,@forms)
-       (qmynd:mysql-disconnect *connection*))))
 
 ;;;
 ;;; Function for accessing the MySQL catalogs, implementing auto-discovery.
 ;;;
 ;;; Interactive use only, will create its own database connection.
 ;;;
-(defun list-databases ()
-  "Connect to a local database and get the database list"
-  (with-mysql-connection ()
-    (mysql-query "show databases")))
+;; (defun list-databases ()
+;;   "Connect to a local database and get the database list"
+;;   (with-mysql-connection ()
+;;     (mysql-query "show databases")))
 
-(defun list-tables (dbname)
-  "Return a flat list of all the tables names known in given DATABASE"
-  (with-mysql-connection (dbname)
-    (mysql-query (format nil "
-  select table_name
-    from information_schema.tables
-   where table_schema = '~a' and table_type = 'BASE TABLE'
-order by table_name" dbname))))
+;; (defun list-tables (dbname)
+;;   "Return a flat list of all the tables names known in given DATABASE"
+;;   (with-mysql-connection (dbname)
+;;     (mysql-query (format nil "
+;;   select table_name
+;;     from information_schema.tables
+;;    where table_schema = '~a' and table_type = 'BASE TABLE'
+;; order by table_name" dbname))))
 
-(defun list-views (dbname &key only-tables)
-  "Return a flat list of all the view names and definitions known in given DBNAME"
-  (with-mysql-connection (dbname)
-    (mysql-query (format nil "
-  select table_name, view_definition
-    from information_schema.views
-   where table_schema = '~a'
-         ~@[and table_name in (~{'~a'~^,~})~]
-order by table_name" dbname only-tables))))
+;; (defun list-views (dbname &key only-tables)
+;;   "Return a flat list of all the view names and definitions known in given DBNAME"
+;;   (with-mysql-connection (dbname)
+;;     (mysql-query (format nil "
+;;   select table_name, view_definition
+;;     from information_schema.views
+;;    where table_schema = '~a'
+;;          ~@[and table_name in (~{'~a'~^,~})~]
+;; order by table_name" dbname only-tables))))
 
 
 ;;;
@@ -180,7 +172,6 @@ order by table_name" dbname only-tables))))
         (t default)))
 
 (defun list-all-columns (&key
-                           (dbname *my-dbname*)
 			   (table-type :table)
 			   only-tables
                            including
@@ -203,7 +194,7 @@ order by table_name" dbname only-tables))))
          ~:[~*~;and (~{table_name ~a~^ or ~})~]
          ~:[~*~;and (~{table_name ~a~^ and ~})~]
 order by table_name, ordinal_position"
-                            dbname
+                            (db-name *connection*)
                             table-type-name
                             only-tables ; do we print the clause?
                             only-tables
@@ -228,7 +219,6 @@ order by table_name, ordinal_position"
                   collect (cons name (reverse cols))))))
 
 (defun list-all-indexes (&key
-                           (dbname *my-dbname*)
                            only-tables
                            including
                            excluding)
@@ -245,12 +235,12 @@ order by table_name, ordinal_position"
          ~:[~*~;and (~{table_name ~a~^ or ~})~]
          ~:[~*~;and (~{table_name ~a~^ and ~})~]
 GROUP BY table_name, index_name;"
-                             dbname
+                             (db-name *connection*)
                              only-tables ; do we print the clause?
                              only-tables
-                             including   ; do we print the clause?
+                             including  ; do we print the clause?
                              (filter-list-to-where-clause including)
-                             excluding   ; do we print the clause?
+                             excluding  ; do we print the clause?
                              (filter-list-to-where-clause excluding t)))
      do (let ((entry (assoc table-name schema :test 'equal))
               (index
@@ -272,7 +262,6 @@ GROUP BY table_name, index_name;"
 ;;; MySQL Foreign Keys
 ;;;
 (defun list-all-fkeys (&key
-                         (dbname *my-dbname*)
                          only-tables
                          including
                          excluding)
@@ -301,12 +290,12 @@ GROUP BY table_name, index_name;"
          ~:[~*~;and (~{table_name ~a~^ and ~})~]
 
  GROUP BY table_name, constraint_name, ft;"
-                             dbname dbname
+                             (db-name *connection*) (db-name *connection*)
                              only-tables ; do we print the clause?
                              only-tables
-                             including   ; do we print the clause?
+                             including  ; do we print the clause?
                              (filter-list-to-where-clause including)
-                             excluding   ; do we print the clause?
+                             excluding  ; do we print the clause?
                              (filter-list-to-where-clause excluding t)))
      do (let ((entry (assoc table-name schema :test 'equal))
               (fk

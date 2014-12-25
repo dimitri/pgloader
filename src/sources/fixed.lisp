@@ -4,6 +4,8 @@
 
 (in-package :pgloader.fixed)
 
+(defclass fixed-connection (csv-connection) ())
+
 (defclass copy-fixed (copy)
   ((source-type :accessor source-type	  ; one of :inline, :stdin, :regex
 		:initarg :source-type)	  ;  or :filename
@@ -17,7 +19,7 @@
 (defmethod initialize-instance :after ((fixed copy-fixed) &key)
   "Compute the real source definition from the given source parameter, and
    set the transforms function list as needed too."
-  (let ((source (slot-value fixed 'source)))
+  (let ((source (csv-specs (slot-value fixed 'source))))
     (setf (slot-value fixed 'source-type) (car source))
     (setf (slot-value fixed 'source)      (get-absolute-pathname source)))
 
@@ -103,19 +105,21 @@
 	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
 	 (lp:*kernel*    (make-kernel 2))
 	 (channel        (lp:make-channel))
-	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*))
-	 (dbname         (target-db fixed))
-	 (table-name     (target fixed)))
+	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*)))
 
-    (with-stats-collection (table-name :state *state* :summary summary)
+    (with-stats-collection ((target fixed)
+                            :dbname (db-name (target-db fixed))
+                            :state *state*
+                            :summary summary)
       (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
-        (log-message :notice "COPY ~a.~a" dbname table-name)
+        (log-message :notice "COPY ~a" (target fixed))
         (lp:submit-task channel #'copy-to-queue fixed queue)
 
         ;; and start another task to push that data from the queue to PostgreSQL
         (lp:submit-task channel
                         ;; this function update :rows stats
-                        #'pgloader.pgsql:copy-from-queue dbname table-name queue
+                        #'pgloader.pgsql:copy-from-queue
+                        (target-db fixed) (target fixed) queue
                         ;; we only are interested into the column names here
                         :columns (mapcar (lambda (col)
                                            ;; always double quote column names

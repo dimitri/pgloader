@@ -97,9 +97,9 @@
       ;; alter table if exists ... drop constraint if exists ...
       (format nil "ALTER TABLE ~a DROP CONSTRAINT ~a" table-name constraint-name))))
 
-(defun drop-pgsql-fkeys (all-fkeys &key (dbname (pgconn-dbname)))
+(defun drop-pgsql-fkeys (all-fkeys)
   "Drop all Foreign Key Definitions given, to prepare for a clean run."
-  (let ((all-pgsql-fkeys (list-tables-and-fkeys dbname)))
+  (let ((all-pgsql-fkeys (list-tables-and-fkeys)))
     (loop for (table-name . fkeys) in all-fkeys
        do
 	 (loop for fkey in fkeys
@@ -110,20 +110,19 @@
 	      (log-message :notice "~a;" sql)
 	      (pgsql-execute sql)))))
 
-(defun create-pgsql-fkeys (all-fkeys
+(defun create-pgsql-fkeys (pgconn all-fkeys
                            &key
-                             (dbname (pgconn-dbname))
                              state
                              (label "Foreign Keys"))
   "Actually create the Foreign Key References that where declared in the
    MySQL database"
-  (pgstate-add-table state dbname label)
+  (pgstate-add-table state (db-name pgconn) label)
   (loop for (table-name . fkeys) in all-fkeys
      do (loop for fkey in fkeys
 	   for sql = (format-pgsql-create-fkey fkey)
 	   do
 	     (log-message :notice "~a;" sql)
-	     (pgsql-execute-with-timing dbname "Foreign Keys" sql state))))
+	     (pgsql-execute-with-timing "Foreign Keys" sql state))))
 
 
 ;;;
@@ -195,9 +194,9 @@
        (pgsql-execute sql :client-min-messages client-min-messages)
      finally (return nb-tables)))
 
-(defun truncate-tables (dbname table-name-list)
+(defun truncate-tables (pgconn table-name-list)
   "Truncate given TABLE-NAME in database DBNAME"
-  (with-pgsql-transaction (:dbname dbname)
+  (with-pgsql-transaction (:pgconn pgconn)
     (let ((sql (format nil "TRUNCATE ~{~a~^,~};"
                        (loop :for table-name :in table-name-list
                           :collect (apply-identifier-case table-name)))))
@@ -251,7 +250,7 @@
 ;;;
 ;;; Parallel index building.
 ;;;
-(defun create-indexes-in-kernel (dbname indexes kernel channel
+(defun create-indexes-in-kernel (pgconn indexes kernel channel
 				 &key
                                    state
 				   (label "Create Indexes"))
@@ -260,7 +259,7 @@
    copying."
   (let* ((lp:*kernel* kernel))
     ;; ensure we have a stats entry
-    (pgstate-add-table state dbname label)
+    (pgstate-add-table state (db-name pgconn) label)
 
     (loop
        :for index :in indexes
@@ -269,8 +268,11 @@
                     (format-pgsql-create-index index)
 
                   (log-message :notice "~a" sql)
-                  (lp:submit-task channel #'pgsql-execute-with-timing
-                                  dbname label sql state)
+                  (lp:submit-task channel
+                                  #'pgsql-connect-and-execute-with-timing
+                                  ;; each thread must have its own connection
+                                  (new-pgsql-connection pgconn)
+                                  label sql state)
 
                   ;; return the pkey "upgrade" statement
                   pkey))))
@@ -293,19 +295,18 @@
        for table-oid = (cdr (assoc table-name table-oids :test #'string=))
        unless table-oid do (error "OID not found for ~s." table-name)
        do (loop for index in indexes
-	     do (setf (pgloader.pgsql::pgsql-index-table-oid index) table-oid)))))
+	     do (setf (pgsql-index-table-oid index) table-oid)))))
 
 
 
 ;;;
 ;;; Sequences
 ;;;
-(defun reset-sequences (table-names
-                              &key (dbname (pgconn-dbname)) state)
+(defun reset-sequences (table-names &key pgconn state)
   "Reset all sequences created during this MySQL migration."
   (log-message :notice "Reset sequences")
   (with-stats-collection ("Reset Sequences"
-                          :dbname dbname
+                          :dbname (db-name pgconn)
                           :use-result-as-rows t
                           :state state)
-    (reset-all-sequences dbname :tables table-names)))
+    (reset-all-sequences pgconn :tables table-names)))

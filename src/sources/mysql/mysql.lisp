@@ -18,43 +18,18 @@
 
 (defmethod initialize-instance :after ((source copy-mysql) &key)
   "Add a default value for transforms in case it's not been provided."
-  (let* ((source-db  (slot-value source 'source-db))
-	 (table-name (when (slot-boundp source 'source)
-		       (slot-value source 'source)))
-	 (fields     (or (and (slot-boundp source 'fields)
-			      (slot-value source 'fields))
-			 (when table-name
-			   (let* ((all-columns (list-all-columns :dbname source-db)))
-			     (cdr (assoc table-name all-columns
-					 :test #'string=))))))
-	 (transforms (when (slot-boundp source 'transforms)
-		       (slot-value source 'transforms))))
-
-    ;; default to using the same database name as source and target
-    (when (and source-db
-	       (or (not (slot-boundp source 'target-db))
-		   (not (slot-value source 'target-db))))
-      (setf (slot-value source 'target-db) source-db))
-
-    ;; default to using the same table-name as source and target
-    (when (and table-name
-	       (or (not (slot-boundp source 'target))
-                   (not (slot-value source 'target))))
-      (setf (slot-value source 'target) table-name))
-
-    (when fields
-      (unless (slot-boundp source 'fields)
-	(setf (slot-value source 'fields) fields))
-
-      (loop for field in fields
-         for (column fn) = (multiple-value-bind (column fn)
-                               (cast-mysql-column-definition-to-pgsql field)
-                             (list column fn))
-         collect column into columns
-         collect fn into fns
-         finally (progn (setf (slot-value source 'columns) columns)
-                        (unless transforms
-                          (setf (slot-value source 'transforms) fns)))))))
+  (let ((transforms (and (slot-boundp source 'transforms)
+                         (slot-value  source 'transforms))))
+    (when (and (slot-boundp source 'fields) (slot-value source 'fields))
+      (loop :for field :in (slot-value source 'fields)
+         :for (column fn) := (multiple-value-bind (column fn)
+                                 (cast-mysql-column-definition-to-pgsql field)
+                               (list column fn))
+         :collect column :into columns
+         :collect fn :into fns
+         :finally (progn (setf (slot-value source 'columns) columns)
+                         (unless transforms
+                           (setf (slot-value source 'transforms) fns)))))))
 
 
 ;;;
@@ -63,18 +38,17 @@
 (defmethod map-rows ((mysql copy-mysql) &key process-row-fn)
   "Extract MySQL data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row."
-  (let ((dbname                 (source-db mysql))
-	(table-name             (source mysql))
+  (let ((table-name             (source mysql))
         (qmynd:*mysql-encoding*
          (when (encoding mysql)
            #+sbcl (encoding mysql)
            #+ccl  (ccl:external-format-character-encoding (encoding mysql)))))
 
-    (with-mysql-connection (dbname)
+    (with-connection (*connection* (source-db mysql))
       (when qmynd:*mysql-encoding*
         (log-message :notice "Force encoding to ~a for ~a"
                      qmynd:*mysql-encoding* table-name))
-      (let* ((cols (get-column-list dbname table-name))
+      (let* ((cols (get-column-list (db-name (source-db mysql)) table-name))
              (sql  (format nil "SELECT ~{~a~^, ~} FROM `~a`;" cols table-name))
              (row-fn
               (lambda (row)
@@ -140,7 +114,10 @@
 
     ;; we account stats against the target table-name, because that's all we
     ;; know on the PostgreSQL thread
-    (with-stats-collection (table-name :state *state* :summary summary)
+    (with-stats-collection (table-name
+                            :dbname (db-name (target-db mysql))
+                            :state *state*
+                            :summary summary)
       (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
         (log-message :notice "COPY ~a" table-name)
         ;; read data from MySQL
@@ -167,7 +144,8 @@
 ;;;
 ;;; Prepare the PostgreSQL database before streaming the data into it.
 ;;;
-(defun prepare-pgsql-database (all-columns all-indexes all-fkeys
+(defun prepare-pgsql-database (pgconn
+                               all-columns all-indexes all-fkeys
                                materialize-views view-columns
                                &key
                                  state
@@ -186,7 +164,7 @@
                (loop for (name . idxs) in all-indexes sum (length idxs)))
 
   (with-stats-collection ("create, drop" :use-result-as-rows t :state state)
-    (with-pgsql-transaction ()
+    (with-pgsql-transaction (:pgconn pgconn)
       ;; we need to first drop the Foreign Key Constraints, so that we
       ;; can DROP TABLE when asked
       (when (and foreign-keys include-drop)
@@ -205,32 +183,33 @@
         (when materialize-views
           (create-tables view-columns :include-drop include-drop))))))
 
-(defun complete-pgsql-database (all-columns all-fkeys pkeys
+(defun complete-pgsql-database (pgconn all-columns all-fkeys pkeys
                                 &key
                                   state
                                   data-only
                                   foreign-keys
                                   reset-sequences)
-    "After loading the data into PostgreSQL, we can now reset the sequences
+  "After loading the data into PostgreSQL, we can now reset the sequences
      and declare foreign keys."
-    ;;
-    ;; Now Reset Sequences, the good time to do that is once the whole data
-    ;; has been imported and once we have the indexes in place, as max() is
-    ;; able to benefit from the indexes. In particular avoid doing that step
-    ;; while CREATE INDEX statements are in flight (avoid locking).
-    ;;
-    (when reset-sequences
-      (reset-sequences (mapcar #'car all-columns) :state state))
+  ;;
+  ;; Now Reset Sequences, the good time to do that is once the whole data
+  ;; has been imported and once we have the indexes in place, as max() is
+  ;; able to benefit from the indexes. In particular avoid doing that step
+  ;; while CREATE INDEX statements are in flight (avoid locking).
+  ;;
+  (when reset-sequences
+    (reset-sequences (mapcar #'car all-columns) :pgconn pgconn :state state))
 
-    ;;
-    ;; Turn UNIQUE indexes into PRIMARY KEYS now
-    ;;
-    (pgstate-add-table state (pgconn-dbname) "Primary Keys")
+  ;;
+  ;; Turn UNIQUE indexes into PRIMARY KEYS now
+  ;;
+  (with-pgsql-connection (pgconn)
+    (pgstate-add-table state (db-name pgconn) "Primary Keys")
     (loop :for sql :in pkeys
        :when sql
        :do (progn
              (log-message :notice "~a" sql)
-             (pgsql-execute-with-timing (pgconn-dbname) "Primary Keys" sql state)))
+             (pgsql-execute-with-timing "Primary Keys" sql state)))
 
     ;;
     ;; Foreign Key Constraints
@@ -240,9 +219,16 @@
     ;; and indexes are imported before doing that.
     ;;
     (when (and foreign-keys (not data-only))
-      (create-pgsql-fkeys all-fkeys :state state)))
+      (pgstate-add-table state (db-name pgconn) "Foreign Keys")
+      (loop :for (table-name . fkeys) :in all-fkeys
+         :do (loop :for fkey :in fkeys
+                :for sql := (format-pgsql-create-fkey fkey)
+                :do (progn
+                      (log-message :notice "~a;" sql)
+                      (pgsql-execute-with-timing "Foreign Keys" sql state)))))))
 
-(defun fetch-mysql-metadata (&key
+(defun fetch-mysql-metadata (mysql
+                             &key
                                state
                                materialize-views
                                only-tables
@@ -256,7 +242,7 @@
                            :use-result-as-rows t
                            :use-result-as-read t
                            :state state)
-     (with-mysql-connection ()
+     (with-connection (*connection* (source-db mysql))
        ;; If asked to MATERIALIZE VIEWS, now is the time to create them in
        ;; MySQL, when given definitions rather than existing view names.
        (when (and materialize-views (not (eq :all materialize-views)))
@@ -332,13 +318,12 @@
 	 (state-before  (or state-before  (make-pgstate)))
 	 (state-after   (or state-after   (make-pgstate)))
          (copy-kernel   (make-kernel 2))
-	 (dbname        (source-db mysql))
-	 (pg-dbname     (target-db mysql))
          idx-kernel idx-channel)
 
     (destructuring-bind (&key view-columns all-columns all-fkeys all-indexes pkeys)
         ;; to prepare the run, we need to fetch MySQL meta-data
-        (fetch-mysql-metadata :state state-before
+        (fetch-mysql-metadata mysql
+                              :state state-before
                               :materialize-views materialize-views
                               :only-tables only-tables
                               :including including
@@ -359,7 +344,8 @@
       ;; if asked, first drop/create the tables on the PostgreSQL side
       (handler-case
           (cond ((and (or create-tables schema-only) (not data-only))
-                 (prepare-pgsql-database all-columns
+                 (prepare-pgsql-database (target-db mysql)
+                                         all-columns
                                          all-indexes
                                          all-fkeys
                                          materialize-views
@@ -382,7 +368,7 @@
           ;; we did already create our Views in the MySQL database, so clean
           ;; that up now.
           (when materialize-views
-            (with-mysql-connection ()
+            (with-connection (*connection* (source-db mysql))
               (drop-my-views materialize-views)))
 
           (return-from copy-database)))
@@ -404,8 +390,8 @@
 
                   (table-source
                    (make-instance 'copy-mysql
-                                  :source-db  dbname
-                                  :target-db  pg-dbname
+                                  :source-db  (source-db mysql)
+                                  :target-db  (target-db mysql)
                                   :source     table-name
                                   :target     (apply-identifier-case table-name)
                                   :fields     columns
@@ -430,8 +416,8 @@
                        (cdr (assoc table-name all-indexes :test #'string=))))
                  (alexandria:appendf
                   pkeys
-                  (create-indexes-in-kernel pg-dbname indexes
-                                            idx-kernel idx-channel
+                  (create-indexes-in-kernel (target-db mysql)
+                                            indexes idx-kernel idx-channel
                                             :state idx-state))))))
 
       ;; now end the kernels
@@ -448,13 +434,14 @@
       ;; If we created some views for this run, now is the time to DROP'em
       ;;
       (when materialize-views
-        (with-mysql-connection ()
+        (with-connection (*connection* (source-db mysql))
           (drop-my-views materialize-views)))
 
       ;;
       ;; Complete the PostgreSQL database before handing over.
       ;;
-      (complete-pgsql-database all-columns all-fkeys pkeys
+      (complete-pgsql-database (new-pgsql-connection (target-db mysql))
+                               all-columns all-fkeys pkeys
                                :state state-after
                                :data-only data-only
                                :foreign-keys foreign-keys

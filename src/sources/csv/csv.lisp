@@ -4,6 +4,33 @@
 
 (in-package :pgloader.csv)
 
+(defclass csv-connection (fd-connection)
+  ((specs :initarg :specs :accessor csv-specs)))
+
+(defmethod initialize-instance :after ((csvconn csv-connection) &key)
+  "Assign the type slot to sqlite."
+  (setf (slot-value csvconn 'type) "csv"))
+
+(defmethod print-object ((csv csv-connection) stream)
+  (print-unreadable-object (csv stream :type t :identity t)
+    (let ((specs (if (slot-boundp csv 'specs) (slot-value csv 'specs)
+                     `(:http ,(slot-value csv 'pgloader.connection::uri)))))
+      (with-slots (type) csv
+        (format stream "~a://~a:~a" type (first specs) (second specs))))))
+
+(defmethod expand :after ((csv csv-connection))
+  "Expand the archive for the FD connection."
+  (when (and (slot-boundp csv 'pgloader.connection::path)
+             (slot-value csv 'pgloader.connection::path)
+             (uiop:file-pathname-p (fd-path csv)))
+    (setf (csv-specs csv) `(:filename ,(fd-path csv)))))
+
+(defmethod fetch-file :after ((csv csv-connection))
+  "When the fd-connection has an URI slot, download its file."
+  (when (and (slot-boundp csv 'pgloader.connection::path)
+             (slot-value csv 'pgloader.connection::path))
+    (setf (csv-specs csv) `(:filename ,(fd-path csv)))))
+
 ;;;
 ;;; Implementing the pgloader source API
 ;;;
@@ -35,7 +62,7 @@
 (defmethod initialize-instance :after ((csv copy-csv) &key)
   "Compute the real source definition from the given source parameter, and
    set the transforms function list as needed too."
-  (let ((source (slot-value csv 'source)))
+  (let ((source (csv-specs (slot-value csv 'source))))
     (setf (slot-value csv 'source-type) (car source))
     (setf (slot-value csv 'source)      (get-absolute-pathname source)))
 
@@ -65,9 +92,9 @@
    Finally returns how many rows where read and processed."
   (let ((filenames   (case (source-type csv)
                        (:stdin   (list (source csv)))
-		       (:inline  (list (car (source csv))))
-		       (:regex   (source csv))
-		       (t        (list (source csv))))))
+                       (:inline  (list (car (source csv))))
+                       (:regex   (source csv))
+                       (t        (list (source csv))))))
     (loop for filename in filenames
        do
 	 (with-open-file-or-stream
@@ -121,19 +148,20 @@
 	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
 	 (lp:*kernel*    (make-kernel 2))
 	 (channel        (lp:make-channel))
-	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*))
-	 (dbname         (target-db csv))
-	 (table-name     (target csv)))
+	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*)))
 
-    (with-stats-collection (table-name :state *state* :summary summary)
+    (with-stats-collection ((target csv)
+                            :dbname (db-name (target-db csv))
+                            :state *state* :summary summary)
       (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
-        (log-message :notice "COPY ~a.~a" dbname table-name)
+        (log-message :notice "COPY ~a" (target csv))
         (lp:submit-task channel #'copy-to-queue csv queue)
 
         ;; and start another task to push that data from the queue to PostgreSQL
         (lp:submit-task channel
                         ;; this function update :rows stats
-                        #'pgloader.pgsql:copy-from-queue dbname table-name queue
+                        #'pgloader.pgsql:copy-from-queue
+                        (target-db csv) (target csv) queue
                         ;; we only are interested into the column names here
                         :columns (mapcar (lambda (col)
                                            ;; always double quote column names
@@ -144,100 +172,3 @@
         ;; now wait until both the tasks are over
         (loop for tasks below 2 do (lp:receive-result channel)
            finally (lp:end-kernel))))))
-
-;;;
-;;; When you exported a whole database as a bunch of CSV files to be found
-;;; in the same directory, each file name being the name of the target
-;;; table, then this function allows to import them all at once.
-;;;
-;;; TODO: expose it from the command language, and test it.
-;;;
-(defun import-database (dbname
-			&key
-			  (csv-path-root *csv-path-root*)
-			  (skip-lines 0)
-			  (separator #\Tab)
-			  (quote cl-csv:*quote*)
-			  (escape cl-csv:*quote-escape*)
-			  (truncate t)
-			  only-tables)
-  "Export MySQL data and Import it into PostgreSQL"
-  (let ((*state* (pgloader.utils:make-pgstate)))
-    (report-header)
-    (loop
-       for (table-name . date-columns) in (pgloader.pgsql:list-tables dbname)
-       for filename = (get-pathname dbname table-name
-				    :csv-path-root csv-path-root)
-       when (or (null only-tables)
-		(member table-name only-tables :test #'equal))
-       do
-         (let ((source (make-instance 'copy-csv
-                                      :target-db  dbname
-                                      :source     (list :filename filename)
-                                      :target     table-name
-                                      :skip-lines skip-lines
-                                      :separator separator
-                                      :quote quote
-                                      :escape escape)))
-           (copy-from source :truncate truncate))
-       finally
-	 (report-pgstate-stats *state* "Total import time"))))
-
-;;;
-;;; Automatic guess the CSV format parameters
-;;;
-(defparameter *separators* '(#\Tab #\, #\; #\| #\% #\^ #\! #\$)
-  "Common CSV separators to try when guessing file parameters.")
-
-(defparameter *escape-quotes* '("\\\"" "\"\"")
-  "Common CSV quotes to try when guessing file parameters.")
-
-(defun get-file-sample (filename &key (sample-size 10))
-  "Return the first SAMPLE-SIZE lines in FILENAME (or less), or nil if the
-   file does not exists."
-  (with-open-file
-      ;; we just ignore files that don't exist
-      (input filename
-	     :direction :input
-	     :external-format :utf-8
-	     :if-does-not-exist nil)
-    (when input
-      (loop
-	 for line = (read-line input nil)
-	 while line
-	 repeat sample-size
-	 collect line))))
-
-(defun try-csv-params (lines cols &key separator quote escape)
-  "Read LINES as CSV with SEPARATOR and ESCAPE params, and return T when
-   each line in LINES then contains exactly COLS columns"
-  (let ((rows (loop
-		 for line in lines
-		 append
-		   (handler-case
-		       (cl-csv:read-csv line
-					:quote quote
-					:separator separator
-					:escape escape)
-		     ((or cl-csv:csv-parse-error type-error) ()
-		       nil)))))
-    (and rows
-	 (every (lambda (row) (= cols (length row))) rows))))
-
-(defun guess-csv-params (filename cols &key (sample-size 10))
-  "Try a bunch of field separators with LINES and return the first one that
-   returns COLS number of columns"
-
-  (let ((sample (get-file-sample filename :sample-size sample-size)))
-    (loop
-       for sep in *separators*
-       for esc = (loop
-		    for escape in *escape-quotes*
-		    when (try-csv-params sample cols
-					 :quote #\"
-					 :separator sep
-					 :escape escape)
-		    do (return escape))
-       when esc
-       do (return (list :separator sep :quote #\" :escape esc)))))
-

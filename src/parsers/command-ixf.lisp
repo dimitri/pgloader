@@ -7,7 +7,7 @@
 (in-package #:pgloader.parser)
 
 (defrule option-create-table (and kw-create kw-table)
-  (:constant (cons :create-table t)))
+  (:constant (cons :create-tables t)))
 
 ;;; piggyback on DBF parsing
 (defrule ixf-options (and kw-with dbf-option-list)
@@ -15,7 +15,20 @@
     (bind (((_ opts) source))
       (cons :ixf-options opts))))
 
-(defrule ixf-source (and kw-load kw-ixf kw-from filename-or-http-uri)
+(defrule ixf-uri (and "ixf://" filename)
+  (:lambda (source)
+    (bind (((_ filename) source))
+      (make-instance 'ixf-connection :path (second filename)))))
+
+(defrule ixf-file-source (or ixf-uri filename-or-http-uri)
+  (:lambda (conn-or-path-or-uri)
+    (if (typep conn-or-path-or-uri 'ixf-connection) conn-or-path-or-uri
+        (destructuring-bind (kind url) conn-or-path-or-uri
+          (case kind
+            (:filename (make-instance 'ixf-connection :path url))
+            (:http     (make-instance 'ixf-connection :uri url)))))))
+
+(defrule ixf-source (and kw-load kw-ixf kw-from ixf-file-source)
   (:lambda (src)
     (bind (((_ _ _ source) src)) source)))
 
@@ -31,53 +44,39 @@
     (destructuring-bind (source target clauses) command
       `(,source ,target ,@clauses))))
 
-(defun lisp-code-for-loading-from-ixf (source pg-db-uri
+(defun lisp-code-for-loading-from-ixf (ixf-db-conn pg-db-conn
                                        &key
                                          gucs before after
                                          ((:ixf-options options)))
-  (bind (((&key dbname table-name &allow-other-keys) pg-db-uri))
-    `(lambda ()
-       (let* ((state-before   (pgloader.utils:make-pgstate))
-              (summary        (null *state*))
-              (*state*        (or *state* (pgloader.utils:make-pgstate)))
-              (state-after   ,(when after `(pgloader.utils:make-pgstate)))
-              ,@(pgsql-connection-bindings pg-db-uri gucs)
-              ,@(batch-control-bindings options)
-              ,@(identifier-case-binding options)
-              (source
-               ,(bind (((kind url) source))
-                      (ecase kind
-                        (:http     `(with-stats-collection
-                                        ("download" :state state-before)
-                                      (pgloader.archive:http-fetch-file ,url)))
-                        (:filename url))))
-              (source
-               (if (string= "zip" (pathname-type source))
-                   (progn
-                     (with-stats-collection ("extract" :state state-before)
-                       (let ((d (pgloader.archive:expand-archive source)))
-                         (make-pathname :defaults d
-                                        :name (pathname-name source)
-                                        :type "ixf"))))
-                   source))
-              (source
-               (make-instance 'pgloader.ixf:copy-ixf
-                              :target-db ,dbname
-                              :source source
-                              :target ,table-name)))
+  `(lambda ()
+     (let* ((state-before   (pgloader.utils:make-pgstate))
+            (summary        (null *state*))
+            (*state*        (or *state* (pgloader.utils:make-pgstate)))
+            (state-after   ,(when after `(pgloader.utils:make-pgstate)))
+            ,@(pgsql-connection-bindings pg-db-conn gucs)
+            ,@(batch-control-bindings options)
+            ,@(identifier-case-binding options)
+            (table-name    ,(pgconn-table-name pg-db-conn))
+            (source-db      (with-stats-collection ("fetch" :state state-before)
+                              (expand (fetch-file ,ixf-db-conn))))
+            (source
+             (make-instance 'pgloader.ixf:copy-ixf
+                            :target-db ,pg-db-conn
+                            :source-db source-db
+                            :target table-name)))
 
-         ,(sql-code-block dbname 'state-before before "before load")
+       ,(sql-code-block pg-db-conn 'state-before before "before load")
 
-         (pgloader.sources:copy-from source
-                                     :state-before state-before
-                                     ,@(remove-batch-control-option options))
+       (pgloader.sources:copy-database source
+                                       :state-before state-before
+                                       ,@(remove-batch-control-option options))
 
-         ,(sql-code-block dbname 'state-after after "after load")
+       ,(sql-code-block pg-db-conn 'state-after after "after load")
 
-         (when summary
-           (report-full-summary "Total import time" *state*
-                                :before state-before
-                                :finally state-after))))))
+       (when summary
+         (report-full-summary "Total import time" *state*
+                              :before state-before
+                              :finally state-after)))))
 
 (defrule load-ixf-file load-ixf-command
   (:lambda (command)

@@ -10,33 +10,29 @@
 ;;;
 ;;; General utility to manage MySQL connection
 ;;;
+(defclass mssql-connection (db-connection) ())
+
+(defmethod initialize-instance :after ((msconn mssql-connection) &key)
+  "Assign the type slot to mssql."
+  (setf (slot-value msconn 'type) "mssql"))
+
+(defmethod open-connection ((msconn mssql-connection) &key)
+  (setf (conn-handle msconn) (mssql:connect (db-name msconn)
+                                            (db-user msconn)
+                                            (db-pass msconn)
+                                            (db-host msconn)))
+  ;; return the connection object
+  msconn)
+
+(defmethod close-connection ((msconn mssql-connection))
+  (mssql:disconnect (conn-handle msconn))
+  (setf (conn-handle msconn) nil)
+  msconn)
+
 (defun mssql-query (query)
   "Execute given QUERY within the current *connection*, and set proper
    defaults for pgloader."
-  (mssql:query query :connection *mssql-db*))
-
-(defmacro with-mssql-connection ((&optional (dbname *ms-dbname*)) &body forms)
-  "Connect to MSSQL, use given DBNAME as the current database if provided,
-   and execute FORMS in a protected way so that we always disconnect when
-   done.
-
-   Connection parameters are *myconn-host*, *myconn-port*, *myconn-user* and
-   *myconn-pass*."
-  `(let* ((dbname      (or ,dbname *ms-dbname*))
-          (*mssql-db*  (handler-case
-                           (mssql:connect dbname
-                                          *msconn-user*
-                                          *msconn-pass*
-                                          *msconn-host*)
-                         (condition (e)
-                           (error 'connection-error
-                                  :mesg (format nil "~a" e)
-                                  :type "MS SQL"
-                                  :host *msconn-host*
-                                  :user *msconn-user*)))))
-     (unwind-protect
-          (progn ,@forms)
-       (mssql:disconnect *mssql-db*))))
+  (mssql:query query :connection (conn-handle *mssql-db*)))
 
 
 ;;;
@@ -86,7 +82,6 @@
                      table-name-list)))
 
 (defun list-all-columns (&key
-                           (dbname *ms-dbname*)
 			   (table-type :table)
                            including
                            excluding
@@ -127,7 +122,7 @@
          ~:[~*~;and (~{~a~^~&~10t and ~})~]
 
 order by table_schema, table_name, ordinal_position"
-                          dbname
+                          (db-name *mssql-db*)
                           table-type-name
                           including   ; do we print the clause?
                           (filter-list-to-where-clause including
@@ -247,7 +242,7 @@ order by SchemaName,
           (loop :for (schema . tables) :in result
              :collect (cons schema (reverse-indexes-cols tables))))))))
 
-(defun list-all-fkeys (&key (dbname *ms-dbname*) including excluding)
+(defun list-all-fkeys (&key including excluding)
   "Get the list of MSSQL index definitions per table."
   (loop
      :with result := nil
@@ -283,7 +278,7 @@ order by SchemaName,
          ~:[~*~;and (~{~a~^ and ~})~]
 
 ORDER BY CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
-                               dbname dbname
+                               (db-name *mssql-db*) (db-name *mssql-db*)
                                including ; do we print the clause?
                                (filter-list-to-where-clause including
                                                             nil

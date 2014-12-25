@@ -4,22 +4,6 @@
 
 (in-package :pgloader.parser)
 
-(defun mssql-connection-bindings (ms-db-uri)
-  "Generate the code needed to set MSSQL connection bindings."
-  (destructuring-bind (&key ((:host mshost))
-                            ((:port msport))
-                            ((:user msuser))
-                            ((:password mspass))
-                            ((:dbname msdb))
-                            &allow-other-keys)
-      ms-db-uri
-    `((*msconn-host* ',mshost)
-      (*msconn-port* ,msport)
-      (*msconn-user* ,msuser)
-      (*msconn-pass* ,mspass)
-      (*ms-dbname*   ,msdb))))
-
-
 ;;;
 ;;; INCLUDING ONLY and EXCLUDING clauses for MS SQL
 ;;;
@@ -95,13 +79,14 @@
         (apply #'append uri)
       ;; Default to environment variables as described in
       ;;  http://www.freetds.org/userguide/envvar.htm
-      (list :type      type
-            :user      (or user     (getenv-default "USER"))
-            :password  password
-            :host      (or host     (getenv-default "TDSHOST" "localhost"))
-            :port      (or port     (parse-integer
+      (declare (ignore type))
+      (make-instance 'mssql-connection
+                     :user (or user (getenv-default "USER"))
+                     :pass password
+                     :host (or host (getenv-default "TDSHOST" "localhost"))
+                     :port (or port (parse-integer
                                      (getenv-default "TDSPORT" "1433")))
-            :dbname    dbname))))
+                     :name    dbname))))
 
 (defrule get-mssql-uri-from-environment-variable (and kw-getenv name)
   (:lambda (p-e-v)
@@ -124,50 +109,43 @@
 
 
 ;;; LOAD DATABASE FROM mssql://
-(defun lisp-code-for-loading-from-mssql (source pg-db-uri
+(defun lisp-code-for-loading-from-mssql (ms-db-conn pg-db-conn
                                          &key
                                            gucs casts before after
                                            ((:mssql-options options))
                                            (including)
                                            (excluding))
-  (bind (((&key ((:dbname msdb)) table-name
-                  &allow-other-keys)                      source)
+  `(lambda ()
+     (let* ((state-before  (pgloader.utils:make-pgstate))
+            (*state*       (or *state* (pgloader.utils:make-pgstate)))
+            (state-idx     (pgloader.utils:make-pgstate))
+            (state-after   (pgloader.utils:make-pgstate))
+            (*default-cast-rules* ',*mssql-default-cast-rules*)
+            (*cast-rules*         ',casts)
+            ,@(pgsql-connection-bindings pg-db-conn gucs)
+            ,@(batch-control-bindings options)
+            ,@(identifier-case-binding options)
+            (source
+             (make-instance 'pgloader.mssql::copy-mssql
+                            :target-db ,pg-db-conn
+                            :source-db ,ms-db-conn)))
 
-         ((&key ((:dbname pgdb)) &allow-other-keys)       pg-db-uri))
-    `(lambda ()
-         (let* ((state-before  (pgloader.utils:make-pgstate))
-                (*state*       (or *state* (pgloader.utils:make-pgstate)))
-                (state-idx     (pgloader.utils:make-pgstate))
-                (state-after   (pgloader.utils:make-pgstate))
-                (*default-cast-rules* ',*mssql-default-cast-rules*)
-                (*cast-rules*         ',casts)
-                ,@(mssql-connection-bindings source)
-                ,@(pgsql-connection-bindings pg-db-uri gucs)
-                ,@(batch-control-bindings options)
-                ,@(identifier-case-binding options)
-                (source
-                 (make-instance 'pgloader.mssql::copy-mssql
-                                :target-db ,pgdb
-                                :source-db ,msdb)))
+       ,(sql-code-block pg-db-conn 'state-before before "before load")
 
-           ,(sql-code-block pgdb 'state-before before "before load")
+       (pgloader.mssql:copy-database source
+                                     :state-before state-before
+                                     :state-after state-after
+                                     :state-indexes state-idx
+                                     :including ',including
+                                     :excluding ',excluding
+                                     ,@(remove-batch-control-option options))
 
-           (pgloader.mssql:copy-database source
-                                         ,@(when table-name
-                                                 `(:only-tables ',(list table-name)))
-                                         :state-before state-before
-                                         :state-after state-after
-                                         :state-indexes state-idx
-                                         :including ',including
-                                         :excluding ',excluding
-                                         ,@(remove-batch-control-option options))
+       ,(sql-code-block pg-db-conn 'state-after after "after load")
 
-           ,(sql-code-block pgdb 'state-after after "after load")
-
-           (report-full-summary "Total import time" *state*
-                                :before   state-before
-                                :finally  state-after
-                                :parallel state-idx)))))
+       (report-full-summary "Total import time" *state*
+                            :before   state-before
+                            :finally  state-after
+                            :parallel state-idx))))
 
 (defrule load-mssql-database load-mssql-command
   (:lambda (source)

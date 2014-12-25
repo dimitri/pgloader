@@ -12,7 +12,7 @@
                    &key (db pomo:*database*))
   "Copy current *writer-batch* into TABLE-NAME."
   (handler-case
-      (with-pgsql-transaction (:dbname dbname :database db)
+      (with-pgsql-transaction (:database db)
         ;; We need to keep a copy of the rows we send through the COPY
         ;; protocol to PostgreSQL to be able to process them again in case
         ;; of a data error being signaled, that's the BATCH here.
@@ -40,17 +40,17 @@
 ;;; We receive fully prepared batch from an lparallel queue, push their
 ;;; content down to PostgreSQL, handling any data related errors in the way.
 ;;;
-(defun copy-from-queue (dbname table-name queue
+(defun copy-from-queue (pgconn table-name queue
 			&key columns (truncate t) ((:state *state*) *state*))
   "Fetch from the QUEUE messages containing how many rows are in the
    *writer-batch* for us to send down to PostgreSQL, and when that's done
    update *state*."
   (when truncate
-    (truncate-tables dbname (list table-name)))
+    (truncate-tables pgconn (list table-name)))
 
   (log-message :debug "pgsql:copy-from-queue: ~a ~a" table-name columns)
 
-  (with-pgsql-connection (dbname)
+  (with-pgsql-connection (pgconn)
     (loop
        for (mesg batch read oversized?) = (lq:pop-queue queue)
        until (eq mesg :end-of-data)

@@ -17,19 +17,7 @@
 	   #:*copy-batch-rows*
            #:*copy-batch-size*
            #:*concurrent-batches*
-	   #:*pgconn*
-           #:pgconn-dbname
 	   #:*pg-settings*
-	   #:*myconn-host*
-	   #:*myconn-port*
-	   #:*myconn-user*
-	   #:*myconn-pass*
-	   #:*my-dbname*
-	   #:*msconn-host*
-	   #:*msconn-port*
-	   #:*msconn-user*
-	   #:*msconn-pass*
-	   #:*ms-dbname*
 	   #:*state*
 	   #:*default-tmpdir*
 	   #:init-params-from-environment
@@ -118,44 +106,7 @@
 (defparameter *concurrent-batches* 10
   "How many batches do we stack in the queue in advance.")
 
-;;;
-;;; PostgreSQL Connection Credentials and Session Settings
-;;;
-(defparameter *pgconn*
-  '(:type :postgresql
-    :host "localhost"
-    :port (parse-integer (getenv-default "PGPORT" "5432"))
-    :user (uiop:getenv "USER")
-    :pass "pgpass"
-    :dbname nil
-    :table-name nil
-    :use-ssl nil)
-  "Default PostgreSQL connection string.")
-
-(defun pgconn-dbname ()
-  "Return the current dbname from *pgconn* setting."
-  (destructuring-bind (&key dbname &allow-other-keys) *pgconn*
-    dbname))
-
 (defparameter *pg-settings* nil "An alist of GUC names and values.")
-
-;;;
-;;; MySQL Connection Credentials
-;;;
-(defparameter *myconn-host* "localhost")
-(defparameter *myconn-port* 3306)
-(defparameter *myconn-user* (uiop:getenv "USER"))
-(defparameter *myconn-pass* nil)
-(defparameter *my-dbname* nil)
-
-;;;
-;;; MSSQL Connection Credentials
-;;;
-(defparameter *msconn-host* "localhost")
-(defparameter *msconn-port* 1433)
-(defparameter *msconn-user* (uiop:getenv "USER"))
-(defparameter *msconn-pass* nil)
-(defparameter *ms-dbname* nil)
 
 ;;;
 ;;; Archive processing: downloads and unzip.

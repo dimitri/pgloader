@@ -63,11 +63,26 @@
     (bind (((_ opts) source))
       (cons :fixed-options opts))))
 
+(defrule fixed-uri (and "fixed://" filename)
+  (:lambda (source)
+    (bind (((_ filename) source))
+      (make-instance 'fixed-connection :specs filename))))
 
 (defrule fixed-file-source (or stdin
 			       inline
+                               http-uri
+                               fixed-uri
 			       filename-matching
-			       maybe-quoted-filename))
+			       maybe-quoted-filename)
+  (:lambda (src)
+    (if (typep src 'fixed-connection) src
+        (destructuring-bind (type &rest specs) src
+          (case type
+            (:stdin    (make-instance 'fixed-connection :specs src))
+            (:inline   (make-instance 'fixed-connection :specs src))
+            (:filename (make-instance 'fixed-connection :specs src))
+            (:regex    (make-instance 'fixed-connection :specs src))
+            (:http     (make-instance 'fixed-connection :uri (first specs))))))))
 
 (defrule get-fixed-file-source-from-environment-variable (and kw-getenv name)
   (:lambda (p-e-v)
@@ -81,14 +96,7 @@
                            (or get-fixed-file-source-from-environment-variable
                                fixed-file-source))
   (:lambda (src)
-    (bind (((_ _ _ source) src)
-           ;; source is (:filename #P"pathname/here")
-           ((type &rest _) source))
-      (ecase type
-	  (:stdin    source)
-	  (:inline   source)
-	  (:filename source)
-	  (:regex    source)))))
+    (bind (((_ _ _ source) src)) source)))
 
 (defrule load-fixed-cols-file-optional-clauses (* (or fixed-options
                                                       gucs
@@ -106,43 +114,42 @@
     (destructuring-bind (source encoding fields target columns clauses) command
       `(,source ,encoding ,fields ,target ,columns ,@clauses))))
 
-(defun lisp-code-for-loading-from-fixed (source fields pg-db-uri
+(defun lisp-code-for-loading-from-fixed (fixed-conn fields pg-db-conn
                                          &key
                                            (encoding :utf-8)
                                            columns
                                            gucs before after
                                            ((:fixed-options options)))
-  (bind (((&key dbname table-name &allow-other-keys) pg-db-uri))
-    `(lambda ()
-       (let* ((state-before  ,(when before `(pgloader.utils:make-pgstate)))
-              (summary       (null *state*))
-              (*state*       (or *state* (pgloader.utils:make-pgstate)))
-              (state-after   ,(when after `(pgloader.utils:make-pgstate)))
-              ,@(pgsql-connection-bindings pg-db-uri gucs)
-              ,@(batch-control-bindings options))
+  `(lambda ()
+     (let* ((state-before  ,(when before `(pgloader.utils:make-pgstate)))
+            (summary       (null *state*))
+            (*state*       (or *state* (pgloader.utils:make-pgstate)))
+            (state-after   ,(when after `(pgloader.utils:make-pgstate)))
+            ,@(pgsql-connection-bindings pg-db-conn gucs)
+            ,@(batch-control-bindings options))
 
-         (progn
-           ,(sql-code-block dbname 'state-before before "before load")
+       (progn
+         ,(sql-code-block pg-db-conn 'state-before before "before load")
 
-           (let ((truncate ,(getf options :truncate))
-                 (source
-                  (make-instance 'pgloader.fixed:copy-fixed
-                                 :target-db ,dbname
-                                 :source ',source
-                                 :target ,table-name
-                                 :encoding ,encoding
-                                 :fields ',fields
-                                 :columns ',columns
-                                 :skip-lines ,(or (getf options :skip-line) 0))))
-             (pgloader.sources:copy-from source :truncate truncate))
+         (let ((truncate ,(getf options :truncate))
+               (source
+                (make-instance 'pgloader.fixed:copy-fixed
+                               :target-db ,pg-db-conn
+                               :source ,(expand (fetch-file fixed-conn))
+                               :target ,(pgconn-table-name pg-db-conn)
+                               :encoding ,encoding
+                               :fields ',fields
+                               :columns ',columns
+                               :skip-lines ,(or (getf options :skip-line) 0))))
+           (pgloader.sources:copy-from source :truncate truncate))
 
-           ,(sql-code-block dbname 'state-after after "after load")
+         ,(sql-code-block pg-db-conn 'state-after after "after load")
 
-           ;; reporting
-           (when summary
-             (report-full-summary "Total import time" *state*
-                                  :before  state-before
-                                  :finally state-after)))))))
+         ;; reporting
+         (when summary
+           (report-full-summary "Total import time" *state*
+                                :before  state-before
+                                :finally state-after))))))
 
 (defrule load-fixed-cols-file load-fixed-cols-file-command
   (:lambda (command)

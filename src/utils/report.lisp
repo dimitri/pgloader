@@ -65,7 +65,7 @@
 
 (defmacro with-stats-collection ((table-name
                                   &key
-                                  (dbname (pgconn-dbname))
+                                  dbname
                                   summary
                                   use-result-as-read
                                   use-result-as-rows

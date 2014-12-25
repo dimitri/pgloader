@@ -62,9 +62,12 @@
                          (:file "transforms")
                          (:file "read-sql-files")))
 
+               ;; generic connection api
+               (:file "connection" :depends-on ("utils"))
+
 	       ;; package pgloader.pgsql
 	       (:module pgsql
-			:depends-on ("package" "params" "utils")
+			:depends-on ("package" "params" "utils" "connection")
 			:components
 			((:file "copy-format")
 			 (:file "queries")
@@ -75,7 +78,8 @@
                                              "schema"))))
 
                (:module "parsers"
-                        :depends-on ("params" "package" "utils" "pgsql" "monkey")
+                        :depends-on ("params" "package" "utils"
+                                              "pgsql" "monkey" "connection")
                         :serial t
                         :components
                         ((:file "parse-ini")
@@ -101,52 +105,69 @@
                ;; generic API for Sources
                (:file "sources-api"
                       :pathname "sources"
-                      :depends-on ("params" "package" "utils" "parsers"))
+                      :depends-on ("params" "package" "utils"
+                                            "parsers" "connection"))
 
 	       ;; Source format specific implementations
 	       (:module sources
 			:depends-on ("monkey"  ; mssql driver patches
                                      "params"
                                      "package"
+                                     "connection"
                                      "sources-api"
                                      "pgsql"
                                      "utils"
                                      "queue")
 			:components
-			((:file "csv")
-			 (:file "fixed")
-			 (:file "db3")
-			 (:file "ixf")
-			 (:file "syslog")
+			((:module "csv"
+                                  :components
+                                  ((:file "csv-guess")
+                                   (:file "csv-database")
+                                   (:file "csv")))
 
-                         (:module "sqlite-utils"
-                                  :pathname "sqlite"
+			 (:file "fixed"
+                                :depends-on ("csv"))
+
+			 (:module "db3"
+                                  :components
+                                  ((:file "db3-schema")
+                                   (:file "db3" :depends-on ("db3-schema"))))
+
+                         (:module "ixf"
+                                  :components
+                                  ((:file "ixf-schema")
+                                   (:file "ixf" :depends-on ("ixf-schema"))))
+
+			 (:file "syslog") ; experimental...
+
+                         (:module "sqlite"
                                   :components
                                   ((:file "sqlite-cast-rules")
                                    (:file "sqlite-schema"
-                                          :depends-on ("sqlite-cast-rules"))))
+                                          :depends-on ("sqlite-cast-rules"))
+                                   (:file "sqlite"
+                                          :depends-on ("sqlite-cast-rules"
+                                                       "sqlite-schema"))))
 
-			 (:file "sqlite" :depends-on ("sqlite-utils"))
-
-                         (:module "mssql-utils"
-                                  :pathname "mssql"
+                         (:module "mssql"
                                   :components
                                   ((:file "mssql-cast-rules")
                                    (:file "mssql-schema"
-                                          :depends-on ("mssql-cast-rules"))))
+                                          :depends-on ("mssql-cast-rules"))
+                                   (:file "mssql"
+                                          :depends-on ("mssql-cast-rules"
+                                                       "mssql-schema"))))
 
-			 (:file "mssql" :depends-on ("mssql-utils"))
-
-                         (:module "mysql-utils"
-                                  :pathname "mysql"
+                         (:module "mysql"
                                   :components
                                   ((:file "mysql-cast-rules")
                                    (:file "mysql-schema"
                                           :depends-on ("mysql-cast-rules"))
                                    (:file "mysql-csv"
-                                          :depends-on ("mysql-schema"))))
-
-			 (:file "mysql" :depends-on ("mysql-utils"))))
+                                          :depends-on ("mysql-schema"))
+                                   (:file "mysql"
+                                          :depends-on ("mysql-cast-rules"
+                                                       "mysql-schema"))))))
 
 	       ;; the main entry file, used when building a stand-alone
 	       ;; executable image

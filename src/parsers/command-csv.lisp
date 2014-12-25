@@ -354,10 +354,26 @@
                (uiop:native-namestring dir)))
       `(:regex ,first-or-all ,regex ,root))))
 
+(defrule csv-uri (and "csv://" filename)
+  (:lambda (source)
+    (bind (((_ filename) source))
+      (make-instance 'csv-connection :specs filename))))
+
 (defrule csv-file-source (or stdin
 			     inline
+                             http-uri
+                             csv-uri
 			     filename-matching
-			     maybe-quoted-filename))
+			     maybe-quoted-filename)
+  (:lambda (src)
+    (if (typep src 'csv-connection) src
+        (destructuring-bind (type &rest specs) src
+          (case type
+            (:stdin    (make-instance 'csv-connection :specs src))
+            (:inline   (make-instance 'csv-connection :specs src))
+            (:filename (make-instance 'csv-connection :specs src))
+            (:regex    (make-instance 'csv-connection :specs src))
+            (:http     (make-instance 'csv-connection :uri (first specs))))))))
 
 (defrule get-csv-file-source-from-environment-variable (and kw-getenv name)
   (:lambda (p-e-v)
@@ -371,14 +387,7 @@
                          (or get-csv-file-source-from-environment-variable
                              csv-file-source))
   (:lambda (src)
-    (bind (((_ _ _ source)    src)
-           ;; source is (:filename #P"pathname/here")
-           ((type &rest _) source))
-      (ecase type
-        (:stdin    source)
-        (:inline   source)
-        (:filename source)
-        (:regex    source)))))
+    (bind (((_ _ _ source) src)) source)))
 
 (defun list-symbols (expression &optional s)
   "Return a list of the symbols used in EXPRESSION."
@@ -405,44 +414,43 @@
     (destructuring-bind (source encoding fields target columns clauses) command
       `(,source ,encoding ,fields ,target ,columns ,@clauses))))
 
-(defun lisp-code-for-loading-from-csv (source fields pg-db-uri
+(defun lisp-code-for-loading-from-csv (csv-conn fields pg-db-conn
                                        &key
                                          (encoding :utf-8)
                                          columns
                                          gucs before after
                                          ((:csv-options options)))
-  (bind (((&key dbname table-name &allow-other-keys) pg-db-uri))
-    `(lambda ()
-	   (let* ((state-before  ,(when before `(pgloader.utils:make-pgstate)))
-		  (summary       (null *state*))
-		  (*state*       (or *state* (pgloader.utils:make-pgstate)))
-		  (state-after   ,(when after `(pgloader.utils:make-pgstate)))
-                  ,@(pgsql-connection-bindings pg-db-uri gucs)
-                  ,@(batch-control-bindings options))
+  `(lambda ()
+     (let* ((state-before  ,(when before `(pgloader.utils:make-pgstate)))
+            (summary       (null *state*))
+            (*state*       (or *state* (pgloader.utils:make-pgstate)))
+            (state-after   ,(when after `(pgloader.utils:make-pgstate)))
+            ,@(pgsql-connection-bindings pg-db-conn gucs)
+            ,@(batch-control-bindings options))
 
-	     (progn
-	       ,(sql-code-block dbname 'state-before before "before load")
+       (progn
+         ,(sql-code-block pg-db-conn 'state-before before "before load")
 
-	       (let ((truncate (getf ',options :truncate))
-		     (source
-		      (make-instance 'pgloader.csv:copy-csv
-				     :target-db  ,dbname
-				     :source    ',source
-				     :target     ,table-name
-				     :encoding   ,encoding
-				     :fields    ',fields
-				     :columns   ',columns
-                                     ,@(remove-batch-control-option
-                                        options :extras '(:truncate)))))
-		 (pgloader.sources:copy-from source :truncate truncate))
+         (let ((truncate (getf ',options :truncate))
+               (source
+                (make-instance 'pgloader.csv:copy-csv
+                               :target-db  ,pg-db-conn
+                               :source     ,(expand (fetch-file csv-conn))
+                               :target     ,(pgconn-table-name pg-db-conn)
+                               :encoding   ,encoding
+                               :fields    ',fields
+                               :columns   ',columns
+                               ,@(remove-batch-control-option
+                                  options :extras '(:truncate)))))
+           (pgloader.sources:copy-from source :truncate truncate))
 
-	       ,(sql-code-block dbname 'state-after after "after load")
+         ,(sql-code-block pg-db-conn 'state-after after "after load")
 
-	       ;; reporting
-	       (when summary
-		 (report-full-summary "Total import time" *state*
-				      :before  state-before
-				      :finally state-after)))))))
+         ;; reporting
+         (when summary
+           (report-full-summary "Total import time" *state*
+                                :before  state-before
+                                :finally state-after))))))
 
 (defrule load-csv-file load-csv-file-command
   (:lambda (command)

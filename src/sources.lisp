@@ -3,21 +3,20 @@
 ;;;
 (in-package :pgloader.sources)
 
-(define-condition connection-error (error)
-  ((type :initarg :type :reader connection-error-type)
-   (mesg :initarg :mesg :reader connection-error-mesg)
-   (host :initarg :host :reader connection-error-host)
-   (port :initarg :port :reader connection-error-port)
-   (user :initarg :user :reader connection-error-user))
-  (:report (lambda (err stream)
-             (format stream "Failed to connect to ~a at ~s ~@[(port ~d)~]~@[ as user ~s: ~a~]"
-                     (connection-error-type err)
-                     (connection-error-host err)
-                     (connection-error-port err)
-                     (connection-error-user err)
-                     (connection-error-mesg err)))))
+;; (defgeneric list-all-columns (connection &key)
+;;   (:documentation "Discover all columns in CONNECTION source."))
 
-;; Abstract classes to define the API with
+;; (defgeneric list-all-indexes (connection &key)
+;;   (:documentation "Discover all indexes in CONNECTION source."))
+
+;; (defgeneric list-all-fkeys   (connection &key)
+;;   (:documentation "Discover all foreign keys in CONNECTION source."))
+
+;; (defgeneric fetch-metadata (connection &key)
+;;   (:documentation "Full discovery of the CONNECTION data source."))
+
+
+;; Abstract classes to define the data loading API with
 ;;
 ;; The source name might be a table name (database server source) or a
 ;; filename (csv, dbase, etc), or something else entirely, like e.g. mongodb
@@ -83,8 +82,7 @@
 			     create-tables
 			     include-drop
 			     create-indexes
-			     reset-sequences
-			     only-tables)
+			     reset-sequences)
   (:documentation
    "Auto-discover source schema, convert it to PostgreSQL, migrate the data
     from the source definition to PostgreSQL for all the discovered

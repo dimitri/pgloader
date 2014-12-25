@@ -281,53 +281,50 @@
                     ;; line, try and process them as source and target
                     ;; arguments
                     (if (= 2 (length arguments))
-                        (let ((type   (parse-cli-type type))
-                              (source (first arguments))
-                              (target (parse-target-string (second arguments))))
+                        (let* ((type   (parse-cli-type type))
+                               (source (first arguments))
+                               (source (if type
+                                           (parse-source-string-for-type type source)
+                                           (parse-source-string source)))
+                               (target (parse-target-string (second arguments))))
 
-                          (multiple-value-bind (type source)
-                              (if type
-                                  (parse-source-string-for-type type source)
-                                  (parse-source-string source))
+                          ;; some verbosity about the parsing "magic"
+                          (log-message :info "SOURCE: ~s" source)
+                          (log-message :info "TARGET: ~s" target)
 
-                            ;; some verbosity about the parsing "magic"
-                            (log-message :info "SOURCE: ~s" source)
-                            (log-message :info "TARGET: ~s" target)
+                          (cond ((and (null source) (null target)
+                                      (probe-file
+                                       (uiop:parse-unix-namestring
+                                        (first arguments)))
+                                      (probe-file
+                                       (uiop:parse-unix-namestring
+                                        (second arguments))))
+                                 (mapcar #'process-command-file arguments))
 
-                            (cond ((and (null source) (null target)
-                                        (probe-file
-                                         (uiop:parse-unix-namestring
-                                          (first arguments)))
-                                        (probe-file
-                                         (uiop:parse-unix-namestring
-                                          (second arguments))))
-                                   (mapcar #'process-command-file arguments))
+                                ((null source)
+                                 (log-message :fatal
+                                              "Failed to parse ~s as a source URI."
+                                              (first arguments))
+                                 (log-message :log "You might need to use --type."))
 
-                                  ((null source)
-                                   (log-message :fatal
-                                                "Failed to parse ~s as a source URI."
-                                                (first arguments))
-                                   (log-message :log "You might need to use --type."))
+                                ((null target)
+                                 (log-message :fatal
+                                              "Failed to parse ~s as a PostgreSQL database URI."
+                                              (second arguments))))
 
-                                  ((null target)
-                                   (log-message :fatal
-                                                "Failed to parse ~s as a PostgreSQL database URI."
-                                                (second arguments))))
-
-                            ;; so, we actually have all the specs for the
-                            ;; job on the command line now.
-                            (when (and source target)
-                              (let ((type (or type (getf source :type))))
-                                (load-data :from source
-                                           :into target
-                                           :encoding (parse-cli-encoding encoding)
-                                           :options  (parse-cli-options type with)
-                                           :gucs     (parse-cli-gucs set)
-                                           :type     type
-                                           :fields   (parse-cli-fields type field)
-                                           :casts    (parse-cli-casts cast)
-                                           :before   (parse-sql-file before)
-                                           :after    (parse-sql-file after))))))
+                          ;; so, we actually have all the specs for the
+                          ;; job on the command line now.
+                          (when (and source target)
+                            (load-data :from source
+                                       :into target
+                                       :encoding (parse-cli-encoding encoding)
+                                       :options  (parse-cli-options type with)
+                                       :gucs     (parse-cli-gucs set)
+                                       :fields   (parse-cli-fields type field)
+                                       :casts    (parse-cli-casts cast)
+                                       :before   (parse-sql-file before)
+                                       :after    (parse-sql-file after)
+                                       :start-logger nil)))
 
                         ;; process the files
                         (mapcar #'process-command-file arguments)))
@@ -352,71 +349,78 @@
 ;;; Main API to use from outside of pgloader.
 ;;;
 (defun load-data (&key ((:from source)) ((:into target))
-                    (type (getf source :type))
                     encoding fields options gucs casts before after
-                    start-logger)
+                    (start-logger t))
   "Load data from SOURCE into TARGET."
+  (declare (type connection source)
+           (type pgsql-connection target))
   (with-monitor (:start-logger start-logger)
     ;; some preliminary checks
-    (when (and (eq source :stdin) (null type))
-      (log-message :fatal "When loading from stdin, option --type is mandatory.")
+    (when (and (typep source 'csv-connection) (null fields))
+      (log-message :fatal "This source type requires --fields arguments.")
       (return-from load-data))
 
-    (when (and (member type '(:csv :fixed)) (null fields))
-      (log-message :fatal "Source type ~a requires --fields arguments." type)
-      (return-from load-data))
-
-    (when (and casts (not (member type '(:sqlite :mysql :mssql))))
-      (log-message :log "Cast rules are not considered for ~s sources." type))
+    (when (and casts (not (member (type-of source)
+                                  '(sqlite-connection
+                                    mysql-connection
+                                    mssql-connection))))
+      (log-message :log "Cast rules are ignored for this sources."))
 
     ;; now generates the code for the command
-    (log-message :debug "LOAD DATA ~a FROM ~s" type source)
+    (log-message :debug "LOAD DATA FROM ~s" source)
     (run-commands
      (process-relative-pathnames
       (uiop:getcwd)
-      (case type
-        (:csv     (lisp-code-for-loading-from-csv source fields target
-                                                  :encoding encoding
-                                                  :gucs gucs
-                                                  :csv-options options
-                                                  :before before
-                                                  :after after))
+      (typecase source
+        (csv-connection
+         (lisp-code-for-loading-from-csv source fields target
+                                         :encoding encoding
+                                         :gucs gucs
+                                         :csv-options options
+                                         :before before
+                                         :after after))
 
-        (:fixed   (lisp-code-for-loading-from-fixed source fields target
-                                                    :encoding encoding
-                                                    :gucs gucs
-                                                    :fixed-options options
-                                                    :before before
-                                                    :after after))
+        (fixed-connection
+         (lisp-code-for-loading-from-fixed source fields target
+                                           :encoding encoding
+                                           :gucs gucs
+                                           :fixed-options options
+                                           :before before
+                                           :after after))
 
-        (:dbf     (lisp-code-for-loading-from-dbf source target
-                                                  :gucs gucs
-                                                  :dbf-options options
-                                                  :before before
-                                                  :after after))
+        (dbf-connection
+         (lisp-code-for-loading-from-dbf source target
+                                         :gucs gucs
+                                         :dbf-options options
+                                         :before before
+                                         :after after))
 
-        (:ixf     (lisp-code-for-loading-from-ixf source target
-                                                  :gucs gucs
-                                                  :ixf-options options
-                                                  :before before
-                                                  :after after))
+        (ixf-connection
+         (lisp-code-for-loading-from-ixf source target
+                                         :gucs gucs
+                                         :ixf-options options
+                                         :before before
+                                         :after after))
 
-        (:sqlite  (lisp-code-for-loading-from-sqlite source target
-                                                     :gucs gucs
-                                                     :casts casts
-                                                     :sqlite-options options))
+        (sqlite-connection
+         (lisp-code-for-loading-from-sqlite source target
+                                            :gucs gucs
+                                            :casts casts
+                                            :sqlite-options options))
 
-        (:mysql   (lisp-code-for-loading-from-mysql source target
-                                                    :gucs gucs
-                                                    :casts casts
-                                                    :mysql-options options
-                                                    :before before
-                                                    :after after))
+        (mysql-connection
+         (lisp-code-for-loading-from-mysql source target
+                                           :gucs gucs
+                                           :casts casts
+                                           :mysql-options options
+                                           :before before
+                                           :after after))
 
-        (:mssql   (lisp-code-for-loading-from-mssql source target
-                                                    :gucs gucs
-                                                    :casts casts
-                                                    :mssql-options options
-                                                    :before before
-                                                    :after after))))
+        (mssql-connection
+         (lisp-code-for-loading-from-mssql source target
+                                           :gucs gucs
+                                           :casts casts
+                                           :mssql-options options
+                                           :before before
+                                           :after after))))
      :start-logger start-logger)))

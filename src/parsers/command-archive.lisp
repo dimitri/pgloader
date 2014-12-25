@@ -38,35 +38,34 @@
 
 (defrule load-archive load-archive-clauses
   (:lambda (archive)
-    (destructuring-bind (source pg-db-uri &key before commands finally) archive
-      (when (and (or before finally) (null pg-db-uri))
+    (destructuring-bind (source pg-db-conn &key before commands finally) archive
+      (when (and (or before finally) (null pg-db-conn))
         (error "When using a BEFORE LOAD DO or a FINALLY block, you must provide an archive level target database connection."))
-      (destructuring-bind (&key dbname &allow-other-keys) pg-db-uri
-        `(lambda ()
-           (let* ((state-before   (pgloader.utils:make-pgstate))
-                  (*state*        (pgloader.utils:make-pgstate))
-                  ,@(pgsql-connection-bindings pg-db-uri nil)
-                  (state-finally ,(when finally `(pgloader.utils:make-pgstate)))
-                  (archive-file
-                   ,(destructuring-bind (kind url) source
-                                        (ecase kind
-                                          (:http     `(with-stats-collection
-                                                          ("download" :state state-before)
-                                                        (pgloader.archive:http-fetch-file ,url)))
-                                          (:filename url))))
-                  (*csv-path-root*
-                   (with-stats-collection ("extract" :state state-before)
-                     (pgloader.archive:expand-archive archive-file))))
-             (progn
-               ,(sql-code-block dbname 'state-before before "before load")
+      `(lambda ()
+         (let* ((state-before   (pgloader.utils:make-pgstate))
+                (*state*        (pgloader.utils:make-pgstate))
+                ,@(pgsql-connection-bindings pg-db-conn nil)
+                (state-finally ,(when finally `(pgloader.utils:make-pgstate)))
+                (archive-file
+                 ,(destructuring-bind (kind url) source
+                                      (ecase kind
+                                        (:http     `(with-stats-collection
+                                                        ("download" :state state-before)
+                                                      (pgloader.archive:http-fetch-file ,url)))
+                                        (:filename url))))
+                (*csv-path-root*
+                 (with-stats-collection ("extract" :state state-before)
+                   (pgloader.archive:expand-archive archive-file))))
+           (progn
+             ,(sql-code-block pg-db-conn 'state-before before "before load")
 
-               ;; import from files block
-               ,@(loop for command in commands
-                    collect `(funcall ,command))
+             ;; import from files block
+             ,@(loop for command in commands
+                  collect `(funcall ,command))
 
-               ,(sql-code-block dbname 'state-finally finally "finally")
+             ,(sql-code-block pg-db-conn 'state-finally finally "finally")
 
-               ;; reporting
-               (report-full-summary "Total import time" *state*
-                                    :before state-before
-                                    :finally state-finally))))))))
+             ;; reporting
+             (report-full-summary "Total import time" *state*
+                                  :before state-before
+                                  :finally state-finally)))))))

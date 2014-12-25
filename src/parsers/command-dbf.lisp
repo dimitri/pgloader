@@ -7,7 +7,7 @@
 (in-package #:pgloader.parser)
 
 (defrule option-create-table (and kw-create kw-table)
-  (:constant (cons :create-table t)))
+  (:constant (cons :create-tables t)))
 
 (defrule quoted-table-name (and #\' (or qualified-table-name namestring) #\')
   (:lambda (qtn)
@@ -22,7 +22,11 @@
                         option-batch-size
                         option-batch-concurrency
                         option-truncate
+                        option-data-only
+                        option-schema-only
+                        option-include-drop
                         option-create-table
+                        option-create-tables
                         option-table-name))
 
 (defrule another-dbf-option (and comma dbf-option)
@@ -39,7 +43,20 @@
     (bind (((_ opts) source))
       (cons :dbf-options opts))))
 
-(defrule dbf-source (and kw-load kw-dbf kw-from filename-or-http-uri)
+(defrule dbf-uri (and "dbf://" filename)
+  (:lambda (source)
+    (bind (((_ filename) source))
+      (make-instance 'dbf-connection :path (second filename)))))
+
+(defrule dbf-file-source (or dbf-uri filename-or-http-uri)
+  (:lambda (conn-or-path-or-uri)
+    (if (typep conn-or-path-or-uri 'dbf-connection) conn-or-path-or-uri
+        (destructuring-bind (kind url) conn-or-path-or-uri
+          (case kind
+            (:filename (make-instance 'dbf-connection :path url))
+            (:http     (make-instance 'dbf-connection :uri url)))))))
+
+(defrule dbf-source (and kw-load kw-dbf kw-from dbf-file-source)
   (:lambda (src)
     (bind (((_ _ _ source) src)) source)))
 
@@ -55,54 +72,40 @@
     (destructuring-bind (source target clauses) command
       `(,source ,target ,@clauses))))
 
-(defun lisp-code-for-loading-from-dbf (source pg-db-uri
+(defun lisp-code-for-loading-from-dbf (dbf-db-conn pg-db-conn
                                        &key
                                          gucs before after
                                          ((:dbf-options options)))
-  (bind (((&key dbname table-name &allow-other-keys) pg-db-uri))
-    `(lambda ()
-       (let* ((state-before   (pgloader.utils:make-pgstate))
-              (summary        (null *state*))
-              (*state*        (or *state* (pgloader.utils:make-pgstate)))
-              (state-after   ,(when after `(pgloader.utils:make-pgstate)))
-              ,@(pgsql-connection-bindings pg-db-uri gucs)
-              ,@(batch-control-bindings options)
-              ,@(identifier-case-binding options)
-              (source
-               ,(bind (((kind url) source))
-                      (ecase kind
-                        (:http     `(with-stats-collection
-                                        ("download" :state state-before)
-                                      (pgloader.archive:http-fetch-file ,url)))
-                        (:filename url))))
-              (source
-               (if (string= "zip" (pathname-type source))
-                   (progn
-                     (with-stats-collection ("extract" :state state-before)
-                       (let ((d (pgloader.archive:expand-archive source)))
-                         (make-pathname :defaults d
-                                        :name (pathname-name source)
-                                        :type "dbf"))))
-                   source))
-              (source
-               (make-instance 'pgloader.db3:copy-db3
-                              :target-db ,dbname
-                              :source source
-                              :target ,table-name)))
+  `(lambda ()
+     (let* ((state-before   (pgloader.utils:make-pgstate))
+            (summary        (null *state*))
+            (*state*        (or *state* (pgloader.utils:make-pgstate)))
+            (state-after   ,(when after `(pgloader.utils:make-pgstate)))
+            ,@(pgsql-connection-bindings pg-db-conn gucs)
+            ,@(batch-control-bindings options)
+            ,@(identifier-case-binding options)
+            (table-name    ,(pgconn-table-name pg-db-conn))
+            (source-db     (with-stats-collection ("fetch" :state state-before)
+                             (expand (fetch-file ,dbf-db-conn))))
+            (source
+             (make-instance 'pgloader.db3:copy-db3
+                            :target-db ,pg-db-conn
+                            :source-db source-db
+                            :target table-name)))
 
-         ,(sql-code-block dbname 'state-before before "before load")
+       ,(sql-code-block pg-db-conn 'state-before before "before load")
 
-         (pgloader.sources:copy-from source
-                                     :state-before state-before
-                                     ,@(remove-batch-control-option options))
+       (pgloader.sources:copy-database source
+                                       :state-before state-before
+                                       ,@(remove-batch-control-option options))
 
-         ,(sql-code-block dbname 'state-after after "after load")
+       ,(sql-code-block pg-db-conn 'state-after after "after load")
 
-         ;; reporting
-         (when summary
-           (report-full-summary "Total import time" *state*
-                                :before state-before
-                                :finally state-after))))))
+       ;; reporting
+       (when summary
+         (report-full-summary "Total import time" *state*
+                              :before state-before
+                              :finally state-after)))))
 
 (defrule load-dbf-file load-dbf-command
   (:lambda (command)

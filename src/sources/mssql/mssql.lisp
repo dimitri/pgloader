@@ -12,35 +12,10 @@
 
 (defmethod initialize-instance :after ((source copy-mssql) &key)
   "Add a default value for transforms in case it's not been provided."
-  (let* ((source-db  (slot-value source 'source-db))
-	 (table-name (when (slot-boundp source 'source)
-		       (slot-value source 'source)))
-	 (fields     (or (and (slot-boundp source 'fields)
-			      (slot-value source 'fields))
-			 (when table-name
-			   (let* ((all-columns (list-all-columns :dbname source-db)))
-			     (cdr (assoc table-name all-columns
-					 :test #'string=))))))
-	 (transforms (when (slot-boundp source 'transforms)
+  (let* ((transforms (when (slot-boundp source 'transforms)
 		       (slot-value source 'transforms))))
-
-    ;; default to using the same database name as source and target
-    (when (and source-db
-	       (or (not (slot-boundp source 'target-db))
-		   (not (slot-value source 'target-db))))
-      (setf (slot-value source 'target-db) source-db))
-
-    ;; default to using the same table-name as source and target
-    (when (and table-name
-	       (or (not (slot-boundp source 'target))
-                   (not (slot-value source 'target))))
-      (setf (slot-value source 'target) table-name))
-
-    (when fields
-      (unless (slot-boundp source 'fields)
-	(setf (slot-value source 'fields) fields))
-
-      (loop :for field :in fields
+    (when (and (slot-boundp source 'fields) (slot-value source 'fields))
+      (loop :for field :in (slot-value source 'fields)
          :for (column fn) := (multiple-value-bind (column fn)
                                (cast-mssql-column-definition-to-pgsql field)
                              (list column fn))
@@ -53,7 +28,7 @@
 (defmethod map-rows ((mssql copy-mssql) &key process-row-fn)
   "Extract Mssql data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row."
-  (with-mssql-connection ((source-db mssql))
+  (with-connection (*mssql-db* (source-db mssql))
     (let* ((sql  (destructuring-bind (schema . table-name)
                      (source mssql)
                    (format nil "SELECT ~{~a~^, ~} FROM [~a].[~a];"
@@ -72,7 +47,9 @@
                     (log-message :error "~a" c)
                     (pgstate-incf *state* (target mssql) :errs 1)
                     (invoke-restart 'mssql::use-nil))))
-           (mssql::map-query-results sql :row-fn row-fn :connection *mssql-db*))
+            (mssql::map-query-results sql
+                                      :row-fn row-fn
+                                      :connection (conn-handle *mssql-db*)))
         (condition (e)
           (progn
             (log-message :error "~a" e)
@@ -93,7 +70,10 @@
 
     ;; we account stats against the target table-name, because that's all we
     ;; know on the PostgreSQL thread
-    (with-stats-collection (table-name :state *state* :summary summary)
+    (with-stats-collection (table-name
+                            :dbname (db-name (target-db mssql))
+                            :state *state*
+                            :summary summary)
       (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
         (log-message :notice "COPY ~a" table-name)
         ;; read data from Mssql
@@ -113,33 +93,34 @@
     ;; return the copy-mssql object we just did the COPY for
     mssql))
 
-(defun complete-pgsql-database (all-columns all-fkeys pkeys
+(defun complete-pgsql-database (pgconn all-columns all-fkeys pkeys
                                 &key
                                   state
                                   data-only
                                   foreign-keys
                                   reset-sequences)
-    "After loading the data into PostgreSQL, we can now reset the sequences
+  "After loading the data into PostgreSQL, we can now reset the sequences
      and declare foreign keys."
-    ;;
-    ;; Now Reset Sequences, the good time to do that is once the whole data
-    ;; has been imported and once we have the indexes in place, as max() is
-    ;; able to benefit from the indexes. In particular avoid doing that step
-    ;; while CREATE INDEX statements are in flight (avoid locking).
-    ;;
-    (when reset-sequences
-      (let ((table-names (mapcar #'car (qualified-table-name-list all-columns))))
-        (reset-sequences table-names  :state state)))
+  ;;
+  ;; Now Reset Sequences, the good time to do that is once the whole data
+  ;; has been imported and once we have the indexes in place, as max() is
+  ;; able to benefit from the indexes. In particular avoid doing that step
+  ;; while CREATE INDEX statements are in flight (avoid locking).
+  ;;
+  (when reset-sequences
+    (let ((table-names (mapcar #'car (qualified-table-name-list all-columns))))
+      (reset-sequences table-names :pgconn pgconn :state state)))
 
-    ;;
-    ;; Turn UNIQUE indexes into PRIMARY KEYS now
-    ;;
-    (pgstate-add-table state (pgconn-dbname) "Primary Keys")
+  ;;
+  ;; Turn UNIQUE indexes into PRIMARY KEYS now
+  ;;
+  (with-pgsql-connection (pgconn)
+    (pgstate-add-table state (db-name pgconn) "Primary Keys")
     (loop :for sql :in pkeys
        :when sql
        :do (progn
              (log-message :notice "~a" sql)
-             (pgsql-execute-with-timing (pgconn-dbname) "Primary Keys" sql state)))
+             (pgsql-execute-with-timing "Primary Keys" sql state)))
 
     ;;
     ;; Foreign Key Constraints
@@ -149,23 +130,23 @@
     ;; and indexes are imported before doing that.
     ;;
     (when (and foreign-keys (not data-only))
-      ;; convert to schema-less list of fkeys
-      ;; TODO: fix the MySQL support inherited API
-      (let ((all-fkeys
-             (loop :for (schema . tables) :in all-fkeys
-                :append (loop :for (table-name . fkeys) :in tables
-                           :collect (cons table-name (mapcar #'cdr fkeys))))))
-        (let ((*identifier-case* :none))
-          (create-pgsql-fkeys all-fkeys :state state)))))
+      (pgstate-add-table state (db-name pgconn) "Foreign Keys")
+      (loop :for (schema . tables) :in all-fkeys
+         :do (loop :for (table-name . fkeys) :in tables
+                :do (loop :for fkey :in fkeys
+                       :for sql := (format-pgsql-create-fkey fkey)
+                       :do (progn
+                             (log-message :notice "~a;" sql)
+                             (pgsql-execute-with-timing "Foreign Keys" sql state))))))))
 
-(defun fetch-mssql-metadata (&key state including excluding)
+(defun fetch-mssql-metadata (mssql &key state including excluding)
   "MS SQL introspection to prepare the migration."
   (let (all-columns all-indexes all-fkeys)
     (with-stats-collection ("fetch meta data"
                             :use-result-as-rows t
                             :use-result-as-read t
                             :state state)
-      (with-mssql-connection ()
+      (with-connection (*mssql-db* (source-db mssql))
         (setf all-columns (list-all-columns :including including
                                             :excluding excluding))
 
@@ -201,17 +182,9 @@
 			    (reset-sequences t)
 			    (foreign-keys    t)
                             (encoding        :utf-8)
-                            only-tables
                             including
                             excluding)
   "Stream the given MS SQL database down to PostgreSQL."
-
-  ;; only-tables is part of the generic lambda list, but we don't use it
-  ;; here as we didn't implement forcing the schema in the table name, and
-  ;; splitting the schema name and table name for processing in list-all-*
-  ;; filtering functions
-  (declare (ignore only-tables))
-
   (let* ((summary       (null *state*))
 	 (*state*       (or *state* (make-pgstate)))
 	 (idx-state     (or state-indexes (make-pgstate)))
@@ -223,7 +196,8 @@
 
     (destructuring-bind (&key all-columns all-indexes all-fkeys pkeys)
         ;; to prepare the run we need to fetch MS SQL meta-data
-        (fetch-mssql-metadata :state state-before
+        (fetch-mssql-metadata mssql
+                              :state state-before
                               :including including
                               :excluding excluding)
 
@@ -245,7 +219,7 @@
                  (with-stats-collection ("create, truncate"
                                          :state state-before
                                          :summary summary)
-                   (with-pgsql-transaction ()
+                   (with-pgsql-transaction (:pgconn (target-db mssql))
                      (loop :for (schema . tables) :in all-columns
                         :do (let ((schema (apply-identifier-case schema)))
                               ;; create schema
@@ -341,7 +315,8 @@
       ;;
       ;; Complete the PostgreSQL database before handing over.
       ;;
-      (complete-pgsql-database all-columns all-fkeys pkeys
+      (complete-pgsql-database (new-pgsql-connection (target-db mssql))
+                               all-columns all-fkeys pkeys
                                :state state-after
                                :data-only data-only
                                :foreign-keys foreign-keys

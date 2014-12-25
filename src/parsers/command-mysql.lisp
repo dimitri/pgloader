@@ -4,21 +4,6 @@
 
 (in-package :pgloader.parser)
 
-(defun mysql-connection-bindings (my-db-uri)
-  "Generate the code needed to set MySQL connection bindings."
-  (destructuring-bind (&key ((:host myhost))
-                            ((:port myport))
-                            ((:user myuser))
-                            ((:password mypass))
-                            ((:dbname mydb))
-                            &allow-other-keys)
-      my-db-uri
-    `((*myconn-host* ',myhost)
-      (*myconn-port* ,myport)
-      (*myconn-user* ,myuser)
-      (*myconn-pass* ,mypass)
-      (*my-dbname*   ,mydb))))
-
 ;;;
 ;;; Materialize views by copying their data over, allows for doing advanced
 ;;; ETL processing by having parts of the processing happen on the MySQL
@@ -130,13 +115,14 @@
         (apply #'append uri)
       ;; Default to environment variables as described in
       ;;  http://dev.mysql.com/doc/refman/5.0/en/environment-variables.html
-      (list :type      type
-            :user      (or user     (getenv-default "USER"))
-            :password  (or password (getenv-default "MYSQL_PWD"))
-            :host      (or host     (getenv-default "MYSQL_HOST" "localhost"))
-            :port      (or port     (parse-integer
-                                     (getenv-default "MYSQL_TCP_PORT" "3306")))
-            :dbname    dbname))))
+      (declare (ignore type))
+      (make-instance 'mysql-connection
+                     :user (or user     (getenv-default "USER"))
+                     :pass (or password (getenv-default "MYSQL_PWD"))
+                     :host (or host     (getenv-default "MYSQL_HOST" "localhost"))
+                     :port (or port     (parse-integer
+                                         (getenv-default "MYSQL_TCP_PORT" "3306")))
+                     :name dbname))))
 
 (defrule get-mysql-uri-from-environment-variable (and kw-getenv name)
   (:lambda (p-e-v)
@@ -159,53 +145,46 @@
 
 
 ;;; LOAD DATABASE FROM mysql://
-(defun lisp-code-for-loading-from-mysql (my-db-uri pg-db-uri
+(defun lisp-code-for-loading-from-mysql (my-db-conn pg-db-conn
                                          &key
                                            gucs casts views before after
                                            ((:mysql-options options))
                                            ((:including incl))
                                            ((:excluding excl))
                                            ((:decoding decoding-as)))
-  (bind (((&key ((:dbname mydb)) table-name
-                &allow-other-keys)                        my-db-uri)
+  `(lambda ()
+     (let* ((state-before  (pgloader.utils:make-pgstate))
+            (*state*       (or *state* (pgloader.utils:make-pgstate)))
+            (state-idx     (pgloader.utils:make-pgstate))
+            (state-after   (pgloader.utils:make-pgstate))
+            (*default-cast-rules* ',*mysql-default-cast-rules*)
+            (*cast-rules*         ',casts)
+            ,@(pgsql-connection-bindings pg-db-conn gucs)
+            ,@(batch-control-bindings options)
+            ,@(identifier-case-binding options)
+            (source
+             (make-instance 'pgloader.mysql::copy-mysql
+                            :target-db ,pg-db-conn
+                            :source-db ,my-db-conn)))
 
-         ((&key ((:dbname pgdb)) &allow-other-keys)       pg-db-uri))
-    `(lambda ()
-       (let* ((state-before  (pgloader.utils:make-pgstate))
-              (*state*       (or *state* (pgloader.utils:make-pgstate)))
-              (state-idx     (pgloader.utils:make-pgstate))
-              (state-after   (pgloader.utils:make-pgstate))
-              (*default-cast-rules* ',*mysql-default-cast-rules*)
-              (*cast-rules*         ',casts)
-              ,@(mysql-connection-bindings my-db-uri)
-              ,@(pgsql-connection-bindings pg-db-uri gucs)
-              ,@(batch-control-bindings options)
-              ,@(identifier-case-binding options)
-              (source
-               (make-instance 'pgloader.mysql::copy-mysql
-                              :target-db ,pgdb
-                              :source-db ,mydb)))
+       ,(sql-code-block pg-db-conn 'state-before before "before load")
 
-         ,(sql-code-block pgdb 'state-before before "before load")
+       (pgloader.mysql:copy-database source
+                                     :including ',incl
+                                     :excluding ',excl
+                                     :decoding-as ',decoding-as
+                                     :materialize-views ',views
+                                     :state-before state-before
+                                     :state-after state-after
+                                     :state-indexes state-idx
+                                     ,@(remove-batch-control-option options))
 
-         (pgloader.mysql:copy-database source
-                                       ,@(when table-name
-                                               `(:only-tables ',(list table-name)))
-                                       :including ',incl
-                                       :excluding ',excl
-                                       :decoding-as ',decoding-as
-                                       :materialize-views ',views
-                                       :state-before state-before
-                                       :state-after state-after
-                                       :state-indexes state-idx
-                                       ,@(remove-batch-control-option options))
+       ,(sql-code-block pg-db-conn 'state-after after "after load")
 
-         ,(sql-code-block pgdb 'state-after after "after load")
-
-         (report-full-summary "Total import time" *state*
-                              :before   state-before
-                              :finally  state-after
-                              :parallel state-idx)))))
+       (report-full-summary "Total import time" *state*
+                            :before   state-before
+                            :finally  state-after
+                            :parallel state-idx))))
 
 (defrule load-mysql-database load-mysql-command
   (:lambda (source)

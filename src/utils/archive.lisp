@@ -4,6 +4,12 @@
 
 (in-package #:pgloader.archive)
 
+(defparameter *supported-archive-types* '(:tar :tgz :gz :zip))
+
+(defun archivep (archive-file)
+  "Return non-nil when the ARCHIVE-FILE is something we know how to expand."
+  (member (archive-type archive-file) *supported-archive-types*))
+
 (defun http-fetch-file (url &key (tmpdir *default-tmpdir*))
   "Download a file from URL into TMPDIR."
 

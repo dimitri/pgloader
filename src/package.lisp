@@ -67,6 +67,20 @@
            #:make-external-format))
 
 
+;;
+;; Not really a source, more a util package to deal with http and zip
+;;
+(defpackage #:pgloader.archive
+  (:use #:cl #:pgloader.params)
+  (:import-from #:pgloader.monitor
+                #:log-message)
+  (:export #:*supporter-archive-types*
+           #:archivep
+           #:http-fetch-file
+	   #:expand-archive
+	   #:get-matching-filenames))
+
+
 ;;;
 ;;; PostgreSQL COPY support, and generic sources API.
 ;;;
@@ -75,8 +89,35 @@
   (:export #:parse-date-string
            #:parse-date-format))
 
+(defpackage #:pgloader.connection
+  (:use #:cl #:pgloader.archive)
+  (:export #:connection
+           #:open-connection
+           #:close-connection
+           #:fd-connection
+           #:db-connection
+           #:connection-error
+           #:fd-connection-error
+           #:db-connection-error
+           #:with-connection
+
+           ;; file based connections API for HTTP and Archives support
+           #:fetch-file
+           #:expand
+
+           ;; connection classes accessors
+           #:conn-type
+           #:conn-handle
+           #:db-conn
+           #:fd-path
+           #:db-name
+           #:db-host
+           #:db-port
+           #:db-user
+           #:db-pass))
+
 (defpackage #:pgloader.sources
-  (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.connection)
   (:import-from #:pgloader.transforms #:precision #:scale)
   (:import-from #:pgloader.parse-date
                 #:parse-date-string
@@ -95,9 +136,6 @@
 	   #:copy-to
 	   #:copy-database
 
-           ;; conditions, error handling
-           #:connection-error
-
            ;; file based utils for CSV, fixed etc
 	   #:filter-column-list
            #:with-open-file-or-stream
@@ -112,13 +150,16 @@
            #:cast))
 
 (defpackage #:pgloader.pgsql
-  (:use #:cl #:pgloader.params #:pgloader.utils)
-  (:import-from #:pgloader.sources
-                #:connection-error)
-  (:export #:with-pgsql-transaction
+  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.connection)
+  (:export #:pgsql-connection
+           #:pgconn-use-ssl
+           #:pgconn-table-name
+           #:new-pgsql-connection
+           #:with-pgsql-transaction
 	   #:with-pgsql-connection
 	   #:pgsql-execute
 	   #:pgsql-execute-with-timing
+	   #:pgsql-connect-and-execute-with-timing
 	   #:truncate-tables
 	   #:copy-from-file
 	   #:copy-from-queue
@@ -186,9 +227,12 @@
 ;;
 (defpackage #:pgloader.csv
   (:use #:cl
-        #:pgloader.params #:pgloader.utils
+        #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.sources #:pgloader.queue)
   (:export #:*csv-path-root*
+           #:csv-connection
+           #:specs
+           #:csv-specs
 	   #:get-pathname
 	   #:copy-csv
 	   #:copy-to-queue
@@ -199,15 +243,20 @@
 
 (defpackage #:pgloader.fixed
   (:use #:cl
-        #:pgloader.params #:pgloader.utils
+        #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.sources #:pgloader.queue)
-  (:export #:copy-fixed
+  (:import-from #:pgloader.csv
+                #:csv-connection
+                #:specs
+                #:csv-specs)
+  (:export #:fixed-connection
+           #:copy-fixed
 	   #:copy-to-queue
 	   #:copy-from))
 
 (defpackage #:pgloader.ixf
   (:use #:cl
-        #:pgloader.params #:pgloader.utils
+        #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.sources #:pgloader.queue)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
@@ -217,14 +266,15 @@
 		#:create-tables
 		#:format-pgsql-column
                 #:format-vector-row)
-  (:export #:copy-ixf
+  (:export #:ixf-connection
+           #:copy-ixf
 	   #:map-rows
 	   #:copy-to-queue
 	   #:copy-from))
 
 (defpackage #:pgloader.db3
   (:use #:cl
-        #:pgloader.params #:pgloader.utils
+        #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.sources #:pgloader.queue)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
@@ -234,7 +284,8 @@
 		#:create-tables
 		#:format-pgsql-column
                 #:format-vector-row)
-  (:export #:copy-db3
+  (:export #:dbf-connection
+           #:copy-db3
 	   #:map-rows
 	   #:copy-to
 	   #:copy-to-queue
@@ -242,10 +293,12 @@
 
 (defpackage #:pgloader.mysql
   (:use #:cl
-        #:pgloader.params #:pgloader.utils
+        #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.sources #:pgloader.queue)
   (:import-from #:pgloader.transforms #:precision #:scale)
   (:import-from #:pgloader.pgsql
+                #:new-pgsql-connection
+		#:with-pgsql-connection
 		#:with-pgsql-transaction
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
@@ -267,7 +320,8 @@
                 #:set-table-oids
                 #:format-vector-row
                 #:reset-sequences)
-  (:export #:copy-mysql
+  (:export #:mysql-connection
+           #:copy-mysql
 	   #:*mysql-default-cast-rules*
            #:with-mysql-connection
 	   #:map-rows
@@ -281,7 +335,7 @@
 
 (defpackage #:pgloader.sqlite
   (:use #:cl
-        #:pgloader.params #:pgloader.utils
+        #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.sources #:pgloader.queue)
   (:import-from #:pgloader.transforms #:precision #:scale)
   (:import-from #:pgloader.pgsql
@@ -298,7 +352,8 @@
 		#:create-indexes-in-kernel
                 #:set-table-oids
                 #:reset-sequences)
-  (:export #:copy-sqlite
+  (:export #:sqlite-connection
+           #:copy-sqlite
            #:*sqlite-default-cast-rules*
 	   #:map-rows
 	   #:copy-to
@@ -308,13 +363,16 @@
 
 (defpackage #:pgloader.mssql
   (:use #:cl
-        #:pgloader.params #:pgloader.utils
+        #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.sources #:pgloader.queue)
   (:import-from #:pgloader.transforms #:precision #:scale)
   (:import-from #:pgloader.pgsql
+                #:new-pgsql-connection
+		#:with-pgsql-connection
 		#:with-pgsql-transaction
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
+		#:pgsql-connect-and-execute-with-timing
 		#:apply-identifier-case
 		#:list-tables-and-fkeys
 		#:list-table-oids
@@ -333,7 +391,8 @@
                 #:set-table-oids
                 #:format-vector-row
                 #:reset-sequences)
-  (:export #:copy-mssql
+  (:export #:mssql-connection
+           #:copy-mssql
            #:*mssql-default-cast-rules*
 	   #:map-rows
 	   #:copy-to
@@ -351,34 +410,39 @@
 	   #:send-message))
 
 
-;;
-;; Not really a source, more a util package to deal with http and zip
-;;
-(defpackage #:pgloader.archive
-  (:use #:cl #:pgloader.params)
-  (:import-from #:pgloader.monitor
-                #:log-message)
-  (:export #:http-fetch-file
-	   #:expand-archive
-	   #:get-matching-filenames))
-
-
 ;;;
 ;;; The Command Parser
 ;;;
 (defpackage #:pgloader.parser
   (:use #:cl #:esrap #:metabang.bind
-        #:pgloader.params #:pgloader.utils #:pgloader.sql)
+        #:pgloader.params #:pgloader.utils #:pgloader.sql #:pgloader.connection)
   (:import-from #:alexandria #:read-file-into-string)
   (:import-from #:pgloader.pgsql
+                #:pgsql-connection
 		#:with-pgsql-transaction
-		#:pgsql-execute)
+		#:pgsql-execute
+                #:pgconn-use-ssl
+                #:pgconn-table-name)
+  (:import-from #:pgloader.csv
+                #:csv-connection
+                #:specs
+                #:csv-specs)
+  (:import-from #:pgloader.fixed
+                #:fixed-connection)
   (:import-from #:pgloader.sources
                 #:*default-cast-rules*
                 #:*cast-rules*)
-  (:import-from #:pgloader.mysql  #:*mysql-default-cast-rules*)
-  (:import-from #:pgloader.mssql  #:*mssql-default-cast-rules*)
-  (:import-from #:pgloader.sqlite #:*sqlite-default-cast-rules*)
+  (:import-from #:pgloader.mysql
+                #:mysql-connection
+                #:*mysql-default-cast-rules*)
+  (:import-from #:pgloader.mssql
+                #:mssql-connection
+                #:*mssql-default-cast-rules*)
+  (:import-from #:pgloader.sqlite
+                #:sqlite-connection
+                #:*sqlite-default-cast-rules*)
+  (:import-from #:pgloader.db3 #:dbf-connection)
+  (:import-from #:pgloader.ixf #:ixf-connection)
   (:export #:parse-commands
 	   #:run-commands
 
@@ -394,6 +458,16 @@
            #:parse-cli-fields
            #:parse-cli-casts
            #:parse-sql-file
+
+           ;; connection types / classes symbols for use in main
+           #:connection
+           #:csv-connection
+           #:fixed-connection
+           #:dbf-connection
+           #:ixf-connection
+           #:sqlite-connection
+           #:mysql-connection
+           #:mssql-connection
 
            ;; functions to generate lisp code from parameters
            #:lisp-code-for-loading-from-mysql
@@ -411,10 +485,11 @@
 (defpackage #:pgloader
   (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.parser)
   (:import-from #:pgloader.pgsql
+                #:pgsql-connection
 		#:copy-from-file
 		#:list-databases
 		#:list-tables)
-  (:import-from #:pgloader.sources
+  (:import-from #:pgloader.connection
                 #:connection-error)
   (:export #:*version-string*
 	   #:*state*

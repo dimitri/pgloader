@@ -143,20 +143,22 @@
         (apply #'append uri)
       ;; Default to environment variables as described in
       ;;  http://www.postgresql.org/docs/9.3/static/app-psql.html
-      (list :type       type
-            :user       (or user
-                            (getenv-default "PGUSER"
-                                            #+unix (getenv-default "USER")
-                                            #-unix (getenv-default "UserName")))
-            :password   (or password (getenv-default "PGPASSWORD"))
-            :host       (or host     (getenv-default "PGHOST"
-                                                     #+unix :unix
-                                                     #-unix "localhost"))
-            :port       (or port     (parse-integer
-                                      (getenv-default "PGPORT" "5432")))
-            :use-ssl    use-ssl
-            :dbname     (or dbname   (getenv-default "PGDATABASE" user))
-            :table-name table-name))))
+      (declare (ignore type))
+      (make-instance 'pgsql-connection
+                     :user (or user
+                               (getenv-default "PGUSER"
+                                               #+unix (getenv-default "USER")
+                                               #-unix (getenv-default "UserName")))
+                     :pass (or password (getenv-default "PGPASSWORD"))
+                     :host (or host     (getenv-default "PGHOST"
+                                                        #+unix :unix
+                                                        #-unix "localhost"))
+                     :port (or port     (parse-integer
+                                         (getenv-default "PGPORT" "5432")))
+                     :name (or dbname   (getenv-default "PGDATABASE" user))
+
+                     :use-ssl use-ssl
+                     :table-name table-name))))
 
 (defrule get-pgsql-uri-from-environment-variable (and kw-getenv name)
   (:lambda (p-e-v)
@@ -175,9 +177,7 @@
 
 (defun pgsql-connection-bindings (pg-db-uri gucs)
   "Generate the code needed to set PostgreSQL connection bindings."
-  (destructuring-bind (&key ((:dbname pgdb)) &allow-other-keys) pg-db-uri
-    `((*pgconn*      ',pg-db-uri)
-      (*pg-settings* ',gucs)
-      (pgloader.pgsql::*pgsql-reserved-keywords*
-       (pgloader.pgsql:list-reserved-keywords ,pgdb)))))
+  `((*pg-settings* ',gucs)
+    (pgloader.pgsql::*pgsql-reserved-keywords*
+     (pgloader.pgsql:list-reserved-keywords ,pg-db-uri))))
 

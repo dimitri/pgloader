@@ -71,15 +71,15 @@
   (:lambda (after)
     (cons :after after)))
 
-(defun sql-code-block (dbname state commands label)
+(defun sql-code-block (pgconn state commands label)
   "Return lisp code to run COMMANDS against DBNAME, updating STATE."
   (when commands
     `(with-stats-collection (,label
-                             :dbname ,dbname
+                             :dbname ,(db-name pgconn)
                              :state ,state
                              :use-result-as-read t
                              :use-result-as-rows t)
-       (with-pgsql-transaction (:dbname ,dbname)
+       (with-pgsql-transaction (:pgconn ,pgconn)
 	 (loop for command in ',commands
 	    do
 	      (log-message :notice command)

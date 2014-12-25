@@ -34,25 +34,56 @@
 (defun inject-inline-data-position (command position)
   "We have '(:inline nil) somewhere in command, have '(:inline position) instead."
   (loop
-     for s-exp in command
-     when (equal '(:inline nil) s-exp) collect (list :inline position)
-     else collect (if (and (consp s-exp) (listp (cdr s-exp)))
-		      (inject-inline-data-position s-exp position)
-		      s-exp)))
+     :for s-exp :in command
+
+     :when (and (or (typep s-exp 'csv-connection)
+                    (typep s-exp 'fixed-connection))
+                (slot-boundp s-exp 'specs)
+                (eq :inline (first (csv-specs s-exp))))
+     :collect (progn (setf (second (csv-specs s-exp)) position)
+                     s-exp)
+
+     :else :collect (if (and (consp s-exp) (listp (cdr s-exp)))
+                        (inject-inline-data-position s-exp position)
+                        s-exp)))
 
 (defun process-relative-pathnames (filename command)
   "Walk the COMMAND to replace relative pathname with absolute ones, merging
    them within the directory where we found the command FILENAME."
   (loop
-     for s-exp in command
-     when (pathnamep s-exp)
-     collect (if (uiop:relative-pathname-p s-exp)
-		 (uiop:merge-pathnames* s-exp filename)
-		 s-exp)
-     else
-     collect (if (and (consp s-exp) (listp (cdr s-exp)))
-		 (process-relative-pathnames filename s-exp)
-		 s-exp)))
+     :for s-exp :in command
+
+     :collect (cond ((pathnamep s-exp)
+                     (if (uiop:relative-pathname-p s-exp)
+                         (uiop:merge-pathnames* s-exp filename)
+                         s-exp))
+
+                    ((and (typep s-exp 'fd-connection)
+                          (slot-boundp s-exp 'pgloader.connection::path))
+                     (if (uiop:relative-pathname-p (fd-path s-exp))
+                         (progn (setf (fd-path s-exp)
+                                      (uiop:merge-pathnames* (fd-path s-exp)
+                                                             filename))
+                                s-exp)
+                         s-exp))
+
+                    ((and (or (typep s-exp 'csv-connection)
+                              (typep s-exp 'fixed-connection))
+                          (slot-boundp s-exp 'specs)
+                          (eq :filename (car (csv-specs s-exp))))
+                     (let ((path (second (csv-specs s-exp))))
+                       (if (uiop:relative-pathname-p path)
+                           (progn (setf (csv-specs s-exp)
+                                        `(:filename
+                                          ,(uiop:merge-pathnames* path
+                                                                  filename)))
+                                  s-exp)
+                           s-exp)))
+
+                    (t
+                     (if (and (consp s-exp) (listp (cdr s-exp)))
+                         (process-relative-pathnames filename s-exp)
+                         s-exp)))))
 
 (defun parse-commands-from-file (maybe-relative-filename
                                  &aux (filename
@@ -145,23 +176,6 @@
 ;;;
 ;;; Parse an URI without knowing before hand what kind of uri it is.
 ;;;
-(defvar *db-uri-prefix-list* '((:postgresql . ("pgsql://"
-                                               "postgres://"
-                                               "postgresql://"))
-                               (:sqlite     . ("sqlite://"))
-                               (:mysql      . ("mysql://"))
-                               (:mssql      . ("mssql://"))))
-
-(defun parse-db-uri-prefix (source-string)
-  "See if SOURCE-STRING starts with a known dburi"
-  (loop :for (type . prefixes) :in *db-uri-prefix-list*
-     :for prefix := (loop :for prefix :in prefixes
-                       :when (let ((plen (length prefix)))
-                               (and (< plen (length source-string))
-                                    (string-equal prefix source-string :end2 plen)))
-                       :return prefix)
-     :when prefix :return type))
-
 (defvar *data-source-filename-extensions*
   '((:csv     . ("csv" "tsv" "txt" "text"))
     (:sqlite  . ("sqlite" "db"))
@@ -186,44 +200,39 @@
 
 (defun parse-source-string-for-type (type source-string)
   "use the parse rules as per xxx-source rules"
-  (let ((source (case type
-                  (:csv        (parse 'csv-file-source      source-string))
-                  (:fixed      (parse 'fixed-file-source    source-string))
-                  (:dbf        (parse 'filename-or-http-uri source-string))
-                  (:ixf        (parse 'filename-or-http-uri source-string))
-                  (:sqlite     (parse 'sqlite-uri           source-string))
-                  (:postgresql (parse 'pgsql-uri            source-string))
-                  (:mysql      (parse 'mysql-uri            source-string))
-                  (:mssql      (parse 'mssql-uri            source-string)))))
-    (values type source)))
+  (case type
+    (:csv        (parse 'csv-file-source   source-string))
+    (:fixed      (parse 'fixed-file-source source-string))
+    (:dbf        (parse 'dbf-file-source   source-string))
+    (:ixf        (parse 'ixf-file-source   source-string))
+    (:sqlite     (parse 'sqlite-uri        source-string))
+    (:postgresql (parse 'pgsql-uri         source-string))
+    (:mysql      (parse 'mysql-uri         source-string))
+    (:mssql      (parse 'mssql-uri         source-string))))
+
+(defrule source-uri (or csv-uri
+                        fixed-uri
+                        dbf-uri
+                        ixf-uri
+                        sqlite-db-uri
+                        pgsql-uri
+                        mysql-uri
+                        mssql-uri
+                        filename-or-http-uri))
 
 (defun parse-source-string (source-string)
-  "Guess type from SOURCE-STRING then parse it accordingly."
-  (cond ((probe-file (uiop:parse-unix-namestring source-string))
-         (let ((type (parse-filename-for-source-type source-string)))
-           (parse-source-string-for-type type source-string)))
+  (let ((source (parse 'source-uri source-string)))
+    (cond ((typep source 'connection)
+           source)
 
-        ((and source-string
-              (< (length "http://") (length source-string))
-              (string-equal "http://" source-string :end2 (length "http://")))
-         (let ((type (parse-filename-for-source-type
-                      (puri:uri-path (puri:parse-uri source-string)))))
-           (case type
-             (:csv    (log-message :fatal "No HTTP support for CSV files yet."))
-             (:fixed  (log-message :fatal "No HTTP support for FIXED files yet."))
-             (:sqlite (parse-source-string-for-type :sqlite source-string))
-             (:db3    (parse-source-string-for-type :db3 source-string))
-             (:ixf    (parse-source-string-for-type :ixf source-string)))))
-
-        ((and source-string (parse-db-uri-prefix source-string))
-         (let* ((type (parse-db-uri-prefix source-string)))
-           (multiple-value-bind (type conn)
-               (parse-source-string-for-type type source-string)
-             (if (eq type (getf conn :type))
-                 (values type conn)
-                 (log-message :fatal "Parsed a ~s connection string for type ~s")))))
-
-        (t nil)))
+          (t
+           (destructuring-bind (kind url) source
+             (let ((type
+                    (case kind
+                      (:filename (parse-filename-for-source-type url))
+                      (:http     (parse-filename-for-source-type
+                                  (puri:uri-path (puri:parse-uri url)))))))
+               (parse-source-string-for-type type source-string)))))))
 
 (defun parse-target-string (target-string)
   (parse 'pgsql-uri target-string))
