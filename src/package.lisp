@@ -495,13 +495,13 @@
 	   #:*state*
 	   #:*csv-path-root*
 	   #:*root-dir*
-	   #:*pgconn*
 	   #:*pg-settings*
-	   #:*myconn-host*
-	   #:*myconn-port*
-	   #:*myconn-user*
-	   #:*myconn-pass*
-	   #:*my-dbname*
+
+           #:load-data
+           #:parse-source-string
+           #:parse-source-string-for-type
+           #:parse-target-string
+
 	   #:run-commands
 	   #:parse-commands
 	   #:with-database-uri
