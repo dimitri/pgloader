@@ -73,9 +73,8 @@
                  (sqlite:finalize-statement statement)
                  (return rows))
           (condition (e)
-            (progn
-              (log-message :error "~a" e)
-              (pgstate-incf *state* (target sqlite) :errs 1))))))))
+            (log-message :error "~a" e)
+            (pgstate-incf *state* (target sqlite) :errs 1)))))))
 
 
 (defmethod copy-to-queue ((sqlite copy-sqlite) queue)
