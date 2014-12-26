@@ -47,9 +47,9 @@
                           #'pgloader.transforms::byte-vector-to-bytea)
 
                          (t
-                          (compile nil (lambda (c)
-                                         (when c
-                                           (format nil "~a" c)))))))))))))
+                          (lambda (c)
+                            (when c
+                              (princ-to-string c))))))))))))
 
 (defmethod map-rows ((copy-ixf copy-ixf) &key process-row-fn)
   "Extract IXF data and call PROCESS-ROW-FN function with a single
