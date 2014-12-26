@@ -116,8 +116,7 @@
   (multiple-value-bind (res secs)
       (timing
        (handler-case (pgsql-execute sql)
-         (cl-postgres:database-error (e)
-           (declare (ignore e))  ; a log has already been printed
+         (cl-postgres:database-error ()
            (pgstate-incf state label :errs 1 :rows (- count)))))
     (declare (ignore res))
     (pgstate-incf state label :read count :rows count :secs secs)))

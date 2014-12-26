@@ -197,17 +197,20 @@
                :when (member extension extensions :test #'string-equal)
                :return type))))))
 
+(defvar *parse-rule-for-source-types*
+  '(:csv     csv-file-source
+    :fixed   fixed-file-source
+    :dbf     dbf-file-source
+    :ixf     ixf-file-source
+    :sqlite  sqlite-uri
+    :pgsql   pgsql-uri
+    :mysql   mysql-uri
+    :mssql   mssql-uri)
+  "A plist to associate source type and its source parsing rule.")
+
 (defun parse-source-string-for-type (type source-string)
   "use the parse rules as per xxx-source rules"
-  (case type
-    (:csv        (parse 'csv-file-source   source-string))
-    (:fixed      (parse 'fixed-file-source source-string))
-    (:dbf        (parse 'dbf-file-source   source-string))
-    (:ixf        (parse 'ixf-file-source   source-string))
-    (:sqlite     (parse 'sqlite-uri        source-string))
-    (:postgresql (parse 'pgsql-uri         source-string))
-    (:mysql      (parse 'mysql-uri         source-string))
-    (:mssql      (parse 'mssql-uri         source-string))))
+  (parse (getf *parse-rule-for-source-types* type) source-string))
 
 (defrule source-uri (or csv-uri
                         fixed-uri
