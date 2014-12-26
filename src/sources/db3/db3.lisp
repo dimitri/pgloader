@@ -105,7 +105,7 @@
     (setf (target db3) table-name)
 
     (handler-case
-        (when (and (or create-tables schema-only (not data-only)))
+        (when (and (or create-tables schema-only) (not data-only))
           (with-stats-collection ("create, truncate"
                                   :state state-before
                                   :summary summary)
