@@ -40,8 +40,8 @@
                     (typep s-exp 'fixed-connection))
                 (slot-boundp s-exp 'specs)
                 (eq :inline (first (csv-specs s-exp))))
-     :collect (progn (setf (second (csv-specs s-exp)) position)
-                     s-exp)
+     :do (setf (second (csv-specs s-exp)) position)
+     :and :collect s-exp
 
      :else :collect (if (and (consp s-exp) (listp (cdr s-exp)))
                         (inject-inline-data-position s-exp position)
@@ -60,12 +60,11 @@
 
                     ((and (typep s-exp 'fd-connection)
                           (slot-boundp s-exp 'pgloader.connection::path))
-                     (if (uiop:relative-pathname-p (fd-path s-exp))
-                         (progn (setf (fd-path s-exp)
-                                      (uiop:merge-pathnames* (fd-path s-exp)
-                                                             filename))
-                                s-exp)
-                         s-exp))
+                     (when (uiop:relative-pathname-p (fd-path s-exp))
+                       (setf (fd-path s-exp)
+                             (uiop:merge-pathnames* (fd-path s-exp)
+                                                    filename)))
+                     s-exp)
 
                     ((and (or (typep s-exp 'csv-connection)
                               (typep s-exp 'fixed-connection))
