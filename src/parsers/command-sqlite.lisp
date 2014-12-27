@@ -100,10 +100,12 @@ load database
             (*cast-rules*         ',casts)
             ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
+            (source-db      (with-stats-collection ("fetch" :state state-before)
+                                (expand (fetch-file ,sqlite-db-conn))))
             (source
              (make-instance 'pgloader.sqlite::copy-sqlite
                             :target-db ,pg-db-conn
-                            :source-db ,(expand (fetch-file sqlite-db-conn)))))
+                            :source-db source-db)))
        (pgloader.sqlite:copy-database source
                                       :state-before state-before
                                       :including ',incl

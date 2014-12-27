@@ -121,12 +121,14 @@
                                            gucs before after
                                            ((:fixed-options options)))
   `(lambda ()
-     (let* ((state-before  ,(when before `(pgloader.utils:make-pgstate)))
+     (let* ((state-before  (pgloader.utils:make-pgstate))
             (summary       (null *state*))
             (*state*       (or *state* (pgloader.utils:make-pgstate)))
             (state-after   ,(when after `(pgloader.utils:make-pgstate)))
             ,@(pgsql-connection-bindings pg-db-conn gucs)
-            ,@(batch-control-bindings options))
+            ,@(batch-control-bindings options)
+            (source-db     (with-stats-collection ("fetch" :state state-before)
+                               (expand (fetch-file ,fixed-conn)))))
 
        (progn
          ,(sql-code-block pg-db-conn 'state-before before "before load")
@@ -135,7 +137,7 @@
                (source
                 (make-instance 'pgloader.fixed:copy-fixed
                                :target-db ,pg-db-conn
-                               :source ,(expand (fetch-file fixed-conn))
+                               :source source-db
                                :target ,(pgconn-table-name pg-db-conn)
                                :encoding ,encoding
                                :fields ',fields

@@ -329,6 +329,10 @@
                         ;; process the files
                         (mapcar #'process-command-file arguments)))
 
+                (source-definition-error (c)
+                  (log-message :fatal "~a" c)
+                  (uiop:quit 2))
+
                 (condition (c)
                   (when debug (invoke-debugger c))
                   (uiop:quit 1))))))
@@ -348,18 +352,32 @@
 ;;;
 ;;; Main API to use from outside of pgloader.
 ;;;
+(define-condition source-definition-error (error)
+  ((mesg :initarg :mesg :reader source-definition-error-mesg))
+  (:report (lambda (err stream)
+             (format stream "~a" (source-definition-error-mesg err)))))
+
 (defun load-data (&key ((:from source)) ((:into target))
                     encoding fields options gucs casts before after
                     (start-logger t))
   "Load data from SOURCE into TARGET."
   (declare (type connection source)
            (type pgsql-connection target))
-  (with-monitor (:start-logger start-logger)
-    ;; some preliminary checks
-    (when (and (typep source 'csv-connection) (null fields))
-      (log-message :fatal "This source type requires --fields arguments.")
-      (return-from load-data))
 
+  ;; some preliminary checks
+  (when (and (typep source 'csv-connection) (null fields))
+    (error 'source-definition-error
+           :mesg "CSV source type requires fields definitions."))
+
+  (when (and (typep source 'csv-connection) (null (pgconn-table-name target)))
+    (error 'source-definition-error
+           :mesg "CSV data source require a table name target."))
+
+  (when (and (typep source 'fixed-connection) (null (pgconn-table-name target)))
+    (error 'source-definition-error
+           :mesg "Fixed-width data source require a table name target."))
+
+  (with-monitor (:start-logger start-logger)
     (when (and casts (not (member (type-of source)
                                   '(sqlite-connection
                                     mysql-connection

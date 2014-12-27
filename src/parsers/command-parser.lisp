@@ -273,10 +273,10 @@
 (defun parse-cli-fields (type fields)
   "Parse the --fields option."
   (loop :for field :in fields
-     :collect (parse (case type
-                       (:csv   'csv-source-field)
-                       (:fixed 'fixed-source-field))
-                     field)))
+     :append (parse (case type
+                      (:csv   'csv-source-fields)
+                      (:fixed 'fixed-source-fields))
+                    field)))
 
 (defun parse-cli-options (type options)
   "Parse options as per the WITH clause when we get them from the CLI."

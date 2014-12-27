@@ -183,6 +183,44 @@ For documentation about the available syntaxes for the `--field` and
 
 Note also that the PostgreSQL URI includes the target *tablename*.
 
+### Loading from CSV available through HTTP
+
+The same command as just above can also be run if the CSV file happens to be
+found on a remote HTTP location:
+
+    .pgloader --type csv                                                     \
+              --field "usps,geoid,aland,awater,aland_sqmi,awater_sqmi,intptlat,intptlong" \
+              --with "skip header = 1"                                       \
+              --with "fields terminated by '\t'"                             \
+              http://pgsql.tapoueh.org/temp/2013_Gaz_113CDs_national.txt     \
+              postgresql:///pgloader?districts_longlat
+
+Some more options have to be used in that case, as the file contains a
+one-line header (most commonly that's column names, could be a copyright
+notice). Also, in that case, we specify all the fields right into a single
+`--field` option argument.
+
+Again, the PostgreSQL target connection string must contain the *tablename*
+option and you have to ensure that the target table exists and may fit the
+data. Here's the SQL command used in that example in case you want to try it
+yourself:
+
+    create table districts_longlat
+    (
+             usps        text,
+             geoid       text,
+             aland       bigint,
+             awater      bigint,
+             aland_sqmi  double precision,
+             awater_sqmi double precision,
+             intptlat    double precision,
+             intptlong   double precision
+    );
+
+Also notice that the same command will work against an archived version of
+the same data, e.g.
+[http://pgsql.tapoueh.org/temp/2013_Gaz_113CDs_national.txt.gz]().
+
 ### Migrating from SQLite
 
 The following command will open the SQLite database, discover its tables

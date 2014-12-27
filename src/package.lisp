@@ -483,8 +483,10 @@
 ;; Main package
 ;;
 (defpackage #:pgloader
-  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.parser)
+  (:use #:cl
+        #:pgloader.params #:pgloader.utils #:pgloader.parser)
   (:import-from #:pgloader.pgsql
+                #:pgconn-table-name
                 #:pgsql-connection
 		#:copy-from-file
 		#:list-databases
