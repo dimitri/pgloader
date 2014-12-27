@@ -129,7 +129,7 @@ Allows setting PostgreSQL configuration from the command line\. Note that the op
 \fB\-\-field "\.\.\."\fR
 .
 .IP
-Allows setting a source field definition\. Fields are accumulated in the order given on the command line\. It\'s then required to use a \fB\-\-field\fR option per field in the source file\.
+Allows setting a source field definition\. Fields are accumulated in the order given on the command line\. It\'s possible to either use a \fB\-\-field\fR option per field in the source file, or to separate field definitions by a comma, as you would do in the \fIHAVING FIELDS\fR clause\.
 .
 .IP "\(bu" 4
 \fB\-\-cast "\.\.\."\fR
@@ -219,6 +219,53 @@ For documentation about the available syntaxes for the \fB\-\-field\fR and \fB\-
 .
 .P
 Note also that the PostgreSQL URI includes the target \fItablename\fR\.
+.
+.SS "Loading from CSV available through HTTP"
+The same command as just above can also be run if the CSV file happens to be found on a remote HTTP location:
+.
+.IP "" 4
+.
+.nf
+
+\&\.pgloader \-\-type csv                                                     \e
+          \-\-field "usps,geoid,aland,awater,aland_sqmi,awater_sqmi,intptlat,intptlong" \e
+          \-\-with "skip header = 1"                                       \e
+          \-\-with "fields terminated by \'\et\'"                             \e
+          http://pgsql\.tapoueh\.org/temp/2013_Gaz_113CDs_national\.txt     \e
+          postgresql:///pgloader?districts_longlat
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Some more options have to be used in that case, as the file contains a one\-line header (most commonly that\'s column names, could be a copyright notice)\. Also, in that case, we specify all the fields right into a single \fB\-\-field\fR option argument\.
+.
+.P
+Again, the PostgreSQL target connection string must contain the \fItablename\fR option and you have to ensure that the target table exists and may fit the data\. Here\'s the SQL command used in that example in case you want to try it yourself:
+.
+.IP "" 4
+.
+.nf
+
+create table districts_longlat
+(
+         usps        text,
+         geoid       text,
+         aland       bigint,
+         awater      bigint,
+         aland_sqmi  double precision,
+         awater_sqmi double precision,
+         intptlat    double precision,
+         intptlong   double precision
+);
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Also notice that the same command will work against an archived version of the same data, e\.g\.  \fIhttp://pgsql\.tapoueh\.org/temp/2013_Gaz_113CDs_national\.txt\.gz\fR\.
 .
 .SS "Migrating from SQLite"
 The following command will open the SQLite database, discover its tables definitions including indexes and foreign keys, migrate those definitions while \fIcasting\fR the data type specifications to their PostgreSQL equivalent and then migrate the data over:

@@ -111,8 +111,9 @@ options:
   * `--field "..."`
   
     Allows setting a source field definition. Fields are accumulated in the
-    order given on the command line. It's then required to use a `--field`
-    option per field in the source file.
+    order given on the command line. It's possible to either use a `--field`
+    option per field in the source file, or to separate field definitions by
+    a comma, as you would do in the *HAVING FIELDS* clause.
     
   * `--cast "..."`
   
@@ -219,7 +220,7 @@ yourself:
 
 Also notice that the same command will work against an archived version of
 the same data, e.g.
-[http://pgsql.tapoueh.org/temp/2013_Gaz_113CDs_national.txt.gz]().
+[](http://pgsql.tapoueh.org/temp/2013_Gaz_113CDs_national.txt.gz).
 
 ### Migrating from SQLite
 
