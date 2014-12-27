@@ -184,6 +184,25 @@ For documentation about the available syntaxes for the `--field` and
 
 Note also that the PostgreSQL URI includes the target *tablename*.
 
+### Reading from STDIN
+
+File based pgloader sources can be loaded from the standard input, as in the
+following example:
+
+    pgloader --type csv                                         \
+             --field "usps,geoid,aland,awater,aland_sqmi,awater_sqmi,intptlat,intptlong" \
+             --with "skip header = 1"                          \
+             --with "fields terminated by '\t'"                \
+             -                                                 \
+             postgresql:///pgloader?districts_longlat          \
+             < test/data/2013_Gaz_113CDs_national.txt
+
+The dash (`-`) character as a source is used to mean *standard input*, as
+usual in Unix command lines. It's possible to stream compressed content to
+pgloader with this technique, using the Unix pipe:
+
+    gunzip -c source.gz | pgloader --type csv ... - pgsql:///target?foo
+
 ### Loading from CSV available through HTTP
 
 The same command as just above can also be run if the CSV file happens to be
@@ -221,6 +240,29 @@ yourself:
 Also notice that the same command will work against an archived version of
 the same data, e.g.
 http://pgsql.tapoueh.org/temp/2013_Gaz_113CDs_national.txt.gz.
+
+Finally, it's important to note that pgloader first fetches the content from
+the HTTP URL it to a local file, then expand the archive when it's
+recognized to be one, and only then processes the locally expanded file.
+
+In some cases, either because pgloader has no direct support for your
+archive format or maybe because expanding the archive is not feasible in
+your environment, you might want to *stream* the content straight from its
+remote location into PostgreSQL. Here's how to do that, using the old battle
+tested Unix Pipes trick:
+
+    curl http://pgsql.tapoueh.org/temp/2013_Gaz_113CDs_national.txt.gz \
+    | gunzip -c                                                        \
+    | pgloader --type csv                                              \
+               --field "usps,geoid,aland,awater,aland_sqmi,awater_sqmi,intptlat,intptlong"
+               --with "skip header = 1"                                \
+               --with "fields terminated by '\t'"                      \
+               -                                                       \
+               postgresql:///pgloader?districts_longlat
+
+Now the OS will take care of the streaming and buffering between the network
+and the commands and pgloader will take care of streaming the data down to
+PostgreSQL.
 
 ### Migrating from SQLite
 

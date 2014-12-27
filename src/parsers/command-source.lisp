@@ -12,7 +12,8 @@
   (or (member char #.(quote (coerce "/\\:.-_!@#$%^&*()" 'list)))
       (alphanumericp char)))
 
-(defrule stdin (~ "stdin") (:constant (list :stdin nil)))
+(defrule stdin (or "-" (~ "stdin")) (:constant (list :stdin nil)))
+
 (defrule inline (~ "inline")
   (:lambda (i)
     (declare (ignore i))

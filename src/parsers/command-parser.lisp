@@ -189,13 +189,14 @@
        (uiop:native-namestring filename))
     (declare (ignore abs paths no-path-p))
     (let ((dotted-parts (reverse (sq:split-sequence #\. filename))))
-      (destructuring-bind (extension name-or-ext &rest parts)
-          dotted-parts
-        (declare (ignore parts))
-        (if (string-equal "tar" name-or-ext) :archive
-            (loop :for (type . extensions) :in *data-source-filename-extensions*
-               :when (member extension extensions :test #'string-equal)
-               :return type))))))
+      (when (<= 2 (length dotted-parts))
+        (destructuring-bind (extension name-or-ext &rest parts)
+            dotted-parts
+          (declare (ignore parts))
+          (if (string-equal "tar" name-or-ext) :archive
+              (loop :for (type . extensions) :in *data-source-filename-extensions*
+                 :when (member extension extensions :test #'string-equal)
+                 :return type)))))))
 
 (defvar *parse-rule-for-source-types*
   '(:csv     csv-file-source
@@ -234,7 +235,8 @@
                       (:filename (parse-filename-for-source-type url))
                       (:http     (parse-filename-for-source-type
                                   (puri:uri-path (puri:parse-uri url)))))))
-               (parse-source-string-for-type type source-string)))))))
+               (when type
+                 (parse-source-string-for-type type source-string))))))))
 
 (defun parse-target-string (target-string)
   (parse 'pgsql-uri target-string))

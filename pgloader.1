@@ -220,6 +220,38 @@ For documentation about the available syntaxes for the \fB\-\-field\fR and \fB\-
 .P
 Note also that the PostgreSQL URI includes the target \fItablename\fR\.
 .
+.SS "Reading from STDIN"
+File based pgloader sources can be loaded from the standard input, as in the following example:
+.
+.IP "" 4
+.
+.nf
+
+pgloader \-\-type csv                                         \e
+         \-\-field "usps,geoid,aland,awater,aland_sqmi,awater_sqmi,intptlat,intptlong" \e
+         \-\-with "skip header = 1"                          \e
+         \-\-with "fields terminated by \'\et\'"                \e
+         \-                                                 \e
+         postgresql:///pgloader?districts_longlat          \e
+         < test/data/2013_Gaz_113CDs_national\.txt
+.
+.fi
+.
+.IP "" 0
+.
+.P
+The dash (\fB\-\fR) character as a source is used to mean \fIstandard input\fR, as usual in Unix command lines\. It\'s possible to stream compressed content to pgloader with this technique, using the Unix pipe:
+.
+.IP "" 4
+.
+.nf
+
+gunzip \-c source\.gz | pgloader \-\-type csv \.\.\. \- pgsql:///target?foo
+.
+.fi
+.
+.IP "" 0
+.
 .SS "Loading from CSV available through HTTP"
 The same command as just above can also be run if the CSV file happens to be found on a remote HTTP location:
 .
@@ -266,6 +298,32 @@ create table districts_longlat
 .
 .P
 Also notice that the same command will work against an archived version of the same data, e\.g\. http://pgsql\.tapoueh\.org/temp/2013_Gaz_113CDs_national\.txt\.gz\.
+.
+.P
+Finally, it\'s important to note that pgloader first fetches the content from the HTTP URL it to a local file, then expand the archive when it\'s recognized to be one, and only then processes the locally expanded file\.
+.
+.P
+In some cases, either because pgloader has no direct support for your archive format or maybe because expanding the archive is not feasible in your environment, you might want to \fIstream\fR the content straight from its remote location into PostgreSQL\. Here\'s how to do that, using the old battle tested Unix Pipes trick:
+.
+.IP "" 4
+.
+.nf
+
+curl http://pgsql\.tapoueh\.org/temp/2013_Gaz_113CDs_national\.txt\.gz \e
+| gunzip \-c                                                        \e
+| pgloader \-\-type csv                                              \e
+           \-\-field "usps,geoid,aland,awater,aland_sqmi,awater_sqmi,intptlat,intptlong"
+           \-\-with "skip header = 1"                                \e
+           \-\-with "fields terminated by \'\et\'"                      \e
+           \-                                                       \e
+           postgresql:///pgloader?districts_longlat
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Now the OS will take care of the streaming and buffering between the network and the commands and pgloader will take care of streaming the data down to PostgreSQL\.
 .
 .SS "Migrating from SQLite"
 The following command will open the SQLite database, discover its tables definitions including indexes and foreign keys, migrate those definitions while \fIcasting\fR the data type specifications to their PostgreSQL equivalent and then migrate the data over:
