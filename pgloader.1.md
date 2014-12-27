@@ -220,7 +220,7 @@ yourself:
 
 Also notice that the same command will work against an archived version of
 the same data, e.g.
-[](http://pgsql.tapoueh.org/temp/2013_Gaz_113CDs_national.txt.gz).
+http://pgsql.tapoueh.org/temp/2013_Gaz_113CDs_national.txt.gz.
 
 ### Migrating from SQLite
 
