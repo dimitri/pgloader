@@ -254,6 +254,19 @@
 	   #:copy-to-queue
 	   #:copy-from))
 
+(defpackage #:pgloader.copy
+  (:use #:cl
+        #:pgloader.params #:pgloader.utils #:pgloader.connection
+        #:pgloader.sources #:pgloader.queue)
+  (:import-from #:pgloader.csv
+                #:csv-connection
+                #:specs
+                #:csv-specs)
+  (:export #:copy-connection
+           #:copy-copy
+	   #:copy-to-queue
+	   #:copy-from))
+
 (defpackage #:pgloader.ixf
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
@@ -429,6 +442,8 @@
                 #:csv-specs)
   (:import-from #:pgloader.fixed
                 #:fixed-connection)
+  (:import-from #:pgloader.copy
+                #:copy-connection)
   (:import-from #:pgloader.sources
                 #:*default-cast-rules*
                 #:*cast-rules*)
@@ -463,6 +478,7 @@
            #:connection
            #:csv-connection
            #:fixed-connection
+           #:copy-connection
            #:dbf-connection
            #:ixf-connection
            #:sqlite-connection
@@ -473,6 +489,7 @@
            #:lisp-code-for-loading-from-mysql
            #:lisp-code-for-loading-from-csv
            #:lisp-code-for-loading-from-fixed
+           #:lisp-code-for-loading-from-copy
            #:lisp-code-for-loading-from-dbf
            #:lisp-code-for-loading-from-ixf
            #:lisp-code-for-loading-from-sqlite

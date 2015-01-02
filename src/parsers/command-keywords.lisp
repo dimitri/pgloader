@@ -21,6 +21,7 @@
   (def-keyword-rule "dbf")
   (def-keyword-rule "ixf")
   (def-keyword-rule "fixed")
+  (def-keyword-rule "copy")
   (def-keyword-rule "into")
   (def-keyword-rule "with")
   (def-keyword-rule "when")

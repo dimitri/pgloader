@@ -93,6 +93,7 @@
                          (:file "command-csv")
                          (:file "command-ixf")
                          (:file "command-fixed")
+                         (:file "command-copy")
                          (:file "command-dbf")
                          (:file "command-cast-rules")
                          (:file "command-mysql")
@@ -126,6 +127,9 @@
                                    (:file "csv")))
 
 			 (:file "fixed"
+                                :depends-on ("csv"))
+
+                         (:file "copy"
                                 :depends-on ("csv"))
 
 			 (:module "db3"

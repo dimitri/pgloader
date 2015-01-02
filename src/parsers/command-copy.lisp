@@ -1,0 +1,147 @@
+;;;
+;;; LOAD COPY FILE
+;;;
+;;; That has lots in common with CSV, so we share a fair amount of parsing
+;;; rules with the CSV case.
+;;;
+
+(in-package #:pgloader.parser)
+
+(defrule copy-source-field csv-field-name
+  (:lambda (field-name)
+    (list field-name)))
+
+(defrule another-copy-source-field (and comma copy-source-field)
+  (:lambda (source)
+    (bind (((_ field) source)) field)))
+
+(defrule copy-source-fields (and copy-source-field (* another-copy-source-field))
+  (:lambda (source)
+    (destructuring-bind (field1 fields) source
+      (list* field1 fields))))
+
+(defrule copy-source-field-list (and open-paren copy-source-fields close-paren)
+  (:lambda (source)
+    (bind (((_ field-defs _) source)) field-defs)))
+
+(defrule copy-option (or option-batch-rows
+                         option-batch-size
+                         option-batch-concurrency
+                         option-truncate
+                         option-skip-header))
+
+(defrule another-copy-option (and comma copy-option)
+  (:lambda (source)
+    (bind (((_ option) source)) option)))
+
+(defrule copy-option-list (and copy-option (* another-copy-option))
+  (:lambda (source)
+    (destructuring-bind (opt1 opts) source
+      (alexandria:alist-plist `(,opt1 ,@opts)))))
+
+(defrule copy-options (and kw-with csv-option-list)
+  (:lambda (source)
+    (bind (((_ opts) source))
+      (cons :copy-options opts))))
+
+(defrule copy-uri (and "copy://" filename)
+  (:lambda (source)
+    (bind (((_ filename) source))
+      (make-instance 'copy-connection :specs filename))))
+
+(defrule copy-file-source (or stdin
+			       inline
+                               http-uri
+                               copy-uri
+			       filename-matching
+			       maybe-quoted-filename)
+  (:lambda (src)
+    (if (typep src 'copy-connection) src
+        (destructuring-bind (type &rest specs) src
+          (case type
+            (:stdin    (make-instance 'copy-connection :specs src))
+            (:inline   (make-instance 'copy-connection :specs src))
+            (:filename (make-instance 'copy-connection :specs src))
+            (:regex    (make-instance 'copy-connection :specs src))
+            (:http     (make-instance 'copy-connection :uri (first specs))))))))
+
+(defrule get-copy-file-source-from-environment-variable (and kw-getenv name)
+  (:lambda (p-e-v)
+    (bind (((_ varname) p-e-v)
+           (connstring (getenv-default varname)))
+      (unless connstring
+          (error "Environment variable ~s is unset." varname))
+        (parse 'copy-file-source connstring))))
+
+(defrule copy-source (and kw-load kw-copy kw-from
+                          (or get-copy-file-source-from-environment-variable
+                              copy-file-source))
+  (:lambda (src)
+    (bind (((_ _ _ source) src)) source)))
+
+(defrule load-copy-file-optional-clauses (* (or copy-options
+                                                gucs
+                                                before-load
+                                                after-load))
+  (:lambda (clauses-list)
+    (alexandria:alist-plist clauses-list)))
+
+(defrule load-copy-file-command (and copy-source (? file-encoding)
+                                     copy-source-field-list
+                                     target
+                                     (? csv-target-column-list)
+                                     load-copy-file-optional-clauses)
+  (:lambda (command)
+    (destructuring-bind (source encoding fields target columns clauses) command
+      `(,source ,encoding ,fields ,target ,columns ,@clauses))))
+
+(defun lisp-code-for-loading-from-copy (copy-conn fields pg-db-conn
+                                         &key
+                                           (encoding :utf-8)
+                                           columns
+                                           gucs before after
+                                           ((:copy-options options)))
+  `(lambda ()
+     (let* ((state-before  (pgloader.utils:make-pgstate))
+            (summary       (null *state*))
+            (*state*       (or *state* (pgloader.utils:make-pgstate)))
+            (state-after   ,(when after `(pgloader.utils:make-pgstate)))
+            ,@(pgsql-connection-bindings pg-db-conn gucs)
+            ,@(batch-control-bindings options)
+            (source-db     (with-stats-collection ("fetch" :state state-before)
+                               (expand (fetch-file ,copy-conn)))))
+
+       (progn
+         ,(sql-code-block pg-db-conn 'state-before before "before load")
+
+         (let ((truncate ,(getf options :truncate))
+               (source
+                (make-instance 'pgloader.copy:copy-copy
+                               :target-db ,pg-db-conn
+                               :source source-db
+                               :target ,(pgconn-table-name pg-db-conn)
+                               :encoding ,encoding
+                               :fields ',fields
+                               :columns ',columns
+                               :skip-lines ,(or (getf options :skip-line) 0))))
+           (pgloader.sources:copy-from source :truncate truncate))
+
+         ,(sql-code-block pg-db-conn 'state-after after "after load")
+
+         ;; reporting
+         (when summary
+           (report-full-summary "Total import time" *state*
+                                :before  state-before
+                                :finally state-after))))))
+
+(defrule load-copy-file load-copy-file-command
+  (:lambda (command)
+    (bind (((source encoding fields pg-db-uri columns
+                    &key ((:copy-options options)) gucs before after) command))
+      (lisp-code-for-loading-from-copy source fields pg-db-uri
+                                       :encoding encoding
+                                       :columns columns
+                                       :gucs gucs
+                                       :before before
+                                       :after after
+                                       :copy-options options))))

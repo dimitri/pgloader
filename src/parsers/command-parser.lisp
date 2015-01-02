@@ -14,6 +14,7 @@
 (defrule command (and (or load-archive
 			  load-csv-file
 			  load-fixed-cols-file
+                          load-copy-file
 			  load-dbf-file
                           load-ixf-file
 			  load-mysql-database
@@ -177,6 +178,7 @@
 ;;;
 (defvar *data-source-filename-extensions*
   '((:csv     . ("csv" "tsv" "txt" "text"))
+    (:copy    . ("copy" "dat"))         ; reject data files are .dat
     (:sqlite  . ("sqlite" "db"))
     (:dbf     . ("db3" "dbf"))
     (:ixf     . ("ixf"))))
@@ -201,6 +203,7 @@
 (defvar *parse-rule-for-source-types*
   '(:csv     csv-file-source
     :fixed   fixed-file-source
+    :copy    copy-file-source
     :dbf     dbf-file-source
     :ixf     ixf-file-source
     :sqlite  sqlite-uri
@@ -215,6 +218,7 @@
 
 (defrule source-uri (or csv-uri
                         fixed-uri
+                        copy-uri
                         dbf-uri
                         ixf-uri
                         sqlite-db-uri

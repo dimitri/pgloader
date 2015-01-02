@@ -6,6 +6,10 @@
 
 (defclass fixed-connection (csv-connection) ())
 
+(defmethod initialize-instance :after ((csvconn csv-connection) &key)
+  "Assign the type slot to sqlite."
+  (setf (slot-value csvconn 'type) "fixed"))
+
 (defclass copy-fixed (copy)
   ((source-type :accessor source-type	  ; one of :inline, :stdin, :regex
 		:initarg :source-type)	  ;  or :filename

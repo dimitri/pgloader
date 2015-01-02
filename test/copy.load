@@ -1,0 +1,28 @@
+LOAD COPY
+     FROM copy://./data/track.copy
+          (
+            trackid, track, album, media, genre, composer,
+            milliseconds, bytes, unitprice
+          )
+     INTO postgresql:///pgloader?track_full
+
+     WITH truncate
+
+      SET client_encoding to 'latin1',
+          work_mem to '14MB',
+          standard_conforming_strings to 'on'
+
+   BEFORE LOAD DO
+     $$ drop table if exists track_full; $$,
+     $$ create table track_full (
+          trackid      bigserial,
+          track        text,
+          album        text,
+          media        text,
+          genre        text,
+          composer     text,
+          milliseconds bigint,
+          bytes        bigint,
+          unitprice    numeric
+        );
+     $$;

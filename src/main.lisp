@@ -365,13 +365,15 @@
            (type pgsql-connection target))
 
   ;; some preliminary checks
-  (when (and (typep source 'csv-connection) (null fields))
+  (when (and (typep source 'csv-connection)
+             (not (typep source 'copy-connection))
+             (null fields))
     (error 'source-definition-error
-           :mesg "CSV source type requires fields definitions."))
+           :mesg "This data source requires fields definitions."))
 
   (when (and (typep source 'csv-connection) (null (pgconn-table-name target)))
     (error 'source-definition-error
-           :mesg "CSV data source require a table name target."))
+           :mesg "This data source require a table name target."))
 
   (when (and (typep source 'fixed-connection) (null (pgconn-table-name target)))
     (error 'source-definition-error
@@ -390,13 +392,13 @@
      (process-relative-pathnames
       (uiop:getcwd)
       (typecase source
-        (csv-connection
-         (lisp-code-for-loading-from-csv source fields target
-                                         :encoding encoding
-                                         :gucs gucs
-                                         :csv-options options
-                                         :before before
-                                         :after after))
+        (copy-connection
+         (lisp-code-for-loading-from-copy source fields target
+                                          :encoding (or encoding :default)
+                                          :gucs gucs
+                                          :copy-options options
+                                          :before before
+                                          :after after))
 
         (fixed-connection
          (lisp-code-for-loading-from-fixed source fields target
@@ -405,6 +407,14 @@
                                            :fixed-options options
                                            :before before
                                            :after after))
+
+        (csv-connection
+         (lisp-code-for-loading-from-csv source fields target
+                                         :encoding encoding
+                                         :gucs gucs
+                                         :csv-options options
+                                         :before before
+                                         :after after))
 
         (dbf-connection
          (lisp-code-for-loading-from-dbf source target
