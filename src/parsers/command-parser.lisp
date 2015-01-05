@@ -258,6 +258,7 @@
 
 (defrule cli-type (or "csv"
                       "fixed"
+                      "copy"
                       dbf-type-name
                       "ixf"
                       "sqlite"
@@ -281,16 +282,18 @@
   (loop :for field :in fields
      :append (parse (case type
                       (:csv   'csv-source-fields)
-                      (:fixed 'fixed-source-fields))
+                      (:fixed 'fixed-source-fields)
+                      (:copy  'copy-source-fields))
                     field)))
 
 (defun parse-cli-options (type options)
   "Parse options as per the WITH clause when we get them from the CLI."
   (alexandria:alist-plist
    (loop :for option :in options
-      :collect (parse (case type
+      :collect (parse (ecase type
                         (:csv    'csv-option)
                         (:fixed  'fixed-option)
+                        (:copy   'copy-option)
                         (:dbf    'dbf-option)
                         (:ixf    'ixf-option)
                         (:sqlite 'sqlite-option)

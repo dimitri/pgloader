@@ -476,6 +476,7 @@
 
            ;; connection types / classes symbols for use in main
            #:connection
+           #:conn-type
            #:csv-connection
            #:fixed-connection
            #:copy-connection

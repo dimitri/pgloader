@@ -286,6 +286,7 @@
                                (source (if type
                                            (parse-source-string-for-type type source)
                                            (parse-source-string source)))
+                               (type   (parse-cli-type (conn-type source)))
                                (target (parse-target-string (second arguments))))
 
                           ;; some verbosity about the parsing "magic"
