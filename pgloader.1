@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "December 2014" "ff" ""
+.TH "PGLOADER" "1" "January 2015" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -98,7 +98,10 @@ Minimum level of verbosity needed for log message to make it to the console\. On
 .
 .TP
 \fB\-S\fR, \fB\-\-summary\fR
-A filename where to copy the summary output\. When relative, the filename is expanded into \fB*root\-dir\fR\.
+A filename where to copy the summary output\. When relative, the filename is expanded into \fB*root\-dir*\fR\.
+.
+.IP
+The format of the filename defaults to being \fIhuman readable\fR\. It is possible to have the output in machine friendly formats such as \fICSV\fR, \fICOPY\fR (PostgreSQL\'s own COPY format) or \fIJSON\fR by specifying a filename with the extension resp\. \fB\.csv\fR, \fB\.copy\fR or \fB\.json\fR\.
 .
 .TP
 \fB\-l <file>\fR, \fB\-\-load\-lisp\-file <file>\fR
