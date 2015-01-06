@@ -72,7 +72,12 @@ Those options are meant to tweak `pgloader` behavior when loading data.
 
   * `-S`, `--summary`:
     A filename where to copy the summary output. When relative, the filename
-    is expanded into `*root-dir`.
+    is expanded into `*root-dir*`.
+    
+    The format of the filename defaults to being *human readable*. It is
+    possible to have the output in machine friendly formats such as *CSV*,
+    *COPY* (PostgreSQL's own COPY format) or *JSON* by specifying a filename
+    with the extension resp. `.csv`, `.copy` or `.json`.
 
   * `-l <file>`, `--load-lisp-file <file>`:
     Specify a lisp <file> to compile and load into the pgloader image before

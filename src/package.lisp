@@ -38,14 +38,36 @@
                 #:with-monitor
                 #:*monitoring-queue*
                 #:log-message)
-  (:export #:with-monitor
+  (:export #:with-monitor               ; monitor
+
+           ;; logs
            #:log-message
+
+           ;; report
+           #:*header-line*
+           #:*footer*
+           #:*header-tname-format*
+           #:*header-stats-format*
+           #:*header-cols-format*
+           #:*header-cols-names*
+           #:*header-format-strings*
+           #:get-format-for
+
            #:report-header
 	   #:report-table-name
 	   #:report-results
 	   #:report-footer
+	   #:report-summary
+	   #:report-full-summary
+	   #:with-stats-collection
+
+           ;; utils
 	   #:format-interval
 	   #:timing
+	   #:camelCase-to-colname
+           #:unquote
+
+           ;; state
 	   #:make-pgstate
 	   #:pgstate-get-table
 	   #:pgstate-add-table
@@ -56,12 +78,11 @@
 	   #:pgtable-reject-logs
 	   #:report-pgtable-stats
 	   #:report-pgstate-stats
-	   #:report-summary
-	   #:report-full-summary
-	   #:with-stats-collection
-	   #:camelCase-to-colname
-           #:unquote
+
+           ;; threads
            #:make-kernel
+
+           ;; charsets
            #:list-encodings-and-aliases
            #:show-encodings
            #:make-external-format))

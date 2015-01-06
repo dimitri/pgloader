@@ -7,34 +7,69 @@
 (defvar *header-line*
   "~&------------------------------  ---------  ---------  ---------  --------------")
 
+(defvar *footer* "~&")
 (defvar *header-tname-format* "~&~30@a")
 (defvar *header-stats-format* "  ~9@a  ~9@a  ~9@a  ~14@a")
 (defvar *header-cols-format* (concatenate 'string *header-tname-format*
 					  *header-stats-format*))
 (defvar *header-cols-names* '("table name" "read" "imported" "errors" "time"))
 
+(defvar *header-format-strings*
+  '((:human-readable
+     (:header-line
+      "~&------------------------------  ---------  ---------  ---------  --------------"
+      :header-tname-format "~&~30@a"
+      :header-stats-format "  ~9@a  ~9@a  ~9@a  ~14@a"
+      :header-cols-format  "~&~30@a  ~9@a  ~9@a  ~9@a  ~14@a"
+      :header-cols-names  ("table name" "read" "imported" "errors" "time")
+      :footer              "~%"))
+
+    (:csv
+     (:header-line         ""
+      :header-tname-format "~&~s;"
+      :header-stats-format "~s;~s;~s;~s"
+      :header-cols-format  "~&~s;~s;~s;~s;~s"
+      :header-cols-names  ("table name" "read" "imported" "errors" "time")
+      :footer              "~%"))
+
+    (:copy
+     (:header-line         "~&"
+      :header-tname-format "~&~a	"
+      :header-stats-format "~s	~s	~s	~s"
+      :header-cols-format  "~*~*~*~*~*" ; skip it
+      :header-cols-names  ("table name" "read" "imported" "errors" "time")
+      :footer              "~%"))
+
+    (:json
+     (:header-line         "~&"
+      :header-tname-format "~& {\"table-name\": ~s,"
+      :header-stats-format "\"read\":~s,\"imported\":~s,\"errors\":~s,\"time\":~s}"
+      :header-cols-format  "~*~*~*~*~*" ; skip it
+      :header-cols-names   ("table name" "read" "imported" "errors" "time")
+      :footer              "~%"))))
+
+(defun get-format-for (type key)
+  "Return the format string to use for a given TYPE of output and KEY."
+  (getf (cadr (assoc type *header-format-strings*)) key))
+
 (defun report-header ()
   ;; (apply #'format *report-stream* *header-cols-format* *header-cols-names*)
   (format *report-stream* "~{~}" *header-cols-format* *header-cols-names*)
-  (terpri)
-  (format *report-stream* *header-line*)
-  (terpri))
+  (format *report-stream* *header-line*))
 
 (defun report-table-name (table-name)
   (format *report-stream* *header-tname-format* table-name))
 
 (defun report-results (read rows errors seconds)
   (format *report-stream* *header-stats-format*
-          read rows errors (format-interval seconds nil))
-  (terpri))
+          read rows errors (format-interval seconds nil)))
 
 (defun report-footer (legend read rows errors seconds)
-  (terpri)
   (format *report-stream* *header-line*)
-  (format *report-stream* "~{~}" *header-cols-format*
-          (list legend read rows errors (format-interval seconds nil)))
-  (format *report-stream* "~&")
-  (terpri))
+  (format *report-stream* "~{~}" *header-tname-format* (list legend))
+  (format *report-stream* "~{~}" *header-stats-format*
+          (list read rows errors (format-interval seconds nil)))
+  (format *report-stream* *footer*))
 
 ;;;
 ;;; Pretty print a report from a pgtable and pgstats counters
@@ -58,8 +93,9 @@
      for pgtable = (gethash table-name (pgstate-tables pgstate))
      do
        (with-slots (read rows errs secs) pgtable
-	 (format *report-stream* *header-cols-format*
-		 table-name read rows errs (format-interval secs nil)))
+	 (format *report-stream* *header-tname-format* table-name)
+         (format *report-stream* *header-stats-format*
+                 read rows errs (format-interval secs nil)))
      finally (when footer
 	       (report-pgstate-stats pgstate footer))))
 
@@ -94,8 +130,6 @@
 (defun report-full-summary (legend state
 			    &key before finally parallel)
   "Report the full story when given three different sections of reporting."
-
-  (terpri)
 
   ;; BEFORE
   (if before
