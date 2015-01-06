@@ -7,7 +7,9 @@
 (defvar *header-line*
   "~&------------------------------  ---------  ---------  ---------  --------------")
 
+(defvar *header* "~&")
 (defvar *footer* "~&")
+(defvar *end-of-line-format* "~%")
 (defvar *header-tname-format* "~&~30@a")
 (defvar *header-stats-format* "  ~9@a  ~9@a  ~9@a  ~14@a")
 (defvar *header-cols-format* (concatenate 'string *header-tname-format*
@@ -16,37 +18,45 @@
 
 (defvar *header-format-strings*
   '((:human-readable
-     (:header-line
+     (:header              "~&"
+      :footer              "~%"
+      :end-of-line-format  "~%"
+      :header-line
       "~&------------------------------  ---------  ---------  ---------  --------------"
       :header-tname-format "~&~30@a"
       :header-stats-format "  ~9@a  ~9@a  ~9@a  ~14@a"
       :header-cols-format  "~&~30@a  ~9@a  ~9@a  ~9@a  ~14@a"
-      :header-cols-names  ("table name" "read" "imported" "errors" "time")
-      :footer              "~%"))
+      :header-cols-names  ("table name" "read" "imported" "errors" "time")))
 
     (:csv
-     (:header-line         ""
+     (:header              "~&"
+      :footer              "~%"
+      :end-of-line-format  "~%"
+      :header-line         ""
       :header-tname-format "~&~s;"
       :header-stats-format "~s;~s;~s;~s"
       :header-cols-format  "~&~s;~s;~s;~s;~s"
-      :header-cols-names  ("table name" "read" "imported" "errors" "time")
-      :footer              "~%"))
+      :header-cols-names  ("table name" "read" "imported" "errors" "time")))
 
     (:copy
-     (:header-line         "~&"
+     (:header              "~&"
+      :footer              "~%"
+      :end-of-line-format  "~%"
+      :header-line         "~&"
       :header-tname-format "~&~a	"
       :header-stats-format "~s	~s	~s	~s"
       :header-cols-format  "~*~*~*~*~*" ; skip it
-      :header-cols-names  ("table name" "read" "imported" "errors" "time")
-      :footer              "~%"))
+      :header-cols-names  ("table name" "read" "imported" "errors" "time")))
 
     (:json
-     (:header-line         "~&"
+     (:header              "~&["
+      :footer              "~&]~%"
+      :end-of-line-format  ",~%"
+      :header-line         "~&"
       :header-tname-format "~& {\"table-name\": ~s,"
       :header-stats-format "\"read\":~s,\"imported\":~s,\"errors\":~s,\"time\":~s}"
       :header-cols-format  "~*~*~*~*~*" ; skip it
-      :header-cols-names   ("table name" "read" "imported" "errors" "time")
-      :footer              "~%"))))
+      :header-cols-names   ("table name" "read" "imported" "errors" "time")))))
 
 (defun get-format-for (type key)
   "Return the format string to use for a given TYPE of output and KEY."
@@ -60,15 +70,15 @@
 (defun report-table-name (table-name)
   (format *report-stream* *header-tname-format* table-name))
 
-(defun report-results (read rows errors seconds)
-  (format *report-stream* *header-stats-format*
-          read rows errors (format-interval seconds nil)))
+(defun report-results (read rows errors seconds &optional (eol t))
+  (format *report-stream* *header-stats-format* read rows errors seconds)
+  (when eol
+    (format *report-stream* *end-of-line-format*)))
 
 (defun report-footer (legend read rows errors seconds)
   (format *report-stream* *header-line*)
   (format *report-stream* "~{~}" *header-tname-format* (list legend))
-  (format *report-stream* "~{~}" *header-stats-format*
-          (list read rows errors (format-interval seconds nil)))
+  (report-results read rows errors (format-interval seconds nil) nil)
   (format *report-stream* *footer*))
 
 ;;;
@@ -76,7 +86,7 @@
 ;;;
 (defun report-pgtable-stats (pgstate name)
   (with-slots (read rows errs secs) (pgstate-get-table pgstate name)
-    (report-results read rows errs secs)))
+    (report-results read rows errs (format-interval secs nil))))
 
 (defun report-pgstate-stats (pgstate legend)
   (with-slots (read rows errs secs) pgstate
@@ -94,8 +104,7 @@
      do
        (with-slots (read rows errs secs) pgtable
 	 (format *report-stream* *header-tname-format* table-name)
-         (format *report-stream* *header-stats-format*
-                 read rows errs (format-interval secs nil)))
+         (report-results read rows errs (format-interval secs nil)))
      finally (when footer
 	       (report-pgstate-stats pgstate footer))))
 
@@ -127,40 +136,62 @@
            ,result)
        (when ,summary (report-summary)))))
 
+(defun parse-summary-type (&optional (pathname *summary-pathname*))
+  "Return the summary type we want: human-readable, csv, json."
+  (when pathname
+    (cond ((string= "csv"  (pathname-type pathname)) :csv)
+          ((string= "json" (pathname-type pathname)) :json)
+          ((string= "copy" (pathname-type pathname)) :copy)
+          (t :human-readable))))
+
 (defun report-full-summary (legend state
 			    &key before finally parallel)
   "Report the full story when given three different sections of reporting."
 
-  ;; BEFORE
-  (if before
-      (progn
-	(report-summary :state before :footer nil)
-	(format *report-stream* pgloader.utils::*header-line*)
-	(report-summary :state state :header nil :footer nil))
-      ;; no state before
-      (report-summary :state state :footer nil))
+  (let* ((stype                 (or (parse-summary-type *summary-pathname*)
+                                    :human-readable))
+         (*header*              (get-format-for stype :header))
+         (*footer*              (get-format-for stype :footer))
+         (*end-of-line-format*  (get-format-for stype :end-of-line-format))
+         (*header-line*         (get-format-for stype :header-line))
+         (*header-tname-format* (get-format-for stype :header-tname-format))
+         (*header-stats-format* (get-format-for stype :header-stats-format))
+         (*header-cols-format*  (get-format-for stype :header-cols-format))
+         (*header-cols-names*   (get-format-for stype :header-cols-names)))
 
-  (when (or finally parallel)
-    (format *report-stream* pgloader.utils::*header-line*)
-    (when parallel
-      (report-summary :state parallel :header nil :footer nil))
-    (when finally
-      (report-summary :state finally :header nil :footer nil)))
+    (when *header*
+      (format *report-stream* *header*))
 
-  ;; add to the grand total the other sections, except for the parallel one
-  (incf (pgloader.utils::pgstate-secs state)
-	(+ (if before  (pgloader.utils::pgstate-secs before)  0)
-	   (if finally (pgloader.utils::pgstate-secs finally) 0)))
+    ;; BEFORE
+    (if before
+        (progn
+          (report-summary :state before :footer nil)
+          (format *report-stream* *header-line*)
+          (report-summary :state state :header nil :footer nil))
+        ;; no state before
+        (report-summary :state state :footer nil))
 
-  ;; if the parallel tasks took longer than the rest cumulated, the total
-  ;; waiting time actually was parallel - before
-  (when (and parallel
-	     (< (pgloader.utils::pgstate-secs state)
-		(pgloader.utils::pgstate-secs parallel)))
-    (setf (pgloader.utils::pgstate-secs state)
-	  (- (pgloader.utils::pgstate-secs parallel)
-	     (if before (pgloader.utils::pgstate-secs before) 0))))
+    (when (or finally parallel)
+      (format *report-stream* *header-line*)
+      (when parallel
+        (report-summary :state parallel :header nil :footer nil))
+      (when finally
+        (report-summary :state finally :header nil :footer nil)))
 
-  ;; and report the Grand Total
-  (report-pgstate-stats state legend))
+    ;; add to the grand total the other sections, except for the parallel one
+    (incf (pgloader.utils::pgstate-secs state)
+          (+ (if before  (pgloader.utils::pgstate-secs before)  0)
+             (if finally (pgloader.utils::pgstate-secs finally) 0)))
+
+    ;; if the parallel tasks took longer than the rest cumulated, the total
+    ;; waiting time actually was parallel - before
+    (when (and parallel
+               (< (pgloader.utils::pgstate-secs state)
+                  (pgloader.utils::pgstate-secs parallel)))
+      (setf (pgloader.utils::pgstate-secs state)
+            (- (pgloader.utils::pgstate-secs parallel)
+               (if before (pgloader.utils::pgstate-secs before) 0))))
+
+    ;; and report the Grand Total
+    (report-pgstate-stats state legend)))
 

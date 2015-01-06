@@ -44,15 +44,6 @@
            #:log-message
 
            ;; report
-           #:*header-line*
-           #:*footer*
-           #:*header-tname-format*
-           #:*header-stats-format*
-           #:*header-cols-format*
-           #:*header-cols-names*
-           #:*header-format-strings*
-           #:get-format-for
-
            #:report-header
 	   #:report-table-name
 	   #:report-results

@@ -146,13 +146,6 @@
       (mkdir-or-die summary-dir debug)
       summary-pathname)))
 
-(defun parse-summary-type (&optional (pathname *summary-pathname*))
-  "Return the summary type we want: human-readable, csv, json."
-  (cond ((string= "csv"  (pathname-type pathname)) :csv)
-        ((string= "json" (pathname-type pathname)) :json)
-        ((string= "copy" (pathname-type pathname)) :copy)
-        (t :human-readable)))
-
 (defvar *--load-list-file-extension-whitelist* '("lisp" "lsp" "cl" "asd")
   "White list of file extensions allowed with the --load option.")
 
@@ -264,14 +257,7 @@
 	(when arguments
 	  ;; Start the logs system
 	  (let* ((*log-filename*      (log-file-name logfile))
-                 (*summary-pathname*  (parse-summary-filename summary debug))
-                 (stype               (parse-summary-type *summary-pathname*))
-                 (*footer*              (get-format-for stype :footer))
-                 (*header-line*         (get-format-for stype :header-line))
-                 (*header-tname-format* (get-format-for stype :header-tname-format))
-                 (*header-stats-format* (get-format-for stype :header-stats-format))
-                 (*header-cols-format*  (get-format-for stype :header-cols-format))
-                 (*header-cols-names*   (get-format-for stype :header-cols-names)))
+                 (*summary-pathname*  (parse-summary-filename summary debug)))
 
             (with-monitor ()
               ;; tell the user where to look for interesting things
