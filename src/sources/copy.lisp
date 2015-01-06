@@ -52,7 +52,7 @@
    Each row is pre-processed then PROCESS-ROW-FN is called with the row as a
    list as its only parameter.
 
-   Returns how many rows where read and processed."
+   Returns how many rows were read and processed."
   (let ((filenames   (case (source-type copy)
                        (:stdin   (list (source copy)))
 		       (:inline  (list (car (source copy))))
