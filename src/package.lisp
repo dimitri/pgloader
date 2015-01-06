@@ -459,7 +459,7 @@
   (:import-from #:pgloader.db3 #:dbf-connection)
   (:import-from #:pgloader.ixf #:ixf-connection)
   (:export #:parse-commands
-	   #:run-commands
+           #:parse-commands-from-file
 
            ;; tools to enable complete CLI parsing in main.lisp
            #:process-relative-pathnames

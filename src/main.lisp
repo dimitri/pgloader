@@ -349,6 +349,46 @@
         (log-message :error "Can not find file: ~s" filename)))
   (format t "~&"))
 
+(defun run-commands (source
+		     &key
+		       (start-logger t)
+                       ((:summary *summary-pathname*) *summary-pathname*)
+		       ((:log-filename *log-filename*) *log-filename*)
+		       ((:log-min-messages *log-min-messages*) *log-min-messages*)
+		       ((:client-min-messages *client-min-messages*) *client-min-messages*))
+  "SOURCE can be a function, which is run, a list, which is compiled as CL
+   code then run, a pathname containing one or more commands that are parsed
+   then run, or a commands string that is then parsed and each command run."
+
+  (with-monitor (:start-logger start-logger)
+    (let* ((funcs
+            (typecase source
+              (function (list source))
+
+              (list     (list (compile nil source)))
+
+              (pathname (mapcar (lambda (expr) (compile nil expr))
+                                (parse-commands-from-file source)))
+
+              (t        (mapcar (lambda (expr) (compile nil expr))
+                                (if (probe-file source)
+                                    (parse-commands-from-file source)
+                                    (parse-commands source)))))))
+
+      ;; maybe duplicate the summary to a file
+      (let* ((summary-stream (when *summary-pathname*
+                               (open *summary-pathname*
+                                     :direction :output
+                                     :if-exists :rename
+                                     :if-does-not-exist :create)))
+             (*report-stream* (or summary-stream *standard-output*)))
+        (unwind-protect
+             ;; run the commands
+             (loop for func in funcs do (funcall func))
+
+          ;; cleanup
+          (when summary-stream (close summary-stream)))))))
+
 
 ;;;
 ;;; Main API to use from outside of pgloader.
