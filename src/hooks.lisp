@@ -11,18 +11,21 @@
 
 (in-package #:cl-user)
 
-#+ccl
-(progn
-  (push (lambda () (cffi:close-foreign-library 'CL+SSL::LIBSSL))
-        *save-exit-functions*)
+(defun close-foreign-libs ()
+  "Close Foreign libs in use by pgloader at application save time."
+  (let ((sb-ext:*muffled-warnings* 'style-warning))
+    (mapc #'cffi:close-foreign-library '(cl+ssl::libssl
+                                         mssql::sybdb))))
 
-  (push (lambda () (cffi:load-foreign-library 'CL+SSL::LIBSSL))
-        *lisp-startup-functions*))
+(defun open-foreign-libs ()
+  "Open Foreign libs in use by pgloader at application start time."
+  (let ((sb-ext:*muffled-warnings* 'style-warning))
+    ;; we specifically don't load mssql::sybdb eagerly, it's getting loaded
+    ;; in only when the data source is a MS SQL database.
+    (cffi:load-foreign-library 'cl+ssl::libssl)))
 
-#+sbcl
-(progn
- (push (lambda () (cffi:close-foreign-library 'CL+SSL::LIBSSL))
-       sb-ext:*save-hooks*)
+#+ccl  (push #'open-foreign-libs *lisp-startup-functions*)
+#+sbcl (push #'open-foreign-libs sb-ext:*save-hooks*)
 
- (push (lambda () (cffi:load-foreign-library 'CL+SSL::LIBSSL))
-       sb-ext:*init-hooks*))
+#+ccl  (push #'close-foreign-libs *save-exit-functions*)
+#+sbcl (push #'close-foreign-libs sb-ext:*init-hooks*)
