@@ -103,48 +103,53 @@
                          (:file "command-parser")
                          (:file "date-format")))
 
-               ;; generic API for Sources
-               (:file "sources-api"
-                      :pathname "sources"
-                      :depends-on ("params" "package" "utils"
-                                            "parsers" "connection"))
-
 	       ;; Source format specific implementations
 	       (:module sources
 			:depends-on ("monkey"  ; mssql driver patches
                                      "params"
                                      "package"
                                      "connection"
-                                     "sources-api"
                                      "pgsql"
                                      "utils"
+                                     "parsers"
                                      "queue")
 			:components
-			((:module "csv"
+                        ((:module "common"
+                                  :components
+                                  ((:file "api")
+                                   (:file "casting-rules")
+                                   (:file "files-and-pathnames")
+                                   (:file "project-fields")))
+
+                         (:module "csv"
+                                  :depends-on ("common")
                                   :components
                                   ((:file "csv-guess")
                                    (:file "csv-database")
                                    (:file "csv")))
 
 			 (:file "fixed"
-                                :depends-on ("csv"))
+                                :depends-on ("common" "csv"))
 
                          (:file "copy"
-                                :depends-on ("csv"))
+                                :depends-on ("common" "csv"))
 
 			 (:module "db3"
+                                  :depends-on ("common")
                                   :components
                                   ((:file "db3-schema")
                                    (:file "db3" :depends-on ("db3-schema"))))
 
                          (:module "ixf"
+                                  :depends-on ("common")
                                   :components
                                   ((:file "ixf-schema")
                                    (:file "ixf" :depends-on ("ixf-schema"))))
 
-			 (:file "syslog") ; experimental...
+			 ;(:file "syslog") ; experimental...
 
                          (:module "sqlite"
+                                  :depends-on ("common")
                                   :components
                                   ((:file "sqlite-cast-rules")
                                    (:file "sqlite-schema"
@@ -154,6 +159,7 @@
                                                        "sqlite-schema"))))
 
                          (:module "mssql"
+                                  :depends-on ("common")
                                   :components
                                   ((:file "mssql-cast-rules")
                                    (:file "mssql-schema"
@@ -163,6 +169,7 @@
                                                        "mssql-schema"))))
 
                          (:module "mysql"
+                                  :depends-on ("common")
                                   :components
                                   ((:file "mysql-cast-rules")
                                    (:file "mysql-schema"

@@ -149,7 +149,6 @@
 	   #:copy-database
 
            ;; file based utils for CSV, fixed etc
-	   #:filter-column-list
            #:with-open-file-or-stream
 	   #:get-pathname
 	   #:get-absolute-pathname
