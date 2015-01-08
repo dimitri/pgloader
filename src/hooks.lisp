@@ -13,13 +13,13 @@
 
 (defun close-foreign-libs ()
   "Close Foreign libs in use by pgloader at application save time."
-  (let ((sb-ext:*muffled-warnings* 'style-warning))
+  (let (#+sbcl (sb-ext:*muffled-warnings* 'style-warning))
     (mapc #'cffi:close-foreign-library '(cl+ssl::libssl
                                          mssql::sybdb))))
 
 (defun open-foreign-libs ()
   "Open Foreign libs in use by pgloader at application start time."
-  (let ((sb-ext:*muffled-warnings* 'style-warning))
+  (let (#+sbcl (sb-ext:*muffled-warnings* 'style-warning))
     ;; we specifically don't load mssql::sybdb eagerly, it's getting loaded
     ;; in only when the data source is a MS SQL database.
     (cffi:load-foreign-library 'cl+ssl::libssl)))
