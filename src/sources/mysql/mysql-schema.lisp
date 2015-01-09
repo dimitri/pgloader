@@ -315,6 +315,65 @@ GROUP BY table_name, index_name;"
 
 
 ;;;
+;;; Queries to get the MySQL comments.
+;;;
+;;; As it takes a separate PostgreSQL Query per comment it's useless to
+;;; fetch them right into the the more general table and columns lists.
+;;;
+(defun list-table-comments (&key
+                              only-tables
+                              including
+                              excluding)
+  "Return comments on MySQL tables."
+  (loop
+     :for (table-name comment)
+     :in (mysql-query (format nil "
+    SELECT table_name, table_comment
+      FROM information_schema.tables
+    WHERE     table_schema = '~a'
+          and table_type = 'BASE TABLE'
+         ~:[~*~;and table_name in (~{'~a'~^,~})~]
+         ~:[~*~;and (~{table_name ~a~^ or ~})~]
+         ~:[~*~;and (~{table_name ~a~^ and ~})~]"
+                              (db-name *connection*)
+                              only-tables ; do we print the clause?
+                              only-tables
+                              including ; do we print the clause?
+                              (filter-list-to-where-clause including)
+                              excluding ; do we print the clause?
+                              (filter-list-to-where-clause excluding t)))
+     :when (and comment (not (string= comment "")))
+     :collect (list table-name comment)))
+
+(defun list-columns-comments (&key
+                                only-tables
+                                including
+                                excluding)
+  "Return comments on MySQL tables."
+  (loop
+     :for (table-name column-name comment)
+     :in (mysql-query (format nil "
+  select c.table_name, c.column_name, c.column_comment
+    from information_schema.columns c
+         join information_schema.tables t using(table_schema, table_name)
+   where     c.table_schema = '~a'
+         and t.table_type = 'BASE TABLE'
+         ~:[~*~;and table_name in (~{'~a'~^,~})~]
+         ~:[~*~;and (~{table_name ~a~^ or ~})~]
+         ~:[~*~;and (~{table_name ~a~^ and ~})~]
+order by table_name, ordinal_position"
+                              (db-name *connection*)
+                              only-tables ; do we print the clause?
+                              only-tables
+                              including ; do we print the clause?
+                              (filter-list-to-where-clause including)
+                              excluding ; do we print the clause?
+                              (filter-list-to-where-clause excluding t)))
+     :when (and comment (not (string= comment "")))
+     :collect (list table-name column-name comment)))
+
+
+;;;
 ;;; Tools to handle row queries, issuing separate is null statements and
 ;;; handling of geometric data types.
 ;;;

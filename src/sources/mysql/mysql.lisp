@@ -184,6 +184,7 @@
           (create-tables view-columns :include-drop include-drop))))))
 
 (defun complete-pgsql-database (pgconn all-columns all-fkeys pkeys
+                                table-comments column-comments
                                 &key
                                   state
                                   data-only
@@ -200,10 +201,10 @@
   (when reset-sequences
     (reset-sequences (mapcar #'car all-columns) :pgconn pgconn :state state))
 
-  ;;
-  ;; Turn UNIQUE indexes into PRIMARY KEYS now
-  ;;
   (with-pgsql-connection (pgconn)
+    ;;
+    ;; Turn UNIQUE indexes into PRIMARY KEYS now
+    ;;
     (pgstate-add-table state (db-name pgconn) "Primary Keys")
     (loop :for sql :in pkeys
        :when sql
@@ -225,7 +226,44 @@
                 :for sql := (format-pgsql-create-fkey fkey)
                 :do (progn
                       (log-message :notice "~a;" sql)
-                      (pgsql-execute-with-timing "Foreign Keys" sql state)))))))
+                      (pgsql-execute-with-timing "Foreign Keys" sql state)))))
+
+    ;;
+    ;; And now, comments on tables and columns.
+    ;;
+    (log-message :notice "Comments")
+    (pgstate-add-table state (db-name pgconn) "Comments")
+    (let* ((quote
+            ;; just something improbably found in a table comment, to use as
+            ;; dollar quoting, and generated at random at that.
+            ;;
+            ;; because somehow it appears impossible here to benefit from
+            ;; the usual SQL injection protection offered by the Extended
+            ;; Query Protocol from PostgreSQL.
+            (concatenate 'string
+                         (map 'string #'code-char
+                              (loop :repeat 5
+                                 :collect (+ (random 26) (char-code #\A))))
+                         "-"
+                         (map 'string #'code-char
+                              (loop :repeat 5
+                                 :collect (+ (random 26) (char-code #\A)))))))
+      (loop :for (table-name comment) :in table-comments
+         :for sql := (format nil "comment on table ~a is $~a$~a$~a$"
+                             (apply-identifier-case table-name)
+                             quote comment quote)
+         :do (progn
+               (log-message :log "~a" sql)
+               (pgsql-execute-with-timing "Comments" sql state)))
+
+      (loop :for (table-name column-name comment) :in column-comments
+         :for sql := (format nil "comment on column ~a.~a is $~a$~a$~a$"
+                             (apply-identifier-case table-name)
+                             (apply-identifier-case column-name)
+                             quote comment quote)
+         :do (progn
+               (log-message :notice "~a;" sql)
+               (pgsql-execute-with-timing "Comments" sql state))))))
 
 (defun fetch-mysql-metadata (mysql
                              &key
@@ -237,7 +275,8 @@
   "MySQL introspection to prepare the migration."
   (let ((view-names    (unless (eq :all materialize-views)
                          (mapcar #'car materialize-views)))
-        view-columns all-columns all-fkeys all-indexes)
+        view-columns all-columns all-fkeys all-indexes
+        table-comments column-comments)
    (with-stats-collection ("fetch meta data"
                            :use-result-as-rows t
                            :use-result-as-read t
@@ -251,6 +290,14 @@
        (setf all-columns   (list-all-columns :only-tables only-tables
                                              :including including
                                              :excluding excluding)
+
+             table-comments (list-table-comments :only-tables only-tables
+                                                 :including including
+                                                 :excluding excluding)
+
+             column-comments (list-columns-comments :only-tables only-tables
+                                                    :including including
+                                                    :excluding excluding)
 
              all-fkeys     (list-all-fkeys :only-tables only-tables
                                            :including including
@@ -274,6 +321,8 @@
 
    ;; now return a plist to the caller
    (list :all-columns all-columns
+         :table-comments table-comments
+         :column-comments column-comments
          :all-fkeys all-fkeys
          :all-indexes all-indexes
          :view-columns view-columns)))
@@ -320,7 +369,9 @@
          (copy-kernel   (make-kernel 2))
          idx-kernel idx-channel)
 
-    (destructuring-bind (&key view-columns all-columns all-fkeys all-indexes pkeys)
+    (destructuring-bind (&key view-columns all-columns
+                              table-comments column-comments
+                              all-fkeys all-indexes pkeys)
         ;; to prepare the run, we need to fetch MySQL meta-data
         (fetch-mysql-metadata mysql
                               :state state-before
@@ -355,7 +406,7 @@
                                          :include-drop include-drop))
                 (t
                  (when truncate
-                   (truncate-tables (pgconn-dbname) (mapcar #'car all-columns)))))
+                   (truncate-tables (target-db mysql) (mapcar #'car all-columns)))))
         ;;
         ;; In case some error happens in the preparatory transaction, we
         ;; need to stop now and refrain from trying to load the data into
@@ -442,6 +493,7 @@
       ;;
       (complete-pgsql-database (new-pgsql-connection (target-db mysql))
                                all-columns all-fkeys pkeys
+                               table-comments column-comments
                                :state state-after
                                :data-only data-only
                                :foreign-keys foreign-keys
