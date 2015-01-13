@@ -235,3 +235,20 @@
   (declare (type (or null (array (unsigned-byte 8) (16))) id))
   (when id
     (format nil "~a" (uuid:byte-array-to-uuid id))))
+
+(defun unix-timestamp-to-timestamptz (unixtime-string)
+  "Takes a unix timestamp (seconds since beginning of 1970) and converts it
+  into a string of format \"YYYY-MM-DD hh:mm:ssZ\".
+
+  Assumes that the unix timestamp is in UTC time."
+  (when unixtime-string
+    (let ((unixtime (ensure-parse-integer unixtime-string))
+          ;; Universal time uses a different epoch than unix time
+          (unix-universal-diff (load-time-value
+                                 (encode-universal-time 0 0 0 1 1 1970 0))))
+      (multiple-value-bind
+        (second minute hour date month year)
+        (decode-universal-time (+ unixtime unix-universal-diff) 0)
+        (format nil
+                "~d-~2,'0d-~2,'0d ~2,'0d:~2,'0d:~2,'0dZ"
+                year month date hour minute second)))))
