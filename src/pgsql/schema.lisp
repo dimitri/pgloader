@@ -58,7 +58,7 @@
 ;;; API for Foreign Keys
 ;;;
 (defstruct pgsql-fkey
-  name table-name columns foreign-table foreign-columns)
+  name table-name columns foreign-table foreign-columns update-rule delete-rule)
 
 (defgeneric format-pgsql-create-fkey (fkey)
   (:documentation
@@ -79,12 +79,16 @@
          (foreign-columns (mapcar #'apply-identifier-case
                                   (pgsql-fkey-foreign-columns fk))))
     (format nil
-	    "ALTER TABLE ~a ADD CONSTRAINT ~a FOREIGN KEY(~{~a~^,~}) REFERENCES ~a(~{~a~^,~})"
+	    "ALTER TABLE ~a ADD CONSTRAINT ~a FOREIGN KEY(~{~a~^,~}) REFERENCES ~a(~{~a~^,~})~:[~*~; ON UPDATE ~a~]~:[~*~; ON DELETE ~a~]"
 	    table-name
 	    constraint-name
 	    fkey-columns
 	    foreign-table
-	    foreign-columns)))
+	    foreign-columns
+            (pgsql-fkey-update-rule fk)
+            (pgsql-fkey-update-rule fk)
+            (pgsql-fkey-delete-rule fk)
+            (pgsql-fkey-delete-rule fk))))
 
 (defmethod format-pgsql-drop-fkey ((fk pgsql-fkey) &key all-pgsql-fkeys)
   "Generate the PostgreSQL statement to rebuild a MySQL Foreign Key"

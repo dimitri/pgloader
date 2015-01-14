@@ -268,28 +268,38 @@ GROUP BY table_name, index_name;"
   "Get the list of MySQL Foreign Keys definitions per table."
   (loop
      with schema = nil
-     for (table-name name ftable cols fcols)
+     for (table-name name ftable cols fcols update-rule delete-rule)
      in (mysql-query (format nil "
-    SELECT i.table_name, i.constraint_name, k.referenced_table_name ft,
+    SELECT tc.table_name, tc.constraint_name, k.referenced_table_name ft,
 
            group_concat(         k.column_name
                         order by k.ordinal_position) as cols,
 
            group_concat(         k.referenced_column_name
-                        order by k.position_in_unique_constraint) as fcols
+                        order by k.position_in_unique_constraint) as fcols,
 
-      FROM information_schema.table_constraints i
+           rc.update_rule, rc.delete_rule
+
+      FROM information_schema.table_constraints tc
+
+           JOIN information_schema.referential_constraints rc
+             ON rc.constraint_schema = tc.table_schema
+            AND rc.constraint_name = tc.constraint_name
+            AND rc.table_name = tc.table_name
+
       LEFT JOIN information_schema.key_column_usage k
-          USING (table_schema, table_name, constraint_name)
+             ON k.table_schema = tc.table_schema
+            AND k.table_name = tc.table_name
+            AND k.constraint_name = tc.constraint_name
 
-    WHERE     i.table_schema = '~a'
+    WHERE     tc.table_schema = '~a'
           AND k.referenced_table_schema = '~a'
-          AND i.constraint_type = 'FOREIGN KEY'
-         ~:[~*~;and table_name in (~{'~a'~^,~})~]
-         ~:[~*~;and (~{table_name ~a~^ or ~})~]
-         ~:[~*~;and (~{table_name ~a~^ and ~})~]
+          AND tc.constraint_type = 'FOREIGN KEY'
+         ~:[~*~;and tc.table_name in (~{'~a'~^,~})~]
+         ~:[~*~;and (~{tc.table_name ~a~^ or ~})~]
+         ~:[~*~;and (~{tc.table_name ~a~^ and ~})~]
 
- GROUP BY table_name, constraint_name, ft;"
+ GROUP BY tc.table_name, tc.constraint_name, ft"
                              (db-name *connection*) (db-name *connection*)
                              only-tables ; do we print the clause?
                              only-tables
@@ -303,7 +313,9 @@ GROUP BY table_name, index_name;"
                                 :table-name table-name
                                 :columns (sq:split-sequence #\, cols)
                                 :foreign-table ftable
-                                :foreign-columns (sq:split-sequence #\, fcols))))
+                                :foreign-columns (sq:split-sequence #\, fcols)
+                                :update-rule update-rule
+                                :delete-rule delete-rule)))
           (if entry
               (push fk (cdr entry))
               (push (cons table-name (list fk)) schema)))
