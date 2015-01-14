@@ -115,7 +115,7 @@
 (defvar *self-upgraded-already* nil
   "Keep track if we did reload our own source code already.")
 
-(defun self-upgrade (namestring)
+(defun self-upgrade (namestring &optional debug)
   "Load pgloader sources at PATH-TO-PGLOADER-SOURCES."
   (let ((pgloader-pathname (uiop:directory-exists-p
                             (uiop:parse-unix-namestring namestring))))
@@ -125,15 +125,19 @@
 
     ;; now the real thing
     (handler-case
-        (handler-bind ((condition #'muffle-warning))
+        (handler-bind ((warning #'muffle-warning))
           (let ((asdf:*central-registry* (list* pgloader-pathname
                                                 asdf:*central-registry*)))
             (format t "Self-upgrading from sources at ~s~%"
                     (uiop:native-namestring pgloader-pathname))
             (with-output-to-string (*standard-output*)
-              (asdf:operate 'asdf:load-op :pgloader :verbose nil))))
+              (asdf:load-system :pgloader
+                                :verbose nil
+                                :force-not *self-upgrade-immutable-systems*))))
       (condition (c)
-        (format t "Fatal: ~a~%" c)))))
+        (format t "Fatal: ~a~%" c)
+        (format t "~a~%" *self-upgrade-immutable-systems*)
+        (when debug (invoke-debugger c))))))
 
 (defun parse-summary-filename (summary debug)
   "Return the pathname where to write the summary output."
@@ -179,13 +183,6 @@
                                 with set field cast type encoding before after)
 	  options
 
-        ;; First thing: Self Upgrade?
-        (when self-upgrade
-          (unless *self-upgraded-already*
-            (self-upgrade self-upgrade)
-            (let ((*self-upgraded-already* t))
-              (main argv))))
-
         ;; parse the log thresholds
         (setf *log-min-messages*
               (log-threshold log-min-messages
@@ -198,6 +195,13 @@
               verbose (member *client-min-messages* '(:info :debug :data))
               debug   (member *client-min-messages* '(:debug :data))
               quiet   (and (not verbose) (not debug)))
+
+        ;; First thing: Self Upgrade?
+        (when self-upgrade
+          (unless *self-upgraded-already*
+            (self-upgrade self-upgrade debug)
+            (let ((*self-upgraded-already* t))
+              (main argv))))
 
 	;; First care about the root directory where pgloader is supposed to
 	;; output its data logs and reject files

@@ -29,3 +29,10 @@
 
 #+ccl  (push #'close-foreign-libs *save-exit-functions*)
 #+sbcl (push #'close-foreign-libs sb-ext:*init-hooks*)
+
+;;;
+;;; Register all loaded systems in the image, so that ASDF don't search for
+;;; them again when doing --self-upgrade
+;;;
+(setf pgloader::*self-upgrade-immutable-systems*
+      (remove "pgloader" (asdf:already-loaded-systems) :test #'string=))

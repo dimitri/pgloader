@@ -6,6 +6,7 @@
 (defpackage #:pgloader.params
   (:use #:cl)
   (:export #:*version-string*
+           #:*self-upgrade-immutable-systems*
 	   #:*csv-path-root*
 	   #:*root-dir*
 	   #:*log-filename*
@@ -49,6 +50,9 @@
   (concatenate 'string *major-version* "."
                (if *release* *minor-version* (git-hash)))
   "pgloader version strings, following Emacs versionning model.")
+
+(defvar *self-upgrade-immutable-systems* nil
+  "Used for --self-upgrade.")
 
 ;;;
 ;;; We need that to setup our default connection parameters
