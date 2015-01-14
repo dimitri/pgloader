@@ -21,6 +21,41 @@ or by using arguments and options all provided on the command line:
 
     pgloader SOURCE TARGET
 
+## ARGUMENTS
+
+The pgloader arguments can be as many load files as needed, or a couple of
+connection strings to a specific input file.
+
+### SOURCE CONNECTION STRING
+
+The source connection string format is as follows:
+
+    format:///absolute/path/to/file.ext
+    format://./relative/path/to/file.ext
+    
+Where format might be one of `csv`, `fixed`, `copy`, `dbf`, `db3` or `ixf`.
+
+    db://user:pass@host:port/dbname
+
+Where db might be of `sqlite`, `mysql` or `mssql`.
+
+When using a file based source format, pgloader also support natively
+fetching the file from an http location and decompressing an archive if
+needed. In that case it's necessary to use the `--type` option to specify
+the expected format of the file. See the examples below.
+
+Also note that some file formats require describing some implementation
+details such as columns to be read and delimiters and quoting when loading
+from csv.
+
+For more complex loading scenarios, you will need to write a full fledge
+load command in the syntax described later in this document.
+
+### TARGET CONNECTION STRING
+
+The target connection string format is described in details later in this
+document, see Section Connection String.
+
 ## OPTIONS
 
 ### INQUIRY OPTIONS
@@ -92,7 +127,7 @@ Those options are meant to tweak `pgloader` behavior when loading data.
     machine code) another version of itself, usually a newer one like a very
     recent git checkout.
 
-### NO COMMAND FILE OPTIONS
+### COMMAND LINE ONLY OPERATIONS
 
 Those options are meant to be used when using `pgloader` from the command
 line only, rather than using a command file and the rich command clauses and
@@ -353,29 +388,57 @@ line tool `psql` implements a `\copy` command that knows how to stream a
 file local to the client over the network and into the PostgreSQL server,
 using the same protocol as pgloader uses.
 
-## COMMANDS
+## SOURCE FORMATS
 
-pgloader support the following commands:
+pgloader supports the following input formats:
 
-  - `LOAD CSV`
-  - `LOAD FIXED`
-  - `LOAD DBF`
-  - `LOAD SQLite`
-  - `LOAD MYSQL`
-  - `LOAD ARCHIVE`
-  - `LOAD DATABASE`
-  - `LOAD MESSAGES`
+  - csv, which includes also tsv and other common variants where you can
+    change the *separator* and the *quoting* rules and how to *escape* the
+    *quotes* themselves;
+    
+  - fixed columns file, where pgloader is flexible enough to accomodate with
+    source files missing columns (*ragged fixed length column files* do
+    exist);
+    
+  - PostgreSLQ COPY formatted files, following the COPY TEXT documentation
+    of PostgreSQL, such as the reject files prepared by pgloader;
+    
+  - dbase files known as db3 or dbf file;
+  
+  - ixf formated files, ixf being a binary storage format from IBM;
+  
+  - sqlite databases with fully automated discovery of the schema and
+    advanced cast rules;
 
-The pgloader commands follow the same grammar rules. Each of them might
-support only a subset of the general options and provide specific options.
+  - mysql databases with fully automated discovery of the schema and
+    advanced cast rules;
 
-    LOAD <something>
-	     FROM <source-url>  [ WITH <source-options> ]
-		 INTO <postgresql-url>
+  - MS SQL databases with fully automated discovery of the schema and
+    advanced cast rules.
+
+## PGLOADER COMMANDS SYNTAX
+
+pgloader implements a Domain Specific Language allowing to setup complex
+data loading scripts handling computed columns and on-the-fly sanitization
+of the input data. For more complex data loading scenarios, you will be
+required to learn that DSL's syntax. It's meant to look familiar to DBA by
+being inspired by SQL where it makes sense, which is not that much after
+all.
+
+The pgloader commands follow the same global grammar rules. Each of them
+might support only a subset of the general options and provide specific
+options.
+
+    LOAD <source-type>
+	     FROM <source-url>     [ HAVING FIELDS <source-level-options> ]
+		 INTO <postgresql-url> [ TARGET COLUMNS <columns-and-options> ]
 
 	[ WITH <load-options> ]
 
 	[ SET <postgresql-settings> ]
+    
+    [ BEFORE LOAD DO|EXECUTE [ <sql statements> | <sql file> ]
+    [  AFTER LOAD DO|EXECUTE [ <sql statements> | <sql file> ]
 	;
 
 The main clauses are the `LOAD`, `FROM`, `INTO` and `WITH` clauses that each
@@ -959,6 +1022,63 @@ The `fixed` format command accepts the following clauses and options:
 
     When loading from a `CSV` file, the following options are supported:
 
+	  - *truncate*
+
+		When this option is listed, pgloader issues a `TRUNCATE` command
+		against the PostgreSQL target table before reading the data file.
+
+	  - *skip header*
+
+	    Takes a numeric value as argument. Instruct pgloader to skip that
+	    many lines at the beginning of the input file.
+
+## LOAD COPY FORMATTED FILES
+
+This commands instructs pgloader to load from a file containing COPY TEXT
+data as described in the PostgreSQL documentation. Here's an example:
+
+    LOAD COPY
+         FROM copy://./data/track.copy
+              (
+                trackid, track, album, media, genre, composer,
+                milliseconds, bytes, unitprice
+              )
+         INTO postgresql:///pgloader?track_full
+    
+         WITH truncate
+    
+          SET client_encoding to 'latin1',
+              work_mem to '14MB',
+              standard_conforming_strings to 'on'
+     
+    BEFORE LOAD DO
+         $$ drop table if exists track_full; $$,
+         $$ create table track_full (
+              trackid      bigserial,
+              track        text,
+              album        text,
+              media        text,
+              genre        text,
+              composer     text,
+              milliseconds bigint,
+              bytes        bigint,
+              unitprice    numeric
+            );
+         $$;
+
+The `COPY` format command accepts the following clauses and options:
+
+  - *FROM*
+
+    Filename where to load the data from. This support local files, HTTP
+    URLs and zip files containing a single dbf file of the same name. Fetch
+    such a zip file from an HTTP address is of course supported.
+
+
+  - *WITH*
+  
+    When loading from a `COPY` file, the following options are supported:
+    
 	  - *truncate*
 
 		When this option is listed, pgloader issues a `TRUNCATE` command
@@ -1732,6 +1852,104 @@ Date:
   - type timestamptz to timestamptz using sqlite-timestamp-to-timestamp
 
 
+## LOAD MS SQL DATABASE
+
+This command instructs pgloader to load data from a MS SQL database.
+Automatic discovery of the schema is supported, including build of the
+indexes, primary and foreign keys constraints.
+
+Here's an example:
+
+    load database
+         from mssql://user@host/dbname
+         into postgresql:///dbname
+
+    including only table names like 'GlobalAccount' in schema 'dbo'
+    
+    set work_mem to '16MB', maintenance_work_mem to '512 MB'
+
+    before load do $$ drop schema if exists dbo cascade; $$;
+
+The `mssql` command accepts the following clauses and options:
+
+  - *FROM*
+
+    Connection string to an existing MS SQL database server that listens and
+    welcome external TCP/IP connection. As pgloader currently piggybacks on
+    the FreeTDS driver, to change the port of the server please export the
+    `TDSPORT` environment variable.
+
+  - *WITH*
+
+    When loading from a `MS SQL` database, the same options as when loading
+    a `MySQL` database are supported. Please refer to the MySQL section.
+
+  - *CAST*
+
+	The cast clause allows to specify custom casting rules, either to
+	overload the default casting rules or to amend them with special cases.
+
+    Please refer to the MySQL CAST clause for details.
+
+  - *INCLUDING ONLY TABLE NAMES LIKE '...' [, '...'] IN SCHEMA '...'*
+
+	Introduce a comma separated list of table name patterns used to limit
+	the tables to migrate to a sublist. More than one such clause may be
+	used, they will be accumulated together.
+
+    Example:
+
+	    including only table names lile 'GlobalAccount' in schema 'dbo'
+
+  - *EXCLUDING TABLE NAMES LIKE '...' [, '...'] IN SCHEMA '...'*
+
+    Introduce a comma separated list of table name patterns used to exclude
+    table names from the migration. This filter only applies to the result
+    of the *INCLUDING* filter.
+
+	    EXCLUDING TABLE NAMES MATCHING 'LocalAccount' in schema 'dbo'
+
+### DEFAULT MS SQL CASTING RULES
+
+When migrating from MS SQL the following Casting Rules are provided:
+
+Numbers:
+
+  - type tinyint to smallint
+
+  - type float to float   using float-to-string
+  - type real to real     using float-to-string
+  - type double to double precision     using float-to-string
+  - type numeric to numeric     using float-to-string
+  - type decimal to numeric     using float-to-string
+  - type money to numeric     using float-to-string
+  - type smallmoney to numeric     using float-to-string
+
+Texts:
+
+  - type char      to text drop typemod
+  - type nchat     to text drop typemod
+  - type varchar   to text drop typemod
+  - type nvarchar  to text drop typemod
+  - type xml       to text drop typemod
+
+Binary:
+
+  - type binary    to bytea using byte-vector-to-bytea
+  - type varbinary to bytea using byte-vector-to-bytea
+
+Date:
+
+  - type datetime    to timestamptz
+  - type datetime2   to timestamptz
+
+Others:
+
+  - type bit to boolean
+  - type hierarchyid to bytea
+  - type geography to bytea
+  - type uniqueidentifier to uuid using sql-server-uniqueidentifier-to-uuid
+
 ## TRANSFORMATION FUNCTIONS
 
 Some data types are implemented in a different enough way that a
@@ -1759,12 +1977,26 @@ The provided transformation functions are:
 
 	    In:  "20041002152952"
 		Out: "2004-10-02 15:29:52"
+ 
+  - *time-with-no-separator*
 
+    Transform the given time into a format that PostgreSQL will actually
+    process:
+
+	    In:  "08231560"
+		Out: "08:23:15.60"
+ 
   - *tinyint-to-boolean*
 
     As MySQL lacks a proper boolean type, *tinyint* is often used to
     implement that. This function transforms `0` to `'false'` and anything
     else to `'true`'.
+
+  - *bits-to-boolean*
+
+    As MySQL lacks a proper boolean type, *BIT* is often used to implement
+    that. This function transforms 1-bit bit vectors from `0` to `f` and any
+    other value to `t`..
 
   - *int-to-ip*
 
@@ -1803,6 +2035,10 @@ The provided transformation functions are:
 	    In: "foo,bar"
 	    Out: "{foo,bar}"
 
+  - *empty-string-to-null*
+
+    Convert an empty string to a null.
+
   - *right-trimg*
 
     Remove whitespace at end of string.
@@ -1812,6 +2048,23 @@ The provided transformation functions are:
     Transform a simple array of unsigned bytes to the PostgreSQL bytea Hex
     Format representation as documented at
     http://www.postgresql.org/docs/9.3/interactive/datatype-binary.html
+
+  - *sqlite-timestamp-to-timestamp*
+  
+    SQLite type system is quite interesting, so cope with it here to produce
+    timestamp literals as expected by PostgreSQL. That covers year only on 4
+    digits, 0 dates to null, and proper date strings.
+
+  - *sql-server-uniqueidentifier-to-uuid*
+  
+    The SQL Server driver receives data fo type uniqueidentifier as byte
+    vector that we then need to convert to an UUID string for PostgreSQL
+    COPY input format to process.
+    
+  - *unix-timestamp-to-timestamptz*
+  
+    Converts a unix timestamp (number of seconds elapsed since beginning of
+    1970) into a proper PostgreSQL timestamp format.
 
 ## LOAD MESSAGES
 
@@ -1850,5 +2103,5 @@ Dimitri Fontaine <dimitri@2ndQuadrant.fr>
 
 PostgreSQL COPY documentation at <http://www.postgresql.org/docs/9.3/static/sql-copy.html>.
 
-The pgloader source code and all documentation may be downloaded from
-<http://tapoueh.org/pgloader/>.
+The pgloader source code, binary packages, documentation and examples may be
+downloaded from <http://pgloader.io/>.

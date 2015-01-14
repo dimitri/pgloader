@@ -44,6 +44,51 @@ pgloader SOURCE TARGET
 .
 .IP "" 0
 .
+.SH "ARGUMENTS"
+The pgloader arguments can be as many load files as needed, or a couple of connection strings to a specific input file\.
+.
+.SS "SOURCE CONNECTION STRING"
+The source connection string format is as follows:
+.
+.IP "" 4
+.
+.nf
+
+format:///absolute/path/to/file\.ext
+format://\./relative/path/to/file\.ext
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Where format might be one of \fBcsv\fR, \fBfixed\fR, \fBcopy\fR, \fBdbf\fR, \fBdb3\fR or \fBixf\fR\.
+.
+.IP "" 4
+.
+.nf
+
+db://user:pass@host:port/dbname
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Where db might be of \fBsqlite\fR, \fBmysql\fR or \fBmssql\fR\.
+.
+.P
+When using a file based source format, pgloader also support natively fetching the file from an http location and decompressing an archive if needed\. In that case it\'s necessary to use the \fB\-\-type\fR option to specify the expected format of the file\. See the examples below\.
+.
+.P
+Also note that some file formats require describing some implementation details such as columns to be read and delimiters and quoting when loading from csv\.
+.
+.P
+For more complex loading scenarios, you will need to write a full fledge load command in the syntax described later in this document\.
+.
+.SS "TARGET CONNECTION STRING"
+The target connection string format is described in details later in this document, see Section Connection String\.
+.
 .SH "OPTIONS"
 .
 .SS "INQUIRY OPTIONS"
@@ -113,7 +158,7 @@ Specify a lisp \fIfile\fR to compile and load into the pgloader image before rea
 .IP
 Specify a \fIdirectory\fR where to find pgloader sources so that one of the very first things it does is dynamically loading\-in (and compiling to machine code) another version of itself, usually a newer one like a very recent git checkout\.
 .
-.SS "NO COMMAND FILE OPTIONS"
+.SS "COMMAND LINE ONLY OPERATIONS"
 Those options are meant to be used when using \fBpgloader\fR from the command line only, rather than using a command file and the rich command clauses and parser\. In simple cases, it can be much easier to use the \fISOURCE\fR and \fITARGET\fR directly on the command line, then tweak the loading with those options:
 .
 .IP "\(bu" 4
@@ -413,49 +458,55 @@ When given a file that the PostgreSQL \fBCOPY\fR command knows how to parse, and
 .P
 Note that while the \fBCOPY\fR command is restricted to read either from its standard input or from a local file on the server\'s file system, the command line tool \fBpsql\fR implements a \fB\ecopy\fR command that knows how to stream a file local to the client over the network and into the PostgreSQL server, using the same protocol as pgloader uses\.
 .
-.SH "COMMANDS"
-pgloader support the following commands:
+.SH "SOURCE FORMATS"
+pgloader supports the following input formats:
 .
 .IP "\(bu" 4
-\fBLOAD CSV\fR
+csv, which includes also tsv and other common variants where you can change the \fIseparator\fR and the \fIquoting\fR rules and how to \fIescape\fR the \fIquotes\fR themselves;
 .
 .IP "\(bu" 4
-\fBLOAD FIXED\fR
+fixed columns file, where pgloader is flexible enough to accomodate with source files missing columns (\fIragged fixed length column files\fR do exist);
 .
 .IP "\(bu" 4
-\fBLOAD DBF\fR
+PostgreSLQ COPY formatted files, following the COPY TEXT documentation of PostgreSQL, such as the reject files prepared by pgloader;
 .
 .IP "\(bu" 4
-\fBLOAD SQLite\fR
+dbase files known as db3 or dbf file;
 .
 .IP "\(bu" 4
-\fBLOAD MYSQL\fR
+ixf formated files, ixf being a binary storage format from IBM;
 .
 .IP "\(bu" 4
-\fBLOAD ARCHIVE\fR
+sqlite databases with fully automated discovery of the schema and advanced cast rules;
 .
 .IP "\(bu" 4
-\fBLOAD DATABASE\fR
+mysql databases with fully automated discovery of the schema and advanced cast rules;
 .
 .IP "\(bu" 4
-\fBLOAD MESSAGES\fR
+MS SQL databases with fully automated discovery of the schema and advanced cast rules\.
 .
 .IP "" 0
 .
+.SH "PGLOADER COMMANDS SYNTAX"
+pgloader implements a Domain Specific Language allowing to setup complex data loading scripts handling computed columns and on\-the\-fly sanitization of the input data\. For more complex data loading scenarios, you will be required to learn that DSL\'s syntax\. It\'s meant to look familiar to DBA by being inspired by SQL where it makes sense, which is not that much after all\.
+.
 .P
-The pgloader commands follow the same grammar rules\. Each of them might support only a subset of the general options and provide specific options\.
+The pgloader commands follow the same global grammar rules\. Each of them might support only a subset of the general options and provide specific options\.
 .
 .IP "" 4
 .
 .nf
 
-LOAD <something>
-     FROM <source\-url>  [ WITH <source\-options> ]
-     INTO <postgresql\-url>
+LOAD <source\-type>
+     FROM <source\-url>     [ HAVING FIELDS <source\-level\-options> ]
+     INTO <postgresql\-url> [ TARGET COLUMNS <columns\-and\-options> ]
 
 [ WITH <load\-options> ]
 
 [ SET <postgresql\-settings> ]
+
+[ BEFORE LOAD DO|EXECUTE [ <sql statements> | <sql file> ]
+[  AFTER LOAD DO|EXECUTE [ <sql statements> | <sql file> ]
 ;
 .
 .fi
@@ -1167,6 +1218,78 @@ This option allows to trim whitespaces in the read data, either from both sides 
 .
 .IP
 When loading from a \fBCSV\fR file, the following options are supported:
+.
+.IP "\(bu" 4
+\fItruncate\fR
+.
+.IP
+When this option is listed, pgloader issues a \fBTRUNCATE\fR command against the PostgreSQL target table before reading the data file\.
+.
+.IP "\(bu" 4
+\fIskip header\fR
+.
+.IP
+Takes a numeric value as argument\. Instruct pgloader to skip that many lines at the beginning of the input file\.
+.
+.IP "" 0
+
+.
+.IP "" 0
+.
+.SH "LOAD COPY FORMATTED FILES"
+This commands instructs pgloader to load from a file containing COPY TEXT data as described in the PostgreSQL documentation\. Here\'s an example:
+.
+.IP "" 4
+.
+.nf
+
+LOAD COPY
+     FROM copy://\./data/track\.copy
+          (
+            trackid, track, album, media, genre, composer,
+            milliseconds, bytes, unitprice
+          )
+     INTO postgresql:///pgloader?track_full
+
+     WITH truncate
+
+      SET client_encoding to \'latin1\',
+          work_mem to \'14MB\',
+          standard_conforming_strings to \'on\'
+
+BEFORE LOAD DO
+     $$ drop table if exists track_full; $$,
+     $$ create table track_full (
+          trackid      bigserial,
+          track        text,
+          album        text,
+          media        text,
+          genre        text,
+          composer     text,
+          milliseconds bigint,
+          bytes        bigint,
+          unitprice    numeric
+        );
+     $$;
+.
+.fi
+.
+.IP "" 0
+.
+.P
+The \fBCOPY\fR format command accepts the following clauses and options:
+.
+.IP "\(bu" 4
+\fIFROM\fR
+.
+.IP
+Filename where to load the data from\. This support local files, HTTP URLs and zip files containing a single dbf file of the same name\. Fetch such a zip file from an HTTP address is of course supported\.
+.
+.IP "\(bu" 4
+\fIWITH\fR
+.
+.IP
+When loading from a \fBCOPY\fR file, the following options are supported:
 .
 .IP "\(bu" 4
 \fItruncate\fR
@@ -2219,6 +2342,184 @@ type timestamptz to timestamptz using sqlite\-timestamp\-to\-timestamp
 .
 .IP "" 0
 .
+.SH "LOAD MS SQL DATABASE"
+This command instructs pgloader to load data from a MS SQL database\. Automatic discovery of the schema is supported, including build of the indexes, primary and foreign keys constraints\.
+.
+.P
+Here\'s an example:
+.
+.IP "" 4
+.
+.nf
+
+load database
+     from mssql://user@host/dbname
+     into postgresql:///dbname
+
+including only table names like \'GlobalAccount\' in schema \'dbo\'
+
+set work_mem to \'16MB\', maintenance_work_mem to \'512 MB\'
+
+before load do $$ drop schema if exists dbo cascade; $$;
+.
+.fi
+.
+.IP "" 0
+.
+.P
+The \fBmssql\fR command accepts the following clauses and options:
+.
+.IP "\(bu" 4
+\fIFROM\fR
+.
+.IP
+Connection string to an existing MS SQL database server that listens and welcome external TCP/IP connection\. As pgloader currently piggybacks on the FreeTDS driver, to change the port of the server please export the \fBTDSPORT\fR environment variable\.
+.
+.IP "\(bu" 4
+\fIWITH\fR
+.
+.IP
+When loading from a \fBMS SQL\fR database, the same options as when loading a \fBMySQL\fR database are supported\. Please refer to the MySQL section\.
+.
+.IP "\(bu" 4
+\fICAST\fR
+.
+.IP
+The cast clause allows to specify custom casting rules, either to overload the default casting rules or to amend them with special cases\.
+.
+.IP
+Please refer to the MySQL CAST clause for details\.
+.
+.IP "\(bu" 4
+\fIINCLUDING ONLY TABLE NAMES LIKE \'\.\.\.\' [, \'\.\.\.\'] IN SCHEMA \'\.\.\.\'\fR
+.
+.IP
+Introduce a comma separated list of table name patterns used to limit the tables to migrate to a sublist\. More than one such clause may be used, they will be accumulated together\.
+.
+.IP
+Example:
+.
+.IP "" 4
+.
+.nf
+
+including only table names lile \'GlobalAccount\' in schema \'dbo\'
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fIEXCLUDING TABLE NAMES LIKE \'\.\.\.\' [, \'\.\.\.\'] IN SCHEMA \'\.\.\.\'\fR
+.
+.IP
+Introduce a comma separated list of table name patterns used to exclude table names from the migration\. This filter only applies to the result of the \fIINCLUDING\fR filter\.
+.
+.IP "" 4
+.
+.nf
+
+EXCLUDING TABLE NAMES MATCHING \'LocalAccount\' in schema \'dbo\'
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "" 0
+.
+.SS "DEFAULT MS SQL CASTING RULES"
+When migrating from MS SQL the following Casting Rules are provided:
+.
+.P
+Numbers:
+.
+.IP "\(bu" 4
+type tinyint to smallint
+.
+.IP "\(bu" 4
+type float to float using float\-to\-string
+.
+.IP "\(bu" 4
+type real to real using float\-to\-string
+.
+.IP "\(bu" 4
+type double to double precision using float\-to\-string
+.
+.IP "\(bu" 4
+type numeric to numeric using float\-to\-string
+.
+.IP "\(bu" 4
+type decimal to numeric using float\-to\-string
+.
+.IP "\(bu" 4
+type money to numeric using float\-to\-string
+.
+.IP "\(bu" 4
+type smallmoney to numeric using float\-to\-string
+.
+.IP "" 0
+.
+.P
+Texts:
+.
+.IP "\(bu" 4
+type char to text drop typemod
+.
+.IP "\(bu" 4
+type nchat to text drop typemod
+.
+.IP "\(bu" 4
+type varchar to text drop typemod
+.
+.IP "\(bu" 4
+type nvarchar to text drop typemod
+.
+.IP "\(bu" 4
+type xml to text drop typemod
+.
+.IP "" 0
+.
+.P
+Binary:
+.
+.IP "\(bu" 4
+type binary to bytea using byte\-vector\-to\-bytea
+.
+.IP "\(bu" 4
+type varbinary to bytea using byte\-vector\-to\-bytea
+.
+.IP "" 0
+.
+.P
+Date:
+.
+.IP "\(bu" 4
+type datetime to timestamptz
+.
+.IP "\(bu" 4
+type datetime2 to timestamptz
+.
+.IP "" 0
+.
+.P
+Others:
+.
+.IP "\(bu" 4
+type bit to boolean
+.
+.IP "\(bu" 4
+type hierarchyid to bytea
+.
+.IP "\(bu" 4
+type geography to bytea
+.
+.IP "\(bu" 4
+type uniqueidentifier to uuid using sql\-server\-uniqueidentifier\-to\-uuid
+.
+.IP "" 0
+.
 .SH "TRANSFORMATION FUNCTIONS"
 Some data types are implemented in a different enough way that a transformation function is necessary\. This function must be written in \fBCommon lisp\fR and is searched in the \fBpgloader\.transforms\fR package\.
 .
@@ -2263,10 +2564,34 @@ Out: "2004\-10\-02 15:29:52"
 
 .
 .IP "\(bu" 4
+\fItime\-with\-no\-separator\fR
+.
+.IP
+Transform the given time into a format that PostgreSQL will actually process:
+.
+.IP "" 4
+.
+.nf
+
+In:  "08231560"
+Out: "08:23:15\.60"
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
 \fItinyint\-to\-boolean\fR
 .
 .IP
 As MySQL lacks a proper boolean type, \fItinyint\fR is often used to implement that\. This function transforms \fB0\fR to \fB\'false\'\fR and anything else to \fB\'true\fR\'\.
+.
+.IP "\(bu" 4
+\fIbits\-to\-boolean\fR
+.
+.IP
+As MySQL lacks a proper boolean type, \fIBIT\fR is often used to implement that\. This function transforms 1\-bit bit vectors from \fB0\fR to \fBf\fR and any other value to \fBt\fR\.\.
 .
 .IP "\(bu" 4
 \fIint\-to\-ip\fR
@@ -2359,6 +2684,12 @@ Out: "{foo,bar}"
 
 .
 .IP "\(bu" 4
+\fIempty\-string\-to\-null\fR
+.
+.IP
+Convert an empty string to a null\.
+.
+.IP "\(bu" 4
 \fIright\-trimg\fR
 .
 .IP
@@ -2369,6 +2700,24 @@ Remove whitespace at end of string\.
 .
 .IP
 Transform a simple array of unsigned bytes to the PostgreSQL bytea Hex Format representation as documented at http://www\.postgresql\.org/docs/9\.3/interactive/datatype\-binary\.html
+.
+.IP "\(bu" 4
+\fIsqlite\-timestamp\-to\-timestamp\fR
+.
+.IP
+SQLite type system is quite interesting, so cope with it here to produce timestamp literals as expected by PostgreSQL\. That covers year only on 4 digits, 0 dates to null, and proper date strings\.
+.
+.IP "\(bu" 4
+\fIsql\-server\-uniqueidentifier\-to\-uuid\fR
+.
+.IP
+The SQL Server driver receives data fo type uniqueidentifier as byte vector that we then need to convert to an UUID string for PostgreSQL COPY input format to process\.
+.
+.IP "\(bu" 4
+\fIunix\-timestamp\-to\-timestamptz\fR
+.
+.IP
+Converts a unix timestamp (number of seconds elapsed since beginning of 1970) into a proper PostgreSQL timestamp format\.
 .
 .IP "" 0
 .
@@ -2413,4 +2762,4 @@ Dimitri Fontaine \fIdimitri@2ndQuadrant\.fr\fR
 PostgreSQL COPY documentation at \fIhttp://www\.postgresql\.org/docs/9\.3/static/sql\-copy\.html\fR\.
 .
 .P
-The pgloader source code and all documentation may be downloaded from \fIhttp://tapoueh\.org/pgloader/\fR\.
+The pgloader source code, binary packages, documentation and examples may be downloaded from \fIhttp://pgloader\.io/\fR\.
