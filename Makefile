@@ -74,6 +74,9 @@ $(QLDIR)/local-projects/qmynd:
 $(QLDIR)/local-projects/cl-ixf:
 	git clone https://github.com/dimitri/cl-ixf.git $@
 
+$(QLDIR)/local-projects/cl-csv:
+	git clone https://github.com/AccelerationNet/cl-csv.git $@
+
 $(QLDIR)/local-projects/esrap:
 	git clone -b wip-better-errors https://github.com/scymtym/esrap.git $@
 
@@ -87,6 +90,7 @@ $(QLDIR)/setup.lisp:
 quicklisp: $(QLDIR)/setup.lisp ;
 
 clones: $(QLDIR)/local-projects/cl-ixf \
+        $(QLDIR)/local-projects/cl-csv \
         $(QLDIR)/local-projects/qmynd  \
         $(QLDIR)/local-projects/esrap ;
 
