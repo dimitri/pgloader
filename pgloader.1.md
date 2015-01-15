@@ -248,12 +248,12 @@ pgloader with this technique, using the Unix pipe:
 The same command as just above can also be run if the CSV file happens to be
 found on a remote HTTP location:
 
-    .pgloader --type csv                                                     \
-              --field "usps,geoid,aland,awater,aland_sqmi,awater_sqmi,intptlat,intptlong" \
-              --with "skip header = 1"                                       \
-              --with "fields terminated by '\t'"                             \
-              http://pgsql.tapoueh.org/temp/2013_Gaz_113CDs_national.txt     \
-              postgresql:///pgloader?districts_longlat
+    pgloader --type csv                                                     \
+             --field "usps,geoid,aland,awater,aland_sqmi,awater_sqmi,intptlat,intptlong" \
+             --with "skip header = 1"                                       \
+             --with "fields terminated by '\t'"                             \
+             http://pgsql.tapoueh.org/temp/2013_Gaz_113CDs_national.txt     \
+             postgresql:///pgloader?districts_longlat
 
 Some more options have to be used in that case, as the file contains a
 one-line header (most commonly that's column names, could be a copyright

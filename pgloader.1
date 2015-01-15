@@ -307,12 +307,12 @@ The same command as just above can also be run if the CSV file happens to be fou
 .
 .nf
 
-\&\.pgloader \-\-type csv                                                     \e
-          \-\-field "usps,geoid,aland,awater,aland_sqmi,awater_sqmi,intptlat,intptlong" \e
-          \-\-with "skip header = 1"                                       \e
-          \-\-with "fields terminated by \'\et\'"                             \e
-          http://pgsql\.tapoueh\.org/temp/2013_Gaz_113CDs_national\.txt     \e
-          postgresql:///pgloader?districts_longlat
+pgloader \-\-type csv                                                     \e
+         \-\-field "usps,geoid,aland,awater,aland_sqmi,awater_sqmi,intptlat,intptlong" \e
+         \-\-with "skip header = 1"                                       \e
+         \-\-with "fields terminated by \'\et\'"                             \e
+         http://pgsql\.tapoueh\.org/temp/2013_Gaz_113CDs_national\.txt     \e
+         postgresql:///pgloader?districts_longlat
 .
 .fi
 .
