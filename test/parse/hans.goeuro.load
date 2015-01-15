@@ -2,7 +2,7 @@ LOAD DATABASE
      FROM      mysql://root@unix:/tmp/mysql.sock:/goeuro
      INTO postgresql://dim@unix:/tmp:/godollar
 
- INCLUDING ONLY TABLE NAMES MATCHING ~/encoding/, ~/b/
+ -- INCLUDING ONLY TABLE NAMES MATCHING ~/sizes/
  EXCLUDING TABLE NAMES MATCHING ~/encoding/
 
  DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf-8
@@ -32,7 +32,4 @@ LOAD DATABASE
      group by cast(d as date);
    $$
 
- WITH include drop, create tables, create indexes, reset sequences
-
- ;
-
+ WITH include drop, create tables, create indexes, reset sequences;
