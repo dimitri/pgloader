@@ -1,3 +1,13 @@
+pgloader (3.2.0+dfsg-1) unstable; urgency=medium
+
+  * Implement COPY files support
+  * Implement MS SQL source database support
+  * Lots of bug fixes
+  * Full command line operations support
+  * Misc improvements, cleanup, refactoring
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Thu, 15 Jan 2015 19:51:02 +0300
+
 pgloader (3.1.1+dfsg-1) unstable; urgency=medium
 
   * Fix --root-dir option when target directory doesn't exists (Closes:#767288)

@@ -26,11 +26,11 @@
 
 (in-package :pgloader.params)
 
-(defparameter *release* nil
+(defparameter *release* t
   "non-nil when this build is a release build.")
 
-(defparameter *major-version* "3.1")
-(defparameter *minor-version* "3")
+(defparameter *major-version* "3.2")
+(defparameter *minor-version* "0")
 
 (defun git-hash ()
   "Return the current abbreviated git hash of the development tree."
