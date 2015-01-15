@@ -34,5 +34,12 @@
 ;;; Register all loaded systems in the image, so that ASDF don't search for
 ;;; them again when doing --self-upgrade
 ;;;
+(defun register-preloaded-system (system)
+  (unless (string= "pgloader" (asdf::coerce-name system))
+    (let ((version (slot-value system 'asdf::version)))
+      (asdf::register-preloaded-system system :version version))))
+
+(asdf:map-systems #'register-preloaded-system)
+
 (setf pgloader::*self-upgrade-immutable-systems*
       (remove "pgloader" (asdf:already-loaded-systems) :test #'string=))
