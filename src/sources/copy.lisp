@@ -5,7 +5,7 @@
 
 (defclass copy-connection (csv-connection) ())
 
-(defmethod initialize-instance :after ((csvconn csv-connection) &key)
+(defmethod initialize-instance :after ((csvconn copy-connection) &key)
   "Assign the type slot to sqlite."
   (setf (slot-value csvconn 'type) "copy"))
 
