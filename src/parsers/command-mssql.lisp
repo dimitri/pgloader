@@ -117,7 +117,7 @@
                                            (excluding))
   `(lambda ()
      ;; now is the time to load the CFFI lib we need (freetds)
-     (let ((sb-ext:*muffled-warnings* 'style-warning))
+     (let (#+sbcl(sb-ext:*muffled-warnings* 'style-warning))
        (cffi:load-foreign-library 'mssql::sybdb))
 
      (let* ((state-before  (pgloader.utils:make-pgstate))
