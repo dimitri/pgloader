@@ -37,6 +37,11 @@ You will need to install either SBCL or CCL separately, and when using
     brew install sbcl
     brew install clozure-cl
 
+NOTE: Make sure you installed the universal binaries of Freetds, so that
+they can be loaded correctly. 
+      
+    brew install freetds --universal --build-from-source
+
 ### Compiling SBCL by yourself
 
 If you ended up building SBCL yourself or you just want to do that, you can
