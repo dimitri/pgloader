@@ -32,6 +32,7 @@
     ((or
       cl-postgres-error::data-exception
       cl-postgres-error::integrity-violation
+      cl-postgres-error::internal-error
       cl-postgres-error::insufficient-resources
       cl-postgres-error::program-limit-exceeded) (condition)
       (retry-batch table-name columns batch batch-rows condition))))
@@ -201,6 +202,7 @@
             ((or
               cl-postgres-error::data-exception
               cl-postgres-error::integrity-violation
+              cl-postgres-error:internal-error
               cl-postgres-error::insufficient-resources
               cl-postgres-error::program-limit-exceeded) (next-error-in-batch)
 

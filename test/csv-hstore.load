@@ -24,3 +24,4 @@ LOAD CSV
 1	email=>foo@example.com,a=>b
 2	test=>value
 3	a=>b,c=>"quoted hstore value",d=>other
+4	baddata
