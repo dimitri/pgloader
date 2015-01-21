@@ -83,8 +83,10 @@ $(QLDIR)/local-projects/esrap:
 $(QLDIR)/setup.lisp:
 	mkdir -p $(BUILDDIR)
 	curl -o $(BUILDDIR)/quicklisp.lisp http://beta.quicklisp.org/quicklisp.lisp
-	$(CL) $(CL_OPTS) --load $(BUILDDIR)/quicklisp.lisp                         \
-             --eval '(quicklisp-quickstart:install :path "$(BUILDDIR)/quicklisp")' \
+	$(CL) $(CL_OPTS) --load $(BUILDDIR)/quicklisp.lisp                        \
+             --load src/getenv.lisp                                               \
+             --eval '(quicklisp-quickstart:install :path "$(BUILDDIR)/quicklisp"  \
+                                                   :proxy (getenv "http_proxy"))' \
              --eval '(quit)'
 
 quicklisp: $(QLDIR)/setup.lisp ;
