@@ -1,6 +1,6 @@
 Summary:            extract, transform and load data into PostgreSQL
 Name:               pgloader
-Version:            3.1.1
+Version:            3.2.1.preview
 Release:            22%{?dist}
 License:            The PostgreSQL Licence
 Group:              System Environment/Base
@@ -40,6 +40,12 @@ echo '-b /usr/bin/pgloader' > $RPM_BUILD_ROOT/etc/prelink.conf.d/%{name}.conf
 /etc/prelink.conf.d/%{name}.conf
 
 %changelog
+* Thu Jan 22 2015 Dimitri Fontaine <dimitri@2ndQuadrant.fr> - 3.2.1.preview-22
+- Release 3.2.1.preview
+
+* Thu Jan 15 2015 Dimitri Fontaine <dimitri@2ndQuadrant.fr> - 3.2.0-22
+- Release 3.2.0
+
 * Wed Nov 5 2014 Dimitri Fontaine <dimitri@2ndQuadrant.fr> - 3.1.1-22
 - Release 3.1.1
 
