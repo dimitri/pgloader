@@ -15,7 +15,7 @@ Load data from a CSV file into a pre-existing table in your database:
 
 In that example the whole loading is driven from the command line, bypassing
 the need for writing a command in the pgloader command syntax entirely. As
-there's no command though, the extra inforamtion needed must be provided on
+there's no command though, the extra information needed must be provided on
 the command line using the `--type` and `--field` and `--with` switches.
 
 For documentation about the available syntaxes for the `--field` and

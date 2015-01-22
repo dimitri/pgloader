@@ -58,7 +58,7 @@ contents*.
 
 It's possible to use the *MATERIALIZE VIEWS* clause and give both the name
 and the SQL (in MySQL dialect) definition of view, then pgloader creates the
-view at bofore loading the data, then drops it again at the end.
+view before loading the data, then drops it again at the end.
 
 ## Loading the data
 
