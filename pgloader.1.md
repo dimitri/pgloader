@@ -85,7 +85,7 @@ Those options are meant to tweak `pgloader` behavior when loading data.
   * `-v`, `--verbose`:
     Be verbose.
 
-  * `-q`, `--quiet:
+  * `-q`, `--quiet`:
     Be quiet.
 
   * `-d`, `--debug`:
