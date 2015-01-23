@@ -133,7 +133,7 @@
       (pgstate-add-table state (db-name pgconn) "Foreign Keys")
       (loop :for (schema . tables) :in all-fkeys
          :do (loop :for (table-name . fkeys) :in tables
-                :do (loop :for fkey :in fkeys
+                :do (loop :for (fk-name . fkey) :in fkeys
                        :for sql := (format-pgsql-create-fkey fkey)
                        :do (progn
                              (log-message :notice "~a;" sql)
