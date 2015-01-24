@@ -249,7 +249,7 @@ order by SchemaName,
      :for (name schema table col fschema ftable fcol)
      :in  (mssql-query (format nil "
    SELECT
-           KCU1.CONSTRAINT_NAME AS 'CONSTRAINT_NAME'
+           REPLACE(KCU1.CONSTRAINT_NAME, '.', '_') AS 'CONSTRAINT_NAME'
          , KCU1.TABLE_SCHEMA AS 'TABLE_SCHEMA'
          , KCU1.TABLE_NAME AS 'TABLE_NAME'
          , KCU1.COLUMN_NAME AS 'COLUMN_NAME'
