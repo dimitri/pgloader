@@ -168,7 +168,7 @@ order by table_schema, table_name, ordinal_position"
      :in  (mssql-query (format nil "
     select schema_name(schema_id) as SchemaName,
            o.name as TableName,
-           i.name as IndexName,
+           REPLACE(i.name, '.', '_') as IndexName,
            co.[name] as ColumnName,
            i.is_unique,
            i.is_primary_key
