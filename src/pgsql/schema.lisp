@@ -8,14 +8,34 @@
 
 (defun apply-identifier-case (identifier)
   "Return given IDENTIFIER with CASE handled to be PostgreSQL compatible."
-  (ecase *identifier-case*
-    (:downcase (let ((lowered (cl-ppcre:regex-replace-all
-                                "[^a-zA-Z0-9.]" (string-downcase identifier) "_")))
-                 (if (member lowered *pgsql-reserved-keywords* :test #'string=)
-                   (format nil "\"~a\"" lowered)
-                   lowered)))
-    (:quote    (format nil "\"~a\"" identifier))
-    (:none     identifier)))
+  (let* ((lowercase-identifier (cl-ppcre:regex-replace-all
+                                "[^a-zA-Z0-9.]" (string-downcase identifier) "_"))
+         (*identifier-case*
+          ;; we might need to force to :quote in some cases
+          ;;
+          ;; http://www.postgresql.org/docs/9.1/static/sql-syntax-lexical.html
+          ;;
+          ;; SQL identifiers and key words must begin with a letter (a-z, but
+          ;; also letters with diacritical marks and non-Latin letters) or an
+          ;; underscore (_).
+          (cond ((cl-ppcre:scan "^[^A-Za-z_]" identifier)
+                 :quote)
+
+                ((member lowercase-identifier *pgsql-reserved-keywords*
+                         :test #'string=)
+                 (progn
+                   ;; we need to both downcase and quote here
+                   (when (eq :downcase *identifier-case*)
+                     (setf identifier lowercase-identifier))
+                   :quote))
+
+                ;; in other cases follow user directive
+                (t *identifier-case*))))
+
+    (ecase *identifier-case*
+      (:downcase lowercase-identifier)
+      (:quote    (format nil "\"~a\"" identifier))
+      (:none     identifier))))
 
 ;;;
 ;;; Some parts of the logic here needs to be specialized depending on the
