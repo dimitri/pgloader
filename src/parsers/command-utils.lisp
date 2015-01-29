@@ -39,6 +39,9 @@
 				punct)))
   (:text t))
 
+(defrule double-quoted-namestring (and #\" namestring #\")
+  (:destructure (open name close) (declare (ignore open close)) name))
+
 (defrule quoted-namestring (and #\' namestring #\')
   (:destructure (open name close) (declare (ignore open close)) name))
 

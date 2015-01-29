@@ -96,12 +96,18 @@
       (declare (ignore key e))
       (cons :use-ssl val))))
 
-(defrule qualified-table-name (and namestring "." namestring)
+(defrule maybe-quoted-namestring (or double-quoted-namestring
+                                     quoted-namestring
+                                     namestring))
+
+(defrule qualified-table-name (and maybe-quoted-namestring
+                                   "."
+                                   maybe-quoted-namestring)
   (:destructure (schema dot table)
     (declare (ignore dot))
     (format nil "~a.~a" (text schema) (text table))))
 
-(defrule dsn-table-name (or qualified-table-name namestring)
+(defrule dsn-table-name (or qualified-table-name maybe-quoted-namestring)
   (:lambda (name)
     (cons :table-name name)))
 
