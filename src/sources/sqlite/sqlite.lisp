@@ -47,7 +47,7 @@
 (defmethod map-rows ((sqlite copy-sqlite) &key process-row-fn)
   "Extract SQLite data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row"
-  (let ((sql      (format nil "SELECT * FROM ~a" (source sqlite)))
+  (let ((sql      (format nil "SELECT * FROM '~a'" (source sqlite)))
         (blobs-p
          (coerce (mapcar #'cast-to-bytea-p (fields sqlite)) 'vector)))
     (with-connection (*sqlite-db* (source-db sqlite))
