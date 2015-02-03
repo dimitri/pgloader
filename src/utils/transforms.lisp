@@ -22,7 +22,8 @@
 		 right-trim
 		 byte-vector-to-bytea
                  sqlite-timestamp-to-timestamp
-                 sql-server-uniqueidentifier-to-uuid))
+                 sql-server-uniqueidentifier-to-uuid
+                 sql-server-bit-to-boolean))
 
 
 ;;;
@@ -252,3 +253,15 @@
         (format nil
                 "~d-~2,'0d-~2,'0d ~2,'0d:~2,'0d:~2,'0dZ"
                 year month date hour minute second)))))
+
+(defun sql-server-bit-to-boolean (bit-string-or-integer)
+  "We might receive bits as '((0))'"
+  (typecase bit-string-or-integer
+    (integer (if (= 0 bit-string-or-integer) "f" "t"))
+    (string
+     (cond ((string= "0" bit-string-or-integer) "f")
+           ((string= "1" bit-string-or-integer) "t")
+           ((string= "((0))" bit-string-or-integer) "f")
+           ((string= "((1))" bit-string-or-integer) "t")
+           (t nil)))))
+

@@ -11,7 +11,8 @@
     (:source (:type "nvarchar")  :target (:type "text" :drop-typemod t))
     (:source (:type "xml")       :target (:type "text" :drop-typemod t))
 
-    (:source (:type "bit") :target (:type "boolean"))
+    (:source (:type "bit") :target (:type "boolean")
+             :using pgloader.transforms::sql-server-bit-to-boolean)
 
     (:source (:type "uniqueidentifier") :target (:type "uuid")
              :using pgloader.transforms::sql-server-uniqueidentifier-to-uuid)
