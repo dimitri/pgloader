@@ -25,14 +25,15 @@
 (defrule doubled-at-sign (and "@@") (:constant "@"))
 (defrule doubled-colon   (and "::") (:constant ":"))
 (defrule password (+ (or (not "@") doubled-at-sign)) (:text t))
-(defrule username-string (and (or #\_ (alpha-char-p character))
-                              (* (or (alpha-char-p character)
-                                     (digit-char-p character)
-                                     #\.
-                                     punct)))
-  (:text t))
-
-(defrule username (and username-string (? (or doubled-at-sign doubled-colon)))
+(defrule username (and (or #\_ (alpha-char-p character))
+                       (* (or (alpha-char-p character)
+                              (digit-char-p character)
+                              #\.
+                              #\\
+                              punct
+                              doubled-at-sign
+                              doubled-colon
+                              )))
   (:text t))
 
 (defrule dsn-user-password (and username
