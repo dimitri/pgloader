@@ -1482,6 +1482,25 @@ The `database` command accepts the following clauses and options:
         be converted by the default cast rule into a PostgreSQL type
         `varchar(N)`.
 
+      - *with extra auto_increment*
+
+        The casting rule is only applied against MySQL columns having the
+        *extra* column `auto_increment` option set, so that it's possible to
+        target e.g. `serial` rather than `integer`.
+
+        The default matching behavior, when this option isn't set, is to
+        match both columns with the extra definition and without.
+
+        This means that if you want to implement a casting rule that target
+        either `serial` or `integer` from a `smallint` definition depending
+        on the *auto_increment* extra bit of information from MySQL, then
+        you need to spell out two casting rules as following:
+
+            type smallint  with extra auto_increment
+              to serial drop typemod keep default keep not null,
+            type smallint
+              to integer drop typemod keep default keep not null
+
 	The supported casting options are:
 
 	  - *drop default*, *keep default*

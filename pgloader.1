@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "January 2015" "ff" ""
+.TH "PGLOADER" "1" "February 2015" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -118,7 +118,7 @@ Those options are meant to tweak \fBpgloader\fR behavior when loading data\.
 Be verbose\.
 .
 .TP
-\fB\-q\fR, `\-\-quiet
+\fB\-q\fR, \fB\-\-quiet\fR
 Be quiet\.
 .
 .TP
@@ -1781,6 +1781,32 @@ type char when (= precision 1) to char keep typemod
 .
 .IP
 This expression casts MySQL \fBchar(1)\fR column to a PostgreSQL column of type \fBchar(1)\fR while allowing for the general case \fBchar(N)\fR will be converted by the default cast rule into a PostgreSQL type \fBvarchar(N)\fR\.
+.
+.IP "\(bu" 4
+\fIwith extra auto_increment\fR
+.
+.IP
+The casting rule is only applied against MySQL columns having the \fIextra\fR column \fBauto_increment\fR option set, so that it\'s possible to target e\.g\. \fBserial\fR rather than \fBinteger\fR\.
+.
+.IP
+The default matching behavior, when this option isn\'t set, is to match both columns with the extra definition and without\.
+.
+.IP
+This means that if you want to implement a casting rule that target either \fBserial\fR or \fBinteger\fR from a \fBsmallint\fR definition depending on the \fIauto_increment\fR extra bit of information from MySQL, then you need to spell out two casting rules as following:
+.
+.IP "" 4
+.
+.nf
+
+type smallint  with extra auto_increment
+  to serial drop typemod keep default keep not null,
+type smallint
+  to integer drop typemod keep default keep not null
+.
+.fi
+.
+.IP "" 0
+
 .
 .IP "" 0
 .
