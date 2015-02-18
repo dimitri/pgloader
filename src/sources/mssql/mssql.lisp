@@ -262,7 +262,7 @@
 
           (return-from copy-database)))
 
-      ;; Transfert the data
+      ;; Transfer the data
       (loop :for (schema . tables) :in all-columns
          :do (loop :for (table-name . columns) :in tables
                 :do

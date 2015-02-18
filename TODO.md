@@ -80,12 +80,12 @@ simpler.
 ### performances
 
   - some more parallelizing options
-  - support for partitionning in pgloader itself
+  - support for partitioning in pgloader itself
 
 ### UI
 
-  - add a web controler with pretty monitoring
-  - launch new jobs from the web controler
+  - add a web controller with pretty monitoring
+  - launch new jobs from the web controller
 
 ### crazy ideas
 
