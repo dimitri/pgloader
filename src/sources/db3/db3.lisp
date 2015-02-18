@@ -17,7 +17,8 @@
   (with-connection (conn (source-db db3))
     (unless (and (slot-boundp db3 'columns) (slot-value db3 'columns))
       (setf (slot-value db3 'columns)
-            (list-all-columns (fd-db3 conn) (source db3))))
+            (list-all-columns (fd-db3 conn)
+                              (or (target db3) (source db3)))))
 
     (let ((transforms (when (slot-boundp db3 'transforms)
                         (slot-value db3 'transforms))))
