@@ -84,9 +84,21 @@
                 (mssql-column-identity col))
            "bigserial")
 
-          ((member type
-                   '("decimal" "numeric" "float" "double" "real")
-                   :test #'string=)
+          ((member type '("float" "real") :test #'string=)
+           ;; see https://msdn.microsoft.com/en-us/library/ms173773.aspx
+           (if (mssql-column-numeric-scale col)
+               (if (<= (mssql-column-numeric-scale col) 24)
+                   "float"
+                   "double precision")
+
+               ;; no scale
+               (format nil "~a(~a,~a)"
+                       type
+                       (mssql-column-numeric-precision col)
+                       (mssql-column-numeric-scale col))))
+
+          ((member type '("decimal" "numeric" ) :test #'string=)
+           ;; https://msdn.microsoft.com/en-us/library/ms187746.aspx
            (format nil "~a(~a,~a)"
                    type
                    (mssql-column-numeric-precision col)
