@@ -7,7 +7,9 @@
 ;;;
 ;;; Integration with pgloader
 ;;;
-(defclass copy-db3 (copy) ()
+(defclass copy-db3 (copy)
+  ((encoding    :accessor encoding	  ; file encoding
+	        :initarg :encoding))
   (:documentation "pgloader DBF Data Source"))
 
 (defmethod initialize-instance :after ((db3 copy-db3) &key)
@@ -31,7 +33,8 @@
    argument (a list of column values) for each row."
   (with-connection (conn (source-db copy-db3))
     (let ((stream (conn-handle (source-db copy-db3)))
-          (db3    (fd-db3 (source-db copy-db3))))
+          (db3    (fd-db3 (source-db copy-db3)))
+          (db3:*external-format* (encoding copy-db3)))
       (loop
          :with count := (db3:record-count db3)
          :repeat count

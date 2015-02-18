@@ -67,13 +67,15 @@
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
 
-(defrule load-dbf-command (and dbf-source target load-dbf-optional-clauses)
+(defrule load-dbf-command (and dbf-source (? file-encoding)
+                               target load-dbf-optional-clauses)
   (:lambda (command)
-    (destructuring-bind (source target clauses) command
-      `(,source ,target ,@clauses))))
+    (destructuring-bind (source encoding target clauses) command
+      `(,source ,encoding ,target ,@clauses))))
 
 (defun lisp-code-for-loading-from-dbf (dbf-db-conn pg-db-conn
                                        &key
+                                         (encoding :ascii)
                                          gucs before after
                                          ((:dbf-options options)))
   `(lambda ()
@@ -91,6 +93,7 @@
             (source
              (make-instance 'pgloader.db3:copy-db3
                             :target-db ,pg-db-conn
+                            :encoding ,encoding
                             :source-db source-db
                             :target table-name)))
 
@@ -110,9 +113,10 @@
 
 (defrule load-dbf-file load-dbf-command
   (:lambda (command)
-    (bind (((source pg-db-uri
+    (bind (((source encoding pg-db-uri
                     &key ((:dbf-options options)) gucs before after) command))
       (lisp-code-for-loading-from-dbf source pg-db-uri
+                                      :encoding encoding
                                       :gucs gucs
                                       :before before
                                       :after after

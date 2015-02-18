@@ -135,7 +135,7 @@
                                 :depends-on ("common" "csv"))
 
 			 (:module "db3"
-                                  :depends-on ("common")
+                                  :depends-on ("common" "csv")
                                   :components
                                   ((:file "db3-schema")
                                    (:file "db3" :depends-on ("db3-schema"))))

@@ -74,6 +74,9 @@ $(QLDIR)/local-projects/qmynd:
 $(QLDIR)/local-projects/cl-ixf:
 	git clone https://github.com/dimitri/cl-ixf.git $@
 
+$(QLDIR)/local-projects/cl-db3:
+	git clone https://github.com/dimitri/cl-db3.git $@
+
 $(QLDIR)/local-projects/cl-csv:
 	git clone https://github.com/AccelerationNet/cl-csv.git $@
 
@@ -91,6 +94,7 @@ $(QLDIR)/setup.lisp:
 quicklisp: $(QLDIR)/setup.lisp ;
 
 clones: $(QLDIR)/local-projects/cl-ixf \
+        $(QLDIR)/local-projects/cl-db3 \
         $(QLDIR)/local-projects/cl-csv \
         $(QLDIR)/local-projects/qmynd  \
         $(QLDIR)/local-projects/esrap ;
