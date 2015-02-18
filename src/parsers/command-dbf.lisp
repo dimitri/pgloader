@@ -67,7 +67,14 @@
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
 
-(defrule load-dbf-command (and dbf-source (? file-encoding)
+;;; dbf defaults to ascii rather than utf-8
+(defrule dbf-file-encoding (? (and kw-with kw-encoding encoding))
+  (:lambda (enc)
+    (if enc
+        (bind (((_ _ encoding) enc)) encoding)
+	:ascii)))
+
+(defrule load-dbf-command (and dbf-source (? dbf-file-encoding)
                                target load-dbf-optional-clauses)
   (:lambda (command)
     (destructuring-bind (source encoding target clauses) command
