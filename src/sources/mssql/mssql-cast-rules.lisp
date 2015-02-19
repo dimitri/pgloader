@@ -86,16 +86,9 @@
 
           ((member type '("float" "real") :test #'string=)
            ;; see https://msdn.microsoft.com/en-us/library/ms173773.aspx
-           (if (mssql-column-numeric-scale col)
-               (if (<= (mssql-column-numeric-scale col) 24)
-                   "float"
-                   "double precision")
-
-               ;; no scale
-               (format nil "~a(~a,~a)"
-                       type
-                       (mssql-column-numeric-precision col)
-                       (mssql-column-numeric-scale col))))
+           ;; scale is supposed to be nil, and useless in PostgreSQL, so we
+           ;; just ignore it
+           (format nil "~a(~a)" type (mssql-column-numeric-precision col)))
 
           ((member type '("decimal" "numeric" ) :test #'string=)
            ;; https://msdn.microsoft.com/en-us/library/ms187746.aspx
