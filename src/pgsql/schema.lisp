@@ -6,6 +6,12 @@
 (defvar *pgsql-reserved-keywords* nil
   "We need to always quote PostgreSQL reserved keywords")
 
+(defun quoted-p (s)
+  "Return true if s is a double-quoted string"
+  (and 
+    (eq (char s 0) #\")
+    (eq (char s (- (length s) 1)) #\")))
+
 (defun apply-identifier-case (identifier)
   "Return given IDENTIFIER with CASE handled to be PostgreSQL compatible."
   (let* ((lowercase-identifier (cl-ppcre:regex-replace-all
@@ -18,7 +24,11 @@
           ;; SQL identifiers and key words must begin with a letter (a-z, but
           ;; also letters with diacritical marks and non-Latin letters) or an
           ;; underscore (_).
-          (cond ((cl-ppcre:scan "^[^A-Za-z_]" identifier)
+          (cond 
+                ((quoted-p identifier)
+                  :none)
+
+                ((cl-ppcre:scan "^[^A-Za-z_]" identifier)
                  :quote)
 
                 ((member lowercase-identifier *pgsql-reserved-keywords*
@@ -34,7 +44,8 @@
 
     (ecase *identifier-case*
       (:downcase lowercase-identifier)
-      (:quote    (format nil "\"~a\"" identifier))
+      (:quote    (format nil "\"~a\"" 
+        (cl-ppcre:regex-replace-all "\"" identifier "\"\"")))
       (:none     identifier))))
 
 ;;;
