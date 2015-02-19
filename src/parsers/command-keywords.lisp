@@ -61,6 +61,8 @@
   (def-keyword-rule "encoding")
   (def-keyword-rule "decoding")
   (def-keyword-rule "truncate")
+  (def-keyword-rule "disable")
+  (def-keyword-rule "triggers")
   (def-keyword-rule "lines")
   (def-keyword-rule "having")
   (def-keyword-rule "fields")

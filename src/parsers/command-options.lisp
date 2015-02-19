@@ -104,12 +104,13 @@
 		     (declare (ignore ,@ignore))
 		     (cons ,option (null no))))))
 
-(make-option-rule include-drop    (and kw-include (? kw-no) kw-drop))
-(make-option-rule truncate        (and (? kw-no) kw-truncate))
-(make-option-rule create-tables   (and kw-create (? kw-no) kw-tables))
-(make-option-rule create-indexes  (and kw-create (? kw-no) kw-indexes))
-(make-option-rule reset-sequences (and kw-reset  (? kw-no) kw-sequences))
-(make-option-rule foreign-keys    (and (? kw-no) kw-foreign kw-keys))
+(make-option-rule include-drop     (and kw-include (? kw-no) kw-drop))
+(make-option-rule truncate         (and (? kw-no) kw-truncate))
+(make-option-rule disable-triggers (and kw-disable (? kw-no) kw-triggers))
+(make-option-rule create-tables    (and kw-create (? kw-no) kw-tables))
+(make-option-rule create-indexes   (and kw-create (? kw-no) kw-indexes))
+(make-option-rule reset-sequences  (and kw-reset  (? kw-no) kw-sequences))
+(make-option-rule foreign-keys     (and (? kw-no) kw-foreign kw-keys))
 
 (defrule option-schema-only (and kw-schema kw-only)
   (:constant (cons :schema-only t)))
@@ -127,6 +128,7 @@
                           option-batch-size
                           option-batch-concurrency
 			  option-truncate
+                          option-disable-triggers
 			  option-data-only
 			  option-schema-only
 			  option-include-drop

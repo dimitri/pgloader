@@ -29,6 +29,7 @@ LOAD CSV
       )
 
      WITH truncate,
+          disable triggers,
           skip header = 1,
           batch rows = 200,
           batch size = 1024 kB,

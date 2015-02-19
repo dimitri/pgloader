@@ -26,6 +26,7 @@ load database
                            option-batch-size
                            option-batch-concurrency
                            option-truncate
+                           option-disable-triggers
 			   option-data-only
 			   option-schema-only
 			   option-include-drop

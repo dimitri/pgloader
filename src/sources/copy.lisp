@@ -98,7 +98,7 @@
   "Copy data from given COPY definition into lparallel.queue DATAQ"
   (pgloader.queue:map-push-queue copy queue))
 
-(defmethod copy-from ((copy copy-copy) &key truncate)
+(defmethod copy-from ((copy copy-copy) &key truncate disable-triggers)
   "Copy data from given COPY file definition into its PostgreSQL target table."
   (let* ((summary        (null *state*))
 	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
@@ -124,7 +124,8 @@
                                            ;; always double quote column names
                                            (format nil "~s" (car col)))
                                          (columns copy))
-                        :truncate truncate)
+                        :truncate truncate
+                        :disable-triggers disable-triggers)
 
         ;; now wait until both the tasks are over
         (loop for tasks below 2 do (lp:receive-result channel)

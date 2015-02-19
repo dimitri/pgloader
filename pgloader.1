@@ -967,6 +967,15 @@ When loading from a \fBCSV\fR file, the following options are supported:
 When this option is listed, pgloader issues a \fBTRUNCATE\fR command against the PostgreSQL target table before reading the data file\.
 .
 .IP "\(bu" 4
+\fIdisable triggers\fR
+.
+.IP
+When this option is listed, pgloader issues an \fBALTER TABLE \.\.\. DISABLE TRIGGER ALL\fR command against the PostgreSQL target table before copying the data, then the command \fBALTER TABLE \.\.\. ENABLE TRIGGER ALL\fR once the \fBCOPY\fR is done\.
+.
+.IP
+This option allows loading data into a pre\-existing table ignoring the \fIforeign key constraints\fR and user defined triggers and may result in invalid \fIforeign key constraints\fR once the data is loaded\. Use with care\.
+.
+.IP "\(bu" 4
 \fIskip header\fR
 .
 .IP
@@ -1217,13 +1226,22 @@ This option allows to trim whitespaces in the read data, either from both sides 
 \fIWITH\fR
 .
 .IP
-When loading from a \fBCSV\fR file, the following options are supported:
+When loading from a \fBFIXED\fR file, the following options are supported:
 .
 .IP "\(bu" 4
 \fItruncate\fR
 .
 .IP
 When this option is listed, pgloader issues a \fBTRUNCATE\fR command against the PostgreSQL target table before reading the data file\.
+.
+.IP "\(bu" 4
+\fIdisable triggers\fR
+.
+.IP
+When this option is listed, pgloader issues an \fBALTER TABLE \.\.\. DISABLE TRIGGER ALL\fR command against the PostgreSQL target table before copying the data, then the command \fBALTER TABLE \.\.\. ENABLE TRIGGER ALL\fR once the \fBCOPY\fR is done\.
+.
+.IP
+This option allows loading data into a pre\-existing table ignoring the \fIforeign key constraints\fR and user defined triggers and may result in invalid \fIforeign key constraints\fR once the data is loaded\. Use with care\.
 .
 .IP "\(bu" 4
 \fIskip header\fR
@@ -1298,6 +1316,15 @@ When loading from a \fBCOPY\fR file, the following options are supported:
 When this option is listed, pgloader issues a \fBTRUNCATE\fR command against the PostgreSQL target table before reading the data file\.
 .
 .IP "\(bu" 4
+\fIdisable triggers\fR
+.
+.IP
+When this option is listed, pgloader issues an \fBALTER TABLE \.\.\. DISABLE TRIGGER ALL\fR command against the PostgreSQL target table before copying the data, then the command \fBALTER TABLE \.\.\. ENABLE TRIGGER ALL\fR once the \fBCOPY\fR is done\.
+.
+.IP
+This option allows loading data into a pre\-existing table ignoring the \fIforeign key constraints\fR and user defined triggers and may result in invalid \fIforeign key constraints\fR once the data is loaded\. Use with care\.
+.
+.IP "\(bu" 4
 \fIskip header\fR
 .
 .IP
@@ -1344,6 +1371,15 @@ When loading from a \fBDBF\fR file, the following options are supported:
 .
 .IP
 When this option is listed, pgloader issues a \fBTRUNCATE\fR command against the PostgreSQL target table before reading the data file\.
+.
+.IP "\(bu" 4
+\fIdisable triggers\fR
+.
+.IP
+When this option is listed, pgloader issues an \fBALTER TABLE \.\.\. DISABLE TRIGGER ALL\fR command against the PostgreSQL target table before copying the data, then the command \fBALTER TABLE \.\.\. ENABLE TRIGGER ALL\fR once the \fBCOPY\fR is done\.
+.
+.IP
+This option allows loading data into a pre\-existing table ignoring the \fIforeign key constraints\fR and user defined triggers and may result in invalid \fIforeign key constraints\fR once the data is loaded\. Use with care\.
 .
 .IP "\(bu" 4
 \fIcreate table\fR
@@ -1402,6 +1438,15 @@ When loading from a \fBIXF\fR file, the following options are supported:
 .
 .IP
 When this option is listed, pgloader issues a \fBTRUNCATE\fR command against the PostgreSQL target table before reading the data file\.
+.
+.IP "\(bu" 4
+\fIdisable triggers\fR
+.
+.IP
+When this option is listed, pgloader issues an \fBALTER TABLE \.\.\. DISABLE TRIGGER ALL\fR command against the PostgreSQL target table before copying the data, then the command \fBALTER TABLE \.\.\. ENABLE TRIGGER ALL\fR once the \fBCOPY\fR is done\.
+.
+.IP
+This option allows loading data into a pre\-existing table ignoring the \fIforeign key constraints\fR and user defined triggers and may result in invalid \fIforeign key constraints\fR once the data is loaded\. Use with care\.
 .
 .IP "\(bu" 4
 \fIcreate table\fR
@@ -1640,6 +1685,15 @@ When this option is listed, pgloader issue the \fBTRUNCATE\fR command against ea
 .
 .IP
 When this option is listed, pgloader issues no \fBTRUNCATE\fR command\.
+.
+.IP "\(bu" 4
+\fIdisable triggers\fR
+.
+.IP
+When this option is listed, pgloader issues an \fBALTER TABLE \.\.\. DISABLE TRIGGER ALL\fR command against the PostgreSQL target table before copying the data, then the command \fBALTER TABLE \.\.\. ENABLE TRIGGER ALL\fR once the \fBCOPY\fR is done\.
+.
+.IP
+This option allows loading data into a pre\-existing table ignoring the \fIforeign key constraints\fR and user defined triggers and may result in invalid \fIforeign key constraints\fR once the data is loaded\. Use with care\.
 .
 .IP "\(bu" 4
 \fIcreate tables\fR
@@ -2188,6 +2242,15 @@ When this option is listed, pgloader issue the \fBTRUNCATE\fR command against ea
 .
 .IP
 When this option is listed, pgloader issues no \fBTRUNCATE\fR command\.
+.
+.IP "\(bu" 4
+\fIdisable triggers\fR
+.
+.IP
+When this option is listed, pgloader issues an \fBALTER TABLE \.\.\. DISABLE TRIGGER ALL\fR command against the PostgreSQL target table before copying the data, then the command \fBALTER TABLE \.\.\. ENABLE TRIGGER ALL\fR once the \fBCOPY\fR is done\.
+.
+.IP
+This option allows loading data into a pre\-existing table ignoring the \fIforeign key constraints\fR and user defined triggers and may result in invalid \fIforeign key constraints\fR once the data is loaded\. Use with care\.
 .
 .IP "\(bu" 4
 \fIcreate tables\fR

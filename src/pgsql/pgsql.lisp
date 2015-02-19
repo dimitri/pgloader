@@ -42,16 +42,20 @@
 ;;; content down to PostgreSQL, handling any data related errors in the way.
 ;;;
 (defun copy-from-queue (pgconn table-name queue
-			&key columns (truncate t) ((:state *state*) *state*))
+			&key
+                          columns
+                          (truncate t)
+                          disable-triggers
+                          ((:state *state*) *state*))
   "Fetch from the QUEUE messages containing how many rows are in the
    *writer-batch* for us to send down to PostgreSQL, and when that's done
    update *state*."
   (when truncate
     (truncate-tables pgconn (list table-name)))
 
-  (log-message :debug "pgsql:copy-from-queue: ~a ~a" table-name columns)
-
   (with-pgsql-connection (pgconn)
+    (when disable-triggers (disable-triggers table-name))
+    (log-message :info "pgsql:copy-from-queue: ~a ~a" table-name columns)
     (loop
        for (mesg batch read oversized?) = (lq:pop-queue queue)
        until (eq mesg :end-of-data)
@@ -62,7 +66,8 @@
             #+sbcl (when oversized? (sb-ext:gc :full t))
             (log-message :debug "copy-batch ~a ~d row~:p~:[~; [oversized]~]"
                          table-name rows oversized?)
-            (pgstate-incf *state* table-name :rows rows)))))
+            (pgstate-incf *state* table-name :rows rows)))
+    (when disable-triggers (enable-triggers table-name))))
 
 ;;;
 ;;; When a batch has been refused by PostgreSQL with a data-exception, that

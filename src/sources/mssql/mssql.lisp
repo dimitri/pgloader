@@ -59,7 +59,8 @@
   "Copy data from MSSQL table DBNAME.TABLE-NAME into queue DATAQ"
   (map-push-queue mssql queue))
 
-(defmethod copy-from ((mssql copy-mssql) &key (kernel nil k-s-p) truncate)
+(defmethod copy-from ((mssql copy-mssql)
+                      &key (kernel nil k-s-p) truncate disable-triggers)
   "Connect in parallel to MSSQL and PostgreSQL and stream the data."
   (let* ((summary        (null *state*))
 	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
@@ -82,7 +83,8 @@
         ;; and start another task to push that data from the queue to PostgreSQL
         (lp:submit-task channel #'pgloader.pgsql:copy-from-queue
                         (target-db mssql) (target mssql) queue
-                        :truncate truncate)
+                        :truncate truncate
+                        :disable-triggers disable-triggers)
 
         ;; now wait until both the tasks are over
         (loop for tasks below 2 do (lp:receive-result channel)
@@ -173,14 +175,15 @@
 			    state-before
 			    state-after
 			    state-indexes
-			    (truncate        nil)
-			    (data-only       nil)
-			    (schema-only     nil)
-			    (create-tables   t)
-			    (include-drop    t)
-			    (create-indexes  t)
-			    (reset-sequences t)
-			    (foreign-keys    t)
+			    (truncate         nil)
+			    (disable-triggers nil)
+			    (data-only        nil)
+			    (schema-only      nil)
+			    (create-tables    t)
+			    (include-drop     t)
+			    (create-indexes   t)
+			    (reset-sequences  t)
+			    (foreign-keys     t)
                             (encoding        :utf-8)
                             including
                             excluding)
@@ -278,7 +281,9 @@
 
                   ;; COPY the data to PostgreSQL, using copy-kernel
                   (unless schema-only
-                    (copy-from table-source :kernel copy-kernel))
+                    (copy-from table-source
+                               :kernel copy-kernel
+                               :disable-triggers disable-triggers))
 
                   ;; Create the indexes for that table in parallel with the next
                   ;; COPY, and all at once in concurrent threads to benefit from

@@ -824,6 +824,18 @@ The `csv` format command accepts the following clauses and options:
 		When this option is listed, pgloader issues a `TRUNCATE` command
 		against the PostgreSQL target table before reading the data file.
 
+	  - *disable triggers*
+
+		When this option is listed, pgloader issues an `ALTER TABLE ...
+		DISABLE TRIGGER ALL` command against the PostgreSQL target table
+		before copying the data, then the command `ALTER TABLE ... ENABLE
+		TRIGGER ALL` once the `COPY` is done.
+
+        This option allows loading data into a pre-existing table ignoring
+        the *foreign key constraints* and user defined triggers and may
+        result in invalid *foreign key constraints* once the data is loaded.
+        Use with care.
+
 	  - *skip header*
 
 	    Takes a numeric value as argument. Instruct pgloader to skip that
@@ -1020,12 +1032,24 @@ The `fixed` format command accepts the following clauses and options:
 
   - *WITH*
 
-    When loading from a `CSV` file, the following options are supported:
+    When loading from a `FIXED` file, the following options are supported:
 
 	  - *truncate*
 
 		When this option is listed, pgloader issues a `TRUNCATE` command
 		against the PostgreSQL target table before reading the data file.
+
+	  - *disable triggers*
+
+		When this option is listed, pgloader issues an `ALTER TABLE ...
+		DISABLE TRIGGER ALL` command against the PostgreSQL target table
+		before copying the data, then the command `ALTER TABLE ... ENABLE
+		TRIGGER ALL` once the `COPY` is done.
+
+        This option allows loading data into a pre-existing table ignoring
+        the *foreign key constraints* and user defined triggers and may
+        result in invalid *foreign key constraints* once the data is loaded.
+        Use with care.
 
 	  - *skip header*
 
@@ -1084,6 +1108,18 @@ The `COPY` format command accepts the following clauses and options:
 		When this option is listed, pgloader issues a `TRUNCATE` command
 		against the PostgreSQL target table before reading the data file.
 
+	  - *disable triggers*
+
+		When this option is listed, pgloader issues an `ALTER TABLE ...
+		DISABLE TRIGGER ALL` command against the PostgreSQL target table
+		before copying the data, then the command `ALTER TABLE ... ENABLE
+		TRIGGER ALL` once the `COPY` is done.
+
+        This option allows loading data into a pre-existing table ignoring
+        the *foreign key constraints* and user defined triggers and may
+        result in invalid *foreign key constraints* once the data is loaded.
+        Use with care.
+
 	  - *skip header*
 
 	    Takes a numeric value as argument. Instruct pgloader to skip that
@@ -1115,6 +1151,18 @@ The `dbf` format command accepts the following clauses and options:
 
 		When this option is listed, pgloader issues a `TRUNCATE` command
 		against the PostgreSQL target table before reading the data file.
+
+	  - *disable triggers*
+
+		When this option is listed, pgloader issues an `ALTER TABLE ...
+		DISABLE TRIGGER ALL` command against the PostgreSQL target table
+		before copying the data, then the command `ALTER TABLE ... ENABLE
+		TRIGGER ALL` once the `COPY` is done.
+
+        This option allows loading data into a pre-existing table ignoring
+        the *foreign key constraints* and user defined triggers and may
+        result in invalid *foreign key constraints* once the data is loaded.
+        Use with care.
 
 	  - *create table*
 
@@ -1158,6 +1206,18 @@ The `ixf` format command accepts the following clauses and options:
 
 		When this option is listed, pgloader issues a `TRUNCATE` command
 		against the PostgreSQL target table before reading the data file.
+
+	  - *disable triggers*
+
+		When this option is listed, pgloader issues an `ALTER TABLE ...
+		DISABLE TRIGGER ALL` command against the PostgreSQL target table
+		before copying the data, then the command `ALTER TABLE ... ENABLE
+		TRIGGER ALL` once the `COPY` is done.
+
+        This option allows loading data into a pre-existing table ignoring
+        the *foreign key constraints* and user defined triggers and may
+        result in invalid *foreign key constraints* once the data is loaded.
+        Use with care.
 
 	  - *create table*
 
@@ -1361,6 +1421,18 @@ The `database` command accepts the following clauses and options:
 	  - *no truncate*
 
 		When this option is listed, pgloader issues no `TRUNCATE` command.
+
+	  - *disable triggers*
+
+		When this option is listed, pgloader issues an `ALTER TABLE ...
+		DISABLE TRIGGER ALL` command against the PostgreSQL target table
+		before copying the data, then the command `ALTER TABLE ... ENABLE
+		TRIGGER ALL` once the `COPY` is done.
+
+        This option allows loading data into a pre-existing table ignoring
+        the *foreign key constraints* and user defined triggers and may
+        result in invalid *foreign key constraints* once the data is loaded.
+        Use with care.
 
 	  - *create tables*
 
@@ -1759,6 +1831,18 @@ The `sqlite` command accepts the following clauses and options:
 	  - *no truncate*
 
 		When this option is listed, pgloader issues no `TRUNCATE` command.
+
+	  - *disable triggers*
+
+		When this option is listed, pgloader issues an `ALTER TABLE ...
+		DISABLE TRIGGER ALL` command against the PostgreSQL target table
+		before copying the data, then the command `ALTER TABLE ... ENABLE
+		TRIGGER ALL` once the `COPY` is done.
+
+        This option allows loading data into a pre-existing table ignoring
+        the *foreign key constraints* and user defined triggers and may
+        result in invalid *foreign key constraints* once the data is loaded.
+        Use with care.
 
 	  - *create tables*
 

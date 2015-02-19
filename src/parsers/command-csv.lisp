@@ -93,6 +93,7 @@
                         option-batch-size
                         option-batch-concurrency
                         option-truncate
+                        option-disable-triggers
                         option-skip-header
                         option-lines-terminated-by
                         option-fields-not-enclosed
@@ -434,6 +435,7 @@
          ,(sql-code-block pg-db-conn 'state-before before "before load")
 
          (let ((truncate (getf ',options :truncate))
+               (disable-triggers (getf ',options :disable-triggers))
                (source
                 (make-instance 'pgloader.csv:copy-csv
                                :target-db  ,pg-db-conn
@@ -443,8 +445,11 @@
                                :fields    ',fields
                                :columns   ',columns
                                ,@(remove-batch-control-option
-                                  options :extras '(:truncate)))))
-           (pgloader.sources:copy-from source :truncate truncate))
+                                  options :extras '(:truncate
+                                                    :disable-triggers)))))
+           (pgloader.sources:copy-from source
+                                       :truncate truncate
+                                       :disable-triggers disable-triggers))
 
          ,(sql-code-block pg-db-conn 'state-after after "after load")
 

@@ -7,6 +7,8 @@ LOAD DATABASE
 
  DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf-8
 
+  SET maintenance_work_mem to '1 GB'
+
  CAST type datetime to timestamptz drop default drop not null using zero-dates-to-null,
       type date drop not null drop default using zero-dates-to-null,
       type timestamp to timestamptz drop not null using zero-dates-to-null,
@@ -32,4 +34,8 @@ LOAD DATABASE
      group by cast(d as date);
    $$
 
- WITH include drop, create tables, create indexes, reset sequences;
+ WITH include drop,
+      create tables,
+      create indexes,
+      reset sequences,
+      disable triggers;

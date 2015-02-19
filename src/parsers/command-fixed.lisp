@@ -47,6 +47,7 @@
                           option-batch-size
                           option-batch-concurrency
                           option-truncate
+                          option-disable-triggers
 			  option-skip-header))
 
 (defrule another-fixed-option (and comma fixed-option)
@@ -134,6 +135,7 @@
          ,(sql-code-block pg-db-conn 'state-before before "before load")
 
          (let ((truncate ,(getf options :truncate))
+               (disable-triggers ,(getf options :disable-triggers))
                (source
                 (make-instance 'pgloader.fixed:copy-fixed
                                :target-db ,pg-db-conn
@@ -143,7 +145,10 @@
                                :fields ',fields
                                :columns ',columns
                                :skip-lines ,(or (getf options :skip-line) 0))))
-           (pgloader.sources:copy-from source :truncate truncate))
+
+           (pgloader.sources:copy-from source
+                                       :truncate truncate
+                                       :disable-triggers disable-triggers))
 
          ,(sql-code-block pg-db-conn 'state-after after "after load")
 

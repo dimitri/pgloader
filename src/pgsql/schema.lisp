@@ -236,6 +236,22 @@
       (log-message :notice "~a" sql)
       (pomo:execute sql))))
 
+(defun disable-triggers (table-name)
+  "Disable triggers on TABLE-NAME. Needs to be called with a PostgreSQL
+   connection already opened."
+  (let ((sql (format nil "ALTER TABLE ~a DISABLE TRIGGER ALL;"
+                     (apply-identifier-case table-name))))
+    (log-message :info "~a" sql)
+    (pomo:execute sql)))
+
+(defun enable-triggers (table-name)
+  "Disable triggers on TABLE-NAME. Needs to be called with a PostgreSQL
+   connection already opened."
+  (let ((sql (format nil "ALTER TABLE ~a ENABLE TRIGGER ALL;"
+                     (apply-identifier-case table-name))))
+    (log-message :info "~a" sql)
+    (pomo:execute sql)))
+
 
 ;;;
 ;;; Index support

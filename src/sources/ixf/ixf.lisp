@@ -67,7 +67,8 @@
   (let ((read (pgloader.queue:map-push-queue ixf queue)))
     (pgstate-incf *state* (target ixf) :read read)))
 
-(defmethod copy-from ((ixf copy-ixf) &key (kernel nil k-s-p) truncate)
+(defmethod copy-from ((ixf copy-ixf)
+                      &key (kernel nil k-s-p) truncate disable-triggers)
   (let* ((summary        (null *state*))
          (*state*        (or *state* (pgloader.utils:make-pgstate)))
          (lp:*kernel*    (or kernel (make-kernel 2)))
@@ -86,7 +87,8 @@
         (lp:submit-task channel
                         #'pgloader.pgsql:copy-from-queue
                         (target-db ixf) (target ixf) queue
-                        :truncate truncate)
+                        :truncate truncate
+                        :disable-triggers disable-triggers)
 
         ;; now wait until both the tasks are over, and kill the kernel
         (loop for tasks below 2 do (lp:receive-result channel)
@@ -100,11 +102,12 @@
                             state-before
                             data-only
 			    schema-only
-                            (truncate        t)
-                            (create-tables   t)
-			    (include-drop    t)
-			    (create-indexes  t)
-			    (reset-sequences t))
+                            (truncate         t)
+                            (disable-triggers nil)
+                            (create-tables    t)
+			    (include-drop     t)
+			    (create-indexes   t)
+			    (reset-sequences  t))
   "Open the IXF and stream its content to a PostgreSQL database."
   (declare (ignore create-indexes reset-sequences))
   (let* ((summary     (null *state*))
@@ -134,7 +137,7 @@
         (return-from copy-database)))
 
     (unless schema-only
-      (copy-from ixf :truncate truncate))
+      (copy-from ixf :truncate truncate :disable-triggers disable-triggers))
 
     ;; and report the total time spent on the operation
     (when summary

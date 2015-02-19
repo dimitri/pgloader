@@ -142,7 +142,7 @@
   "Copy data from given CSV definition into lparallel.queue DATAQ"
   (map-push-queue csv queue))
 
-(defmethod copy-from ((csv copy-csv) &key truncate)
+(defmethod copy-from ((csv copy-csv) &key truncate disable-triggers)
   "Copy data from given CSV file definition into its PostgreSQL target table."
   (let* ((summary        (null *state*))
 	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
@@ -167,7 +167,8 @@
                                            ;; always double quote column names
                                            (format nil "~s" (car col)))
                                          (columns csv))
-                        :truncate truncate)
+                        :truncate truncate
+                        :disable-triggers disable-triggers)
 
         ;; now wait until both the tasks are over
         (loop for tasks below 2 do (lp:receive-result channel)

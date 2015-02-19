@@ -82,7 +82,8 @@
   (let ((read (pgloader.queue:map-push-queue sqlite queue)))
     (pgstate-incf *state* (target sqlite) :read read)))
 
-(defmethod copy-from ((sqlite copy-sqlite) &key (kernel nil k-s-p) truncate)
+(defmethod copy-from ((sqlite copy-sqlite)
+                      &key (kernel nil k-s-p) truncate disable-triggers)
   "Stream the contents from a SQLite database table down to PostgreSQL."
   (let* ((summary     (null *state*))
 	 (*state*     (or *state* (pgloader.utils:make-pgstate)))
@@ -103,7 +104,8 @@
         (lp:submit-task channel
                         #'pgloader.pgsql:copy-from-queue
                         (target-db sqlite) (target sqlite) queue
-                        :truncate truncate)
+                        :truncate truncate
+                        :disable-triggers disable-triggers)
 
         ;; now wait until both the tasks are over
         (loop for tasks below 2 do (lp:receive-result channel)
@@ -145,11 +147,12 @@
 			    state-before
 			    data-only
 			    schema-only
-			    (truncate        nil)
-			    (create-tables   t)
-			    (include-drop    t)
-			    (create-indexes  t)
-			    (reset-sequences t)
+			    (truncate         nil)
+			    (disable-triggers nil)
+			    (create-tables    t)
+			    (include-drop     t)
+			    (create-indexes   t)
+			    (reset-sequences  t)
                             only-tables
 			    including
 			    excluding
@@ -212,7 +215,9 @@
                                  :fields     columns)))
              ;; first COPY the data from SQLite to PostgreSQL, using copy-kernel
              (unless schema-only
-               (copy-from table-source :kernel copy-kernel))
+               (copy-from table-source
+                          :kernel copy-kernel
+                          :disable-triggers disable-triggers))
 
              ;; Create the indexes for that table in parallel with the next
              ;; COPY, and all at once in concurrent threads to benefit from
