@@ -1,5 +1,5 @@
 ;;
-;; Abstrat classes to define the API to connect to a data source
+;; Abstract classes to define the API to connect to a data source
 ;;
 (in-package :pgloader.connection)
 
