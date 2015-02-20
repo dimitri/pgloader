@@ -121,7 +121,7 @@
          ~:[~*~;and (~{~a~^~&~10t or ~})~]
          ~:[~*~;and (~{~a~^~&~10t and ~})~]
 
-order by table_schema, table_name, ordinal_position"
+order by c.table_schema, c.table_name, c.ordinal_position"
                           (db-name *mssql-db*)
                           table-type-name
                           including   ; do we print the clause?
@@ -277,7 +277,7 @@ order by SchemaName,
          ~:[~*~;and (~{~a~^ or ~})~]
          ~:[~*~;and (~{~a~^ and ~})~]
 
-ORDER BY CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
+ORDER BY KCU1.CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
                                (db-name *mssql-db*) (db-name *mssql-db*)
                                including ; do we print the clause?
                                (filter-list-to-where-clause including
