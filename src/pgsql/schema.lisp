@@ -26,7 +26,7 @@
           (cond ((quoted-p identifier)
                  :none)
 
-                ((cl-ppcre:scan "[^A-Za-z_]" identifier)
+                ((not (cl-ppcre:scan "^[A-Za-z_][A-Za-z0-9_$]*$" identifier))
                  :quote)
 
                 ((member lowercase-identifier *pgsql-reserved-keywords*
