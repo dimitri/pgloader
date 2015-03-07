@@ -37,5 +37,6 @@ LOAD DATABASE
  WITH include drop,
       create tables,
       create indexes,
+      preserve index names,
       reset sequences,
       disable triggers;

@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "February 2015" "ff" ""
+.TH "PGLOADER" "1" "March 2015" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -1718,6 +1718,18 @@ When this option is listed, pgloader gets the definitions of all the indexes fou
 .
 .IP
 When this option is listed, pgloader skips the creating indexes\.
+.
+.IP "\(bu" 4
+\fIuniquify index names\fR, \fIpreserve index names\fR
+.
+.IP
+MySQL index names are unique per\-table whereas in PostgreSQL index names have to be unique per\-schema\. The default for pgloader is to change the index name by prefixing it with \fBidx_OID\fR where \fBOID\fR is the internal numeric identifier of the table the index is built against\.
+.
+.IP
+In somes cases like when the DDL are entirely left to a framework it might be sensible for pgloader to refrain from handling index unique names, that is achieved by using the \fIpreserve index names\fR option\.
+.
+.IP
+The default is to \fIuniquify index names\fR\.
 .
 .IP "\(bu" 4
 \fIforeign keys\fR

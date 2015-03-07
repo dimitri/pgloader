@@ -271,9 +271,12 @@
 
 (defmethod format-pgsql-create-index ((index pgsql-index))
   "Generate the PostgreSQL statement list to rebuild a Foreign Key"
-  (let* ((index-name (format nil "idx_~a_~a"
-			     (pgsql-index-table-oid index)
-			     (pgsql-index-name index)))
+  (let* ((index-name (if (pgsql-index-table-oid index)
+                         (format nil "idx_~a_~a"
+                                 (pgsql-index-table-oid index)
+                                 (pgsql-index-name index))
+                         ;; lacking the oid means we preserve the index name
+                         (pgsql-index-name index)))
 	 (table-name (apply-identifier-case (pgsql-index-table-name index)))
 	 (index-name (apply-identifier-case index-name))
 

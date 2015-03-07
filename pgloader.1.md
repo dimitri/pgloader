@@ -1456,6 +1456,20 @@ The `database` command accepts the following clauses and options:
 
 	    When this option is listed, pgloader skips the creating indexes.
 
+      - *uniquify index names*, *preserve index names*
+
+	    MySQL index names are unique per-table whereas in PostgreSQL index
+        names have to be unique per-schema. The default for pgloader is to
+        change the index name by prefixing it with `idx_OID` where `OID` is
+        the internal numeric identifier of the table the index is built
+        against.
+
+        In somes cases like when the DDL are entirely left to a framework it
+        might be sensible for pgloader to refrain from handling index unique
+        names, that is achieved by using the *preserve index names* option.
+        
+        The default is to *uniquify index names*.
+
       - *foreign keys*
 
 	    When this option is listed, pgloader gets the definitions of all the

@@ -152,7 +152,8 @@
                                &key
                                  state
                                  foreign-keys
-                                 include-drop)
+                                 include-drop
+                                 preserve-index-names)
   "Prepare the target PostgreSQL database: create tables casting datatypes
    from the MySQL definitions, prepare index definitions and create target
    tables for materialized views.
@@ -179,7 +180,8 @@
         ;; MySQL allows the same index name being used against several
         ;; tables, so we add the PostgreSQL table OID in the index name,
         ;; to differenciate. Set the table oids now.
-        (set-table-oids all-indexes)
+        (unless preserve-index-names
+          (set-table-oids all-indexes))
 
         ;; We might have to MATERIALIZE VIEWS
         (when materialize-views
@@ -356,6 +358,7 @@
 			    (create-tables    t)
 			    (include-drop     t)
 			    (create-indexes   t)
+                            (index-names      :uniquify)
 			    (reset-sequences  t)
 			    (foreign-keys     t)
 			    only-tables
@@ -406,7 +409,9 @@
                                          view-columns
                                          :state state-before
                                          :foreign-keys foreign-keys
-                                         :include-drop include-drop))
+                                         :include-drop include-drop
+                                         :preserve-index-names (eq :preserve
+                                                                   index-names)))
                 (t
                  (when truncate
                    (truncate-tables (target-db mysql) (mapcar #'car all-columns)))))

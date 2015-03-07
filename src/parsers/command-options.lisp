@@ -123,6 +123,11 @@
     (bind (((action _) id-case))
       (cons :identifier-case action))))
 
+(defrule option-index-names (and (or kw-preserve kw-uniquify) kw-index kw-names)
+  (:lambda (preserve-or-uniquify)
+    (bind (((action _ _) preserve-or-uniquify))
+      (cons :index-names action))))
+
 (defrule mysql-option (or option-workers
                           option-batch-rows
                           option-batch-size
@@ -134,6 +139,7 @@
 			  option-include-drop
 			  option-create-tables
 			  option-create-indexes
+			  option-index-names
 			  option-reset-sequences
 			  option-foreign-keys
 			  option-identifiers-case))
