@@ -54,9 +54,9 @@ echo '-b /usr/bin/pgloader' > $RPM_BUILD_ROOT/etc/prelink.conf.d/%{name}.conf
 
 * Tue Apr 29 2014 Dimitri Fontaine <dimitri@2ndQuadrant.fr> 3.0.99
 - Assorted fixes, release candidate 9
-* Thu Dec 23 2013 Dimitri Fontaine <dimitri@2ndQuadrant.fr> 3.0.98
+* Mon Dec 23 2013 Dimitri Fontaine <dimitri@2ndQuadrant.fr> 3.0.98
 - Assorted fixes, release candidate 8
-* Wed Dec 15 2013 Dimitri Fontaine <dimitri@2ndQuadrant.fr> 3.0.97
+* Sun Dec 15 2013 Dimitri Fontaine <dimitri@2ndQuadrant.fr> 3.0.97
 - Assorted fixes, release candidate 7
 * Tue Dec 10 2013 Dimitri Fontaine <dimitri@2ndQuadrant.fr> 3.0.96
 - Package as an RPM
