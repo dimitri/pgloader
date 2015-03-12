@@ -70,7 +70,7 @@ its HTTP URL location then *unziped* it before loading it.
 
 Also, the *WARNING* messages we see here are expected as the PostgreSQL
 database is empty when running the command, and pgloader is using the SQL
-commands `DROP TABLE IF NOT EXISTS` when the given command uses the `include
+commands `DROP TABLE IF EXISTS` when the given command uses the `include
 drop` option.
 
 Note that the output of the command has been edited to facilitate its
