@@ -10,7 +10,8 @@
 (defvar *header* "~&")
 (defvar *footer* "~&")
 (defvar *end-of-line-format* "~%")
-(defvar *header-tname-format* "~&~30@a")
+(defvar *max-length-table-name* 30)
+(defvar *header-tname-format* "~&~v@a")
 (defvar *header-stats-format* "  ~9@a  ~9@a  ~9@a  ~14@a")
 (defvar *header-cols-format* (concatenate 'string *header-tname-format*
 					  *header-stats-format*))
@@ -23,9 +24,9 @@
       :end-of-line-format  "~%"
       :header-line
       "~&------------------------------  ---------  ---------  ---------  --------------"
-      :header-tname-format "~&~30@a"
+      :header-tname-format "~&~v@a"
       :header-stats-format "  ~9@a  ~9@a  ~9@a  ~14@a"
-      :header-cols-format  "~&~30@a  ~9@a  ~9@a  ~9@a  ~14@a"
+      :header-cols-format  "~&~v@a  ~9@a  ~9@a  ~9@a  ~14@a"
       :header-cols-names  ("table name" "read" "imported" "errors" "time")))
 
     (:csv
@@ -33,9 +34,9 @@
       :footer              "~%"
       :end-of-line-format  "~%"
       :header-line         ""
-      :header-tname-format "~&~s;"
+      :header-tname-format "~&~*~s;"
       :header-stats-format "~s;~s;~s;~s"
-      :header-cols-format  "~&~s;~s;~s;~s;~s"
+      :header-cols-format  "~&~*~s;~s;~s;~s;~s"
       :header-cols-names  ("table name" "read" "imported" "errors" "time")))
 
     (:copy
@@ -43,9 +44,9 @@
       :footer              "~%"
       :end-of-line-format  "~%"
       :header-line         "~&"
-      :header-tname-format "~&~a	"
+      :header-tname-format "~&~*~a	"
       :header-stats-format "~s	~s	~s	~s"
-      :header-cols-format  "~*~*~*~*~*" ; skip it
+      :header-cols-format  "~*~*~*~*~*~*" ; skip it
       :header-cols-names  ("table name" "read" "imported" "errors" "time")))
 
     (:json
@@ -53,9 +54,9 @@
       :footer              "~&]~%"
       :end-of-line-format  ",~%"
       :header-line         "~&"
-      :header-tname-format "~& {\"table-name\": ~s,"
+      :header-tname-format "~& {\"table-name\": ~*~s,"
       :header-stats-format "\"read\":~s,\"imported\":~s,\"errors\":~s,\"time\":~s}"
-      :header-cols-format  "~*~*~*~*~*" ; skip it
+      :header-cols-format  "~*~*~*~*~*~*" ; skip it
       :header-cols-names   ("table name" "read" "imported" "errors" "time")))))
 
 (defun get-format-for (type key)
@@ -64,11 +65,17 @@
 
 (defun report-header ()
   ;; (apply #'format *report-stream* *header-cols-format* *header-cols-names*)
-  (format *report-stream* "~{~}" *header-cols-format* *header-cols-names*)
+  (format *report-stream*
+          "~{~}"
+          *header-cols-format*
+          (list* *max-length-table-name*
+                 *header-cols-names*))
   (format *report-stream* *header-line*))
 
 (defun report-table-name (table-name)
-  (format *report-stream* *header-tname-format* table-name))
+  (format *report-stream*
+          *header-tname-format*
+          *max-length-table-name* table-name))
 
 (defun report-results (read rows errors seconds &optional (eol t))
   (format *report-stream* *header-stats-format* read rows errors seconds)
@@ -77,7 +84,11 @@
 
 (defun report-footer (legend read rows errors seconds)
   (format *report-stream* *header-line*)
-  (format *report-stream* "~{~}" *header-tname-format* (list legend))
+  (format *report-stream*
+          "~{~}"
+          *header-tname-format*
+          (list* *max-length-table-name*
+                 (list legend)))
   (report-results read rows errors (format-interval seconds nil) nil)
   (format *report-stream* *footer*))
 
@@ -103,7 +114,10 @@
      for pgtable = (gethash table-name (pgstate-tables pgstate))
      do
        (with-slots (read rows errs secs) pgtable
-	 (format *report-stream* *header-tname-format* table-name)
+	 (format *report-stream*
+                 *header-tname-format*
+                 *max-length-table-name*
+                 table-name)
          (report-results read rows errs (format-interval secs nil)))
      finally (when footer
 	       (report-pgstate-stats pgstate footer))))
@@ -154,6 +168,14 @@
          (*footer*              (get-format-for stype :footer))
          (*end-of-line-format*  (get-format-for stype :end-of-line-format))
          (*header-line*         (get-format-for stype :header-line))
+         (*max-length-table-name*
+          (reduce #'max
+                  (mapcar #'length
+                          (append (pgstate-tabnames state)
+                                  (when before (pgstate-tabnames before))
+                                  (when finally (pgstate-tabnames finally))
+                                  (when parallel (pgstate-tabnames parallel))
+                                  (list legend)))))
          (*header-tname-format* (get-format-for stype :header-tname-format))
          (*header-stats-format* (get-format-for stype :header-stats-format))
          (*header-cols-format*  (get-format-for stype :header-cols-format))
