@@ -44,10 +44,10 @@
        (format stream "~a://~a" type url)))))
 
 (defgeneric fetch-file (fd-connection)
-  (:documentation "Suport for HTTP URI for files."))
+  (:documentation "Support for HTTP URI for files."))
 
 (defgeneric expand (fd-connection)
-  (:documentation "Suport for file archives."))
+  (:documentation "Support for file archives."))
 
 (defmethod expand ((fd fd-connection))
   "Expand the archive for the FD connection."
