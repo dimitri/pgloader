@@ -5,7 +5,7 @@
 (in-package :pgloader.utils)
 
 (defvar *header-line*
-  "~&------------------------------  ---------  ---------  ---------  --------------")
+  "~&~v@{~A~:*~}  ---------  ---------  ---------  --------------")
 
 (defvar *header* "~&")
 (defvar *footer* "~&")
@@ -22,8 +22,8 @@
      (:header              "~&"
       :footer              "~%"
       :end-of-line-format  "~%"
-      :header-line
-      "~&------------------------------  ---------  ---------  ---------  --------------"
+      :header-line "~&~v@{~A~:*~}  ---------  ---------  ---------  --------------"
+
       :header-tname-format "~&~v@a"
       :header-stats-format "  ~9@a  ~9@a  ~9@a  ~14@a"
       :header-cols-format  "~&~v@a  ~9@a  ~9@a  ~9@a  ~14@a"
@@ -33,7 +33,7 @@
      (:header              "~&"
       :footer              "~%"
       :end-of-line-format  "~%"
-      :header-line         ""
+      :header-line         "~*~*"
       :header-tname-format "~&~*~s;"
       :header-stats-format "~s;~s;~s;~s"
       :header-cols-format  "~&~*~s;~s;~s;~s;~s"
@@ -43,7 +43,7 @@
      (:header              "~&"
       :footer              "~%"
       :end-of-line-format  "~%"
-      :header-line         "~&"
+      :header-line         "~&~*~*"
       :header-tname-format "~&~*~a	"
       :header-stats-format "~s	~s	~s	~s"
       :header-cols-format  "~*~*~*~*~*~*" ; skip it
@@ -53,7 +53,7 @@
      (:header              "~&["
       :footer              "~&]~%"
       :end-of-line-format  ",~%"
-      :header-line         "~&"
+      :header-line         "~&~*~*"
       :header-tname-format "~& {\"table-name\": ~*~s,"
       :header-stats-format "\"read\":~s,\"imported\":~s,\"errors\":~s,\"time\":~s}"
       :header-cols-format  "~*~*~*~*~*~*" ; skip it
@@ -70,7 +70,7 @@
           *header-cols-format*
           (list* *max-length-table-name*
                  *header-cols-names*))
-  (format *report-stream* *header-line*))
+  (format *report-stream* *header-line* *max-length-table-name* "-"))
 
 (defun report-table-name (table-name)
   (format *report-stream*
@@ -83,7 +83,7 @@
     (format *report-stream* *end-of-line-format*)))
 
 (defun report-footer (legend read rows errors seconds)
-  (format *report-stream* *header-line*)
+  (format *report-stream* *header-line* *max-length-table-name* "-")
   (format *report-stream*
           "~{~}"
           *header-tname-format*
@@ -188,13 +188,13 @@
     (if before
         (progn
           (report-summary :state before :footer nil)
-          (format *report-stream* *header-line*)
+          (format *report-stream* *header-line* *max-length-table-name* "-")
           (report-summary :state state :header nil :footer nil))
         ;; no state before
         (report-summary :state state :footer nil))
 
     (when (or finally parallel)
-      (format *report-stream* *header-line*)
+      (format *report-stream* *header-line* *max-length-table-name* "-")
       (when parallel
         (report-summary :state parallel :header nil :footer nil))
       (when finally
