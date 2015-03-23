@@ -153,13 +153,13 @@ $(PGLOADER): $(MANIFEST) $(BUILDAPP) $(LISP_SRC)
 pgloader: $(PGLOADER) ;
 
 pgloader-standalone:
-	$(BUILDAPP)    --require sb-posix                      \
-                       --require sb-bsd-sockets                \
-                       --require sb-rotate-byte                \
-                       --load-system pgloader                  \
+	$(BUILDAPP)    $(BUILDAPP_OPTS)                        \
+                       --sbcl $(CL)                            \
+                       --load-system $(APP_NAME)               \
+                       --load src/hooks.lisp                   \
                        --entry pgloader:main                   \
                        --dynamic-space-size $(DYNSIZE)         \
-                       --compress-core                         \
+                       $(COMPRESS_CORE_OPT)                    \
                        --output $(PGLOADER)
 
 test: $(PGLOADER)
