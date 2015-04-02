@@ -555,7 +555,7 @@ Where:
 
   - *password*
 
-	Can contain any character, including that at sign (`@`) which must then
+	Can contain any character, including the at sign (`@`) which must then
 	be doubled (`@@`). To leave the password empty, when the *user* name
 	ends with at at sign, you then have to use the syntax user:@.
 
