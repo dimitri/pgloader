@@ -13,7 +13,7 @@
 ;;
 ;; Some useful rules
 ;;
-(defrule single-line-comment (and "--" (+ (not #\Newline)) #\Newline)
+(defrule single-line-comment (and "--" (* (not #\Newline)) #\Newline)
   (:constant :comment))
 
 (defrule multi-line-comment (and "/*" (+ (not "*/")) "*/")
