@@ -59,6 +59,7 @@
            #:unquote
 
            ;; state
+           #:format-table-name
 	   #:make-pgstate
 	   #:pgstate-get-table
 	   #:pgstate-add-table

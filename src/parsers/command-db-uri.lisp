@@ -113,7 +113,7 @@
                                    maybe-quoted-namestring)
   (:destructure (schema dot table)
     (declare (ignore dot))
-    (format nil "~a.~a" (text schema) (text table))))
+    (cons (text schema) (text table))))
 
 (defrule dsn-table-name (or qualified-table-name maybe-quoted-namestring)
   (:lambda (name)

@@ -117,7 +117,7 @@
 	 (format *report-stream*
                  *header-tname-format*
                  *max-length-table-name*
-                 table-name)
+                 (format-table-name table-name))
          (report-results read rows errs (format-interval secs nil)))
      finally (when footer
 	       (report-pgstate-stats pgstate footer))))
@@ -171,11 +171,12 @@
          (*max-length-table-name*
           (reduce #'max
                   (mapcar #'length
-                          (append (pgstate-tabnames state)
-                                  (when before (pgstate-tabnames before))
-                                  (when finally (pgstate-tabnames finally))
-                                  (when parallel (pgstate-tabnames parallel))
-                                  (list legend)))))
+                          (mapcar #'format-table-name
+                                  (append (pgstate-tabnames state)
+                                          (when before (pgstate-tabnames before))
+                                          (when finally (pgstate-tabnames finally))
+                                          (when parallel (pgstate-tabnames parallel))
+                                          (list legend))))))
          (*header-tname-format* (get-format-for stype :header-tname-format))
          (*header-stats-format* (get-format-for stype :header-stats-format))
          (*header-cols-format*  (get-format-for stype :header-cols-format))

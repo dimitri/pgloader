@@ -140,7 +140,7 @@
                 (make-instance 'pgloader.fixed:copy-fixed
                                :target-db ,pg-db-conn
                                :source source-db
-                               :target ,(pgconn-table-name pg-db-conn)
+                               :target ',(pgconn-table-name pg-db-conn)
                                :encoding ,encoding
                                :fields ',fields
                                :columns ',columns

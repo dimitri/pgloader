@@ -54,20 +54,31 @@
     (truncate-tables pgconn (list table-name)))
 
   (with-pgsql-connection (pgconn)
-    (when disable-triggers (disable-triggers table-name))
-    (log-message :info "pgsql:copy-from-queue: ~a ~a" table-name columns)
-    (loop
-       for (mesg batch read oversized?) = (lq:pop-queue queue)
-       until (eq mesg :end-of-data)
-       for rows = (copy-batch table-name columns batch read)
-       do (progn
-            ;; The SBCL implementation needs some Garbage Collection
-            ;; decision making help... and now is a pretty good time.
-            #+sbcl (when oversized? (sb-ext:gc :full t))
-            (log-message :debug "copy-batch ~a ~d row~:p~:[~; [oversized]~]"
-                         table-name rows oversized?)
-            (pgstate-incf *state* table-name :rows rows)))
-    (when disable-triggers (enable-triggers table-name))))
+    (let ((unqualified-table-name
+           (typecase table-name
+             (cons   (let ((sql (format nil "SET search_path TO ~a;"
+                                        (car table-name))))
+                       (log-message :notice "~a" sql)
+                       (pgsql-execute sql)
+                       (cdr table-name)))
+             (string table-name))))
+
+      (when disable-triggers (disable-triggers unqualified-table-name))
+      (log-message :info "pgsql:copy-from-queue: ~a ~a" table-name columns)
+
+      (loop
+         for (mesg batch read oversized?) = (lq:pop-queue queue)
+         until (eq mesg :end-of-data)
+         for rows = (copy-batch unqualified-table-name columns batch read)
+         do (progn
+              ;; The SBCL implementation needs some Garbage Collection
+              ;; decision making help... and now is a pretty good time.
+              #+sbcl (when oversized? (sb-ext:gc :full t))
+              (log-message :debug "copy-batch ~a ~d row~:p~:[~; [oversized]~]"
+                           unqualified-table-name rows oversized?)
+              (pgstate-incf *state* table-name :rows rows)))
+
+      (when disable-triggers (enable-triggers unqualified-table-name)))))
 
 ;;;
 ;;; When a batch has been refused by PostgreSQL with a data-exception, that

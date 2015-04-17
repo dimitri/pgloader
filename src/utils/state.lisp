@@ -24,6 +24,12 @@
   (errs 0   :type fixnum)
   (secs 0.0 :type float))
 
+(defun format-table-name (table-name)
+  "TABLE-NAME might be a CONS of a schema name and a table name."
+  (typecase table-name
+    (cons    (format nil "~a.~a" (car table-name) (cdr table-name)))
+    (string  table-name)))
+
 (defun pgstate-get-table (pgstate name)
   (gethash name (pgstate-tables pgstate)))
 
@@ -32,11 +38,12 @@
   (or (pgstate-get-table pgstate table-name)
       (let* ((table (setf (gethash table-name (pgstate-tables pgstate))
 			  (make-pgtable :name table-name)))
-	     (reject-dir    (merge-pathnames (format nil "~a/" dbname) *root-dir*))
+	     (reject-dir  (merge-pathnames (format nil "~a/" dbname) *root-dir*))
+             (filename    (format-table-name table-name))
 	     (data-pathname (make-pathname :defaults reject-dir
-                                           :name table-name :type "dat"))
+                                           :name filename :type "dat"))
 	     (logs-pathname (make-pathname :defaults reject-dir
-                                           :name table-name :type "log")))
+                                           :name filename :type "log")))
 
         ;; maintain the ordering
         (push table-name (pgstate-tabnames pgstate))

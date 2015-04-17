@@ -230,11 +230,18 @@
 (defun truncate-tables (pgconn table-name-list)
   "Truncate given TABLE-NAME in database DBNAME"
   (with-pgsql-transaction (:pgconn pgconn)
-    (let ((sql (format nil "TRUNCATE ~{~a~^,~};"
-                       (loop :for table-name :in table-name-list
-                          :collect (apply-identifier-case table-name)))))
-      (log-message :notice "~a" sql)
-      (pomo:execute sql))))
+    (flet ((process-table-name (table-name)
+             (typecase table-name
+               (cons
+                (format nil "~a.~a"
+                        (apply-identifier-case (car table-name))
+                        (apply-identifier-case (cdr table-name))))
+               (string
+                (apply-identifier-case table-name)))))
+      (let ((sql (format nil "TRUNCATE ~{~a~^,~};"
+                         (mapcar #'process-table-name table-name-list))))
+        (log-message :notice "~a" sql)
+        (pomo:execute sql)))))
 
 (defun disable-triggers (table-name)
   "Disable triggers on TABLE-NAME. Needs to be called with a PostgreSQL
