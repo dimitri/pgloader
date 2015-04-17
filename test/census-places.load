@@ -1,5 +1,6 @@
 LOAD ARCHIVE
-   FROM http://www.census.gov/geo/maps-data/data/docs/gazetteer/places2k.zip
+   FROM -- http://www.census.gov/geo/maps-data/data/docs/gazetteer/places2k.zip
+           http://www2.census.gov/geo/docs/maps-data/data/gazetteer/places2k.zip
    INTO postgresql:///pgloader
 
    BEFORE LOAD DO
