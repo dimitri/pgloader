@@ -150,7 +150,7 @@
 (defun float-to-string (float)
   "Transform a Common Lisp float value into its string representation as
    accepted by PostgreSQL, that is 100.0 rather than 100.0d0."
-  (declare (type (or null float) float))
+  (declare (type (or null float string) float))
   (when float
     (typecase float
       (double-float (let ((*read-default-float-format* 'double-float))
