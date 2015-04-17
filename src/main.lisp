@@ -1,5 +1,16 @@
 (in-package #:pgloader)
 
+;;;
+;;; Some command line constants for OS errors codes
+;;;
+(defparameter +os-code-success+          0)
+(defparameter +os-code-error+            1)
+(defparameter +os-code-error-usage+      2)
+(defparameter +os-code-error-bad-source+ 4)
+
+;;;
+;;; Now some tooling
+;;;
 (defun log-threshold (min-message &key quiet verbose debug)
   "Return the internal value to use given the script parameters."
   (cond ((and debug verbose) :data)
@@ -110,7 +121,7 @@
   (format t "~&~a [ option ... ] command-file ..." (first argv))
   (format t "~&~a [ option ... ] SOURCE TARGET" (first argv))
   (command-line-arguments:show-option-help *opt-spec*)
-  (when quit (uiop:quit)))
+  (when quit (uiop:quit +os-code-error-usage+)))
 
 (defvar *self-upgraded-already* nil
   "Keep track if we did reload our own source code already.")
@@ -121,7 +132,7 @@
                             (uiop:parse-unix-namestring namestring))))
     (unless pgloader-pathname
       (format t "No such directory: ~s~%" namestring)
-      (uiop:quit))
+      (uiop:quit +os-code-error+))
 
     ;; now the real thing
     (handler-case
@@ -228,11 +239,11 @@
 	(when help
           (usage argv))
 
-	(when (or help version) (uiop:quit))
+	(when (or help version) (uiop:quit +os-code-success+))
 
 	(when list-encodings
 	  (show-encodings)
-	  (uiop:quit))
+	  (uiop:quit +os-code-success+))
 
 	(when upgrade-config
 	  (loop for filename in arguments
@@ -242,9 +253,9 @@
                      (pgloader.ini:convert-ini-into-commands filename))
                  (condition (c)
                    (when debug (invoke-debugger c))
-                   (uiop:quit 1)))
+                   (uiop:quit +os-code-error+)))
 	       (format t "~%~%"))
-	  (uiop:quit))
+	  (uiop:quit +os-code-success+))
 
 	(when load
           (loop for filename in load do
@@ -255,7 +266,7 @@
                            "Failed to load lisp source file ~s~%"
                            filename)
                    (format *standard-output* "~a~%" e)
-                   (uiop:quit 3)))))
+                   (uiop:quit +os-code-error+)))))
 
 	;; Now process the arguments
 	(when arguments
@@ -336,14 +347,14 @@
 
                 (source-definition-error (c)
                   (log-message :fatal "~a" c)
-                  (uiop:quit 2))
+                  (uiop:quit +os-code-error-bad-source+))
 
                 (condition (c)
                   (when debug (invoke-debugger c))
-                  (uiop:quit 1))))))
+                  (uiop:quit +os-code-error+))))))
 
         ;; done.
-	(uiop:quit)))))
+	(uiop:quit +os-code-success+)))))
 
 (defun process-command-file (filename)
   "Process FILENAME as a pgloader command file (.load)."
