@@ -100,7 +100,10 @@
          c.table_name,
          c.column_name,
          c.data_type,
-         c.column_default,
+         CASE
+             WHEN c.column_default LIKE '((%' AND c.column_default LIKE '%))' THEN SUBSTRING(c.column_default,3,len(c.column_default)-4)
+             WHEN c.column_default LIKE '(%' AND c.column_default LIKE '%)' THEN SUBSTRING(c.column_default,2,len(c.column_default)-2)
+         ELSE c.column_default END,
          c.is_nullable,
          COLUMNPROPERTY(object_id(c.table_name), c.column_name, 'IsIdentity'),
          c.CHARACTER_MAXIMUM_LENGTH,
