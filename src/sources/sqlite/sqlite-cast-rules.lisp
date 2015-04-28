@@ -53,9 +53,11 @@
    CAST machinery. Transform it to the data_type, or dtype."
   (let* ((sqlite-type-name (string-downcase sqlite-type-name))
          (tokens (remove-if (lambda (token)
-                              (member token '("unsigned" "short"
-                                              "varying" "native")
-                                      :test #'string-equal))
+                              (or (member token '("unsigned" "short"
+                                                  "varying" "native")
+                                          :test #'string-equal)
+                                  ;; remove typemod too, as in "integer (8)"
+                                  (char= #\( (aref token 0))))
                             (sq:split-sequence #\Space sqlite-type-name))))
     (assert (= 1 (length tokens)))
     (first tokens)))
