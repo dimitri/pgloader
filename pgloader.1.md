@@ -1960,6 +1960,7 @@ When migrating from SQLite the following Casting Rules are provided:
 Numbers:
 
   - type tinyint to smallint
+  - type integer to bigint
 
   - type float to float   using float-to-string
   - type real to real     using float-to-string
