@@ -23,7 +23,7 @@
   (and *copy-batch-size*      ; defaults to nil
        (<= *copy-batch-size* (batch-bytes batch))))
 
-(defun batch-row (row copy queue)
+(defun batch-row (row copy queue &optional pre-formatted)
   "Add ROW to the reader batch. When the batch is full, provide it to the
    writer."
   (when (or (eq :data *log-min-messages*)
@@ -45,7 +45,9 @@
       (with-slots (data count bytes) *current-batch*
         (let ((copy-string
                (with-output-to-string (s)
-                 (let ((c-s-bytes (format-vector-row s row (transforms copy))))
+                 (let ((c-s-bytes (format-vector-row s row
+                                                     (transforms copy)
+                                                     pre-formatted)))
                    (when *copy-batch-size* ; running under memory watch
                      (incf bytes c-s-bytes))))))
           (setf (aref data count) copy-string)
@@ -54,19 +56,22 @@
     (condition (e)
       (log-message :error "~a" e))))
 
-(defun map-push-queue (copy queue)
+(defun map-push-queue (copy queue &optional pre-formatted)
   "Apply MAP-ROWS on the COPY instance and a function of ROW that will push
    the row into the QUEUE. When MAP-ROWS returns, push :end-of-data in the
    queue."
   (unwind-protect
        (let ((*current-batch* (make-batch)))
          (map-rows copy :process-row-fn (lambda (row)
-                                          (batch-row row copy queue)))
+                                          (batch-row row copy queue
+                                                     pre-formatted)))
 
          ;; we might have the last batch to send over now
          (with-slots (data count) *current-batch*
            (when (< 0 count)
+             (log-message :debug "Sending last batch (~d rows)" count)
              (lq:push-queue (list :batch data count nil) queue))))
 
     ;; signal we're done
+    (log-message :debug "End of data.")
     (lq:push-queue (list :end-of-data nil nil nil) queue)))

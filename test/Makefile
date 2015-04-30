@@ -14,6 +14,8 @@ REGRESS= allcols.load 		    \
          csv-nulls.load             \
          csv-trim-extra-blanks.load \
          csv.load 		    \
+	 copy.load                  \
+	 copy-hex.load              \
          dbf.load 		    \
          errors.load 		    \
          fixed.load 		    \

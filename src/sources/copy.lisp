@@ -96,7 +96,7 @@
 
 (defmethod copy-to-queue ((copy copy-copy) queue)
   "Copy data from given COPY definition into lparallel.queue DATAQ"
-  (pgloader.queue:map-push-queue copy queue))
+  (pgloader.queue:map-push-queue copy queue 'pre-formatted))
 
 (defmethod copy-from ((copy copy-copy) &key truncate disable-triggers)
   "Copy data from given COPY file definition into its PostgreSQL target table."
