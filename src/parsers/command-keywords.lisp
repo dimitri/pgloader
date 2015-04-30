@@ -91,6 +91,7 @@
   (def-keyword-rule "keep")
   (def-keyword-rule "trim")
   (def-keyword-rule "unquoted")
+  (def-keyword-rule "delimiter")
   ;; option for MySQL imports
   (def-keyword-rule "schema")
   (def-keyword-rule "only")

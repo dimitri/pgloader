@@ -24,12 +24,23 @@
   (:lambda (source)
     (bind (((_ field-defs _) source)) field-defs)))
 
+(defrule option-delimiter (and kw-delimiter separator)
+  (:lambda (delimiter)
+    (destructuring-bind (kw sep) delimiter
+      (declare (ignore kw))
+      (cons :delimiter sep))))
+
+(defrule option-null (and kw-null quoted-string)
+  (:destructure (kw null) (declare (ignore kw)) (cons :null-as null)))
+
 (defrule copy-option (or option-batch-rows
                          option-batch-size
                          option-batch-concurrency
                          option-truncate
                          option-disable-triggers
-                         option-skip-header))
+                         option-skip-header
+                         option-delimiter
+                         option-null))
 
 (defrule another-copy-option (and comma copy-option)
   (:lambda (source)
@@ -40,7 +51,7 @@
     (destructuring-bind (opt1 opts) source
       (alexandria:alist-plist `(,opt1 ,@opts)))))
 
-(defrule copy-options (and kw-with csv-option-list)
+(defrule copy-options (and kw-with copy-option-list)
   (:lambda (source)
     (bind (((_ opts) source))
       (cons :copy-options opts))))
@@ -51,11 +62,11 @@
       (make-instance 'copy-connection :specs filename))))
 
 (defrule copy-file-source (or stdin
-			       inline
-                               http-uri
-                               copy-uri
-			       filename-matching
-			       maybe-quoted-filename)
+                              inline
+                              http-uri
+                              copy-uri
+                              filename-matching
+                              maybe-quoted-filename)
   (:lambda (src)
     (if (typep src 'copy-connection) src
         (destructuring-bind (type &rest specs) src
@@ -88,7 +99,7 @@
     (alexandria:alist-plist clauses-list)))
 
 (defrule load-copy-file-command (and copy-source (? file-encoding)
-                                     copy-source-field-list
+                                     (? copy-source-field-list)
                                      target
                                      (? csv-target-column-list)
                                      load-copy-file-optional-clauses)
@@ -97,11 +108,11 @@
       `(,source ,encoding ,fields ,target ,columns ,@clauses))))
 
 (defun lisp-code-for-loading-from-copy (copy-conn fields pg-db-conn
-                                         &key
-                                           (encoding :utf-8)
-                                           columns
-                                           gucs before after
-                                           ((:copy-options options)))
+                                        &key
+                                          (encoding :utf-8)
+                                          columns
+                                          gucs before after
+                                          ((:copy-options options)))
   `(lambda ()
      (let* ((state-before  (pgloader.utils:make-pgstate))
             (summary       (null *state*))
@@ -125,7 +136,9 @@
                                :encoding ,encoding
                                :fields ',fields
                                :columns ',columns
-                               :skip-lines ,(or (getf options :skip-line) 0))))
+                               ,@(remove-batch-control-option
+                                  options :extras '(:truncate
+                                                    :disable-triggers)))))
            (pgloader.sources:copy-from source
                                        :truncate truncate
                                        :disable-triggers disable-triggers))

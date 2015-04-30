@@ -1103,7 +1103,25 @@ The `COPY` format command accepts the following clauses and options:
 
     When loading from a `COPY` file, the following options are supported:
 
-	  - *truncate*
+      - *delimiter*
+
+	    Takes a single character as argument, which must be found inside
+	    single quotes, and might be given as the printable character itself,
+	    the special value \t to denote a tabulation character, or `0x` then
+	    an hexadecimal value read as the ASCII code for the character.
+
+	    This character is used as the *delimiter* when reading the data, in
+        a similar way to the PostgreSQL `COPY` option.
+
+      - *null*
+
+	    Takes a quoted string as an argument (quotes can be either double
+        quotes or single quotes) and uses that string as the `NULL`
+        representation in the data.
+
+	    This is similar to the *null* `COPY` option in PostgreSQL.
+
+      - *truncate*
 
 		When this option is listed, pgloader issues a `TRUNCATE` command
 		against the PostgreSQL target table before reading the data file.

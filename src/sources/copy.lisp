@@ -16,7 +16,13 @@
 	        :initarg :encoding)	  ;
    (skip-lines  :accessor skip-lines	  ; we might want to skip COPY lines
 	        :initarg :skip-lines	  ;
-		:initform 0))
+		:initform 0)              ;
+   (delimiter   :accessor delimiter       ; see COPY options for TEXT
+                :initarg :delimiter       ; in PostgreSQL docs
+                :initform #\Tab)
+   (null-as     :accessor null-as
+                :initarg :null-as
+                :initform "\\N"))
   (:documentation "pgloader COPY Data Source"))
 
 (defmethod initialize-instance :after ((copy copy-copy) &key)
@@ -37,14 +43,24 @@
 
 (declaim (inline parse-row))
 
-(defun parse-row (line)
+(defun parse-row (line &key (delimiter #\Tab) (null-as "\\N"))
   "Parse a single line of COPY input file and return a row of columns."
   (mapcar (lambda (x)
             ;; we want Postmodern compliant NULLs
-            (if (string= "\\N" x) :null x))
+            (cond ((string= null-as x) :null)
+
+                  ;; and we want to avoid injecting default NULL
+                  ;; representation down to PostgreSQL when null-as isn't
+                  ;; the default
+                  ((and (string/= null-as "\\N") (string= x "\\N"))
+                   ;; escape the backslash
+                   "\\\\N")
+
+                  ;; default case, just use the value we've just read
+                  (t x)))
           ;; splitting is easy, it's always on #\Tab
           ;; see format-row-for-copy for details
-          (sq:split-sequence #\Tab line)))
+          (sq:split-sequence delimiter line)))
 
 (defmethod map-rows ((copy copy-copy) &key process-row-fn)
   "Load data from a text file in Copy Columns format.
@@ -88,7 +104,9 @@
 		  :counting line :into read
 		  :while line
 		  :do (handler-case
-                          (funcall fun (parse-row line))
+                          (funcall fun (parse-row line
+                                                  :delimiter (delimiter copy)
+                                                  :null-as   (null-as copy)))
                         (condition (e)
                           (progn
                             (log-message :error "~a" e)

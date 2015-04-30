@@ -1,8 +1,10 @@
 LOAD COPY
-     FROM inline (id, text)
+     FROM inline
      INTO postgresql:///pgloader?copyhex
 
-     WITH truncate
+     WITH truncate,
+          delimiter '\t',
+          null "--"
 
    BEFORE LOAD DO
     $$ drop table if exists copyhex; $$,
@@ -13,3 +15,4 @@ LOAD COPY
 3	\x1a
 4	a\x1a
 5	\N
+6	--
