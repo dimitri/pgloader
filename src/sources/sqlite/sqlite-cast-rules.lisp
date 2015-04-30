@@ -51,16 +51,19 @@
 (defun normalize (sqlite-type-name)
   "SQLite only has a notion of what MySQL calls column_type, or ctype in the
    CAST machinery. Transform it to the data_type, or dtype."
-  (let* ((sqlite-type-name (string-downcase sqlite-type-name))
-         (tokens (remove-if (lambda (token)
-                              (or (member token '("unsigned" "short"
-                                                  "varying" "native")
-                                          :test #'string-equal)
-                                  ;; remove typemod too, as in "integer (8)"
-                                  (char= #\( (aref token 0))))
-                            (sq:split-sequence #\Space sqlite-type-name))))
-    (assert (= 1 (length tokens)))
-    (first tokens)))
+  (if (string= sqlite-type-name "")
+      ;; yes SQLite allows for empty type names
+      "text"
+      (let* ((sqlite-type-name (string-downcase sqlite-type-name))
+             (tokens (remove-if (lambda (token)
+                                  (or (member token '("unsigned" "short"
+                                                      "varying" "native")
+                                              :test #'string-equal)
+                                      ;; remove typemod too, as in "integer (8)"
+                                      (char= #\( (aref token 0))))
+                                (sq:split-sequence #\Space sqlite-type-name))))
+        (assert (= 1 (length tokens)))
+        (first tokens))))
 
 (defun ctype-to-dtype (sqlite-type-name)
   "In SQLite we only get the ctype, e.g. int(7), but here we want the base
