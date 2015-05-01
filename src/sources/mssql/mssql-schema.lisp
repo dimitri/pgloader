@@ -100,7 +100,25 @@
          c.table_name,
          c.column_name,
          c.data_type,
-         c.column_default,
+         CASE
+         WHEN c.column_default LIKE '((%' AND c.column_default LIKE '%))' THEN
+             CASE
+                 WHEN SUBSTRING(c.column_default,3,len(c.column_default)-4) = 'newid()' THEN 'generate_uuid_v4()'
+                 WHEN SUBSTRING(c.column_default,3,len(c.column_default)-4) LIKE 'convert(%varchar%,getdate(),%)' THEN 'today'
+                 WHEN SUBSTRING(c.column_default,3,len(c.column_default)-4) = 'getdate()' THEN 'now'
+                 WHEN SUBSTRING(c.column_default,3,len(c.column_default)-4) LIKE '''%''' THEN SUBSTRING(c.column_default,4,len(c.column_default)-6)
+                 ELSE SUBSTRING(c.column_default,3,len(c.column_default)-4)
+             END
+         WHEN c.column_default LIKE '(%' AND c.column_default LIKE '%)' THEN
+             CASE
+                 WHEN SUBSTRING(c.column_default,2,len(c.column_default)-2) = 'newid()' THEN 'generate_uuid_v4()'
+                 WHEN SUBSTRING(c.column_default,2,len(c.column_default)-2) LIKE 'convert(%varchar%,getdate(),%)' THEN 'today'
+                 WHEN SUBSTRING(c.column_default,2,len(c.column_default)-2) = 'getdate()' THEN 'now'
+                 WHEN SUBSTRING(c.column_default,2,len(c.column_default)-2) LIKE '''%''' THEN SUBSTRING(c.column_default,3,len(c.column_default)-4)
+                 ELSE SUBSTRING(c.column_default,2,len(c.column_default)-2)
+             END
+         ELSE c.column_default
+         END,
          c.is_nullable,
          COLUMNPROPERTY(object_id(c.table_name), c.column_name, 'IsIdentity'),
          c.CHARACTER_MAXIMUM_LENGTH,
