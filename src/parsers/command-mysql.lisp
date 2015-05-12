@@ -101,10 +101,17 @@
 
 (defrule mysql-prefix "mysql://" (:constant (list :type :mysql)))
 
+(defrule mysql-dsn-dbname (and "/" (* (or (alpha-char-p character)
+                                          (digit-char-p character)
+                                          punct)))
+  (:destructure (slash dbname)
+		(declare (ignore slash))
+		(list :dbname (text dbname))))
+
 (defrule mysql-uri (and mysql-prefix
                         (? dsn-user-password)
                         (? dsn-hostname)
-                        dsn-dbname)
+                        mysql-dsn-dbname)
   (:lambda (uri)
     (destructuring-bind (&key type
                               user
