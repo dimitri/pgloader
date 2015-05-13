@@ -16,7 +16,7 @@
 
 (defun list-columns (table-name &optional (db *sqlite-db*))
   "Return the list of columns found in TABLE-NAME."
-  (let ((sql (format nil "PRAGMA table_info(~a)" table-name)))
+  (let ((sql (format nil "PRAGMA table_info('~a')" table-name)))
     (loop for (seq name type nullable default pk-id) in
 	 (sqlite:execute-to-list db sql)
        collect (make-coldef table-name

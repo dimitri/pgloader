@@ -16,7 +16,7 @@
         ;; We need to keep a copy of the rows we send through the COPY
         ;; protocol to PostgreSQL to be able to process them again in case
         ;; of a data error being signaled, that's the BATCH here.
-        (let ((copier (cl-postgres:open-db-writer db table-name columns)))
+        (let ((copier (cl-postgres:open-db-writer db (s-sql:to-sql-name table-name) columns)))
           (unwind-protect
                (loop for i below batch-rows
                   for copy-string = (aref batch i)
