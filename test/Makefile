@@ -19,6 +19,7 @@ REGRESS= allcols.load 		    \
          dbf.load 		    \
          errors.load 		    \
          fixed.load 		    \
+         fields-with-periods.load   \
          ixf.load 		    \
          overflow.load 		    \
          partial.load 		    \
