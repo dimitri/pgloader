@@ -44,14 +44,44 @@
 
 ;;; Map a function to each row extracted from SQLite
 ;;;
+(defun sqlite-encoding (db)
+  "Return a BABEL suitable encoding for the SQLite db handle."
+  (let ((encoding-string (sqlite:execute-single db "pragma encoding;")))
+    (cond ((string-equal encoding-string "UTF-8")    :utf-8)
+          ((string-equal encoding-string "UTF-16")   :utf-16)
+          ((string-equal encoding-string "UTF-16le") :utf-16le)
+          ((string-equal encoding-string "UTF-16be") :utf-16be))))
+
+(declaim (inline parse-value))
+
+(defun parse-value (value sqlite-type pgsql-type &key (encoding :utf-8))
+  "Parse value given by SQLite to match what PostgreSQL is expecting.
+   In some cases SQLite will give text output for a blob column (it's
+   base64) and at times will output binary data for text (utf-8 byte
+   vector)."
+  (cond ((and (string-equal "text" pgsql-type)
+              (eq :blob sqlite-type)
+              (not (stringp value)))
+         ;; we expected a properly encoded string and received bytes instead
+         (babel:octets-to-string value :encoding encoding))
+
+        ((and (string-equal "bytea" pgsql-type)
+              (stringp value))
+         ;; we expected bytes and got a string instead, must be base64 encoded
+         (base64:base64-string-to-usb8-array value))
+
+        ;; default case, just use what's been given to us
+        (t value)))
+
 (defmethod map-rows ((sqlite copy-sqlite) &key process-row-fn)
   "Extract SQLite data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row"
   (let ((sql      (format nil "SELECT * FROM ~a" (source sqlite)))
-        (blobs-p
-         (coerce (mapcar #'cast-to-bytea-p (fields sqlite)) 'vector)))
+        (pgtypes  (map 'vector #'cast-sqlite-column-definition-to-pgsql
+                       (fields sqlite))))
     (with-connection (*sqlite-db* (source-db sqlite))
-      (let ((db (conn-handle *sqlite-db*)))
+      (let* ((db (conn-handle *sqlite-db*))
+             (encoding (sqlite-encoding db)))
         (handler-case
             (loop
                with statement = (sqlite:prepare-statement db sql)
@@ -62,9 +92,12 @@
                for row = (let ((v (make-array len)))
                            (loop :for x :below len
                               :for raw := (sqlite:statement-column-value statement x)
-                              :for val := (if (and (aref blobs-p x) (stringp raw))
-                                              (base64:base64-string-to-usb8-array raw)
-                                              raw)
+                              :for ptype := (aref pgtypes x)
+                              :for stype := (sqlite-ffi:sqlite3-column-type
+                                             (sqlite::handle statement)
+                                             x)
+                              :for val := (parse-value raw stype ptype
+                                                       :encoding encoding)
                               :do (setf (aref v x) val))
                            v)
                counting t into rows

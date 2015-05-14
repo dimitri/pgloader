@@ -84,11 +84,6 @@
     ;; COPY protocol.
     (values column (or fn (lambda (val) (if val (format nil "~a" val) :null))))))
 
-(defmethod cast-to-bytea-p ((col coldef))
-  "Returns a generalized boolean, non-nil when the column is casted to a
-   PostgreSQL bytea column."
-  (string= "bytea" (cast-sqlite-column-definition-to-pgsql col)))
-
 (defmethod format-pgsql-column ((col coldef))
   "Return a string representing the PostgreSQL column definition."
   (let* ((column-name (apply-identifier-case (coldef-name col)))
