@@ -253,8 +253,7 @@
                      (pgloader.ini:convert-ini-into-commands filename))
                  (condition (c)
                    (when debug (invoke-debugger c))
-                   (uiop:quit +os-code-error+)))
-	       (format t "~%~%"))
+                   (uiop:quit +os-code-error+))))
 	  (uiop:quit +os-code-success+))
 
 	(when load

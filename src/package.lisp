@@ -217,7 +217,7 @@
 ;;; Other utilities
 ;;;
 (defpackage #:pgloader.ini
-  (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.connection)
   (:import-from #:alexandria #:read-file-into-string)
   (:import-from #:pgloader.pgsql
 		#:list-columns
