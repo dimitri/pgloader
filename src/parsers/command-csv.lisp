@@ -183,6 +183,7 @@
                                   (* (or (alpha-char-p character)
                                          (digit-char-p character)
                                          #\.
+                                         #\$
                                          #\_)))
   (:text t))
 
