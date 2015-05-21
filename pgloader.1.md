@@ -841,6 +841,12 @@ The `csv` format command accepts the following clauses and options:
 	    Takes a numeric value as argument. Instruct pgloader to skip that
 	    many lines at the beginning of the input file.
 
+      - *csv header*
+
+	    Use the first line read after *skip header* as the list of csv field
+        names to be found in the CSV file, using the same CSV parameters as
+        for the CSV data.
+
       - *trim unquoted blanks*
 
 	    When reading unquoted values in the `CSV` file, remove the blanks

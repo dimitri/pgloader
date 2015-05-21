@@ -49,6 +49,9 @@
     (bind (((_ _ _ digits) osh))
       (cons :skip-lines (parse-integer (text digits))))))
 
+(defrule option-csv-header (and kw-csv kw-header)
+  (:constant (cons :csv-header t)))
+
 (defrule option-fields-enclosed-by
     (and kw-fields (? kw-optionally) kw-enclosed kw-by separator)
   (:lambda (enc)
@@ -95,6 +98,7 @@
                         option-truncate
                         option-disable-triggers
                         option-skip-header
+                        option-csv-header
                         option-lines-terminated-by
                         option-fields-not-enclosed
                         option-fields-enclosed-by

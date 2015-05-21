@@ -10,6 +10,7 @@ REGRESS= allcols.load 		    \
          csv-parse-date.load 	    \
          csv-error.load 	    \
          csv-filename-pattern.load  \
+         csv-header.load            \
          csv-keep-extra-blanks.load \
          csv-nulls.load             \
          csv-trim-extra-blanks.load \

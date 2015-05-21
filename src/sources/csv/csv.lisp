@@ -39,7 +39,10 @@
 		:initarg :source-type)	  ;  or :filename
    (encoding    :accessor encoding	  ; file encoding
 	        :initarg :encoding)	  ;
-   (skip-lines  :accessor skip-lines	  ; CSV headers
+   (csv-header  :accessor csv-header      ; CSV headers are col names
+                :initarg :csv-header
+                :initform nil)            ;
+   (skip-lines  :accessor skip-lines	  ; CSV skip firt N lines
 	        :initarg :skip-lines	  ;
 		:initform 0)		  ;
    (separator   :accessor csv-separator	  ; CSV separator
@@ -78,6 +81,20 @@
 ;;;
 ;;; Read a file format in CSV format, and call given function on each line.
 ;;;
+(defun parse-csv-header (csv header)
+  "Parse the header line given csv setup."
+  ;; a field entry is a list of field name and options
+  (mapcar #'list
+          (car                          ; parsing a single line
+           (cl-csv:read-csv header
+                            :separator (csv-separator csv)
+                            :quote (csv-quote csv)
+                            :escape (csv-escape csv)
+                            :unquoted-empty-string-is-nil t
+                            :quoted-empty-string-is-nil nil
+                            :trim-outer-whitespace (csv-trim-blanks csv)
+                            :newline (csv-newline csv)))))
+
 (defmethod map-rows ((csv copy-csv) &key process-row-fn)
   "Load data from a text file in CSV format, with support for advanced
    projecting capabilities. See `project-fields' for details.
@@ -113,6 +130,13 @@
 	     ;; we handle skipping more than one line here, as cl-csv only knows
 	     ;; about skipping the first line
 	     (loop repeat (skip-lines csv) do (read-line input nil nil))
+
+             ;; we might now have to read the CSV fields from the header line
+             (when (csv-header csv)
+               (setf (fields csv)
+                     (parse-csv-header csv (read-line input nil nil)))
+
+               (log-message :debug "Parsed header columns ~s" (fields csv)))
 
 	     ;; read in the text file, split it into columns, process NULL
 	     ;; columns the way postmodern expects them, and call
@@ -153,7 +177,7 @@
     (with-stats-collection ((target csv)
                             :dbname (db-name (target-db csv))
                             :state *state* :summary summary)
-      (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
+      (lp:task-handler-bind () ;; ((error #'lp:invoke-transfer-error))
         (log-message :notice "COPY ~a" (target csv))
         (lp:submit-task channel #'copy-to-queue csv queue)
 
