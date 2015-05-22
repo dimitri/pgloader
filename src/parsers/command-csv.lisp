@@ -65,7 +65,9 @@
 (defrule backslash-quote "backslash-quote" (:constant "\\\""))
 (defrule escaped-quote-name    (or quote-quote backslash-quote))
 (defrule escaped-quote-literal (or (and #\" #\") (and #\\ #\")) (:text t))
-(defrule escaped-quote         (or escaped-quote-literal escaped-quote-name))
+(defrule escaped-quote         (or escaped-quote-literal
+                                   escaped-quote-name
+                                   separator))
 
 (defrule option-fields-escaped-by (and kw-fields kw-escaped kw-by escaped-quote)
   (:lambda (esc)

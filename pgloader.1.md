@@ -878,10 +878,11 @@ The `csv` format command accepts the following clauses and options:
 
       - *fields escaped by*
 
-	    Takes either the special value *backslash-quote* or *double-quote*.
-	    This value is used to recognize escaped field separators when they
-	    are to be found within the data fields themselves. Defaults to
-	    *double-quote*.
+	    Takes either the special value *backslash-quote* or *double-quote*,
+	    or any value supported by the *fields terminated by* option (see
+	    below). This value is used to recognize escaped field separators
+	    when they are to be found within the data fields themselves.
+	    Defaults to *double-quote*.
 
       - *fields terminated by*
 
