@@ -33,6 +33,7 @@
                  #:metabang-bind        ; the bind macro
                  #:mssql                ; M$ SQL connectivity
                  #:uuid             ; Transforming MS SQL unique identifiers
+                 #:quri                 ; decode URI parameters
 		 )
     :components
     ((:module "src"

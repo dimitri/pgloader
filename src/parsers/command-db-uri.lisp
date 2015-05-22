@@ -73,16 +73,17 @@
 (defrule hostname (or ipv4 socket-directory network-name)
   (:identity t))
 
+(defun process-hostname (hostname)
+  (destructuring-bind (type &optional name) hostname
+    (ecase type
+      (:unix  (if name (cons :unix name) :unix))
+      (:ipv4  name)
+      (:host  name))))
+
 (defrule dsn-hostname (and (? hostname) (? dsn-port))
   (:lambda (host-port)
     (destructuring-bind (host &optional port) host-port
-      (append (list :host
-                    (when host
-                      (destructuring-bind (type &optional name) host
-                        (ecase type
-                          (:unix  (if name (cons :unix name) :unix))
-                          (:ipv4  name)
-                          (:host  name)))))
+      (append (list :host (when host (process-hostname host)))
               port))))
 
 (defrule dsn-dbname (and "/" (? namestring))
@@ -125,7 +126,39 @@
     (bind (((_ table-name) opt-tn))
       table-name)))
 
-(defrule dsn-option (or dsn-option-ssl dsn-option-table-name))
+(defrule uri-param (+ (not "&")) (:text t))
+
+(defmacro make-dsn-option-rule (name param &optional (rule 'uri-param) fn)
+  `(defrule ,name (and ,param "=" ,rule)
+     (:lambda (x)
+       (let ((cons (first (quri:url-decode-params (text x)))))
+         (setf (car cons) (intern (string-upcase (car cons)) "KEYWORD"))
+         (when ,fn
+           (setf (cdr cons) (funcall ,fn (cdr cons))))
+         cons))))
+
+(make-dsn-option-rule dsn-option-host   "host" uri-param
+                      (lambda (hostname)
+                        (process-hostname
+                         (parse 'hostname
+                                ;; special case Unix Domain Socket paths
+                                (cond ((char= (aref hostname 0) #\/)
+                                       (format nil "unix:~a" hostname))
+                                      (t hostname))))))
+(make-dsn-option-rule dsn-option-port   "port"
+                      (+ (digit-char-p character))
+                      #'parse-integer)
+(make-dsn-option-rule dsn-option-dbname "dbname")
+(make-dsn-option-rule dsn-option-user   "user")
+(make-dsn-option-rule dsn-option-pass   "password")
+
+(defrule dsn-option (or dsn-option-ssl
+                        dsn-option-host
+                        dsn-option-port
+                        dsn-option-dbname
+                        dsn-option-user
+                        dsn-option-pass
+                        dsn-option-table-name))
 
 (defrule another-dsn-option (and "&" dsn-option)
   (:lambda (source)
@@ -154,7 +187,10 @@
 			      dbname
                               table-name
                               use-ssl)
-        (apply #'append uri)
+        ;; we want the options to take precedence over the URI components,
+        ;; so we destructure the URI again and prepend options here.
+        (destructuring-bind (prefix user-pass host-port dbname options) uri
+          (apply #'append options prefix user-pass host-port (list dbname)))
       ;; Default to environment variables as described in
       ;;  http://www.postgresql.org/docs/9.3/static/app-psql.html
       (declare (ignore type))

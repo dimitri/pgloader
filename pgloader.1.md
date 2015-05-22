@@ -596,8 +596,9 @@ Where:
     you may use several parameters by separating them away using an
     ampersand (`&`) character.
 
-    Only two options are supported here, *tablename* (which might be
-    qualified with a schema name) and *sslmode*.
+    Only some options are supported here, *tablename* (which might be
+    qualified with a schema name) *sslmode*, *host*, *port*, *dbname*,
+    *user* and *password*.
 
     The *sslmode* parameter values can be one of `disable`, `allow`,
     `prefer` or `require`.
@@ -605,6 +606,11 @@ Where:
     For backward compatibility reasons, it's possible to specify the
     *tablename* option directly, without spelling out the `tablename=`
     parts.
+
+    The options override the main URI components when both are given, and
+    using the percent-encoded option parameters allow using passwords
+    starting with a colon and bypassing other URI components parsing
+    limitations.
 
 ### Regular Expressions
 
