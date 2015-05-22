@@ -211,7 +211,7 @@
     (integer string-or-integer)))
 
 (defun sqlite-timestamp-to-timestamp (date-string-or-integer)
-  (declare (type (or integer simple-string) date-string-or-integer))
+  (declare (type (or null integer simple-string) date-string-or-integer))
   (when date-string-or-integer
     (cond ((and (typep date-string-or-integer 'integer)
                 (= 0 date-string-or-integer))
