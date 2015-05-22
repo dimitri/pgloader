@@ -139,7 +139,7 @@
 (defvar *data-source-filename-extensions*
   '((:csv     . ("csv" "tsv" "txt" "text"))
     (:copy    . ("copy" "dat"))         ; reject data files are .dat
-    (:sqlite  . ("sqlite" "db"))
+    (:sqlite  . ("sqlite" "db" "sqlite3"))
     (:dbf     . ("db3" "dbf"))
     (:ixf     . ("ixf"))))
 
@@ -215,13 +215,14 @@
      :collect (parse 'generic-option guc)))
 
 (defrule dbf-type-name (or "dbf" "db3") (:constant "dbf"))
+(defrule sqlite-type-name (or "sqlite3" "sqlite") (:constant "sqlite"))
 
 (defrule cli-type (or "csv"
                       "fixed"
                       "copy"
                       dbf-type-name
+                      sqlite-type-name
                       "ixf"
-                      "sqlite"
                       "mysql"
                       "mssql")
   (:text t))
