@@ -207,7 +207,7 @@
       (when tables
         (pomo:execute
          (format nil "create temp table reloids(oid) as values ~{('~a'::regclass)~^,~}"
-                 tables)))
+                 (mapcar #'apply-identifier-case tables))))
 
       (handler-case
           (let ((sql (format nil "
