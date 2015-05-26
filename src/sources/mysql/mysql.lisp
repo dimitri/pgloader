@@ -248,7 +248,7 @@
                          (map 'string #'code-char
                               (loop :repeat 5
                                  :collect (+ (random 26) (char-code #\A))))
-                         "-"
+                         "_"
                          (map 'string #'code-char
                               (loop :repeat 5
                                  :collect (+ (random 26) (char-code #\A)))))))
