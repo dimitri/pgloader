@@ -180,7 +180,7 @@
 (defun drop-table-if-exists-sql (table-name)
   "Return the PostgreSQL DROP TABLE IF EXISTS statement for TABLE-NAME."
   (let ((table-name (apply-identifier-case table-name)))
-    (format nil "DROP TABLE IF EXISTS ~a;~%" table-name)))
+    (format nil "DROP TABLE IF EXISTS ~a~% CASCADE;" table-name)))
 
 (defun create-table-sql-list (all-columns
 			      &key

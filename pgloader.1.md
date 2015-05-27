@@ -1433,11 +1433,19 @@ The `database` command accepts the following clauses and options:
 
       - *include drop*
 
-		When this option is listed, pgloader drop in the PostgreSQL
-		connection all the table whose names have been found in the MySQL
+		When this option is listed, pgloader drops all the tables in the
+		target PostgreSQL database whose names appear in the SQLite
 		database. This option allows for using the same command several
 		times in a row until you figure out all the options, starting
-		automatically from a clean environment.
+		automatically from a clean environment. Please note that `CASCADE`
+		is used to ensure that tables are dropped even if there are foreign
+		keys pointing to them. This is precisely what `include drop` is
+		intended to do: drop all target tables and recreate them.
+
+		Great care needs to be taken when using `include drop`, as
+		it will cascade to *all* objects referencing the target tables,
+		possibly including other tables that are not being loaded from
+		the source DB. 
 
       - *include no drop*
 
@@ -1857,11 +1865,19 @@ The `sqlite` command accepts the following clauses and options:
 
       - *include drop*
 
-		When this option is listed, pgloader drop in the PostgreSQL
-		connection all the table whose names have been found in the SQLite
+		When this option is listed, pgloader drops all the tables in the
+		target PostgreSQL database whose names appear in the SQLite
 		database. This option allows for using the same command several
 		times in a row until you figure out all the options, starting
-		automatically from a clean environment.
+		automatically from a clean environment. Please note that `CASCADE`
+		is used to ensure that tables are dropped even if there are foreign
+		keys pointing to them. This is precisely what `include drop` is
+		intended to do: drop all target tables and recreate them.
+
+		Great care needs to be taken when using `include drop`, as
+		it will cascade to *all* objects referencing the target tables,
+		possibly including other tables that are not being loaded from
+		the source DB. 
 
       - *include no drop*
 
