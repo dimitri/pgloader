@@ -172,6 +172,7 @@
                     :test #'string=)
       (error "Unknown lisp file extension: ~s" (pathname-type pathname)))
 
+    (log-message :info "Loading code from ~s" pathname)
     (load (compile-file pathname :verbose nil :print nil))))
 
 (defun main (argv)
@@ -256,17 +257,6 @@
                    (uiop:quit +os-code-error+))))
 	  (uiop:quit +os-code-success+))
 
-	(when load
-          (loop for filename in load do
-               (handler-case
-                   (load-extra-transformation-functions filename)
-                 (condition (e)
-                   (format *standard-output*
-                           "Failed to load lisp source file ~s~%"
-                           filename)
-                   (format *standard-output* "~a~%" e)
-                   (uiop:quit +os-code-error+)))))
-
 	;; Now process the arguments
 	(when arguments
 	  ;; Start the logs system
@@ -277,6 +267,18 @@
               ;; tell the user where to look for interesting things
               (log-message :log "Main logs in '~a'" (probe-file *log-filename*))
               (log-message :log "Data errors in '~a'~%" *root-dir*)
+
+              ;; load extra lisp code provided for by the user
+              (when load
+                (loop for filename in load do
+                     (handler-case
+                         (load-extra-transformation-functions filename)
+                       (condition (e)
+                         (log-message :fatal
+                                      "Failed to load lisp source file ~s~%"
+                                      filename)
+                         (log-message :error "~a" e)
+                         (uiop:quit +os-code-error+)))))
 
               (handler-case
                   ;; The handler-case is to catch unhandled exceptions at the
