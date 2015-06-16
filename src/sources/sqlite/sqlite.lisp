@@ -101,7 +101,9 @@
                               :do (setf (aref v x) val))
                            v)
                counting t into rows
-               do (funcall process-row-fn row)
+               do (progn
+                    (pgstate-incf *state* (target sqlite) :read 1)
+                    (funcall process-row-fn row))
                finally
                  (sqlite:finalize-statement statement)
                  (return rows))
@@ -112,8 +114,7 @@
 
 (defmethod copy-to-queue ((sqlite copy-sqlite) queue)
   "Copy data from SQLite table TABLE-NAME within connection DB into queue DATAQ"
-  (let ((read (pgloader.queue:map-push-queue sqlite queue)))
-    (pgstate-incf *state* (target sqlite) :read read)))
+  (map-push-queue sqlite queue))
 
 (defmethod copy-from ((sqlite copy-sqlite)
                       &key (kernel nil k-s-p) truncate disable-triggers)
