@@ -147,7 +147,10 @@
 					   :target  (target csv)
 					   :process-row-fn process-row-fn)))
                (handler-case
-                   (handler-bind ((cl-csv:csv-parse-error #'cl-csv::continue))
+                   (handler-bind ((cl-csv:csv-parse-error
+                                   #'(lambda (c)
+                                       (log-message :error "~a" c)
+                                       (cl-csv::continue))))
                      (cl-csv:read-csv input
                                       :row-fn (compile nil reformat-then-process)
                                       :separator (csv-separator csv)
