@@ -1,0 +1,52 @@
+LOAD CSV
+    FROM inline (
+    pageid, createDate, archive, label, crawlid,
+    wptid, wptrun, url, urlShort, urlhash,
+    cdn [null if '\N'],
+    startedDateTime,
+    TTFB [null if '\N'],
+    renderStart,
+    onContentLoaded [null if '\N'],
+    onLoad, fullyLoaded, visualComplete, PageSpeed [null if '\N'], SpeedIndex [null if '\N'],
+    rank [null if '\N'], reqTotal, reqHtml, reqJS, reqCSS,
+    reqImg, reqGif, reqJpg, reqPng, reqFont,
+    reqFlash, reqJson, reqOther, bytesTotal, bytesHtml,
+    bytesJS, bytesCSS, bytesImg, bytesGif, bytesJpg,
+    bytesPng, bytesFont, bytesFlash, bytesJson, bytesOther,
+    bytesHtmlDoc, numDomains, maxDomainReqs, numRedirects, numHttps,
+    numGlibs, numErrors, numCompressed, numDomElements, maxageNull,
+    maxage0, maxage1, maxage30, maxage365, maxageMore,
+    gzipTotal, gzipSavings, _connections, _adult_site, avg_dom_depth,
+    document_height, document_width, localstorage_size, sessionstorage_size, num_iframes,
+    num_scripts, doctype, meta_viewport)
+ 
+    INTO postgresql:///pgloader?csv_escape_mode
+         (
+          id bigint using (identity pageid),
+          doctype
+         )
+ 
+    WITH
+        fields optionally enclosed by '"',
+        fields escaped by '\',
+        fields terminated by ',',
+        csv escape mode following
+ 
+    BEFORE LOAD DO
+      $$ drop table if exists csv_escape_mode; $$,
+      $$ CREATE TABLE csv_escape_mode
+         (
+            id        serial primary key,
+            doctype   text
+         );
+      $$
+ 
+ 
+;
+
+
+"27955878","1434380476","All","Jun 15 2015","329","150615_0_D0M","3","http://www.flydubai.com/","http://www.flydubai.com/","9211","Incapsula","1434376648","1543","6326",\N,"11959","12813","11600","80","8854","8521","119","8","42","13","53","10","4","38","0","0","0","2","661291","16571","320664","54020","270035","7815","200089","60725","0","0","0","0","15555","17","99","8","0","0","5","50","1007","0","49","69","1","0","0","409245","0","33","0","11","1317","1008","69","37","2","55","HTML","","0","0","1","0","0","0","0","0","1","0","0","0"
+"27955879","1434380476","All","Jun 15 2015","329","150615_0_D2D","1","http://www.seb.se/","http://www.seb.se/","2702",\N,"1434376676","1317","6470",\N,"10319","15431","9300","64","7668","8578","31","2","10","1","12","2","7","1","4","0","0","1","917326","36574","247483","297144","214183","89","208214","3199","121942","0","0","0","36354","6","24","3","0","1","3","2","382","0","14","3","10","3","1","587035","434622","10","0","9","2091","1008","0","0","0","8","html","width=device-width, initial-scale=1.0","0","0","1","0","0","1","0","0","0","0","0","387"
+"27955880","1434380476","All","Jun 15 2015","329","150615_0_CW1","3","http://www.teletalk.com.bd/","http://www.teletalk.com.bd/","9502",\N,"1434376510","712","3808","904","10953","11564","13600","72","5541","8374","46","4","0","1","39","1","36","1","0","2","0","0","708768","62576","0","13165","266762","2419","245978","18071","0","366265","0","0","484","1","46","0","1","0","0","0","8","0","46","0","0","0","0","75752","66373","44","0","2","698","1008","0","0","0","0","HTML -//W3C//DTD HTML 4.01 Frameset//EN\\","","0","2","0","0","0","0","0","366265","0","0","0","0"
+"27955881","1434380476","All","Jun 15 2015","329","150615_0_D2J","2","http://www.helpster.de/","http://www.helpster.de/","59167",\N,"1434376702","388","2935","5607","6922","8640","4100","90","2984","8583","54","3","14","1","30","4","18","8","2","0","0","4","492958","74870","153806","10578","228001","156","184659","43186","25700","0","0","3","74512","14","18","2","1","0","1","14","644","0","18","3","2","31","0","257661","6511","22","0","10","4295","1112","90","0","1","26","html","width=device-width, initial-scale=1","0","0","0","0","0","0","0","0","0","0","0","0"
+"27955882","1434380476","All","Jun 15 2015","329","150615_0_CW6","1","http://www.namepros.com/","http://www.namepros.com/","32025","Cloudflare","1434376387","2323","5314",\N,"8087","18242","12500","92","6179","8379","93","8","30","3","48","6","24","17","1","0","0","3","933198","80301","579744","25109","165484","248","129691","35284","82560","0","0","0","35788","26","47","1","1","0","92","40","2548","0","16","11","26","38","2","705183","0","38","0","11","3655","1008","0","0","7","34","html","width=device-width, initial-scale=1","0","0","0","0","0","0","0","0","0","0","0","0"

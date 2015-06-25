@@ -9,6 +9,7 @@ REGRESS= allcols.load 		    \
          csv-districts.load 	    \
          csv-parse-date.load 	    \
          csv-error.load 	    \
+         csv-escape-mode.load 	    \
          csv-filename-pattern.load  \
          csv-header.load            \
          csv-json.load              \
