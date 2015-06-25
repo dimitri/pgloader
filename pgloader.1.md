@@ -890,6 +890,13 @@ The `csv` format command accepts the following clauses and options:
 	    when they are to be found within the data fields themselves.
 	    Defaults to *double-quote*.
 
+      - *csv escape mode*
+
+        Takes either the special value *quote* (the default) or *following*
+        and allows the CSV parser to parse either only escaped field
+        separator or any character (including CSV data) when using the
+        *following* value.
+
       - *fields terminated by*
 
 	    Takes a single character as argument, which must be found inside

@@ -57,6 +57,9 @@
    (escape      :accessor csv-escape	  ; CSV quote escaping
 	        :initarg :escape	  ;
 	        :initform cl-csv:*quote-escape*)
+   (escape-mode :accessor csv-escape-mode ; CSV quote escaping mode
+	        :initarg :escape-mode     ;
+	        :initform cl-csv::*escape-mode*)
    (trim-blanks :accessor csv-trim-blanks ; CSV blank and NULLs
 		:initarg :trim-blanks	  ;
 		:initform t))
@@ -156,6 +159,7 @@
                                       :separator (csv-separator csv)
                                       :quote (csv-quote csv)
                                       :escape (csv-escape csv)
+                                      :escape-mode (csv-escape-mode csv)
                                       :unquoted-empty-string-is-nil t
                                       :quoted-empty-string-is-nil nil
                                       :trim-outer-whitespace (csv-trim-blanks csv)

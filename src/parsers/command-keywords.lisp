@@ -71,6 +71,8 @@
   (def-keyword-rule "by")
   (def-keyword-rule "escaped")
   (def-keyword-rule "terminated")
+  (def-keyword-rule "escape")
+  (def-keyword-rule "mode")
   (def-keyword-rule "nullif")
   (def-keyword-rule "blank")
   (def-keyword-rule "trim")

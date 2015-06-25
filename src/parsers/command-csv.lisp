@@ -69,6 +69,10 @@
                                    escaped-quote-name
                                    separator))
 
+(defrule escape-mode-quote     "quote"     (:constant :quote))
+(defrule escape-mode-following "following" (:constant :following))
+(defrule escape-mode           (or escape-mode-quote escape-mode-following))
+
 (defrule option-fields-escaped-by (and kw-fields kw-escaped kw-by escaped-quote)
   (:lambda (esc)
     (bind (((_ _ _ sep) esc))
@@ -94,6 +98,11 @@
 (defrule option-trim-unquoted-blanks (and kw-trim kw-unquoted kw-blanks)
   (:constant (cons :trim-blanks t)))
 
+(defrule option-csv-escape-mode (and kw-csv kw-escape kw-mode escape-mode)
+  (:lambda (term)
+    (bind (((_ _ _ escape-mode) term))
+      (cons :escape-mode escape-mode))))
+
 (defrule csv-option (or option-batch-rows
                         option-batch-size
                         option-batch-concurrency
@@ -107,7 +116,8 @@
                         option-fields-escaped-by
                         option-fields-terminated-by
                         option-trim-unquoted-blanks
-                        option-keep-unquoted-blanks))
+                        option-keep-unquoted-blanks
+                        option-csv-escape-mode))
 
 (defrule another-csv-option (and comma csv-option)
   (:lambda (source)
