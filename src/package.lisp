@@ -209,7 +209,10 @@
                 #:format-vector-row)
   (:import-from #:pgloader.sources
                 #:map-rows
-                #:transforms)
+                #:transforms
+                #:target)
+  (:import-from #:pgloader.utils
+                #:pgstate-incf)
   (:export #:map-push-queue))
 
 
