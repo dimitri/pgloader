@@ -136,8 +136,8 @@
 
     ;; date types without strange defaults
     (:source (:type "date")      :target (:type "date"))
-    (:source (:type "datetime")  :target (:type "timestamptz"))
-    (:source (:type "timestamp") :target (:type "timestamptz"))
+    (:source (:type "datetime")  :target (:type "timestamptz") :using pgloader.transforms::zero-dates-to-null)
+    (:source (:type "timestamp") :target (:type "timestamptz") :using pgloader.transforms::zero-dates-to-null)
     (:source (:type "year")      :target (:type "integer" :drop-typemod t))
 
     ;; Inline MySQL "interesting" datatype
