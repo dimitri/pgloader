@@ -212,6 +212,11 @@
   (when string
     (string-right-trim '(#\Space) string)))
 
+(defun remove-null-characters (string)
+  "Remove NULL-characters (0x00) from STRING"
+  (when string
+    (remove #\Nul string)))
+
 (defun byte-vector-to-bytea (vector)
   "Transform a simple array of unsigned bytes to the PostgreSQL bytea
   representation as documented at

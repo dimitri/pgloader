@@ -92,14 +92,18 @@
      :target (:type "decimal" :drop-typemod nil))
 
     ;; the text based types
-    (:source (:type "varchar")    :target (:type "text"))
-    (:source (:type "tinytext")   :target (:type "text"))
-    (:source (:type "text")       :target (:type "text"))
-    (:source (:type "mediumtext") :target (:type "text"))
-    (:source (:type "longtext")   :target (:type "text"))
+    (:source (:type "tinytext")   :target (:type "text") :using pgloader.transforms::remove-null-characters)
+    (:source (:type "text")       :target (:type "text") :using pgloader.transforms::remove-null-characters)
+    (:source (:type "mediumtext") :target (:type "text") :using pgloader.transforms::remove-null-characters)
+    (:source (:type "longtext")   :target (:type "text") :using pgloader.transforms::remove-null-characters)
+
+    (:source (:type "varchar")
+     :target (:type "varchar" :drop-typemod nil)
+     :using pgloader.transforms::remove-null-characters)
 
     (:source (:type "char")
-     :target (:type "varchar" :drop-typemod nil))
+     :target (:type "char" :drop-typemod nil)
+     :using pgloader.transforms::remove-null-characters)
 
     ;;
     ;; cl-mysql returns binary values as a simple-array of bytes (as in
