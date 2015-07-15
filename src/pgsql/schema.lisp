@@ -263,7 +263,7 @@
 ;;;
 ;;; Index support
 ;;;
-(defstruct pgsql-index name table-name table-oid primary unique columns)
+(defstruct pgsql-index name table-name table-oid primary unique columns sql)
 
 (defgeneric index-table-name (index)
   (:documentation
@@ -293,18 +293,20 @@
        (values
         ;; ensure good concurrency here, don't take the ACCESS EXCLUSIVE
         ;; LOCK on the table before we have the index done already
-        (format nil "CREATE UNIQUE INDEX ~a ON ~a (~{~a~^, ~});"
-                index-name table-name cols)
+        (or (pgsql-index-sql index)
+            (format nil "CREATE UNIQUE INDEX ~a ON ~a (~{~a~^, ~});"
+                    index-name table-name cols))
         (format nil
                 "ALTER TABLE ~a ADD PRIMARY KEY USING INDEX ~a;"
                 table-name index-name)))
 
       (t
-       (format nil "CREATE~:[~; UNIQUE~] INDEX ~a ON ~a (~{~a~^, ~});"
-               (pgsql-index-unique index)
-               index-name
-               table-name
-               cols)))))
+       (or (pgsql-index-sql index)
+           (format nil "CREATE~:[~; UNIQUE~] INDEX ~a ON ~a (~{~a~^, ~});"
+                   (pgsql-index-unique index)
+                   index-name
+                   table-name
+                   cols))))))
 
 ;;;
 ;;; Parallel index building.

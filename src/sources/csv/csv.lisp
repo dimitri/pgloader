@@ -179,7 +179,15 @@
 	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
 	 (lp:*kernel*    (make-kernel 2))
 	 (channel        (lp:make-channel))
-	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*)))
+	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*))
+         (indexes        (list-indexes (target-db csv)
+                                       (target csv))))
+
+    ;; issue a performance warning against pre-existing indexes
+    (when indexes
+      (log-message :warning "Target table ~s has ~d indexes defined against it."
+                   (target csv) (length indexes))
+      (log-message :warning "That could impact loading performance badly"))
 
     (with-stats-collection ((target csv)
                             :dbname (db-name (target-db csv))

@@ -178,6 +178,7 @@
 	   #:list-databases
 	   #:list-tables
 	   #:list-columns
+	   #:list-indexes
 	   #:list-tables-cols
 	   #:list-tables-and-fkeys
 	   #:list-reserved-keywords
@@ -244,6 +245,8 @@
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.sources #:pgloader.queue)
+  (:import-from #:pgloader.pgsql
+                #:list-indexes)
   (:export #:*csv-path-root*
            #:csv-connection
            #:specs

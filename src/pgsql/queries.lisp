@@ -189,6 +189,31 @@
      where c.oid = '~:[~*~a~;~a.~a~]'::regclass and attnum > 0
   order by attnum" schema schema table-name) :column)))
 
+(defun list-indexes (pgconn table-name)
+  "List all indexes for TABLE-NAME in SCHEMA."
+  (with-pgsql-connection (pgconn)
+    (loop :for (index-name table-name table-oid primary sql)
+       :in (pomo:query (format nil "
+select i.relname,
+       indrelid::regclass,
+       indrelid,
+       indisprimary,
+       pg_get_indexdef(indexrelid)
+  from pg_index x
+       join pg_class i ON i.oid = x.indexrelid
+ where indrelid = '~@[~a.~]~a'::regclass"
+                               (when (typep table-name 'cons)
+                                 (car table-name))
+                               (typecase table-name
+                                 (cons   (cdr table-name))
+                                 (string table-name))))
+       :collect (make-pgsql-index :name index-name
+                                  :table-name table-name
+                                  :table-oid table-oid
+                                  :primary primary
+                                  :columns nil
+                                  :sql sql))))
+
 (defun list-reserved-keywords (pgconn)
   "Connect to PostgreSQL DBNAME and fetch reserved keywords."
   (handler-case
