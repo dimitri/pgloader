@@ -271,6 +271,9 @@
                 #:csv-connection
                 #:specs
                 #:csv-specs)
+  (:import-from #:pgloader.pgsql
+                #:maybe-drop-indexes
+                #:create-indexes-again)
   (:export #:fixed-connection
            #:copy-fixed
 	   #:copy-to-queue
@@ -284,6 +287,9 @@
                 #:csv-connection
                 #:specs
                 #:csv-specs)
+  (:import-from #:pgloader.pgsql
+                #:maybe-drop-indexes
+                #:create-indexes-again)
   (:export #:copy-connection
            #:copy-copy
 	   #:copy-to-queue

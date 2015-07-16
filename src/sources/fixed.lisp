@@ -103,13 +103,23 @@
   "Copy data from given FIXED definition into lparallel.queue DATAQ"
   (pgloader.queue:map-push-queue fixed queue))
 
-(defmethod copy-from ((fixed copy-fixed) &key truncate disable-triggers)
+(defmethod copy-from ((fixed copy-fixed)
+                      &key
+                        state-before
+                        state-after
+                        truncate
+                        disable-triggers
+                        drop-indexes)
   "Copy data from given FIXED file definition into its PostgreSQL target table."
   (let* ((summary        (null *state*))
 	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
 	 (lp:*kernel*    (make-kernel 2))
 	 (channel        (lp:make-channel))
-	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*)))
+	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*))
+         (indexes        (maybe-drop-indexes (target-db fixed)
+                                             (target fixed)
+                                             state-before
+                                             :drop-indexes drop-indexes)))
 
     (with-stats-collection ((target fixed)
                             :dbname (db-name (target-db fixed))
@@ -134,5 +144,9 @@
 
         ;; now wait until both the tasks are over
         (loop for tasks below 2 do (lp:receive-result channel)
-           finally (lp:end-kernel))))))
+           finally (lp:end-kernel))))
+
+    ;; re-create the indexes
+    (create-indexes-again (target-db fixed) indexes state-after
+                          :drop-indexes drop-indexes)))
 
