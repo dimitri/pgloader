@@ -298,7 +298,7 @@
                     index-name table-name cols))
         (format nil
                 "ALTER TABLE ~a ADD PRIMARY KEY USING INDEX ~a;"
-                table-name index-name)))
+                table-name (pgsql-index-name index))))
 
       (t
        (or (pgsql-index-sql index)
@@ -307,6 +307,17 @@
                    index-name
                    table-name
                    cols))))))
+
+(defmethod format-pgsql-drop-index ((index pgsql-index))
+  "Generate the PostgreSQL statement to DROP the index."
+  (let* ((table-name (apply-identifier-case (pgsql-index-table-name index)))
+	 (index-name (apply-identifier-case (pgsql-index-name index))))
+    (cond ((pgsql-index-primary index)
+           (format nil "ALTER TABLE ~a DROP CONSTRAINT ~a;"
+                   table-name index-name))
+
+          (t
+           (format nil "DROP INDEX ~a;" index-name)))))
 
 ;;;
 ;;; Parallel index building.
@@ -358,6 +369,16 @@
        do (loop for index in indexes
 	     do (setf (pgsql-index-table-oid index) table-oid)))))
 
+;;;
+;;; Drop indexes before loading
+;;;
+(defun drop-indexes (state pgsql-index-list)
+  "Drop indexes in PGSQL-INDEX-LIST. A PostgreSQL connection must already be
+   active when calling that function."
+  (loop :for index :in pgsql-index-list
+     :do (let ((sql (format-pgsql-drop-index index)))
+           (log-message :notice "~a" sql)
+           (pgsql-execute-with-timing "drop indexes" sql state))))
 
 
 ;;;

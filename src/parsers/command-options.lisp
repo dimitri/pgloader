@@ -107,6 +107,7 @@
 (make-option-rule include-drop     (and kw-include (? kw-no) kw-drop))
 (make-option-rule truncate         (and (? kw-no) kw-truncate))
 (make-option-rule disable-triggers (and kw-disable (? kw-no) kw-triggers))
+(make-option-rule drop-indexes     (and kw-drop (? kw-no) kw-indexes))
 (make-option-rule create-tables    (and kw-create (? kw-no) kw-tables))
 (make-option-rule create-indexes   (and kw-create (? kw-no) kw-indexes))
 (make-option-rule reset-sequences  (and kw-reset  (? kw-no) kw-sequences))

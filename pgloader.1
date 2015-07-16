@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "April 2015" "ff" ""
+.TH "PGLOADER" "1" "July 2015" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -679,13 +679,16 @@ When omitted, the \fIdbname\fR defaults to the value of the environment variable
 The optional parameters must be supplied with the form \fBname=value\fR, and you may use several parameters by separating them away using an ampersand (\fB&\fR) character\.
 .
 .IP
-Only two options are supported here, \fItablename\fR (which might be qualified with a schema name) and \fIsslmode\fR\.
+Only some options are supported here, \fItablename\fR (which might be qualified with a schema name) \fIsslmode\fR, \fIhost\fR, \fIport\fR, \fIdbname\fR, \fIuser\fR and \fIpassword\fR\.
 .
 .IP
 The \fIsslmode\fR parameter values can be one of \fBdisable\fR, \fBallow\fR, \fBprefer\fR or \fBrequire\fR\.
 .
 .IP
 For backward compatibility reasons, it\'s possible to specify the \fItablename\fR option directly, without spelling out the \fBtablename=\fR parts\.
+.
+.IP
+The options override the main URI components when both are given, and using the percent\-encoded option parameters allow using passwords starting with a colon and bypassing other URI components parsing limitations\.
 .
 .IP "" 0
 .
@@ -967,6 +970,15 @@ When loading from a \fBCSV\fR file, the following options are supported:
 When this option is listed, pgloader issues a \fBTRUNCATE\fR command against the PostgreSQL target table before reading the data file\.
 .
 .IP "\(bu" 4
+\fIdrop indexes\fR
+.
+.IP
+When this option is listed, pgloader issues \fBDROP INDEX\fR commands against all the indexes defined on the target table before copying the data, then \fBCREATE INDEX\fR commands once the \fBCOPY\fR is done\.
+.
+.IP
+In order to get the best performances possible, all the indexes are created in parallel and when done the primary keys are built again from the unique indexes just created\. This two step process allows creating the primary key index in parallel with the other indexes, as only the \fBALTER TABLE\fR command needs an \fIaccess exclusive lock\fR on the target table\.
+.
+.IP "\(bu" 4
 \fIdisable triggers\fR
 .
 .IP
@@ -980,6 +992,12 @@ This option allows loading data into a pre\-existing table ignoring the \fIforei
 .
 .IP
 Takes a numeric value as argument\. Instruct pgloader to skip that many lines at the beginning of the input file\.
+.
+.IP "\(bu" 4
+\fIcsv header\fR
+.
+.IP
+Use the first line read after \fIskip header\fR as the list of csv field names to be found in the CSV file, using the same CSV parameters as for the CSV data\.
 .
 .IP "\(bu" 4
 \fItrim unquoted blanks\fR
@@ -1012,7 +1030,13 @@ By default, pgloader will use the double\-quote character as the enclosing chara
 \fIfields escaped by\fR
 .
 .IP
-Takes either the special value \fIbackslash\-quote\fR or \fIdouble\-quote\fR\. This value is used to recognize escaped field separators when they are to be found within the data fields themselves\. Defaults to \fIdouble\-quote\fR\.
+Takes either the special value \fIbackslash\-quote\fR or \fIdouble\-quote\fR, or any value supported by the \fIfields terminated by\fR option (see below)\. This value is used to recognize escaped field separators when they are to be found within the data fields themselves\. Defaults to \fIdouble\-quote\fR\.
+.
+.IP "\(bu" 4
+\fIcsv escape mode\fR
+.
+.IP
+Takes either the special value \fIquote\fR (the default) or \fIfollowing\fR and allows the CSV parser to parse either only escaped field separator or any character (including CSV data) when using the \fIfollowing\fR value\.
 .
 .IP "\(bu" 4
 \fIfields terminated by\fR
@@ -1684,7 +1708,10 @@ When loading from a \fBMySQL\fR database, the following options are supported, a
 \fIinclude drop\fR
 .
 .IP
-When this option is listed, pgloader drop in the PostgreSQL connection all the table whose names have been found in the MySQL database\. This option allows for using the same command several times in a row until you figure out all the options, starting automatically from a clean environment\.
+When this option is listed, pgloader drops all the tables in the target PostgreSQL database whose names appear in the SQLite database\. This option allows for using the same command several times in a row until you figure out all the options, starting automatically from a clean environment\. Please note that \fBCASCADE\fR is used to ensure that tables are dropped even if there are foreign keys pointing to them\. This is precisely what \fBinclude drop\fR is intended to do: drop all target tables and recreate them\.
+.
+.IP
+Great care needs to be taken when using \fBinclude drop\fR, as it will cascade to \fIall\fR objects referencing the target tables, possibly including other tables that are not being loaded from the source DB\.
 .
 .IP "\(bu" 4
 \fIinclude no drop\fR
@@ -2253,7 +2280,10 @@ When loading from a \fBSQLite\fR database, the following options are supported, 
 \fIinclude drop\fR
 .
 .IP
-When this option is listed, pgloader drop in the PostgreSQL connection all the table whose names have been found in the SQLite database\. This option allows for using the same command several times in a row until you figure out all the options, starting automatically from a clean environment\.
+When this option is listed, pgloader drops all the tables in the target PostgreSQL database whose names appear in the SQLite database\. This option allows for using the same command several times in a row until you figure out all the options, starting automatically from a clean environment\. Please note that \fBCASCADE\fR is used to ensure that tables are dropped even if there are foreign keys pointing to them\. This is precisely what \fBinclude drop\fR is intended to do: drop all target tables and recreate them\.
+.
+.IP
+Great care needs to be taken when using \fBinclude drop\fR, as it will cascade to \fIall\fR objects referencing the target tables, possibly including other tables that are not being loaded from the source DB\.
 .
 .IP "\(bu" 4
 \fIinclude no drop\fR

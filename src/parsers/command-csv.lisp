@@ -108,6 +108,7 @@
                         option-batch-concurrency
                         option-truncate
                         option-disable-triggers
+                        option-drop-indexes
                         option-skip-header
                         option-csv-header
                         option-lines-terminated-by
@@ -443,7 +444,8 @@
      (let* ((state-before  (pgloader.utils:make-pgstate))
             (summary       (null *state*))
             (*state*       (or *state* (pgloader.utils:make-pgstate)))
-            (state-after   ,(when after `(pgloader.utils:make-pgstate)))
+            (state-after   ,(when (or after (getf options :drop-indexes))
+                                  `(pgloader.utils:make-pgstate)))
             ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
             (source-db     (with-stats-collection ("fetch" :state state-before)
@@ -454,6 +456,7 @@
 
          (let ((truncate (getf ',options :truncate))
                (disable-triggers (getf ',options :disable-triggers))
+               (drop-indexes     (getf ',options :drop-indexes))
                (source
                 (make-instance 'pgloader.csv:copy-csv
                                :target-db  ,pg-db-conn
@@ -464,9 +467,13 @@
                                :columns   ',columns
                                ,@(remove-batch-control-option
                                   options :extras '(:truncate
+                                                    :drop-indexes
                                                     :disable-triggers)))))
            (pgloader.sources:copy-from source
+                                       :state-before state-before
+                                       :state-after state-after
                                        :truncate truncate
+                                       :drop-indexes drop-indexes
                                        :disable-triggers disable-triggers))
 
          ,(sql-code-block pg-db-conn 'state-after after "after load")

@@ -830,6 +830,19 @@ The `csv` format command accepts the following clauses and options:
 		When this option is listed, pgloader issues a `TRUNCATE` command
 		against the PostgreSQL target table before reading the data file.
 
+	  - *drop indexes*
+
+		When this option is listed, pgloader issues `DROP INDEX` commands
+        against all the indexes defined on the target table before copying
+        the data, then `CREATE INDEX` commands once the `COPY` is done.
+
+        In order to get the best performances possible, all the indexes are
+        created in parallel and when done the primary keys are built again
+        from the unique indexes just created. This two step process allows
+        creating the primary key index in parallel with the other indexes,
+        as only the `ALTER TABLE` command needs an *access exclusive lock*
+        on the target table.
+
 	  - *disable triggers*
 
 		When this option is listed, pgloader issues an `ALTER TABLE ...
