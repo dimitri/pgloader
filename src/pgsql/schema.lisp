@@ -380,6 +380,52 @@
            (log-message :notice "~a" sql)
            (pgsql-execute-with-timing "drop indexes" sql state))))
 
+;;;
+;;; Higher level API to care about indexes
+;;;
+(defun maybe-drop-indexes (target table-name state &key drop-indexes)
+  "Drop the indexes for TABLE-NAME on TARGET PostgreSQL connection, and
+   returns a list of indexes to create again."
+  (with-pgsql-connection (target)
+    (let ((indexes (list-indexes table-name)))
+      (cond ((and indexes (not drop-indexes))
+             (log-message :warning
+                          "Target table ~s has ~d indexes defined against it."
+                          table-name (length indexes))
+             (log-message :warning
+                          "That could impact loading performance badly.")
+             (log-message :warning
+                          "Consider the option 'drop indexes'."))
+
+            (indexes
+             ;; drop the indexes now
+             (with-stats-collection ("drop indexes" :state state)
+                 (drop-indexes state indexes))))
+
+      ;; and return the indexes list
+      indexes)))
+
+(defun create-indexes-again (target indexes state &key drop-indexes)
+  "Create the indexes that we dropped previously."
+  (when (and indexes drop-indexes)
+    (let* ((idx-kernel  (make-kernel (length indexes)))
+           (idx-channel (let ((lp:*kernel* idx-kernel))
+                          (lp:make-channel))))
+      (let ((pkeys
+             (create-indexes-in-kernel target indexes idx-kernel idx-channel
+                                       :state state)))
+
+        (with-stats-collection ("Index Build Completion" :state *state*)
+            (loop :for idx :in indexes :do (lp:receive-result idx-channel)))
+
+        ;; turn unique indexes into pkeys now
+        (with-pgsql-connection (target)
+          (with-stats-collection ("Primary Keys" :state state)
+              (loop :for sql :in pkeys
+                 :when sql
+                 :do (progn
+                       (log-message :notice "~a" sql)
+                       (pgsql-execute-with-timing "Primary Keys" sql state)))))))))
 
 ;;;
 ;;; Sequences

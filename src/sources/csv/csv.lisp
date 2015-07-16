@@ -186,23 +186,10 @@
 	 (lp:*kernel*    (make-kernel 2))
 	 (channel        (lp:make-channel))
 	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*))
-         indexes)
-
-    ;; issue a performance warning against pre-existing indexes
-    (with-pgsql-connection ((target-db csv))
-      (setf indexes (list-indexes (target csv)))
-      (cond ((and indexes (not drop-indexes))
-             (log-message :warning
-                          "Target table ~s has ~d indexes defined against it."
-                          (target csv) (length indexes))
-             (log-message :warning "That could impact loading performance badly"))
-
-            (indexes
-
-             ;; drop the indexes now
-             (with-stats-collection ("drop indexes" :state state-before
-                                                    :summary summary)
-                 (drop-indexes state-before indexes)))))
+         (indexes        (maybe-drop-indexes (target-db csv)
+                                             (target csv)
+                                             state-before
+                                             :drop-indexes drop-indexes)))
 
     (with-stats-collection ((target csv)
                             :dbname (db-name (target-db csv))
@@ -229,26 +216,5 @@
            finally (lp:end-kernel))))
 
     ;; re-create the indexes
-    (when (and indexes drop-indexes)
-      (let* ((idx-kernel  (make-kernel (length indexes)))
-             (idx-channel (let ((lp:*kernel* idx-kernel))
-                            (lp:make-channel))))
-        (let ((pkeys
-               (create-indexes-in-kernel (target-db csv)
-                                         indexes
-                                         idx-kernel
-                                         idx-channel
-                                         :state state-after)))
-          (with-stats-collection ("Index Build Completion" :state *state*)
-              (loop :for idx :in indexes :do (lp:receive-result idx-channel)))
-
-          ;; turn unique indexes into pkeys now
-          (with-pgsql-connection ((target-db csv))
-            (with-stats-collection ("Primary Keys" :state state-after)
-                (loop :for sql :in pkeys
-                   :when sql
-                   :do (progn
-                         (log-message :notice "~a" sql)
-                         (pgsql-execute-with-timing "Primary Keys"
-                                                    sql
-                                                    state-after))))))))))
+    (create-indexes-again (target-db csv) indexes state-after
+                          :drop-indexes drop-indexes)))

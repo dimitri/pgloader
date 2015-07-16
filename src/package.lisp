@@ -201,6 +201,8 @@
 	   #:create-indexes-in-kernel
            #:set-table-oids
            #:drop-indexes
+           #:maybe-drop-indexes
+           #:create-indexes-again
            #:reset-sequences))
 
 (defpackage #:pgloader.queue
@@ -247,11 +249,8 @@
         #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.sources #:pgloader.queue)
   (:import-from #:pgloader.pgsql
-                #:list-indexes
-                #:drop-indexes
-                #:with-pgsql-connection
-                #:pgsql-execute-with-timing
-                #:create-indexes-in-kernel)
+                #:maybe-drop-indexes
+                #:create-indexes-again)
   (:export #:*csv-path-root*
            #:csv-connection
            #:specs
