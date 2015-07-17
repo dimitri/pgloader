@@ -69,6 +69,11 @@
 	     :target (:type "boolean" :drop-typemod t)
 	     :using pgloader.transforms::bits-to-boolean)
 
+    ;; bigint(20) unsigned (or not, actually) does not fit into PostgreSQL
+    ;; bigint (-9223372036854775808 to +9223372036854775807):
+    (:source (:type "bigint" :typemod (< 19 precision))
+     :target (:type "numeric" :drop-typemod t))
+
     ;; we need the following to benefit from :drop-typemod
     (:source (:type "tinyint")   :target (:type "smallint" :drop-typemod t))
     (:source (:type "smallint")  :target (:type "smallint" :drop-typemod t))
