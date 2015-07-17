@@ -136,9 +136,15 @@
 
     ;; date types without strange defaults
     (:source (:type "date")      :target (:type "date"))
-    (:source (:type "datetime")  :target (:type "timestamptz") :using pgloader.transforms::zero-dates-to-null)
-    (:source (:type "timestamp") :target (:type "timestamptz") :using pgloader.transforms::zero-dates-to-null)
     (:source (:type "year")      :target (:type "integer" :drop-typemod t))
+
+    (:source (:type "datetime")
+     :target (:type "timestamptz")
+     :using pgloader.transforms::zero-dates-to-null)
+
+    (:source (:type "timestamp")
+     :target (:type "timestamptz")
+     :using pgloader.transforms::zero-dates-to-null)
 
     ;; Inline MySQL "interesting" datatype
     (:source (:type "enum")
@@ -173,7 +179,7 @@
 	    :target (:type "text" :drop-default nil :drop-not-null nil)
 	    :using nil)
 
-	   (:source (:type "char" :typemod (= (car typemod) 1))
+	   (:source (:type "char" :typemod (= precision 1))
 	    :target (:type "char" :drop-typemod nil))
 
            (:source (:column ("table" . "g"))
