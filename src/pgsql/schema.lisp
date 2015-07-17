@@ -263,7 +263,11 @@
 ;;;
 ;;; Index support
 ;;;
-(defstruct pgsql-index name table-name table-oid primary unique columns sql)
+(defstruct pgsql-index
+  ;; the struct is used both for supporting new index creation from non
+  ;; PostgreSQL system and for drop/create indexes when using the 'drop
+  ;; indexes' option (in CSV mode and the like)
+  name table-name table-oid primary unique columns sql conname condef)
 
 (defgeneric index-table-name (index)
   (:documentation
@@ -289,6 +293,10 @@
 
 	 (cols (mapcar #'apply-identifier-case (pgsql-index-columns index))))
     (cond
+      ((pgsql-index-condef index)
+       (format nil "ALTER TABLE ~a ADD ~a;"
+               table-name (pgsql-index-condef index)))
+
       ((pgsql-index-primary index)
        (values
         ;; ensure good concurrency here, don't take the ACCESS EXCLUSIVE
@@ -312,9 +320,9 @@
   "Generate the PostgreSQL statement to DROP the index."
   (let* ((table-name (apply-identifier-case (pgsql-index-table-name index)))
 	 (index-name (apply-identifier-case (pgsql-index-name index))))
-    (cond ((pgsql-index-primary index)
+    (cond ((pgsql-index-conname index)
            (format nil "ALTER TABLE ~a DROP CONSTRAINT ~a;"
-                   table-name index-name))
+                   table-name (pgsql-index-conname index)))
 
           (t
            (format nil "DROP INDEX ~a;" index-name)))))

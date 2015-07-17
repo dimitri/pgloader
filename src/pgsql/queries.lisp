@@ -192,15 +192,18 @@
 (defun list-indexes (table-name)
   "List all indexes for TABLE-NAME in SCHEMA. A PostgreSQL connection must
    be already established when calling that function."
-  (loop :for (index-name table-name table-oid primary sql)
+  (loop :for (index-name table-name table-oid primary sql conname condef)
      :in (pomo:query (format nil "
 select i.relname,
        indrelid::regclass,
        indrelid,
        indisprimary,
-       pg_get_indexdef(indexrelid)
+       pg_get_indexdef(indexrelid),
+       c.conname,
+       pg_get_constraintdef(c.oid)
   from pg_index x
        join pg_class i ON i.oid = x.indexrelid
+       left join pg_constraint c ON c.conindid = i.oid
  where indrelid = '~@[~a.~]~a'::regclass"
                              (when (typep table-name 'cons)
                                (car table-name))
@@ -212,7 +215,9 @@ select i.relname,
                                 :table-oid table-oid
                                 :primary primary
                                 :columns nil
-                                :sql sql)))
+                                :sql sql
+                                :conname conname
+                                :condef condef)))
 
 (defun list-reserved-keywords (pgconn)
   "Connect to PostgreSQL DBNAME and fetch reserved keywords."
