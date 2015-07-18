@@ -6,7 +6,7 @@ LOAD COPY
           )
      INTO postgresql:///pgloader?track_full
 
-     WITH truncate
+     WITH truncate, drop indexes
 
       SET client_encoding to 'latin1',
           work_mem to '14MB',
@@ -15,7 +15,7 @@ LOAD COPY
    BEFORE LOAD DO
      $$ drop table if exists track_full; $$,
      $$ create table track_full (
-          trackid      bigserial,
+          trackid      bigserial primary key,
           track        text,
           album        text,
           media        text,

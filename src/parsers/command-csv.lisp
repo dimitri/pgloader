@@ -444,6 +444,8 @@
      (let* ((state-before  (pgloader.utils:make-pgstate))
             (summary       (null *state*))
             (*state*       (or *state* (pgloader.utils:make-pgstate)))
+            (state-idx    ,(when (getf options :drop-indexes)
+                             `(pgloader.utils:make-pgstate)))
             (state-after   ,(when (or after (getf options :drop-indexes))
                                   `(pgloader.utils:make-pgstate)))
             ,@(pgsql-connection-bindings pg-db-conn gucs)
@@ -472,6 +474,7 @@
            (pgloader.sources:copy-from source
                                        :state-before state-before
                                        :state-after state-after
+                                       :state-indexes state-idx
                                        :truncate truncate
                                        :drop-indexes drop-indexes
                                        :disable-triggers disable-triggers))
@@ -482,7 +485,8 @@
          (when summary
            (report-full-summary "Total import time" *state*
                                 :before  state-before
-                                :finally state-after))))))
+                                :finally state-after
+                                :parallel state-idx))))))
 
 (defrule load-csv-file load-csv-file-command
   (:lambda (command)

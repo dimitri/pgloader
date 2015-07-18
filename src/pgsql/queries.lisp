@@ -192,12 +192,13 @@
 (defun list-indexes (table-name)
   "List all indexes for TABLE-NAME in SCHEMA. A PostgreSQL connection must
    be already established when calling that function."
-  (loop :for (index-name table-name table-oid primary sql conname condef)
+  (loop :for (index-name table-name table-oid primary unique sql conname condef)
      :in (pomo:query (format nil "
 select i.relname,
        indrelid::regclass,
        indrelid,
        indisprimary,
+       indisunique,
        pg_get_indexdef(indexrelid),
        c.conname,
        pg_get_constraintdef(c.oid)
@@ -214,6 +215,7 @@ select i.relname,
                                 :table-name table-name
                                 :table-oid table-oid
                                 :primary primary
+                                :unique unique
                                 :columns nil
                                 :sql sql
                                 :conname conname

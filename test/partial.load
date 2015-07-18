@@ -26,7 +26,7 @@ LOAD CSV
    BEFORE LOAD DO
    $$ drop table if exists partial; $$,
    $$ create table partial (
-       a integer primary key,
+       a integer unique,
        b text,
        c text,
        d text,

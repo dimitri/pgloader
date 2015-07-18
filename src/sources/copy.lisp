@@ -120,6 +120,7 @@
                       &key
                         state-before
                         state-after
+                        state-indexes
                         truncate
                         disable-triggers
                         drop-indexes)
@@ -160,6 +161,6 @@
            finally (lp:end-kernel))))
 
     ;; re-create the indexes
-    (create-indexes-again (target-db copy) indexes state-after
+    (create-indexes-again (target-db copy) indexes state-after state-indexes
                           :drop-indexes drop-indexes)))
 

@@ -293,11 +293,8 @@
 
 	 (cols (mapcar #'apply-identifier-case (pgsql-index-columns index))))
     (cond
-      ((pgsql-index-condef index)
-       (format nil "ALTER TABLE ~a ADD ~a;"
-               table-name (pgsql-index-condef index)))
-
-      ((pgsql-index-primary index)
+      ((or (pgsql-index-primary index)
+           (and (pgsql-index-condef index) (pgsql-index-unique index)))
        (values
         ;; ensure good concurrency here, don't take the ACCESS EXCLUSIVE
         ;; LOCK on the table before we have the index done already
@@ -305,8 +302,15 @@
             (format nil "CREATE UNIQUE INDEX ~a ON ~a (~{~a~^, ~});"
                     index-name table-name cols))
         (format nil
-                "ALTER TABLE ~a ADD PRIMARY KEY USING INDEX ~a;"
-                table-name (pgsql-index-name index))))
+                "ALTER TABLE ~a ADD ~a USING INDEX ~a;"
+                table-name
+                (cond ((pgsql-index-primary index) "PRIMARY KEY")
+                      ((pgsql-index-unique index) "UNIQUE"))
+                (pgsql-index-name index))))
+
+      ((pgsql-index-condef index)
+       (format nil "ALTER TABLE ~a ADD ~a;"
+               table-name (pgsql-index-condef index)))
 
       (t
        (or (pgsql-index-sql index)
@@ -413,7 +417,8 @@
       ;; and return the indexes list
       indexes)))
 
-(defun create-indexes-again (target indexes state &key drop-indexes)
+(defun create-indexes-again (target indexes state state-parallel
+                             &key drop-indexes)
   "Create the indexes that we dropped previously."
   (when (and indexes drop-indexes)
     (let* ((idx-kernel  (make-kernel (length indexes)))
@@ -421,19 +426,19 @@
                           (lp:make-channel))))
       (let ((pkeys
              (create-indexes-in-kernel target indexes idx-kernel idx-channel
-                                       :state state)))
+                                       :state state-parallel)))
 
-        (with-stats-collection ("Index Build Completion" :state *state*)
+        (with-stats-collection ("Index Build Completion" :state state)
             (loop :for idx :in indexes :do (lp:receive-result idx-channel)))
 
         ;; turn unique indexes into pkeys now
         (with-pgsql-connection (target)
-          (with-stats-collection ("Primary Keys" :state state)
+          (with-stats-collection ("Constraints" :state state)
               (loop :for sql :in pkeys
                  :when sql
                  :do (progn
                        (log-message :notice "~a" sql)
-                       (pgsql-execute-with-timing "Primary Keys" sql state)))))))))
+                       (pgsql-execute-with-timing "Constraints" sql state)))))))))
 
 ;;;
 ;;; Sequences
