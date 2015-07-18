@@ -1776,6 +1776,9 @@ In somes cases like when the DDL are entirely left to a framework it might be se
 .IP
 The default is to \fIuniquify index names\fR\.
 .
+.IP
+Even when using the option \fIpreserve index names\fR, MySQL primary key indexes named "PRIMARY" will get their names uniquified\. Failing to do so would prevent the primary keys to be created again in PostgreSQL where the index names must be unique per schema\.
+.
 .IP "\(bu" 4
 \fIforeign keys\fR
 .

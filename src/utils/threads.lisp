@@ -16,6 +16,9 @@
                             (*client-min-messages* . ,*client-min-messages*)
                             (*log-min-messages*    . ,*log-min-messages*)
 
+                            ;; needed in create index specific kernels
+                            (*preserve-index-names* . ,*preserve-index-names*)
+
                             ;; bindings updates for libs
                             ;; CFFI is used by the SQLite lib
                             (cffi:*default-foreign-encoding*

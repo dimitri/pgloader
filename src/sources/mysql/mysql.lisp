@@ -152,8 +152,7 @@
                                &key
                                  state
                                  foreign-keys
-                                 include-drop
-                                 preserve-index-names)
+                                 include-drop)
   "Prepare the target PostgreSQL database: create tables casting datatypes
    from the MySQL definitions, prepare index definitions and create target
    tables for materialized views.
@@ -180,8 +179,7 @@
         ;; MySQL allows the same index name being used against several
         ;; tables, so we add the PostgreSQL table OID in the index name,
         ;; to differenciate. Set the table oids now.
-        (unless preserve-index-names
-          (set-table-oids all-indexes))
+        (set-table-oids all-indexes)
 
         ;; We might have to MATERIALIZE VIEWS
         (when materialize-views
@@ -409,9 +407,7 @@
                                          view-columns
                                          :state state-before
                                          :foreign-keys foreign-keys
-                                         :include-drop include-drop
-                                         :preserve-index-names (eq :preserve
-                                                                   index-names)))
+                                         :include-drop include-drop))
                 (t
                  (when truncate
                    (truncate-tables (target-db mysql) (mapcar #'car all-columns)))))
@@ -474,7 +470,8 @@
              ;; will get built in parallel --- not a big problem.
              (when (and create-indexes (not data-only))
                (let* ((indexes
-                       (cdr (assoc table-name all-indexes :test #'string=))))
+                       (cdr (assoc table-name all-indexes :test #'string=)))
+                      (*preserve-index-names* (eq :preserve index-names)))
                  (alexandria:appendf
                   pkeys
                   (create-indexes-in-kernel (target-db mysql)

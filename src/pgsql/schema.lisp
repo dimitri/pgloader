@@ -282,12 +282,15 @@
 
 (defmethod format-pgsql-create-index ((index pgsql-index))
   "Generate the PostgreSQL statement list to rebuild a Foreign Key"
-  (let* ((index-name (if (pgsql-index-table-oid index)
+  (let* ((index-name (if (and *preserve-index-names*
+                              (not (string-equal "primary" (pgsql-index-name index)))
+                              (pgsql-index-table-oid index))
+                         (pgsql-index-name index)
+
+                         ;; in the general case, we build our own index name.
                          (format nil "idx_~a_~a"
                                  (pgsql-index-table-oid index)
-                                 (pgsql-index-name index))
-                         ;; lacking the oid means we preserve the index name
-                         (pgsql-index-name index)))
+                                 (pgsql-index-name index))))
 	 (table-name (apply-identifier-case (pgsql-index-table-name index)))
 	 (index-name (apply-identifier-case index-name))
 
@@ -306,7 +309,7 @@
                 table-name
                 (cond ((pgsql-index-primary index) "PRIMARY KEY")
                       ((pgsql-index-unique index) "UNIQUE"))
-                (pgsql-index-name index))))
+                index-name)))
 
       ((pgsql-index-condef index)
        (format nil "ALTER TABLE ~a ADD ~a;"
@@ -421,7 +424,8 @@
                              &key drop-indexes)
   "Create the indexes that we dropped previously."
   (when (and indexes drop-indexes)
-    (let* ((idx-kernel  (make-kernel (length indexes)))
+    (let* ((*preserve-index-names* t)
+           (idx-kernel  (make-kernel (length indexes)))
            (idx-channel (let ((lp:*kernel* idx-kernel))
                           (lp:make-channel))))
       (let ((pkeys

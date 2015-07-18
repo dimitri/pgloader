@@ -1529,6 +1529,11 @@ The `database` command accepts the following clauses and options:
 
         The default is to *uniquify index names*.
 
+        Even when using the option *preserve index names*, MySQL primary key
+        indexes named "PRIMARY" will get their names uniquified. Failing to
+        do so would prevent the primary keys to be created again in
+        PostgreSQL where the index names must be unique per schema.
+
       - *foreign keys*
 
 	    When this option is listed, pgloader gets the definitions of all the

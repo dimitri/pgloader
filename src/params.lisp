@@ -15,6 +15,7 @@
 	   #:*log-min-messages*
            #:*report-stream*
            #:*identifier-case*
+           #:*preserve-index-names*
 	   #:*copy-batch-rows*
            #:*copy-batch-size*
            #:*concurrent-batches*
@@ -97,6 +98,9 @@
 ;;;
 (defparameter *identifier-case* :downcase
   "Dealing with source databases casing rules.")
+
+(defparameter *preserve-index-names* nil
+  "Dealing with source databases index naming.")
 
 ;;;
 ;;; How to split batches in case of data loading errors.
