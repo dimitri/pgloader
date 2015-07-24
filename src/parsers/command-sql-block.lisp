@@ -26,12 +26,6 @@
     (destructuring-bind (dq1 dqs) source
       (list* dq1 dqs))))
 
-(defrule before-load-do (and kw-before kw-load kw-do dollar-quoted-list)
-  (:lambda (bld)
-    (destructuring-bind (before load do quoted) bld
-      (declare (ignore before load do))
-      quoted)))
-
 (defrule sql-file (or maybe-quoted-filename)
   (:lambda (filename)
     (destructuring-bind (kind path) filename
@@ -39,37 +33,30 @@
         (:filename
          (pgloader.sql:read-queries (uiop:merge-pathnames* path *cwd*)))))))
 
-(defrule before-load-execute (and kw-before kw-load kw-execute sql-file)
+(defrule load-do (and kw-do dollar-quoted-list)
+  (:lambda (bld)
+    (destructuring-bind (do quoted) bld
+      (declare (ignore do))
+      quoted)))
+
+(defrule load-execute (and kw-execute sql-file)
   (:lambda (ble)
-    (bind (((_ _ _ sql) ble)) sql)))
+    (bind (((_ sql) ble)) sql)))
 
-(defrule before-load (or before-load-do before-load-execute)
+(defrule before-load (and kw-before kw-load (+ (or load-do load-execute)))
   (:lambda (before)
-    (cons :before before)))
+    (bind (((_ _ sql-list-of-list) before))
+      (cons :before (apply #'append sql-list-of-list)))))
 
-(defrule finally-do (and kw-finally kw-do dollar-quoted-list)
-  (:lambda (fd)
-    (bind (((_ _ quoted) fd)) quoted)))
-
-(defrule finally-execute (and kw-finally kw-execute sql)
-  (:lambda (fe)
-    (bind (((_ _ sql) fe)) sql)))
-
-(defrule finally (or finally-do finally-execute)
+(defrule finally (and kw-finally (+ (or load-do load-execute)))
   (:lambda (finally)
-    (cons :finally finally)))
+    (bind (((_ sql-list-of-list) finally))
+      (cons :finally (apply #'append sql-list-of-list)))))
 
-(defrule after-load-do (and kw-after kw-load kw-do dollar-quoted-list)
-  (:lambda (fd)
-    (bind (((_ _ _ quoted) fd)) quoted)))
-
-(defrule after-load-execute (and kw-after kw-load kw-execute sql-file)
-  (:lambda (fd)
-    (bind (((_ _ _ sql) fd)) sql)))
-
-(defrule after-load (or after-load-do after-load-execute)
+(defrule after-load (and kw-after kw-load (+ (or load-do load-execute)))
   (:lambda (after)
-    (cons :after after)))
+    (bind (((_ _ sql-list-of-list) after))
+      (cons :after (apply #'append sql-list-of-list)))))
 
 (defun sql-code-block (pgconn state commands label)
   "Return lisp code to run COMMANDS against DBNAME, updating STATE."

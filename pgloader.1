@@ -505,8 +505,8 @@ LOAD <source\-type>
 
 [ SET <postgresql\-settings> ]
 
-[ BEFORE LOAD DO|EXECUTE [ <sql statements> | <sql file> ]
-[  AFTER LOAD DO|EXECUTE [ <sql statements> | <sql file> ]
+[ BEFORE LOAD [ DO <sql statements> | EXECUTE <sql file> ] \.\.\. ]
+[  AFTER LOAD [ DO <sql statements> | EXECUTE <sql file> ] \.\.\. ]
 ;
 .
 .fi
@@ -1521,29 +1521,11 @@ LOAD ARCHIVE
    FROM /Users/dim/Downloads/GeoLiteCity\-latest\.zip
    INTO postgresql:///ip4r
 
-   BEFORE LOAD DO
-     $$ create extension if not exists ip4r; $$,
-     $$ create schema if not exists geolite; $$,
-     $$ create table if not exists geolite\.location
-       (
-          locid      integer primary key,
-          country    text,
-          region     text,
-          city       text,
-          postalcode text,
-          location   point,
-          metrocode  text,
-          areacode   text
-       );
-     $$,
-     $$ create table if not exists geolite\.blocks
-       (
-          iprange    ip4r,
-          locid      integer
-       );
-     $$,
-     $$ drop index if exists geolite\.blocks_ip4r_idx; $$,
-     $$ truncate table geolite\.blocks, geolite\.location cascade; $$
+   BEFORE LOAD
+     DO $$ create extension if not exists ip4r; $$,
+        $$ create schema if not exists geolite; $$,
+
+     EXECUTE \'geolite\.sql\'
 
    LOAD CSV
         FROM FILENAME MATCHING ~/GeoLiteCity\-Location\.csv/
