@@ -252,13 +252,13 @@ order by SchemaName,
                   (loop :for (name . index) :in list-of-indexes
                      :collect (cons name (reverse-index-cols index))))
 
-                (reverse-indexes-cols (list-of-tables)
+                (reverse-indexes-tables (list-of-tables)
                   (reverse
                    (loop :for (table . indexes) :in list-of-tables
                       :collect (cons table (reverse-indexes-cols indexes))))))
          (reverse
           (loop :for (schema . tables) :in result
-             :collect (cons schema (reverse-indexes-cols tables))))))))
+             :collect (cons schema (reverse-indexes-tables tables))))))))
 
 (defun list-all-fkeys (&key including excluding)
   "Get the list of MSSQL index definitions per table."
@@ -345,13 +345,13 @@ ORDER BY KCU1.CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
                   (loop :for (name . fkeys) :in list-of-fkeys
                      :collect (cons name (reverse-fkey-cols fkeys))))
 
-                (reverse-fkeys-cols (list-of-tables)
+                (reverse-fkeys-tables (list-of-tables)
                   (reverse
                    (loop :for (table . fkeys) :in list-of-tables
                       :collect (cons table (reverse-fkeys-cols fkeys))))))
          (reverse
           (loop :for (schema . tables) :in result
-             :collect (cons schema (reverse-fkeys-cols tables))))))))
+             :collect (cons schema (reverse-fkeys-tables tables))))))))
 
 
 ;;;
