@@ -328,7 +328,10 @@
   (let* ((table-name (apply-identifier-case (pgsql-index-table-name index)))
 	 (index-name (apply-identifier-case (pgsql-index-name index))))
     (cond ((pgsql-index-conname index)
-           (format nil "ALTER TABLE ~a DROP CONSTRAINT ~a;"
+           ;; here always quote the constraint name, currently the name
+           ;; comes from one source only, the PostgreSQL database catalogs,
+           ;; so don't question it, quote it.
+           (format nil "ALTER TABLE ~a DROP CONSTRAINT ~s;"
                    table-name (pgsql-index-conname index)))
 
           (t
@@ -402,7 +405,10 @@
   "Drop the indexes for TABLE-NAME on TARGET PostgreSQL connection, and
    returns a list of indexes to create again."
   (with-pgsql-connection (target)
-    (let ((indexes (list-indexes table-name)))
+    (let ((indexes (list-indexes table-name))
+          ;; we get the list of indexes from PostgreSQL catalogs, so don't
+          ;; question their spelling, just quote them.
+          (*identifier-case* :quote))
       (cond ((and indexes (not drop-indexes))
              (log-message :warning
                           "Target table ~s has ~d indexes defined against it."
@@ -425,6 +431,9 @@
   "Create the indexes that we dropped previously."
   (when (and indexes drop-indexes)
     (let* ((*preserve-index-names* t)
+           ;; we get the list of indexes from PostgreSQL catalogs, so don't
+           ;; question their spelling, just quote them.
+           (*identifier-case* :quote)
            (idx-kernel  (make-kernel (length indexes)))
            (idx-channel (let ((lp:*kernel* idx-kernel))
                           (lp:make-channel))))

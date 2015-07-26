@@ -218,8 +218,8 @@ select i.relname,
                                 :unique unique
                                 :columns nil
                                 :sql sql
-                                :conname conname
-                                :condef condef)))
+                                :conname (unless (eq :null conname) conname)
+                                :condef  (unless (eq :null condef)  condef))))
 
 (defun list-reserved-keywords (pgconn)
   "Connect to PostgreSQL DBNAME and fetch reserved keywords."
