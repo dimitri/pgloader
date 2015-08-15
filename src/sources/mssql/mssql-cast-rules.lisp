@@ -92,10 +92,13 @@
 
           ((member type '("decimal" "numeric" ) :test #'string=)
            ;; https://msdn.microsoft.com/en-us/library/ms187746.aspx
-           (format nil "~a(~a,~a)"
-                   type
-                   (mssql-column-numeric-precision col)
-                   (mssql-column-numeric-scale col)))
+           (cond ((null (mssql-column-numeric-precision col))
+                  type)
+                 (t
+                  (format nil "~a(~a,~a)"
+                          type
+                          (mssql-column-numeric-precision col)
+                          (or (mssql-column-numeric-scale col) 0)))))
 
           (t type))))
 
