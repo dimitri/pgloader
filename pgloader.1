@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "July 2015" "ff" ""
+.TH "PGLOADER" "1" "August 2015" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -2516,7 +2516,22 @@ Connection string to an existing MS SQL database server that listens and welcome
 \fIWITH\fR
 .
 .IP
-When loading from a \fBMS SQL\fR database, the same options as when loading a \fBMySQL\fR database are supported\. Please refer to the MySQL section\.
+When loading from a \fBMS SQL\fR database, the same options as when loading a \fBMySQL\fR database are supported\. Please refer to the MySQL section\. The following options are added:
+.
+.IP "\(bu" 4
+\fIcreate schemas\fR
+.
+.IP
+When this option is listed, pgloader creates the same schemas as found on the MS SQL instance\. This is the default\.
+.
+.IP "\(bu" 4
+\fIcreate no schemas\fR
+.
+.IP
+When this option is listed, pgloader refrains from creating any schemas at all, you must then ensure that the target schema do exist\.
+.
+.IP "" 0
+
 .
 .IP "\(bu" 4
 \fICAST\fR

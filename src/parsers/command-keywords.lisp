@@ -96,6 +96,7 @@
   (def-keyword-rule "delimiter")
   ;; option for MySQL imports
   (def-keyword-rule "schema")
+  (def-keyword-rule "schemas")
   (def-keyword-rule "only")
   (def-keyword-rule "drop")
   (def-keyword-rule "create")

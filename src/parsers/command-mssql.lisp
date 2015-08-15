@@ -12,6 +12,36 @@
 ;;;
 ;;;  http://msdn.microsoft.com/en-us/library/ms187489(SQL.90).aspx
 ;;;
+(make-option-rule create-tables    (and kw-create (? kw-no) kw-schemas))
+
+(defrule mssql-option (or option-batch-rows
+                          option-batch-size
+                          option-batch-concurrency
+                          option-truncate
+                          option-disable-triggers
+                          option-data-only
+                          option-schema-only
+                          option-include-drop
+                          option-create-tables
+                          option-create-schemas
+                          option-create-indexes
+                          option-reset-sequences
+                          option-encoding))
+
+(defrule another-mssql-option (and comma mssql-option)
+  (:lambda (source)
+    (bind (((_ option) source)) option)))
+
+(defrule mssql-option-list (and mssql-option (* another-mssql-option))
+  (:lambda (source)
+    (destructuring-bind (opt1 opts) source
+      (alexandria:alist-plist (list* opt1 opts)))))
+
+(defrule mssql-options (and kw-with mssql-option-list)
+  (:lambda (source)
+    (bind (((_ opts) source))
+      (cons :mssql-options opts))))
+
 (defrule like-expression (and "'" (+ (not "'")) "'")
   (:lambda (le)
     (bind (((_ like _) le)) (text like))))
@@ -53,7 +83,7 @@
 ;;;
 ;;; Allow clauses to appear in any order
 ;;;
-(defrule load-mssql-optional-clauses (* (or mysql-options
+(defrule load-mssql-optional-clauses (* (or mssql-options
                                             gucs
                                             casts
                                             before-load
@@ -156,7 +186,7 @@
     (bind (((ms-db-uri pg-db-uri
                        &key
                        gucs casts before after including excluding
-                       ((:mysql-options options)))
+                       ((:mssql-options options)))
             source))
       (lisp-code-for-loading-from-mssql ms-db-uri pg-db-uri
                                         :gucs gucs

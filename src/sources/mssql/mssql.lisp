@@ -180,6 +180,7 @@
 			    (data-only        nil)
 			    (schema-only      nil)
 			    (create-tables    t)
+			    (create-schemas   t)
 			    (include-drop     t)
 			    (create-indexes   t)
 			    (reset-sequences  t)
@@ -226,9 +227,10 @@
                      (loop :for (schema . tables) :in all-columns
                         :do (let ((schema (apply-identifier-case schema)))
                               ;; create schema
-                              (let ((sql (format nil "CREATE SCHEMA ~a;" schema)))
-                                (log-message :notice "~a" sql)
-                                (pgsql-execute sql))
+                              (when create-schemas
+                                (let ((sql (format nil "CREATE SCHEMA ~a;" schema)))
+                                  (log-message :notice "~a" sql)
+                                  (pgsql-execute sql)))
 
                               ;; set search_path to only that schema
                               (pgsql-execute

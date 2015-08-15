@@ -2054,7 +2054,19 @@ The `mssql` command accepts the following clauses and options:
   - *WITH*
 
     When loading from a `MS SQL` database, the same options as when loading
-    a `MySQL` database are supported. Please refer to the MySQL section.
+    a `MySQL` database are supported. Please refer to the MySQL section. The
+    following options are added:
+
+      - *create schemas*
+
+        When this option is listed, pgloader creates the same schemas as
+        found on the MS SQL instance. This is the default.
+
+      - *create no schemas*
+
+        When this option is listed, pgloader refrains from creating any
+        schemas at all, you must then ensure that the target schema do
+        exist.
 
   - *CAST*
 
