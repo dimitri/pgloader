@@ -55,10 +55,9 @@
                                           :table-name table-name
                                           :sql sql)))
              (if entry
-                 (push idxdef (cdr entry))
-                 (push (cons table-name (list idxdef)) schema)))
-       :finally (return (reverse (loop for (name . indexes) in schema
-                                    collect (cons name (reverse indexes))))))))
+                 (push-to-end idxdef (cdr entry))
+                 (push-to-end (cons table-name (list idxdef)) schema)))
+       :finally (return schema))))
 
 
 ;;;

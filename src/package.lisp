@@ -33,12 +33,18 @@
 
 (defpackage #:pgloader.utils
   (:use #:cl #:pgloader.params)
-  (:import-from #:alexandria #:read-file-into-string)
+  (:import-from #:alexandria
+                #:appendf
+                #:read-file-into-string)
   (:import-from #:pgloader.monitor
                 #:with-monitor
                 #:*monitoring-queue*
                 #:log-message)
   (:export #:with-monitor               ; monitor
+
+           ;; bits from alexandria
+           #:appendf
+           #:read-file-into-string
 
            ;; logs
            #:log-message
@@ -148,6 +154,9 @@
 	   #:copy-to-queue
 	   #:copy-to
 	   #:copy-database
+
+           ;; common schema facilities
+           #:push-to-end
 
            ;; file based utils for CSV, fixed etc
            #:with-open-file-or-stream

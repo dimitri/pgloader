@@ -208,15 +208,10 @@ order by table_name, ordinal_position"
               (column  (make-mysql-column
                         table-name name dtype ctype def-val nullable extra)))
          (if entry
-             (push column (cdr entry))
-             (push (cons table-name (list column)) schema)))
+             (push-to-end column (cdr entry))
+             (push-to-end (cons table-name (list column)) schema)))
      finally
-     ;; we did push, we need to reverse here
-       (return (loop
-                  for name in (if only-tables only-tables
-                                  (reverse (mapcar #'car schema)))
-                  for cols = (cdr (assoc name schema :test #'string=))
-                  collect (cons name (reverse cols))))))
+       (return schema)))
 
 (defun list-all-indexes (&key
                            only-tables
@@ -250,13 +245,10 @@ GROUP BY table_name, index_name;"
                                  :unique (not (string= "1" non-unique))
                                  :columns (sq:split-sequence #\, cols))))
           (if entry
-              (push index (cdr entry))
-              (push (cons table-name (list index)) schema)))
+              (push-to-end index (cdr entry))
+              (push-to-end (cons table-name (list index)) schema)))
      finally
-     ;; we did push, we need to reverse here
-       (return (reverse (loop
-                           for (name . indexes) in schema
-                           collect (cons name (reverse indexes)))))))
+       (return schema)))
 
 ;;;
 ;;; MySQL Foreign Keys
@@ -317,13 +309,10 @@ GROUP BY table_name, index_name;"
                                 :update-rule update-rule
                                 :delete-rule delete-rule)))
           (if entry
-              (push fk (cdr entry))
-              (push (cons table-name (list fk)) schema)))
+              (push-to-end fk (cdr entry))
+              (push-to-end (cons table-name (list fk)) schema)))
      finally
-     ;; we did push, we need to reverse here
-       (return (reverse (loop
-                           for (name . fks) in schema
-                           collect (cons name (reverse fks)))))))
+       (return schema)))
 
 
 ;;;

@@ -166,17 +166,10 @@ order by c.table_schema, c.table_name, c.ordinal_position"
               character-set-name collation-name)))
        (if s-entry
            (if t-entry
-               (push column (cdr t-entry))
-               (push (cons table-name (list column)) (cdr s-entry)))
-           (push (cons schema (list (cons table-name (list column)))) result)))
-     :finally
-     ;; we did push, we need to reverse here
-     (return (reverse
-              (loop :for (schema . tables) :in result
-                 :collect
-                 (cons schema
-                       (reverse (loop :for (table-name . cols) :in tables
-                                   :collect (cons table-name (reverse cols))))))))))
+               (push-to-end column (cdr t-entry))
+               (push-to-end (cons table-name (list column)) (cdr s-entry)))
+           (push-to-end (cons schema (list (cons table-name (list column)))) result)))
+     :finally (return result)))
 
 (defun list-all-indexes (&key including excluding)
   "Get the list of MSSQL index definitions per table."
@@ -233,32 +226,15 @@ order by SchemaName,
        (if s-entry
            (if t-entry
                (if i-entry
-                   (push col
+                   (push-to-end col
                          (pgloader.pgsql::pgsql-index-columns (cdr i-entry)))
-                   (push (cons name index) (cdr t-entry)))
-               (push (cons table (list (cons name index))) (cdr s-entry)))
-           (push (cons schema
-                       (list (cons table
-                                   (list (cons name index))))) result)))
+                   (push-to-end (cons name index) (cdr t-entry)))
+               (push-to-end (cons table (list (cons name index))) (cdr s-entry)))
+           (push-to-end (cons schema
+                              (list (cons table
+                                          (list (cons name index))))) result)))
      :finally
-     ;; we did push, we need to reverse here
-     (return
-       (labels ((reverse-index-cols (index)
-                  (setf (pgloader.pgsql::pgsql-index-columns index)
-                        (nreverse (pgloader.pgsql::pgsql-index-columns index)))
-                  index)
-
-                (reverse-indexes-cols (list-of-indexes)
-                  (loop :for (name . index) :in list-of-indexes
-                     :collect (cons name (reverse-index-cols index))))
-
-                (reverse-indexes-cols (list-of-tables)
-                  (reverse
-                   (loop :for (table . indexes) :in list-of-tables
-                      :collect (cons table (reverse-indexes-cols indexes))))))
-         (reverse
-          (loop :for (schema . tables) :in result
-             :collect (cons schema (reverse-indexes-cols tables))))))))
+     (return result)))
 
 (defun list-all-fkeys (&key including excluding)
   "Get the list of MSSQL index definitions per table."
@@ -323,35 +299,17 @@ ORDER BY KCU1.CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
            (if t-entry
                (if f-entry
                    (let ((fkey (cdr f-entry)))
-                     (push col (pgloader.pgsql::pgsql-fkey-columns fkey))
-                     (push fcol (pgloader.pgsql::pgsql-fkey-foreign-columns fkey)))
-                   (push (cons name fkey) (cdr t-entry)))
-               (push (cons table (list (cons name fkey))) (cdr s-entry)))
-           (push (cons schema
-                       (list (cons table
-                                   (list (cons name fkey))))) result)))
+                     (push-to-end col (pgloader.pgsql::pgsql-fkey-columns fkey))
+                     (push-to-end fcol
+                                  (pgloader.pgsql::pgsql-fkey-foreign-columns fkey)))
+                   (push-to-end (cons name fkey) (cdr t-entry)))
+               (push-to-end (cons table (list (cons name fkey))) (cdr s-entry)))
+           (push-to-end (cons schema
+                              (list (cons table
+                                          (list (cons name fkey))))) result)))
      :finally
      ;; we did push, we need to reverse here
-     (return
-       (labels ((reverse-fkey-cols (fkey)
-                  (setf (pgloader.pgsql::pgsql-fkey-columns fkey)
-                        (nreverse (pgloader.pgsql::pgsql-fkey-columns fkey)))
-                  (setf (pgloader.pgsql::pgsql-fkey-foreign-columns fkey)
-                        (nreverse
-                         (pgloader.pgsql::pgsql-fkey-foreign-columns fkey)))
-                  fkey)
-
-                (reverse-fkeys-cols (list-of-fkeys)
-                  (loop :for (name . fkeys) :in list-of-fkeys
-                     :collect (cons name (reverse-fkey-cols fkeys))))
-
-                (reverse-fkeys-cols (list-of-tables)
-                  (reverse
-                   (loop :for (table . fkeys) :in list-of-tables
-                      :collect (cons table (reverse-fkeys-cols fkeys))))))
-         (reverse
-          (loop :for (schema . tables) :in result
-             :collect (cons schema (reverse-fkeys-cols tables))))))))
+     (return result)))
 
 
 ;;;

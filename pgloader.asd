@@ -118,6 +118,7 @@
                         ((:module "common"
                                   :components
                                   ((:file "api")
+                                   (:file "schema")
                                    (:file "casting-rules")
                                    (:file "files-and-pathnames")
                                    (:file "project-fields")))
