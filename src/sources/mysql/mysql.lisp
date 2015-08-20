@@ -321,6 +321,10 @@
        (+ (length all-columns) (length all-fkeys)
           (length all-indexes) (length view-columns))))
 
+   (log-message :notice
+                "MySQL metadata fetched: found ~d tables with ~d indexes total."
+                (length all-columns) (length all-indexes))
+
    ;; now return a plist to the caller
    (list :all-columns all-columns
          :table-comments table-comments

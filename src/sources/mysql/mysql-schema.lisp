@@ -76,6 +76,7 @@
 (defun mysql-query (query &key row-fn (as-text t) (result-type 'list))
   "Execute given QUERY within the current *connection*, and set proper
    defaults for pgloader."
+  (log-message :debug "MySQL: sending query: ~a" query)
   (qmynd:mysql-query (conn-handle *connection*) query
                      :row-fn row-fn
                      :as-text as-text
