@@ -1,0 +1,29 @@
+--
+-- From https://github.com/dimitri/pgloader/issues/275
+--
+
+LOAD CSV
+   FROM inline with encoding 'LATIN1'
+   INTO postgresql:///pgloader?tab_csv
+   WITH truncate,
+        skip header = 0,
+        fields terminated by ',',
+        fields optionally enclosed by '"'
+
+   BEFORE LOAD DO
+     $$ drop table if exists tab_csv; $$,
+     $$ create table tab_csv
+          (c1 varchar(100),
+           c2 varchar(100),
+           c3 varchar(100));
+     $$
+
+;
+
+col1, 45, "005 45 works"
+col1, 44, "006 44 Fails 0xa5"
+col1, 45, "006 45 Fails 0xa6"
+col1, "45", "006 45 Fails using escape 0xa6"
+col1, 46, "006 46 Fails 0xa7"
+col1, 47, "006 47 Fails 0xa8"
+col1, 4T works, "006 followed by 4 works ? why"

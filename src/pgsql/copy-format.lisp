@@ -78,7 +78,7 @@ details about the format, and format specs."
                            (t
                             (if (<= 32 byte 127)
                                 (write-bytes (code-char byte))
-                                (write-bytes (format nil "\\~o" byte))))))))
+                                (write-bytes (format nil "\\~3,'0o" byte))))))))
          when more? do (write-bytes #\Tab)
          finally       (progn (write-bytes #\Newline)
                               (return bytes))))))
