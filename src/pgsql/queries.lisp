@@ -80,7 +80,7 @@
   `(let (#+unix (cl-postgres::*unix-socket-dir*  (get-unix-socket-dir ,pgconn)))
      (with-connection (conn ,pgconn)
        (let ((pomo:*database* (conn-handle conn)))
-         (log-message :debug "CONNECT ~s" conn)
+         (log-message :debug "CONNECTED TO ~s" conn)
          (set-session-gucs *pg-settings*)
          (handling-pgsql-notices
               ,@forms)))))
