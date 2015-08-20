@@ -64,6 +64,7 @@
                                  :username (db-user myconn)
                                  :password (db-pass myconn)
                                  :database (db-name myconn))))
+  (log-message :debug "CONNECT ~a" myconn)
   ;; return the connection object
   myconn)
 
