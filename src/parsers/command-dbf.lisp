@@ -81,6 +81,12 @@
     (destructuring-bind (source encoding target clauses) command
       `(,source ,encoding ,target ,@clauses))))
 
+(defun lisp-code-for-dbf-dry-run (dbf-db-conn pg-db-conn)
+  `(lambda ()
+     (let ((source-db (expand (fetch-file ,dbf-db-conn))))
+       (check-connection source-db)
+       (check-connection ,pg-db-conn))))
+
 (defun lisp-code-for-loading-from-dbf (dbf-db-conn pg-db-conn
                                        &key
                                          (encoding :ascii)
@@ -123,9 +129,12 @@
   (:lambda (command)
     (bind (((source encoding pg-db-uri
                     &key ((:dbf-options options)) gucs before after) command))
-      (lisp-code-for-loading-from-dbf source pg-db-uri
-                                      :encoding encoding
-                                      :gucs gucs
-                                      :before before
-                                      :after after
-                                      :dbf-options options))))
+      (cond (*dry-run*
+             (lisp-code-for-dbf-dry-run source pg-db-uri))
+            (t
+             (lisp-code-for-loading-from-dbf source pg-db-uri
+                                             :encoding encoding
+                                             :gucs gucs
+                                             :before before
+                                             :after after
+                                             :dbf-options options))))))

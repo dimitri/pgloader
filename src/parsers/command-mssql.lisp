@@ -139,6 +139,12 @@
 
 
 ;;; LOAD DATABASE FROM mssql://
+(defun lisp-code-for-mssql-dry-run (ms-db-conn pg-db-conn)
+  `(lambda ()
+     (log-message :log "DRY RUN, only checking connections.")
+     (check-connection ,ms-db-conn)
+     (check-connection ,pg-db-conn)))
+
 (defun lisp-code-for-loading-from-mssql (ms-db-conn pg-db-conn
                                          &key
                                            gucs casts before after
@@ -188,12 +194,15 @@
                        gucs casts before after including excluding
                        ((:mssql-options options)))
             source))
-      (lisp-code-for-loading-from-mssql ms-db-uri pg-db-uri
-                                        :gucs gucs
-                                        :casts casts
-                                        :before before
-                                        :after after
-                                        :mssql-options options
-                                        :including including
-                                        :excluding excluding))))
+      (cond (*dry-run*
+             (lisp-code-for-mssql-dry-run ms-db-uri pg-db-uri))
+            (t
+             (lisp-code-for-loading-from-mssql ms-db-uri pg-db-uri
+                                               :gucs gucs
+                                               :casts casts
+                                               :before before
+                                               :after after
+                                               :mssql-options options
+                                               :including including
+                                               :excluding excluding))))))
 

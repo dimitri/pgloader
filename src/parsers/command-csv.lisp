@@ -434,6 +434,14 @@
     (destructuring-bind (source encoding fields target columns clauses) command
       `(,source ,encoding ,fields ,target ,columns ,@clauses))))
 
+(defun lisp-code-for-csv-dry-run (pg-db-conn)
+  `(lambda ()
+     ;; CSV connection objects are not actually implementing the generic API
+     ;; because they support many complex options... (the file can be a
+     ;; pattern or standard input or inline or compressed etc).
+     (log-message :log "DRY RUN, only checking PostgreSQL connection.")
+     (check-connection ,pg-db-conn)))
+
 (defun lisp-code-for-loading-from-csv (csv-conn fields pg-db-conn
                                        &key
                                          (encoding :utf-8)
@@ -492,10 +500,13 @@
   (:lambda (command)
     (bind (((source encoding fields pg-db-uri columns
                     &key ((:csv-options options)) gucs before after) command))
-      (lisp-code-for-loading-from-csv source fields pg-db-uri
-                                      :encoding encoding
-                                      :columns columns
-                                      :gucs gucs
-                                      :before before
-                                      :after after
-                                      :csv-options options))))
+      (cond (*dry-run*
+             (lisp-code-for-csv-dry-run pg-db-uri))
+            (t
+             (lisp-code-for-loading-from-csv source fields pg-db-uri
+                                             :encoding encoding
+                                             :columns columns
+                                             :gucs gucs
+                                             :before before
+                                             :after after
+                                             :csv-options options))))))

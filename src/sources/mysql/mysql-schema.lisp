@@ -73,6 +73,23 @@
   (setf (conn-handle myconn) nil)
   myconn)
 
+(defmethod query ((myconn mysql-connection)
+                  sql
+                  &key
+                    row-fn
+                    (as-text t)
+                    (result-type 'list))
+  "Run SQL query against MySQL connection MYCONN."
+  (log-message :debug "MySQL: sending query: ~a" sql)
+  (qmynd:mysql-query (conn-handle myconn)
+                     sql
+                     :row-fn row-fn
+                     :as-text as-text
+                     :result-type result-type))
+
+;;;
+;;; The generic API query is recent, used to look like this:
+;;;
 (defun mysql-query (query &key row-fn (as-text t) (result-type 'list))
   "Execute given QUERY within the current *connection*, and set proper
    defaults for pgloader."

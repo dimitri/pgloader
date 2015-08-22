@@ -53,6 +53,9 @@
     (("load-lisp-file" #\l) :type string :list t :optional t
      :documentation "Read user code from files")
 
+    ("dry-run" :type boolean
+     :documentation "Only check database connections, don't load anything.")
+
     (("with") :type string :list t :optional t
      :documentation "Load options")
 
@@ -188,7 +191,7 @@
             (usage argv :quit t)))
 
       (destructuring-bind (&key help version quiet verbose debug logfile
-				list-encodings upgrade-config
+				list-encodings upgrade-config dry-run
                                 ((:load-lisp-file load))
 				client-min-messages log-min-messages summary
 				root-dir self-upgrade
@@ -256,6 +259,9 @@
                    (when debug (invoke-debugger c))
                    (uiop:quit +os-code-error+))))
 	  (uiop:quit +os-code-success+))
+
+        ;; Should we run in dry-run mode?
+        (setf *dry-run* dry-run)
 
 	;; Now process the arguments
 	(when arguments

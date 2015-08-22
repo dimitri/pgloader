@@ -82,8 +82,11 @@
   (:lambda (command)
     (bind (((source pg-db-uri
                     &key ((:ixf-options options)) gucs before after) command))
-      (lisp-code-for-loading-from-ixf source pg-db-uri
-                                      :gucs gucs
-                                      :before before
-                                      :after after
-                                      :ixf-options options))))
+      (cond (*dry-run*
+             (lisp-code-for-csv-dry-run pg-db-uri))
+            (t
+             (lisp-code-for-loading-from-ixf source pg-db-uri
+                                             :gucs gucs
+                                             :before before
+                                             :after after
+                                             :ixf-options options))))))

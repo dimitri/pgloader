@@ -29,6 +29,10 @@
   (setf (conn-handle msconn) nil)
   msconn)
 
+(defmethod query ((msconn mssql-connection) sql &key)
+  "Send SQL query to MSCONN connection."
+  (mssql:query sql :connection (conn-handle msconn)))
+
 (defun mssql-query (query)
   "Execute given QUERY within the current *connection*, and set proper
    defaults for pgloader."

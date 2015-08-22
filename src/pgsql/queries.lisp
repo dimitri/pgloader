@@ -45,6 +45,10 @@
   (setf (conn-handle pgconn) nil)
   pgconn)
 
+(defmethod query ((pgconn pgsql-connection) sql &key)
+  (let ((pomo:*database* (conn-handle pgconn)))
+    (pomo:query sql)))
+
 (defmacro handling-pgsql-notices (&body forms)
   "The BODY is run within a PostgreSQL transaction where *pg-settings* have
    been applied. PostgreSQL warnings and errors are logged at the

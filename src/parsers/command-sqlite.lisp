@@ -88,6 +88,12 @@ load database
     (destructuring-bind (source target clauses) command
       `(,source ,target ,@clauses))))
 
+(defun lisp-code-for-sqlite-dry-run (sqlite-db-conn pg-db-conn)
+  `(lambda ()
+     (log-message :log "DRY RUN, only checking connections.")
+     (check-connection ,sqlite-db-conn)
+     (check-connection ,pg-db-conn)))
+
 (defun lisp-code-for-loading-from-sqlite (sqlite-db-conn pg-db-conn
                                           &key
                                             gucs casts
@@ -119,10 +125,13 @@ load database
                          pg-db-uri
                          &key gucs casts sqlite-options including excluding)
         source
-      (lisp-code-for-loading-from-sqlite sqlite-uri pg-db-uri
-                                         :gucs gucs
-                                         :casts casts
-                                         :sqlite-options sqlite-options
-                                         :including including
-                                         :excluding excluding))))
+      (cond (*dry-run*
+             (lisp-code-for-sqlite-dry-run sqlite-uri pg-db-uri))
+            (t
+             (lisp-code-for-loading-from-sqlite sqlite-uri pg-db-uri
+                                                :gucs gucs
+                                                :casts casts
+                                                :sqlite-options sqlite-options
+                                                :including including
+                                                :excluding excluding))))))
 

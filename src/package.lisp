@@ -110,6 +110,8 @@
 
 (defpackage #:pgloader.connection
   (:use #:cl #:pgloader.archive)
+  (:import-from #:pgloader.monitor
+                #:log-message)
   (:export #:connection
            #:open-connection
            #:close-connection
@@ -119,6 +121,8 @@
            #:fd-connection-error
            #:db-connection-error
            #:with-connection
+           #:query
+           #:check-connection
 
            ;; file based connections API for HTTP and Archives support
            #:fetch-file

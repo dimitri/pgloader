@@ -23,6 +23,9 @@
   (setf (conn-handle slconn) nil)
   slconn)
 
+(defmethod query ((slconn sqlite-connection) sql &key)
+  (sqlite:execute-to-list (conn-handle slconn) sql))
+
 (defclass copy-sqlite (copy)
   ((db :accessor db :initarg :db))
   (:documentation "pgloader SQLite Data Source"))

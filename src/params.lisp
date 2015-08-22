@@ -6,6 +6,7 @@
 (defpackage #:pgloader.params
   (:use #:cl)
   (:export #:*version-string*
+           #:*dry-run*
            #:*self-upgrade-immutable-systems*
 	   #:*csv-path-root*
 	   #:*root-dir*
@@ -63,6 +64,9 @@
     "Return the value of the NAME variable as found in the environment, or
      DEFAULT if that variable isn't set"
     (or (uiop:getenv name) default)))
+
+(defparameter *dry-run* nil
+  "Set to non-nil to only run checks about the load setup.")
 
 ;; we can't use pgloader.utils:make-pgstate yet because params is compiled
 ;; first in the asd definition, we just make the symbol a special variable.

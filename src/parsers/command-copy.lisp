@@ -166,10 +166,13 @@
   (:lambda (command)
     (bind (((source encoding fields pg-db-uri columns
                     &key ((:copy-options options)) gucs before after) command))
-      (lisp-code-for-loading-from-copy source fields pg-db-uri
-                                       :encoding encoding
-                                       :columns columns
-                                       :gucs gucs
-                                       :before before
-                                       :after after
-                                       :copy-options options))))
+      (cond (*dry-run*
+             (lisp-code-for-csv-dry-run pg-db-uri))
+            (t
+             (lisp-code-for-loading-from-copy source fields pg-db-uri
+                                              :encoding encoding
+                                              :columns columns
+                                              :gucs gucs
+                                              :before before
+                                              :after after
+                                              :copy-options options))))))
