@@ -16,6 +16,7 @@
 (defmethod open-connection ((slconn sqlite-connection) &key)
   (setf (conn-handle slconn)
         (sqlite:connect (fd-path slconn)))
+  (log-message :debug "CONNECTED TO ~a" (fd-path slconn))
   slconn)
 
 (defmethod close-connection ((slconn sqlite-connection))
@@ -235,7 +236,7 @@
                 (truncate
                  (truncate-tables (target-db sqlite) (mapcar #'car all-columns))))
 
-        (cl-postgres::database-errror (e)
+        (cl-postgres:database-error (e)
           (declare (ignore e))          ; a log has already been printed
           (log-message :fatal "Failed to create the schema, see above.")
           (return-from copy-database)))
@@ -248,7 +249,7 @@
                                  :source-db  (source-db sqlite)
                                  :target-db  (target-db sqlite)
                                  :source     table-name
-                                 :target     table-name
+                                 :target     (apply-identifier-case table-name)
                                  :fields     columns)))
              ;; first COPY the data from SQLite to PostgreSQL, using copy-kernel
              (unless schema-only
