@@ -3,16 +3,14 @@
 ;;;
 (in-package :pgloader.copy)
 
-(defclass copy-connection (csv-connection) ())
+(defclass copy-connection (md-connection) ())
 
-(defmethod initialize-instance :after ((csvconn copy-connection) &key)
+(defmethod initialize-instance :after ((copy copy-connection) &key)
   "Assign the type slot to sqlite."
-  (setf (slot-value csvconn 'type) "copy"))
+  (setf (slot-value copy 'type) "copy"))
 
 (defclass copy-copy (copy)
-  ((source-type :accessor source-type	  ; one of :inline, :stdin, :regex
-		:initarg :source-type)	  ;  or :filename
-   (encoding    :accessor encoding	  ; file encoding
+  ((encoding    :accessor encoding	  ; file encoding
 	        :initarg :encoding)	  ;
    (skip-lines  :accessor skip-lines	  ; we might want to skip COPY lines
 	        :initarg :skip-lines	  ;
@@ -28,10 +26,6 @@
 (defmethod initialize-instance :after ((copy copy-copy) &key)
   "Compute the real source definition from the given source parameter, and
    set the transforms function list as needed too."
-  (let ((source (csv-specs (slot-value copy 'source))))
-    (setf (slot-value copy 'source-type) (car source))
-    (setf (slot-value copy 'source)      (get-absolute-pathname source)))
-
   (let ((transforms (when (slot-boundp copy 'transforms)
 		      (slot-value copy 'transforms)))
 	(columns
@@ -69,48 +63,37 @@
    list as its only parameter.
 
    Returns how many rows were read and processed."
-  (let ((filenames   (case (source-type copy)
-                       (:stdin   (list (source copy)))
-		       (:inline  (list (car (source copy))))
-		       (:regex   (source copy))
-		       (t        (list (source copy))))))
-    (loop :for filename :in filenames
-       :do
-	 (with-open-file-or-stream
-	     ;; we just ignore files that don't exist
-	     (input filename
-		    :direction :input
-		    :external-format (encoding copy)
-		    :if-does-not-exist nil)
-	   (when input
-	     ;; first go to given inline position when filename is :inline
-	     (when (eq (source-type copy) :inline)
-	       (file-position input (cdr (source copy))))
+  (with-connection (cnx (source copy))
+    (loop :for input := (open-next-stream cnx
+                                          :direction :input
+                                          :external-format (encoding copy)
+                                          :if-does-not-exist nil)
+       :while input
+       :do (progn
+             ;; ignore as much as skip-lines lines in the file
+             (loop repeat (skip-lines copy) do (read-line input nil nil))
 
-	     ;; ignore as much as skip-lines lines in the file
-	     (loop repeat (skip-lines copy) do (read-line input nil nil))
-
-	     ;; read in the text file, split it into columns, process NULL
-	     ;; columns the way postmodern expects them, and call
-	     ;; PROCESS-ROW-FN on them
-	     (let ((reformat-then-process
-		    (reformat-then-process :fields  (fields copy)
-					   :columns (columns copy)
-					   :target  (target copy)
-					   :process-row-fn process-row-fn)))
-	       (loop
-		  :with fun := reformat-then-process
-		  :for line := (read-line input nil nil)
-		  :counting line :into read
-		  :while line
-		  :do (handler-case
+             ;; read in the text file, split it into columns, process NULL
+             ;; columns the way postmodern expects them, and call
+             ;; PROCESS-ROW-FN on them
+             (let ((reformat-then-process
+                    (reformat-then-process :fields  (fields copy)
+                                           :columns (columns copy)
+                                           :target  (target copy)
+                                           :process-row-fn process-row-fn)))
+               (loop
+                  :with fun := reformat-then-process
+                  :for line := (read-line input nil nil)
+                  :counting line :into read
+                  :while line
+                  :do (handler-case
                           (funcall fun (parse-row line
                                                   :delimiter (delimiter copy)
                                                   :null-as   (null-as copy)))
                         (condition (e)
                           (progn
                             (log-message :error "~a" e)
-                            (pgstate-incf *state* (target copy) :errs 1)))))))))))
+                            (pgstate-incf *state* (target copy) :errs 1))))))))))
 
 (defmethod copy-to-queue ((copy copy-copy) queue)
   "Copy data from given COPY definition into lparallel.queue DATAQ"

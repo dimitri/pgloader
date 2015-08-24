@@ -13,6 +13,7 @@
                             (*concurrent-batches* . ,*concurrent-batches*)
 			    (*pg-settings*        . ',*pg-settings*)
 			    (*state*              . ,*state*)
+                            (*fd-path-root*       . ,*fd-path-root*)
                             (*client-min-messages* . ,*client-min-messages*)
                             (*log-min-messages*    . ,*log-min-messages*)
 

@@ -8,7 +8,7 @@
   (:export #:*version-string*
            #:*dry-run*
            #:*self-upgrade-immutable-systems*
-	   #:*csv-path-root*
+	   #:*fd-path-root*
 	   #:*root-dir*
 	   #:*log-filename*
            #:*summary-pathname*
@@ -73,8 +73,8 @@
 (defparameter *state* nil
   "State of the current loading.")
 
-(defparameter *csv-path-root* nil
-  "Where to load CSV files from, when loading from an archive.")
+(defparameter *fd-path-root* nil
+  "Where to load files from, when loading from an archive or expanding regexps.")
 
 (defparameter *root-dir*
   #+unix (make-pathname :directory "/tmp/pgloader/")

@@ -377,7 +377,7 @@
 (defrule csv-uri (and "csv://" filename)
   (:lambda (source)
     (bind (((_ filename) source))
-      (make-instance 'csv-connection :specs filename))))
+      (make-instance 'csv-connection :spec filename))))
 
 (defrule csv-file-source (or stdin
 			     inline
@@ -389,10 +389,10 @@
     (if (typep src 'csv-connection) src
         (destructuring-bind (type &rest specs) src
           (case type
-            (:stdin    (make-instance 'csv-connection :specs src))
-            (:inline   (make-instance 'csv-connection :specs src))
-            (:filename (make-instance 'csv-connection :specs src))
-            (:regex    (make-instance 'csv-connection :specs src))
+            (:stdin    (make-instance 'csv-connection :spec src))
+            (:inline   (make-instance 'csv-connection :spec src))
+            (:filename (make-instance 'csv-connection :spec src))
+            (:regex    (make-instance 'csv-connection :spec src))
             (:http     (make-instance 'csv-connection :uri (first specs))))))))
 
 (defrule get-csv-file-source-from-environment-variable (and kw-getenv name)

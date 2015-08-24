@@ -53,7 +53,7 @@
                                                         ("download" :state state-before)
                                                       (pgloader.archive:http-fetch-file ,url)))
                                         (:filename url))))
-                (*csv-path-root*
+                (*fd-path-root*
                  (with-stats-collection ("extract" :state state-before)
                    (pgloader.archive:expand-archive archive-file))))
            (progn

@@ -124,6 +124,13 @@
            #:query
            #:check-connection
 
+           ;; also export slot names
+           #:type
+           #:handle
+           #:uri
+           #:arch
+           #:path
+
            ;; file based connections API for HTTP and Archives support
            #:fetch-file
            #:expand
@@ -158,6 +165,13 @@
 	   #:copy-to-queue
 	   #:copy-to
 	   #:copy-database
+
+           ;; the md-connection facilities
+           #:md-connection
+           #:md-spec
+           #:md-strm
+           #:expand-spec
+           #:open-next-stream
 
            ;; common schema facilities
            #:push-to-end
@@ -264,8 +278,7 @@
   (:import-from #:pgloader.pgsql
                 #:maybe-drop-indexes
                 #:create-indexes-again)
-  (:export #:*csv-path-root*
-           #:csv-connection
+  (:export #:csv-connection
            #:specs
            #:csv-specs
 	   #:get-pathname
@@ -471,6 +484,9 @@
   (:use #:cl #:esrap #:metabang.bind
         #:pgloader.params #:pgloader.utils #:pgloader.sql #:pgloader.connection)
   (:import-from #:alexandria #:read-file-into-string)
+  (:import-from #:pgloader.sources
+                #:md-connection
+                #:md-spec)
   (:import-from #:pgloader.pgsql
                 #:pgsql-connection
 		#:with-pgsql-transaction
@@ -554,7 +570,7 @@
                 #:connection-error)
   (:export #:*version-string*
 	   #:*state*
-	   #:*csv-path-root*
+	   #:*fd-path-root*
 	   #:*root-dir*
 	   #:*pg-settings*
 

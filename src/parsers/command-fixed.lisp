@@ -68,7 +68,7 @@
 (defrule fixed-uri (and "fixed://" filename)
   (:lambda (source)
     (bind (((_ filename) source))
-      (make-instance 'fixed-connection :specs filename))))
+      (make-instance 'fixed-connection :spec filename))))
 
 (defrule fixed-file-source (or stdin
 			       inline
@@ -80,10 +80,10 @@
     (if (typep src 'fixed-connection) src
         (destructuring-bind (type &rest specs) src
           (case type
-            (:stdin    (make-instance 'fixed-connection :specs src))
-            (:inline   (make-instance 'fixed-connection :specs src))
-            (:filename (make-instance 'fixed-connection :specs src))
-            (:regex    (make-instance 'fixed-connection :specs src))
+            (:stdin    (make-instance 'fixed-connection :spec src))
+            (:inline   (make-instance 'fixed-connection :spec src))
+            (:filename (make-instance 'fixed-connection :spec src))
+            (:regex    (make-instance 'fixed-connection :spec src))
             (:http     (make-instance 'fixed-connection :uri (first specs))))))))
 
 (defrule get-fixed-file-source-from-environment-variable (and kw-getenv name)

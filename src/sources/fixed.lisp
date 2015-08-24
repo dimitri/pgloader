@@ -4,16 +4,14 @@
 
 (in-package :pgloader.fixed)
 
-(defclass fixed-connection (csv-connection) ())
+(defclass fixed-connection (md-connection) ())
 
-(defmethod initialize-instance :after ((csvconn fixed-connection) &key)
+(defmethod initialize-instance :after ((fixed fixed-connection) &key)
   "Assign the type slot to sqlite."
-  (setf (slot-value csvconn 'type) "fixed"))
+  (setf (slot-value fixed 'type) "fixed"))
 
 (defclass copy-fixed (copy)
-  ((source-type :accessor source-type	  ; one of :inline, :stdin, :regex
-		:initarg :source-type)	  ;  or :filename
-   (encoding    :accessor encoding	  ; file encoding
+  ((encoding    :accessor encoding	  ; file encoding
 	        :initarg :encoding)	  ;
    (skip-lines  :accessor skip-lines	  ; CSV headers
 	        :initarg :skip-lines	  ;
@@ -23,10 +21,6 @@
 (defmethod initialize-instance :after ((fixed copy-fixed) &key)
   "Compute the real source definition from the given source parameter, and
    set the transforms function list as needed too."
-  (let ((source (csv-specs (slot-value fixed 'source))))
-    (setf (slot-value fixed 'source-type) (car source))
-    (setf (slot-value fixed 'source)      (get-absolute-pathname source)))
-
   (let ((transforms (when (slot-boundp fixed 'transforms)
 		      (slot-value fixed 'transforms)))
 	(columns
@@ -57,47 +51,35 @@
    list as its only parameter.
 
    Returns how many rows where read and processed."
-  (let ((filenames   (case (source-type fixed)
-                       (:stdin   (list (source fixed)))
-		       (:inline  (list (car (source fixed))))
-		       (:regex   (source fixed))
-		       (t        (list (source fixed))))))
-    (loop :for filename :in filenames
-       :do
-	 (with-open-file-or-stream
-	     ;; we just ignore files that don't exist
-	     (input filename
-		    :direction :input
-		    :external-format (encoding fixed)
-		    :if-does-not-exist nil)
-	   (when input
-	     ;; first go to given inline position when filename is :inline
-	     (when (eq (source-type fixed) :inline)
-	       (file-position input (cdr (source fixed))))
+  (with-connection (cnx (source fixed))
+    (loop :for input := (open-next-stream cnx
+                                          :direction :input
+                                          :external-format (encoding fixed)
+                                          :if-does-not-exist nil)
+       :while input
+       :do (progn ;; ignore as much as skip-lines lines in the file
+             (loop repeat (skip-lines fixed) do (read-line input nil nil))
 
-	     ;; ignore as much as skip-lines lines in the file
-	     (loop repeat (skip-lines fixed) do (read-line input nil nil))
-
-	     ;; read in the text file, split it into columns, process NULL
-	     ;; columns the way postmodern expects them, and call
-	     ;; PROCESS-ROW-FN on them
-	     (let ((reformat-then-process
-		    (reformat-then-process :fields  (fields fixed)
-					   :columns (columns fixed)
-					   :target  (target fixed)
-					   :process-row-fn process-row-fn)))
-	       (loop
-		  :with fun := (compile nil reformat-then-process)
+             ;; read in the text file, split it into columns, process NULL
+             ;; columns the way postmodern expects them, and call
+             ;; PROCESS-ROW-FN on them
+             (let ((reformat-then-process
+                    (reformat-then-process :fields  (fields fixed)
+                                           :columns (columns fixed)
+                                           :target  (target fixed)
+                                           :process-row-fn process-row-fn)))
+               (loop
+                  :with fun := (compile nil reformat-then-process)
                   :with fixed-cols-specs := (mapcar #'cdr (fields fixed))
-		  :for line := (read-line input nil nil)
-		  :counting line :into read
-		  :while line
-		  :do (handler-case
+                  :for line := (read-line input nil nil)
+                  :counting line :into read
+                  :while line
+                  :do (handler-case
                           (funcall fun (parse-row fixed-cols-specs line))
                         (condition (e)
                           (progn
                             (log-message :error "~a" e)
-                            (pgstate-incf *state* (target fixed) :errs 1)))))))))))
+                            (pgstate-incf *state* (target fixed) :errs 1))))))))))
 
 (defmethod copy-to-queue ((fixed copy-fixed) queue)
   "Copy data from given FIXED definition into lparallel.queue DATAQ"
@@ -126,7 +108,7 @@
                             :dbname (db-name (target-db fixed))
                             :state *state*
                             :summary summary)
-      (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
+      (lp:task-handler-bind () ;; ((error #'lp:invoke-transfer-error))
         (log-message :notice "COPY ~a" (target fixed))
         (lp:submit-task channel #'copy-to-queue fixed queue)
 

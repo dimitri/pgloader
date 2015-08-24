@@ -37,11 +37,10 @@
   (loop
      :for s-exp :in command
 
-     :when (and (or (typep s-exp 'csv-connection)
-                    (typep s-exp 'fixed-connection))
-                (slot-boundp s-exp 'specs)
-                (eq :inline (first (csv-specs s-exp))))
-     :do (setf (second (csv-specs s-exp)) position)
+     :when (and (typep s-exp 'md-connection)
+                (slot-boundp s-exp 'pgloader.sources::spec)
+                (eq :inline (first (md-spec s-exp))))
+     :do (setf (second (md-spec s-exp)) position)
      :and :collect s-exp
 
      :else :collect (if (and (consp s-exp) (listp (cdr s-exp)))
@@ -67,13 +66,12 @@
                                                     filename)))
                      s-exp)
 
-                    ((and (or (typep s-exp 'csv-connection)
-                              (typep s-exp 'fixed-connection))
-                          (slot-boundp s-exp 'specs)
-                          (eq :filename (car (csv-specs s-exp))))
-                     (let ((path (second (csv-specs s-exp))))
+                    ((and (typep s-exp 'md-connection)
+                          (slot-boundp s-exp 'pgloader.sources::spec)
+                          (eq :filename (car (md-spec s-exp))))
+                     (let ((path (second (md-spec s-exp))))
                        (if (uiop:relative-pathname-p path)
-                           (progn (setf (csv-specs s-exp)
+                           (progn (setf (md-spec s-exp)
                                         `(:filename
                                           ,(uiop:merge-pathnames* path
                                                                   filename)))

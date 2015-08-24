@@ -121,7 +121,12 @@
                                     :type (conn-type ,conn)
                                     :host (db-host ,conn)
                                     :port (db-port ,conn)
-                                    :user (db-user ,conn))))))))
+                                    :user (db-user ,conn)))
+
+                            (t
+                             (error 'connection-error
+                                    :mesg (format nil "~a" e)
+                                    :type (conn-type ,conn))))))))
        (unwind-protect
             (progn ,@forms)
          (close-connection ,var)))))

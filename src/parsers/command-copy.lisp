@@ -60,7 +60,7 @@
 (defrule copy-uri (and "copy://" filename)
   (:lambda (source)
     (bind (((_ filename) source))
-      (make-instance 'copy-connection :specs filename))))
+      (make-instance 'copy-connection :spec filename))))
 
 (defrule copy-file-source (or stdin
                               inline
@@ -72,10 +72,10 @@
     (if (typep src 'copy-connection) src
         (destructuring-bind (type &rest specs) src
           (case type
-            (:stdin    (make-instance 'copy-connection :specs src))
-            (:inline   (make-instance 'copy-connection :specs src))
-            (:filename (make-instance 'copy-connection :specs src))
-            (:regex    (make-instance 'copy-connection :specs src))
+            (:stdin    (make-instance 'copy-connection :spec src))
+            (:inline   (make-instance 'copy-connection :spec src))
+            (:filename (make-instance 'copy-connection :spec src))
+            (:regex    (make-instance 'copy-connection :spec src))
             (:http     (make-instance 'copy-connection :uri (first specs))))))))
 
 (defrule get-copy-file-source-from-environment-variable (and kw-getenv name)

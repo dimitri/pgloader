@@ -4,32 +4,11 @@
 
 (in-package :pgloader.csv)
 
-(defclass csv-connection (fd-connection)
-  ((specs :initarg :specs :accessor csv-specs)))
+(defclass csv-connection (md-connection) ())
 
-(defmethod initialize-instance :after ((csvconn csv-connection) &key)
+(defmethod initialize-instance :after ((csv csv-connection) &key)
   "Assign the type slot to sqlite."
-  (setf (slot-value csvconn 'type) "csv"))
-
-(defmethod print-object ((csv csv-connection) stream)
-  (print-unreadable-object (csv stream :type t :identity t)
-    (let ((specs (if (slot-boundp csv 'specs) (slot-value csv 'specs)
-                     `(:http ,(slot-value csv 'pgloader.connection::uri)))))
-      (with-slots (type) csv
-        (format stream "~a://~a:~a" type (first specs) (second specs))))))
-
-(defmethod expand :after ((csv csv-connection))
-  "Expand the archive for the FD connection."
-  (when (and (slot-boundp csv 'pgloader.connection::path)
-             (slot-value csv 'pgloader.connection::path)
-             (uiop:file-pathname-p (fd-path csv)))
-    (setf (csv-specs csv) `(:filename ,(fd-path csv)))))
-
-(defmethod fetch-file :after ((csv csv-connection))
-  "When the fd-connection has an URI slot, download its file."
-  (when (and (slot-boundp csv 'pgloader.connection::path)
-             (slot-value csv 'pgloader.connection::path))
-    (setf (csv-specs csv) `(:filename ,(fd-path csv)))))
+  (setf (slot-value csv 'type) "csv"))
 
 ;;;
 ;;; Implementing the pgloader source API
@@ -68,10 +47,6 @@
 (defmethod initialize-instance :after ((csv copy-csv) &key)
   "Compute the real source definition from the given source parameter, and
    set the transforms function list as needed too."
-  (let ((source (csv-specs (slot-value csv 'source))))
-    (setf (slot-value csv 'source-type) (car source))
-    (setf (slot-value csv 'source)      (get-absolute-pathname source)))
-
   (let ((transforms (when (slot-boundp csv 'transforms)
 		      (slot-value csv 'transforms)))
 	(columns
@@ -105,32 +80,16 @@
    Each row is pre-processed then PROCESS-ROW-FN is called with the row as a
    list as its only parameter.
 
-   FILESPEC is either a filename or a pair (filename . position) where
-   position is the number of bytes to skip in the file before getting to the
-   data. That's used to handle the INLINE data loading.
-
    Finally returns how many rows where read and processed."
-  (let ((filenames   (case (source-type csv)
-                       (:stdin   (list (source csv)))
-                       (:inline  (list (car (source csv))))
-                       (:regex   (source csv))
-                       (t        (list (source csv))))))
-    (loop for filename in filenames
-       do
-	 (with-open-file-or-stream
-	     ;; we just ignore files that don't exist
-	     (input filename
-		    :direction :input
-		    :external-format (encoding csv)
-		    :if-does-not-exist nil)
-	   (when input
-	     (log-message :info "COPY FROM ~s" filename)
 
-	     ;; first go to given inline position when filename is :inline
-	     (when (eq (source-type csv) :inline)
-	       (file-position input (cdr (source csv))))
-
-	     ;; we handle skipping more than one line here, as cl-csv only knows
+  (with-connection (cnx (source csv))
+    (loop :for input := (open-next-stream cnx
+                                          :direction :input
+                                          :external-format (encoding csv)
+                                          :if-does-not-exist nil)
+       :while input
+       :do (progn
+             ;; we handle skipping more than one line here, as cl-csv only knows
 	     ;; about skipping the first line
 	     (loop repeat (skip-lines csv) do (read-line input nil nil))
 
@@ -167,7 +126,7 @@
                  (condition (e)
                    (progn
                      (log-message :error "~a" e)
-                     (pgstate-incf *state* (target csv) :errs 1))))))))))
+                     (pgstate-incf *state* (target csv) :errs 1)))))))))
 
 (defmethod copy-to-queue ((csv copy-csv) queue)
   "Copy data from given CSV definition into lparallel.queue DATAQ"
