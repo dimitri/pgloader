@@ -83,9 +83,9 @@
         ((:syb-varchar :syb-text) (foreign-string-to-lisp data :count len))
         (:syb-char (string-trim #(#\Space) (foreign-string-to-lisp data :count len)))
         ((:syb-bit :syb-bitn) (mem-ref data :int))
-        ((:syb-int1 (unsigned-to-signed (mem-ref data :int) 1)))
-        ((:syb-int2 (unsigned-to-signed (mem-ref data :int) 2)))
-        ((:syb-int4 (unsigned-to-signed (mem-ref data :int) 4)))
+        (:syb-int1 (unsigned-to-signed (mem-ref data :int) 1))
+        (:syb-int2 (unsigned-to-signed (mem-ref data :int) 2))
+        (:syb-int4 (unsigned-to-signed (mem-ref data :int) 4))
         (:syb-int8 (mem-ref data :int8))
         (:syb-flt8 (mem-ref data :double))
         (:syb-datetime
