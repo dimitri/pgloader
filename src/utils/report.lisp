@@ -159,7 +159,7 @@
           (t :human-readable))))
 
 (defun report-full-summary (legend state
-			    &key before finally parallel)
+			    &key before finally parallel start-time)
   "Report the full story when given three different sections of reporting."
 
   (let* ((stype                 (or (parse-summary-type *summary-pathname*)
@@ -208,12 +208,15 @@
 
     ;; if the parallel tasks took longer than the rest cumulated, the total
     ;; waiting time actually was parallel - before
-    (when (and parallel
-               (< (pgloader.utils::pgstate-secs state)
-                  (pgloader.utils::pgstate-secs parallel)))
-      (setf (pgloader.utils::pgstate-secs state)
-            (- (pgloader.utils::pgstate-secs parallel)
-               (if before (pgloader.utils::pgstate-secs before) 0))))
+    (if start-time
+        (setf (pgloader.utils::pgstate-secs state)
+              (pgloader.utils::elapsed-time-since start-time))
+        (when (and parallel
+                   (< (pgloader.utils::pgstate-secs state)
+                      (pgloader.utils::pgstate-secs parallel)))
+          (setf (pgloader.utils::pgstate-secs state)
+                (- (pgloader.utils::pgstate-secs parallel)
+                   (if before (pgloader.utils::pgstate-secs before) 0)))))
 
     ;; and report the Grand Total
     (report-pgstate-stats state legend)))

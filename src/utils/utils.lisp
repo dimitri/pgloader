@@ -8,8 +8,8 @@
 ;;;
 (defun elapsed-time-since (start)
   "Return how many seconds ticked between START and now"
-  (/ (- (get-internal-real-time) start)
-     internal-time-units-per-second))
+  (let ((now (get-internal-real-time)))
+    (coerce (/ (- now start) internal-time-units-per-second) 'double-float)))
 
 (defmacro timing (&body forms)
   "return both how much real time was spend in body and its result"

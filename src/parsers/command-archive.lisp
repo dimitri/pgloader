@@ -42,7 +42,8 @@
       (when (and (or before finally) (null pg-db-conn))
         (error "When using a BEFORE LOAD DO or a FINALLY block, you must provide an archive level target database connection."))
       `(lambda ()
-         (let* ((state-before   (pgloader.utils:make-pgstate))
+         (let* ((start-irt      (get-internal-real-time))
+                (state-before   (pgloader.utils:make-pgstate))
                 (*state*        (pgloader.utils:make-pgstate))
                 ,@(pgsql-connection-bindings pg-db-conn nil)
                 (state-finally ,(when finally `(pgloader.utils:make-pgstate)))
@@ -67,5 +68,6 @@
 
              ;; reporting
              (report-full-summary "Total import time" *state*
+                                  :start-time start-irt
                                   :before state-before
                                   :finally state-finally)))))))
