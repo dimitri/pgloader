@@ -160,6 +160,15 @@ Another test case for the classic quotes:
                (otherwise (cond ((member (parser-state state) '(:eat :eqt))
                                  (write-char char (parser-stream state)))
 
+                                ;; see
+                                ;; http://www.postgresql.org/docs/9.4/static/sql-syntax-lexical.html#SQL-SYNTAX-STRINGS-ESCAPE
+                                ;; we re-inject whatever we read in the \x
+                                ;; syntax into the stream and let PostgreSQL
+                                ;; be the judge of what it means.
+                                ((member (parser-state state) '(:esc))
+                                 (write-char char (parser-stream state))
+                                 (setf (parser-state state) :eqt))
+
                                 ((member (parser-state state) '(:tag))
                                  ;; only letters are allowed in tags
                                  (if (alpha-char-p char)
