@@ -1,6 +1,6 @@
 LOAD CSV
-     FROM inline (rownum, ts [date format 'YYYY-MM-DD HH24-MI-SS.US'])
-     INTO postgresql:///pgloader?dateformat (rownum, ts)
+     FROM inline ("row num", ts [date format 'YYYY-MM-DD HH24-MI-SS.US'])
+     INTO postgresql:///pgloader?dateformat ("row num", ts)
 
      WITH truncate,
           fields optionally enclosed by '"',
@@ -14,8 +14,8 @@ LOAD CSV
    BEFORE LOAD DO
     $$ drop table if exists dateformat; $$,
     $$ create table dateformat (
-        rownum smallint,
-        ts     timestamp
+        "row num" smallint,
+        ts        timestamp
        );
     $$;
 

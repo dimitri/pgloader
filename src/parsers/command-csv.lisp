@@ -197,16 +197,22 @@
 (defrule csv-field-options (? csv-field-option-list))
 
 (defrule csv-raw-field-name (and (or #\_ (alpha-char-p character))
+                                 (* (or (alpha-char-p character)
+                                        (digit-char-p character)
+                                        #\Space
+                                        #\.
+                                        #\$
+                                        #\_)))
+  (:text t))
+
+(defrule csv-bare-field-name (and (or #\_ (alpha-char-p character))
                                   (* (or (alpha-char-p character)
                                          (digit-char-p character)
                                          #\.
                                          #\$
                                          #\_)))
-  (:text t))
-
-(defrule csv-bare-field-name csv-raw-field-name
   (:lambda (name)
-    (string-downcase name)))
+    (string-downcase (text name))))
 
 (defrule csv-quoted-field-name (and #\" csv-raw-field-name #\")
   (:lambda (csv-field-name)
