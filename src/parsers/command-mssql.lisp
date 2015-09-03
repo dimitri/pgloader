@@ -26,7 +26,8 @@
                           option-create-schemas
                           option-create-indexes
                           option-reset-sequences
-                          option-encoding))
+                          option-encoding
+                          option-identifiers-case))
 
 (defrule another-mssql-option (and comma mssql-option)
   (:lambda (source)

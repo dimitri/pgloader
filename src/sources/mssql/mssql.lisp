@@ -296,8 +296,7 @@
                   ;; index build might get unsync: indexes for different tables
                   ;; will get built in parallel --- not a big problem.
                   (when (and create-indexes (not data-only))
-                    (let* ((*identifier-case* :none)
-                           (s-entry  (assoc schema all-indexes :test 'equal))
+                    (let* ((s-entry  (assoc schema all-indexes :test 'equal))
                            (indexes-with-names
                             (cdr (assoc table-name (cdr s-entry) :test 'equal))))
 
