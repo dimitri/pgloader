@@ -54,15 +54,7 @@
     (truncate-tables pgconn (list table-name)))
 
   (with-pgsql-connection (pgconn)
-    (let ((unqualified-table-name
-           (typecase table-name
-             (cons   (let ((sql (format nil "SET search_path TO ~a;"
-                                        (car table-name))))
-                       (log-message :notice "~a" sql)
-                       (pgsql-execute sql)
-                       (cdr table-name)))
-             (string table-name))))
-
+    (with-schema (unqualified-table-name table-name)
       (when disable-triggers (disable-triggers unqualified-table-name))
       (log-message :info "pgsql:copy-from-queue: ~a ~a" table-name columns)
 

@@ -66,6 +66,9 @@
                ;; generic connection api
                (:file "connection" :depends-on ("utils"))
 
+               ;; some table name and schema facilities
+               (:file "schema" :depends-on ("package"))
+
 	       ;; package pgloader.pgsql
 	       (:module pgsql
 			:depends-on ("package" "params" "utils" "connection")
@@ -118,7 +121,6 @@
                         ((:module "common"
                                   :components
                                   ((:file "api")
-                                   (:file "schema")
                                    (:file "casting-rules")
                                    (:file "files-and-pathnames")
                                    (:file "project-fields")))

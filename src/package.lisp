@@ -146,8 +146,15 @@
            #:db-user
            #:db-pass))
 
-(defpackage #:pgloader.sources
+(defpackage #:pgloader.schema
   (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.connection)
+  (:export #:push-to-end
+           #:with-schema))
+
+(defpackage #:pgloader.sources
+  (:use #:cl
+        #:pgloader.params #:pgloader.utils #:pgloader.connection
+        #:pgloader.schema)
   (:import-from #:pgloader.transforms #:precision #:scale)
   (:import-from #:pgloader.parse-date
                 #:parse-date-string
@@ -175,6 +182,7 @@
 
            ;; common schema facilities
            #:push-to-end
+           #:with-schema
 
            ;; file based utils for CSV, fixed etc
            #:with-open-file-or-stream
@@ -189,7 +197,9 @@
            #:cast))
 
 (defpackage #:pgloader.pgsql
-  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.connection)
+  (:use #:cl
+        #:pgloader.params #:pgloader.utils #:pgloader.connection
+        #:pgloader.schema)
   (:export #:pgsql-connection
            #:pgconn-use-ssl
            #:pgconn-table-name

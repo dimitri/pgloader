@@ -20,7 +20,10 @@
     (unless (and (slot-boundp db3 'columns) (slot-value db3 'columns))
       (setf (slot-value db3 'columns)
             (list-all-columns (fd-db3 conn)
-                              (or (target db3) (source db3)))))
+                              (or (typecase (target db3)
+                                    (cons   (cdr (target db3)))
+                                    (string (target db3)))
+                                  (source db3)))))
 
     (let ((transforms (when (slot-boundp db3 'transforms)
                         (slot-value db3 'transforms))))
@@ -118,12 +121,13 @@
                                   :summary summary)
             (with-pgsql-transaction (:pgconn (target-db db3))
               (when create-tables
-                (log-message :notice "Create table \"~a\"" table-name)
-                (create-tables (columns db3)
-                               :include-drop include-drop
-                               :if-not-exists t)))))
+                (with-schema (tname table-name)
+                  (log-message :notice "Create table \"~a\"" tname)
+                  (create-tables (columns db3)
+                                 :include-drop include-drop
+                                 :if-not-exists t))))))
 
-      (cl-postgres::database-errors (e)
+      (cl-postgres::database-error (e)
         (declare (ignore e))            ; a log has already been printed
         (log-message :fatal "Failed to create the schema, see above.")
         (return-from copy-database)))

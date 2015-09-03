@@ -5,5 +5,5 @@
  */ 
 LOAD DBF
     FROM data/reg2013.dbf with encoding cp850
-    INTO postgresql:///pgloader?reg2013
+    INTO postgresql:///pgloader?public.reg2013
     WITH truncate, create table, disable triggers;

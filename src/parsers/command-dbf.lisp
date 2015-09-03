@@ -100,8 +100,7 @@
             ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
-            (table-name    ,(or (getf options :table-name)
-                                (pgconn-table-name pg-db-conn)))
+            (table-name   ',(pgconn-table-name pg-db-conn))
             (source-db     (with-stats-collection ("fetch" :state state-before)
                              (expand (fetch-file ,dbf-db-conn))))
             (source
