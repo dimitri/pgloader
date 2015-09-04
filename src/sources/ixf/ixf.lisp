@@ -20,9 +20,10 @@
     (unless (and (slot-boundp source 'columns) (slot-value source 'columns))
       (setf (slot-value source 'columns)
             (list-all-columns (conn-handle conn)
-                              (typecase (target source)
-                                (cons   (cdr (target source)))
-                                (string (target source))))))
+                              (or (typecase (target source)
+                                    (cons   (cdr (target source)))
+                                    (string (target source)))
+                                  (source source)))))
 
     (let ((transforms (when (slot-boundp source 'transforms)
                         (slot-value source 'transforms))))
