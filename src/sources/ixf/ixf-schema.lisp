@@ -41,7 +41,11 @@
 
 (defun cast-ixf-type (ixf-type)
   "Return the PostgreSQL type name for a given IXF type name."
-  (cdr (assoc ixf-type *ixf-pgsql-type-mapping*)))
+  (let ((pgtype
+         (cdr (assoc ixf-type *ixf-pgsql-type-mapping*))))
+    (unless pgtype
+      (error "IXF Type mapping unknown for: ~x" ixf-type))
+    pgtype))
 
 (defmethod format-pgsql-column ((col ixf:ixf-column))
   "Return a string reprensenting the PostgreSQL column definition"
