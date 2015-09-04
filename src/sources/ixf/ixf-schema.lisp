@@ -47,6 +47,11 @@
       (error "IXF Type mapping unknown for: ~x" ixf-type))
     pgtype))
 
+(defun format-default-value (default)
+  "IXF has some default values that we want to transform here, statically."
+  (cond ((string= "CURRENT TIMESTAMP" default) "CURRENT_TIMESTAMP")
+        (t default)))
+
 (defmethod format-pgsql-column ((col ixf:ixf-column))
   "Return a string reprensenting the PostgreSQL column definition"
   (let* ((column-name (apply-identifier-case (ixf:ixf-column-name col)))
@@ -56,7 +61,7 @@
                   (cast-ixf-type (ixf:ixf-column-type col))
                   (ixf:ixf-column-nullable col)
                   (ixf:ixf-column-has-default col)
-                  (ixf:ixf-column-default col))))
+                  (format-default-value (ixf:ixf-column-default col)))))
 
     (format nil "~a ~22t ~a" column-name type-definition)))
 
