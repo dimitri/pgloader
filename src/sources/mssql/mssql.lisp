@@ -59,7 +59,8 @@
   "Copy data from MSSQL table DBNAME.TABLE-NAME into queue DATAQ"
   (map-push-queue mssql queue))
 
-(defmethod copy-from ((mssql copy-mssql) &key (kernel nil k-s-p) truncate)
+(defmethod copy-from ((mssql copy-mssql)
+                      &key (kernel nil k-s-p) truncate disable-triggers)
   "Connect in parallel to MSSQL and PostgreSQL and stream the data."
   (let* ((summary        (null *state*))
 	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
@@ -82,7 +83,8 @@
         ;; and start another task to push that data from the queue to PostgreSQL
         (lp:submit-task channel #'pgloader.pgsql:copy-from-queue
                         (target-db mssql) (target mssql) queue
-                        :truncate truncate)
+                        :truncate truncate
+                        :disable-triggers disable-triggers)
 
         ;; now wait until both the tasks are over
         (loop for tasks below 2 do (lp:receive-result channel)
@@ -133,7 +135,7 @@
       (pgstate-add-table state (db-name pgconn) "Foreign Keys")
       (loop :for (schema . tables) :in all-fkeys
          :do (loop :for (table-name . fkeys) :in tables
-                :do (loop :for fkey :in fkeys
+                :do (loop :for (fk-name . fkey) :in fkeys
                        :for sql := (format-pgsql-create-fkey fkey)
                        :do (progn
                              (log-message :notice "~a;" sql)
@@ -173,14 +175,16 @@
 			    state-before
 			    state-after
 			    state-indexes
-			    (truncate        nil)
-			    (data-only       nil)
-			    (schema-only     nil)
-			    (create-tables   t)
-			    (include-drop    t)
-			    (create-indexes  t)
-			    (reset-sequences t)
-			    (foreign-keys    t)
+			    (truncate         nil)
+			    (disable-triggers nil)
+			    (data-only        nil)
+			    (schema-only      nil)
+			    (create-tables    t)
+			    (create-schemas   t)
+			    (include-drop     t)
+			    (create-indexes   t)
+			    (reset-sequences  t)
+			    (foreign-keys     t)
                             (encoding        :utf-8)
                             including
                             excluding)
@@ -223,9 +227,10 @@
                      (loop :for (schema . tables) :in all-columns
                         :do (let ((schema (apply-identifier-case schema)))
                               ;; create schema
-                              (let ((sql (format nil "CREATE SCHEMA ~a;" schema)))
-                                (log-message :notice "~a" sql)
-                                (pgsql-execute sql))
+                              (when create-schemas
+                                (let ((sql (format nil "CREATE SCHEMA ~a;" schema)))
+                                  (log-message :notice "~a" sql)
+                                  (pgsql-execute sql)))
 
                               ;; set search_path to only that schema
                               (pgsql-execute
@@ -262,7 +267,7 @@
 
           (return-from copy-database)))
 
-      ;; Transfert the data
+      ;; Transfer the data
       (loop :for (schema . tables) :in all-columns
          :do (loop :for (table-name . columns) :in tables
                 :do
@@ -278,7 +283,9 @@
 
                   ;; COPY the data to PostgreSQL, using copy-kernel
                   (unless schema-only
-                    (copy-from table-source :kernel copy-kernel))
+                    (copy-from table-source
+                               :kernel copy-kernel
+                               :disable-triggers disable-triggers))
 
                   ;; Create the indexes for that table in parallel with the next
                   ;; COPY, and all at once in concurrent threads to benefit from
@@ -289,8 +296,7 @@
                   ;; index build might get unsync: indexes for different tables
                   ;; will get built in parallel --- not a big problem.
                   (when (and create-indexes (not data-only))
-                    (let* ((*identifier-case* :none)
-                           (s-entry  (assoc schema all-indexes :test 'equal))
+                    (let* ((s-entry  (assoc schema all-indexes :test 'equal))
                            (indexes-with-names
                             (cdr (assoc table-name (cdr s-entry) :test 'equal))))
 

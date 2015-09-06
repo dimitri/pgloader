@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "January 2015" "ff" ""
+.TH "PGLOADER" "1" "August 2015" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -118,7 +118,7 @@ Those options are meant to tweak \fBpgloader\fR behavior when loading data\.
 Be verbose\.
 .
 .TP
-\fB\-q\fR, `\-\-quiet
+\fB\-q\fR, \fB\-\-quiet\fR
 Be quiet\.
 .
 .TP
@@ -505,8 +505,8 @@ LOAD <source\-type>
 
 [ SET <postgresql\-settings> ]
 
-[ BEFORE LOAD DO|EXECUTE [ <sql statements> | <sql file> ]
-[  AFTER LOAD DO|EXECUTE [ <sql statements> | <sql file> ]
+[ BEFORE LOAD [ DO <sql statements> | EXECUTE <sql file> ] \.\.\. ]
+[  AFTER LOAD [ DO <sql statements> | EXECUTE <sql file> ] \.\.\. ]
 ;
 .
 .fi
@@ -636,7 +636,7 @@ When omitted, the \fIuser\fR name defaults to the value of the \fBPGUSER\fR envi
 \fIpassword\fR
 .
 .IP
-Can contain any character, including that at sign (\fB@\fR) which must then be doubled (\fB@@\fR)\. To leave the password empty, when the \fIuser\fR name ends with at at sign, you then have to use the syntax user:@\.
+Can contain any character, including the at sign (\fB@\fR) which must then be doubled (\fB@@\fR)\. To leave the password empty, when the \fIuser\fR name ends with at at sign, you then have to use the syntax user:@\.
 .
 .IP
 When omitted, the \fIpassword\fR defaults to the value of the \fBPGPASSWORD\fR environment variable if it is set, otherwise the password is left unset\.
@@ -679,13 +679,16 @@ When omitted, the \fIdbname\fR defaults to the value of the environment variable
 The optional parameters must be supplied with the form \fBname=value\fR, and you may use several parameters by separating them away using an ampersand (\fB&\fR) character\.
 .
 .IP
-Only two options are supported here, \fItablename\fR (which might be qualified with a schema name) and \fIsslmode\fR\.
+Only some options are supported here, \fItablename\fR (which might be qualified with a schema name) \fIsslmode\fR, \fIhost\fR, \fIport\fR, \fIdbname\fR, \fIuser\fR and \fIpassword\fR\.
 .
 .IP
 The \fIsslmode\fR parameter values can be one of \fBdisable\fR, \fBallow\fR, \fBprefer\fR or \fBrequire\fR\.
 .
 .IP
 For backward compatibility reasons, it\'s possible to specify the \fItablename\fR option directly, without spelling out the \fBtablename=\fR parts\.
+.
+.IP
+The options override the main URI components when both are given, and using the percent\-encoded option parameters allow using passwords starting with a colon and bypassing other URI components parsing limitations\.
 .
 .IP "" 0
 .
@@ -967,10 +970,34 @@ When loading from a \fBCSV\fR file, the following options are supported:
 When this option is listed, pgloader issues a \fBTRUNCATE\fR command against the PostgreSQL target table before reading the data file\.
 .
 .IP "\(bu" 4
+\fIdrop indexes\fR
+.
+.IP
+When this option is listed, pgloader issues \fBDROP INDEX\fR commands against all the indexes defined on the target table before copying the data, then \fBCREATE INDEX\fR commands once the \fBCOPY\fR is done\.
+.
+.IP
+In order to get the best performances possible, all the indexes are created in parallel and when done the primary keys are built again from the unique indexes just created\. This two step process allows creating the primary key index in parallel with the other indexes, as only the \fBALTER TABLE\fR command needs an \fIaccess exclusive lock\fR on the target table\.
+.
+.IP "\(bu" 4
+\fIdisable triggers\fR
+.
+.IP
+When this option is listed, pgloader issues an \fBALTER TABLE \.\.\. DISABLE TRIGGER ALL\fR command against the PostgreSQL target table before copying the data, then the command \fBALTER TABLE \.\.\. ENABLE TRIGGER ALL\fR once the \fBCOPY\fR is done\.
+.
+.IP
+This option allows loading data into a pre\-existing table ignoring the \fIforeign key constraints\fR and user defined triggers and may result in invalid \fIforeign key constraints\fR once the data is loaded\. Use with care\.
+.
+.IP "\(bu" 4
 \fIskip header\fR
 .
 .IP
 Takes a numeric value as argument\. Instruct pgloader to skip that many lines at the beginning of the input file\.
+.
+.IP "\(bu" 4
+\fIcsv header\fR
+.
+.IP
+Use the first line read after \fIskip header\fR as the list of csv field names to be found in the CSV file, using the same CSV parameters as for the CSV data\.
 .
 .IP "\(bu" 4
 \fItrim unquoted blanks\fR
@@ -1003,7 +1030,13 @@ By default, pgloader will use the double\-quote character as the enclosing chara
 \fIfields escaped by\fR
 .
 .IP
-Takes either the special value \fIbackslash\-quote\fR or \fIdouble\-quote\fR\. This value is used to recognize escaped field separators when they are to be found within the data fields themselves\. Defaults to \fIdouble\-quote\fR\.
+Takes either the special value \fIbackslash\-quote\fR or \fIdouble\-quote\fR, or any value supported by the \fIfields terminated by\fR option (see below)\. This value is used to recognize escaped field separators when they are to be found within the data fields themselves\. Defaults to \fIdouble\-quote\fR\.
+.
+.IP "\(bu" 4
+\fIcsv escape mode\fR
+.
+.IP
+Takes either the special value \fIquote\fR (the default) or \fIfollowing\fR and allows the CSV parser to parse either only escaped field separator or any character (including CSV data) when using the \fIfollowing\fR value\.
 .
 .IP "\(bu" 4
 \fIfields terminated by\fR
@@ -1217,13 +1250,22 @@ This option allows to trim whitespaces in the read data, either from both sides 
 \fIWITH\fR
 .
 .IP
-When loading from a \fBCSV\fR file, the following options are supported:
+When loading from a \fBFIXED\fR file, the following options are supported:
 .
 .IP "\(bu" 4
 \fItruncate\fR
 .
 .IP
 When this option is listed, pgloader issues a \fBTRUNCATE\fR command against the PostgreSQL target table before reading the data file\.
+.
+.IP "\(bu" 4
+\fIdisable triggers\fR
+.
+.IP
+When this option is listed, pgloader issues an \fBALTER TABLE \.\.\. DISABLE TRIGGER ALL\fR command against the PostgreSQL target table before copying the data, then the command \fBALTER TABLE \.\.\. ENABLE TRIGGER ALL\fR once the \fBCOPY\fR is done\.
+.
+.IP
+This option allows loading data into a pre\-existing table ignoring the \fIforeign key constraints\fR and user defined triggers and may result in invalid \fIforeign key constraints\fR once the data is loaded\. Use with care\.
 .
 .IP "\(bu" 4
 \fIskip header\fR
@@ -1292,10 +1334,37 @@ Filename where to load the data from\. This support local files, HTTP URLs and z
 When loading from a \fBCOPY\fR file, the following options are supported:
 .
 .IP "\(bu" 4
+\fIdelimiter\fR
+.
+.IP
+Takes a single character as argument, which must be found inside single quotes, and might be given as the printable character itself, the special value \et to denote a tabulation character, or \fB0x\fR then an hexadecimal value read as the ASCII code for the character\.
+.
+.IP
+This character is used as the \fIdelimiter\fR when reading the data, in a similar way to the PostgreSQL \fBCOPY\fR option\.
+.
+.IP "\(bu" 4
+\fInull\fR
+.
+.IP
+Takes a quoted string as an argument (quotes can be either double quotes or single quotes) and uses that string as the \fBNULL\fR representation in the data\.
+.
+.IP
+This is similar to the \fInull\fR \fBCOPY\fR option in PostgreSQL\.
+.
+.IP "\(bu" 4
 \fItruncate\fR
 .
 .IP
 When this option is listed, pgloader issues a \fBTRUNCATE\fR command against the PostgreSQL target table before reading the data file\.
+.
+.IP "\(bu" 4
+\fIdisable triggers\fR
+.
+.IP
+When this option is listed, pgloader issues an \fBALTER TABLE \.\.\. DISABLE TRIGGER ALL\fR command against the PostgreSQL target table before copying the data, then the command \fBALTER TABLE \.\.\. ENABLE TRIGGER ALL\fR once the \fBCOPY\fR is done\.
+.
+.IP
+This option allows loading data into a pre\-existing table ignoring the \fIforeign key constraints\fR and user defined triggers and may result in invalid \fIforeign key constraints\fR once the data is loaded\. Use with care\.
 .
 .IP "\(bu" 4
 \fIskip header\fR
@@ -1344,6 +1413,15 @@ When loading from a \fBDBF\fR file, the following options are supported:
 .
 .IP
 When this option is listed, pgloader issues a \fBTRUNCATE\fR command against the PostgreSQL target table before reading the data file\.
+.
+.IP "\(bu" 4
+\fIdisable triggers\fR
+.
+.IP
+When this option is listed, pgloader issues an \fBALTER TABLE \.\.\. DISABLE TRIGGER ALL\fR command against the PostgreSQL target table before copying the data, then the command \fBALTER TABLE \.\.\. ENABLE TRIGGER ALL\fR once the \fBCOPY\fR is done\.
+.
+.IP
+This option allows loading data into a pre\-existing table ignoring the \fIforeign key constraints\fR and user defined triggers and may result in invalid \fIforeign key constraints\fR once the data is loaded\. Use with care\.
 .
 .IP "\(bu" 4
 \fIcreate table\fR
@@ -1404,6 +1482,15 @@ When loading from a \fBIXF\fR file, the following options are supported:
 When this option is listed, pgloader issues a \fBTRUNCATE\fR command against the PostgreSQL target table before reading the data file\.
 .
 .IP "\(bu" 4
+\fIdisable triggers\fR
+.
+.IP
+When this option is listed, pgloader issues an \fBALTER TABLE \.\.\. DISABLE TRIGGER ALL\fR command against the PostgreSQL target table before copying the data, then the command \fBALTER TABLE \.\.\. ENABLE TRIGGER ALL\fR once the \fBCOPY\fR is done\.
+.
+.IP
+This option allows loading data into a pre\-existing table ignoring the \fIforeign key constraints\fR and user defined triggers and may result in invalid \fIforeign key constraints\fR once the data is loaded\. Use with care\.
+.
+.IP "\(bu" 4
 \fIcreate table\fR
 .
 .IP
@@ -1434,29 +1521,11 @@ LOAD ARCHIVE
    FROM /Users/dim/Downloads/GeoLiteCity\-latest\.zip
    INTO postgresql:///ip4r
 
-   BEFORE LOAD DO
-     $$ create extension if not exists ip4r; $$,
-     $$ create schema if not exists geolite; $$,
-     $$ create table if not exists geolite\.location
-       (
-          locid      integer primary key,
-          country    text,
-          region     text,
-          city       text,
-          postalcode text,
-          location   point,
-          metrocode  text,
-          areacode   text
-       );
-     $$,
-     $$ create table if not exists geolite\.blocks
-       (
-          iprange    ip4r,
-          locid      integer
-       );
-     $$,
-     $$ drop index if exists geolite\.blocks_ip4r_idx; $$,
-     $$ truncate table geolite\.blocks, geolite\.location cascade; $$
+   BEFORE LOAD
+     DO $$ create extension if not exists ip4r; $$,
+        $$ create schema if not exists geolite; $$,
+
+     EXECUTE \'geolite\.sql\'
 
    LOAD CSV
         FROM FILENAME MATCHING ~/GeoLiteCity\-Location\.csv/
@@ -1621,7 +1690,10 @@ When loading from a \fBMySQL\fR database, the following options are supported, a
 \fIinclude drop\fR
 .
 .IP
-When this option is listed, pgloader drop in the PostgreSQL connection all the table whose names have been found in the MySQL database\. This option allows for using the same command several times in a row until you figure out all the options, starting automatically from a clean environment\.
+When this option is listed, pgloader drops all the tables in the target PostgreSQL database whose names appear in the SQLite database\. This option allows for using the same command several times in a row until you figure out all the options, starting automatically from a clean environment\. Please note that \fBCASCADE\fR is used to ensure that tables are dropped even if there are foreign keys pointing to them\. This is precisely what \fBinclude drop\fR is intended to do: drop all target tables and recreate them\.
+.
+.IP
+Great care needs to be taken when using \fBinclude drop\fR, as it will cascade to \fIall\fR objects referencing the target tables, possibly including other tables that are not being loaded from the source DB\.
 .
 .IP "\(bu" 4
 \fIinclude no drop\fR
@@ -1640,6 +1712,15 @@ When this option is listed, pgloader issue the \fBTRUNCATE\fR command against ea
 .
 .IP
 When this option is listed, pgloader issues no \fBTRUNCATE\fR command\.
+.
+.IP "\(bu" 4
+\fIdisable triggers\fR
+.
+.IP
+When this option is listed, pgloader issues an \fBALTER TABLE \.\.\. DISABLE TRIGGER ALL\fR command against the PostgreSQL target table before copying the data, then the command \fBALTER TABLE \.\.\. ENABLE TRIGGER ALL\fR once the \fBCOPY\fR is done\.
+.
+.IP
+This option allows loading data into a pre\-existing table ignoring the \fIforeign key constraints\fR and user defined triggers and may result in invalid \fIforeign key constraints\fR once the data is loaded\. Use with care\.
 .
 .IP "\(bu" 4
 \fIcreate tables\fR
@@ -1664,6 +1745,21 @@ When this option is listed, pgloader gets the definitions of all the indexes fou
 .
 .IP
 When this option is listed, pgloader skips the creating indexes\.
+.
+.IP "\(bu" 4
+\fIuniquify index names\fR, \fIpreserve index names\fR
+.
+.IP
+MySQL index names are unique per\-table whereas in PostgreSQL index names have to be unique per\-schema\. The default for pgloader is to change the index name by prefixing it with \fBidx_OID\fR where \fBOID\fR is the internal numeric identifier of the table the index is built against\.
+.
+.IP
+In somes cases like when the DDL are entirely left to a framework it might be sensible for pgloader to refrain from handling index unique names, that is achieved by using the \fIpreserve index names\fR option\.
+.
+.IP
+The default is to \fIuniquify index names\fR\.
+.
+.IP
+Even when using the option \fIpreserve index names\fR, MySQL primary key indexes named "PRIMARY" will get their names uniquified\. Failing to do so would prevent the primary keys to be created again in PostgreSQL where the index names must be unique per schema\.
 .
 .IP "\(bu" 4
 \fIforeign keys\fR
@@ -1781,6 +1877,32 @@ type char when (= precision 1) to char keep typemod
 .
 .IP
 This expression casts MySQL \fBchar(1)\fR column to a PostgreSQL column of type \fBchar(1)\fR while allowing for the general case \fBchar(N)\fR will be converted by the default cast rule into a PostgreSQL type \fBvarchar(N)\fR\.
+.
+.IP "\(bu" 4
+\fIwith extra auto_increment\fR
+.
+.IP
+The casting rule is only applied against MySQL columns having the \fIextra\fR column \fBauto_increment\fR option set, so that it\'s possible to target e\.g\. \fBserial\fR rather than \fBinteger\fR\.
+.
+.IP
+The default matching behavior, when this option isn\'t set, is to match both columns with the extra definition and without\.
+.
+.IP
+This means that if you want to implement a casting rule that target either \fBserial\fR or \fBinteger\fR from a \fBsmallint\fR definition depending on the \fIauto_increment\fR extra bit of information from MySQL, then you need to spell out two casting rules as following:
+.
+.IP "" 4
+.
+.nf
+
+type smallint  with extra auto_increment
+  to serial drop typemod keep default keep not null,
+type smallint
+  to integer drop typemod keep default keep not null
+.
+.fi
+.
+.IP "" 0
+
 .
 .IP "" 0
 .
@@ -2143,7 +2265,10 @@ When loading from a \fBSQLite\fR database, the following options are supported, 
 \fIinclude drop\fR
 .
 .IP
-When this option is listed, pgloader drop in the PostgreSQL connection all the table whose names have been found in the SQLite database\. This option allows for using the same command several times in a row until you figure out all the options, starting automatically from a clean environment\.
+When this option is listed, pgloader drops all the tables in the target PostgreSQL database whose names appear in the SQLite database\. This option allows for using the same command several times in a row until you figure out all the options, starting automatically from a clean environment\. Please note that \fBCASCADE\fR is used to ensure that tables are dropped even if there are foreign keys pointing to them\. This is precisely what \fBinclude drop\fR is intended to do: drop all target tables and recreate them\.
+.
+.IP
+Great care needs to be taken when using \fBinclude drop\fR, as it will cascade to \fIall\fR objects referencing the target tables, possibly including other tables that are not being loaded from the source DB\.
 .
 .IP "\(bu" 4
 \fIinclude no drop\fR
@@ -2162,6 +2287,15 @@ When this option is listed, pgloader issue the \fBTRUNCATE\fR command against ea
 .
 .IP
 When this option is listed, pgloader issues no \fBTRUNCATE\fR command\.
+.
+.IP "\(bu" 4
+\fIdisable triggers\fR
+.
+.IP
+When this option is listed, pgloader issues an \fBALTER TABLE \.\.\. DISABLE TRIGGER ALL\fR command against the PostgreSQL target table before copying the data, then the command \fBALTER TABLE \.\.\. ENABLE TRIGGER ALL\fR once the \fBCOPY\fR is done\.
+.
+.IP
+This option allows loading data into a pre\-existing table ignoring the \fIforeign key constraints\fR and user defined triggers and may result in invalid \fIforeign key constraints\fR once the data is loaded\. Use with care\.
 .
 .IP "\(bu" 4
 \fIcreate tables\fR
@@ -2281,6 +2415,9 @@ Numbers:
 type tinyint to smallint
 .
 .IP "\(bu" 4
+type integer to bigint
+.
+.IP "\(bu" 4
 type float to float using float\-to\-string
 .
 .IP "\(bu" 4
@@ -2379,7 +2516,22 @@ Connection string to an existing MS SQL database server that listens and welcome
 \fIWITH\fR
 .
 .IP
-When loading from a \fBMS SQL\fR database, the same options as when loading a \fBMySQL\fR database are supported\. Please refer to the MySQL section\.
+When loading from a \fBMS SQL\fR database, the same options as when loading a \fBMySQL\fR database are supported\. Please refer to the MySQL section\. The following options are added:
+.
+.IP "\(bu" 4
+\fIcreate schemas\fR
+.
+.IP
+When this option is listed, pgloader creates the same schemas as found on the MS SQL instance\. This is the default\.
+.
+.IP "\(bu" 4
+\fIcreate no schemas\fR
+.
+.IP
+When this option is listed, pgloader refrains from creating any schemas at all, you must then ensure that the target schema do exist\.
+.
+.IP "" 0
+
 .
 .IP "\(bu" 4
 \fICAST\fR

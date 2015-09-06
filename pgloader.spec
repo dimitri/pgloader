@@ -1,6 +1,6 @@
 Summary:            extract, transform and load data into PostgreSQL
 Name:               pgloader
-Version:            3.2.0
+Version:            3.2.2
 Release:            22%{?dist}
 License:            The PostgreSQL Licence
 Group:              System Environment/Base
@@ -40,6 +40,12 @@ echo '-b /usr/bin/pgloader' > $RPM_BUILD_ROOT/etc/prelink.conf.d/%{name}.conf
 /etc/prelink.conf.d/%{name}.conf
 
 %changelog
+=======
+* Sun Sep 6 2015 Dimitri Fontaine <dimitri@2ndQuadrant.fr> - 3.2.2-22
+- Release 3.2.2
+
+* Thu Jan 22 2015 Dimitri Fontaine <dimitri@2ndQuadrant.fr> - 3.2.1.preview-22
+- Release 3.2.1.preview
 * Thu Jan 15 2015 Dimitri Fontaine <dimitri@2ndQuadrant.fr> - 3.2.0-22
 - Release 3.2.0
 
@@ -51,9 +57,9 @@ echo '-b /usr/bin/pgloader' > $RPM_BUILD_ROOT/etc/prelink.conf.d/%{name}.conf
 
 * Tue Apr 29 2014 Dimitri Fontaine <dimitri@2ndQuadrant.fr> 3.0.99
 - Assorted fixes, release candidate 9
-* Thu Dec 23 2013 Dimitri Fontaine <dimitri@2ndQuadrant.fr> 3.0.98
+* Mon Dec 23 2013 Dimitri Fontaine <dimitri@2ndQuadrant.fr> 3.0.98
 - Assorted fixes, release candidate 8
-* Wed Dec 15 2013 Dimitri Fontaine <dimitri@2ndQuadrant.fr> 3.0.97
+* Sun Dec 15 2013 Dimitri Fontaine <dimitri@2ndQuadrant.fr> 3.0.97
 - Assorted fixes, release candidate 7
 * Tue Dec 10 2013 Dimitri Fontaine <dimitri@2ndQuadrant.fr> 3.0.96
 - Package as an RPM

@@ -45,6 +45,10 @@
   (setf (conn-handle pgconn) nil)
   pgconn)
 
+(defmethod query ((pgconn pgsql-connection) sql &key)
+  (let ((pomo:*database* (conn-handle pgconn)))
+    (pomo:query sql)))
+
 (defmacro handling-pgsql-notices (&body forms)
   "The BODY is run within a PostgreSQL transaction where *pg-settings* have
    been applied. PostgreSQL warnings and errors are logged at the
@@ -80,7 +84,7 @@
   `(let (#+unix (cl-postgres::*unix-socket-dir*  (get-unix-socket-dir ,pgconn)))
      (with-connection (conn ,pgconn)
        (let ((pomo:*database* (conn-handle conn)))
-         (log-message :debug "CONNECT ~s" conn)
+         (log-message :debug "CONNECTED TO ~s" conn)
          (set-session-gucs *pg-settings*)
          (handling-pgsql-notices
               ,@forms)))))
@@ -116,7 +120,8 @@
   (multiple-value-bind (res secs)
       (timing
        (handler-case (pgsql-execute sql)
-         (cl-postgres:database-error ()
+         (cl-postgres:database-error (e)
+           (log-message :error "~a" e)
            (pgstate-incf state label :errs 1 :rows (- count)))))
     (declare (ignore res))
     (pgstate-incf state label :read count :rows count :secs secs)))
@@ -188,12 +193,153 @@
      where c.oid = '~:[~*~a~;~a.~a~]'::regclass and attnum > 0
   order by attnum" schema schema table-name) :column)))
 
+(defun list-indexes (table-name)
+  "List all indexes for TABLE-NAME in SCHEMA. A PostgreSQL connection must
+   be already established when calling that function."
+  (loop :for (index-name table-name table-oid primary unique sql conname condef)
+     :in (pomo:query (format nil "
+select i.relname,
+       indrelid::regclass,
+       indrelid,
+       indisprimary,
+       indisunique,
+       pg_get_indexdef(indexrelid),
+       c.conname,
+       pg_get_constraintdef(c.oid)
+  from pg_index x
+       join pg_class i ON i.oid = x.indexrelid
+       left join pg_constraint c ON c.conindid = i.oid
+ where indrelid = '~@[~a.~]~a'::regclass"
+                             (when (typep table-name 'cons)
+                               (car table-name))
+                             (typecase table-name
+                               (cons   (cdr table-name))
+                               (string table-name))))
+     :collect (make-pgsql-index :name index-name
+                                :table-name table-name
+                                :table-oid table-oid
+                                :primary primary
+                                :unique unique
+                                :columns nil
+                                :sql sql
+                                :conname (unless (eq :null conname) conname)
+                                :condef  (unless (eq :null condef)  condef))))
+
 (defun list-reserved-keywords (pgconn)
   "Connect to PostgreSQL DBNAME and fetch reserved keywords."
-  (with-pgsql-connection (pgconn)
-    (pomo:query "select word
+  (handler-case
+      (with-pgsql-connection (pgconn)
+        (pomo:query "select word
                    from pg_get_keywords()
-                  where catcode IN ('R', 'T')" :column)))
+                  where catcode IN ('R', 'T')" :column))
+    ;; support for Amazon Redshift
+    (cl-postgres-error::syntax-error-or-access-violation (e)
+      ;; 42883	undefined_function
+      ;;    Database error 42883: function pg_get_keywords() does not exist
+      ;;
+      ;; the following list comes from a manual query against a local
+      ;; PostgreSQL server (version 9.5devel), it's better to have this list
+      ;; than nothing at all.
+      (declare (ignore e))
+      (list "all"
+            "analyse"
+            "analyze"
+            "and"
+            "any"
+            "array"
+            "as"
+            "asc"
+            "asymmetric"
+            "authorization"
+            "binary"
+            "both"
+            "case"
+            "cast"
+            "check"
+            "collate"
+            "collation"
+            "column"
+            "concurrently"
+            "constraint"
+            "create"
+            "cross"
+            "current_catalog"
+            "current_date"
+            "current_role"
+            "current_schema"
+            "current_time"
+            "current_timestamp"
+            "current_user"
+            "default"
+            "deferrable"
+            "desc"
+            "distinct"
+            "do"
+            "else"
+            "end"
+            "except"
+            "false"
+            "fetch"
+            "for"
+            "foreign"
+            "freeze"
+            "from"
+            "full"
+            "grant"
+            "group"
+            "having"
+            "ilike"
+            "in"
+            "initially"
+            "inner"
+            "intersect"
+            "into"
+            "is"
+            "isnull"
+            "join"
+            "lateral"
+            "leading"
+            "left"
+            "like"
+            "limit"
+            "localtime"
+            "localtimestamp"
+            "natural"
+            "not"
+            "notnull"
+            "null"
+            "offset"
+            "on"
+            "only"
+            "or"
+            "order"
+            "outer"
+            "overlaps"
+            "placing"
+            "primary"
+            "references"
+            "returning"
+            "right"
+            "select"
+            "session_user"
+            "similar"
+            "some"
+            "symmetric"
+            "table"
+            "then"
+            "to"
+            "trailing"
+            "true"
+            "union"
+            "unique"
+            "user"
+            "using"
+            "variadic"
+            "verbose"
+            "when"
+            "where"
+            "window"
+            "with"))))
 
 (defun reset-all-sequences (pgconn &key tables)
   "Reset all sequences to the max value of the column they are attached to."
@@ -206,7 +352,7 @@
       (when tables
         (pomo:execute
          (format nil "create temp table reloids(oid) as values ~{('~a'::regclass)~^,~}"
-                 tables)))
+                 (mapcar #'apply-identifier-case tables))))
 
       (handler-case
           (let ((sql (format nil "

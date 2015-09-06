@@ -37,6 +37,7 @@
             <div class="navbar-collapse collapse">
               <ul class="nav navbar-nav">
                 <li><a href="index.html">Home</a></li>
+                <li><a href="howto/quickstart.html">Quick Start</a></li>
                 <li><a href="howto/pgloader.1.html">Reference documentation</a></li>
                 <li class="dropdown">
                   <a href="#" class="dropdown-toggle" data-toggle="dropdown">Data Sources HowTos <b class="caret"></b></a>
@@ -54,6 +55,7 @@
                 </li>
                 <li class="active"><a href="download.html">Download</a></li>
                 <li><a href="sponsors.html">Sponsors</a></li>
+                <li><a href="pgloader-moral-license.html">License</a></li>
               </ul>
             </div>
           </div>
@@ -96,43 +98,29 @@
             <tr><td>Sources</td>
               <td><a href="http://pgloader.io/files/pgloader-latest.tgz">pgloader-latest.tgz</a></td>
             </tr>
-            <tr><td>debian wheezy, <tt>amd64</tt></td>
-              <td><a href="http://pgloader.io/files/pgloader_3.1.1+dfsg-1_amd64.deb">pgloader_3.1.1+dfsg-1_amd64.deb</a></td>
-            </tr>
-            <tr><td>CentOS 6.4, <tt>amd64</tt></td>
-              <td><a href="http://pgloader.io/files/pgloader-3.1.1-22.el6.x86_64.rpm">pgloader-3.1.1-22.el6.x86_64.rpm</a></td>
-            </tr>
-            <tr><td>MacOSX 10.9.2</td>
-              <td><a href="http://pgloader.io/files/pgloader-3.1.1.pkg">pgloader-3.1.1.pkg</a></td>
-            </tr>
-            <tr><td>Windows 32bits</td>
-              <td><a href="http://pgloader.io/files/pgloader-3.1.ed853a7.exe">pgloader-3.1.ed853a7.exe</a></td>
-            </tr>
           </table>
           <p>
-            Those build have been made
-            using <a href="http://sbcl.org/">SBCL</a>, and pgloader is known
-            to also work with <a href="http://ccl.clozure.com/">Clozure
-            Common Lisp</a>.
+            Binary build are available on distributions where pgloader is
+            packaged, which currently includes
+            only <a href="https://packages.debian.org/sid/pgloader">debian</a>
+            and <a href="https://wiki.postgresql.org/wiki/Apt">apt.postgresql.org</a>
+            which covers both <tt>debian</tt> and <tt>ubuntu</tt> Operating
+            Systems.
           </p>
           <p>
-            Note that in theory more platforms should be supported out of
-            the box, it's all about setting up the <i>building
-            environment</i> (read <i>virtual machines</i>) and testing the
-            artifacts.
+            Note that pgloader is easy enough to build from sources,
+            see <a href="https://github.com/dimitri/pgloader/blob/master/INSTALL.md">pgloader
+            INSTALL.md</a> file. For <tt>RPM</tt> based systems, see also
+            the <a href="https://github.com/dimitri/pgloader/blob/master/bootstrap-centos7.sh">bootstrap-centos7.sh</a>
+            script that prepares your build environment so that building is
+            then just a <tt>git clone</tt> then <tt>make</tt> away.
           </p>
           <p>
-            The file <tt>pgloader-3.0.99.pkg</tt> has been prepared and
-            tested using <i>MacOSX 10.9.2</i> and may or may not work with
-            other versions of this Operating System.
-          </p>
-          <p>
-           The file <tt>pgloader-3.1.ed853a7.exe</tt> has been prepared and
-           testing using <i>Windows™ 7 Enterprise</i> in a <tt>32 bits</tt>
-           Virtual Machine. As pgloader comes without a GUI, you will need
-           to use that file from the Windows Command Line. The Windows build
-           is considered experimental, and doesn't include support for
-           compressed archives yet.
+            Building for the <i>Windows™</i> Operating System is easy enough
+            and the platform is fully supported. Please report any problem
+            there as usual, via
+            the <a href="https://github.com/dimitri/pgloader/issues">pgloader
+            issues</a> facility hosted at github.
           </p>
         </div>
         <div class="col-md-2"> </div>

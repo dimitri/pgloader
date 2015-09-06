@@ -12,6 +12,37 @@
 ;;;
 ;;;  http://msdn.microsoft.com/en-us/library/ms187489(SQL.90).aspx
 ;;;
+(make-option-rule create-schemas (and kw-create (? kw-no) kw-schemas))
+
+(defrule mssql-option (or option-batch-rows
+                          option-batch-size
+                          option-batch-concurrency
+                          option-truncate
+                          option-disable-triggers
+                          option-data-only
+                          option-schema-only
+                          option-include-drop
+                          option-create-tables
+                          option-create-schemas
+                          option-create-indexes
+                          option-reset-sequences
+                          option-encoding
+                          option-identifiers-case))
+
+(defrule another-mssql-option (and comma mssql-option)
+  (:lambda (source)
+    (bind (((_ option) source)) option)))
+
+(defrule mssql-option-list (and mssql-option (* another-mssql-option))
+  (:lambda (source)
+    (destructuring-bind (opt1 opts) source
+      (alexandria:alist-plist (list* opt1 opts)))))
+
+(defrule mssql-options (and kw-with mssql-option-list)
+  (:lambda (source)
+    (bind (((_ opts) source))
+      (cons :mssql-options opts))))
+
 (defrule like-expression (and "'" (+ (not "'")) "'")
   (:lambda (le)
     (bind (((_ like _) le)) (text like))))
@@ -53,7 +84,7 @@
 ;;;
 ;;; Allow clauses to appear in any order
 ;;;
-(defrule load-mssql-optional-clauses (* (or mysql-options
+(defrule load-mssql-optional-clauses (* (or mssql-options
                                             gucs
                                             casts
                                             before-load
@@ -109,6 +140,12 @@
 
 
 ;;; LOAD DATABASE FROM mssql://
+(defun lisp-code-for-mssql-dry-run (ms-db-conn pg-db-conn)
+  `(lambda ()
+     (log-message :log "DRY RUN, only checking connections.")
+     (check-connection ,ms-db-conn)
+     (check-connection ,pg-db-conn)))
+
 (defun lisp-code-for-loading-from-mssql (ms-db-conn pg-db-conn
                                          &key
                                            gucs casts before after
@@ -117,7 +154,7 @@
                                            (excluding))
   `(lambda ()
      ;; now is the time to load the CFFI lib we need (freetds)
-     (let ((sb-ext:*muffled-warnings* 'style-warning))
+     (let (#+sbcl(sb-ext:*muffled-warnings* 'style-warning))
        (cffi:load-foreign-library 'mssql::sybdb))
 
      (let* ((state-before  (pgloader.utils:make-pgstate))
@@ -156,14 +193,17 @@
     (bind (((ms-db-uri pg-db-uri
                        &key
                        gucs casts before after including excluding
-                       ((:mysql-options options)))
+                       ((:mssql-options options)))
             source))
-      (lisp-code-for-loading-from-mssql ms-db-uri pg-db-uri
-                                        :gucs gucs
-                                        :casts casts
-                                        :before before
-                                        :after after
-                                        :mssql-options options
-                                        :including including
-                                        :excluding excluding))))
+      (cond (*dry-run*
+             (lisp-code-for-mssql-dry-run ms-db-uri pg-db-uri))
+            (t
+             (lisp-code-for-loading-from-mssql ms-db-uri pg-db-uri
+                                               :gucs gucs
+                                               :casts casts
+                                               :before before
+                                               :after after
+                                               :mssql-options options
+                                               :including including
+                                               :excluding excluding))))))
 

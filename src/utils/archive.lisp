@@ -29,8 +29,12 @@
 			  should-close
 			  status)
 	(drakma:http-request url :force-binary t :want-stream t)
-      ;; TODO: check the status-code
-      (declare (ignore status-code uri stream status))
+      (declare (ignore uri stream))
+
+      (when (not (= 200 status-code))
+        (log-message :fatal "HTTP Error ~a: ~a" status-code status)
+        (error status))
+
       (let* ((source-stream   (flexi-streams:flexi-stream-stream http-stream))
 	     (content-length
 	      (parse-integer (cdr (assoc :content-length headers)))))

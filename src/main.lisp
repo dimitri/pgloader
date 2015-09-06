@@ -1,5 +1,16 @@
 (in-package #:pgloader)
 
+;;;
+;;; Some command line constants for OS errors codes
+;;;
+(defparameter +os-code-success+          0)
+(defparameter +os-code-error+            1)
+(defparameter +os-code-error-usage+      2)
+(defparameter +os-code-error-bad-source+ 4)
+
+;;;
+;;; Now some tooling
+;;;
 (defun log-threshold (min-message &key quiet verbose debug)
   "Return the internal value to use given the script parameters."
   (cond ((and debug verbose) :data)
@@ -41,6 +52,9 @@
 
     (("load-lisp-file" #\l) :type string :list t :optional t
      :documentation "Read user code from files")
+
+    ("dry-run" :type boolean
+     :documentation "Only check database connections, don't load anything.")
 
     (("with") :type string :list t :optional t
      :documentation "Load options")
@@ -110,7 +124,7 @@
   (format t "~&~a [ option ... ] command-file ..." (first argv))
   (format t "~&~a [ option ... ] SOURCE TARGET" (first argv))
   (command-line-arguments:show-option-help *opt-spec*)
-  (when quit (uiop:quit)))
+  (when quit (uiop:quit +os-code-error-usage+)))
 
 (defvar *self-upgraded-already* nil
   "Keep track if we did reload our own source code already.")
@@ -121,7 +135,7 @@
                             (uiop:parse-unix-namestring namestring))))
     (unless pgloader-pathname
       (format t "No such directory: ~s~%" namestring)
-      (uiop:quit))
+      (uiop:quit +os-code-error+))
 
     ;; now the real thing
     (handler-case
@@ -161,6 +175,7 @@
                     :test #'string=)
       (error "Unknown lisp file extension: ~s" (pathname-type pathname)))
 
+    (log-message :info "Loading code from ~s" pathname)
     (load (compile-file pathname :verbose nil :print nil))))
 
 (defun main (argv)
@@ -176,7 +191,7 @@
             (usage argv :quit t)))
 
       (destructuring-bind (&key help version quiet verbose debug logfile
-				list-encodings upgrade-config
+				list-encodings upgrade-config dry-run
                                 ((:load-lisp-file load))
 				client-min-messages log-min-messages summary
 				root-dir self-upgrade
@@ -228,11 +243,11 @@
 	(when help
           (usage argv))
 
-	(when (or help version) (uiop:quit))
+	(when (or help version) (uiop:quit +os-code-success+))
 
 	(when list-encodings
 	  (show-encodings)
-	  (uiop:quit))
+	  (uiop:quit +os-code-success+))
 
 	(when upgrade-config
 	  (loop for filename in arguments
@@ -242,20 +257,11 @@
                      (pgloader.ini:convert-ini-into-commands filename))
                  (condition (c)
                    (when debug (invoke-debugger c))
-                   (uiop:quit 1)))
-	       (format t "~%~%"))
-	  (uiop:quit))
+                   (uiop:quit +os-code-error+))))
+	  (uiop:quit +os-code-success+))
 
-	(when load
-          (loop for filename in load do
-               (handler-case
-                   (load-extra-transformation-functions filename)
-                 (condition (e)
-                   (format *standard-output*
-                           "Failed to load lisp source file ~s~%"
-                           filename)
-                   (format *standard-output* "~a~%" e)
-                   (uiop:quit 3)))))
+        ;; Should we run in dry-run mode?
+        (setf *dry-run* dry-run)
 
 	;; Now process the arguments
 	(when arguments
@@ -267,6 +273,18 @@
               ;; tell the user where to look for interesting things
               (log-message :log "Main logs in '~a'" (probe-file *log-filename*))
               (log-message :log "Data errors in '~a'~%" *root-dir*)
+
+              ;; load extra lisp code provided for by the user
+              (when load
+                (loop for filename in load do
+                     (handler-case
+                         (load-extra-transformation-functions filename)
+                       (condition (e)
+                         (log-message :fatal
+                                      "Failed to load lisp source file ~s~%"
+                                      filename)
+                         (log-message :error "~a" e)
+                         (uiop:quit +os-code-error+)))))
 
               (handler-case
                   ;; The handler-case is to catch unhandled exceptions at the
@@ -290,7 +308,8 @@
                                (source (if type
                                            (parse-source-string-for-type type source)
                                            (parse-source-string source)))
-                               (type   (parse-cli-type (conn-type source)))
+                               (type   (when source
+                                         (parse-cli-type (conn-type source))))
                                (target (parse-target-string (second arguments))))
 
                           ;; some verbosity about the parsing "magic"
@@ -336,14 +355,14 @@
 
                 (source-definition-error (c)
                   (log-message :fatal "~a" c)
-                  (uiop:quit 2))
+                  (uiop:quit +os-code-error-bad-source+))
 
                 (condition (c)
                   (when debug (invoke-debugger c))
-                  (uiop:quit 1))))))
+                  (uiop:quit +os-code-error+))))))
 
         ;; done.
-	(uiop:quit)))))
+	(uiop:quit +os-code-success+)))))
 
 (defun process-command-file (filename)
   "Process FILENAME as a pgloader command file (.load)."

@@ -1,5 +1,5 @@
 ;;
-;; Abstrat classes to define the API to connect to a data source
+;; Abstract classes to define the API to connect to a data source
 ;;
 (in-package :pgloader.connection)
 
@@ -17,6 +17,9 @@
 
 (defgeneric close-connection (connection)
   (:documentation "Close a connection to the data source."))
+
+(defgeneric check-connection (connection)
+  (:documentation "Check that we can actually connect."))
 
 (defclass fd-connection (connection)
   ((uri  :initarg :uri  :accessor fd-uri)
@@ -44,10 +47,10 @@
        (format stream "~a://~a" type url)))))
 
 (defgeneric fetch-file (fd-connection)
-  (:documentation "Suport for HTTP URI for files."))
+  (:documentation "Support for HTTP URI for files."))
 
 (defgeneric expand (fd-connection)
-  (:documentation "Suport for file archives."))
+  (:documentation "Support for file archives."))
 
 (defmethod expand ((fd fd-connection))
   "Expand the archive for the FD connection."
@@ -94,6 +97,9 @@
                      (connection-error-user err)
                      (connection-error-mesg err)))))
 
+(defgeneric query (db-connection sql &key)
+  (:documentation "Query DB-CONNECTION with SQL query"))
+
 (defmacro with-connection ((var connection) &body forms)
   "Connect to DB-CONNECTION and handle any condition when doing so, and when
    connected execute FORMS in a protected way so that we always disconnect
@@ -115,8 +121,36 @@
                                     :type (conn-type ,conn)
                                     :host (db-host ,conn)
                                     :port (db-port ,conn)
-                                    :user (db-user ,conn))))))))
+                                    :user (db-user ,conn)))
+
+                            (t
+                             (error 'connection-error
+                                    :mesg (format nil "~a" e)
+                                    :type (conn-type ,conn))))))))
        (unwind-protect
             (progn ,@forms)
          (close-connection ,var)))))
 
+(defmethod check-connection ((fd fd-connection))
+  "Check that it is possible to connect to db-connection C."
+  (log-message :log "Attempting to open ~a" fd)
+  (handler-case
+      (with-connection (cnx fd)
+        (log-message :log "Success, opened ~a." fd))
+    (condition (e)
+      (log-message :fatal "Failed to connect to ~a: ~a" fd e))))
+
+(defmethod check-connection ((c db-connection))
+  "Check that it is possible to connect to db-connection C."
+  (log-message :log "Attempting to connect to ~a" c)
+  (handler-case
+      (with-connection (cnx c)
+        (log-message :log "Success, opened ~a." c)
+        (let ((sql "SELECT 1;"))
+          (log-message :log "Running a simple query: ~a" sql)
+          (handler-case
+              (query cnx sql)
+            (condition (e)
+              (log-message :fatal "SQL failed on ~a: ~a" c e)))))
+    (condition (e)
+      (log-message :fatal "Failed to connect to ~a: ~a" c e))))

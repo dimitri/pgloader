@@ -6,8 +6,9 @@
 (defpackage #:pgloader.params
   (:use #:cl)
   (:export #:*version-string*
+           #:*dry-run*
            #:*self-upgrade-immutable-systems*
-	   #:*csv-path-root*
+	   #:*fd-path-root*
 	   #:*root-dir*
 	   #:*log-filename*
            #:*summary-pathname*
@@ -15,6 +16,7 @@
 	   #:*log-min-messages*
            #:*report-stream*
            #:*identifier-case*
+           #:*preserve-index-names*
 	   #:*copy-batch-rows*
            #:*copy-batch-size*
            #:*concurrent-batches*
@@ -30,7 +32,7 @@
   "non-nil when this build is a release build.")
 
 (defparameter *major-version* "3.2")
-(defparameter *minor-version* "0")
+(defparameter *minor-version* "2")
 
 (defun git-hash ()
   "Return the current abbreviated git hash of the development tree."
@@ -63,13 +65,16 @@
      DEFAULT if that variable isn't set"
     (or (uiop:getenv name) default)))
 
+(defparameter *dry-run* nil
+  "Set to non-nil to only run checks about the load setup.")
+
 ;; we can't use pgloader.utils:make-pgstate yet because params is compiled
 ;; first in the asd definition, we just make the symbol a special variable.
 (defparameter *state* nil
   "State of the current loading.")
 
-(defparameter *csv-path-root* nil
-  "Where to load CSV files from, when loading from an archive.")
+(defparameter *fd-path-root* nil
+  "Where to load files from, when loading from an archive or expanding regexps.")
 
 (defparameter *root-dir*
   #+unix (make-pathname :directory "/tmp/pgloader/")
@@ -97,6 +102,9 @@
 ;;;
 (defparameter *identifier-case* :downcase
   "Dealing with source databases casing rules.")
+
+(defparameter *preserve-index-names* nil
+  "Dealing with source databases index naming.")
 
 ;;;
 ;;; How to split batches in case of data loading errors.

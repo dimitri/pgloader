@@ -1,6 +1,6 @@
 # pgloader build tool
 APP_NAME   = pgloader
-VERSION    = 3.2.0
+VERSION    = 3.2.2
 
 # use either sbcl or ccl
 CL	   = sbcl
@@ -74,6 +74,9 @@ $(QLDIR)/local-projects/qmynd:
 $(QLDIR)/local-projects/cl-ixf:
 	git clone https://github.com/dimitri/cl-ixf.git $@
 
+$(QLDIR)/local-projects/cl-db3:
+	git clone https://github.com/dimitri/cl-db3.git $@
+
 $(QLDIR)/local-projects/cl-csv:
 	git clone https://github.com/AccelerationNet/cl-csv.git $@
 
@@ -83,13 +86,15 @@ $(QLDIR)/local-projects/esrap:
 $(QLDIR)/setup.lisp:
 	mkdir -p $(BUILDDIR)
 	curl -o $(BUILDDIR)/quicklisp.lisp http://beta.quicklisp.org/quicklisp.lisp
-	$(CL) $(CL_OPTS) --load $(BUILDDIR)/quicklisp.lisp                         \
-             --eval '(quicklisp-quickstart:install :path "$(BUILDDIR)/quicklisp")' \
+	$(CL) $(CL_OPTS) --load $(BUILDDIR)/quicklisp.lisp                        \
+             --load src/getenv.lisp                                               \
+             --eval '(quicklisp-quickstart:install :path "$(BUILDDIR)/quicklisp" :proxy (getenv "http_proxy"))' \
              --eval '(quit)'
 
 quicklisp: $(QLDIR)/setup.lisp ;
 
 clones: $(QLDIR)/local-projects/cl-ixf \
+        $(QLDIR)/local-projects/cl-db3 \
         $(QLDIR)/local-projects/cl-csv \
         $(QLDIR)/local-projects/qmynd  \
         $(QLDIR)/local-projects/esrap ;
@@ -148,13 +153,13 @@ $(PGLOADER): $(MANIFEST) $(BUILDAPP) $(LISP_SRC)
 pgloader: $(PGLOADER) ;
 
 pgloader-standalone:
-	$(BUILDAPP)    --require sb-posix                      \
-                       --require sb-bsd-sockets                \
-                       --require sb-rotate-byte                \
-                       --load-system pgloader                  \
+	$(BUILDAPP)    $(BUILDAPP_OPTS)                        \
+                       --sbcl $(CL)                            \
+                       --load-system $(APP_NAME)               \
+                       --load src/hooks.lisp                   \
                        --entry pgloader:main                   \
                        --dynamic-space-size $(DYNSIZE)         \
-                       --compress-core                         \
+                       $(COMPRESS_CORE_OPT)                    \
                        --output $(PGLOADER)
 
 test: $(PGLOADER)

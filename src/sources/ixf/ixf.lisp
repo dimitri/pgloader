@@ -19,7 +19,11 @@
   (with-connection (conn (source-db source))
     (unless (and (slot-boundp source 'columns) (slot-value source 'columns))
       (setf (slot-value source 'columns)
-            (list-all-columns (conn-handle conn) (source source))))
+            (list-all-columns (conn-handle conn)
+                              (or (typecase (target source)
+                                    (cons   (cdr (target source)))
+                                    (string (target source)))
+                                  (source source)))))
 
     (let ((transforms (when (slot-boundp source 'transforms)
                         (slot-value source 'transforms))))
@@ -67,7 +71,8 @@
   (let ((read (pgloader.queue:map-push-queue ixf queue)))
     (pgstate-incf *state* (target ixf) :read read)))
 
-(defmethod copy-from ((ixf copy-ixf) &key (kernel nil k-s-p) truncate)
+(defmethod copy-from ((ixf copy-ixf)
+                      &key (kernel nil k-s-p) truncate disable-triggers)
   (let* ((summary        (null *state*))
          (*state*        (or *state* (pgloader.utils:make-pgstate)))
          (lp:*kernel*    (or kernel (make-kernel 2)))
@@ -86,7 +91,8 @@
         (lp:submit-task channel
                         #'pgloader.pgsql:copy-from-queue
                         (target-db ixf) (target ixf) queue
-                        :truncate truncate)
+                        :truncate truncate
+                        :disable-triggers disable-triggers)
 
         ;; now wait until both the tasks are over, and kill the kernel
         (loop for tasks below 2 do (lp:receive-result channel)
@@ -100,11 +106,12 @@
                             state-before
                             data-only
 			    schema-only
-                            (truncate        t)
-                            (create-tables   t)
-			    (include-drop    t)
-			    (create-indexes  t)
-			    (reset-sequences t))
+                            (truncate         t)
+                            (disable-triggers nil)
+                            (create-tables    t)
+			    (include-drop     t)
+			    (create-indexes   t)
+			    (reset-sequences  t))
   "Open the IXF and stream its content to a PostgreSQL database."
   (declare (ignore create-indexes reset-sequences))
   (let* ((summary     (null *state*))
@@ -121,20 +128,21 @@
           (with-stats-collection ("create, truncate"
                                   :state state-before
                                   :summary summary)
-            (with-pgsql-transaction (:pgconn (target-db ixf))
-              (when create-tables
-                (log-message :notice "Create table \"~a\"" table-name)
-                (create-tables (columns ixf)
-                               :include-drop include-drop
-                               :if-not-exists t)))))
+              (with-pgsql-transaction (:pgconn (target-db ixf))
+                (when create-tables
+                  (with-schema (tname table-name)
+                    (log-message :notice "Create table \"~a\"" tname)
+                    (create-tables (columns ixf)
+                                   :include-drop include-drop
+                                   :if-not-exists t))))))
 
-      (cl-postgres::database-errors (e)
+      (cl-postgres::database-error (e)
         (declare (ignore e))            ; a log has already been printed
         (log-message :fatal "Failed to create the schema, see above.")
         (return-from copy-database)))
 
     (unless schema-only
-      (copy-from ixf :truncate truncate))
+      (copy-from ixf :truncate truncate :disable-triggers disable-triggers))
 
     ;; and report the total time spent on the operation
     (when summary

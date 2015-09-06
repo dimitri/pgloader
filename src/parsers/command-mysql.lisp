@@ -101,10 +101,17 @@
 
 (defrule mysql-prefix "mysql://" (:constant (list :type :mysql)))
 
+(defrule mysql-dsn-dbname (and "/" (* (or (alpha-char-p character)
+                                          (digit-char-p character)
+                                          punct)))
+  (:destructure (slash dbname)
+		(declare (ignore slash))
+		(list :dbname (text dbname))))
+
 (defrule mysql-uri (and mysql-prefix
                         (? dsn-user-password)
                         (? dsn-hostname)
-                        dsn-dbname)
+                        mysql-dsn-dbname)
   (:lambda (uri)
     (destructuring-bind (&key type
                               user
@@ -145,6 +152,12 @@
 
 
 ;;; LOAD DATABASE FROM mysql://
+(defun lisp-code-for-mysql-dry-run (my-db-conn pg-db-conn)
+  `(lambda ()
+     (log-message :log "DRY RUN, only checking connections.")
+     (check-connection ,my-db-conn)
+     (check-connection ,pg-db-conn)))
+
 (defun lisp-code-for-loading-from-mysql (my-db-conn pg-db-conn
                                          &key
                                            gucs casts views before after
@@ -194,14 +207,17 @@
                          gucs casts views before after
                          mysql-options including excluding decoding)
         source
-      (lisp-code-for-loading-from-mysql my-db-uri pg-db-uri
-                                        :gucs gucs
-                                        :casts casts
-                                        :views views
-                                        :before before
-                                        :after after
-                                        :mysql-options mysql-options
-                                        :including including
-                                        :excluding excluding
-                                        :decoding decoding))))
+      (cond (*dry-run*
+             (lisp-code-for-mysql-dry-run my-db-uri pg-db-uri))
+            (t
+             (lisp-code-for-loading-from-mysql my-db-uri pg-db-uri
+                                               :gucs gucs
+                                               :casts casts
+                                               :views views
+                                               :before before
+                                               :after after
+                                               :mysql-options mysql-options
+                                               :including including
+                                               :excluding excluding
+                                               :decoding decoding))))))
 

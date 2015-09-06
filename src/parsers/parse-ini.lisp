@@ -31,9 +31,11 @@
 	 (ini:get-option config section option))
 
 	(template
-	 (if (ini:has-option-p config template option)
-	     (ini:get-option config template option)
-	     (read-default-value-for-param config option default)))
+         ;; don't inherit the is-template property from the template
+         (unless (string-equal "template" option)
+           (if (ini:has-option-p config template option)
+               (ini:get-option config template option)
+               (read-default-value-for-param config option default))))
 
 	(t (read-default-value-for-param config option default))))
 
@@ -96,27 +98,21 @@
      for (name pos) = (sq:split-sequence #\: colspec)
      collect (cons name (or (when pos (parse-integer pos)) count))))
 
-(defmacro with-database-connection ((config section) &body body)
-  "Execute given SQL in a PostgreSQL connection suitable for CONFIG, SECTION."
-  `(destructuring-bind (&key host port user pass dbname table-name)
-       (get-connection-params ,config ,section)
-     (let ((*pgconn-host* host)
-	   (*pgconn-port* (typecase port
-				     (integer port)
-				     (string  (parse-integer port))))
-	   (*pgconn-user* user)
-	   (*pgconn-pass* pass)
-	   (dbname        dbname)
-	   (table-name    table-name))
-       ,@body)))
-
 (defun get-pgsql-column-specs (config section)
   "Connect to PostgreSQL to get the column specs."
-  (with-database-connection (config section)
-    (loop
-       for pos from 1
-       for name in (list-columns dbname table-name)
-       collect (cons name pos))))
+  (destructuring-bind (&key host port user pass dbname table-name)
+      (get-connection-params config section)
+    (let ((pgconn (make-instance 'pgsql-connection
+                                 :host host
+                                 :port port
+                                 :user user
+                                 :pass pass
+                                 :name dbname
+                                 :table-name table-name)))
+      (loop
+         :for pos :from 1
+         :for name :in (list-columns pgconn table-name)
+         :collect (cons name pos)))))
 
 (defun parse-columns-spec (string config section &key trailing-sep)
   "Parse old-style columns specification, such as:
@@ -233,23 +229,25 @@
 
 (defun get-connection-params (config section)
   "Return a property list with connection parameters for SECTION."
-  (append
-   (loop
-      for (param option section default)
-      in `((:host   "host"   ,*global-section* ,*pgconn-host*)
-	   (:port   "port"   ,*global-section* ,(format nil "~d" *pgconn-port*))
-	   (:user   "user"   ,*global-section* ,*pgconn-user*)
-	   (:pass   "pass"   ,*global-section* ,*pgconn-pass*)
-	   (:dbname "base"   ,*global-section* nil))
-      append
-	(list param
-	      (coerce
-	       (read-value-for-param config section option :default default)
-	       'simple-string)))
-   ;; fetch table name from current section or its template maybe
-   (let ((template (read-value-for-param config section "use_template")))
-     (list :table-name
-	   (read-value-for-param config section "table" :template template)))))
+  (let ((defaults (pgloader:parse-target-string "pgsql:///")))
+    (append
+     (loop
+        for (param option section default)
+        in `((:host   "host"   ,*global-section* ,(db-host defaults))
+             (:port   "port"   ,*global-section* ,(prin1-to-string
+                                                   (db-port defaults)))
+             (:user   "user"   ,*global-section* ,(db-user defaults))
+             (:pass   "pass"   ,*global-section* ,(db-pass defaults))
+             (:dbname "base"   ,*global-section* nil))
+        append
+          (list param
+                (coerce
+                 (read-value-for-param config section option :default default)
+                 'simple-string)))
+     ;; fetch table name from current section or its template maybe
+     (let ((template (read-value-for-param config section "use_template")))
+       (list :table-name
+             (read-value-for-param config section "table" :template template))))))
 
 (defun get-connection-string (config section)
   "Return the connection parameters as a postgresql:// string."

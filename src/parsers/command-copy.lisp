@@ -24,11 +24,24 @@
   (:lambda (source)
     (bind (((_ field-defs _) source)) field-defs)))
 
+(defrule option-delimiter (and kw-delimiter separator)
+  (:lambda (delimiter)
+    (destructuring-bind (kw sep) delimiter
+      (declare (ignore kw))
+      (cons :delimiter sep))))
+
+(defrule option-null (and kw-null quoted-string)
+  (:destructure (kw null) (declare (ignore kw)) (cons :null-as null)))
+
 (defrule copy-option (or option-batch-rows
                          option-batch-size
                          option-batch-concurrency
                          option-truncate
-                         option-skip-header))
+                         option-drop-indexes
+                         option-disable-triggers
+                         option-skip-header
+                         option-delimiter
+                         option-null))
 
 (defrule another-copy-option (and comma copy-option)
   (:lambda (source)
@@ -39,7 +52,7 @@
     (destructuring-bind (opt1 opts) source
       (alexandria:alist-plist `(,opt1 ,@opts)))))
 
-(defrule copy-options (and kw-with csv-option-list)
+(defrule copy-options (and kw-with copy-option-list)
   (:lambda (source)
     (bind (((_ opts) source))
       (cons :copy-options opts))))
@@ -47,22 +60,22 @@
 (defrule copy-uri (and "copy://" filename)
   (:lambda (source)
     (bind (((_ filename) source))
-      (make-instance 'copy-connection :specs filename))))
+      (make-instance 'copy-connection :spec filename))))
 
 (defrule copy-file-source (or stdin
-			       inline
-                               http-uri
-                               copy-uri
-			       filename-matching
-			       maybe-quoted-filename)
+                              inline
+                              http-uri
+                              copy-uri
+                              filename-matching
+                              maybe-quoted-filename)
   (:lambda (src)
     (if (typep src 'copy-connection) src
         (destructuring-bind (type &rest specs) src
           (case type
-            (:stdin    (make-instance 'copy-connection :specs src))
-            (:inline   (make-instance 'copy-connection :specs src))
-            (:filename (make-instance 'copy-connection :specs src))
-            (:regex    (make-instance 'copy-connection :specs src))
+            (:stdin    (make-instance 'copy-connection :spec src))
+            (:inline   (make-instance 'copy-connection :spec src))
+            (:filename (make-instance 'copy-connection :spec src))
+            (:regex    (make-instance 'copy-connection :spec src))
             (:http     (make-instance 'copy-connection :uri (first specs))))))))
 
 (defrule get-copy-file-source-from-environment-variable (and kw-getenv name)
@@ -87,7 +100,7 @@
     (alexandria:alist-plist clauses-list)))
 
 (defrule load-copy-file-command (and copy-source (? file-encoding)
-                                     copy-source-field-list
+                                     (? copy-source-field-list)
                                      target
                                      (? csv-target-column-list)
                                      load-copy-file-optional-clauses)
@@ -96,16 +109,19 @@
       `(,source ,encoding ,fields ,target ,columns ,@clauses))))
 
 (defun lisp-code-for-loading-from-copy (copy-conn fields pg-db-conn
-                                         &key
-                                           (encoding :utf-8)
-                                           columns
-                                           gucs before after
-                                           ((:copy-options options)))
+                                        &key
+                                          (encoding :utf-8)
+                                          columns
+                                          gucs before after
+                                          ((:copy-options options)))
   `(lambda ()
      (let* ((state-before  (pgloader.utils:make-pgstate))
             (summary       (null *state*))
             (*state*       (or *state* (pgloader.utils:make-pgstate)))
-            (state-after   ,(when after `(pgloader.utils:make-pgstate)))
+            (state-idx     ,(when (getf options :drop-indexes)
+                                  `(pgloader.utils:make-pgstate)))
+            (state-after   ,(when (or after (getf options :drop-indexes))
+                                  `(pgloader.utils:make-pgstate)))
             ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
             (source-db     (with-stats-collection ("fetch" :state state-before)
@@ -115,16 +131,27 @@
          ,(sql-code-block pg-db-conn 'state-before before "before load")
 
          (let ((truncate ,(getf options :truncate))
+               (disable-triggers (getf ',options :disable-triggers))
+               (drop-indexes     (getf ',options :drop-indexes))
                (source
                 (make-instance 'pgloader.copy:copy-copy
                                :target-db ,pg-db-conn
                                :source source-db
-                               :target ,(pgconn-table-name pg-db-conn)
+                               :target ',(pgconn-table-name pg-db-conn)
                                :encoding ,encoding
                                :fields ',fields
                                :columns ',columns
-                               :skip-lines ,(or (getf options :skip-line) 0))))
-           (pgloader.sources:copy-from source :truncate truncate))
+                               ,@(remove-batch-control-option
+                                  options :extras '(:truncate
+                                                    :drop-indexes
+                                                    :disable-triggers)))))
+           (pgloader.sources:copy-from source
+                                       :state-before state-before
+                                       :state-after state-after
+                                       :state-indexes state-idx
+                                       :truncate truncate
+                                       :drop-indexes drop-indexes
+                                       :disable-triggers disable-triggers))
 
          ,(sql-code-block pg-db-conn 'state-after after "after load")
 
@@ -132,16 +159,20 @@
          (when summary
            (report-full-summary "Total import time" *state*
                                 :before  state-before
-                                :finally state-after))))))
+                                :finally state-after
+                                :parallel state-idx))))))
 
 (defrule load-copy-file load-copy-file-command
   (:lambda (command)
     (bind (((source encoding fields pg-db-uri columns
                     &key ((:copy-options options)) gucs before after) command))
-      (lisp-code-for-loading-from-copy source fields pg-db-uri
-                                       :encoding encoding
-                                       :columns columns
-                                       :gucs gucs
-                                       :before before
-                                       :after after
-                                       :copy-options options))))
+      (cond (*dry-run*
+             (lisp-code-for-csv-dry-run pg-db-uri))
+            (t
+             (lisp-code-for-loading-from-copy source fields pg-db-uri
+                                              :encoding encoding
+                                              :columns columns
+                                              :gucs gucs
+                                              :before before
+                                              :after after
+                                              :copy-options options))))))

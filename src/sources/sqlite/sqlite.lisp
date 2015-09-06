@@ -16,12 +16,16 @@
 (defmethod open-connection ((slconn sqlite-connection) &key)
   (setf (conn-handle slconn)
         (sqlite:connect (fd-path slconn)))
+  (log-message :debug "CONNECTED TO ~a" (fd-path slconn))
   slconn)
 
 (defmethod close-connection ((slconn sqlite-connection))
   (sqlite:disconnect (conn-handle slconn))
   (setf (conn-handle slconn) nil)
   slconn)
+
+(defmethod query ((slconn sqlite-connection) sql &key)
+  (sqlite:execute-to-list (conn-handle slconn) sql))
 
 (defclass copy-sqlite (copy)
   ((db :accessor db :initarg :db))
@@ -44,14 +48,44 @@
 
 ;;; Map a function to each row extracted from SQLite
 ;;;
+(defun sqlite-encoding (db)
+  "Return a BABEL suitable encoding for the SQLite db handle."
+  (let ((encoding-string (sqlite:execute-single db "pragma encoding;")))
+    (cond ((string-equal encoding-string "UTF-8")    :utf-8)
+          ((string-equal encoding-string "UTF-16")   :utf-16)
+          ((string-equal encoding-string "UTF-16le") :utf-16le)
+          ((string-equal encoding-string "UTF-16be") :utf-16be))))
+
+(declaim (inline parse-value))
+
+(defun parse-value (value sqlite-type pgsql-type &key (encoding :utf-8))
+  "Parse value given by SQLite to match what PostgreSQL is expecting.
+   In some cases SQLite will give text output for a blob column (it's
+   base64) and at times will output binary data for text (utf-8 byte
+   vector)."
+  (cond ((and (string-equal "text" pgsql-type)
+              (eq :blob sqlite-type)
+              (not (stringp value)))
+         ;; we expected a properly encoded string and received bytes instead
+         (babel:octets-to-string value :encoding encoding))
+
+        ((and (string-equal "bytea" pgsql-type)
+              (stringp value))
+         ;; we expected bytes and got a string instead, must be base64 encoded
+         (base64:base64-string-to-usb8-array value))
+
+        ;; default case, just use what's been given to us
+        (t value)))
+
 (defmethod map-rows ((sqlite copy-sqlite) &key process-row-fn)
   "Extract SQLite data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row"
   (let ((sql      (format nil "SELECT * FROM ~a" (source sqlite)))
-        (blobs-p
-         (coerce (mapcar #'cast-to-bytea-p (fields sqlite)) 'vector)))
+        (pgtypes  (map 'vector #'cast-sqlite-column-definition-to-pgsql
+                       (fields sqlite))))
     (with-connection (*sqlite-db* (source-db sqlite))
-      (let ((db (conn-handle *sqlite-db*)))
+      (let* ((db (conn-handle *sqlite-db*))
+             (encoding (sqlite-encoding db)))
         (handler-case
             (loop
                with statement = (sqlite:prepare-statement db sql)
@@ -62,13 +96,18 @@
                for row = (let ((v (make-array len)))
                            (loop :for x :below len
                               :for raw := (sqlite:statement-column-value statement x)
-                              :for val := (if (and (aref blobs-p x) (stringp raw))
-                                              (base64:base64-string-to-usb8-array raw)
-                                              raw)
+                              :for ptype := (aref pgtypes x)
+                              :for stype := (sqlite-ffi:sqlite3-column-type
+                                             (sqlite::handle statement)
+                                             x)
+                              :for val := (parse-value raw stype ptype
+                                                       :encoding encoding)
                               :do (setf (aref v x) val))
                            v)
                counting t into rows
-               do (funcall process-row-fn row)
+               do (progn
+                    (pgstate-incf *state* (target sqlite) :read 1)
+                    (funcall process-row-fn row))
                finally
                  (sqlite:finalize-statement statement)
                  (return rows))
@@ -79,10 +118,10 @@
 
 (defmethod copy-to-queue ((sqlite copy-sqlite) queue)
   "Copy data from SQLite table TABLE-NAME within connection DB into queue DATAQ"
-  (let ((read (pgloader.queue:map-push-queue sqlite queue)))
-    (pgstate-incf *state* (target sqlite) :read read)))
+  (map-push-queue sqlite queue))
 
-(defmethod copy-from ((sqlite copy-sqlite) &key (kernel nil k-s-p) truncate)
+(defmethod copy-from ((sqlite copy-sqlite)
+                      &key (kernel nil k-s-p) truncate disable-triggers)
   "Stream the contents from a SQLite database table down to PostgreSQL."
   (let* ((summary     (null *state*))
 	 (*state*     (or *state* (pgloader.utils:make-pgstate)))
@@ -103,7 +142,8 @@
         (lp:submit-task channel
                         #'pgloader.pgsql:copy-from-queue
                         (target-db sqlite) (target sqlite) queue
-                        :truncate truncate)
+                        :truncate truncate
+                        :disable-triggers disable-triggers)
 
         ;; now wait until both the tasks are over
         (loop for tasks below 2 do (lp:receive-result channel)
@@ -145,11 +185,12 @@
 			    state-before
 			    data-only
 			    schema-only
-			    (truncate        nil)
-			    (create-tables   t)
-			    (include-drop    t)
-			    (create-indexes  t)
-			    (reset-sequences t)
+			    (truncate         nil)
+			    (disable-triggers nil)
+			    (create-tables    t)
+			    (include-drop     t)
+			    (create-indexes   t)
+			    (reset-sequences  t)
                             only-tables
 			    including
 			    excluding
@@ -195,7 +236,7 @@
                 (truncate
                  (truncate-tables (target-db sqlite) (mapcar #'car all-columns))))
 
-        (cl-postgres::database-errror (e)
+        (cl-postgres:database-error (e)
           (declare (ignore e))          ; a log has already been printed
           (log-message :fatal "Failed to create the schema, see above.")
           (return-from copy-database)))
@@ -208,11 +249,13 @@
                                  :source-db  (source-db sqlite)
                                  :target-db  (target-db sqlite)
                                  :source     table-name
-                                 :target     table-name
+                                 :target     (apply-identifier-case table-name)
                                  :fields     columns)))
              ;; first COPY the data from SQLite to PostgreSQL, using copy-kernel
              (unless schema-only
-               (copy-from table-source :kernel copy-kernel))
+               (copy-from table-source
+                          :kernel copy-kernel
+                          :disable-triggers disable-triggers))
 
              ;; Create the indexes for that table in parallel with the next
              ;; COPY, and all at once in concurrent threads to benefit from

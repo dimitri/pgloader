@@ -33,6 +33,7 @@
                  #:metabang-bind        ; the bind macro
                  #:mssql                ; M$ SQL connectivity
                  #:uuid             ; Transforming MS SQL unique identifiers
+                 #:quri                 ; decode URI parameters
 		 )
     :components
     ((:module "src"
@@ -64,6 +65,9 @@
 
                ;; generic connection api
                (:file "connection" :depends-on ("utils"))
+
+               ;; some table name and schema facilities
+               (:file "schema" :depends-on ("package"))
 
 	       ;; package pgloader.pgsql
 	       (:module pgsql
@@ -135,7 +139,7 @@
                                 :depends-on ("common" "csv"))
 
 			 (:module "db3"
-                                  :depends-on ("common")
+                                  :depends-on ("common" "csv")
                                   :components
                                   ((:file "db3-schema")
                                    (:file "db3" :depends-on ("db3-schema"))))

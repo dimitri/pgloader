@@ -9,14 +9,21 @@ REGRESS= allcols.load 		    \
          csv-districts.load 	    \
          csv-parse-date.load 	    \
          csv-error.load 	    \
+         csv-escape-mode.load 	    \
          csv-filename-pattern.load  \
+         csv-header.load            \
+         csv-json.load              \
          csv-keep-extra-blanks.load \
+         csv-non-printable.load     \
          csv-nulls.load             \
          csv-trim-extra-blanks.load \
          csv.load 		    \
+	 copy.load                  \
+	 copy-hex.load              \
          dbf.load 		    \
          errors.load 		    \
          fixed.load 		    \
+         fields-with-periods.load   \
          ixf.load 		    \
          overflow.load 		    \
          partial.load 		    \

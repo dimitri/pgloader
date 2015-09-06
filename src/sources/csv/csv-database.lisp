@@ -13,7 +13,7 @@
 ;;;
 (defun import-database (dbname
 			&key
-			  (csv-path-root *csv-path-root*)
+			  (fd-path-root *fd-path-root*)
 			  (skip-lines 0)
 			  (separator #\Tab)
 			  (quote cl-csv:*quote*)
@@ -26,7 +26,7 @@
     (loop
        for (table-name . date-columns) in (pgloader.pgsql:list-tables dbname)
        for filename = (get-pathname dbname table-name
-				    :csv-path-root csv-path-root)
+				    :fd-path-root fd-path-root)
        when (or (null only-tables)
 		(member table-name only-tables :test #'equal))
        do

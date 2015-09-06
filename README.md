@@ -18,7 +18,7 @@ never had a *year zero*).
 
 ## Versioning
 
-pgloader version 1.x is quite old and was devleoped in `TCL`.
+pgloader version 1.x is quite old and was developed in `TCL`.
 When faced with maintaining that code, the new emerging development
 team (hi!) picked `python` instead because that made sense at the
 time. So pgloader version 2.x was written in python.

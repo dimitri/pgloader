@@ -11,7 +11,12 @@ LOAD ARCHIVE
    FROM http://pgsql.tapoueh.org/temp/foo.zip
    INTO postgresql:///ip4r
 
-   BEFORE LOAD EXECUTE 'geolite.sql'
+   BEFORE LOAD
+     DO
+       $$ create extension if not exists ip4r; $$,
+       $$ create schema if not exists geolite; $$
+
+     EXECUTE 'geolite.sql'
 
    LOAD CSV
         FROM FILENAME MATCHING ~/GeoLiteCity-Location.csv/

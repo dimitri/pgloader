@@ -13,7 +13,7 @@
 ;;
 ;; Some useful rules
 ;;
-(defrule single-line-comment (and "--" (+ (not #\Newline)) #\Newline)
+(defrule single-line-comment (and "--" (* (not #\Newline)) #\Newline)
   (:constant :comment))
 
 (defrule multi-line-comment (and "/*" (+ (not "*/")) "*/")
@@ -38,6 +38,9 @@
 				(digit-char-p character)
 				punct)))
   (:text t))
+
+(defrule double-quoted-namestring (and #\" namestring #\")
+  (:destructure (open name close) (declare (ignore open close)) name))
 
 (defrule quoted-namestring (and #\' namestring #\')
   (:destructure (open name close) (declare (ignore open close)) name))

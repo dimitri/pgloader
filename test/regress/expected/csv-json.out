@@ -1,0 +1,15 @@
+{"table-name": "fetch","read":0,"imported":0,"errors":0,"time":"0.000s"}
+{"table-name": "fetch meta data","read":8,"imported":8,"errors":0,"time":"0.026s"}
+{"table-name": "create, truncate","read":0,"imported":0,"errors":0,"time":"0.046s"}
+{"table-name": "long","read":0,"imported":2,"errors":0,"time":"0.069s"}
+{"table-name": "blobs","read":0,"imported":1,"errors":0,"time":"0.021s"}
+{"table-name": "unsigned","read":0,"imported":2,"errors":0,"time":"0.007s"}
+{"table-name": "reals","read":0,"imported":3,"errors":0,"time":"0.007s"}
+{"table-name": "ints","read":0,"imported":3,"errors":0,"time":"0.006s"}
+{"table-name": "def","read":0,"imported":2,"errors":0,"time":"0.007s"}
+{"table-name": "stamps","read":0,"imported":2,"errors":0,"time":"0.007s"}
+{"table-name": "character","read":0,"imported":4,"errors":0,"time":"0.005s"}
+{"table-name": "index build completion","read":0,"imported":0,"errors":0,"time":"0.000s"}
+{"table-name": "Create Indexes","read":0,"imported":0,"errors":0,"time":"0.000s"}
+{"table-name": "Reset Sequences","read":0,"imported":0,"errors":0,"time":"0.015s"}
+{"table-name": "Total streaming time","read":0,"imported":19,"errors":0,"time":"0.216s"}

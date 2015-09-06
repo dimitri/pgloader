@@ -44,7 +44,8 @@
                (with-output-to-string (s)
                  (format s "~a-~a-~a ~a:~a:~a"
                          (let ((yint (parse-integer year)))
-                           (if (< yint *century*) (+ *century* yint) yint))
+                           ;; process 2-digits year formats specially
+                           (if (<= (length year) 2) (+ *century* yint) yint))
                          month
                          day
                          (let ((hint (parse-integer hour)))

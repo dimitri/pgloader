@@ -26,7 +26,7 @@ LOAD FIXED
              d
           )
 
-     WITH truncate
+     WITH truncate, drop indexes
 
       SET client_encoding to 'latin1',
           work_mem to '14MB',
@@ -35,7 +35,7 @@ LOAD FIXED
    BEFORE LOAD DO
      $$ drop table if exists fixed; $$,
      $$ create table fixed (
-         a integer,
+         a integer primary key,
          b date,
          c time,
          d text

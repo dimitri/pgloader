@@ -32,6 +32,7 @@
     ((or
       cl-postgres-error::data-exception
       cl-postgres-error::integrity-violation
+      cl-postgres-error::internal-error
       cl-postgres-error::insufficient-resources
       cl-postgres-error::program-limit-exceeded) (condition)
       (retry-batch table-name columns batch batch-rows condition))))
@@ -41,27 +42,35 @@
 ;;; content down to PostgreSQL, handling any data related errors in the way.
 ;;;
 (defun copy-from-queue (pgconn table-name queue
-			&key columns (truncate t) ((:state *state*) *state*))
+			&key
+                          columns
+                          (truncate t)
+                          disable-triggers
+                          ((:state *state*) *state*))
   "Fetch from the QUEUE messages containing how many rows are in the
    *writer-batch* for us to send down to PostgreSQL, and when that's done
    update *state*."
   (when truncate
     (truncate-tables pgconn (list table-name)))
 
-  (log-message :debug "pgsql:copy-from-queue: ~a ~a" table-name columns)
-
   (with-pgsql-connection (pgconn)
-    (loop
-       for (mesg batch read oversized?) = (lq:pop-queue queue)
-       until (eq mesg :end-of-data)
-       for rows = (copy-batch table-name columns batch read)
-       do (progn
-            ;; The SBCL implementation needs some Garbage Collection
-            ;; decision making help... and now is a pretty good time.
-            #+sbcl (when oversized? (sb-ext:gc :full t))
-            (log-message :debug "copy-batch ~a ~d row~:p~:[~; [oversized]~]"
-                         table-name rows oversized?)
-            (pgstate-incf *state* table-name :rows rows)))))
+    (with-schema (unqualified-table-name table-name)
+      (when disable-triggers (disable-triggers unqualified-table-name))
+      (log-message :info "pgsql:copy-from-queue: ~a ~a" table-name columns)
+
+      (loop
+         for (mesg batch read oversized?) = (lq:pop-queue queue)
+         until (eq mesg :end-of-data)
+         for rows = (copy-batch unqualified-table-name columns batch read)
+         do (progn
+              ;; The SBCL implementation needs some Garbage Collection
+              ;; decision making help... and now is a pretty good time.
+              #+sbcl (when oversized? (sb-ext:gc :full t))
+              (log-message :debug "copy-batch ~a ~d row~:p~:[~; [oversized]~]"
+                           unqualified-table-name rows oversized?)
+              (pgstate-incf *state* table-name :rows rows)))
+
+      (when disable-triggers (enable-triggers unqualified-table-name)))))
 
 ;;;
 ;;; When a batch has been refused by PostgreSQL with a data-exception, that
@@ -201,6 +210,7 @@
             ((or
               cl-postgres-error::data-exception
               cl-postgres-error::integrity-violation
+              cl-postgres-error:internal-error
               cl-postgres-error::insufficient-resources
               cl-postgres-error::program-limit-exceeded) (next-error-in-batch)
 

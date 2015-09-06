@@ -1,0 +1,18 @@
+LOAD COPY
+     FROM inline
+     INTO postgresql:///pgloader?copyhex
+
+     WITH truncate,
+          delimiter '\t',
+          null "--"
+
+   BEFORE LOAD DO
+    $$ drop table if exists copyhex; $$,
+    $$ create table copyhex(id int, text varchar(4)); $$;
+
+1	a
+2	aa
+3	\x1a
+4	a\x1a
+5	\N
+6	--

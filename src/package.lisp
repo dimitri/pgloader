@@ -33,12 +33,18 @@
 
 (defpackage #:pgloader.utils
   (:use #:cl #:pgloader.params)
-  (:import-from #:alexandria #:read-file-into-string)
+  (:import-from #:alexandria
+                #:appendf
+                #:read-file-into-string)
   (:import-from #:pgloader.monitor
                 #:with-monitor
                 #:*monitoring-queue*
                 #:log-message)
   (:export #:with-monitor               ; monitor
+
+           ;; bits from alexandria
+           #:appendf
+           #:read-file-into-string
 
            ;; logs
            #:log-message
@@ -59,6 +65,7 @@
            #:unquote
 
            ;; state
+           #:format-table-name
 	   #:make-pgstate
 	   #:pgstate-get-table
 	   #:pgstate-add-table
@@ -103,6 +110,8 @@
 
 (defpackage #:pgloader.connection
   (:use #:cl #:pgloader.archive)
+  (:import-from #:pgloader.monitor
+                #:log-message)
   (:export #:connection
            #:open-connection
            #:close-connection
@@ -112,6 +121,15 @@
            #:fd-connection-error
            #:db-connection-error
            #:with-connection
+           #:query
+           #:check-connection
+
+           ;; also export slot names
+           #:type
+           #:handle
+           #:uri
+           #:arch
+           #:path
 
            ;; file based connections API for HTTP and Archives support
            #:fetch-file
@@ -128,8 +146,15 @@
            #:db-user
            #:db-pass))
 
-(defpackage #:pgloader.sources
+(defpackage #:pgloader.schema
   (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.connection)
+  (:export #:push-to-end
+           #:with-schema))
+
+(defpackage #:pgloader.sources
+  (:use #:cl
+        #:pgloader.params #:pgloader.utils #:pgloader.connection
+        #:pgloader.schema)
   (:import-from #:pgloader.transforms #:precision #:scale)
   (:import-from #:pgloader.parse-date
                 #:parse-date-string
@@ -148,6 +173,17 @@
 	   #:copy-to
 	   #:copy-database
 
+           ;; the md-connection facilities
+           #:md-connection
+           #:md-spec
+           #:md-strm
+           #:expand-spec
+           #:open-next-stream
+
+           ;; common schema facilities
+           #:push-to-end
+           #:with-schema
+
            ;; file based utils for CSV, fixed etc
            #:with-open-file-or-stream
 	   #:get-pathname
@@ -161,7 +197,9 @@
            #:cast))
 
 (defpackage #:pgloader.pgsql
-  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.connection)
+  (:use #:cl
+        #:pgloader.params #:pgloader.utils #:pgloader.connection
+        #:pgloader.schema)
   (:export #:pgsql-connection
            #:pgconn-use-ssl
            #:pgconn-table-name
@@ -177,6 +215,7 @@
 	   #:list-databases
 	   #:list-tables
 	   #:list-columns
+	   #:list-indexes
 	   #:list-tables-cols
 	   #:list-tables-and-fkeys
 	   #:list-reserved-keywords
@@ -198,6 +237,9 @@
 	   #:format-pgsql-create-index
 	   #:create-indexes-in-kernel
            #:set-table-oids
+           #:drop-indexes
+           #:maybe-drop-indexes
+           #:create-indexes-again
            #:reset-sequences))
 
 (defpackage #:pgloader.queue
@@ -208,7 +250,10 @@
                 #:format-vector-row)
   (:import-from #:pgloader.sources
                 #:map-rows
-                #:transforms)
+                #:transforms
+                #:target)
+  (:import-from #:pgloader.utils
+                #:pgstate-incf)
   (:export #:map-push-queue))
 
 
@@ -216,7 +261,7 @@
 ;;; Other utilities
 ;;;
 (defpackage #:pgloader.ini
-  (:use #:cl #:pgloader.params #:pgloader.utils)
+  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.connection)
   (:import-from #:alexandria #:read-file-into-string)
   (:import-from #:pgloader.pgsql
 		#:list-columns
@@ -240,8 +285,10 @@
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.sources #:pgloader.queue)
-  (:export #:*csv-path-root*
-           #:csv-connection
+  (:import-from #:pgloader.pgsql
+                #:maybe-drop-indexes
+                #:create-indexes-again)
+  (:export #:csv-connection
            #:specs
            #:csv-specs
 	   #:get-pathname
@@ -260,6 +307,9 @@
                 #:csv-connection
                 #:specs
                 #:csv-specs)
+  (:import-from #:pgloader.pgsql
+                #:maybe-drop-indexes
+                #:create-indexes-again)
   (:export #:fixed-connection
            #:copy-fixed
 	   #:copy-to-queue
@@ -273,6 +323,9 @@
                 #:csv-connection
                 #:specs
                 #:csv-specs)
+  (:import-from #:pgloader.pgsql
+                #:maybe-drop-indexes
+                #:create-indexes-again)
   (:export #:copy-connection
            #:copy-copy
 	   #:copy-to-queue
@@ -441,6 +494,9 @@
   (:use #:cl #:esrap #:metabang.bind
         #:pgloader.params #:pgloader.utils #:pgloader.sql #:pgloader.connection)
   (:import-from #:alexandria #:read-file-into-string)
+  (:import-from #:pgloader.sources
+                #:md-connection
+                #:md-spec)
   (:import-from #:pgloader.pgsql
                 #:pgsql-connection
 		#:with-pgsql-transaction
@@ -524,7 +580,7 @@
                 #:connection-error)
   (:export #:*version-string*
 	   #:*state*
-	   #:*csv-path-root*
+	   #:*fd-path-root*
 	   #:*root-dir*
 	   #:*pg-settings*
 

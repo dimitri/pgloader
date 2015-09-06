@@ -1,3 +1,16 @@
+pgloader (3.2.2+dfsg-1) unstable; urgency=medium
+
+  * New release, lots of bugfixes, some new features
+  * New build dependencies
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Thu, 03 Sep 2015 19:17:12 +0300
+
+pgloader (3.2.1~preview+dfsg-2) unstable; urgency=medium
+
+  * Interim bugfix release
+
+ --  Dimitri Fontaine <dim@tapoueh.org>  Thu, 22 Jan 2015 04:06:51 +0400
+
 pgloader (3.2.0+dfsg-1) unstable; urgency=medium
 
   * Implement COPY files support

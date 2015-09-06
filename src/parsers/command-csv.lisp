@@ -49,6 +49,9 @@
     (bind (((_ _ _ digits) osh))
       (cons :skip-lines (parse-integer (text digits))))))
 
+(defrule option-csv-header (and kw-csv kw-header)
+  (:constant (cons :csv-header t)))
+
 (defrule option-fields-enclosed-by
     (and kw-fields (? kw-optionally) kw-enclosed kw-by separator)
   (:lambda (enc)
@@ -62,7 +65,13 @@
 (defrule backslash-quote "backslash-quote" (:constant "\\\""))
 (defrule escaped-quote-name    (or quote-quote backslash-quote))
 (defrule escaped-quote-literal (or (and #\" #\") (and #\\ #\")) (:text t))
-(defrule escaped-quote         (or escaped-quote-literal escaped-quote-name))
+(defrule escaped-quote         (or escaped-quote-literal
+                                   escaped-quote-name
+                                   separator))
+
+(defrule escape-mode-quote     "quote"     (:constant :quote))
+(defrule escape-mode-following "following" (:constant :following))
+(defrule escape-mode           (or escape-mode-quote escape-mode-following))
 
 (defrule option-fields-escaped-by (and kw-fields kw-escaped kw-by escaped-quote)
   (:lambda (esc)
@@ -89,18 +98,27 @@
 (defrule option-trim-unquoted-blanks (and kw-trim kw-unquoted kw-blanks)
   (:constant (cons :trim-blanks t)))
 
+(defrule option-csv-escape-mode (and kw-csv kw-escape kw-mode escape-mode)
+  (:lambda (term)
+    (bind (((_ _ _ escape-mode) term))
+      (cons :escape-mode escape-mode))))
+
 (defrule csv-option (or option-batch-rows
                         option-batch-size
                         option-batch-concurrency
                         option-truncate
+                        option-disable-triggers
+                        option-drop-indexes
                         option-skip-header
+                        option-csv-header
                         option-lines-terminated-by
                         option-fields-not-enclosed
                         option-fields-enclosed-by
                         option-fields-escaped-by
                         option-fields-terminated-by
                         option-trim-unquoted-blanks
-                        option-keep-unquoted-blanks))
+                        option-keep-unquoted-blanks
+                        option-csv-escape-mode))
 
 (defrule another-csv-option (and comma csv-option)
   (:lambda (source)
@@ -179,14 +197,22 @@
 (defrule csv-field-options (? csv-field-option-list))
 
 (defrule csv-raw-field-name (and (or #\_ (alpha-char-p character))
-                                  (* (or (alpha-char-p character)
-                                         (digit-char-p character)
-                                         #\_)))
+                                 (* (or (alpha-char-p character)
+                                        (digit-char-p character)
+                                        #\Space
+                                        #\.
+                                        #\$
+                                        #\_)))
   (:text t))
 
-(defrule csv-bare-field-name csv-raw-field-name
+(defrule csv-bare-field-name (and (or #\_ (alpha-char-p character))
+                                  (* (or (alpha-char-p character)
+                                         (digit-char-p character)
+                                         #\.
+                                         #\$
+                                         #\_)))
   (:lambda (name)
-    (string-downcase name)))
+    (string-downcase (text name))))
 
 (defrule csv-quoted-field-name (and #\" csv-raw-field-name #\")
   (:lambda (csv-field-name)
@@ -357,7 +383,7 @@
 (defrule csv-uri (and "csv://" filename)
   (:lambda (source)
     (bind (((_ filename) source))
-      (make-instance 'csv-connection :specs filename))))
+      (make-instance 'csv-connection :spec filename))))
 
 (defrule csv-file-source (or stdin
 			     inline
@@ -369,10 +395,10 @@
     (if (typep src 'csv-connection) src
         (destructuring-bind (type &rest specs) src
           (case type
-            (:stdin    (make-instance 'csv-connection :specs src))
-            (:inline   (make-instance 'csv-connection :specs src))
-            (:filename (make-instance 'csv-connection :specs src))
-            (:regex    (make-instance 'csv-connection :specs src))
+            (:stdin    (make-instance 'csv-connection :spec src))
+            (:inline   (make-instance 'csv-connection :spec src))
+            (:filename (make-instance 'csv-connection :spec src))
+            (:regex    (make-instance 'csv-connection :spec src))
             (:http     (make-instance 'csv-connection :uri (first specs))))))))
 
 (defrule get-csv-file-source-from-environment-variable (and kw-getenv name)
@@ -414,6 +440,14 @@
     (destructuring-bind (source encoding fields target columns clauses) command
       `(,source ,encoding ,fields ,target ,columns ,@clauses))))
 
+(defun lisp-code-for-csv-dry-run (pg-db-conn)
+  `(lambda ()
+     ;; CSV connection objects are not actually implementing the generic API
+     ;; because they support many complex options... (the file can be a
+     ;; pattern or standard input or inline or compressed etc).
+     (log-message :log "DRY RUN, only checking PostgreSQL connection.")
+     (check-connection ,pg-db-conn)))
+
 (defun lisp-code-for-loading-from-csv (csv-conn fields pg-db-conn
                                        &key
                                          (encoding :utf-8)
@@ -424,7 +458,10 @@
      (let* ((state-before  (pgloader.utils:make-pgstate))
             (summary       (null *state*))
             (*state*       (or *state* (pgloader.utils:make-pgstate)))
-            (state-after   ,(when after `(pgloader.utils:make-pgstate)))
+            (state-idx    ,(when (getf options :drop-indexes)
+                             `(pgloader.utils:make-pgstate)))
+            (state-after   ,(when (or after (getf options :drop-indexes))
+                                  `(pgloader.utils:make-pgstate)))
             ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
             (source-db     (with-stats-collection ("fetch" :state state-before)
@@ -434,17 +471,27 @@
          ,(sql-code-block pg-db-conn 'state-before before "before load")
 
          (let ((truncate (getf ',options :truncate))
+               (disable-triggers (getf ',options :disable-triggers))
+               (drop-indexes     (getf ',options :drop-indexes))
                (source
                 (make-instance 'pgloader.csv:copy-csv
                                :target-db  ,pg-db-conn
                                :source     source-db
-                               :target     ,(pgconn-table-name pg-db-conn)
+                               :target    ',(pgconn-table-name pg-db-conn)
                                :encoding   ,encoding
                                :fields    ',fields
                                :columns   ',columns
                                ,@(remove-batch-control-option
-                                  options :extras '(:truncate)))))
-           (pgloader.sources:copy-from source :truncate truncate))
+                                  options :extras '(:truncate
+                                                    :drop-indexes
+                                                    :disable-triggers)))))
+           (pgloader.sources:copy-from source
+                                       :state-before state-before
+                                       :state-after state-after
+                                       :state-indexes state-idx
+                                       :truncate truncate
+                                       :drop-indexes drop-indexes
+                                       :disable-triggers disable-triggers))
 
          ,(sql-code-block pg-db-conn 'state-after after "after load")
 
@@ -452,16 +499,20 @@
          (when summary
            (report-full-summary "Total import time" *state*
                                 :before  state-before
-                                :finally state-after))))))
+                                :finally state-after
+                                :parallel state-idx))))))
 
 (defrule load-csv-file load-csv-file-command
   (:lambda (command)
     (bind (((source encoding fields pg-db-uri columns
                     &key ((:csv-options options)) gucs before after) command))
-      (lisp-code-for-loading-from-csv source fields pg-db-uri
-                                      :encoding encoding
-                                      :columns columns
-                                      :gucs gucs
-                                      :before before
-                                      :after after
-                                      :csv-options options))))
+      (cond (*dry-run*
+             (lisp-code-for-csv-dry-run pg-db-uri))
+            (t
+             (lisp-code-for-loading-from-csv source fields pg-db-uri
+                                             :encoding encoding
+                                             :columns columns
+                                             :gucs gucs
+                                             :before before
+                                             :after after
+                                             :csv-options options))))))

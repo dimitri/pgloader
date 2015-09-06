@@ -64,6 +64,7 @@
                                  :username (db-user myconn)
                                  :password (db-pass myconn)
                                  :database (db-name myconn))))
+  (log-message :debug "CONNECTED TO ~a" myconn)
   ;; return the connection object
   myconn)
 
@@ -72,9 +73,27 @@
   (setf (conn-handle myconn) nil)
   myconn)
 
+(defmethod query ((myconn mysql-connection)
+                  sql
+                  &key
+                    row-fn
+                    (as-text t)
+                    (result-type 'list))
+  "Run SQL query against MySQL connection MYCONN."
+  (log-message :debug "MySQL: sending query: ~a" sql)
+  (qmynd:mysql-query (conn-handle myconn)
+                     sql
+                     :row-fn row-fn
+                     :as-text as-text
+                     :result-type result-type))
+
+;;;
+;;; The generic API query is recent, used to look like this:
+;;;
 (defun mysql-query (query &key row-fn (as-text t) (result-type 'list))
   "Execute given QUERY within the current *connection*, and set proper
    defaults for pgloader."
+  (log-message :debug "MySQL: sending query: ~a" query)
   (qmynd:mysql-query (conn-handle *connection*) query
                      :row-fn row-fn
                      :as-text as-text
@@ -208,15 +227,10 @@ order by table_name, ordinal_position"
               (column  (make-mysql-column
                         table-name name dtype ctype def-val nullable extra)))
          (if entry
-             (push column (cdr entry))
-             (push (cons table-name (list column)) schema)))
+             (push-to-end column (cdr entry))
+             (push-to-end (cons table-name (list column)) schema)))
      finally
-     ;; we did push, we need to reverse here
-       (return (loop
-                  for name in (if only-tables only-tables
-                                  (reverse (mapcar #'car schema)))
-                  for cols = (cdr (assoc name schema :test #'string=))
-                  collect (cons name (reverse cols))))))
+       (return schema)))
 
 (defun list-all-indexes (&key
                            only-tables
@@ -250,13 +264,10 @@ GROUP BY table_name, index_name;"
                                  :unique (not (string= "1" non-unique))
                                  :columns (sq:split-sequence #\, cols))))
           (if entry
-              (push index (cdr entry))
-              (push (cons table-name (list index)) schema)))
+              (push-to-end index (cdr entry))
+              (push-to-end (cons table-name (list index)) schema)))
      finally
-     ;; we did push, we need to reverse here
-       (return (reverse (loop
-                           for (name . indexes) in schema
-                           collect (cons name (reverse indexes)))))))
+       (return schema)))
 
 ;;;
 ;;; MySQL Foreign Keys
@@ -317,13 +328,10 @@ GROUP BY table_name, index_name;"
                                 :update-rule update-rule
                                 :delete-rule delete-rule)))
           (if entry
-              (push fk (cdr entry))
-              (push (cons table-name (list fk)) schema)))
+              (push-to-end fk (cdr entry))
+              (push-to-end (cons table-name (list fk)) schema)))
      finally
-     ;; we did push, we need to reverse here
-       (return (reverse (loop
-                           for (name . fks) in schema
-                           collect (cons name (reverse fks)))))))
+       (return schema)))
 
 
 ;;;

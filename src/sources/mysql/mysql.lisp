@@ -103,7 +103,8 @@
 ;;; Direct "stream" in between mysql fetching of results and PostgreSQL COPY
 ;;; protocol
 ;;;
-(defmethod copy-from ((mysql copy-mysql) &key (kernel nil k-s-p) truncate)
+(defmethod copy-from ((mysql copy-mysql)
+                      &key (kernel nil k-s-p) truncate disable-triggers)
   "Connect in parallel to MySQL and PostgreSQL and stream the data."
   (let* ((summary        (null *state*))
 	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
@@ -129,7 +130,8 @@
                         :columns (mapcar #'apply-identifier-case
                                          (mapcar #'mysql-column-name
                                                  (fields mysql)))
-                        :truncate truncate)
+                        :truncate truncate
+                        :disable-triggers disable-triggers)
 
         ;; now wait until both the tasks are over
         (loop for tasks below 2 do (lp:receive-result channel)
@@ -244,7 +246,7 @@
                          (map 'string #'code-char
                               (loop :repeat 5
                                  :collect (+ (random 26) (char-code #\A))))
-                         "-"
+                         "_"
                          (map 'string #'code-char
                               (loop :repeat 5
                                  :collect (+ (random 26) (char-code #\A)))))))
@@ -319,6 +321,10 @@
        (+ (length all-columns) (length all-fkeys)
           (length all-indexes) (length view-columns))))
 
+   (log-message :notice
+                "MySQL metadata fetched: found ~d tables with ~d indexes total."
+                (length all-columns) (length all-indexes))
+
    ;; now return a plist to the caller
    (list :all-columns all-columns
          :table-comments table-comments
@@ -347,14 +353,16 @@
 			    state-before
 			    state-after
 			    state-indexes
-			    (truncate        nil)
-			    (data-only       nil)
-			    (schema-only     nil)
-			    (create-tables   t)
-			    (include-drop    t)
-			    (create-indexes  t)
-			    (reset-sequences t)
-			    (foreign-keys    t)
+			    (truncate         nil)
+			    (disable-triggers nil)
+			    (data-only        nil)
+			    (schema-only      nil)
+			    (create-tables    t)
+			    (include-drop     t)
+			    (create-indexes   t)
+                            (index-names      :uniquify)
+			    (reset-sequences  t)
+			    (foreign-keys     t)
 			    only-tables
 			    including
 			    excluding
@@ -452,7 +460,9 @@
 
              ;; first COPY the data from MySQL to PostgreSQL, using copy-kernel
              (unless schema-only
-               (copy-from table-source :kernel copy-kernel))
+               (copy-from table-source
+                          :kernel copy-kernel
+                          :disable-triggers disable-triggers))
 
              ;; Create the indexes for that table in parallel with the next
              ;; COPY, and all at once in concurrent threads to benefit from
@@ -464,7 +474,8 @@
              ;; will get built in parallel --- not a big problem.
              (when (and create-indexes (not data-only))
                (let* ((indexes
-                       (cdr (assoc table-name all-indexes :test #'string=))))
+                       (cdr (assoc table-name all-indexes :test #'string=)))
+                      (*preserve-index-names* (eq :preserve index-names)))
                  (alexandria:appendf
                   pkeys
                   (create-indexes-in-kernel (target-db mysql)

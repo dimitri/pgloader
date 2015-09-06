@@ -47,6 +47,8 @@
                           option-batch-size
                           option-batch-concurrency
                           option-truncate
+                          option-drop-indexes
+                          option-disable-triggers
 			  option-skip-header))
 
 (defrule another-fixed-option (and comma fixed-option)
@@ -66,7 +68,7 @@
 (defrule fixed-uri (and "fixed://" filename)
   (:lambda (source)
     (bind (((_ filename) source))
-      (make-instance 'fixed-connection :specs filename))))
+      (make-instance 'fixed-connection :spec filename))))
 
 (defrule fixed-file-source (or stdin
 			       inline
@@ -78,10 +80,10 @@
     (if (typep src 'fixed-connection) src
         (destructuring-bind (type &rest specs) src
           (case type
-            (:stdin    (make-instance 'fixed-connection :specs src))
-            (:inline   (make-instance 'fixed-connection :specs src))
-            (:filename (make-instance 'fixed-connection :specs src))
-            (:regex    (make-instance 'fixed-connection :specs src))
+            (:stdin    (make-instance 'fixed-connection :spec src))
+            (:inline   (make-instance 'fixed-connection :spec src))
+            (:filename (make-instance 'fixed-connection :spec src))
+            (:regex    (make-instance 'fixed-connection :spec src))
             (:http     (make-instance 'fixed-connection :uri (first specs))))))))
 
 (defrule get-fixed-file-source-from-environment-variable (and kw-getenv name)
@@ -124,7 +126,10 @@
      (let* ((state-before  (pgloader.utils:make-pgstate))
             (summary       (null *state*))
             (*state*       (or *state* (pgloader.utils:make-pgstate)))
-            (state-after   ,(when after `(pgloader.utils:make-pgstate)))
+            (state-idx    ,(when (getf options :drop-indexes)
+                                 `(pgloader.utils:make-pgstate)))
+            (state-after  ,(when (or after (getf options :drop-indexes))
+                                 `(pgloader.utils:make-pgstate)))
             ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
             (source-db     (with-stats-collection ("fetch" :state state-before)
@@ -134,16 +139,25 @@
          ,(sql-code-block pg-db-conn 'state-before before "before load")
 
          (let ((truncate ,(getf options :truncate))
+               (disable-triggers ,(getf options :disable-triggers))
+               (drop-indexes     ,(getf options :drop-indexes))
                (source
                 (make-instance 'pgloader.fixed:copy-fixed
                                :target-db ,pg-db-conn
                                :source source-db
-                               :target ,(pgconn-table-name pg-db-conn)
+                               :target ',(pgconn-table-name pg-db-conn)
                                :encoding ,encoding
                                :fields ',fields
                                :columns ',columns
                                :skip-lines ,(or (getf options :skip-line) 0))))
-           (pgloader.sources:copy-from source :truncate truncate))
+
+           (pgloader.sources:copy-from source
+                                       :state-before state-before
+                                       :state-after state-after
+                                       :state-indexes state-idx
+                                       :truncate truncate
+                                       :drop-indexes drop-indexes
+                                       :disable-triggers disable-triggers))
 
          ,(sql-code-block pg-db-conn 'state-after after "after load")
 
@@ -151,16 +165,20 @@
          (when summary
            (report-full-summary "Total import time" *state*
                                 :before  state-before
-                                :finally state-after))))))
+                                :finally state-after
+                                :parallel state-idx))))))
 
 (defrule load-fixed-cols-file load-fixed-cols-file-command
   (:lambda (command)
     (bind (((source encoding fields pg-db-uri columns
                     &key ((:fixed-options options)) gucs before after) command))
-      (lisp-code-for-loading-from-fixed source fields pg-db-uri
-                                        :encoding encoding
-                                        :columns columns
-                                        :gucs gucs
-                                        :before before
-                                        :after after
-                                        :fixed-options options))))
+      (cond (*dry-run*
+             (lisp-code-for-csv-dry-run pg-db-uri))
+            (t
+             (lisp-code-for-loading-from-fixed source fields pg-db-uri
+                                               :encoding encoding
+                                               :columns columns
+                                               :gucs gucs
+                                               :before before
+                                               :after after
+                                               :fixed-options options))))))

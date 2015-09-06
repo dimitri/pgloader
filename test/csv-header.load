@@ -1,0 +1,25 @@
+LOAD CSV
+     FROM INLINE
+     INTO postgresql:///pgloader?header
+
+     WITH truncate,
+          fields terminated by ',',
+          csv header
+
+   BEFORE LOAD DO
+    $$ drop table if exists header; $$,
+    $$ CREATE TABLE header
+       (
+          somefields     text,
+          rekplcode      text,
+          "repl$grpid"   text,
+          "repl$id"      text,
+          another        text,
+          fields         text
+       )
+    $$;
+
+
+somefields,reklpcode,repl$grpid,repl$id,another,fields
+a,b,c,d,e,f
+foo,bar,baz,quux,foobar,fizzbuzz

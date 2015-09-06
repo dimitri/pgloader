@@ -22,6 +22,7 @@
                         option-batch-size
                         option-batch-concurrency
                         option-truncate
+                        option-disable-triggers
                         option-data-only
                         option-schema-only
                         option-include-drop
@@ -67,13 +68,28 @@
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
 
-(defrule load-dbf-command (and dbf-source target load-dbf-optional-clauses)
+;;; dbf defaults to ascii rather than utf-8
+(defrule dbf-file-encoding (? (and kw-with kw-encoding encoding))
+  (:lambda (enc)
+    (if enc
+        (bind (((_ _ encoding) enc)) encoding)
+	:ascii)))
+
+(defrule load-dbf-command (and dbf-source (? dbf-file-encoding)
+                               target load-dbf-optional-clauses)
   (:lambda (command)
-    (destructuring-bind (source target clauses) command
-      `(,source ,target ,@clauses))))
+    (destructuring-bind (source encoding target clauses) command
+      `(,source ,encoding ,target ,@clauses))))
+
+(defun lisp-code-for-dbf-dry-run (dbf-db-conn pg-db-conn)
+  `(lambda ()
+     (let ((source-db (expand (fetch-file ,dbf-db-conn))))
+       (check-connection source-db)
+       (check-connection ,pg-db-conn))))
 
 (defun lisp-code-for-loading-from-dbf (dbf-db-conn pg-db-conn
                                        &key
+                                         (encoding :ascii)
                                          gucs before after
                                          ((:dbf-options options)))
   `(lambda ()
@@ -84,12 +100,13 @@
             ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
-            (table-name    ,(pgconn-table-name pg-db-conn))
+            (table-name   ',(pgconn-table-name pg-db-conn))
             (source-db     (with-stats-collection ("fetch" :state state-before)
                              (expand (fetch-file ,dbf-db-conn))))
             (source
              (make-instance 'pgloader.db3:copy-db3
                             :target-db ,pg-db-conn
+                            :encoding ,encoding
                             :source-db source-db
                             :target table-name)))
 
@@ -109,10 +126,14 @@
 
 (defrule load-dbf-file load-dbf-command
   (:lambda (command)
-    (bind (((source pg-db-uri
+    (bind (((source encoding pg-db-uri
                     &key ((:dbf-options options)) gucs before after) command))
-      (lisp-code-for-loading-from-dbf source pg-db-uri
-                                      :gucs gucs
-                                      :before before
-                                      :after after
-                                      :dbf-options options))))
+      (cond (*dry-run*
+             (lisp-code-for-dbf-dry-run source pg-db-uri))
+            (t
+             (lisp-code-for-loading-from-dbf source pg-db-uri
+                                             :encoding encoding
+                                             :gucs gucs
+                                             :before before
+                                             :after after
+                                             :dbf-options options))))))

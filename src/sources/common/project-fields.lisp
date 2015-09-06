@@ -41,7 +41,6 @@
 		   (list (cdr field-name-or-list))
 		   (t    (cdr (assoc field-name-or-list fields
                                      :test #'string-equal))))
-	       (declare (ignore date-format)) ; TODO
                ;; now prepare a function of a column
                (lambda (col)
                  (let ((value-or-null

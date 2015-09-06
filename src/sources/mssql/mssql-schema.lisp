@@ -29,6 +29,10 @@
   (setf (conn-handle msconn) nil)
   msconn)
 
+(defmethod query ((msconn mssql-connection) sql &key)
+  "Send SQL query to MSCONN connection."
+  (mssql:query sql :connection (conn-handle msconn)))
+
 (defun mssql-query (query)
   "Execute given QUERY within the current *connection*, and set proper
    defaults for pgloader."
@@ -100,7 +104,25 @@
          c.table_name,
          c.column_name,
          c.data_type,
-         c.column_default,
+         CASE
+         WHEN c.column_default LIKE '((%' AND c.column_default LIKE '%))' THEN
+             CASE
+                 WHEN SUBSTRING(c.column_default,3,len(c.column_default)-4) = 'newid()' THEN 'generate_uuid_v4()'
+                 WHEN SUBSTRING(c.column_default,3,len(c.column_default)-4) LIKE 'convert(%varchar%,getdate(),%)' THEN 'today'
+                 WHEN SUBSTRING(c.column_default,3,len(c.column_default)-4) = 'getdate()' THEN 'now'
+                 WHEN SUBSTRING(c.column_default,3,len(c.column_default)-4) LIKE '''%''' THEN SUBSTRING(c.column_default,4,len(c.column_default)-6)
+                 ELSE SUBSTRING(c.column_default,3,len(c.column_default)-4)
+             END
+         WHEN c.column_default LIKE '(%' AND c.column_default LIKE '%)' THEN
+             CASE
+                 WHEN SUBSTRING(c.column_default,2,len(c.column_default)-2) = 'newid()' THEN 'generate_uuid_v4()'
+                 WHEN SUBSTRING(c.column_default,2,len(c.column_default)-2) LIKE 'convert(%varchar%,getdate(),%)' THEN 'today'
+                 WHEN SUBSTRING(c.column_default,2,len(c.column_default)-2) = 'getdate()' THEN 'now'
+                 WHEN SUBSTRING(c.column_default,2,len(c.column_default)-2) LIKE '''%''' THEN SUBSTRING(c.column_default,3,len(c.column_default)-4)
+                 ELSE SUBSTRING(c.column_default,2,len(c.column_default)-2)
+             END
+         ELSE c.column_default
+         END,
          c.is_nullable,
          COLUMNPROPERTY(object_id(c.table_name), c.column_name, 'IsIdentity'),
          c.CHARACTER_MAXIMUM_LENGTH,
@@ -121,7 +143,7 @@
          ~:[~*~;and (~{~a~^~&~10t or ~})~]
          ~:[~*~;and (~{~a~^~&~10t and ~})~]
 
-order by table_schema, table_name, ordinal_position"
+order by c.table_schema, c.table_name, c.ordinal_position"
                           (db-name *mssql-db*)
                           table-type-name
                           including   ; do we print the clause?
@@ -148,17 +170,10 @@ order by table_schema, table_name, ordinal_position"
               character-set-name collation-name)))
        (if s-entry
            (if t-entry
-               (push column (cdr t-entry))
-               (push (cons table-name (list column)) (cdr s-entry)))
-           (push (cons schema (list (cons table-name (list column)))) result)))
-     :finally
-     ;; we did push, we need to reverse here
-     (return (reverse
-              (loop :for (schema . tables) :in result
-                 :collect
-                 (cons schema
-                       (reverse (loop :for (table-name . cols) :in tables
-                                   :collect (cons table-name (reverse cols))))))))))
+               (push-to-end column (cdr t-entry))
+               (push-to-end (cons table-name (list column)) (cdr s-entry)))
+           (push-to-end (cons schema (list (cons table-name (list column)))) result)))
+     :finally (return result)))
 
 (defun list-all-indexes (&key including excluding)
   "Get the list of MSSQL index definitions per table."
@@ -168,7 +183,7 @@ order by table_schema, table_name, ordinal_position"
      :in  (mssql-query (format nil "
     select schema_name(schema_id) as SchemaName,
            o.name as TableName,
-           i.name as IndexName,
+           REPLACE(i.name, '.', '_') as IndexName,
            co.[name] as ColumnName,
            i.is_unique,
            i.is_primary_key
@@ -215,32 +230,15 @@ order by SchemaName,
        (if s-entry
            (if t-entry
                (if i-entry
-                   (push col
+                   (push-to-end col
                          (pgloader.pgsql::pgsql-index-columns (cdr i-entry)))
-                   (push (cons name index) (cdr t-entry)))
-               (push (cons table (list (cons name index))) (cdr s-entry)))
-           (push (cons schema
-                       (list (cons table
-                                   (list (cons name index))))) result)))
+                   (push-to-end (cons name index) (cdr t-entry)))
+               (push-to-end (cons table (list (cons name index))) (cdr s-entry)))
+           (push-to-end (cons schema
+                              (list (cons table
+                                          (list (cons name index))))) result)))
      :finally
-     ;; we did push, we need to reverse here
-     (return
-       (labels ((reverse-index-cols (index)
-                  (setf (pgloader.pgsql::pgsql-index-columns index)
-                        (nreverse (pgloader.pgsql::pgsql-index-columns index)))
-                  index)
-
-                (reverse-indexes-cols (list-of-indexes)
-                  (loop :for (name . index) :in list-of-indexes
-                     :collect (cons name (reverse-index-cols index))))
-
-                (reverse-indexes-cols (list-of-tables)
-                  (reverse
-                   (loop :for (table . indexes) :in list-of-tables
-                      :collect (cons table (reverse-indexes-cols indexes))))))
-         (reverse
-          (loop :for (schema . tables) :in result
-             :collect (cons schema (reverse-indexes-cols tables))))))))
+     (return result)))
 
 (defun list-all-fkeys (&key including excluding)
   "Get the list of MSSQL index definitions per table."
@@ -249,7 +247,7 @@ order by SchemaName,
      :for (name schema table col fschema ftable fcol)
      :in  (mssql-query (format nil "
    SELECT
-           KCU1.CONSTRAINT_NAME AS 'CONSTRAINT_NAME'
+           REPLACE(KCU1.CONSTRAINT_NAME, '.', '_') AS 'CONSTRAINT_NAME'
          , KCU1.TABLE_SCHEMA AS 'TABLE_SCHEMA'
          , KCU1.TABLE_NAME AS 'TABLE_NAME'
          , KCU1.COLUMN_NAME AS 'COLUMN_NAME'
@@ -277,7 +275,7 @@ order by SchemaName,
          ~:[~*~;and (~{~a~^ or ~})~]
          ~:[~*~;and (~{~a~^ and ~})~]
 
-ORDER BY CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
+ORDER BY KCU1.CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
                                (db-name *mssql-db*) (db-name *mssql-db*)
                                including ; do we print the clause?
                                (filter-list-to-where-clause including
@@ -305,35 +303,17 @@ ORDER BY CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
            (if t-entry
                (if f-entry
                    (let ((fkey (cdr f-entry)))
-                     (push col (pgloader.pgsql::pgsql-fkey-columns fkey))
-                     (push fcol (pgloader.pgsql::pgsql-fkey-foreign-columns fkey)))
-                   (push (cons name fkey) (cdr t-entry)))
-               (push (cons table (list (cons name fkey))) (cdr s-entry)))
-           (push (cons schema
-                       (list (cons table
-                                   (list (cons name fkey))))) result)))
+                     (push-to-end col (pgloader.pgsql::pgsql-fkey-columns fkey))
+                     (push-to-end fcol
+                                  (pgloader.pgsql::pgsql-fkey-foreign-columns fkey)))
+                   (push-to-end (cons name fkey) (cdr t-entry)))
+               (push-to-end (cons table (list (cons name fkey))) (cdr s-entry)))
+           (push-to-end (cons schema
+                              (list (cons table
+                                          (list (cons name fkey))))) result)))
      :finally
      ;; we did push, we need to reverse here
-     (return
-       (labels ((reverse-fkey-cols (fkey)
-                  (setf (pgloader.pgsql::pgsql-fkey-columns fkey)
-                        (nreverse (pgloader.pgsql::pgsql-fkey-columns fkey)))
-                  (setf (pgloader.pgsql::pgsql-fkey-foreign-columns fkey)
-                        (nreverse
-                         (pgloader.pgsql::pgsql-fkey-foreign-columns fkey)))
-                  fkey)
-
-                (reverse-fkeys-cols (list-of-fkeys)
-                  (loop :for (name . fkeys) :in list-of-fkeys
-                     :collect (cons name (reverse-fkey-cols fkeys))))
-
-                (reverse-fkeys-cols (list-of-tables)
-                  (reverse
-                   (loop :for (table . fkeys) :in list-of-tables
-                      :collect (cons table (reverse-fkeys-cols fkeys))))))
-         (reverse
-          (loop :for (schema . tables) :in result
-             :collect (cons schema (reverse-fkeys-cols tables))))))))
+     (return result)))
 
 
 ;;;

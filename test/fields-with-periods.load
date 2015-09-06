@@ -1,0 +1,25 @@
+LOAD FIXED
+    FROM inline
+    (
+        "CHARS.LETTERS" from 0 for 3,
+        "CHARS.NUMBERS" from 3 for 3
+    )
+    INTO postgresql:///pgloader?fixed
+    (
+        "CHARS.LETTERS",
+        "CHARS.NUMBERS"
+    )
+
+    WITH truncate
+
+    BEFORE LOAD DO
+    $$ drop table if exists fixed; $$,
+        $$ create table fixed (
+            "CHARS.LETTERS" char(3),
+            "CHARS.NUMBERS" char(3)
+        );
+    $$;
+
+abc123
+def456
+ghi789

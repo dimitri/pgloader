@@ -11,7 +11,8 @@
     (:source (:type "nvarchar")  :target (:type "text" :drop-typemod t))
     (:source (:type "xml")       :target (:type "text" :drop-typemod t))
 
-    (:source (:type "bit") :target (:type "boolean"))
+    (:source (:type "bit") :target (:type "boolean")
+             :using pgloader.transforms::sql-server-bit-to-boolean)
 
     (:source (:type "uniqueidentifier") :target (:type "uuid")
              :using pgloader.transforms::sql-server-uniqueidentifier-to-uuid)
@@ -83,13 +84,21 @@
                 (mssql-column-identity col))
            "bigserial")
 
-          ((member type
-                   '("decimal" "numeric" "float" "double" "real")
-                   :test #'string=)
-           (format nil "~a(~a,~a)"
-                   type
-                   (mssql-column-numeric-precision col)
-                   (mssql-column-numeric-scale col)))
+          ((member type '("float" "real") :test #'string=)
+           ;; see https://msdn.microsoft.com/en-us/library/ms173773.aspx
+           ;; scale is supposed to be nil, and useless in PostgreSQL, so we
+           ;; just ignore it
+           (format nil "~a(~a)" type (mssql-column-numeric-precision col)))
+
+          ((member type '("decimal" "numeric" ) :test #'string=)
+           ;; https://msdn.microsoft.com/en-us/library/ms187746.aspx
+           (cond ((null (mssql-column-numeric-precision col))
+                  type)
+                 (t
+                  (format nil "~a(~a,~a)"
+                          type
+                          (mssql-column-numeric-precision col)
+                          (or (mssql-column-numeric-scale col) 0)))))
 
           (t type))))
 

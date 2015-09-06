@@ -73,13 +73,19 @@
   (:syb-xml 163)
   )
 
+(defun unsigned-to-signed (byte n)
+  (declare (type fixnum n) (type unsigned-byte byte))
+  (logior byte (- (mask-field (byte 1 (1- (* n 8))) byte))))
+
 (defun sysdb-data-to-lisp (%dbproc data type len)
   (if (> len 0)
       (case (foreign-enum-keyword '%syb-value-type type)
         ((:syb-varchar :syb-text) (foreign-string-to-lisp data :count len))
         (:syb-char (string-trim #(#\Space) (foreign-string-to-lisp data :count len)))
         ((:syb-bit :syb-bitn) (mem-ref data :int))
-        ((:syb-int1 :syb-int2 :syb-int4) (mem-ref data :int))
+        (:syb-int1 (unsigned-to-signed (mem-ref data :unsigned-int) 1))
+        (:syb-int2 (unsigned-to-signed (mem-ref data :unsigned-int) 2))
+        (:syb-int4 (unsigned-to-signed (mem-ref data :unsigned-int) 4))
         (:syb-int8 (mem-ref data :int8))
         (:syb-flt8 (mem-ref data :double))
         (:syb-datetime

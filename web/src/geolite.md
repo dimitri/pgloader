@@ -104,7 +104,7 @@ The transformation from a pair of integers into an IP is done dynamically by
 the pgloader process.
 
 Also, the location is given as a pair of *float* columns for the *longitude*
-and the *latiude* where PostgreSQL offers the
+and the *latitude* where PostgreSQL offers the
 [point](http://www.postgresql.org/docs/9.3/interactive/functions-geometry.html)
 datatype, so the pgloader command here will actually transform the data on
 the fly to use the appropriate data type and its input representation.

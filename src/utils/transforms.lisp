@@ -22,7 +22,8 @@
 		 right-trim
 		 byte-vector-to-bytea
                  sqlite-timestamp-to-timestamp
-                 sql-server-uniqueidentifier-to-uuid))
+                 sql-server-uniqueidentifier-to-uuid
+                 sql-server-bit-to-boolean))
 
 
 ;;;
@@ -149,11 +150,12 @@
 (defun float-to-string (float)
   "Transform a Common Lisp float value into its string representation as
    accepted by PostgreSQL, that is 100.0 rather than 100.0d0."
-  (declare (type (or null float) float))
+  (declare (type (or null fixnum float string) float))
   (when float
     (typecase float
       (double-float (let ((*read-default-float-format* 'double-float))
                       (princ-to-string float)))
+      (string       float)
       (t            (princ-to-string float)))))
 
 (defun set-to-enum-array (set-string)
@@ -209,7 +211,7 @@
     (integer string-or-integer)))
 
 (defun sqlite-timestamp-to-timestamp (date-string-or-integer)
-  (declare (type (or integer simple-string) date-string-or-integer))
+  (declare (type (or null integer simple-string) date-string-or-integer))
   (when date-string-or-integer
     (cond ((and (typep date-string-or-integer 'integer)
                 (= 0 date-string-or-integer))
@@ -252,3 +254,15 @@
         (format nil
                 "~d-~2,'0d-~2,'0d ~2,'0d:~2,'0d:~2,'0dZ"
                 year month date hour minute second)))))
+
+(defun sql-server-bit-to-boolean (bit-string-or-integer)
+  "We might receive bits as '((0))'"
+  (typecase bit-string-or-integer
+    (integer (if (= 0 bit-string-or-integer) "f" "t"))
+    (string
+     (cond ((string= "0" bit-string-or-integer) "f")
+           ((string= "1" bit-string-or-integer) "t")
+           ((string= "((0))" bit-string-or-integer) "f")
+           ((string= "((1))" bit-string-or-integer) "t")
+           (t nil)))))
+

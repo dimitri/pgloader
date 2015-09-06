@@ -69,6 +69,11 @@
 	     :target (:type "boolean" :drop-typemod t)
 	     :using pgloader.transforms::bits-to-boolean)
 
+    ;; bigint(20) unsigned (or not, actually) does not fit into PostgreSQL
+    ;; bigint (-9223372036854775808 to +9223372036854775807):
+    (:source (:type "bigint" :typemod (< 19 precision))
+     :target (:type "numeric" :drop-typemod t))
+
     ;; we need the following to benefit from :drop-typemod
     (:source (:type "tinyint")   :target (:type "smallint" :drop-typemod t))
     (:source (:type "smallint")  :target (:type "smallint" :drop-typemod t))
@@ -136,9 +141,15 @@
 
     ;; date types without strange defaults
     (:source (:type "date")      :target (:type "date"))
-    (:source (:type "datetime")  :target (:type "timestamptz"))
-    (:source (:type "timestamp") :target (:type "timestamptz"))
     (:source (:type "year")      :target (:type "integer" :drop-typemod t))
+
+    (:source (:type "datetime")
+     :target (:type "timestamptz")
+     :using pgloader.transforms::zero-dates-to-null)
+
+    (:source (:type "timestamp")
+     :target (:type "timestamptz")
+     :using pgloader.transforms::zero-dates-to-null)
 
     ;; Inline MySQL "interesting" datatype
     (:source (:type "enum")
@@ -173,7 +184,7 @@
 	    :target (:type "text" :drop-default nil :drop-not-null nil)
 	    :using nil)
 
-	   (:source (:type "char" :typemod (= (car typemod) 1))
+	   (:source (:type "char" :typemod (= precision 1))
 	    :target (:type "char" :drop-typemod nil))
 
            (:source (:column ("table" . "g"))

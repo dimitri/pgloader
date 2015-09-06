@@ -1,0 +1,7 @@
+col1	45	005 45 works
+col1	44	006 44 Fails 0xa5
+col1	45	006 45 Fails 0xa6
+col1	45	006 45 Fails using escape 0xa6
+col1	46	006 46 Fails 0xa7
+col1	47	006 47 Fails 0xa8
+col1	4T works	006 followed by 4 works ? why

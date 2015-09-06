@@ -14,7 +14,8 @@ LOAD CSV
      FROM inline (a, b, c, d, e)
      INTO postgresql:///pgloader?partial (a, b, c, e)
 
-     WITH fields optionally enclosed by '"',
+     WITH drop indexes,
+          fields optionally enclosed by '"',
           fields escaped by double-quote,
           fields terminated by '%'
 
@@ -25,7 +26,7 @@ LOAD CSV
    BEFORE LOAD DO
    $$ drop table if exists partial; $$,
    $$ create table partial (
-       a integer primary key,
+       a integer unique,
        b text,
        c text,
        d text,

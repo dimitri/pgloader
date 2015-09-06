@@ -6,16 +6,45 @@
 (defvar *pgsql-reserved-keywords* nil
   "We need to always quote PostgreSQL reserved keywords")
 
+(defun quoted-p (s)
+  "Return true if s is a double-quoted string"
+  (and (eq (char s 0) #\")
+       (eq (char s (- (length s) 1)) #\")))
+
 (defun apply-identifier-case (identifier)
   "Return given IDENTIFIER with CASE handled to be PostgreSQL compatible."
-  (ecase *identifier-case*
-    (:downcase (let ((lowered (cl-ppcre:regex-replace-all
-                                "[^a-zA-Z0-9.]" (string-downcase identifier) "_")))
-                 (if (member lowered *pgsql-reserved-keywords* :test #'string=)
-                   (format nil "\"~a\"" lowered)
-                   lowered)))
-    (:quote    (format nil "\"~a\"" identifier))
-    (:none     identifier)))
+  (let* ((lowercase-identifier (cl-ppcre:regex-replace-all
+                                "[^a-zA-Z0-9.]" (string-downcase identifier) "_"))
+         (*identifier-case*
+          ;; we might need to force to :quote in some cases
+          ;;
+          ;; http://www.postgresql.org/docs/9.1/static/sql-syntax-lexical.html
+          ;;
+          ;; SQL identifiers and key words must begin with a letter (a-z, but
+          ;; also letters with diacritical marks and non-Latin letters) or an
+          ;; underscore (_).
+          (cond ((quoted-p identifier)
+                 :none)
+
+                ((not (cl-ppcre:scan "^[A-Za-z_][A-Za-z0-9_$]*$" identifier))
+                 :quote)
+
+                ((member lowercase-identifier *pgsql-reserved-keywords*
+                         :test #'string=)
+                 (progn
+                   ;; we need to both downcase and quote here
+                   (when (eq :downcase *identifier-case*)
+                     (setf identifier lowercase-identifier))
+                   :quote))
+
+                ;; in other cases follow user directive
+                (t *identifier-case*))))
+
+    (ecase *identifier-case*
+      (:downcase lowercase-identifier)
+      (:quote    (format nil "\"~a\""
+                         (cl-ppcre:regex-replace-all "\"" identifier "\"\"")))
+      (:none     identifier))))
 
 ;;;
 ;;; Some parts of the logic here needs to be specialized depending on the
@@ -151,7 +180,7 @@
 (defun drop-table-if-exists-sql (table-name)
   "Return the PostgreSQL DROP TABLE IF EXISTS statement for TABLE-NAME."
   (let ((table-name (apply-identifier-case table-name)))
-    (format nil "DROP TABLE IF EXISTS ~a;~%" table-name)))
+    (format nil "DROP TABLE IF EXISTS ~a~% CASCADE;" table-name)))
 
 (defun create-table-sql-list (all-columns
 			      &key
@@ -201,17 +230,44 @@
 (defun truncate-tables (pgconn table-name-list)
   "Truncate given TABLE-NAME in database DBNAME"
   (with-pgsql-transaction (:pgconn pgconn)
-    (let ((sql (format nil "TRUNCATE ~{~a~^,~};"
-                       (loop :for table-name :in table-name-list
-                          :collect (apply-identifier-case table-name)))))
-      (log-message :notice "~a" sql)
-      (pomo:execute sql))))
+    (flet ((process-table-name (table-name)
+             (typecase table-name
+               (cons
+                (format nil "~a.~a"
+                        (apply-identifier-case (car table-name))
+                        (apply-identifier-case (cdr table-name))))
+               (string
+                (apply-identifier-case table-name)))))
+      (let ((sql (format nil "TRUNCATE ~{~a~^,~};"
+                         (mapcar #'process-table-name table-name-list))))
+        (log-message :notice "~a" sql)
+        (pomo:execute sql)))))
+
+(defun disable-triggers (table-name)
+  "Disable triggers on TABLE-NAME. Needs to be called with a PostgreSQL
+   connection already opened."
+  (let ((sql (format nil "ALTER TABLE ~a DISABLE TRIGGER ALL;"
+                     (apply-identifier-case table-name))))
+    (log-message :info "~a" sql)
+    (pomo:execute sql)))
+
+(defun enable-triggers (table-name)
+  "Disable triggers on TABLE-NAME. Needs to be called with a PostgreSQL
+   connection already opened."
+  (let ((sql (format nil "ALTER TABLE ~a ENABLE TRIGGER ALL;"
+                     (apply-identifier-case table-name))))
+    (log-message :info "~a" sql)
+    (pomo:execute sql)))
 
 
 ;;;
 ;;; Index support
 ;;;
-(defstruct pgsql-index name table-name table-oid primary unique columns)
+(defstruct pgsql-index
+  ;; the struct is used both for supporting new index creation from non
+  ;; PostgreSQL system and for drop/create indexes when using the 'drop
+  ;; indexes' option (in CSV mode and the like)
+  name table-name table-oid primary unique columns sql conname condef)
 
 (defgeneric index-table-name (index)
   (:documentation
@@ -226,30 +282,60 @@
 
 (defmethod format-pgsql-create-index ((index pgsql-index))
   "Generate the PostgreSQL statement list to rebuild a Foreign Key"
-  (let* ((index-name (format nil "idx_~a_~a"
-			     (pgsql-index-table-oid index)
-			     (pgsql-index-name index)))
+  (let* ((index-name (if (and *preserve-index-names*
+                              (not (string-equal "primary" (pgsql-index-name index)))
+                              (pgsql-index-table-oid index))
+                         (pgsql-index-name index)
+
+                         ;; in the general case, we build our own index name.
+                         (format nil "idx_~a_~a"
+                                 (pgsql-index-table-oid index)
+                                 (pgsql-index-name index))))
 	 (table-name (apply-identifier-case (pgsql-index-table-name index)))
 	 (index-name (apply-identifier-case index-name))
 
 	 (cols (mapcar #'apply-identifier-case (pgsql-index-columns index))))
     (cond
-      ((pgsql-index-primary index)
+      ((or (pgsql-index-primary index)
+           (and (pgsql-index-condef index) (pgsql-index-unique index)))
        (values
         ;; ensure good concurrency here, don't take the ACCESS EXCLUSIVE
         ;; LOCK on the table before we have the index done already
-        (format nil "CREATE UNIQUE INDEX ~a ON ~a (~{~a~^, ~});"
-                index-name table-name cols)
+        (or (pgsql-index-sql index)
+            (format nil "CREATE UNIQUE INDEX ~a ON ~a (~{~a~^, ~});"
+                    index-name table-name cols))
         (format nil
-                "ALTER TABLE ~a ADD PRIMARY KEY USING INDEX ~a;"
-                table-name index-name)))
+                "ALTER TABLE ~a ADD ~a USING INDEX ~a;"
+                table-name
+                (cond ((pgsql-index-primary index) "PRIMARY KEY")
+                      ((pgsql-index-unique index) "UNIQUE"))
+                index-name)))
+
+      ((pgsql-index-condef index)
+       (format nil "ALTER TABLE ~a ADD ~a;"
+               table-name (pgsql-index-condef index)))
 
       (t
-       (format nil "CREATE~:[~; UNIQUE~] INDEX ~a ON ~a (~{~a~^, ~});"
-               (pgsql-index-unique index)
-               index-name
-               table-name
-               cols)))))
+       (or (pgsql-index-sql index)
+           (format nil "CREATE~:[~; UNIQUE~] INDEX ~a ON ~a (~{~a~^, ~});"
+                   (pgsql-index-unique index)
+                   index-name
+                   table-name
+                   cols))))))
+
+(defmethod format-pgsql-drop-index ((index pgsql-index))
+  "Generate the PostgreSQL statement to DROP the index."
+  (let* ((table-name (apply-identifier-case (pgsql-index-table-name index)))
+	 (index-name (apply-identifier-case (pgsql-index-name index))))
+    (cond ((pgsql-index-conname index)
+           ;; here always quote the constraint name, currently the name
+           ;; comes from one source only, the PostgreSQL database catalogs,
+           ;; so don't question it, quote it.
+           (format nil "ALTER TABLE ~a DROP CONSTRAINT ~s;"
+                   table-name (pgsql-index-conname index)))
+
+          (t
+           (format nil "DROP INDEX ~a;" index-name)))))
 
 ;;;
 ;;; Parallel index building.
@@ -301,7 +387,71 @@
        do (loop for index in indexes
 	     do (setf (pgsql-index-table-oid index) table-oid)))))
 
+;;;
+;;; Drop indexes before loading
+;;;
+(defun drop-indexes (state pgsql-index-list)
+  "Drop indexes in PGSQL-INDEX-LIST. A PostgreSQL connection must already be
+   active when calling that function."
+  (loop :for index :in pgsql-index-list
+     :do (let ((sql (format-pgsql-drop-index index)))
+           (log-message :notice "~a" sql)
+           (pgsql-execute-with-timing "drop indexes" sql state))))
 
+;;;
+;;; Higher level API to care about indexes
+;;;
+(defun maybe-drop-indexes (target table-name state &key drop-indexes)
+  "Drop the indexes for TABLE-NAME on TARGET PostgreSQL connection, and
+   returns a list of indexes to create again."
+  (with-pgsql-connection (target)
+    (let ((indexes (list-indexes table-name))
+          ;; we get the list of indexes from PostgreSQL catalogs, so don't
+          ;; question their spelling, just quote them.
+          (*identifier-case* :quote))
+      (cond ((and indexes (not drop-indexes))
+             (log-message :warning
+                          "Target table ~s has ~d indexes defined against it."
+                          table-name (length indexes))
+             (log-message :warning
+                          "That could impact loading performance badly.")
+             (log-message :warning
+                          "Consider the option 'drop indexes'."))
+
+            (indexes
+             ;; drop the indexes now
+             (with-stats-collection ("drop indexes" :state state)
+                 (drop-indexes state indexes))))
+
+      ;; and return the indexes list
+      indexes)))
+
+(defun create-indexes-again (target indexes state state-parallel
+                             &key drop-indexes)
+  "Create the indexes that we dropped previously."
+  (when (and indexes drop-indexes)
+    (let* ((*preserve-index-names* t)
+           ;; we get the list of indexes from PostgreSQL catalogs, so don't
+           ;; question their spelling, just quote them.
+           (*identifier-case* :quote)
+           (idx-kernel  (make-kernel (length indexes)))
+           (idx-channel (let ((lp:*kernel* idx-kernel))
+                          (lp:make-channel))))
+      (let ((pkeys
+             (create-indexes-in-kernel target indexes idx-kernel idx-channel
+                                       :state state-parallel)))
+
+        (with-stats-collection ("Index Build Completion" :state state)
+            (loop :for idx :in indexes :do (lp:receive-result idx-channel)))
+
+        ;; turn unique indexes into pkeys now
+        (with-pgsql-connection (target)
+          (with-stats-collection ("Constraints" :state state)
+              (loop :for sql :in pkeys
+                 :when sql
+                 :do (progn
+                       (log-message :notice "~a" sql)
+                       (pgsql-execute-with-timing "Constraints" sql state)))))))))
 
 ;;;
 ;;; Sequences

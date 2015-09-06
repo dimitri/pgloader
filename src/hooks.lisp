@@ -25,10 +25,10 @@
     (cffi:load-foreign-library 'cl+ssl::libssl)))
 
 #+ccl  (push #'open-foreign-libs *lisp-startup-functions*)
-#+sbcl (push #'open-foreign-libs sb-ext:*save-hooks*)
+#+sbcl (push #'open-foreign-libs sb-ext:*init-hooks*)
 
 #+ccl  (push #'close-foreign-libs *save-exit-functions*)
-#+sbcl (push #'close-foreign-libs sb-ext:*init-hooks*)
+#+sbcl (push #'close-foreign-libs sb-ext:*save-hooks*)
 
 ;;;
 ;;; Register all loaded systems in the image, so that ASDF don't search for

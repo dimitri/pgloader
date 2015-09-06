@@ -7,7 +7,9 @@
 ;;;
 ;;; Integration with pgloader
 ;;;
-(defclass copy-db3 (copy) ()
+(defclass copy-db3 (copy)
+  ((encoding    :accessor encoding	  ; file encoding
+	        :initarg :encoding))
   (:documentation "pgloader DBF Data Source"))
 
 (defmethod initialize-instance :after ((db3 copy-db3) &key)
@@ -17,7 +19,11 @@
   (with-connection (conn (source-db db3))
     (unless (and (slot-boundp db3 'columns) (slot-value db3 'columns))
       (setf (slot-value db3 'columns)
-            (list-all-columns (fd-db3 conn) (source db3))))
+            (list-all-columns (fd-db3 conn)
+                              (or (typecase (target db3)
+                                    (cons   (cdr (target db3)))
+                                    (string (target db3)))
+                                  (source db3)))))
 
     (let ((transforms (when (slot-boundp db3 'transforms)
                         (slot-value db3 'transforms))))
@@ -30,7 +36,8 @@
    argument (a list of column values) for each row."
   (with-connection (conn (source-db copy-db3))
     (let ((stream (conn-handle (source-db copy-db3)))
-          (db3    (fd-db3 (source-db copy-db3))))
+          (db3    (fd-db3 (source-db copy-db3)))
+          (db3:*external-format* (encoding copy-db3)))
       (loop
          :with count := (db3:record-count db3)
          :repeat count
@@ -55,7 +62,8 @@
   (let ((read (pgloader.queue:map-push-queue db3 queue)))
     (pgstate-incf *state* (target db3) :read read)))
 
-(defmethod copy-from ((db3 copy-db3) &key (kernel nil k-s-p) truncate)
+(defmethod copy-from ((db3 copy-db3)
+                      &key (kernel nil k-s-p) truncate disable-triggers)
   (let* ((summary        (null *state*))
          (*state*        (or *state* (pgloader.utils:make-pgstate)))
          (lp:*kernel*    (or kernel (make-kernel 2)))
@@ -74,7 +82,8 @@
         (lp:submit-task channel
                         #'pgloader.pgsql:copy-from-queue
                         (target-db db3) (target db3) queue
-                        :truncate truncate)
+                        :truncate truncate
+                        :disable-triggers disable-triggers)
 
         ;; now wait until both the tasks are over, and kill the kernel
         (loop for tasks below 2 do (lp:receive-result channel)
@@ -88,11 +97,12 @@
                             state-before
 			    data-only
 			    schema-only
-                            (truncate        t)
-                            (create-tables   t)
-			    (include-drop    t)
-			    (create-indexes  t)
-			    (reset-sequences t))
+                            (truncate         t)
+                            (disable-triggers nil)
+                            (create-tables    t)
+			    (include-drop     t)
+			    (create-indexes   t)
+			    (reset-sequences  t))
   "Open the DB3 and stream its content to a PostgreSQL database."
   (declare (ignore create-indexes reset-sequences))
   (let* ((summary     (null *state*))
@@ -111,18 +121,19 @@
                                   :summary summary)
             (with-pgsql-transaction (:pgconn (target-db db3))
               (when create-tables
-                (log-message :notice "Create table \"~a\"" table-name)
-                (create-tables (columns db3)
-                               :include-drop include-drop
-                               :if-not-exists t)))))
+                (with-schema (tname table-name)
+                  (log-message :notice "Create table \"~a\"" tname)
+                  (create-tables (columns db3)
+                                 :include-drop include-drop
+                                 :if-not-exists t))))))
 
-      (cl-postgres::database-errors (e)
+      (cl-postgres::database-error (e)
         (declare (ignore e))            ; a log has already been printed
         (log-message :fatal "Failed to create the schema, see above.")
         (return-from copy-database)))
 
     (unless schema-only
-      (copy-from db3 :truncate truncate))
+      (copy-from db3 :truncate truncate :disable-triggers disable-triggers))
 
     ;; and report the total time spent on the operation
     (when summary

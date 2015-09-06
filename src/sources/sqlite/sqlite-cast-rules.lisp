@@ -16,6 +16,7 @@
     (:source (:type "clob")      :target (:type "text" :drop-typemod t))
 
     (:source (:type "tinyint") :target (:type "smallint"))
+    (:source (:type "integer") :target (:type "bigint"))
 
     (:source (:type "float") :target (:type "float")
              :using pgloader.transforms::float-to-string)
@@ -51,14 +52,19 @@
 (defun normalize (sqlite-type-name)
   "SQLite only has a notion of what MySQL calls column_type, or ctype in the
    CAST machinery. Transform it to the data_type, or dtype."
-  (let* ((sqlite-type-name (string-downcase sqlite-type-name))
-         (tokens (remove-if (lambda (token)
-                              (member token '("unsigned" "short"
-                                              "varying" "native")
-                                      :test #'string-equal))
-                            (sq:split-sequence #\Space sqlite-type-name))))
-    (assert (= 1 (length tokens)))
-    (first tokens)))
+  (if (string= sqlite-type-name "")
+      ;; yes SQLite allows for empty type names
+      "text"
+      (let* ((sqlite-type-name (string-downcase sqlite-type-name))
+             (tokens (remove-if (lambda (token)
+                                  (or (member token '("unsigned" "short"
+                                                      "varying" "native")
+                                              :test #'string-equal)
+                                      ;; remove typemod too, as in "integer (8)"
+                                      (char= #\( (aref token 0))))
+                                (sq:split-sequence #\Space sqlite-type-name))))
+        (assert (= 1 (length tokens)))
+        (first tokens))))
 
 (defun ctype-to-dtype (sqlite-type-name)
   "In SQLite we only get the ctype, e.g. int(7), but here we want the base
@@ -77,11 +83,6 @@
     ;; pgloader API only wants to see text representations to send down the
     ;; COPY protocol.
     (values column (or fn (lambda (val) (if val (format nil "~a" val) :null))))))
-
-(defmethod cast-to-bytea-p ((col coldef))
-  "Returns a generalized boolean, non-nil when the column is casted to a
-   PostgreSQL bytea column."
-  (string= "bytea" (cast-sqlite-column-definition-to-pgsql col)))
 
 (defmethod format-pgsql-column ((col coldef))
   "Return a string representing the PostgreSQL column definition."

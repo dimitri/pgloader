@@ -104,12 +104,14 @@
 		     (declare (ignore ,@ignore))
 		     (cons ,option (null no))))))
 
-(make-option-rule include-drop    (and kw-include (? kw-no) kw-drop))
-(make-option-rule truncate        (and (? kw-no) kw-truncate))
-(make-option-rule create-tables   (and kw-create (? kw-no) kw-tables))
-(make-option-rule create-indexes  (and kw-create (? kw-no) kw-indexes))
-(make-option-rule reset-sequences (and kw-reset  (? kw-no) kw-sequences))
-(make-option-rule foreign-keys    (and (? kw-no) kw-foreign kw-keys))
+(make-option-rule include-drop     (and kw-include (? kw-no) kw-drop))
+(make-option-rule truncate         (and (? kw-no) kw-truncate))
+(make-option-rule disable-triggers (and kw-disable (? kw-no) kw-triggers))
+(make-option-rule drop-indexes     (and kw-drop (? kw-no) kw-indexes))
+(make-option-rule create-tables    (and kw-create (? kw-no) kw-tables))
+(make-option-rule create-indexes   (and kw-create (? kw-no) kw-indexes))
+(make-option-rule reset-sequences  (and kw-reset  (? kw-no) kw-sequences))
+(make-option-rule foreign-keys     (and (? kw-no) kw-foreign kw-keys))
 
 (defrule option-schema-only (and kw-schema kw-only)
   (:constant (cons :schema-only t)))
@@ -122,16 +124,23 @@
     (bind (((action _) id-case))
       (cons :identifier-case action))))
 
+(defrule option-index-names (and (or kw-preserve kw-uniquify) kw-index kw-names)
+  (:lambda (preserve-or-uniquify)
+    (bind (((action _ _) preserve-or-uniquify))
+      (cons :index-names action))))
+
 (defrule mysql-option (or option-workers
                           option-batch-rows
                           option-batch-size
                           option-batch-concurrency
 			  option-truncate
+                          option-disable-triggers
 			  option-data-only
 			  option-schema-only
 			  option-include-drop
 			  option-create-tables
 			  option-create-indexes
+			  option-index-names
 			  option-reset-sequences
 			  option-foreign-keys
 			  option-identifiers-case))

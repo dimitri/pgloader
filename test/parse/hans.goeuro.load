@@ -7,6 +7,8 @@ LOAD DATABASE
 
  DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf-8
 
+  SET maintenance_work_mem to '1 GB'
+
  CAST type datetime to timestamptz drop default drop not null using zero-dates-to-null,
       type date drop not null drop default using zero-dates-to-null,
       type timestamp to timestamptz drop not null using zero-dates-to-null,
@@ -22,7 +24,10 @@ LOAD DATABASE
       type bit when (= precision 1) to boolean drop typemod using bits-to-boolean,
 
       column ascii.s using byte-vector-to-bytea,
-      column enumerate.foo using empty-string-to-null
+      column enumerate.foo using empty-string-to-null,
+
+      column ip.ip_address to inet keep not null drop typemod
+
 
  MATERIALIZE VIEWS nonexisting,
    d as $$
@@ -32,4 +37,9 @@ LOAD DATABASE
      group by cast(d as date);
    $$
 
- WITH include drop, create tables, create indexes, reset sequences;
+ WITH include drop,
+      create tables,
+      create indexes,
+      preserve index names,
+      reset sequences,
+      disable triggers;

@@ -56,7 +56,7 @@
             ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
-            (table-name    ,(pgconn-table-name pg-db-conn))
+            (table-name   ',(pgconn-table-name pg-db-conn))
             (source-db      (with-stats-collection ("fetch" :state state-before)
                               (expand (fetch-file ,ixf-db-conn))))
             (source
@@ -82,8 +82,11 @@
   (:lambda (command)
     (bind (((source pg-db-uri
                     &key ((:ixf-options options)) gucs before after) command))
-      (lisp-code-for-loading-from-ixf source pg-db-uri
-                                      :gucs gucs
-                                      :before before
-                                      :after after
-                                      :ixf-options options))))
+      (cond (*dry-run*
+             (lisp-code-for-csv-dry-run pg-db-uri))
+            (t
+             (lisp-code-for-loading-from-ixf source pg-db-uri
+                                             :gucs gucs
+                                             :before before
+                                             :after after
+                                             :ixf-options options))))))
