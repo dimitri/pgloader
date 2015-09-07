@@ -42,12 +42,19 @@
                    (string= day   "00"))
                nil
                (with-output-to-string (s)
-                 (format s "~a-~a-~a ~a:~a:~a"
-                         (let ((yint (parse-integer year)))
-                           ;; process 2-digits year formats specially
-                           (if (<= (length year) 2) (+ *century* yint) yint))
-                         month
-                         day
+                 ;; when given a full date format, format the date part
+                 (when (and (assoc :year format)
+                            (assoc :month format)
+                            (assoc :day format))
+                   (format s "~a-~a-~a "
+                           (let ((yint (parse-integer year)))
+                             ;; process 2-digits year formats specially
+                             (if (<= (length year) 2) (+ *century* yint) yint))
+                           month
+                           day))
+
+                 ;; now format the time part
+                 (format s "~a:~a:~a"
                          (let ((hint (parse-integer hour)))
                            (cond ((and am (= hint 12)) "00")
                                  ((and pm (= hint 12)) "12")
@@ -55,6 +62,8 @@
                                  (t hour)))
                          minute
                          seconds)
+
+                 ;; and maybe format the micro seconds part
                  (if usecs (format s ".~a" usecs)
                      (when msecs (format s ".~a" msecs)))))))))
 
