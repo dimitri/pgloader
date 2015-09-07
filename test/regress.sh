@@ -8,6 +8,10 @@
 
 set -x
 
+# run the tests in the Europe/Paris TimeZone
+# see csv-parse-date.load for an example where that matters
+export PGTZ='Europe/Paris'
+
 pgloader=$1
 command=$2
 targetdb=`gawk -F '[ ?]+' '/^ *INTO|into/ {print $3}' < $command`
