@@ -12,7 +12,7 @@ LOAD CSV
           fields escaped by double-quote,
           fields terminated by ','
 
-      SET client_encoding to 'latin1',
+      SET timezone to 'Europe/Paris',
           work_mem to '12MB',
           standard_conforming_strings to 'on'
 
