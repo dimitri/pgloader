@@ -67,8 +67,7 @@
 
 (defun list-all-columns (ixf-stream table-name)
   "Return the list of columns for the given IXF-FILE-NAME."
-  (let ((ixf:*ixf-stream* ixf-stream))
-    (let ((ixf (ixf:read-headers)))
-      (list (cons table-name
-                  (coerce (ixf:ixf-table-columns (ixf:ixf-file-table ixf))
-                          'list))))))
+  (ixf:with-ixf-stream (ixf ixf-stream)
+    (list (cons table-name
+                (coerce (ixf:ixf-table-columns (ixf:ixf-file-table ixf))
+                        'list)))))

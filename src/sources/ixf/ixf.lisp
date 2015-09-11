@@ -59,12 +59,12 @@
   "Extract IXF data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row."
   (with-connection (conn (source-db copy-ixf))
-    (let ((ixf:*ixf-stream* (conn-handle conn)))
-      (let ((ixf    (ixf:read-headers))
-            (row-fn (lambda (row)
-                      (pgstate-incf *state* (target copy-ixf) :read 1)
-                      (funcall process-row-fn row))))
-        (ixf:map-data ixf row-fn)))))
+    (let ((ixf    (ixf:make-ixf-file :stream (conn-handle conn)))
+          (row-fn (lambda (row)
+                    (pgstate-incf *state* (target copy-ixf) :read 1)
+                    (funcall process-row-fn row))))
+      (ixf:read-headers ixf)
+      (ixf:map-data ixf row-fn))))
 
 (defmethod copy-to-queue ((ixf copy-ixf) queue)
   "Copy data from IXF file FILENAME into queue DATAQ"
