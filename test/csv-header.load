@@ -1,6 +1,6 @@
 LOAD CSV
      FROM INLINE
-     INTO postgresql:///pgloader?header
+     INTO postgresql:///pgloader?public.header
 
      WITH truncate,
           fields terminated by ',',

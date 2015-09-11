@@ -184,20 +184,22 @@
 (defun list-columns (pgconn table-name &key schema)
   "Return a list of column names for given TABLE-NAME."
   (with-pgsql-transaction (:pgconn pgconn)
-    (pomo:query (format nil "
+    (with-schema (unqualified-table-name table-name)
+      (pomo:query (format nil "
     select attname
       from pg_class c
            join pg_namespace n on n.oid = c.relnamespace
            left join pg_attribute a on c.oid = a.attrelid
            join pg_type t on t.oid = a.atttypid
      where c.oid = '~:[~*~a~;~a.~a~]'::regclass and attnum > 0
-  order by attnum" schema schema table-name) :column)))
+  order by attnum" schema schema unqualified-table-name) :column))))
 
 (defun list-indexes (table-name)
   "List all indexes for TABLE-NAME in SCHEMA. A PostgreSQL connection must
    be already established when calling that function."
-  (loop :for (index-name table-name table-oid primary unique sql conname condef)
-     :in (pomo:query (format nil "
+  (with-schema (unqualified-table-name table-name)
+    (loop :for (index-name table-name table-oid primary unique sql conname condef)
+       :in (pomo:query (format nil "
 select i.relname,
        indrelid::regclass,
        indrelid,
@@ -210,20 +212,18 @@ select i.relname,
        join pg_class i ON i.oid = x.indexrelid
        left join pg_constraint c ON c.conindid = i.oid
  where indrelid = '~@[~a.~]~a'::regclass"
-                             (when (typep table-name 'cons)
-                               (car table-name))
-                             (typecase table-name
-                               (cons   (cdr table-name))
-                               (string table-name))))
-     :collect (make-pgsql-index :name index-name
-                                :table-name table-name
-                                :table-oid table-oid
-                                :primary primary
-                                :unique unique
-                                :columns nil
-                                :sql sql
-                                :conname (unless (eq :null conname) conname)
-                                :condef  (unless (eq :null condef)  condef))))
+                               (when (typep table-name 'cons)
+                                 (car table-name))
+                               unqualified-table-name))
+       :collect (make-pgsql-index :name index-name
+                                  :table-name table-name
+                                  :table-oid table-oid
+                                  :primary primary
+                                  :unique unique
+                                  :columns nil
+                                  :sql sql
+                                  :conname (unless (eq :null conname) conname)
+                                  :condef  (unless (eq :null condef)  condef)))))
 
 (defun list-reserved-keywords (pgconn)
   "Connect to PostgreSQL DBNAME and fetch reserved keywords."
