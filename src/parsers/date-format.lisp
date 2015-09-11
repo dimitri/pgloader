@@ -35,8 +35,15 @@
                                    &allow-other-keys)
              (loop
                 :for (name start end) :in format
+                :for ragged-end := (when end
+                                     (cond ((member name '(:msecs :usecs))
+                                            ;; take any number of digits up to
+                                            ;; the specified field lenght
+                                            ;; (less digits are allowed)
+                                            (min end (length date-string)))
+                                           (t end)))
                 :when (and start end)
-                :append (list name (subseq date-string start end)))
+                :append (list name (subseq date-string start ragged-end)))
            (if (or (string= year  "0000")
                    (string= month "00")
                    (string= day   "00"))
@@ -91,7 +98,7 @@
                               microseconds
                               noise)))
 
-(defrule noise (+ (or #\- #\. #\Space #\* #\# #\@ #\/ #\\ "T"))
+(defrule noise (+ (or #\: #\- #\. #\Space #\* #\# #\@ #\/ #\\ "T"))
   (:lambda (x) (incf *offset* (length (text x))) nil))
 
 (defrule year (or year4 year3 year2))
