@@ -142,6 +142,10 @@
 ;;; LOAD DATABASE FROM mssql://
 (defun lisp-code-for-mssql-dry-run (ms-db-conn pg-db-conn)
   `(lambda ()
+     ;; now is the time to load the CFFI lib we need (freetds)
+     (log-message :log "Loading the FreeTDS shared librairy (sybdb)")
+     (cffi:load-foreign-library 'mssql::sybdb)
+
      (log-message :log "DRY RUN, only checking connections.")
      (check-connection ,ms-db-conn)
      (check-connection ,pg-db-conn)))
