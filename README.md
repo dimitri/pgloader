@@ -66,9 +66,13 @@ pgloader is now a Common Lisp program, tested using the
 	$ make pgloader
 	$ ./build/bin/pgloader --help
 
-You can also fetch pre-made binary packages at
-[pgloader.io](http://pgloader.io/download.html).
+When building from sources, you should always build from the current git
+HEAD as it's basically the only source that is managed in a way to ensure it
+builds aginst current set of dependencies versions.
 
+<!--
+
+  Known broken for awhile
 ## Testing a new feature
 
 Being a Common Lisp program, pgloader is able to *upgrade itself* at run
@@ -98,6 +102,8 @@ Please note that the *binary* file (`/usr/bin/pgloader` or
 the same upgraded code again you will have to use the `--self-upgrade`
 command again. It might warrant for an option rename before `3.1.0` stable
 release.
+
+ -->
 
 ## The pgloader.lisp script
 
