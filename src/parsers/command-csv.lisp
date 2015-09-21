@@ -266,7 +266,7 @@
 (defrule sexp-symbol (and (symbol-first-character-p character)
 			  (* (symbol-character-p character)))
   (:lambda (schars)
-    (pgloader.transforms:intern-symbol (text schars))))
+    (pgloader.transforms:intern-symbol (text schars) '(("nil" . cl:nil)))))
 
 (defrule sexp-string-char (or (not-doublequote character) (and #\\ #\")))
 

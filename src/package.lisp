@@ -155,7 +155,7 @@
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.schema)
-  (:import-from #:pgloader.transforms #:precision #:scale)
+  (:import-from #:pgloader.transforms #:precision #:scale #:intern-symbol)
   (:import-from #:pgloader.parse-date
                 #:parse-date-string
                 #:parse-date-format)

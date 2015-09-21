@@ -16,6 +16,7 @@ REGRESS= allcols.load 		    \
          csv-keep-extra-blanks.load \
          csv-non-printable.load     \
          csv-nulls.load             \
+         csv-temp.load              \
          csv-trim-extra-blanks.load \
          csv.load 		    \
 	 copy.load                  \

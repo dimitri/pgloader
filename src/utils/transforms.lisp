@@ -7,6 +7,44 @@
 
 (in-package :pgloader.transforms)
 
+;;;
+;;; This package is used to generate symbols in the CL code that
+;;; project-fields produces, allowing to use symbols such as t. It's
+;;; important that the user-symbols package doesn't :use cl.
+;;;
+(defpackage #:pgloader.user-symbols (:use))
+
+(defun intern-symbol (symbol-name &optional (overrides '()))
+  "Return a symbol in either PGLOADER.TRANSFORMS if it exists there
+   already (it's a user provided function) or a PGLOADER.USER-SYMBOLS
+   package.
+
+   OVERRIDES is an alist of symbol . value, allowing called to force certain
+   values: the classic example is how to parse the \"nil\" symbol-name.
+   Given OVERRIDES as '((nil . nil)) the returned symbol will be cl:nil
+   rather than pgloader.user-symbols::nil."
+  (let ((overriden (assoc symbol-name overrides :test #'string-equal)))
+    (if overriden
+        (cdr overriden)
+
+        (multiple-value-bind (symbol status)
+            (find-symbol (string-upcase symbol-name)
+                         (find-package "PGLOADER.TRANSFORMS"))
+          ;; pgloader.transforms package (:use :cl) so we might find variable
+          ;; names in there that we want to actually intern in
+          ;; pgloader.user-symbols so that users may use e.g. t as a column name...
+          ;; so only use transform symbol when it denotes a function
+          (cond
+            ((and status (fboundp symbol)) symbol) ; a transform function
+
+            (t
+             (intern (string-upcase symbol-name)
+                     (find-package "PGLOADER.USER-SYMBOLS"))))))))
+
+
+;;;
+;;; Some optimisation stanza
+;;;
 (declaim (inline intern-symbol
 		 zero-dates-to-null
 		 date-with-no-separator
@@ -24,14 +62,6 @@
                  sqlite-timestamp-to-timestamp
                  sql-server-uniqueidentifier-to-uuid
                  sql-server-bit-to-boolean))
-
-
-;;;
-;;; Some tools for reading expressions in the parser, and evaluating them.
-;;;
-(defun intern-symbol (symbol-name)
-  (intern (string-upcase symbol-name)
-	  (find-package "PGLOADER.TRANSFORMS")))
 
 
 ;;;

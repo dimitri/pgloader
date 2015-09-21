@@ -26,8 +26,8 @@
 	   (field-name-as-symbol (field-name-or-list)
 	     "we need to deal with symbols as we generate code"
 	     (typecase field-name-or-list
-	       (list (pgloader.transforms:intern-symbol (car field-name-or-list)))
-	       (t    (pgloader.transforms:intern-symbol field-name-or-list))))
+	       (list (intern-symbol (car field-name-or-list)))
+	       (t    (intern-symbol field-name-or-list))))
 
 	   (process-field (field-name-or-list)
 	     "Given a field entry, return a function dealing with nulls for it"

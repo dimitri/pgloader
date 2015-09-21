@@ -1,0 +1,29 @@
+--
+-- See https://github.com/dimitri/pgloader/issues/297
+--
+-- The "t" field would be "temperature", for instance.
+--
+
+LOAD CSV
+    FROM inline (a, b, nil, t)
+    INTO postgresql:///pgloader?temp(a,b,nil,t)
+
+    WITH fields terminated by ';'
+
+  BEFORE LOAD DO
+  $$ drop table if exists temp; $$,
+  $$ CREATE TABLE temp
+      (
+       a   integer,
+       b   timestamp without time zone,
+       nil real,
+       t   real
+      );
+  $$;
+
+
+100;2015-01-01 00:00:00;-6;10
+101;2015-01-02 00:00:00;-2.1;12.5
+102;2015-01-03 00:00:00;3.4;5.5
+103;2015-01-04 00:00:00;4.7;-2.3
+104;2015-01-05 00:00:00;0.4;0
