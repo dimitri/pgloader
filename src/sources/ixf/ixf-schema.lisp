@@ -37,14 +37,16 @@
     (#. ixf:+time+      . "time")
 
     (#. ixf:+char+      . "text")
-    (#. ixf:+varchar+   . "text")))
+    (#. ixf:+varchar+   . "text")
+
+    (#. ixf:+dbclob-location-spec+ . "text")))
 
 (defun cast-ixf-type (ixf-type)
   "Return the PostgreSQL type name for a given IXF type name."
   (let ((pgtype
          (cdr (assoc ixf-type *ixf-pgsql-type-mapping*))))
     (unless pgtype
-      (error "IXF Type mapping unknown for: ~x" ixf-type))
+      (error "IXF Type mapping unknown for: ~d" ixf-type))
     pgtype))
 
 (defun format-default-value (default)
