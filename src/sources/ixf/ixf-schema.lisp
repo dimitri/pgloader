@@ -39,6 +39,8 @@
     (#. ixf:+char+      . "text")
     (#. ixf:+varchar+   . "text")
 
+    (#. ixf:+blob-location-spec+   . "bytea")
+    (#. ixf:+dbblob-location-spec+ . "bytea")
     (#. ixf:+dbclob-location-spec+ . "text")))
 
 (defun cast-ixf-type (ixf-type)
