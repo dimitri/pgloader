@@ -271,7 +271,8 @@
 
             (with-monitor ()
               ;; tell the user where to look for interesting things
-              (log-message :log "Main logs in '~a'" (probe-file *log-filename*))
+              (log-message :log "Main logs in '~a'"
+                           (uiop:native-namestring *log-filename*))
               (log-message :log "Data errors in '~a'~%" *root-dir*)
 
               ;; load extra lisp code provided for by the user
@@ -398,19 +399,7 @@
                                     (parse-commands-from-file source)
                                     (parse-commands source)))))))
 
-      ;; maybe duplicate the summary to a file
-      (let* ((summary-stream (when *summary-pathname*
-                               (open *summary-pathname*
-                                     :direction :output
-                                     :if-exists :rename
-                                     :if-does-not-exist :create)))
-             (*report-stream* (or summary-stream *standard-output*)))
-        (unwind-protect
-             ;; run the commands
-             (loop for func in funcs do (funcall func))
-
-          ;; cleanup
-          (when summary-stream (close summary-stream)))))))
+      (loop for func in funcs do (funcall func)))))
 
 
 ;;;

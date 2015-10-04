@@ -109,22 +109,23 @@
 	 (log-message :debug set)
 	 (pomo:execute set))))
 
-(defun pgsql-connect-and-execute-with-timing (pgconn label sql state &key (count 1))
+(defun pgsql-connect-and-execute-with-timing (pgconn section label sql &key (count 1))
   "Run pgsql-execute-with-timing within a newly establised connection."
   (with-pgsql-connection (pgconn)
     (pomo:with-transaction ()
-      (pgsql-execute-with-timing label sql state :count count))))
+      (pgsql-execute-with-timing section label sql :count count))))
 
-(defun pgsql-execute-with-timing (label sql state &key (count 1))
+(defun pgsql-execute-with-timing (section label sql &key (count 1))
   "Execute given SQL and resgister its timing into STATE."
   (multiple-value-bind (res secs)
       (timing
-       (handler-case (pgsql-execute sql)
+        (handler-case
+            (pgsql-execute sql)
          (cl-postgres:database-error (e)
            (log-message :error "~a" e)
-           (pgstate-incf state label :errs 1 :rows (- count)))))
+           (update-stats section label :errs 1 :rows (- count)))))
     (declare (ignore res))
-    (pgstate-incf state label :read count :rows count :secs secs)))
+    (update-stats section label :read count :rows count :secs secs)))
 
 (defun pgsql-execute (sql &key ((:client-min-messages level)))
   "Execute given SQL in current transaction"

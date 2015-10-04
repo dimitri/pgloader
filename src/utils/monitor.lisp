@@ -18,8 +18,8 @@
 (defvar *monitoring-channel* nil
   "Internal lparallel channel.")
 
-(defvar *sections* nil
-  "List of currently monitored activities (per category or concurrency.")
+(defvar *sections* '(:pre nil :data nil :post nil)
+  "plist of load sections: :pre, :data and :post.")
 
 
 ;;;
@@ -29,14 +29,68 @@
 (defstruct stop  stop-logger)
 (defstruct noop)
 (defstruct log-message category description arguments)
-(defstruct new-label dbname section label)
+(defstruct new-label section label dbname)
 (defstruct update-stats section label read rows errs secs rs ws)
+(defstruct bad-row section label condition data)
 
 (defun log-message (category description &rest arguments)
   "Send given message into our monitoring queue for processing."
   (send-event (make-log-message :category category
                                 :description description
                                 :arguments arguments)))
+
+(defun new-label (section label &optional dbname)
+  "Send an event to create a new LABEL for registering a shared state under
+   SECTION."
+  (send-event (make-new-label :section section :label label :dbname dbname)))
+
+(defun update-stats (section label &key read rows errs secs rs ws)
+  "Send an event to update stats for given SECTION and LABEL."
+  (send-event (make-update-stats :section section
+                                 :label label
+                                 :read read
+                                 :rows rows
+                                 :errs errs
+                                 :secs secs
+                                 :rs rs
+                                 :ws ws)))
+
+(defun process-bad-row (table-name condition data)
+  "Send an event to log the bad row DATA in the reject and log files for given
+   TABLE-NAME (a label in section :data), for reason found in CONDITION."
+  (send-event (make-bad-row :section :data
+                            :label table-name
+                            :condition condition
+                            :data data)))
+
+;;;
+;;; Easier API to manage statistics collection and state updates
+;;;
+(defmacro with-stats-collection ((table-name
+                                  &key
+                                  (section :data)
+                                  dbname
+                                  use-result-as-read
+                                  use-result-as-rows)
+				 &body forms)
+  "Measure time spent in running BODY into STATE, accounting the seconds to
+   given DBNAME and TABLE-NAME"
+  (let ((result (gensym "result"))
+        (secs   (gensym "secs")))
+    `(prog2
+         (new-label ,section ,table-name ,dbname)
+         (multiple-value-bind (,result ,secs)
+             (timing ,@forms)
+           (cond ((and ,use-result-as-read ,use-result-as-rows)
+                  (update-stats ,section ,table-name
+                                :read ,result :rows ,result :secs ,secs))
+                 (,use-result-as-read
+                  (update-stats ,section ,table-name :read ,result :secs ,secs))
+                 (,use-result-as-rows
+                  (update-stats ,section ,table-name :rows ,result :secs ,secs))
+                 (t
+                  (update-stats ,section ,table-name :secs ,secs)))
+           ,result))))
 
 
 ;;;
@@ -65,7 +119,9 @@
                       (*client-min-messages* . ,*client-min-messages*)
                       (*monitoring-queue*    . ,*monitoring-queue*)
                       (*error-output*        . ,*error-output*)
-                      (*standard-output*     . ,*standard-output*)))
+                      (*standard-output*     . ,*standard-output*)
+                      (*summary-pathname*    . ,*summary-pathname*)
+                      (*sections*            . ',*sections*)))
          (lparallel:*kernel*   (lp:make-kernel 1 :bindings bindings))
          (*monitoring-channel* (lp:make-channel)))
 
@@ -84,24 +140,29 @@
 (defmacro with-monitor ((&key (start-logger t)) &body body)
   "Start and stop the monitor around BODY code. The monitor is responsible
   for processing logs into a central logfile"
-  `(if ,start-logger
-       (let* ((*monitoring-queue*   (lq:make-queue))
-              (*monitoring-channel* (start-monitor :start-logger ,start-logger)))
-         (unwind-protect
-              ,@body
-           (stop-monitor :channel *monitoring-channel*
-                         :stop-logger ,start-logger)))
+  `(let ((*sections* (list :pre  (make-pgstate)
+                           :data (make-pgstate)
+                           :post (make-pgstate))))
+     (if ,start-logger
+         (let* ((*monitoring-queue*   (lq:make-queue))
+                (*monitoring-channel* (start-monitor :start-logger ,start-logger)))
+           (unwind-protect
+                ,@body
+             (stop-monitor :channel *monitoring-channel*
+                           :stop-logger ,start-logger)))
 
-       ;; logger has already been started
-       (progn ,@body)))
+         ;; logger has already been started
+         (progn ,@body))))
 
 (defun monitor (queue)
   "Receives and process messages from *monitoring-queue*."
 
   ;; process messages from the queue
-  (loop :for event := (multiple-value-bind (event available)
-                          (lq:try-pop-queue queue)
-                        (if available event (make-noop)))
+  (loop :with start-time := (get-internal-real-time)
+
+     :for event := (multiple-value-bind (event available)
+                       (lq:try-pop-queue queue)
+                     (if available event (make-noop)))
      :do (typecase event
            (start
             (when (start-start-logger event)
@@ -110,7 +171,22 @@
 
            (stop
             (cl-log:log-message :info "Stopping monitor")
-            (when (stop-stop-logger event) (pgloader.logs:stop-logger)))
+
+            ;; report the summary now
+            (let* ((summary-stream (when *summary-pathname*
+                                     (open *summary-pathname*
+                                           :direction :output
+                                           :if-exists :rename
+                                           :if-does-not-exist :create)))
+                   (*report-stream* (or summary-stream *standard-output*)))
+              (report-full-summary "Total import time"
+                                   *sections*
+                                   (elapsed-time-since start-time))
+              (when summary-stream (close summary-stream)))
+
+            ;; time to shut down the logger?
+            (when (stop-stop-logger event)
+              (pgloader.logs:stop-logger)))
 
            (noop
             (sleep 0.2))                ; avoid buzy looping
@@ -123,6 +199,54 @@
                                     (log-message-description event)
                                     (log-message-arguments event))
                             (log-message-description event))))
-              (cl-log:log-message (log-message-category event) "~a" mesg))))
+              (cl-log:log-message (log-message-category event) "~a" mesg)))
+
+           (new-label
+            (let ((label
+                   (pgstate-new-label (getf *sections* (new-label-section event))
+                                      (new-label-label event))))
+
+              (when (eq :data (new-label-section event))
+                (pgtable-initialize-reject-files label
+                                                 (new-label-dbname event)))))
+
+           (update-stats
+            ;; it only costs an extra hash table lookup...
+            (pgstate-new-label (getf *sections* (update-stats-section event))
+                               (update-stats-label event))
+
+            (pgstate-incf (getf *sections* (update-stats-section event))
+                          (update-stats-label event)
+                          :read (update-stats-read event)
+                          :rows (update-stats-rows event)
+                          :secs (update-stats-secs event)))
+
+           (bad-row
+            (%process-bad-row (bad-row-label event)
+                              (bad-row-condition event)
+                              (bad-row-data event))))
 
      :until (typep event 'stop)))
+
+
+;;;
+;;; Internal utils
+;;;
+(defun elapsed-time-since (start)
+  "Return how many seconds ticked between START and now"
+  (let ((now (get-internal-real-time)))
+    (coerce (/ (- now start) internal-time-units-per-second) 'double-float)))
+
+
+;;;
+;;; Timing Macro
+;;;
+(defmacro timing (&body forms)
+  "return both how much real time was spend in body and its result"
+  (let ((start (gensym))
+	(end (gensym))
+	(result (gensym)))
+    `(let* ((,start (get-internal-real-time))
+	    (,result (progn ,@forms))
+	    (,end (get-internal-real-time)))
+       (values ,result (/ (- ,end ,start) internal-time-units-per-second)))))

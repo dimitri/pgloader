@@ -115,20 +115,13 @@
                                           gucs before after
                                           ((:copy-options options)))
   `(lambda ()
-     (let* ((state-before  (pgloader.utils:make-pgstate))
-            (summary       (null *state*))
-            (*state*       (or *state* (pgloader.utils:make-pgstate)))
-            (state-idx     ,(when (getf options :drop-indexes)
-                                  `(pgloader.utils:make-pgstate)))
-            (state-after   ,(when (or after (getf options :drop-indexes))
-                                  `(pgloader.utils:make-pgstate)))
-            ,@(pgsql-connection-bindings pg-db-conn gucs)
+     (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
-            (source-db     (with-stats-collection ("fetch" :state state-before)
+            (source-db     (with-stats-collection ("fetch" :section :pre)
                                (expand (fetch-file ,copy-conn)))))
 
        (progn
-         ,(sql-code-block pg-db-conn 'state-before before "before load")
+         ,(sql-code-block pg-db-conn :pre before "before load")
 
          (let ((truncate ,(getf options :truncate))
                (disable-triggers (getf ',options :disable-triggers))
@@ -146,21 +139,11 @@
                                                     :drop-indexes
                                                     :disable-triggers)))))
            (pgloader.sources:copy-from source
-                                       :state-before state-before
-                                       :state-after state-after
-                                       :state-indexes state-idx
                                        :truncate truncate
                                        :drop-indexes drop-indexes
                                        :disable-triggers disable-triggers))
 
-         ,(sql-code-block pg-db-conn 'state-after after "after load")
-
-         ;; reporting
-         (when summary
-           (report-full-summary "Total import time" *state*
-                                :before  state-before
-                                :finally state-after
-                                :parallel state-idx))))))
+         ,(sql-code-block pg-db-conn :post after "after load")))))
 
 (defrule load-copy-file load-copy-file-command
   (:lambda (command)

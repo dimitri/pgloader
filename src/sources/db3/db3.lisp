@@ -59,21 +59,15 @@
 
 (defmethod copy-to-queue ((db3 copy-db3) queue)
   "Copy data from DB3 file FILENAME into queue DATAQ"
-  (let ((read (pgloader.queue:map-push-queue db3 queue)))
-    (pgstate-incf *state* (target db3) :read read)))
+  (pgloader.queue:map-push-queue db3 queue))
 
 (defmethod copy-from ((db3 copy-db3)
                       &key (kernel nil k-s-p) truncate disable-triggers)
-  (let* ((summary        (null *state*))
-         (*state*        (or *state* (pgloader.utils:make-pgstate)))
-         (lp:*kernel*    (or kernel (make-kernel 2)))
+  (let* ((lp:*kernel*    (or kernel (make-kernel 2)))
          (channel        (lp:make-channel))
          (queue          (lq:make-queue :fixed-capacity *concurrent-batches*)))
 
-    (with-stats-collection ((target db3)
-                            :dbname (db-name (target-db db3))
-                            :state *state*
-                            :summary summary)
+    (with-stats-collection ((target db3) :dbname (db-name (target-db db3)))
       (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
         (log-message :notice "COPY \"~a\" from '~a'" (target db3) (source db3))
         (lp:submit-task channel #'copy-to-queue db3 queue)
@@ -94,7 +88,6 @@
 (defmethod copy-database ((db3 copy-db3)
                           &key
                             table-name
-                            state-before
 			    data-only
 			    schema-only
                             (truncate         t)
@@ -105,9 +98,7 @@
 			    (reset-sequences  t))
   "Open the DB3 and stream its content to a PostgreSQL database."
   (declare (ignore create-indexes reset-sequences))
-  (let* ((summary     (null *state*))
-	 (*state*     (or *state* (make-pgstate)))
-	 (table-name  (or table-name
+  (let* ((table-name  (or table-name
 			  (target db3)
 			  (source db3))))
 
@@ -116,9 +107,7 @@
 
     (handler-case
         (when (and (or create-tables schema-only) (not data-only))
-          (with-stats-collection ("create, truncate"
-                                  :state state-before
-                                  :summary summary)
+          (with-stats-collection ("create, truncate" :section :pre)
             (with-pgsql-transaction (:pgconn (target-db db3))
               (when create-tables
                 (with-schema (tname table-name)
@@ -133,9 +122,4 @@
         (return-from copy-database)))
 
     (unless schema-only
-      (copy-from db3 :truncate truncate :disable-triggers disable-triggers))
-
-    ;; and report the total time spent on the operation
-    (when summary
-      (report-full-summary "Total streaming time" *state*
-                           :before state-before))))
+      (copy-from db3 :truncate truncate :disable-triggers disable-triggers))))

@@ -45,11 +45,10 @@
 			&key
                           columns
                           (truncate t)
-                          disable-triggers
-                          ((:state *state*) *state*))
+                          disable-triggers)
   "Fetch from the QUEUE messages containing how many rows are in the
    *writer-batch* for us to send down to PostgreSQL, and when that's done
-   update *state*."
+   update stats."
   (when truncate
     (truncate-tables pgconn (list table-name)))
 
@@ -68,43 +67,9 @@
               #+sbcl (when oversized? (sb-ext:gc :full t))
               (log-message :debug "copy-batch ~a ~d row~:p~:[~; [oversized]~]"
                            unqualified-table-name rows oversized?)
-              (pgstate-incf *state* table-name :rows rows)))
+              (update-stats :data table-name :rows rows)))
 
       (when disable-triggers (enable-triggers unqualified-table-name)))))
-
-;;;
-;;; When a batch has been refused by PostgreSQL with a data-exception, that
-;;; means it contains non-conforming data. Log the error message in a log
-;;; file and the erroneous data in a rejected data file for further
-;;; processing.
-;;;
-(defun process-bad-row (table-name condition row)
-  "Add the row to the reject file, in PostgreSQL COPY TEXT format"
-  ;; first, update the stats.
-  (pgstate-incf *state* table-name :errs 1)
-
-  ;; now, the bad row processing
-  (let* ((table (pgstate-get-table *state* table-name))
-	 (data  (pgtable-reject-data table))
-	 (logs  (pgtable-reject-logs table)))
-
-    ;; first log the rejected data
-    (with-open-file (reject-data-file data
-				      :direction :output
-				      :if-exists :append
-				      :if-does-not-exist :create
-				      :external-format :utf-8)
-      ;; the row has already been processed when we get here
-      (write-string row reject-data-file))
-
-    ;; now log the condition signaled to reject the data
-    (with-open-file (reject-logs-file logs
-				      :direction :output
-				      :if-exists :append
-				      :if-does-not-exist :create
-				      :external-format :utf-8)
-      ;; the row has already been processed when we get here
-      (format reject-logs-file "~a~%" condition))))
 
 ;;;
 ;;; Compute how many rows we're going to try loading next, depending on

@@ -161,11 +161,7 @@
      (let (#+sbcl(sb-ext:*muffled-warnings* 'style-warning))
        (cffi:load-foreign-library 'mssql::sybdb))
 
-     (let* ((state-before  (pgloader.utils:make-pgstate))
-            (*state*       (or *state* (pgloader.utils:make-pgstate)))
-            (state-idx     (pgloader.utils:make-pgstate))
-            (state-after   (pgloader.utils:make-pgstate))
-            (*default-cast-rules* ',*mssql-default-cast-rules*)
+     (let* ((*default-cast-rules* ',*mssql-default-cast-rules*)
             (*cast-rules*         ',casts)
             ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
@@ -175,22 +171,14 @@
                             :target-db ,pg-db-conn
                             :source-db ,ms-db-conn)))
 
-       ,(sql-code-block pg-db-conn 'state-before before "before load")
+       ,(sql-code-block pg-db-conn :pre before "before load")
 
        (pgloader.mssql:copy-database source
-                                     :state-before state-before
-                                     :state-after state-after
-                                     :state-indexes state-idx
                                      :including ',including
                                      :excluding ',excluding
                                      ,@(remove-batch-control-option options))
 
-       ,(sql-code-block pg-db-conn 'state-after after "after load")
-
-       (report-full-summary "Total import time" *state*
-                            :before   state-before
-                            :finally  state-after
-                            :parallel state-idx))))
+       ,(sql-code-block pg-db-conn :post after "after load"))))
 
 (defrule load-mssql-database load-mssql-command
   (:lambda (source)

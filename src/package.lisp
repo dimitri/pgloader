@@ -22,32 +22,28 @@
            #:start-logger
            #:stop-logger))
 
-(defpackage #:pgloader.monitor
+(defpackage #:pgloader.state
   (:use #:cl #:pgloader.params)
-  (:export #:with-monitor
-           #:*monitoring-queue*
-           #:log-message
-           #:send-event
-           #:start-monitor
-           #:stop-monitor))
+  (:export #:format-table-name
+           #:make-pgstate
+           #:pgstate-tabnames
+           #:pgstate-tables
+           #:pgstate-read
+           #:pgstate-rows
+           #:pgstate-errs
+           #:pgstate-secs
 
-(defpackage #:pgloader.utils
-  (:use #:cl #:pgloader.params)
-  (:import-from #:alexandria
-                #:appendf
-                #:read-file-into-string)
-  (:import-from #:pgloader.monitor
-                #:with-monitor
-                #:*monitoring-queue*
-                #:log-message)
-  (:export #:with-monitor               ; monitor
+           #:pgstate-get-label
+           #:pgstate-new-label
+           #:pgstate-setf
+           #:pgstate-incf
+           #:pgstate-decf
 
-           ;; bits from alexandria
-           #:appendf
-           #:read-file-into-string
-
-           ;; logs
-           #:log-message
+           #:pgtable-initialize-reject-files
+           #:pgtable-reject-data
+           #:pgtable-reject-logs
+           #:report-pgtable-stats
+           #:report-pgstate-stats
 
            ;; report
            #:report-header
@@ -55,27 +51,52 @@
 	   #:report-results
 	   #:report-footer
 	   #:report-summary
-	   #:report-full-summary
-	   #:with-stats-collection
+	   #:report-full-summary))
+
+(defpackage #:pgloader.monitor
+  (:use #:cl #:pgloader.params #:pgloader.state)
+  (:export #:with-monitor
+           #:*monitoring-queue*
+           #:log-message
+           #:new-label
+           #:update-stats
+           #:process-bad-row
+           #:with-stats-collection
+           #:send-event
+           #:start-monitor
+           #:stop-monitor
+           #:timing))
+
+(defpackage #:pgloader.utils
+  (:use #:cl #:pgloader.params #:pgloader.monitor #:pgloader.state)
+  (:import-from #:alexandria
+                #:appendf
+                #:read-file-into-string)
+
+  (:export #:with-monitor               ; monitor
+           #:*monitoring-queue*
+           #:with-stats-collection
+	   #:timing
+
+           ;; bits from alexandria
+           #:appendf
+           #:read-file-into-string
+
+           ;; state
+           #:make-pgstate
+           #:format-table-name
+           #:pgstate-tabnames
+
+           ;; events
+           #:log-message
+           #:new-label
+           #:update-stats
+           #:process-bad-row
 
            ;; utils
 	   #:format-interval
-	   #:timing
 	   #:camelCase-to-colname
            #:unquote
-
-           ;; state
-           #:format-table-name
-	   #:make-pgstate
-	   #:pgstate-get-table
-	   #:pgstate-add-table
-	   #:pgstate-setf
-	   #:pgstate-incf
-	   #:pgstate-decf
-	   #:pgtable-reject-data
-	   #:pgtable-reject-logs
-	   #:report-pgtable-stats
-	   #:report-pgstate-stats
 
            ;; threads
            #:make-kernel
@@ -243,17 +264,13 @@
            #:reset-sequences))
 
 (defpackage #:pgloader.queue
-  (:use #:cl #:pgloader.params)
-  (:import-from #:pgloader.monitor
-                #:log-message)
+  (:use #:cl #:pgloader.params #:pgloader.monitor)
   (:import-from #:pgloader.pgsql
                 #:format-vector-row)
   (:import-from #:pgloader.sources
                 #:map-rows
                 #:transforms
                 #:target)
-  (:import-from #:pgloader.utils
-                #:pgstate-incf)
   (:export #:map-push-queue))
 
 

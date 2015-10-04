@@ -166,11 +166,7 @@
                                            ((:excluding excl))
                                            ((:decoding decoding-as)))
   `(lambda ()
-     (let* ((state-before  (pgloader.utils:make-pgstate))
-            (*state*       (or *state* (pgloader.utils:make-pgstate)))
-            (state-idx     (pgloader.utils:make-pgstate))
-            (state-after   (pgloader.utils:make-pgstate))
-            (*default-cast-rules* ',*mysql-default-cast-rules*)
+     (let* ((*default-cast-rules* ',*mysql-default-cast-rules*)
             (*cast-rules*         ',casts)
             ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
@@ -180,24 +176,16 @@
                             :target-db ,pg-db-conn
                             :source-db ,my-db-conn)))
 
-       ,(sql-code-block pg-db-conn 'state-before before "before load")
+       ,(sql-code-block pg-db-conn :pre before "before load")
 
        (pgloader.mysql:copy-database source
                                      :including ',incl
                                      :excluding ',excl
                                      :decoding-as ',decoding-as
                                      :materialize-views ',views
-                                     :state-before state-before
-                                     :state-after state-after
-                                     :state-indexes state-idx
                                      ,@(remove-batch-control-option options))
 
-       ,(sql-code-block pg-db-conn 'state-after after "after load")
-
-       (report-full-summary "Total import time" *state*
-                            :before   state-before
-                            :finally  state-after
-                            :parallel state-idx))))
+       ,(sql-code-block pg-db-conn :post after "after load"))))
 
 (defrule load-mysql-database load-mysql-command
   (:lambda (source)

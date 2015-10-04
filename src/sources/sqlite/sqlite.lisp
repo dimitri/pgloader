@@ -106,14 +106,14 @@
                            v)
                counting t into rows
                do (progn
-                    (pgstate-incf *state* (target sqlite) :read 1)
+                    (update-stats :data (target sqlite) :read 1)
                     (funcall process-row-fn row))
                finally
                  (sqlite:finalize-statement statement)
                  (return rows))
           (condition (e)
             (log-message :error "~a" e)
-            (pgstate-incf *state* (target sqlite) :errs 1)))))))
+            (update-stats :data (target sqlite) :errs 1)))))))
 
 
 (defmethod copy-to-queue ((sqlite copy-sqlite) queue)
@@ -123,16 +123,11 @@
 (defmethod copy-from ((sqlite copy-sqlite)
                       &key (kernel nil k-s-p) truncate disable-triggers)
   "Stream the contents from a SQLite database table down to PostgreSQL."
-  (let* ((summary     (null *state*))
-	 (*state*     (or *state* (pgloader.utils:make-pgstate)))
-	 (lp:*kernel* (or kernel (make-kernel 2)))
+  (let* ((lp:*kernel* (or kernel (make-kernel 2)))
 	 (channel     (lp:make-channel))
 	 (queue       (lq:make-queue :fixed-capacity *concurrent-batches*)))
 
-    (with-stats-collection ((target sqlite)
-                            :dbname (db-name (target-db sqlite))
-                            :state *state*
-                            :summary summary)
+    (with-stats-collection ((target sqlite) :dbname (db-name (target-db sqlite)))
       (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
         (log-message :notice "COPY ~a" (target sqlite))
         ;; read data from SQLite
@@ -151,17 +146,13 @@
              (log-message :info "COPY ~a done." (target sqlite))
              (unless k-s-p (lp:end-kernel)))))))
 
-(defun fetch-sqlite-metadata (sqlite
-                              &key
-                                state
-                                including
-                                excluding)
+(defun fetch-sqlite-metadata (sqlite &key including excluding)
   "SQLite introspection to prepare the migration."
   (let (all-columns all-indexes)
     (with-stats-collection ("fetch meta data"
                             :use-result-as-rows t
                             :use-result-as-read t
-                            :state state)
+                            :section :pre)
       (with-connection (conn (source-db sqlite))
         (let ((*sqlite-db* (conn-handle conn)))
           (setf all-columns   (filter-column-list (list-all-columns *sqlite-db*)
@@ -182,7 +173,6 @@
 
 (defmethod copy-database ((sqlite copy-sqlite)
 			  &key
-			    state-before
 			    data-only
 			    schema-only
 			    (truncate         nil)
@@ -197,20 +187,12 @@
                             (encoding :utf-8))
   "Stream the given SQLite database down to PostgreSQL."
   (declare (ignore only-tables))
-  (let* ((summary       (null *state*))
-	 (*state*       (or *state* (make-pgstate)))
-	 (state-before  (or state-before (make-pgstate)))
-	 (idx-state     (make-pgstate))
-	 (seq-state     (make-pgstate))
-         (cffi:*default-foreign-encoding* encoding)
+  (let* ((cffi:*default-foreign-encoding* encoding)
          (copy-kernel   (make-kernel 2))
          idx-kernel idx-channel)
 
     (destructuring-bind (&key all-columns all-indexes pkeys)
-        (fetch-sqlite-metadata sqlite
-                               :state state-before
-                               :including including
-                               :excluding excluding)
+        (fetch-sqlite-metadata sqlite :including including :excluding excluding)
 
       (let ((max-indexes
              (loop for (table . indexes) in all-indexes
@@ -227,9 +209,7 @@
       (handler-case
           (cond ((and (or create-tables schema-only) (not data-only))
                  (log-message :notice "~:[~;DROP then ~]CREATE TABLES" include-drop)
-                 (with-stats-collection ("create, truncate"
-                                         :state state-before
-                                         :summary summary)
+                 (with-stats-collection ("create, truncate" :section :pre)
                    (with-pgsql-transaction (:pgconn (target-db sqlite))
                      (create-tables all-columns :include-drop include-drop))))
 
@@ -271,8 +251,7 @@
                  (alexandria:appendf
                   pkeys
                   (create-indexes-in-kernel (target-db sqlite) indexes
-                                            idx-kernel idx-channel
-                                            :state idx-state))))))
+                                            idx-kernel idx-channel))))))
 
       ;; now end the kernels
       (let ((lp:*kernel* copy-kernel))  (lp:end-kernel))
@@ -280,7 +259,7 @@
         ;; wait until the indexes are done being built...
         ;; don't forget accounting for that waiting time.
         (when (and create-indexes (not data-only))
-          (with-stats-collection ("index build completion" :state *state*)
+          (with-stats-collection ("index build completion" :section :post)
             (loop for idx in all-indexes do (lp:receive-result idx-channel))))
         (lp:end-kernel))
 
@@ -288,12 +267,5 @@
       ;; the data.
       (when reset-sequences
         (reset-sequences (mapcar #'car all-columns)
-                         :pgconn (target-db sqlite)
-                         :state seq-state))
-
-      ;; and report the total time spent on the operation
-      (report-full-summary "Total streaming time" *state*
-                           :before state-before
-                           :finally seq-state
-                           :parallel idx-state))))
+                         :pgconn (target-db sqlite))))))
 

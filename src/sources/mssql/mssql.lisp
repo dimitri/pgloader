@@ -37,7 +37,7 @@
                            table-name)))
            (row-fn
             (lambda (row)
-              (pgstate-incf *state* (target mssql) :read 1)
+              (update-stats :data (target mssql) :read 1)
               (funcall process-row-fn row))))
       (log-message :debug "~a" sql)
       (handler-case
@@ -45,7 +45,7 @@
               ((condition
                 #'(lambda (c)
                     (log-message :error "~a" c)
-                    (pgstate-incf *state* (target mssql) :errs 1)
+                    (update-stats :data (target mssql) :errs 1)
                     (invoke-restart 'mssql::use-nil))))
             (mssql::map-query-results sql
                                       :row-fn row-fn
@@ -53,7 +53,7 @@
         (condition (e)
           (progn
             (log-message :error "~a" e)
-            (pgstate-incf *state* (target mssql) :errs 1)))))))
+            (update-stats :data (target mssql) :errs 1)))))))
 
 (defmethod copy-to-queue ((mssql copy-mssql) queue)
   "Copy data from MSSQL table DBNAME.TABLE-NAME into queue DATAQ"
@@ -62,19 +62,14 @@
 (defmethod copy-from ((mssql copy-mssql)
                       &key (kernel nil k-s-p) truncate disable-triggers)
   "Connect in parallel to MSSQL and PostgreSQL and stream the data."
-  (let* ((summary        (null *state*))
-	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
-	 (lp:*kernel*    (or kernel (make-kernel 2)))
+  (let* ((lp:*kernel*    (or kernel (make-kernel 2)))
 	 (channel        (lp:make-channel))
 	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*))
 	 (table-name     (target mssql)))
 
     ;; we account stats against the target table-name, because that's all we
     ;; know on the PostgreSQL thread
-    (with-stats-collection (table-name
-                            :dbname (db-name (target-db mssql))
-                            :state *state*
-                            :summary summary)
+    (with-stats-collection (table-name :dbname (db-name (target-db mssql)))
       (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
         (log-message :notice "COPY ~a" table-name)
         ;; read data from Mssql
@@ -97,7 +92,6 @@
 
 (defun complete-pgsql-database (pgconn all-columns all-fkeys pkeys
                                 &key
-                                  state
                                   data-only
                                   foreign-keys
                                   reset-sequences)
@@ -111,18 +105,17 @@
   ;;
   (when reset-sequences
     (let ((table-names (mapcar #'car (qualified-table-name-list all-columns))))
-      (reset-sequences table-names :pgconn pgconn :state state)))
+      (reset-sequences table-names :pgconn pgconn)))
 
   ;;
   ;; Turn UNIQUE indexes into PRIMARY KEYS now
   ;;
   (with-pgsql-connection (pgconn)
-    (pgstate-add-table state (db-name pgconn) "Primary Keys")
     (loop :for sql :in pkeys
        :when sql
        :do (progn
              (log-message :notice "~a" sql)
-             (pgsql-execute-with-timing "Primary Keys" sql state)))
+             (pgsql-execute-with-timing :post "Primary Keys" sql)))
 
     ;;
     ;; Foreign Key Constraints
@@ -132,22 +125,21 @@
     ;; and indexes are imported before doing that.
     ;;
     (when (and foreign-keys (not data-only))
-      (pgstate-add-table state (db-name pgconn) "Foreign Keys")
       (loop :for (schema . tables) :in all-fkeys
          :do (loop :for (table-name . fkeys) :in tables
                 :do (loop :for (fk-name . fkey) :in fkeys
                        :for sql := (format-pgsql-create-fkey fkey)
                        :do (progn
                              (log-message :notice "~a;" sql)
-                             (pgsql-execute-with-timing "Foreign Keys" sql state))))))))
+                             (pgsql-execute-with-timing :post "Foreign Keys" sql))))))))
 
-(defun fetch-mssql-metadata (mssql &key state including excluding)
+(defun fetch-mssql-metadata (mssql &key including excluding)
   "MS SQL introspection to prepare the migration."
   (let (all-columns all-indexes all-fkeys)
     (with-stats-collection ("fetch meta data"
                             :use-result-as-rows t
                             :use-result-as-read t
-                            :state state)
+                            :section :pre)
       (with-connection (*mssql-db* (source-db mssql))
         (setf all-columns (list-all-columns :including including
                                             :excluding excluding))
@@ -172,9 +164,6 @@
 
 (defmethod copy-database ((mssql copy-mssql)
                           &key
-			    state-before
-			    state-after
-			    state-indexes
 			    (truncate         nil)
 			    (disable-triggers nil)
 			    (data-only        nil)
@@ -189,19 +178,13 @@
                             including
                             excluding)
   "Stream the given MS SQL database down to PostgreSQL."
-  (let* ((summary       (null *state*))
-	 (*state*       (or *state* (make-pgstate)))
-	 (idx-state     (or state-indexes (make-pgstate)))
-	 (state-before  (or state-before  (make-pgstate)))
-	 (state-after   (or state-after   (make-pgstate)))
-         (cffi:*default-foreign-encoding* encoding)
+  (let* ((cffi:*default-foreign-encoding* encoding)
          (copy-kernel   (make-kernel 2))
          idx-kernel idx-channel)
 
     (destructuring-bind (&key all-columns all-indexes all-fkeys pkeys)
         ;; to prepare the run we need to fetch MS SQL meta-data
         (fetch-mssql-metadata mssql
-                              :state state-before
                               :including including
                               :excluding excluding)
 
@@ -220,9 +203,7 @@
       (handler-case
           (cond ((and (or create-tables schema-only) (not data-only))
                  (log-message :notice "~:[~;DROP then ~]CREATE TABLES" include-drop)
-                 (with-stats-collection ("create, truncate"
-                                         :state state-before
-                                         :summary summary)
+                 (with-stats-collection ("create, truncate" :section :pre)
                    (with-pgsql-transaction (:pgconn (target-db mssql))
                      (loop :for (schema . tables) :in all-columns
                         :do (let ((schema (apply-identifier-case schema)))
@@ -305,8 +286,7 @@
                        (create-indexes-in-kernel (target-db mssql)
                                                  (mapcar #'cdr indexes-with-names)
                                                  idx-kernel
-                                                 idx-channel
-                                                 :state idx-state)))))))
+                                                 idx-channel)))))))
 
       ;; now end the kernels
       (let ((lp:*kernel* copy-kernel))  (lp:end-kernel))
@@ -314,7 +294,7 @@
         ;; wait until the indexes are done being built...
         ;; don't forget accounting for that waiting time.
         (when (and create-indexes (not data-only))
-          (with-stats-collection ("Index Build Completion" :state *state*)
+          (with-stats-collection ("Index Build Completion" :section :post)
             (loop for idx in all-indexes do (lp:receive-result idx-channel))))
         (lp:end-kernel))
 
@@ -323,14 +303,6 @@
       ;;
       (complete-pgsql-database (new-pgsql-connection (target-db mssql))
                                all-columns all-fkeys pkeys
-                               :state state-after
                                :data-only data-only
                                :foreign-keys foreign-keys
-                               :reset-sequences reset-sequences)
-
-      ;; and report the total time spent on the operation
-      (when summary
-        (report-full-summary "Total streaming time" *state*
-                             :before state-before
-                             :finally state-after
-                             :parallel idx-state)))))
+                               :reset-sequences reset-sequences))))

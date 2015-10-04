@@ -21,7 +21,6 @@
            #:*copy-batch-size*
            #:*concurrent-batches*
 	   #:*pg-settings*
-	   #:*state*
 	   #:*default-tmpdir*
 	   #:init-params-from-environment
 	   #:getenv-default))
@@ -68,16 +67,11 @@
 (defparameter *dry-run* nil
   "Set to non-nil to only run checks about the load setup.")
 
-;; we can't use pgloader.utils:make-pgstate yet because params is compiled
-;; first in the asd definition, we just make the symbol a special variable.
-(defparameter *state* nil
-  "State of the current loading.")
-
 (defparameter *fd-path-root* nil
   "Where to load files from, when loading from an archive or expanding regexps.")
 
 (defparameter *root-dir*
-  #+unix (make-pathname :directory "/tmp/pgloader/")
+  #+unix (uiop:make-pathname* :directory '(:absolute "tmp/pgloader"))
   #-unix (uiop:merge-pathnames*
           "pgloader/"
           (uiop:ensure-directory-pathname (getenv-default "Temp")))

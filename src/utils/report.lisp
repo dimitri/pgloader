@@ -2,7 +2,7 @@
 ;;; Pretty print a report while doing bulk operations
 ;;;
 
-(in-package :pgloader.utils)
+(in-package :pgloader.state)
 
 (defvar *header-line*
   "~&~v@{~A~:*~}  ---------  ---------  ---------  --------------")
@@ -63,6 +63,31 @@
   "Return the format string to use for a given TYPE of output and KEY."
   (getf (cadr (assoc type *header-format-strings*)) key))
 
+;;;
+;;; Timing Formating
+;;;
+(defun format-interval (seconds &optional (stream t))
+  "Output the number of seconds in a human friendly way"
+  (multiple-value-bind (years months days hours mins secs millisecs)
+      (date:decode-interval (date:encode-interval :second seconds))
+    (declare (ignore millisecs))
+    (format
+     stream
+     "~:[~*~;~d years ~]~:[~*~;~d months ~]~:[~*~;~d days ~]~:[~*~;~dh~]~:[~*~;~dm~]~5,3fs"
+     (< 0 years)  years
+     (< 0 months) months
+     (< 0 days)   days
+     (< 0 hours)  hours
+     (< 0 mins)   mins
+     (+ secs (- (multiple-value-bind (r q)
+		    (truncate seconds 60)
+		  (declare (ignore r))
+		  q)
+		secs)))))
+
+;;;
+;;; Pretty printing reports in several formats
+;;;
 (defun report-header ()
   ;; (apply #'format *report-stream* *header-cols-format* *header-cols-names*)
   (format *report-stream*
@@ -106,7 +131,7 @@
 ;;;
 ;;; Pretty print the whole summary from a state
 ;;;
-(defun report-summary (&key ((:state pgstate) *state*) (header t) footer)
+(defun report-summary (pgstate &key (header t) footer)
   "Report a whole summary."
   (when header (report-header))
   (loop
@@ -122,34 +147,6 @@
      finally (when footer
 	       (report-pgstate-stats pgstate footer))))
 
-(defmacro with-stats-collection ((table-name
-                                  &key
-                                  dbname
-                                  summary
-                                  use-result-as-read
-                                  use-result-as-rows
-                                  ((:state pgstate) *state*))
-				 &body forms)
-  "Measure time spent in running BODY into STATE, accounting the seconds to
-   given DBNAME and TABLE-NAME"
-  (let ((result (gensym "result"))
-        (secs   (gensym "secs")))
-    `(prog2
-         (pgstate-add-table ,pgstate ,dbname ,table-name)
-         (multiple-value-bind (,result ,secs)
-             (timing ,@forms)
-           (cond ((and ,use-result-as-read ,use-result-as-rows)
-                  (pgstate-incf ,pgstate ,table-name
-                                :read ,result :rows ,result :secs ,secs))
-                 (,use-result-as-read
-                  (pgstate-incf ,pgstate ,table-name :read ,result :secs ,secs))
-                 (,use-result-as-rows
-                  (pgstate-incf ,pgstate ,table-name :rows ,result :secs ,secs))
-                 (t
-                  (pgstate-incf ,pgstate ,table-name :secs ,secs)))
-           ,result)
-       (when ,summary (report-summary)))))
-
 (defun parse-summary-type (&optional (pathname *summary-pathname*))
   "Return the summary type we want: human-readable, csv, json."
   (when pathname
@@ -158,25 +155,30 @@
           ((string= "copy" (pathname-type pathname)) :copy)
           (t :human-readable))))
 
-(defun report-full-summary (legend state
-			    &key before finally parallel start-time)
+(defun max-length-table-name (legend data pre post)
+  "Compute the max length of a table-name in the legend."
+  (reduce #'max
+          (mapcar #'length
+                  (mapcar #'format-table-name
+                          (append (pgstate-tabnames data)
+                                  (pgstate-tabnames pre)
+                                  (pgstate-tabnames post)
+                                  (list legend))))))
+
+(defun report-full-summary (legend sections total-secs)
   "Report the full story when given three different sections of reporting."
 
-  (let* ((stype                 (or (parse-summary-type *summary-pathname*)
+  (let* ((data  (getf sections :data))
+         (pre   (getf sections :pre))
+         (post  (getf sections :post))
+
+         (stype                 (or (parse-summary-type *summary-pathname*)
                                     :human-readable))
          (*header*              (get-format-for stype :header))
          (*footer*              (get-format-for stype :footer))
          (*end-of-line-format*  (get-format-for stype :end-of-line-format))
          (*header-line*         (get-format-for stype :header-line))
-         (*max-length-table-name*
-          (reduce #'max
-                  (mapcar #'length
-                          (mapcar #'format-table-name
-                                  (append (pgstate-tabnames state)
-                                          (when before (pgstate-tabnames before))
-                                          (when finally (pgstate-tabnames finally))
-                                          (when parallel (pgstate-tabnames parallel))
-                                          (list legend))))))
+         (*max-length-table-name* (max-length-table-name legend data pre post))
          (*header-tname-format* (get-format-for stype :header-tname-format))
          (*header-stats-format* (get-format-for stype :header-stats-format))
          (*header-cols-format*  (get-format-for stype :header-cols-format))
@@ -185,39 +187,19 @@
     (when *header*
       (format *report-stream* *header*))
 
-    ;; BEFORE
-    (if before
-        (progn
-          (report-summary :state before :footer nil)
-          (format *report-stream* *header-line* *max-length-table-name* "-")
-          (report-summary :state state :header nil :footer nil))
-        ;; no state before
-        (report-summary :state state :footer nil))
+    (when (and pre (pgstate-tabnames pre))
+      (report-summary pre :footer nil)
+      (format *report-stream* *header-line* *max-length-table-name* "-"))
 
-    (when (or finally parallel)
+    (report-summary data :header (null pre) :footer nil)
+
+    (when (and post (pgstate-tabnames post))
       (format *report-stream* *header-line* *max-length-table-name* "-")
-      (when parallel
-        (report-summary :state parallel :header nil :footer nil))
-      (when finally
-        (report-summary :state finally :header nil :footer nil)))
+      (report-summary post :header nil :footer nil))
 
-    ;; add to the grand total the other sections, except for the parallel one
-    (incf (pgloader.utils::pgstate-secs state)
-          (+ (if before  (pgloader.utils::pgstate-secs before)  0)
-             (if finally (pgloader.utils::pgstate-secs finally) 0)))
-
-    ;; if the parallel tasks took longer than the rest cumulated, the total
-    ;; waiting time actually was parallel - before
-    (if start-time
-        (setf (pgloader.utils::pgstate-secs state)
-              (pgloader.utils::elapsed-time-since start-time))
-        (when (and parallel
-                   (< (pgloader.utils::pgstate-secs state)
-                      (pgloader.utils::pgstate-secs parallel)))
-          (setf (pgloader.utils::pgstate-secs state)
-                (- (pgloader.utils::pgstate-secs parallel)
-                   (if before (pgloader.utils::pgstate-secs before) 0)))))
+    ;; replace the grand total now
+    (setf (pgstate-secs data) total-secs)
 
     ;; and report the Grand Total
-    (report-pgstate-stats state legend)))
+    (report-pgstate-stats data legend)))
 

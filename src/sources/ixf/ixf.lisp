@@ -61,28 +61,22 @@
   (with-connection (conn (source-db copy-ixf))
     (let ((ixf    (ixf:make-ixf-file :stream (conn-handle conn)))
           (row-fn (lambda (row)
-                    (pgstate-incf *state* (target copy-ixf) :read 1)
+                    (update-stats :data (target copy-ixf) :read 1)
                     (funcall process-row-fn row))))
       (ixf:read-headers ixf)
       (ixf:map-data ixf row-fn))))
 
 (defmethod copy-to-queue ((ixf copy-ixf) queue)
   "Copy data from IXF file FILENAME into queue DATAQ"
-  (let ((read (pgloader.queue:map-push-queue ixf queue)))
-    (pgstate-incf *state* (target ixf) :read read)))
+  (pgloader.queue:map-push-queue ixf queue))
 
 (defmethod copy-from ((ixf copy-ixf)
                       &key (kernel nil k-s-p) truncate disable-triggers)
-  (let* ((summary        (null *state*))
-         (*state*        (or *state* (pgloader.utils:make-pgstate)))
-         (lp:*kernel*    (or kernel (make-kernel 2)))
+  (let* ((lp:*kernel*    (or kernel (make-kernel 2)))
          (channel        (lp:make-channel))
          (queue          (lq:make-queue :fixed-capacity *concurrent-batches*)))
 
-    (with-stats-collection ((target ixf)
-                            :dbname (db-name (target-db ixf))
-                            :state *state*
-                            :summary summary)
+    (with-stats-collection ((target ixf) :dbname (db-name (target-db ixf)))
       (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
         (log-message :notice "COPY \"~a\" from '~a'" (target ixf) (source ixf))
         (lp:submit-task channel #'copy-to-queue ixf queue)
@@ -103,7 +97,6 @@
 (defmethod copy-database ((ixf copy-ixf)
                           &key
                             table-name
-                            state-before
                             data-only
 			    schema-only
                             (truncate         t)
@@ -114,9 +107,7 @@
 			    (reset-sequences  t))
   "Open the IXF and stream its content to a PostgreSQL database."
   (declare (ignore create-indexes reset-sequences))
-  (let* ((summary     (null *state*))
-	 (*state*     (or *state* (make-pgstate)))
-	 (table-name  (or table-name
+  (let* ((table-name  (or table-name
 			  (target ixf)
 			  (source ixf))))
 
@@ -125,9 +116,7 @@
 
     (handler-case
         (when (and (or create-tables schema-only) (not data-only))
-          (with-stats-collection ("create, truncate"
-                                  :state state-before
-                                  :summary summary)
+          (with-stats-collection ("create, truncate" :section :pre)
               (with-pgsql-transaction (:pgconn (target-db ixf))
                 (when create-tables
                   (with-schema (tname table-name)
@@ -142,10 +131,5 @@
         (return-from copy-database)))
 
     (unless schema-only
-      (copy-from ixf :truncate truncate :disable-triggers disable-triggers))
-
-    ;; and report the total time spent on the operation
-    (when summary
-      (report-full-summary "Total streaming time" *state*
-                           :before state-before))))
+      (copy-from ixf :truncate truncate :disable-triggers disable-triggers))))
 

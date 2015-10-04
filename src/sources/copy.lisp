@@ -93,7 +93,7 @@
                         (condition (e)
                           (progn
                             (log-message :error "~a" e)
-                            (pgstate-incf *state* (target copy) :errs 1))))))))))
+                            (update-stats :data (target copy) :errs 1))))))))))
 
 (defmethod copy-to-queue ((copy copy-copy) queue)
   "Copy data from given COPY definition into lparallel.queue DATAQ"
@@ -101,27 +101,18 @@
 
 (defmethod copy-from ((copy copy-copy)
                       &key
-                        state-before
-                        state-after
-                        state-indexes
                         truncate
                         disable-triggers
                         drop-indexes)
   "Copy data from given COPY file definition into its PostgreSQL target table."
-  (let* ((summary        (null *state*))
-	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
-	 (lp:*kernel*    (make-kernel 2))
+  (let* ((lp:*kernel*    (make-kernel 2))
 	 (channel        (lp:make-channel))
 	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*))
          (indexes        (maybe-drop-indexes (target-db copy)
                                              (target copy)
-                                             state-before
                                              :drop-indexes drop-indexes)))
 
-    (with-stats-collection ((target copy)
-                            :dbname (db-name (target-db copy))
-                            :state *state*
-                            :summary summary)
+    (with-stats-collection ((target copy) :dbname (db-name (target-db copy)))
       (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
         (log-message :notice "COPY ~a" (target copy))
         (lp:submit-task channel #'copy-to-queue copy queue)
@@ -144,6 +135,6 @@
            finally (lp:end-kernel))))
 
     ;; re-create the indexes
-    (create-indexes-again (target-db copy) indexes state-after state-indexes
+    (create-indexes-again (target-db copy) indexes
                           :drop-indexes drop-indexes)))
 

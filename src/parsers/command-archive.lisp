@@ -42,32 +42,22 @@
       (when (and (or before finally) (null pg-db-conn))
         (error "When using a BEFORE LOAD DO or a FINALLY block, you must provide an archive level target database connection."))
       `(lambda ()
-         (let* ((start-irt      (get-internal-real-time))
-                (state-before   (pgloader.utils:make-pgstate))
-                (*state*        (pgloader.utils:make-pgstate))
-                ,@(pgsql-connection-bindings pg-db-conn nil)
-                (state-finally ,(when finally `(pgloader.utils:make-pgstate)))
+         (let* (,@(pgsql-connection-bindings pg-db-conn nil)
                 (archive-file
-                 ,(destructuring-bind (kind url) source
-                                      (ecase kind
-                                        (:http     `(with-stats-collection
-                                                        ("download" :state state-before)
-                                                      (pgloader.archive:http-fetch-file ,url)))
-                                        (:filename url))))
-                (*fd-path-root*
-                 (with-stats-collection ("extract" :state state-before)
-                   (pgloader.archive:expand-archive archive-file))))
+                 , (destructuring-bind (kind url) source
+                     (ecase kind
+                       (:http     `(with-stats-collection
+                                       ("download" :section :pre)
+                                       (pgloader.archive:http-fetch-file ,url)))
+                       (:filename url))))
+                  (*fd-path-root*
+                   (with-stats-collection ("extract" :section :pre)
+                       (pgloader.archive:expand-archive archive-file))))
            (progn
-             ,(sql-code-block pg-db-conn 'state-before before "before load")
+             ,(sql-code-block pg-db-conn :pre before "before load")
 
              ;; import from files block
              ,@(loop for command in commands
                   collect `(funcall ,command))
 
-             ,(sql-code-block pg-db-conn 'state-finally finally "finally")
-
-             ;; reporting
-             (report-full-summary "Total import time" *state*
-                                  :start-time start-irt
-                                  :before state-before
-                                  :finally state-finally)))))))
+             ,(sql-code-block pg-db-conn :post finally "finally")))))))

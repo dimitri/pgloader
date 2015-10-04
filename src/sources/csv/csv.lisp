@@ -126,7 +126,7 @@
                  (condition (e)
                    (progn
                      (log-message :error "~a" e)
-                     (pgstate-incf *state* (target csv) :errs 1)))))))))
+                     (update-stats :data (target csv) :errs 1)))))))))
 
 (defmethod copy-to-queue ((csv copy-csv) queue)
   "Copy data from given CSV definition into lparallel.queue DATAQ"
@@ -134,26 +134,18 @@
 
 (defmethod copy-from ((csv copy-csv)
                       &key
-                        state-before
-                        state-after
-                        state-indexes
                         truncate
                         disable-triggers
                         drop-indexes)
   "Copy data from given CSV file definition into its PostgreSQL target table."
-  (let* ((summary        (null *state*))
-	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
-	 (lp:*kernel*    (make-kernel 2))
+  (let* ((lp:*kernel*    (make-kernel 2))
 	 (channel        (lp:make-channel))
 	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*))
          (indexes        (maybe-drop-indexes (target-db csv)
                                              (target csv)
-                                             state-before
                                              :drop-indexes drop-indexes)))
 
-    (with-stats-collection ((target csv)
-                            :dbname (db-name (target-db csv))
-                            :state *state* :summary summary)
+    (with-stats-collection ((target csv) :dbname (db-name (target-db csv)))
       (lp:task-handler-bind () ;; ((error #'lp:invoke-transfer-error))
         (log-message :notice "COPY ~a" (target csv))
         (lp:submit-task channel #'copy-to-queue csv queue)
@@ -176,5 +168,4 @@
            finally (lp:end-kernel))))
 
     ;; re-create the indexes
-    (create-indexes-again (target-db csv) indexes state-after state-indexes
-                          :drop-indexes drop-indexes)))
+    (create-indexes-again (target-db csv) indexes :drop-indexes drop-indexes)))

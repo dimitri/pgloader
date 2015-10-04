@@ -55,7 +55,7 @@
 
     (condition (e)
       (log-message :error "~a" e)
-      (pgstate-incf *state* (target copy) :errs 1))))
+      (update-stats :data (target copy) :errs 1))))
 
 (defun map-push-queue (copy queue &optional pre-formatted)
   "Apply MAP-ROWS on the COPY instance and a function of ROW that will push

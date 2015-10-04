@@ -79,7 +79,7 @@
                         (condition (e)
                           (progn
                             (log-message :error "~a" e)
-                            (pgstate-incf *state* (target fixed) :errs 1))))))))))
+                            (update-stats :data (target fixed) :errs 1))))))))))
 
 (defmethod copy-to-queue ((fixed copy-fixed) queue)
   "Copy data from given FIXED definition into lparallel.queue DATAQ"
@@ -87,27 +87,18 @@
 
 (defmethod copy-from ((fixed copy-fixed)
                       &key
-                        state-before
-                        state-after
-                        state-indexes
                         truncate
                         disable-triggers
                         drop-indexes)
   "Copy data from given FIXED file definition into its PostgreSQL target table."
-  (let* ((summary        (null *state*))
-	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
-	 (lp:*kernel*    (make-kernel 2))
+  (let* ((lp:*kernel*    (make-kernel 2))
 	 (channel        (lp:make-channel))
 	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*))
          (indexes        (maybe-drop-indexes (target-db fixed)
                                              (target fixed)
-                                             state-before
                                              :drop-indexes drop-indexes)))
 
-    (with-stats-collection ((target fixed)
-                            :dbname (db-name (target-db fixed))
-                            :state *state*
-                            :summary summary)
+    (with-stats-collection ((target fixed) :dbname (db-name (target-db fixed)))
       (lp:task-handler-bind () ;; ((error #'lp:invoke-transfer-error))
         (log-message :notice "COPY ~a" (target fixed))
         (lp:submit-task channel #'copy-to-queue fixed queue)
@@ -130,6 +121,5 @@
            finally (lp:end-kernel))))
 
     ;; re-create the indexes
-    (create-indexes-again (target-db fixed) indexes state-after state-indexes
-                          :drop-indexes drop-indexes)))
+    (create-indexes-again (target-db fixed) indexes :drop-indexes drop-indexes)))
 

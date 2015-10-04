@@ -3,7 +3,7 @@
 ;;; the load: number of lines read, imported and number of errors found
 ;;; along the way.
 ;;;
-(in-package :pgloader.utils)
+(in-package :pgloader.state)
 
 ;;;
 ;;; Data Structures to maintain information about loading state
@@ -26,51 +26,71 @@
 
 (defun format-table-name (table-name)
   "TABLE-NAME might be a CONS of a schema name and a table name."
-  (typecase table-name
+  (etypecase table-name
     (cons    (format nil "~a.~a" (car table-name) (cdr table-name)))
     (string  table-name)))
 
-(defun pgstate-get-table (pgstate name)
+(defun relative-pathname (filename type &optional dbname)
+  "Return the pathname of a file of type TYPE (dat or log) under *ROOT-DIR*"
+  (let ((dir (if dbname
+                 (uiop:merge-pathnames*
+                  (uiop:make-pathname* :directory `(:relative ,dbname))
+                  *root-dir*)
+                 *root-dir*)))
+    (make-pathname :defaults dir :name filename :type type)))
+
+(defun reject-data-file (table-name dbname)
+  "Return the pathname to the reject file for STATE entry."
+  (relative-pathname table-name "dat" dbname))
+
+(defun reject-log-file (table-name dbname)
+  "Return the pathname to the reject file for STATE entry."
+  (relative-pathname table-name "log" dbname))
+
+(defmethod pgtable-initialize-reject-files ((table pgtable) dbname)
+  "Prepare TABLE for being able to deal with rejected rows (log them)."
+  (let* ((table-name    (format-table-name (pgtable-name table)))
+         (data-pathname (reject-data-file table-name dbname))
+         (logs-pathname (reject-log-file table-name dbname)))
+    ;; we also use that facility for things that are not tables
+    ;; such as "fetch" or "before load" or "Create Indexes"
+    (when dbname
+      ;; create the per-database directory if it does not exists yet
+      (ensure-directories-exist (uiop:pathname-directory-pathname data-pathname))
+
+      ;; rename the existing files if there are some
+      (when (probe-file data-pathname)
+        (with-open-file (data data-pathname
+                              :direction :output
+                              :if-exists :rename
+                              :if-does-not-exist nil)))
+
+      (when (probe-file logs-pathname)
+        (with-open-file (logs logs-pathname
+                              :direction :output
+                              :if-exists :rename
+                              :if-does-not-exist nil)))
+
+      ;; set the properties to the right pathnames
+      (setf (pgtable-reject-data table) data-pathname
+            (pgtable-reject-logs table) logs-pathname))))
+
+(defun pgstate-get-label (pgstate name)
   (gethash name (pgstate-tables pgstate)))
 
-(defun pgstate-add-table (pgstate dbname table-name)
+(defun pgstate-new-label (pgstate label)
   "Instanciate a new pgtable structure to hold our stats, and return it."
-  (or (pgstate-get-table pgstate table-name)
-      (let* ((table (setf (gethash table-name (pgstate-tables pgstate))
-			  (make-pgtable :name table-name)))
-	     (reject-dir  (merge-pathnames (format nil "~a/" dbname) *root-dir*))
-             (filename    (format-table-name table-name))
-	     (data-pathname (make-pathname :defaults reject-dir
-                                           :name filename :type "dat"))
-	     (logs-pathname (make-pathname :defaults reject-dir
-                                           :name filename :type "log")))
+  (or (pgstate-get-label pgstate label)
+      (let* ((pgtable (setf (gethash label (pgstate-tables pgstate))
+                            (make-pgtable :name label))))
 
         ;; maintain the ordering
-        (push table-name (pgstate-tabnames pgstate))
+        (push label (pgstate-tabnames pgstate))
 
-	;; create the per-database directory if it does not exists yet
-	(ensure-directories-exist reject-dir)
-
-	;; rename the existing files if there are some
-        (when (probe-file data-pathname)
-          (with-open-file (data data-pathname
-                                :direction :output
-                                :if-exists :rename
-                                :if-does-not-exist nil)))
-
-        (when (probe-file logs-pathname)
-          (with-open-file (logs logs-pathname
-                                :direction :output
-                                :if-exists :rename
-                                :if-does-not-exist nil)))
-
-	;; set the properties to the right pathnames
-	(setf (pgtable-reject-data table) data-pathname
-	      (pgtable-reject-logs table) logs-pathname)
-	table)))
+	pgtable)))
 
 (defun pgstate-setf (pgstate name &key read rows errs secs)
-  (let ((pgtable (pgstate-get-table pgstate name)))
+  (let ((pgtable (pgstate-get-label pgstate name)))
     (when read
       (setf (pgtable-read pgtable) read)
       (incf (pgstate-read pgstate) read))
@@ -86,7 +106,7 @@
     pgtable))
 
 (defun pgstate-incf (pgstate name &key read rows errs secs)
-  (let ((pgtable (pgstate-get-table pgstate name)))
+  (let ((pgtable (pgstate-get-label pgstate name)))
     (when read
       (incf (pgtable-read pgtable) read)
       (incf (pgstate-read pgstate) read))
@@ -102,7 +122,7 @@
     pgtable))
 
 (defun pgstate-decf (pgstate name &key read rows errs secs)
-  (let ((pgtable (pgstate-get-table pgstate name)))
+  (let ((pgtable (pgstate-get-label pgstate name)))
     (when read
       (decf (pgtable-read pgtable) read)
       (decf (pgstate-read pgstate) read))

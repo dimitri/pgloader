@@ -126,7 +126,7 @@
    lines we did read in the file."
   (let ((projection (project-fields :fields fields :columns columns)))
     (lambda (row)
-      (pgstate-incf *state* target :read 1)
+      (update-stats :data target :read 1)
       ;; cl-csv returns (nil) for an empty line
       (if (or (null row)
               (and (null (car row)) (null (cdr row))))
@@ -137,11 +137,8 @@
                  (handler-case
                      (funcall projection row)
                    (condition (e)
-                     (pgstate-incf *state* target :errs 1)
-                     (log-message :error "Could not read line ~d: ~a"
-                                  (pgloader.utils::pgtable-read
-                                   (pgstate-get-table *state* target))
-                                  e)))))
+                     (update-stats :data target :errs 1)
+                     (log-message :error "Could not read input: ~a" e)))))
             (when projected-vector
               (funcall process-row-fn projected-vector)))))))
 

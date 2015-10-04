@@ -53,10 +53,14 @@
                         ((:file "charsets")
                          (:file "threads")
                          (:file "logs")
-                         (:file "monitor" :depends-on ("logs"))
+                         (:file "utils")
                          (:file "state")
-                         (:file "report"  :depends-on ("state"))
-                         (:file "utils"   :depends-on ("charsets" "monitor"))
+                         (:file "reject"  :depends-on ("state"))
+                         (:file "report"  :depends-on ("state" "utils"))
+                         (:file "monitor" :depends-on ("logs"
+                                                       "state"
+                                                       "reject"
+                                                       "report"))
                          (:file "archive" :depends-on ("logs"))
 
                          ;; those are one-package-per-file
@@ -178,8 +182,8 @@
                                   ((:file "mysql-cast-rules")
                                    (:file "mysql-schema"
                                           :depends-on ("mysql-cast-rules"))
-                                   (:file "mysql-csv"
-                                          :depends-on ("mysql-schema"))
+                                   ;; (:file "mysql-csv"
+                                   ;;        :depends-on ("mysql-schema"))
                                    (:file "mysql"
                                           :depends-on ("mysql-cast-rules"
                                                        "mysql-schema"))))))

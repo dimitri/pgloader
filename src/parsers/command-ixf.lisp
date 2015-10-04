@@ -49,15 +49,11 @@
                                          gucs before after
                                          ((:ixf-options options)))
   `(lambda ()
-     (let* ((state-before   (pgloader.utils:make-pgstate))
-            (summary        (null *state*))
-            (*state*        (or *state* (pgloader.utils:make-pgstate)))
-            (state-after   ,(when after `(pgloader.utils:make-pgstate)))
-            ,@(pgsql-connection-bindings pg-db-conn gucs)
+     (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
             (table-name   ',(pgconn-table-name pg-db-conn))
-            (source-db      (with-stats-collection ("fetch" :state state-before)
+            (source-db      (with-stats-collection ("fetch" :section :pre)
                               (expand (fetch-file ,ixf-db-conn))))
             (source
              (make-instance 'pgloader.ixf:copy-ixf
@@ -65,18 +61,12 @@
                             :source-db source-db
                             :target table-name)))
 
-       ,(sql-code-block pg-db-conn 'state-before before "before load")
+       ,(sql-code-block pg-db-conn :pre before "before load")
 
        (pgloader.sources:copy-database source
-                                       :state-before state-before
                                        ,@(remove-batch-control-option options))
 
-       ,(sql-code-block pg-db-conn 'state-after after "after load")
-
-       (when summary
-         (report-full-summary "Total import time" *state*
-                              :before state-before
-                              :finally state-after)))))
+       ,(sql-code-block pg-db-conn :post after "after load"))))
 
 (defrule load-ixf-file load-ixf-command
   (:lambda (command)

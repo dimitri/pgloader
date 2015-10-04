@@ -52,18 +52,18 @@
              (sql  (format nil "SELECT ~{~a~^, ~} FROM `~a`;" cols table-name))
              (row-fn
               (lambda (row)
-                (pgstate-incf *state* (target mysql) :read 1)
+                (update-stats :data (target mysql) :read 1)
                 (funcall process-row-fn row))))
         (handler-bind
             ;; avoid trying to fetch the character at end-of-input position...
             ((babel-encodings:end-of-input-in-character
               #'(lambda (c)
-                  (pgstate-incf *state* (target mysql) :errs 1)
+                  (update-stats :data (target mysql) :errs 1)
                   (log-message :error "~a" c)
                   (invoke-restart 'qmynd-impl::use-nil)))
              (babel-encodings:character-decoding-error
               #'(lambda (c)
-                  (pgstate-incf *state* (target mysql) :errs 1)
+                  (update-stats :data (target mysql) :errs 1)
                   (let ((encoding (babel-encodings:character-coding-error-encoding c))
                         (position (babel-encodings:character-coding-error-position c))
                         (character
@@ -106,19 +106,14 @@
 (defmethod copy-from ((mysql copy-mysql)
                       &key (kernel nil k-s-p) truncate disable-triggers)
   "Connect in parallel to MySQL and PostgreSQL and stream the data."
-  (let* ((summary        (null *state*))
-	 (*state*        (or *state* (pgloader.utils:make-pgstate)))
-	 (lp:*kernel*    (or kernel (make-kernel 2)))
+  (let* ((lp:*kernel*    (or kernel (make-kernel 2)))
 	 (channel        (lp:make-channel))
 	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*))
 	 (table-name     (target mysql)))
 
     ;; we account stats against the target table-name, because that's all we
     ;; know on the PostgreSQL thread
-    (with-stats-collection (table-name
-                            :dbname (db-name (target-db mysql))
-                            :state *state*
-                            :summary summary)
+    (with-stats-collection (table-name :dbname (db-name (target-db mysql)))
       (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
         (log-message :notice "COPY ~a" table-name)
         ;; read data from MySQL
@@ -150,7 +145,6 @@
                                all-columns all-indexes all-fkeys
                                materialize-views view-columns
                                &key
-                                 state
                                  foreign-keys
                                  include-drop)
   "Prepare the target PostgreSQL database: create tables casting datatypes
@@ -165,7 +159,7 @@
                (length all-columns)
                (loop for (name . idxs) in all-indexes sum (length idxs)))
 
-  (with-stats-collection ("create, drop" :use-result-as-rows t :state state)
+  (with-stats-collection ("create, drop" :use-result-as-rows t :section :pre)
     (with-pgsql-transaction (:pgconn pgconn)
       ;; we need to first drop the Foreign Key Constraints, so that we
       ;; can DROP TABLE when asked
@@ -188,7 +182,6 @@
 (defun complete-pgsql-database (pgconn all-columns all-fkeys pkeys
                                 table-comments column-comments
                                 &key
-                                  state
                                   data-only
                                   foreign-keys
                                   reset-sequences)
@@ -201,18 +194,17 @@
   ;; while CREATE INDEX statements are in flight (avoid locking).
   ;;
   (when reset-sequences
-    (reset-sequences (mapcar #'car all-columns) :pgconn pgconn :state state))
+    (reset-sequences (mapcar #'car all-columns) :pgconn pgconn))
 
   (with-pgsql-connection (pgconn)
     ;;
     ;; Turn UNIQUE indexes into PRIMARY KEYS now
     ;;
-    (pgstate-add-table state (db-name pgconn) "Primary Keys")
     (loop :for sql :in pkeys
        :when sql
        :do (progn
              (log-message :notice "~a" sql)
-             (pgsql-execute-with-timing "Primary Keys" sql state)))
+             (pgsql-execute-with-timing :post "Primary Keys" sql)))
 
     ;;
     ;; Foreign Key Constraints
@@ -222,19 +214,17 @@
     ;; and indexes are imported before doing that.
     ;;
     (when (and foreign-keys (not data-only))
-      (pgstate-add-table state (db-name pgconn) "Foreign Keys")
       (loop :for (table-name . fkeys) :in all-fkeys
          :do (loop :for fkey :in fkeys
                 :for sql := (format-pgsql-create-fkey fkey)
                 :do (progn
                       (log-message :notice "~a;" sql)
-                      (pgsql-execute-with-timing "Foreign Keys" sql state)))))
+                      (pgsql-execute-with-timing :post "Foreign Keys" sql)))))
 
     ;;
     ;; And now, comments on tables and columns.
     ;;
     (log-message :notice "Comments")
-    (pgstate-add-table state (db-name pgconn) "Comments")
     (let* ((quote
             ;; just something improbably found in a table comment, to use as
             ;; dollar quoting, and generated at random at that.
@@ -256,7 +246,7 @@
                              quote comment quote)
          :do (progn
                (log-message :log "~a" sql)
-               (pgsql-execute-with-timing "Comments" sql state)))
+               (pgsql-execute-with-timing :post "Comments" sql)))
 
       (loop :for (table-name column-name comment) :in column-comments
          :for sql := (format nil "comment on column ~a.~a is $~a$~a$~a$"
@@ -265,11 +255,10 @@
                              quote comment quote)
          :do (progn
                (log-message :notice "~a;" sql)
-               (pgsql-execute-with-timing "Comments" sql state))))))
+               (pgsql-execute-with-timing :post "Comments" sql))))))
 
 (defun fetch-mysql-metadata (mysql
                              &key
-                               state
                                materialize-views
                                only-tables
                                including
@@ -282,7 +271,7 @@
    (with-stats-collection ("fetch meta data"
                            :use-result-as-rows t
                            :use-result-as-read t
-                           :state state)
+                           :section :pre)
      (with-connection (*connection* (source-db mysql))
        ;; If asked to MATERIALIZE VIEWS, now is the time to create them in
        ;; MySQL, when given definitions rather than existing view names.
@@ -350,9 +339,6 @@
 ;;;
 (defmethod copy-database ((mysql copy-mysql)
 			  &key
-			    state-before
-			    state-after
-			    state-indexes
 			    (truncate         nil)
 			    (disable-triggers nil)
 			    (data-only        nil)
@@ -369,12 +355,7 @@
                             decoding-as
 			    materialize-views)
   "Export MySQL data and Import it into PostgreSQL"
-  (let* ((summary       (null *state*))
-	 (*state*       (or *state*       (make-pgstate)))
-	 (idx-state     (or state-indexes (make-pgstate)))
-	 (state-before  (or state-before  (make-pgstate)))
-	 (state-after   (or state-after   (make-pgstate)))
-         (copy-kernel   (make-kernel 2))
+  (let* ((copy-kernel   (make-kernel 2))
          idx-kernel idx-channel)
 
     (destructuring-bind (&key view-columns all-columns
@@ -382,7 +363,6 @@
                               all-fkeys all-indexes pkeys)
         ;; to prepare the run, we need to fetch MySQL meta-data
         (fetch-mysql-metadata mysql
-                              :state state-before
                               :materialize-views materialize-views
                               :only-tables only-tables
                               :including including
@@ -409,7 +389,6 @@
                                          all-fkeys
                                          materialize-views
                                          view-columns
-                                         :state state-before
                                          :foreign-keys foreign-keys
                                          :include-drop include-drop))
                 (t
@@ -479,8 +458,7 @@
                  (alexandria:appendf
                   pkeys
                   (create-indexes-in-kernel (target-db mysql)
-                                            indexes idx-kernel idx-channel
-                                            :state idx-state))))))
+                                            indexes idx-kernel idx-channel))))))
 
       ;; now end the kernels
       (let ((lp:*kernel* copy-kernel))  (lp:end-kernel))
@@ -488,7 +466,7 @@
         ;; wait until the indexes are done being built...
         ;; don't forget accounting for that waiting time.
         (when (and create-indexes (not data-only))
-          (with-stats-collection ("Index Build Completion" :state *state*)
+          (with-stats-collection ("Index Build Completion" :section :post)
             (loop for idx in all-indexes do (lp:receive-result idx-channel))))
         (lp:end-kernel))
 
@@ -505,14 +483,6 @@
       (complete-pgsql-database (new-pgsql-connection (target-db mysql))
                                all-columns all-fkeys pkeys
                                table-comments column-comments
-                               :state state-after
                                :data-only data-only
                                :foreign-keys foreign-keys
-                               :reset-sequences reset-sequences)
-
-      ;; and report the total time spent on the operation
-      (when summary
-        (report-full-summary "Total streaming time" *state*
-                             :before   state-before
-                             :finally  state-after
-                             :parallel idx-state)))))
+                               :reset-sequences reset-sequences))))

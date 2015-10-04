@@ -145,17 +145,17 @@
 
 (defun create-pgsql-fkeys (pgconn all-fkeys
                            &key
-                             state
+                             (section :post)
                              (label "Foreign Keys"))
   "Actually create the Foreign Key References that where declared in the
    MySQL database"
-  (pgstate-add-table state (db-name pgconn) label)
+  (new-label section label)
   (loop for (table-name . fkeys) in all-fkeys
      do (loop for fkey in fkeys
 	   for sql = (format-pgsql-create-fkey fkey)
 	   do
 	     (log-message :notice "~a;" sql)
-	     (pgsql-execute-with-timing "Foreign Keys" sql state))))
+	     (pgsql-execute-with-timing section label sql))))
 
 
 ;;;
@@ -341,16 +341,11 @@
 ;;; Parallel index building.
 ;;;
 (defun create-indexes-in-kernel (pgconn indexes kernel channel
-				 &key
-                                   state
-				   (label "Create Indexes"))
+				 &key (label "Create Indexes"))
   "Create indexes for given table in dbname, using given lparallel KERNEL
    and CHANNEL so that the index build happen in concurrently with the data
    copying."
   (let* ((lp:*kernel* kernel))
-    ;; ensure we have a stats entry
-    (pgstate-add-table state (db-name pgconn) label)
-
     (loop
        :for index :in indexes
        :collect (multiple-value-bind (sql pkey)
@@ -362,7 +357,7 @@
                                   #'pgsql-connect-and-execute-with-timing
                                   ;; each thread must have its own connection
                                   (new-pgsql-connection pgconn)
-                                  label sql state)
+                                  :post label sql)
 
                   ;; return the pkey "upgrade" statement
                   pkey))))
@@ -390,18 +385,18 @@
 ;;;
 ;;; Drop indexes before loading
 ;;;
-(defun drop-indexes (state pgsql-index-list)
+(defun drop-indexes (section pgsql-index-list)
   "Drop indexes in PGSQL-INDEX-LIST. A PostgreSQL connection must already be
    active when calling that function."
   (loop :for index :in pgsql-index-list
      :do (let ((sql (format-pgsql-drop-index index)))
            (log-message :notice "~a" sql)
-           (pgsql-execute-with-timing "drop indexes" sql state))))
+           (pgsql-execute-with-timing section "drop indexes" sql))))
 
 ;;;
 ;;; Higher level API to care about indexes
 ;;;
-(defun maybe-drop-indexes (target table-name state &key drop-indexes)
+(defun maybe-drop-indexes (target table-name &key (section :pre) drop-indexes)
   "Drop the indexes for TABLE-NAME on TARGET PostgreSQL connection, and
    returns a list of indexes to create again."
   (with-pgsql-connection (target)
@@ -420,14 +415,13 @@
 
             (indexes
              ;; drop the indexes now
-             (with-stats-collection ("drop indexes" :state state)
-                 (drop-indexes state indexes))))
+             (with-stats-collection ("drop indexes" :section section)
+                 (drop-indexes section indexes))))
 
       ;; and return the indexes list
       indexes)))
 
-(defun create-indexes-again (target indexes state state-parallel
-                             &key drop-indexes)
+(defun create-indexes-again (target indexes &key (section :post) drop-indexes)
   "Create the indexes that we dropped previously."
   (when (and indexes drop-indexes)
     (let* ((*preserve-index-names* t)
@@ -438,29 +432,27 @@
            (idx-channel (let ((lp:*kernel* idx-kernel))
                           (lp:make-channel))))
       (let ((pkeys
-             (create-indexes-in-kernel target indexes idx-kernel idx-channel
-                                       :state state-parallel)))
+             (create-indexes-in-kernel target indexes idx-kernel idx-channel)))
 
-        (with-stats-collection ("Index Build Completion" :state state)
+        (with-stats-collection ("Index Build Completion" :section section)
             (loop :for idx :in indexes :do (lp:receive-result idx-channel)))
 
         ;; turn unique indexes into pkeys now
         (with-pgsql-connection (target)
-          (with-stats-collection ("Constraints" :state state)
+          (with-stats-collection ("Constraints" :section section)
               (loop :for sql :in pkeys
                  :when sql
                  :do (progn
                        (log-message :notice "~a" sql)
-                       (pgsql-execute-with-timing "Constraints" sql state)))))))))
+                       (pgsql-execute-with-timing section "Constraints" sql)))))))))
 
 ;;;
 ;;; Sequences
 ;;;
-(defun reset-sequences (table-names &key pgconn state)
+(defun reset-sequences (table-names &key pgconn (section :post))
   "Reset all sequences created during this MySQL migration."
   (log-message :notice "Reset sequences")
   (with-stats-collection ("Reset Sequences"
-                          :dbname (db-name pgconn)
                           :use-result-as-rows t
-                          :state state)
+                          :section section)
     (reset-all-sequences pgconn :tables table-names)))

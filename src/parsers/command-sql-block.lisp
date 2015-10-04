@@ -58,12 +58,12 @@
     (bind (((_ _ sql-list-of-list) after))
       (cons :after (apply #'append sql-list-of-list)))))
 
-(defun sql-code-block (pgconn state commands label)
+(defun sql-code-block (pgconn section commands label)
   "Return lisp code to run COMMANDS against DBNAME, updating STATE."
   (when commands
     `(with-stats-collection (,label
                              :dbname ,(db-name pgconn)
-                             :state ,state
+                             :section ,section
                              :use-result-as-read t
                              :use-result-as-rows t)
        (with-pgsql-transaction (:pgconn ,pgconn)

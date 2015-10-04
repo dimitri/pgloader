@@ -101,20 +101,17 @@ load database
                                             ((:including incl))
                                             ((:excluding excl)))
   `(lambda ()
-     (let* ((state-before   (pgloader.utils:make-pgstate))
-            (*state*        (pgloader.utils:make-pgstate))
-            (*default-cast-rules* ',*sqlite-default-cast-rules*)
+     (let* ((*default-cast-rules* ',*sqlite-default-cast-rules*)
             (*cast-rules*         ',casts)
             ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
-            (source-db      (with-stats-collection ("fetch" :state state-before)
+            (source-db      (with-stats-collection ("fetch" :section :pre)
                                 (expand (fetch-file ,sqlite-db-conn))))
             (source
              (make-instance 'pgloader.sqlite::copy-sqlite
                             :target-db ,pg-db-conn
                             :source-db source-db)))
        (pgloader.sqlite:copy-database source
-                                      :state-before state-before
                                       :including ',incl
                                       :excluding ',excl
                                       ,@(remove-batch-control-option options)))))
