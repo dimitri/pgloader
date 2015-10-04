@@ -18,14 +18,34 @@
 (defvar *monitoring-channel* nil
   "Internal lparallel channel.")
 
-(defun send-event (event &rest params)
-  "Add a new event to be processed by the monitor."
-  (assert (not (null *monitoring-queue*)))
-  (lq:push-queue (list event params) *monitoring-queue*))
+(defvar *sections* nil
+  "List of currently monitored activities (per category or concurrency.")
+
+
+;;;
+;;; The external monitor API, with messages
+;;;
+(defstruct start start-logger)
+(defstruct stop  stop-logger)
+(defstruct noop)
+(defstruct log-message category description arguments)
+(defstruct new-label dbname section label)
+(defstruct update-stats section label read rows errs secs rs ws)
 
 (defun log-message (category description &rest arguments)
   "Send given message into our monitoring queue for processing."
-  (apply #'send-event :log category description arguments))
+  (send-event (make-log-message :category category
+                                :description description
+                                :arguments arguments)))
+
+
+;;;
+;;; Now, the monitor thread management
+;;;
+(defun send-event (event)
+  "Add a new event to be processed by the monitor."
+  (assert (not (null *monitoring-queue*)))
+  (lq:push-queue event *monitoring-queue*))
 
 (defun start-monitor (&key
                         (start-logger t)
@@ -50,7 +70,7 @@
          (*monitoring-channel* (lp:make-channel)))
 
     (lp:submit-task *monitoring-channel* #'monitor *monitoring-queue*)
-    (send-event :start :start-logger start-logger)
+    (send-event (make-start :start-logger start-logger))
 
     *monitoring-channel*))
 
@@ -58,7 +78,7 @@
                        (channel *monitoring-channel*)
                        (stop-logger t))
   "Stop the current monitor task."
-  (send-event :stop :stop-logger stop-logger)
+  (send-event (make-stop :stop-logger stop-logger))
   (lp:receive-result channel))
 
 (defmacro with-monitor ((&key (start-logger t)) &body body)
@@ -79,30 +99,30 @@
   "Receives and process messages from *monitoring-queue*."
 
   ;; process messages from the queue
-  (loop :for (event params) := (multiple-value-bind (element available)
-                                   (lq:try-pop-queue queue)
-                                 (if available element (list :empty)))
-     :do
-       (case event
-         (:start  (progn
-                    (destructuring-bind (&key start-logger) params
-                      (when start-logger (pgloader.logs:start-logger)))
-                    (cl-log:log-message :info "Starting monitor")))
+  (loop :for event := (multiple-value-bind (event available)
+                          (lq:try-pop-queue queue)
+                        (if available event (make-noop)))
+     :do (typecase event
+           (start
+            (when (start-start-logger event)
+              (pgloader.logs:start-logger))
+            (cl-log:log-message :info "Starting monitor"))
 
-         (:stop   (progn
-                    (cl-log:log-message :info "Stopping monitor")
-                    (destructuring-bind (&key stop-logger) params
-                      (when stop-logger (pgloader.logs:stop-logger)))))
+           (stop
+            (cl-log:log-message :info "Stopping monitor")
+            (when (stop-stop-logger event) (pgloader.logs:stop-logger)))
 
-         (:empty  (sleep 0.2))         ; avoid buzy looping
+           (noop
+            (sleep 0.2))                ; avoid buzy looping
 
-         (:log    (destructuring-bind (category description &rest arguments)
-                      params
-                    ;; cl-log:log-message is a macro, we can't use apply
-                    ;; here, so we need to break a level of abstraction
-                    (let ((mesg (if arguments
-                                    (format nil "~{~}" description arguments)
-                                    description)))
-                     (cl-log:log-message category "~a" mesg)))))
+           (log-message
+            ;; cl-log:log-message is a macro, we can't use apply
+            ;; here, so we need to break a level of abstraction
+            (let ((mesg (if (log-message-arguments event)
+                            (format nil "~{~}"
+                                    (log-message-description event)
+                                    (log-message-arguments event))
+                            (log-message-description event))))
+              (cl-log:log-message (log-message-category event) "~a" mesg))))
 
-     until (eq event :stop)))
+     :until (typep event 'stop)))
