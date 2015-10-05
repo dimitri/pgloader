@@ -34,11 +34,7 @@
                    (format nil "SELECT ~{~a~^, ~} FROM [~a].[~a];"
                            (get-column-list (fields mssql))
                            schema
-                           table-name)))
-           (row-fn
-            (lambda (row)
-              (update-stats :data (target mssql) :read 1)
-              (funcall process-row-fn row))))
+                           table-name))))
       (log-message :debug "~a" sql)
       (handler-case
           (handler-bind
@@ -48,7 +44,7 @@
                     (update-stats :data (target mssql) :errs 1)
                     (invoke-restart 'mssql::use-nil))))
             (mssql::map-query-results sql
-                                      :row-fn row-fn
+                                      :row-fn process-row-fn
                                       :connection (conn-handle *mssql-db*)))
         (condition (e)
           (progn

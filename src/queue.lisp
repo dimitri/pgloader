@@ -34,6 +34,7 @@
               oversized?)
       ;; close current batch, prepare next one
       (with-slots (data count bytes) *current-batch*
+        (update-stats :data (target copy) :read count)
         (lq:push-queue (list :batch data count oversized?) queue))
       (setf *current-batch* (make-batch))))
 
@@ -71,6 +72,7 @@
          (with-slots (data count) *current-batch*
            (when (< 0 count)
              (log-message :debug "Sending last batch (~d rows)" count)
+             (update-stats :data (target copy) :read count)
              (lq:push-queue (list :batch data count nil) queue))))
 
     ;; signal we're done

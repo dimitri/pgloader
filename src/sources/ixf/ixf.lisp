@@ -69,12 +69,9 @@
     (log-message :notice "Parsing IXF with TimeZone: ~a"
                  (local-time::timezone-name local-time:*default-timezone*))
     (with-connection (conn (source-db copy-ixf))
-      (let ((ixf    (ixf:make-ixf-file :stream (conn-handle conn)))
-            (row-fn (lambda (row)
-                      (update-stats :data (target copy-ixf) :read 1)
-                      (funcall process-row-fn row))))
+      (let ((ixf    (ixf:make-ixf-file :stream (conn-handle conn))))
         (ixf:read-headers ixf)
-        (ixf:map-data ixf row-fn)))))
+        (ixf:map-data ixf process-row-fn)))))
 
 (defmethod copy-to-queue ((ixf copy-ixf) queue)
   "Copy data from IXF file FILENAME into queue DATAQ"

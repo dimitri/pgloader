@@ -105,9 +105,7 @@
                               :do (setf (aref v x) val))
                            v)
                counting t into rows
-               do (progn
-                    (update-stats :data (target sqlite) :read 1)
-                    (funcall process-row-fn row))
+               do (funcall process-row-fn row)
                finally
                  (sqlite:finalize-statement statement)
                  (return rows))

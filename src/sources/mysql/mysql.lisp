@@ -49,11 +49,7 @@
         (log-message :notice "Force encoding to ~a for ~a"
                      qmynd:*mysql-encoding* table-name))
       (let* ((cols (get-column-list (db-name (source-db mysql)) table-name))
-             (sql  (format nil "SELECT ~{~a~^, ~} FROM `~a`;" cols table-name))
-             (row-fn
-              (lambda (row)
-                (update-stats :data (target mysql) :read 1)
-                (funcall process-row-fn row))))
+             (sql  (format nil "SELECT ~{~a~^, ~} FROM `~a`;" cols table-name)))
         (handler-bind
             ;; avoid trying to fetch the character at end-of-input position...
             ((babel-encodings:end-of-input-in-character
@@ -73,7 +69,7 @@
                                  "~a: Illegal ~a character starting at position ~a: ~a."
                                  table-name encoding position character))
                   (invoke-restart 'qmynd-impl::use-nil))))
-          (mysql-query sql :row-fn row-fn :result-type 'vector))))))
+          (mysql-query sql :row-fn process-row-fn :result-type 'vector))))))
 
 ;;;
 ;;; Use map-rows and pgsql-text-copy-format to fill in a CSV file on disk
