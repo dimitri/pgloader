@@ -6,7 +6,8 @@
   (:use #:cl)
   (:export #:precision
            #:scale
-           #:intern-symbol))
+           #:intern-symbol
+           #:typemod-expr-to-function))
 
 (defpackage #:pgloader.logs
   (:use #:cl #:pgloader.params)
@@ -176,7 +177,11 @@
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.schema)
-  (:import-from #:pgloader.transforms #:precision #:scale #:intern-symbol)
+  (:import-from #:pgloader.transforms
+                #:precision
+                #:scale
+                #:intern-symbol
+                #:typemod-expr-to-function)
   (:import-from #:pgloader.parse-date
                 #:parse-date-string
                 #:parse-date-format)

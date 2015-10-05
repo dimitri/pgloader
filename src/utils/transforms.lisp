@@ -41,6 +41,14 @@
              (intern (string-upcase symbol-name)
                      (find-package "PGLOADER.USER-SYMBOLS"))))))))
 
+(defun typemod-expr-to-function (expr)
+  "Transform given EXPR into a callable function object."
+  `(lambda (typemod)
+     (destructuring-bind (precision &optional (scale 0))
+         typemod
+       (declare (ignorable precision scale))
+       ,expr)))
+
 
 ;;;
 ;;; Some optimisation stanza

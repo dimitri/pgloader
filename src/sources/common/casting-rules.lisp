@@ -29,13 +29,6 @@
 				       :start (+ 1 start-1) :end end))
 	  (cons a b))))))
 
-(defun typemod-expr-to-function (expr)
-  "Transform given EXPR into a callable function object."
-  `(lambda (typemod)
-     (destructuring-bind (precision &optional (scale 0)) typemod
-       (declare (ignorable precision scale))
-       ,expr)))
-
 (defun typemod-expr-matches-p (rule-typemod-expr typemod)
   "Check if an expression such as (< 10) matches given typemod."
   (funcall (compile nil (typemod-expr-to-function rule-typemod-expr)) typemod))
