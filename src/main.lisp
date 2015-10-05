@@ -504,4 +504,4 @@
                                            :mssql-options options
                                            :before before
                                            :after after))))
-     :start-logger start-logger)))
+     :start-logger nil)))
