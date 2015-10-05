@@ -98,6 +98,7 @@
                          (:file "command-source")
                          (:file "command-options")
                          (:file "command-sql-block")
+                         (:file "command-sexp")
                          (:file "command-csv")
                          (:file "command-ixf")
                          (:file "command-fixed")
