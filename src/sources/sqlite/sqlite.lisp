@@ -113,37 +113,6 @@
             (log-message :error "~a" e)
             (update-stats :data (target sqlite) :errs 1)))))))
 
-
-(defmethod copy-to-queue ((sqlite copy-sqlite) queue)
-  "Copy data from SQLite table TABLE-NAME within connection DB into queue DATAQ"
-  (map-push-queue sqlite queue))
-
-(defmethod copy-from ((sqlite copy-sqlite)
-                      &key (kernel nil k-s-p) truncate disable-triggers)
-  "Stream the contents from a SQLite database table down to PostgreSQL."
-  (let* ((lp:*kernel* (or kernel (make-kernel 2)))
-	 (channel     (lp:make-channel))
-	 (queue       (lq:make-queue :fixed-capacity *concurrent-batches*)))
-
-    (with-stats-collection ((target sqlite) :dbname (db-name (target-db sqlite)))
-      (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
-        (log-message :notice "COPY ~a" (target sqlite))
-        ;; read data from SQLite
-        (lp:submit-task channel #'copy-to-queue sqlite queue)
-
-        ;; and start another task to push that data from the queue to PostgreSQL
-        (lp:submit-task channel
-                        #'pgloader.pgsql:copy-from-queue
-                        (target-db sqlite) (target sqlite) queue
-                        :truncate truncate
-                        :disable-triggers disable-triggers)
-
-        ;; now wait until both the tasks are over
-        (loop for tasks below 2 do (lp:receive-result channel)
-           finally
-             (log-message :info "COPY ~a done." (target sqlite))
-             (unless k-s-p (lp:end-kernel)))))))
-
 (defun fetch-sqlite-metadata (sqlite &key including excluding)
   "SQLite introspection to prepare the migration."
   (let (all-columns all-indexes)

@@ -51,41 +51,6 @@
             (log-message :error "~a" e)
             (update-stats :data (target mssql) :errs 1)))))))
 
-(defmethod copy-to-queue ((mssql copy-mssql) queue)
-  "Copy data from MSSQL table DBNAME.TABLE-NAME into queue DATAQ"
-  (map-push-queue mssql queue))
-
-(defmethod copy-from ((mssql copy-mssql)
-                      &key (kernel nil k-s-p) truncate disable-triggers)
-  "Connect in parallel to MSSQL and PostgreSQL and stream the data."
-  (let* ((lp:*kernel*    (or kernel (make-kernel 2)))
-	 (channel        (lp:make-channel))
-	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*))
-	 (table-name     (target mssql)))
-
-    ;; we account stats against the target table-name, because that's all we
-    ;; know on the PostgreSQL thread
-    (with-stats-collection (table-name :dbname (db-name (target-db mssql)))
-      (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
-        (log-message :notice "COPY ~a" table-name)
-        ;; read data from Mssql
-        (lp:submit-task channel #'copy-to-queue mssql queue)
-
-        ;; and start another task to push that data from the queue to PostgreSQL
-        (lp:submit-task channel #'pgloader.pgsql:copy-from-queue
-                        (target-db mssql) (target mssql) queue
-                        :truncate truncate
-                        :disable-triggers disable-triggers)
-
-        ;; now wait until both the tasks are over
-        (loop for tasks below 2 do (lp:receive-result channel)
-           finally
-             (log-message :info "COPY ~a done." table-name)
-             (unless k-s-p (lp:end-kernel)))))
-
-    ;; return the copy-mssql object we just did the COPY for
-    mssql))
-
 (defun complete-pgsql-database (pgconn all-columns all-fkeys pkeys
                                 &key
                                   data-only

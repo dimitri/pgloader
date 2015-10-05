@@ -126,6 +126,8 @@
                         ((:module "common"
                                   :components
                                   ((:file "api")
+                                   (:file "methods"    :depends-on ("api"))
+                                   (:file "md-methods" :depends-on ("api"))
                                    (:file "casting-rules")
                                    (:file "files-and-pathnames")
                                    (:file "project-fields")))

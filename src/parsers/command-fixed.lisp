@@ -125,8 +125,8 @@
   `(lambda ()
      (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
-            (source-db     (with-stats-collection ("fetch" :section :pre)
-                               (expand (fetch-file ,fixed-conn)))))
+              (source-db (with-stats-collection ("fetch" :section :pre)
+                             (expand (fetch-file ,fixed-conn)))))
 
        (progn
          ,(sql-code-block pg-db-conn :pre before "before load")
@@ -144,10 +144,10 @@
                                :columns ',columns
                                :skip-lines ,(or (getf options :skip-line) 0))))
 
-           (pgloader.sources:copy-from source
-                                       :truncate truncate
-                                       :drop-indexes drop-indexes
-                                       :disable-triggers disable-triggers))
+           (pgloader.sources:copy-database source
+                                           :truncate truncate
+                                           :drop-indexes drop-indexes
+                                           :disable-triggers disable-triggers))
 
          ,(sql-code-block pg-db-conn :post after "after load")))))
 

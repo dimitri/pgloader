@@ -71,67 +71,11 @@
                   (invoke-restart 'qmynd-impl::use-nil))))
           (mysql-query sql :row-fn process-row-fn :result-type 'vector))))))
 
-;;;
-;;; Use map-rows and pgsql-text-copy-format to fill in a CSV file on disk
-;;; with MySQL data in there.
-;;;
-(defmethod copy-to ((mysql copy-mysql) filename)
-  "Extract data from MySQL in PostgreSQL COPY TEXT format"
-  (with-open-file (text-file filename
-			     :direction :output
-			     :if-exists :supersede
-			     :external-format :utf-8)
-    (map-rows mysql
-	      :process-row-fn
-	      (lambda (row)
-		(format-vector-row text-file row (transforms mysql))))))
-
-;;;
-;;; Export MySQL data to our lparallel data queue. All the work is done in
-;;; other basic layers, simple enough function.
-;;;
-(defmethod copy-to-queue ((mysql copy-mysql) queue)
-  "Copy data from MySQL table DBNAME.TABLE-NAME into queue DATAQ"
-  (map-push-queue mysql queue))
 
 
-;;;
-;;; Direct "stream" in between mysql fetching of results and PostgreSQL COPY
-;;; protocol
-;;;
-(defmethod copy-from ((mysql copy-mysql)
-                      &key (kernel nil k-s-p) truncate disable-triggers)
-  "Connect in parallel to MySQL and PostgreSQL and stream the data."
-  (let* ((lp:*kernel*    (or kernel (make-kernel 2)))
-	 (channel        (lp:make-channel))
-	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*))
-	 (table-name     (target mysql)))
-
-    ;; we account stats against the target table-name, because that's all we
-    ;; know on the PostgreSQL thread
-    (with-stats-collection (table-name :dbname (db-name (target-db mysql)))
-      (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
-        (log-message :notice "COPY ~a" table-name)
-        ;; read data from MySQL
-        (lp:submit-task channel #'copy-to-queue mysql queue)
-
-        ;; and start another task to push that data from the queue to PostgreSQL
-        (lp:submit-task channel #'pgloader.pgsql:copy-from-queue
-                        (target-db mysql) (target mysql) queue
-                        :columns (mapcar #'apply-identifier-case
-                                         (mapcar #'mysql-column-name
-                                                 (fields mysql)))
-                        :truncate truncate
-                        :disable-triggers disable-triggers)
-
-        ;; now wait until both the tasks are over
-        (loop for tasks below 2 do (lp:receive-result channel)
-           finally
-             (log-message :info "COPY ~a done." table-name)
-             (unless k-s-p (lp:end-kernel)))))
-
-    ;; return the copy-mysql object we just did the COPY for
-    mysql))
+(defmethod copy-column-list ((mysql copy-mysql))
+  "We are sending the data in the MySQL columns ordering here."
+  (mapcar #'apply-identifier-case (mapcar #'mysql-column-name (fields mysql))))
 
 
 ;;;

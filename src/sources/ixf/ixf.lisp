@@ -73,34 +73,6 @@
         (ixf:read-headers ixf)
         (ixf:map-data ixf process-row-fn)))))
 
-(defmethod copy-to-queue ((ixf copy-ixf) queue)
-  "Copy data from IXF file FILENAME into queue DATAQ"
-  (pgloader.queue:map-push-queue ixf queue))
-
-(defmethod copy-from ((ixf copy-ixf)
-                      &key (kernel nil k-s-p) truncate disable-triggers)
-  (let* ((lp:*kernel*    (or kernel (make-kernel 2)))
-         (channel        (lp:make-channel))
-         (queue          (lq:make-queue :fixed-capacity *concurrent-batches*)))
-
-    (with-stats-collection ((target ixf) :dbname (db-name (target-db ixf)))
-      (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
-        (log-message :notice "COPY \"~a\" from '~a'" (target ixf) (source ixf))
-        (lp:submit-task channel #'copy-to-queue ixf queue)
-
-        ;; and start another task to push that data from the queue to PostgreSQL
-        (lp:submit-task channel
-                        #'pgloader.pgsql:copy-from-queue
-                        (target-db ixf) (target ixf) queue
-                        :truncate truncate
-                        :disable-triggers disable-triggers)
-
-        ;; now wait until both the tasks are over, and kill the kernel
-        (loop for tasks below 2 do (lp:receive-result channel)
-           finally
-             (log-message :info "COPY \"~a\" done." (target ixf))
-             (unless k-s-p (lp:end-kernel)))))))
-
 (defmethod copy-database ((ixf copy-ixf)
                           &key
                             table-name

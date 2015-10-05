@@ -41,8 +41,12 @@
 
 (defgeneric copy-to-queue (source queue)
   (:documentation
-   "Load data from SOURCE and queue each row into QUEUE. Typicall
+   "Load data from SOURCE and queue each row into QUEUE. Typical
     implementation will directly use pgloader.queue:map-push-queue."))
+
+(defgeneric copy-column-list (source)
+  (:documentation
+   "Return the list of column names for the data sent in the queue."))
 
 (defgeneric copy-from (source &key truncate)
   (:documentation
@@ -96,4 +100,37 @@
 
 ;; (defgeneric fetch-metadata (connection &key)
 ;;   (:documentation "Full discovery of the CONNECTION data source."))
+
+
+;;;
+;;; Class hierarchy allowing to share features among a subcategory of
+;;; pgloader sources. Those subcategory are divided in about the same set as
+;;; the connection types.
+;;;
+;;;   fd-connection: single file reader, copy
+;;;   md-connection: multiple file reader, md-copy
+;;;   db-connection: database connection reader, with introspection, db-copy
+;;;
+;;; Of those only md-copy objects share a lot in common, so we have another
+;;; layer of protocols just for them here, and the shared implementation
+;;; lives in md-methods.lisp in this directory.
+;;;
+
+(defclass md-copy (copy)
+  ((encoding    :accessor encoding	  ; file encoding
+	        :initarg :encoding)	  ;
+   (skip-lines  :accessor skip-lines	  ; skip firt N lines
+	        :initarg :skip-lines	  ;
+		:initform 0)		  ;
+   (header      :accessor header          ; CSV headers are col names
+                :initarg :header          ;
+                :initform nil))           ;
+  (:documentation "pgloader Multiple Files Data Source (csv, fixed, copy)."))
+
+(defgeneric parse-header (md-copy header)
+  (:documentation "Parse the file header and return a list of fields."))
+
+(defgeneric process-rows (md-copy stream process-fn)
+  (:documentation "Process rows from a given input stream."))
+
 

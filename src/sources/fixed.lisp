@@ -10,7 +10,7 @@
   "Assign the type slot to sqlite."
   (setf (slot-value fixed 'type) "fixed"))
 
-(defclass copy-fixed (copy)
+(defclass copy-fixed (md-copy)
   ((encoding    :accessor encoding	  ; file encoding
 	        :initarg :encoding)	  ;
    (skip-lines  :accessor skip-lines	  ; CSV headers
@@ -44,82 +44,17 @@
                   (when (<= start len)
                     (subseq line start (min len end)))))))
 
-(defmethod map-rows ((fixed copy-fixed) &key process-row-fn)
-  "Load data from a text file in Fixed Columns format.
-
-   Each row is pre-processed then PROCESS-ROW-FN is called with the row as a
-   list as its only parameter.
-
-   Returns how many rows where read and processed."
-  (with-connection (cnx (source fixed))
-    (loop :for input := (open-next-stream cnx
-                                          :direction :input
-                                          :external-format (encoding fixed)
-                                          :if-does-not-exist nil)
-       :while input
-       :do (progn ;; ignore as much as skip-lines lines in the file
-             (loop repeat (skip-lines fixed) do (read-line input nil nil))
-
-             ;; read in the text file, split it into columns, process NULL
-             ;; columns the way postmodern expects them, and call
-             ;; PROCESS-ROW-FN on them
-             (let ((reformat-then-process
-                    (reformat-then-process :fields  (fields fixed)
-                                           :columns (columns fixed)
-                                           :target  (target fixed)
-                                           :process-row-fn process-row-fn)))
-               (loop
-                  :with fun := (compile nil reformat-then-process)
-                  :with fixed-cols-specs := (mapcar #'cdr (fields fixed))
-                  :for line := (read-line input nil nil)
-                  :counting line :into read
-                  :while line
-                  :do (handler-case
-                          (funcall fun (parse-row fixed-cols-specs line))
-                        (condition (e)
-                          (progn
-                            (log-message :error "~a" e)
-                            (update-stats :data (target fixed) :errs 1))))))))))
-
-(defmethod copy-to-queue ((fixed copy-fixed) queue)
-  "Copy data from given FIXED definition into lparallel.queue DATAQ"
-  (pgloader.queue:map-push-queue fixed queue))
-
-(defmethod copy-from ((fixed copy-fixed)
-                      &key
-                        truncate
-                        disable-triggers
-                        drop-indexes)
-  "Copy data from given FIXED file definition into its PostgreSQL target table."
-  (let* ((lp:*kernel*    (make-kernel 2))
-	 (channel        (lp:make-channel))
-	 (queue          (lq:make-queue :fixed-capacity *concurrent-batches*))
-         (indexes        (maybe-drop-indexes (target-db fixed)
-                                             (target fixed)
-                                             :drop-indexes drop-indexes)))
-
-    (with-stats-collection ((target fixed) :dbname (db-name (target-db fixed)))
-      (lp:task-handler-bind () ;; ((error #'lp:invoke-transfer-error))
-        (log-message :notice "COPY ~a" (target fixed))
-        (lp:submit-task channel #'copy-to-queue fixed queue)
-
-        ;; and start another task to push that data from the queue to PostgreSQL
-        (lp:submit-task channel
-                        ;; this function update :rows stats
-                        #'pgloader.pgsql:copy-from-queue
-                        (target-db fixed) (target fixed) queue
-                        ;; we only are interested into the column names here
-                        :columns (mapcar (lambda (col)
-                                           ;; always double quote column names
-                                           (format nil "~s" (car col)))
-                                         (columns fixed))
-                        :truncate truncate
-                        :disable-triggers disable-triggers)
-
-        ;; now wait until both the tasks are over
-        (loop for tasks below 2 do (lp:receive-result channel)
-           finally (lp:end-kernel))))
-
-    ;; re-create the indexes
-    (create-indexes-again (target-db fixed) indexes :drop-indexes drop-indexes)))
-
+(defmethod process-rows ((fixed copy-fixed) stream process-fn)
+  "Process rows from STREAM according to COPY specifications and PROCESS-FN."
+  (loop
+     :with fun := process-fn
+     :with fixed-cols-specs := (mapcar #'cdr (fields fixed))
+     :for line := (read-line stream nil nil)
+     :counting line :into read
+     :while line
+     :do (handler-case
+             (funcall fun (parse-row fixed-cols-specs line))
+           (condition (e)
+             (progn
+               (log-message :error "~a" e)
+               (update-stats :data (target fixed) :errs 1))))))

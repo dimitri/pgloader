@@ -117,8 +117,8 @@
   `(lambda ()
      (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
-            (source-db     (with-stats-collection ("fetch" :section :pre)
-                               (expand (fetch-file ,copy-conn)))))
+              (source-db (with-stats-collection ("fetch" :section :pre)
+                             (expand (fetch-file ,copy-conn)))))
 
        (progn
          ,(sql-code-block pg-db-conn :pre before "before load")
@@ -138,10 +138,10 @@
                                   options :extras '(:truncate
                                                     :drop-indexes
                                                     :disable-triggers)))))
-           (pgloader.sources:copy-from source
-                                       :truncate truncate
-                                       :drop-indexes drop-indexes
-                                       :disable-triggers disable-triggers))
+           (pgloader.sources:copy-database source
+                                           :truncate truncate
+                                           :drop-indexes drop-indexes
+                                           :disable-triggers disable-triggers))
 
          ,(sql-code-block pg-db-conn :post after "after load")))))
 

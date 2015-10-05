@@ -173,55 +173,6 @@
   (:export #:push-to-end
            #:with-schema))
 
-(defpackage #:pgloader.sources
-  (:use #:cl
-        #:pgloader.params #:pgloader.utils #:pgloader.connection
-        #:pgloader.schema)
-  (:import-from #:pgloader.transforms
-                #:precision
-                #:scale
-                #:intern-symbol
-                #:typemod-expr-to-function)
-  (:import-from #:pgloader.parse-date
-                #:parse-date-string
-                #:parse-date-format)
-  (:export #:copy
-	   #:source-db
-	   #:target-db
-	   #:source
-	   #:target
-	   #:fields
-	   #:columns
-	   #:transforms
-	   #:map-rows
-	   #:copy-from
-	   #:copy-to-queue
-	   #:copy-to
-	   #:copy-database
-
-           ;; the md-connection facilities
-           #:md-connection
-           #:md-spec
-           #:md-strm
-           #:expand-spec
-           #:open-next-stream
-
-           ;; common schema facilities
-           #:push-to-end
-           #:with-schema
-
-           ;; file based utils for CSV, fixed etc
-           #:with-open-file-or-stream
-	   #:get-pathname
-	   #:get-absolute-pathname
-	   #:project-fields
-	   #:reformat-then-process
-
-           ;; database cast machinery
-           #:*default-cast-rules*
-           #:*cast-rules*
-           #:cast))
-
 (defpackage #:pgloader.pgsql
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
@@ -267,6 +218,68 @@
            #:maybe-drop-indexes
            #:create-indexes-again
            #:reset-sequences))
+
+(defpackage #:pgloader.sources
+  (:use #:cl
+        #:pgloader.params #:pgloader.utils #:pgloader.connection
+        #:pgloader.schema #:pgloader.pgsql)
+  (:import-from #:pgloader.transforms
+                #:precision
+                #:scale
+                #:intern-symbol
+                #:typemod-expr-to-function)
+  (:import-from #:pgloader.parse-date
+                #:parse-date-string
+                #:parse-date-format)
+  (:export #:copy
+           #:md-copy
+
+           ;; Accessors
+	   #:source-db
+	   #:target-db
+	   #:source
+	   #:target
+	   #:fields
+	   #:columns
+	   #:transforms
+           #:encoding
+           #:skip-lines
+           #:header
+
+           ;; Main protocol/API
+	   #:map-rows
+	   #:copy-from
+	   #:copy-to-queue
+	   #:copy-to
+	   #:copy-database
+
+           ;; md-copy protocol/API
+           #:parse-header
+           #:process-rows
+
+           ;; the md-connection facilities
+           #:md-connection
+           #:md-spec
+           #:md-strm
+           #:expand-spec
+           #:open-next-stream
+
+           ;; common schema facilities
+           #:push-to-end
+           #:with-schema
+
+           ;; file based utils for CSV, fixed etc
+           #:with-open-file-or-stream
+	   #:get-pathname
+	   #:get-absolute-pathname
+	   #:project-fields
+	   #:reformat-then-process
+
+           ;; database cast machinery
+           #:*default-cast-rules*
+           #:*cast-rules*
+           #:cast))
+
 
 (defpackage #:pgloader.queue
   (:use #:cl #:pgloader.params #:pgloader.monitor)
