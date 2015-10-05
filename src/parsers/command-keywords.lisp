@@ -59,6 +59,7 @@
   (def-keyword-rule "log")
   (def-keyword-rule "level")
   (def-keyword-rule "encoding")
+  (def-keyword-rule "timezone")
   (def-keyword-rule "decoding")
   (def-keyword-rule "truncate")
   (def-keyword-rule "disable")

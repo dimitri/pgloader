@@ -8,13 +8,20 @@
 ;;;
 ;;; Integration with pgloader
 ;;;
-(defclass copy-ixf (copy) ()
+(defclass copy-ixf (copy)
+  ((timezone    :accessor timezone	  ; timezone
+	        :initarg :timezone
+                :initform local-time:+utc-zone+))
   (:documentation "pgloader IXF Data Source"))
 
 (defmethod initialize-instance :after ((source copy-ixf) &key)
   "Add a default value for transforms in case it's not been provided."
   (setf (slot-value source 'source)
         (pathname-name (fd-path (source-db source))))
+
+  ;; force default timezone when nil
+  (when (null (timezone source))
+    (setf (timezone source) local-time:+utc-zone+))
 
   (with-connection (conn (source-db source))
     (unless (and (slot-boundp source 'columns) (slot-value source 'columns))
@@ -58,13 +65,16 @@
 (defmethod map-rows ((copy-ixf copy-ixf) &key process-row-fn)
   "Extract IXF data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row."
-  (with-connection (conn (source-db copy-ixf))
-    (let ((ixf    (ixf:make-ixf-file :stream (conn-handle conn)))
-          (row-fn (lambda (row)
-                    (update-stats :data (target copy-ixf) :read 1)
-                    (funcall process-row-fn row))))
-      (ixf:read-headers ixf)
-      (ixf:map-data ixf row-fn))))
+  (let ((local-time:*default-timezone* (timezone copy-ixf)))
+    (log-message :notice "Parsing IXF with TimeZone: ~a"
+                 (local-time::timezone-name local-time:*default-timezone*))
+    (with-connection (conn (source-db copy-ixf))
+      (let ((ixf    (ixf:make-ixf-file :stream (conn-handle conn)))
+            (row-fn (lambda (row)
+                      (update-stats :data (target copy-ixf) :read 1)
+                      (funcall process-row-fn row))))
+        (ixf:read-headers ixf)
+        (ixf:map-data ixf row-fn)))))
 
 (defmethod copy-to-queue ((ixf copy-ixf) queue)
   "Copy data from IXF file FILENAME into queue DATAQ"

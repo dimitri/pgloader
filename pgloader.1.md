@@ -1235,7 +1235,7 @@ an example:
     LOAD IXF
         FROM data/nsitra.test1.ixf
         INTO postgresql:///pgloader?nsitra.test1
-        WITH truncate, create table
+        WITH truncate, create table, timezone UTC
 
       BEFORE LOAD DO
        $$ create schema if not exists nsitra; $$,
@@ -1281,6 +1281,13 @@ The `ixf` format command accepts the following clauses and options:
 
 	    This options expects as its value the possibly qualified name of the
 	    table to create.
+
+	  - *timezone*
+
+	    This options allows to specify which timezone is used when parsing
+        timestamps from an IXF file, and defaults to *UTC*. Expected values
+        are either `UTC`, `GMT` or a single quoted location name such as
+        `'Universal'` or `'Europe/Paris'`.
 
 ## LOAD ARCHIVE
 
