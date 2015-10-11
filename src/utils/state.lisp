@@ -14,6 +14,8 @@
   (rows 0   :type fixnum)		; how many rows did we write
   (errs 0   :type fixnum)		; how many errors did we see
   (secs 0.0 :type float)		; how many seconds did it take
+  (rs   0.0 :type float)                ;   seconds spent reading
+  (ws   0.0 :type float)                ;   seconds spent writing
   reject-data reject-logs)		; files where to find reject data
 
 (defstruct pgstate
@@ -22,7 +24,9 @@
   (read 0   :type fixnum)
   (rows 0   :type fixnum)
   (errs 0   :type fixnum)
-  (secs 0.0 :type float))
+  (secs 0.0 :type float)
+  (rs   0.0 :type float)
+  (ws   0.0 :type float))
 
 (defun format-table-name (table-name)
   "TABLE-NAME might be a CONS of a schema name and a table name."
@@ -89,7 +93,7 @@
 
 	pgtable)))
 
-(defun pgstate-setf (pgstate name &key read rows errs secs)
+(defun pgstate-setf (pgstate name &key read rows errs secs rs ws)
   (let ((pgtable (pgstate-get-label pgstate name)))
     (when read
       (setf (pgtable-read pgtable) read)
@@ -103,9 +107,15 @@
     (when secs
       (setf (pgtable-secs pgtable) secs)
       (incf (pgstate-secs pgstate) secs))
+    (when rs
+      (setf (pgtable-rs pgtable) rs)
+      (incf (pgstate-rs pgstate) rs))
+    (when ws
+      (setf (pgtable-ws pgtable) ws)
+      (incf (pgstate-ws pgstate) ws))
     pgtable))
 
-(defun pgstate-incf (pgstate name &key read rows errs secs)
+(defun pgstate-incf (pgstate name &key read rows errs secs rs ws)
   (let ((pgtable (pgstate-get-label pgstate name)))
     (when read
       (incf (pgtable-read pgtable) read)
@@ -119,9 +129,15 @@
     (when secs
       (incf (pgtable-secs pgtable) secs)
       (incf (pgstate-secs pgstate) secs))
+    (when rs
+      (incf (pgtable-rs pgtable) rs)
+      (incf (pgstate-rs pgstate) rs))
+    (when ws
+      (incf (pgtable-ws pgtable) ws)
+      (incf (pgstate-ws pgstate) ws))
     pgtable))
 
-(defun pgstate-decf (pgstate name &key read rows errs secs)
+(defun pgstate-decf (pgstate name &key read rows errs secs rs ws)
   (let ((pgtable (pgstate-get-label pgstate name)))
     (when read
       (decf (pgtable-read pgtable) read)
@@ -132,6 +148,12 @@
     (when errs
       (decf (pgtable-errs pgtable) errs)
       (decf (pgstate-errs pgstate) errs))
+    (when rs
+      (decf (pgtable-rs pgtable) rs)
+      (decf (pgstate-rs pgstate) rs))
+    (when ws
+      (decf (pgtable-ws pgtable) ws)
+      (decf (pgstate-ws pgstate) ws))
     (when secs
       (decf (pgtable-secs pgtable) secs)
       (decf (pgstate-secs pgstate) secs))

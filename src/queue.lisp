@@ -9,6 +9,7 @@
 ;;; pushes the data down to PostgreSQL using the COPY protocol.
 ;;;
 (defstruct batch
+  (start (get-internal-real-time) :type fixnum)
   (data  (make-array *copy-batch-rows* :element-type 'simple-string)
          :type (vector simple-string *))
   (count 0 :type fixnum)
@@ -33,8 +34,10 @@
     (when (or (= (batch-count *current-batch*) *copy-batch-rows*)
               oversized?)
       ;; close current batch, prepare next one
-      (with-slots (data count bytes) *current-batch*
-        (update-stats :data (target copy) :read count)
+      (with-slots (start data count bytes) *current-batch*
+        (update-stats :data (target copy)
+                      :read count
+                      :rs (pgloader.monitor::elapsed-time-since start))
         (lq:push-queue (list :batch data count oversized?) queue))
       (setf *current-batch* (make-batch))))
 
@@ -69,10 +72,12 @@
                                                      pre-formatted)))
 
          ;; we might have the last batch to send over now
-         (with-slots (data count) *current-batch*
+         (with-slots (start data count) *current-batch*
            (when (< 0 count)
              (log-message :debug "Sending last batch (~d rows)" count)
-             (update-stats :data (target copy) :read count)
+             (update-stats :data (target copy)
+                           :read count
+                           :rs (pgloader.monitor::elapsed-time-since start))
              (lq:push-queue (list :batch data count nil) queue))))
 
     ;; signal we're done

@@ -5,14 +5,14 @@
 (in-package :pgloader.state)
 
 (defvar *header-line*
-  "~&~v@{~A~:*~}  ---------  ---------  ---------  --------------")
+  "~&~v@{~A~:*~}  ---------  ---------  ---------  --------------  ---------  ---------")
 
 (defvar *header* "~&")
 (defvar *footer* "~&")
 (defvar *end-of-line-format* "~%")
 (defvar *max-length-table-name* 30)
 (defvar *header-tname-format* "~&~v@a")
-(defvar *header-stats-format* "  ~9@a  ~9@a  ~9@a  ~14@a")
+(defvar *header-stats-format* "  ~9@a  ~9@a  ~9@a  ~14@a  ~@[~9@a~]  ~@[~9@a~]")
 (defvar *header-cols-format* (concatenate 'string *header-tname-format*
 					  *header-stats-format*))
 (defvar *header-cols-names* '("table name" "read" "imported" "errors" "time"))
@@ -22,12 +22,13 @@
      (:header              "~&"
       :footer              "~%"
       :end-of-line-format  "~%"
-      :header-line "~&~v@{~A~:*~}  ---------  ---------  ---------  --------------"
+      :header-line "~&~v@{~A~:*~}  ---------  ---------  ---------  --------------  ---------  ---------"
 
       :header-tname-format "~&~v@a"
-      :header-stats-format "  ~9@a  ~9@a  ~9@a  ~14@a"
-      :header-cols-format  "~&~v@a  ~9@a  ~9@a  ~9@a  ~14@a"
-      :header-cols-names  ("table name" "read" "imported" "errors" "time")))
+      :header-stats-format "  ~9@a  ~9@a  ~9@a  ~14@a  ~@[~9@a~] ~@[~9@a~]"
+      :header-cols-format  "~&~v@a  ~9@a  ~9@a  ~9@a  ~14@a  ~9@a  ~9@a"
+      :header-cols-names  ("table name" "read" "imported" "errors"
+                                        "total time" "read" "write")))
 
     (:csv
      (:header              "~&"
@@ -35,8 +36,8 @@
       :end-of-line-format  "~%"
       :header-line         "~*~*"
       :header-tname-format "~&~*~s;"
-      :header-stats-format "~s;~s;~s;~s"
-      :header-cols-format  "~&~*~s;~s;~s;~s;~s"
+      :header-stats-format "~s;~s;~s;~s~*~*"
+      :header-cols-format  "~&~*~s;~s;~s;~s;~s;~s;~s"
       :header-cols-names  ("table name" "read" "imported" "errors" "time")))
 
     (:copy
@@ -45,7 +46,7 @@
       :end-of-line-format  "~%"
       :header-line         "~&~*~*"
       :header-tname-format "~&~*~a	"
-      :header-stats-format "~s	~s	~s	~s"
+      :header-stats-format "~s	~s	~s	~s~*~*"
       :header-cols-format  "~*~*~*~*~*~*" ; skip it
       :header-cols-names  ("table name" "read" "imported" "errors" "time")))
 
@@ -55,7 +56,7 @@
       :end-of-line-format  ",~%"
       :header-line         "~&~*~*"
       :header-tname-format "~& {\"table-name\": ~*~s,"
-      :header-stats-format "\"read\":~s,\"imported\":~s,\"errors\":~s,\"time\":~s}"
+      :header-stats-format "\"read\":~s,\"imported\":~s,\"errors\":~s,\"time\":~s~@[,\"read\":~s~]~@[,\"write\":~s~]}"
       :header-cols-format  "~*~*~*~*~*~*" ; skip it
       :header-cols-names   ("table name" "read" "imported" "errors" "time")))))
 
@@ -102,31 +103,38 @@
           *header-tname-format*
           *max-length-table-name* table-name))
 
-(defun report-results (read rows errors seconds &optional (eol t))
-  (format *report-stream* *header-stats-format* read rows errors seconds)
+(defun report-results (read rows errors seconds rs ws &optional (eol t))
+  (format *report-stream* *header-stats-format* read rows errors seconds rs ws)
   (when eol
     (format *report-stream* *end-of-line-format*)))
 
-(defun report-footer (legend read rows errors seconds)
+(defun report-footer (legend read rows errors seconds &optional rs ws)
   (format *report-stream* *header-line* *max-length-table-name* "-")
   (format *report-stream*
           "~{~}"
           *header-tname-format*
           (list* *max-length-table-name*
                  (list legend)))
-  (report-results read rows errors (format-interval seconds nil) nil)
+  (report-results read rows errors
+                  (format-interval seconds nil)
+                  (when (and rs (not (= rs 0.0))) (format-interval rs nil))
+                  (when (and ws (not (= rs 0.0))) (format-interval ws nil))
+                  nil)
   (format *report-stream* *footer*))
 
 ;;;
 ;;; Pretty print a report from a pgtable and pgstats counters
 ;;;
 (defun report-pgtable-stats (pgstate name)
-  (with-slots (read rows errs secs) (pgstate-get-table pgstate name)
-    (report-results read rows errs (format-interval secs nil))))
+  (with-slots (read rows errs secs rs ws) (pgstate-get-label pgstate name)
+    (report-results read rows errs
+                    (format-interval secs nil)
+                    (when (and rs (not (= rs 0.0))) (format-interval rs nil))
+                    (when (and ws (not (= ws 0.0))) (format-interval ws nil)))))
 
 (defun report-pgstate-stats (pgstate legend)
-  (with-slots (read rows errs secs) pgstate
-    (report-footer legend read rows errs secs)))
+  (with-slots (read rows errs secs rs ws) pgstate
+    (report-footer legend read rows errs secs rs ws)))
 
 ;;;
 ;;; Pretty print the whole summary from a state
@@ -138,12 +146,15 @@
      for table-name in (reverse (pgstate-tabnames pgstate))
      for pgtable = (gethash table-name (pgstate-tables pgstate))
      do
-       (with-slots (read rows errs secs) pgtable
+       (with-slots (read rows errs secs rs ws) pgtable
 	 (format *report-stream*
                  *header-tname-format*
                  *max-length-table-name*
                  (format-table-name table-name))
-         (report-results read rows errs (format-interval secs nil)))
+         (report-results read rows errs
+                         (format-interval secs nil)
+                         (when (and rs (not (= rs 0.0))) (format-interval rs nil))
+                         (when (and ws (not (= ws 0.0))) (format-interval ws nil))))
      finally (when footer
 	       (report-pgstate-stats pgstate footer))))
 

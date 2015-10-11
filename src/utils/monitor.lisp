@@ -219,7 +219,9 @@
                           (update-stats-label event)
                           :read (update-stats-read event)
                           :rows (update-stats-rows event)
-                          :secs (update-stats-secs event)))
+                          :secs (update-stats-secs event)
+                          :rs   (update-stats-rs event)
+                          :ws   (update-stats-ws event)))
 
            (bad-row
             (%process-bad-row (bad-row-label event)
