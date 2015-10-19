@@ -29,6 +29,9 @@
   (setf (conn-handle msconn) nil)
   msconn)
 
+(defmethod clone-connection ((c mssql-connection))
+  (change-class (call-next-method c) 'mssql-connection))
+
 (defmethod query ((msconn mssql-connection) sql &key)
   "Send SQL query to MSCONN connection."
   (mssql:query sql :connection (conn-handle msconn)))

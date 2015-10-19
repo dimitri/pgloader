@@ -234,10 +234,10 @@
 ;;;
 ;;; Internal utils
 ;;;
-(defun elapsed-time-since (start)
+(defun elapsed-time-since (start &optional (end (get-internal-real-time)))
   "Return how many seconds ticked between START and now"
-  (let ((now (get-internal-real-time)))
-    (coerce (/ (- now start) internal-time-units-per-second) 'double-float)))
+  (let ((end (or end (get-internal-real-time))))
+    (coerce (/ (- end start) internal-time-units-per-second) 'double-float)))
 
 
 ;;;

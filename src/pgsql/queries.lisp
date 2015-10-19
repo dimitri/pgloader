@@ -15,6 +15,13 @@
   "Assign the type slot to pgsql."
   (setf (slot-value pgconn 'type) "pgsql"))
 
+(defmethod clone-connection ((c pgsql-connection))
+  (let ((clone
+         (change-class (call-next-method c) 'pgsql-connection)))
+    (setf (pgconn-use-ssl clone)    (pgconn-use-ssl c)
+          (pgconn-table-name clone) (pgconn-table-name c))
+    clone))
+
 (defun new-pgsql-connection (pgconn)
   "Prepare a new connection object with all the same properties as pgconn,
    so as to avoid stepping on it's handle"
@@ -41,6 +48,7 @@
 
 (defmethod close-connection ((pgconn pgsql-connection))
   "Close a PostgreSQL connection."
+  (assert (not (null (conn-handle pgconn))))
   (pomo:disconnect (conn-handle pgconn))
   (setf (conn-handle pgconn) nil)
   pgconn)
@@ -81,13 +89,14 @@
 (defmacro with-pgsql-connection ((pgconn) &body forms)
   "Run FROMS within a PostgreSQL connection to DBNAME. To get the connection
    spec from the DBNAME, use `get-connection-spec'."
-  `(let (#+unix (cl-postgres::*unix-socket-dir*  (get-unix-socket-dir ,pgconn)))
-     (with-connection (conn ,pgconn)
-       (let ((pomo:*database* (conn-handle conn)))
-         (log-message :debug "CONNECTED TO ~s" conn)
-         (set-session-gucs *pg-settings*)
-         (handling-pgsql-notices
-              ,@forms)))))
+  (let ((conn (gensym "pgsql-conn")))
+    `(let (#+unix (cl-postgres::*unix-socket-dir*  (get-unix-socket-dir ,pgconn)))
+       (with-connection (,conn ,pgconn)
+         (let ((pomo:*database* (conn-handle ,conn)))
+           (log-message :debug "CONNECTED TO ~s" ,conn)
+           (set-session-gucs *pg-settings*)
+           (handling-pgsql-notices
+             ,@forms))))))
 
 (defun get-unix-socket-dir (pgconn)
   "When *pgconn* host is a (cons :unix path) value, return the right value
@@ -344,7 +353,7 @@ select i.relname,
 
 (defun reset-all-sequences (pgconn &key tables)
   "Reset all sequences to the max value of the column they are attached to."
-  (let ((newconn (new-pgsql-connection pgconn)))
+  (let ((newconn (clone-connection pgconn)))
     (with-pgsql-connection (newconn)
       (set-session-gucs *pg-settings*)
       (pomo:execute "set client_min_messages to warning;")

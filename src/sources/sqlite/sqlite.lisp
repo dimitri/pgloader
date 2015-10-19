@@ -24,6 +24,9 @@
   (setf (conn-handle slconn) nil)
   slconn)
 
+(defmethod clone-connection ((slconn sqlite-connection))
+  (change-class (call-next-method slconn) 'sqlite-connection))
+
 (defmethod query ((slconn sqlite-connection) sql &key)
   (sqlite:execute-to-list (conn-handle slconn) sql))
 
@@ -155,7 +158,9 @@
   "Stream the given SQLite database down to PostgreSQL."
   (declare (ignore only-tables))
   (let* ((cffi:*default-foreign-encoding* encoding)
-         (copy-kernel   (make-kernel 2))
+         (copy-kernel  (make-kernel 2))
+         (copy-channel (let ((lp:*kernel* copy-kernel)) (lp:make-channel)))
+         (table-count  0)
          idx-kernel idx-channel)
 
     (destructuring-bind (&key all-columns all-indexes pkeys)
@@ -193,15 +198,17 @@
          do
            (let ((table-source
                   (make-instance 'copy-sqlite
-                                 :source-db  (source-db sqlite)
-                                 :target-db  (target-db sqlite)
+                                 :source-db  (clone-connection (source-db sqlite))
+                                 :target-db  (clone-connection (target-db sqlite))
                                  :source     table-name
                                  :target     (apply-identifier-case table-name)
                                  :fields     columns)))
              ;; first COPY the data from SQLite to PostgreSQL, using copy-kernel
              (unless schema-only
+               (incf table-count)
                (copy-from table-source
                           :kernel copy-kernel
+                          :channel copy-channel
                           :disable-triggers disable-triggers))
 
              ;; Create the indexes for that table in parallel with the next
@@ -221,12 +228,20 @@
                                             idx-kernel idx-channel))))))
 
       ;; now end the kernels
-      (let ((lp:*kernel* copy-kernel))  (lp:end-kernel))
+      (let ((lp:*kernel* copy-kernel))
+        (with-stats-collection ("COPY Threads Completion" :section :post)
+            (loop :for tasks :below (* 2 table-count)
+               :do (destructuring-bind (task . table-name)
+                       (lp:receive-result copy-channel)
+                     (log-message :debug "Finished processing ~a for ~s"
+                                  task table-name)))
+          (lp:end-kernel)))
+
       (let ((lp:*kernel* idx-kernel))
         ;; wait until the indexes are done being built...
         ;; don't forget accounting for that waiting time.
         (when (and create-indexes (not data-only))
-          (with-stats-collection ("index build completion" :section :post)
+          (with-stats-collection ("Index Build Completion" :section :post)
             (loop for idx in all-indexes do (lp:receive-result idx-channel))))
         (lp:end-kernel))
 

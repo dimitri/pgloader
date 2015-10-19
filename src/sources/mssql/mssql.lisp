@@ -140,7 +140,9 @@
                             excluding)
   "Stream the given MS SQL database down to PostgreSQL."
   (let* ((cffi:*default-foreign-encoding* encoding)
-         (copy-kernel   (make-kernel 2))
+         (copy-kernel  (make-kernel 2))
+         (copy-channel (let ((lp:*kernel* copy-kernel)) (lp:make-channel)))
+         (table-count  0)
          idx-kernel idx-channel)
 
     (destructuring-bind (&key all-columns all-indexes all-fkeys pkeys)
@@ -215,8 +217,8 @@
                 :do
                 (let ((table-source
                        (make-instance 'copy-mssql
-                                      :source-db (source-db mssql)
-                                      :target-db (target-db mssql)
+                                      :source-db (clone-connection (source-db mssql))
+                                      :target-db (clone-connection (target-db mssql))
                                       :source    (cons schema table-name)
                                       :target    (qualify-name schema table-name)
                                       :fields    columns)))
@@ -225,8 +227,10 @@
 
                   ;; COPY the data to PostgreSQL, using copy-kernel
                   (unless schema-only
+                    (incf table-count)
                     (copy-from table-source
                                :kernel copy-kernel
+                               :channel copy-channel
                                :disable-triggers disable-triggers))
 
                   ;; Create the indexes for that table in parallel with the next
@@ -250,7 +254,15 @@
                                                  idx-channel)))))))
 
       ;; now end the kernels
-      (let ((lp:*kernel* copy-kernel))  (lp:end-kernel))
+      (let ((lp:*kernel* copy-kernel))
+        (with-stats-collection ("COPY Threads Completion" :section :post)
+            (loop :for tasks :below (* 2 table-count)
+               :do (destructuring-bind (task . table-name)
+                       (lp:receive-result copy-channel)
+                     (log-message :debug "Finished processing ~a for ~s"
+                                  task table-name)))
+          (lp:end-kernel)))
+
       (let ((lp:*kernel* idx-kernel))
         ;; wait until the indexes are done being built...
         ;; don't forget accounting for that waiting time.
@@ -262,7 +274,7 @@
       ;;
       ;; Complete the PostgreSQL database before handing over.
       ;;
-      (complete-pgsql-database (new-pgsql-connection (target-db mssql))
+      (complete-pgsql-database (clone-connection (target-db mssql))
                                all-columns all-fkeys pkeys
                                :data-only data-only
                                :foreign-keys foreign-keys

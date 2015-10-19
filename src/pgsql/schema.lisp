@@ -356,7 +356,7 @@
                   (lp:submit-task channel
                                   #'pgsql-connect-and-execute-with-timing
                                   ;; each thread must have its own connection
-                                  (new-pgsql-connection pgconn)
+                                  (clone-connection pgconn)
                                   :post label sql)
 
                   ;; return the pkey "upgrade" statement

@@ -3,6 +3,9 @@
 ;;
 (in-package :pgloader.connection)
 
+;;;
+;;; Generic API
+;;;
 (defclass connection ()
   ((type   :initarg :type :accessor conn-type)
    (handle :initarg :conn :accessor conn-handle :initform nil))
@@ -21,11 +24,25 @@
 (defgeneric check-connection (connection)
   (:documentation "Check that we can actually connect."))
 
+(defgeneric clone-connection (connection)
+  (:documentation "Instanciate a new connection object with similar properties."))
+
+
+;;;
+;;; File based objects
+;;;
 (defclass fd-connection (connection)
   ((uri  :initarg :uri  :accessor fd-uri)
    (arch :initarg :arch :accessor fd-arch)
    (path :initarg :path :accessor fd-path))
   (:documentation "pgloader connection parameters for a file based data source."))
+
+(defmethod clone-connection ((fd fd-connection))
+  (let ((clone (make-instance 'fd-connection :type (conn-type fd))))
+    (loop :for slot :in '(uri arch path)
+       :do (when (slot-boundp fd slot)
+             (setf (slot-value clone slot) (slot-value fd slot))))
+    clone))
 
 (define-condition fd-connection-error (connection-error)
   ((path :initarg :path :reader connection-error-path))
@@ -72,6 +89,9 @@
           (setf (fd-path fd) local-filename))))
   fd)
 
+;;;
+;;; database connections
+;;;
 (defclass db-connection (connection)
   ((name :initarg :name :accessor db-name)
    (host :initarg :host :accessor db-host)
@@ -79,6 +99,15 @@
    (user :initarg :user :accessor db-user)
    (pass :initarg :pass :accessor db-pass))
   (:documentation "pgloader connection parameters for a database service."))
+
+(defmethod clone-connection ((c db-connection))
+  (make-instance 'db-connection
+                 :type (conn-type c)
+                 :name (db-name c)
+                 :host (db-host c)
+                 :port (db-port c)
+                 :user (db-user c)
+                 :pass (db-pass c)))
 
 (defmethod print-object ((c db-connection) stream)
   (print-unreadable-object (c stream :type t :identity t)
@@ -100,6 +129,10 @@
 (defgeneric query (db-connection sql &key)
   (:documentation "Query DB-CONNECTION with SQL query"))
 
+
+;;;
+;;; Tools for every connection classes
+;;;
 (defmacro with-connection ((var connection) &body forms)
   "Connect to DB-CONNECTION and handle any condition when doing so, and when
    connected execute FORMS in a protected way so that we always disconnect

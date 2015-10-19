@@ -8,8 +8,8 @@
 ;;;
 (defmethod copy-to-queue ((copy copy) queue)
   "Copy data from given COPY definition into lparallel.queue QUEUE"
-  (pgloader.queue:map-push-queue copy queue))
-
+  (pgloader.queue:map-push-queue copy queue)
+  (cons :source (target copy)))
 
 (defmethod copy-column-list ((copy copy))
   "Default column list is an empty list."
@@ -28,17 +28,18 @@
 (defmethod copy-from ((copy copy)
                       &key
                         (kernel nil k-s-p)
+                        (channel nil c-s-p)
                         truncate
                         disable-triggers)
   "Copy data from COPY source into PostgreSQL."
   (let* ((lp:*kernel* (or kernel (make-kernel 2)))
-         (channel     (lp:make-channel))
+         (channel     (or channel (lp:make-channel)))
          (queue       (lq:make-queue :fixed-capacity *concurrent-batches*))
          (table-name  (format-table-name (target copy))))
 
     (with-stats-collection ((target copy) :dbname (db-name (target-db copy)))
-        (lp:task-handler-bind ((error #'lp:invoke-transfer-error))
-          (log-message :notice "COPY ~s" table-name)
+        (lp:task-handler-bind () ;; ((error #'lp:invoke-transfer-error))
+          (log-message :info "COPY ~s" table-name)
 
           ;; start a tast to read data from the source into the queue
           (lp:submit-task channel #'copy-to-queue copy queue)
@@ -55,7 +56,8 @@
                           :disable-triggers disable-triggers)
 
           ;; now wait until both the tasks are over, and kill the kernel
-          (loop :for tasks :below 2 :do (lp:receive-result channel)
-             :finally
-             (log-message :info "COPY ~s done." table-name)
-             (unless k-s-p (lp:end-kernel)))))))
+          (unless c-s-p
+            (loop :for tasks :below 2 :do (lp:receive-result channel)
+               :finally
+               (log-message :info "COPY ~s done." table-name)
+               (unless k-s-p (lp:end-kernel))))))))

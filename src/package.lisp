@@ -137,6 +137,7 @@
   (:export #:connection
            #:open-connection
            #:close-connection
+           #:clone-connection
            #:fd-connection
            #:db-connection
            #:connection-error
@@ -180,7 +181,6 @@
   (:export #:pgsql-connection
            #:pgconn-use-ssl
            #:pgconn-table-name
-           #:new-pgsql-connection
            #:with-pgsql-transaction
 	   #:with-pgsql-connection
 	   #:pgsql-execute
@@ -409,7 +409,6 @@
         #:pgloader.sources #:pgloader.queue)
   (:import-from #:pgloader.transforms #:precision #:scale)
   (:import-from #:pgloader.pgsql
-                #:new-pgsql-connection
 		#:with-pgsql-connection
 		#:with-pgsql-transaction
 		#:pgsql-execute
@@ -479,7 +478,6 @@
         #:pgloader.sources #:pgloader.queue)
   (:import-from #:pgloader.transforms #:precision #:scale)
   (:import-from #:pgloader.pgsql
-                #:new-pgsql-connection
 		#:with-pgsql-connection
 		#:with-pgsql-transaction
 		#:pgsql-execute

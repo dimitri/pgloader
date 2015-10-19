@@ -73,6 +73,9 @@
   (setf (conn-handle myconn) nil)
   myconn)
 
+(defmethod clone-connection ((c mysql-connection))
+  (change-class (call-next-method c) 'mysql-connection))
+
 (defmethod query ((myconn mysql-connection)
                   sql
                   &key

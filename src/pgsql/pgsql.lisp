@@ -72,7 +72,9 @@
                            unqualified-table-name rows oversized?)
               (update-stats :data table-name :rows rows :ws ws)))
 
-      (when disable-triggers (enable-triggers unqualified-table-name)))))
+      (when disable-triggers (enable-triggers unqualified-table-name))))
+
+  (cons :target table-name))
 
 ;;;
 ;;; Compute how many rows we're going to try loading next, depending on
