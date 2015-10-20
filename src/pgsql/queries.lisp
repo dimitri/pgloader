@@ -34,16 +34,51 @@
                  :use-ssl (pgconn-use-ssl pgconn)
                  :table-name (pgconn-table-name pgconn)))
 
+;;;
+;;; We need to distinguish some special cases of PostgreSQL errors within
+;;; Class 53 — Insufficient Resources: in case of "too many connections" we
+;;; typically want to leave room for another worker to finish and free one
+;;; connection, then try again.
+;;;
+;;; http://www.postgresql.org/docs/9.4/interactive/errcodes-appendix.html
+;;;
+;;; The "leave room to finish and try again" heuristic is currently quite
+;;; simplistic, but at least it work in my test cases.
+;;;
+(cl-postgres-error::deferror "53300"
+    too-many-connections cl-postgres-error:insufficient-resources)
+(cl-postgres-error::deferror "53400"
+    configuration-limit-exceeded cl-postgres-error:insufficient-resources)
+
+(defvar *retry-connect-times* 5
+  "How many times to we try to connect again.")
+
+(defvar *retry-connect-delay* 0.5
+  "How many seconds to wait before trying to connect again.")
+
 (defmethod open-connection ((pgconn pgsql-connection) &key username)
   "Open a PostgreSQL connection."
-  (setf (conn-handle pgconn)
-        (pomo:connect (db-name pgconn)
-                      (or username (db-user pgconn))
-                      (db-pass pgconn)
-                      (let ((host (db-host pgconn)))
-                        (if (and (consp host) (eq :unix (car host))) :unix host))
-                      :port (db-port pgconn)
-                      :use-ssl (or (pgconn-use-ssl pgconn) :no)))
+  (flet ((connect (pgconn username)
+           (handler-case
+               (pomo:connect (db-name pgconn)
+                             (or username (db-user pgconn))
+                             (db-pass pgconn)
+                             (let ((host (db-host pgconn)))
+                               (if (and (consp host) (eq :unix (car host)))
+                                   :unix
+                                   host))
+                             :port (db-port pgconn)
+                             :use-ssl (or (pgconn-use-ssl pgconn) :no))
+             ((or too-many-connections configuration-limit-exceeded) (e)
+               (log-message :error
+                            "Failed to connect to ~a: ~a; will try again in ~fs"
+                            pgconn e *retry-connect-delay*)
+               (sleep *retry-connect-delay*)))))
+    (loop :while (null (conn-handle pgconn))
+       :repeat *retry-connect-times*
+       :do (setf (conn-handle pgconn) (connect pgconn username))))
+  (unless (conn-handle pgconn)
+    (error "Failed ~d times to connect to ~a" *retry-connect-times* pgconn))
   pgconn)
 
 (defmethod close-connection ((pgconn pgsql-connection))
