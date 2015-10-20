@@ -152,7 +152,10 @@
                  *max-length-table-name*
                  (format-table-name table-name))
          (report-results read rows errs
-                         (format-interval secs nil)
+                         (cond ((> 0 secs) (format-interval secs nil))
+                               ((and rs ws (= 0 secs))
+                                (format-interval (max rs ws) nil))
+                               (t (format-interval secs nil)))
                          (when (and rs (not (= rs 0.0))) (format-interval rs nil))
                          (when (and ws (not (= ws 0.0))) (format-interval ws nil))))
      finally (when footer
