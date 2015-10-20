@@ -25,7 +25,7 @@
       :header-line "~&~v@{~A~:*~}  ---------  ---------  ---------  --------------  ---------  ---------"
 
       :header-tname-format "~&~v@a"
-      :header-stats-format "  ~9@a  ~9@a  ~9@a  ~14@a  ~@[~9@a~] ~@[~9@a~]"
+      :header-stats-format "  ~9@a  ~9@a  ~9@a  ~14@a  ~:[~9<~>~;~:*~9@a~] ~:[~9<~>~;~:*~9@a~]"
       :header-cols-format  "~&~v@a  ~9@a  ~9@a  ~9@a  ~14@a  ~9@a  ~9@a"
       :header-cols-names  ("table name" "read" "imported" "errors"
                                         "total time" "read" "write")))
