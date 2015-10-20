@@ -37,7 +37,7 @@
       :header-line         "~*~*"
       :header-tname-format "~&~*~s;"
       :header-stats-format "~s;~s;~s;~s~*~*"
-      :header-cols-format  "~&~*~s;~s;~s;~s;~s;~s;~s"
+      :header-cols-format  "~&~*~s;~s;~s;~s;~s"
       :header-cols-names  ("table name" "read" "imported" "errors" "time")))
 
     (:copy
