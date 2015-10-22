@@ -259,6 +259,19 @@
     (log-message :info "~a" sql)
     (pomo:execute sql)))
 
+(defmacro with-disabled-triggers ((table-name &key disable-triggers)
+                                  &body forms)
+  "Run FORMS with PostgreSQL triggers disabled for TABLE-NAME if
+   DISABLE-TRIGGERS is T A PostgreSQL connection must be opened already
+   where this macro is used."
+  `(if ,disable-triggers
+       (progn
+         (disable-triggers ,table-name)
+         (unwind-protect
+              (progn ,@forms)
+           (enable-triggers ,table-name)))
+       (progn ,@forms)))
+
 
 ;;;
 ;;; Index support

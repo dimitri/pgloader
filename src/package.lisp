@@ -66,6 +66,7 @@
            #:send-event
            #:start-monitor
            #:stop-monitor
+           #:elapsed-time-since
            #:timing))
 
 (defpackage #:pgloader.utils
@@ -77,6 +78,7 @@
   (:export #:with-monitor               ; monitor
            #:*monitoring-queue*
            #:with-stats-collection
+           #:elapsed-time-since
 	   #:timing
 
            ;; bits from alexandria

@@ -49,32 +49,33 @@
   "Fetch from the QUEUE messages containing how many rows are in the
    *writer-batch* for us to send down to PostgreSQL, and when that's done
    update stats."
-  (when truncate
-    (truncate-tables pgconn (list table-name)))
+  (let ((start-time (get-internal-real-time)))
+    (when truncate
+      (truncate-tables pgconn (list table-name)))
 
-  (with-pgsql-connection (pgconn)
-    (with-schema (unqualified-table-name table-name)
-      (when disable-triggers (disable-triggers unqualified-table-name))
-      (log-message :info "pgsql:copy-from-queue: ~a ~a" table-name columns)
+    (with-pgsql-connection (pgconn)
+      (with-schema (unqualified-table-name table-name)
+        (with-disabled-triggers (unqualified-table-name
+                                 :disable-triggers disable-triggers)
+          (log-message :info "pgsql:copy-from-queue: ~a ~a" table-name columns)
 
-      (loop
-         for (mesg batch read oversized?) = (lq:pop-queue queue)
-         until (eq mesg :end-of-data)
-         for (rows ws) = (multiple-value-bind (result secs)
-                             (timing
-                               (copy-batch unqualified-table-name columns batch read))
-                           (list result secs))
-         do (progn
-              ;; The SBCL implementation needs some Garbage Collection
-              ;; decision making help... and now is a pretty good time.
-              #+sbcl (when oversized? (sb-ext:gc :full t))
-              (log-message :debug "copy-batch ~a ~d row~:p~:[~; [oversized]~]"
-                           unqualified-table-name rows oversized?)
-              (update-stats :data table-name :rows rows :ws ws)))
+          (loop
+             :for (mesg batch read oversized?) := (lq:pop-queue queue)
+             :until (eq mesg :end-of-data)
+             :for (rows ws) := (multiple-value-bind (result secs)
+                                   (timing
+                                     (copy-batch unqualified-table-name
+                                                 columns batch read))
+                                 (list result secs))
+             :do (progn
+                   ;; The SBCL implementation needs some Garbage Collection
+                   ;; decision making help... and now is a pretty good time.
+                   #+sbcl (when oversized? (sb-ext:gc :full t))
+                   (log-message :debug "copy-batch ~a ~d row~:p~:[~; [oversized]~]"
+                                unqualified-table-name rows oversized?)
+                   (update-stats :data table-name :rows rows :ws ws))))))
 
-      (when disable-triggers (enable-triggers unqualified-table-name))))
-
-  (cons :target table-name))
+    (list :target table-name start-time)))
 
 ;;;
 ;;; Compute how many rows we're going to try loading next, depending on

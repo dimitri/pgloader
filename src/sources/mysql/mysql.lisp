@@ -408,10 +408,14 @@
       (let ((lp:*kernel* copy-kernel))
         (with-stats-collection ("COPY Threads Completion" :section :post)
             (loop :for tasks :below (* 2 table-count)
-               :do (destructuring-bind (task . table-name)
+               :do (destructuring-bind (task table-name start-time)
                        (lp:receive-result copy-channel)
+                     (declare (ignorable start-time))
                      (log-message :debug "Finished processing ~a for ~s"
-                                  task table-name)))
+                                  task table-name)
+                     (when (eq :target task)
+                       (update-stats :data table-name
+                                     :secs (elapsed-time-since start-time)))))
           (lp:end-kernel)))
 
       (let ((lp:*kernel* idx-kernel))

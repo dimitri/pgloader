@@ -37,7 +37,7 @@
       (with-slots (start data count bytes) *current-batch*
         (update-stats :data (target copy)
                       :read count
-                      :rs (pgloader.monitor::elapsed-time-since start))
+                      :rs (elapsed-time-since start))
         (lq:push-queue (list :batch data count oversized?) queue))
       (setf *current-batch* (make-batch))))
 
@@ -77,7 +77,7 @@
              (log-message :debug "Sending last batch (~d rows)" count)
              (update-stats :data (target copy)
                            :read count
-                           :rs (pgloader.monitor::elapsed-time-since start))
+                           :rs (elapsed-time-since start))
              (lq:push-queue (list :batch data count nil) queue))))
 
     ;; signal we're done

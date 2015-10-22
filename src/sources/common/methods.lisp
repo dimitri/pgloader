@@ -8,8 +8,9 @@
 ;;;
 (defmethod copy-to-queue ((copy copy) queue)
   "Copy data from given COPY definition into lparallel.queue QUEUE"
-  (pgloader.queue:map-push-queue copy queue)
-  (cons :source (target copy)))
+  (let ((start-time  (get-internal-real-time)))
+    (pgloader.queue:map-push-queue copy queue)
+    (list :source (target copy) start-time)))
 
 (defmethod copy-column-list ((copy copy))
   "Default column list is an empty list."
