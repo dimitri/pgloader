@@ -17,6 +17,29 @@
 
 (defvar *current-batch* nil)
 
+(defun cook-batches (copy raw-queue processed-queue &optional pre-formatted)
+  "Cook data from raw-queue into batches sent into processed-queue."
+  (let ((*current-batch* (make-batch)))
+    (loop :for row := (lq:pop-queue raw-queue)
+       :until (eq :end-of-data row)
+       :do (batch-row row copy processed-queue pre-formatted))
+
+    ;; finish current-batch
+    (finish-current-batch copy processed-queue)
+
+    ;; and before calling it a day, push the end-of-data marker
+    (log-message :debug "End of data.")
+    (lq:push-queue (list :end-of-data nil nil nil) processed-queue)))
+
+(defun finish-current-batch (copy queue
+                             &optional oversized? (batch *current-batch*))
+  (with-slots (start data count) batch
+    (when (< 0 count)
+      (update-stats :data (target copy)
+                    :read count
+                    :rs (elapsed-time-since start))
+      (lq:push-queue (list :batch data count oversized?) queue))))
+
 (declaim (inline oversized?))
 (defun oversized? (&optional (batch *current-batch*))
   "Return a generalized boolean that is true only when BATCH is considered
@@ -27,18 +50,11 @@
 (defun batch-row (row copy queue &optional pre-formatted)
   "Add ROW to the reader batch. When the batch is full, provide it to the
    writer."
-  (when (or (eq :data *log-min-messages*)
-            (eq :data *client-min-messages*))
-    (log-message :data "< ~s" row))
   (let ((oversized? (oversized? *current-batch*)))
     (when (or (= (batch-count *current-batch*) *copy-batch-rows*)
               oversized?)
       ;; close current batch, prepare next one
-      (with-slots (start data count bytes) *current-batch*
-        (update-stats :data (target copy)
-                      :read count
-                      :rs (elapsed-time-since start))
-        (lq:push-queue (list :batch data count oversized?) queue))
+      (finish-current-batch copy queue oversized?)
       (setf *current-batch* (make-batch))))
 
   ;; Add ROW to the current BATCH.
@@ -61,25 +77,3 @@
       (log-message :error "~a" e)
       (update-stats :data (target copy) :errs 1))))
 
-(defun map-push-queue (copy queue &optional pre-formatted)
-  "Apply MAP-ROWS on the COPY instance and a function of ROW that will push
-   the row into the QUEUE. When MAP-ROWS returns, push :end-of-data in the
-   queue."
-  (unwind-protect
-       (let ((*current-batch* (make-batch)))
-         (map-rows copy :process-row-fn (lambda (row)
-                                          (batch-row row copy queue
-                                                     pre-formatted)))
-
-         ;; we might have the last batch to send over now
-         (with-slots (start data count) *current-batch*
-           (when (< 0 count)
-             (log-message :debug "Sending last batch (~d rows)" count)
-             (update-stats :data (target copy)
-                           :read count
-                           :rs (elapsed-time-since start))
-             (lq:push-queue (list :batch data count nil) queue))))
-
-    ;; signal we're done
-    (log-message :debug "End of data.")
-    (lq:push-queue (list :end-of-data nil nil nil) queue)))

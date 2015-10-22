@@ -72,8 +72,9 @@
                (log-message :error "~a" e)
                (update-stats :data (target copy) :errs 1))))))
 
-(defmethod copy-to-queue ((copy copy-copy) queue)
+(defmethod format-data-to-copy ((copy copy-copy) raw-queue formatted-queue
+                                &optional pre-formatted)
   "Copy data from given COPY definition into lparallel.queue DATAQ"
-  (pgloader.queue:map-push-queue copy queue 'pre-formatted))
+  (call-next-method copy raw-queue formatted-queue t))
 
 

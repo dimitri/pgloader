@@ -6,11 +6,35 @@
 ;;;
 ;;; Common API implementation
 ;;;
-(defmethod copy-to-queue ((copy copy) queue)
-  "Copy data from given COPY definition into lparallel.queue QUEUE"
-  (let ((start-time  (get-internal-real-time)))
-    (pgloader.queue:map-push-queue copy queue)
-    (list :source (target copy) start-time)))
+(defmethod queue-raw-data ((copy copy) queue)
+  "Stream data as read by the map-queue method on the COPY argument into QUEUE,
+   as given."
+  (log-message :debug "Reader started for ~a" (target copy))
+  (let ((start-time (get-internal-real-time)))
+    (map-rows copy :process-row-fn (lambda (data)
+                                     (when (or (eq :data *log-min-messages*)
+                                               (eq :data *client-min-messages*))
+                                       (log-message :data "< ~s" data))
+                                     (lq:push-queue data queue)))
+    (lq:push-queue :end-of-data queue)
+
+    (let ((seconds (elapsed-time-since start-time)))
+     (log-message :info "Reader for ~a is done in ~fs" (target copy) seconds)
+     (list :reader (target copy) seconds))))
+
+(defmethod format-data-to-copy ((copy copy) raw-queue formatted-queue
+                                &optional pre-formatted)
+  "Loop over the data in the RAW-QUEUE and prepare it in batches in the
+   FORMATED-QUEUE, ready to be sent down to PostgreSQL using the COPY protocol."
+  (log-message :debug "Transformer in action for ~a!" (target copy))
+  (let ((start-time (get-internal-real-time)))
+
+    (pgloader.queue:cook-batches copy raw-queue formatted-queue pre-formatted)
+
+    ;; and return
+    (let ((seconds (elapsed-time-since start-time)))
+     (log-message :info "Transformer for ~a is done in ~fs" (target copy) seconds)
+     (list :worker (target copy) seconds))))
 
 (defmethod copy-column-list ((copy copy))
   "Default column list is an empty list."
@@ -33,9 +57,10 @@
                         truncate
                         disable-triggers)
   "Copy data from COPY source into PostgreSQL."
-  (let* ((lp:*kernel* (or kernel (make-kernel 2)))
+  (let* ((lp:*kernel* (or kernel (make-kernel 3)))
          (channel     (or channel (lp:make-channel)))
-         (queue       (lq:make-queue :fixed-capacity *concurrent-batches*))
+         (rawq        (lq:make-queue))
+         (fmtq        (lq:make-queue :fixed-capacity *concurrent-batches*))
          (table-name  (format-table-name (target copy))))
 
     (with-stats-collection ((target copy) :dbname (db-name (target-db copy)))
@@ -43,7 +68,11 @@
           (log-message :info "COPY ~s" table-name)
 
           ;; start a tast to read data from the source into the queue
-          (lp:submit-task channel #'copy-to-queue copy queue)
+          (lp:submit-task channel #'queue-raw-data copy rawq)
+
+          ;; now start a transformer thread to process raw vectors from our
+          ;; source into preprocessed batches to send down to PostgreSQL
+          (lp:submit-task channel #'format-data-to-copy copy rawq fmtq)
 
           ;; and start another task to push that data from the queue into
           ;; PostgreSQL
@@ -51,14 +80,14 @@
                           #'pgloader.pgsql:copy-from-queue
                           (target-db copy)
                           (target copy)
-                          queue
+                          fmtq
                           :columns (copy-column-list copy)
                           :truncate truncate
                           :disable-triggers disable-triggers)
 
           ;; now wait until both the tasks are over, and kill the kernel
           (unless c-s-p
-            (loop :for tasks :below 2 :do (lp:receive-result channel)
+            (loop :for tasks :below 3 :do (lp:receive-result channel)
                :finally
                (log-message :info "COPY ~s done." table-name)
                (unless k-s-p (lp:end-kernel))))))))

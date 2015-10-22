@@ -39,10 +39,14 @@
    "Load data from SOURCE and funcall PROCESS-ROW-FUN for each row found in
     the SOURCE data. Each ROW is passed as a vector of objects."))
 
-(defgeneric copy-to-queue (source queue)
+(defgeneric queue-raw-data (source queue)
+  (:documentation "Send raw data from the reader to the worker queue."))
+
+(defgeneric format-data-to-copy (source raw-queue formatted-queue
+                                 &optional pre-formatted)
   (:documentation
-   "Load data from SOURCE and queue each row into QUEUE. Typical
-    implementation will directly use pgloader.queue:map-push-queue."))
+   "Process raw data from RAW-QUEUE and prepare batches of formatted text to
+    send down to PostgreSQL with the COPY protocol in FORMATTED-QUEUE."))
 
 (defgeneric copy-column-list (source)
   (:documentation

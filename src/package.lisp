@@ -250,8 +250,9 @@
 
            ;; Main protocol/API
 	   #:map-rows
+           #:queue-raw-data
+           #:format-data-to-copy
 	   #:copy-from
-	   #:copy-to-queue
 	   #:copy-to
 	   #:copy-database
 
@@ -291,7 +292,7 @@
                 #:map-rows
                 #:transforms
                 #:target)
-  (:export #:map-push-queue))
+  (:export #:cook-batches))
 
 
 ;;;
@@ -330,7 +331,6 @@
            #:csv-specs
 	   #:get-pathname
 	   #:copy-csv
-	   #:copy-to-queue
 	   #:copy-from
 	   #:import-database
 	   #:guess-csv-params
@@ -349,7 +349,6 @@
                 #:create-indexes-again)
   (:export #:fixed-connection
            #:copy-fixed
-	   #:copy-to-queue
 	   #:copy-from))
 
 (defpackage #:pgloader.copy
@@ -365,7 +364,6 @@
                 #:create-indexes-again)
   (:export #:copy-connection
            #:copy-copy
-	   #:copy-to-queue
 	   #:copy-from))
 
 (defpackage #:pgloader.ixf
@@ -383,7 +381,6 @@
   (:export #:ixf-connection
            #:copy-ixf
 	   #:map-rows
-	   #:copy-to-queue
 	   #:copy-from))
 
 (defpackage #:pgloader.db3
@@ -402,7 +399,6 @@
            #:copy-db3
 	   #:map-rows
 	   #:copy-to
-	   #:copy-to-queue
 	   #:copy-from))
 
 (defpackage #:pgloader.mysql

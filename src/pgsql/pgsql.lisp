@@ -62,20 +62,19 @@
           (loop
              :for (mesg batch read oversized?) := (lq:pop-queue queue)
              :until (eq mesg :end-of-data)
-             :for (rows ws) := (multiple-value-bind (result secs)
-                                   (timing
-                                     (copy-batch unqualified-table-name
-                                                 columns batch read))
-                                 (list result secs))
+             :for rows := (copy-batch unqualified-table-name columns batch read)
              :do (progn
                    ;; The SBCL implementation needs some Garbage Collection
                    ;; decision making help... and now is a pretty good time.
                    #+sbcl (when oversized? (sb-ext:gc :full t))
                    (log-message :debug "copy-batch ~a ~d row~:p~:[~; [oversized]~]"
                                 unqualified-table-name rows oversized?)
-                   (update-stats :data table-name :rows rows :ws ws))))))
+                   (update-stats :data table-name :rows rows))))))
 
-    (list :target table-name start-time)))
+    (let ((seconds (elapsed-time-since start-time)))
+      (log-message :info "Writer for ~a is done in ~fs" table-name seconds)
+      (update-stats :data table-name :ws seconds)
+      (list :writer table-name seconds))))
 
 ;;;
 ;;; Compute how many rows we're going to try loading next, depending on
