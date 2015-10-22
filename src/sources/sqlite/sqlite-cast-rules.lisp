@@ -58,7 +58,8 @@
       (let* ((sqlite-type-name (string-downcase sqlite-type-name))
              (tokens (remove-if (lambda (token)
                                   (or (member token '("unsigned" "short"
-                                                      "varying" "native")
+                                                      "varying" "native"
+                                                      "auto_increment")
                                               :test #'string-equal)
                                       ;; remove typemod too, as in "integer (8)"
                                       (char= #\( (aref token 0))))
