@@ -71,9 +71,9 @@
   "Where to load files from, when loading from an archive or expanding regexps.")
 
 (defparameter *root-dir*
-  #+unix (uiop:make-pathname* :directory '(:absolute "tmp/pgloader"))
+  #+unix (uiop:parse-native-namestring "/tmp/pgloader/")
   #-unix (uiop:merge-pathnames*
-          "pgloader/"
+          (uiop:make-pathname* :direction '(:relative "pgloader"))
           (uiop:ensure-directory-pathname (getenv-default "Temp")))
   "Top directory where to store all data logs and reject files.")
 
