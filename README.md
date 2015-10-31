@@ -1,5 +1,7 @@
 # PGLoader
 
+[![Join the chat at https://gitter.im/dimitri/pgloader](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/dimitri/pgloader?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 pgloader is a data loading tool for PostgreSQL, using the `COPY` command.
 
 Its main advantage over just using `COPY` or `\copy`, and over using a
