@@ -308,7 +308,8 @@
 (defun sql-server-nvarchar-to-text (str)
   "fix strings beginning N' in the data base: not especially that sometimes they have () as well!"
   (declare  (type (or null string) str))
-  (let ((result (string-trim "()" str)))
-    (when (and (> (length result) 1) (string= "N'" (subseq result 0 2)))
-      (setf result (string-trim "'" (subseq str 1))))
-    result))
+  (unless (null str)
+    (let ((result (string-trim "()" str)))
+      (when (and (> (length result) 1) (string= "N'" str :end2 2))
+        (setf result (string-trim "'" (subseq str 1))))
+      result)))
