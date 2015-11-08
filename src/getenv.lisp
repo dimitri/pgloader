@@ -8,9 +8,11 @@
 
 (in-package :cl-user)
 
+;;
+;; ccl provides an implementation of getenv already.
+;;
+#+sbcl
 (defun getenv (name &optional default)
   "Return the current value for the environment variable NAME, or default
    when unset."
-  (or #+sbcl (sb-ext:posix-getenv name)
-      #+ccl (ccl:getenv name)
-      default))
+  (or (sb-ext:posix-getenv name) default))
