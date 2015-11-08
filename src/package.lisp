@@ -250,6 +250,7 @@
 
            ;; Main protocol/API
 	   #:map-rows
+           #:copy-column-list
            #:queue-raw-data
            #:format-data-to-copy
 	   #:copy-from
