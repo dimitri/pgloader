@@ -22,6 +22,10 @@
           (pgconn-table-name clone) (pgconn-table-name c))
     clone))
 
+(defmethod ssl-enable-p ((pgconn pgsql-connection))
+  "Return non-nil when the connection uses SSL"
+  (member (pgconn-use-ssl pgconn) '(:try :yes)))
+
 (defun new-pgsql-connection (pgconn)
   "Prepare a new connection object with all the same properties as pgconn,
    so as to avoid stepping on it's handle"
@@ -33,6 +37,16 @@
                  :name (db-name pgconn)
                  :use-ssl (pgconn-use-ssl pgconn)
                  :table-name (pgconn-table-name pgconn)))
+
+;;;
+;;; Implement SSL Client Side certificates
+;;; http://www.postgresql.org/docs/current/static/libpq-ssl.html#LIBPQ-SSL-FILE-USAGE
+;;;
+(defvar *pgsql-client-certificate* "~/.postgresql/postgresql.crt"
+  "File where to read the PostgreSQL Client Side SSL Certificate.")
+
+(defvar *pgsql-client-key* "~/.postgresql/postgresql.key"
+  "File where to read the PostgreSQL Client Side SSL Private Key.")
 
 ;;;
 ;;; We need to distinguish some special cases of PostgreSQL errors within
@@ -58,25 +72,33 @@
 
 (defmethod open-connection ((pgconn pgsql-connection) &key username)
   "Open a PostgreSQL connection."
-  (flet ((connect (pgconn username)
-           (handler-case
-               (pomo:connect (db-name pgconn)
-                             (or username (db-user pgconn))
-                             (db-pass pgconn)
-                             (let ((host (db-host pgconn)))
-                               (if (and (consp host) (eq :unix (car host)))
-                                   :unix
-                                   host))
-                             :port (db-port pgconn)
-                             :use-ssl (or (pgconn-use-ssl pgconn) :no))
-             ((or too-many-connections configuration-limit-exceeded) (e)
-               (log-message :error
-                            "Failed to connect to ~a: ~a; will try again in ~fs"
-                            pgconn e *retry-connect-delay*)
-               (sleep *retry-connect-delay*)))))
-    (loop :while (null (conn-handle pgconn))
-       :repeat *retry-connect-times*
-       :do (setf (conn-handle pgconn) (connect pgconn username))))
+  (let* ((crt-file (expand-user-homedir-pathname *pgsql-client-certificate*))
+         (key-file (expand-user-homedir-pathname *pgsql-client-key*))
+         (pomo::*ssl-certificate-file* (when (and (ssl-enable-p pgconn)
+                                                  (probe-file crt-file))
+                                         crt-file))
+         (pomo::*ssl-key-file*         (when (and (ssl-enable-p pgconn)
+                                                  (probe-file key-file))
+                                         key-file)))
+    (flet ((connect (pgconn username)
+             (handler-case
+                 (pomo:connect (db-name pgconn)
+                               (or username (db-user pgconn))
+                               (db-pass pgconn)
+                               (let ((host (db-host pgconn)))
+                                 (if (and (consp host) (eq :unix (car host)))
+                                     :unix
+                                     host))
+                               :port (db-port pgconn)
+                               :use-ssl (or (pgconn-use-ssl pgconn) :no))
+               ((or too-many-connections configuration-limit-exceeded) (e)
+                 (log-message :error
+                              "Failed to connect to ~a: ~a; will try again in ~fs"
+                              pgconn e *retry-connect-delay*)
+                 (sleep *retry-connect-delay*)))))
+      (loop :while (null (conn-handle pgconn))
+         :repeat *retry-connect-times*
+         :do (setf (conn-handle pgconn) (connect pgconn username)))))
   (unless (conn-handle pgconn)
     (error "Failed ~d times to connect to ~a" *retry-connect-times* pgconn))
   pgconn)

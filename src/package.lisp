@@ -100,6 +100,7 @@
 	   #:format-interval
 	   #:camelCase-to-colname
            #:unquote
+           #:expand-user-homedir-pathname
 
            ;; threads
            #:make-kernel
