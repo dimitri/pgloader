@@ -76,10 +76,10 @@
          (key-file (expand-user-homedir-pathname *pgsql-client-key*))
          (pomo::*ssl-certificate-file* (when (and (ssl-enable-p pgconn)
                                                   (probe-file crt-file))
-                                         crt-file))
+                                         (uiop:native-namestring crt-file)))
          (pomo::*ssl-key-file*         (when (and (ssl-enable-p pgconn)
                                                   (probe-file key-file))
-                                         key-file)))
+                                         (uiop:native-namestring key-file))))
     (flet ((connect (pgconn username)
              (handler-case
                  (pomo:connect (db-name pgconn)
