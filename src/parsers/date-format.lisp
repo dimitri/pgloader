@@ -62,13 +62,15 @@
 
                  ;; now format the time part
                  (format s "~a:~a:~a"
-                         (let ((hint (parse-integer hour)))
-                           (cond ((and am (= hint 12)) "00")
-                                 ((and pm (= hint 12)) "12")
-                                 ((and pm (< hint 12)) (+ hint 12))
-                                 (t hour)))
-                         minute
-                         seconds)
+                         (if hour
+                             (let ((hint (parse-integer hour)))
+                               (cond ((and am (= hint 12)) "00")
+                                     ((and pm (= hint 12)) "12")
+                                     ((and pm (< hint 12)) (+ hint 12))
+                                     (t hour)))
+                             "00")
+                         (or minute "00")
+                         (or seconds "00"))
 
                  ;; and maybe format the micro seconds part
                  (if usecs (format s ".~a" usecs)
