@@ -300,56 +300,15 @@
                             (log-message :fatal "We have a situation here.")
                             (print-backtrace condition debug *standard-output*))))
 
-                    ;; if there are exactly two arguments in the command
-                    ;; line, try and process them as source and target
-                    ;; arguments
                     (if (= 2 (length arguments))
-                        (let* ((type   (parse-cli-type type))
-                               (source (first arguments))
-                               (source (if type
-                                           (parse-source-string-for-type type source)
-                                           (parse-source-string source)))
-                               (type   (when source
-                                         (parse-cli-type (conn-type source))))
-                               (target (parse-target-string (second arguments))))
-
-                          ;; some verbosity about the parsing "magic"
-                          (log-message :info "SOURCE: ~s" source)
-                          (log-message :info "TARGET: ~s" target)
-
-                          (cond ((and (null source) (null target)
-                                      (probe-file
-                                       (uiop:parse-unix-namestring
-                                        (first arguments)))
-                                      (probe-file
-                                       (uiop:parse-unix-namestring
-                                        (second arguments))))
-                                 (mapcar #'process-command-file arguments))
-
-                                ((null source)
-                                 (log-message :fatal
-                                              "Failed to parse ~s as a source URI."
-                                              (first arguments))
-                                 (log-message :log "You might need to use --type."))
-
-                                ((null target)
-                                 (log-message :fatal
-                                              "Failed to parse ~s as a PostgreSQL database URI."
-                                              (second arguments))))
-
-                          ;; so, we actually have all the specs for the
-                          ;; job on the command line now.
-                          (when (and source target)
-                            (load-data :from source
-                                       :into target
-                                       :encoding (parse-cli-encoding encoding)
-                                       :options  (parse-cli-options type with)
-                                       :gucs     (parse-cli-gucs set)
-                                       :fields   (parse-cli-fields type field)
-                                       :casts    (parse-cli-casts cast)
-                                       :before   (parse-sql-file before)
-                                       :after    (parse-sql-file after)
-                                       :start-logger nil)))
+                        ;; if there are exactly two arguments in the command
+                        ;; line, try and process them as source and target
+                        ;; arguments
+                        (process-source-and-target (first arguments)
+                                                   (second arguments)
+                                                   type encoding
+                                                   set with field cast
+                                                   before after)
 
                         ;; process the files
                         (mapcar #'process-command-file arguments)))
@@ -372,6 +331,52 @@
         (run-commands truename :start-logger nil)
         (log-message :error "Can not find file: ~s" filename)))
   (format t "~&"))
+
+(defun process-source-and-target (source target
+                                  type encoding set with field cast
+                                  before after)
+  "Given exactly 2 CLI arguments, process them as source and target URIs."
+  (let* ((type       (parse-cli-type type))
+         (source-uri (if type
+                         (parse-source-string-for-type type source)
+                         (parse-source-string source)))
+         (type       (when source
+                       (parse-cli-type (conn-type source))))
+         (target-uri (parse-target-string target)))
+
+    ;; some verbosity about the parsing "magic"
+    (log-message :info "SOURCE: ~s" source)
+    (log-message :info "TARGET: ~s" target)
+
+    (cond ((and (null source-uri)
+                (null target-uri)
+                (probe-file (uiop:parse-unix-namestring source))
+                (probe-file (uiop:parse-unix-namestring target)))
+           (mapcar #'process-command-file (list source target)))
+
+          ((null source)
+           (log-message :fatal
+                        "Failed to parse ~s as a source URI." source)
+           (log-message :log "You might need to use --type."))
+
+          ((null target)
+           (log-message :fatal
+                        "Failed to parse ~s as a PostgreSQL database URI."
+                        target)))
+
+    ;; so, we actually have all the specs for the
+    ;; job on the command line now.
+    (when (and source-uri target-uri)
+      (load-data :from source-uri
+                 :into target-uri
+                 :encoding (parse-cli-encoding encoding)
+                 :options  (parse-cli-options type with)
+                 :gucs     (parse-cli-gucs set)
+                 :fields   (parse-cli-fields type field)
+                 :casts    (parse-cli-casts cast)
+                 :before   (parse-sql-file before)
+                 :after    (parse-sql-file after)
+                 :start-logger nil))))
 
 (defun run-commands (source
 		     &key
