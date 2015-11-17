@@ -19,7 +19,7 @@
     (lq:push-queue :end-of-data queue)
 
     (let ((seconds (elapsed-time-since start-time)))
-     (log-message :info "Reader for ~a is done in ~fs" (target copy) seconds)
+     (log-message :info "Reader for ~a is done in ~6$s" (target copy) seconds)
      (list :reader (target copy) seconds))))
 
 (defmethod format-data-to-copy ((copy copy) raw-queue formatted-queue
@@ -33,7 +33,7 @@
 
     ;; and return
     (let ((seconds (elapsed-time-since start-time)))
-     (log-message :info "Transformer for ~a is done in ~fs" (target copy) seconds)
+     (log-message :info "Transformer for ~a is done in ~6$s" (target copy) seconds)
      (list :worker (target copy) seconds))))
 
 (defmethod copy-column-list ((copy copy))
@@ -57,7 +57,7 @@
                         truncate
                         disable-triggers)
   "Copy data from COPY source into PostgreSQL."
-  (let* ((lp:*kernel* (or kernel (make-kernel 3)))
+  (let* ((lp:*kernel* (or kernel (make-kernel 4)))
          (channel     (or channel (lp:make-channel)))
          (rawq        (lq:make-queue))
          (fmtq        (lq:make-queue :fixed-capacity *concurrent-batches*))
@@ -74,20 +74,28 @@
           ;; source into preprocessed batches to send down to PostgreSQL
           (lp:submit-task channel #'format-data-to-copy copy rawq fmtq)
 
-          ;; and start another task to push that data from the queue into
-          ;; PostgreSQL
-          (lp:submit-task channel
-                          #'pgloader.pgsql:copy-from-queue
-                          (target-db copy)
-                          (target copy)
-                          fmtq
-                          :columns (copy-column-list copy)
-                          :truncate truncate
-                          :disable-triggers disable-triggers)
+          ;; And start two tasks to push that data from the queue into
+          ;; PostgreSQL; Andres Freund research/benchmarks show that in every
+          ;; PostgreSQL releases up to 9.5 included the highest throughput of
+          ;; COPY TO the same table is achieved with 2 concurrent clients...
+          ;;
+          ;; See Extension Lock Scalability slide in
+          ;; http://www.anarazel.de/talks/pgconf-eu-2015-10-30/concurrency.pdf
+          ;;
+          ;; Let's just hardcode 2 threads for that then.
+          (loop :for w :below 2
+             :do (lp:submit-task channel
+                                 #'pgloader.pgsql:copy-from-queue
+                                 (clone-connection (target-db copy))
+                                 (target copy)
+                                 fmtq
+                                 :columns (copy-column-list copy)
+                                 :truncate truncate
+                                 :disable-triggers disable-triggers))
 
           ;; now wait until both the tasks are over, and kill the kernel
           (unless c-s-p
-            (loop :for tasks :below 3 :do (lp:receive-result channel)
-               :finally
-               (log-message :info "COPY ~s done." table-name)
-               (unless k-s-p (lp:end-kernel))))))))
+            (loop :repeat (lp:kernel-worker-count)
+               :do (lp:receive-result channel)
+               :finally (progn (log-message :info "COPY ~s done." table-name)
+                               (unless k-s-p (lp:end-kernel)))))))))

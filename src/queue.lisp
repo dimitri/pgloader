@@ -29,6 +29,9 @@
 
     ;; and before calling it a day, push the end-of-data marker
     (log-message :debug "End of data.")
+
+    ;; we hardcode 2 parallel COPY writers, see copy-from implementation.
+    (lq:push-queue (list :end-of-data nil nil nil) processed-queue)
     (lq:push-queue (list :end-of-data nil nil nil) processed-queue)))
 
 (defun finish-current-batch (copy queue

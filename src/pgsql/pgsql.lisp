@@ -57,7 +57,8 @@
       (with-schema (unqualified-table-name table-name)
         (with-disabled-triggers (unqualified-table-name
                                  :disable-triggers disable-triggers)
-          (log-message :info "pgsql:copy-from-queue: ~a ~a" table-name columns)
+          (log-message :info "pgsql:copy-from-queue[~a]: ~a ~a"
+                       (lp:kernel-worker-index) table-name columns)
 
           (loop
              :for (mesg batch read oversized?) := (lq:pop-queue queue)
@@ -67,12 +68,14 @@
                    ;; The SBCL implementation needs some Garbage Collection
                    ;; decision making help... and now is a pretty good time.
                    #+sbcl (when oversized? (sb-ext:gc :full t))
-                   (log-message :debug "copy-batch ~a ~d row~:p~:[~; [oversized]~]"
+                   (log-message :debug "copy-batch[~a] ~a ~d row~:p~:[~; [oversized]~]"
+                                (lp:kernel-worker-index)
                                 unqualified-table-name rows oversized?)
                    (update-stats :data table-name :rows rows))))))
 
     (let ((seconds (elapsed-time-since start-time)))
-      (log-message :info "Writer for ~a is done in ~fs" table-name seconds)
+      (log-message :info "Writer[~a] for ~a is done in ~6$s"
+                   (lp:kernel-worker-index) table-name seconds)
       (update-stats :data table-name :ws seconds)
       (list :writer table-name seconds))))
 

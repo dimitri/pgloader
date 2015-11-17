@@ -295,7 +295,7 @@
                             decoding-as
 			    materialize-views)
   "Export MySQL data and Import it into PostgreSQL"
-  (let* ((copy-kernel  (make-kernel 6))
+  (let* ((copy-kernel  (make-kernel 8))
          (copy-channel (let ((lp:*kernel* copy-kernel)) (lp:make-channel)))
          (table-count  0)
          idx-kernel idx-channel)
@@ -407,10 +407,10 @@
       ;; now end the kernels
       (let ((lp:*kernel* copy-kernel))
         (with-stats-collection ("COPY Threads Completion" :section :post)
-            (loop :for tasks :below (* 3 table-count)
+            (loop :for tasks :below (* 4 table-count)
                :do (destructuring-bind (task table-name seconds)
                        (lp:receive-result copy-channel)
-                     (log-message :info "Finished processing ~a for ~s ~50T~fs"
+                     (log-message :info "Finished processing ~a for ~s ~50T~6$s"
                                   task table-name seconds)
                      (when (eq :writer task)
                        (update-stats :data table-name :secs seconds))))
