@@ -9,6 +9,9 @@
 ;;; :cl+ssl in its system definition.
 ;;;
 
+;; So that we can #+pgloader-image some code away, see main.lisp
+(push :pgloader-image *features*)
+
 (in-package #:cl-user)
 
 (defun close-foreign-libs ()

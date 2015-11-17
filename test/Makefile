@@ -52,6 +52,7 @@ prepare: bossa.sql sakila
 	-createdb -U postgres -O `whoami` pgloader
 	-createdb -U postgres -O `whoami` stocks
 	-createdb -U postgres -O `whoami` ip4r
+	-psql -d pgloader -c 'create schema expected'
 	-psql -U postgres -d pgloader -c 'create extension ip4r'
 	-psql -U postgres -d ip4r -c 'create extension ip4r'
 	-psql -d stocks -f bossa.sql
@@ -93,4 +94,6 @@ csv-districts-stdin.out: csv-districts-stdin.load
 
 # Regression tests
 regress/out/%.out: %.load
-	./regress.sh $(PGLOADER) $<
+	#./regress.sh $(PGLOADER) $<
+	$(PGLOADER) --regress $<
+	touch $@

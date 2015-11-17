@@ -248,18 +248,25 @@
  group by relname;" schema schema))
      collect (cons relname (sq:split-sequence #\, fkeys))))
 
-(defun list-columns (pgconn table-name &key schema)
-  "Return a list of column names for given TABLE-NAME."
-  (with-pgsql-transaction (:pgconn pgconn)
-    (with-schema (unqualified-table-name table-name)
-      (pomo:query (format nil "
-    select attname
+(defun list-columns-query (table-name &optional schema)
+  "Returns the list of columns for table TABLE-NAME in schema SCHEMA, and
+   must be run with an already established PostgreSQL connection."
+  (pomo:query (format nil "
+    select attname, t.oid::regtype
       from pg_class c
            join pg_namespace n on n.oid = c.relnamespace
            left join pg_attribute a on c.oid = a.attrelid
            join pg_type t on t.oid = a.atttypid
      where c.oid = '~:[~*~a~;~a.~a~]'::regclass and attnum > 0
-  order by attnum" schema schema unqualified-table-name) :column))))
+  order by attnum" schema schema table-name)))
+
+(defun list-columns (pgconn table-name &key schema)
+  "Return a list of column names for given TABLE-NAME."
+  (with-pgsql-transaction (:pgconn pgconn)
+    (with-schema (unqualified-table-name table-name)
+      (loop :for (name type)
+         :in (list-columns-query unqualified-table-name schema)
+         :collect name))))
 
 (defun list-indexes (table-name)
   "List all indexes for TABLE-NAME in SCHEMA. A PostgreSQL connection must

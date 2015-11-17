@@ -1,0 +1,7 @@
+0	2006-11-11	nov. the 11th should go
+1	2006-10-12	12th of oct. should go
+4	2006-05-12	month should be may, ok
+6	\N	some null date to play with
+7	\N	and a ragged line
+8	2014-01-23	and a line with extra columns
+9	2014-01-22	and another line

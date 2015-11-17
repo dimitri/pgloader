@@ -7,6 +7,7 @@
 (defparameter +os-code-error+            1)
 (defparameter +os-code-error-usage+      2)
 (defparameter +os-code-error-bad-source+ 4)
+(defparameter +os-code-error-regress+    5)
 
 ;;;
 ;;; Now some tooling
@@ -81,7 +82,10 @@
      :documentation "SQL script to run after loading the data")
 
     ("self-upgrade" :type string :optional t
-     :documentation "Path to pgloader newer sources")))
+                    :documentation "Path to pgloader newer sources")
+
+    ("regress" :type boolean :optional t
+               :documentation "Drive regression testing")))
 
 (defun print-backtrace (condition debug stream)
   "Depending on DEBUG, print out the full backtrace or just a shorter
@@ -195,7 +199,8 @@
                                 ((:load-lisp-file load))
 				client-min-messages log-min-messages summary
 				root-dir self-upgrade
-                                with set field cast type encoding before after)
+                                with set field cast type encoding before after
+                                regress)
 	  options
 
         ;; parse the log thresholds
@@ -300,18 +305,26 @@
                             (log-message :fatal "We have a situation here.")
                             (print-backtrace condition debug *standard-output*))))
 
-                    (if (= 2 (length arguments))
-                        ;; if there are exactly two arguments in the command
-                        ;; line, try and process them as source and target
-                        ;; arguments
-                        (process-source-and-target (first arguments)
-                                                   (second arguments)
-                                                   type encoding
-                                                   set with field cast
-                                                   before after)
+                    (cond
+                      ((and regress (= 1 (length arguments)))
+                       ;; run a regression test
+                       (process-regression-test (first arguments)))
 
-                        ;; process the files
-                        (mapcar #'process-command-file arguments)))
+                      (regress
+                       (log-message :fatal "Regression testing requires a single .load file as input."))
+
+                      ((= 2 (length arguments))
+                       ;; if there are exactly two arguments in the command
+                       ;; line, try and process them as source and target
+                       ;; arguments
+                       (process-source-and-target (first arguments)
+                                                  (second arguments)
+                                                  type encoding
+                                                  set with field cast
+                                                  before after))
+                      (t
+                       ;; process the files
+                       (mapcar #'process-command-file arguments))))
 
                 (source-definition-error (c)
                   (log-message :fatal "~a" c)
@@ -324,13 +337,16 @@
         ;; done.
 	(uiop:quit +os-code-success+)))))
 
+
+;;;
+;;; Helper functions to actually do things
+;;;
 (defun process-command-file (filename)
   "Process FILENAME as a pgloader command file (.load)."
   (let ((truename (probe-file filename)))
     (if truename
         (run-commands truename :start-logger nil)
-        (log-message :error "Can not find file: ~s" filename)))
-  (format t "~&"))
+        (log-message :error "Can not find file: ~s" filename))))
 
 (defun process-source-and-target (source target
                                   type encoding set with field cast
@@ -341,7 +357,7 @@
                          (parse-source-string-for-type type source)
                          (parse-source-string source)))
          (type       (when source
-                       (parse-cli-type (conn-type source))))
+                       (parse-cli-type (conn-type source-uri))))
          (target-uri (parse-target-string target)))
 
     ;; some verbosity about the parsing "magic"
@@ -378,6 +394,101 @@
                  :after    (parse-sql-file after)
                  :start-logger nil))))
 
+(defun process-regression-test (load-file &key start-logger)
+  "Run a regression test for given LOAD-FILE."
+  (unless (probe-file load-file)
+    (format t "Regression testing ~s: file does not exists." load-file)
+    (uiop:quit +os-code-error-regress+))
+
+  ;; now do our work
+  (with-monitor (:start-logger start-logger)
+    (log-message :log "Regression testing: ~s" load-file)
+    (process-command-file load-file)
+
+    ;; once we are done running the load-file, compare the loaded data with
+    ;; our expected data file
+    (let* ((expected-subdir    (directory-namestring
+                                (asdf:system-relative-pathname
+                                 :pgloader "test/regress/expected/")))
+           (expected-data-file (make-pathname :defaults load-file
+                                              :type "out"
+                                              :directory expected-subdir)))
+      (destructuring-bind (target *pg-settings*)
+          (parse-target-pg-db-uri load-file)
+       (log-message :log "Comparing loaded data against ~s"
+                    expected-data-file)
+
+       (let ((expected-data-source
+              (parse-source-string-for-type
+               :copy (uiop:native-namestring expected-data-file)))
+
+             ;; change target table-name schema
+             (expected-data-target
+              (let ((e-d-t (clone-connection target)))
+                (setf (pgconn-table-name e-d-t)
+                      (cons "expected"
+                            (typecase (pgconn-table-name e-d-t)
+                              (string (pgconn-table-name e-d-t))
+                              (cons   (cdr (pgconn-table-name e-d-t))))))
+                e-d-t)))
+
+         ;; prepare expected table in "expected" schema
+         (with-pgsql-connection (target)
+           (with-schema (unqualified-table-name (pgconn-table-name target))
+             (let ((drop   (format nil "drop table if exists expected.~a;"
+                                   unqualified-table-name))
+                   (create (format nil "create table expected.~a(like ~a);"
+                                   unqualified-table-name unqualified-table-name)))
+               (log-message :notice "~a" drop)
+               (pomo:query drop)
+               (log-message :notice "~a" create)
+               (pomo:query create))))
+
+         ;; load expected data
+         (load-data :from expected-data-source
+                    :into expected-data-target
+                    :options '(:truncate t)
+                    :start-logger nil))
+
+       ;; now compare both
+       (with-pgsql-connection (target)
+         (with-schema (unqualified-table-name (pgconn-table-name target))
+           (let* ((cols (loop :for (name type)
+                           :in (list-columns-query unqualified-table-name)
+                           ;;
+                           ;; We can't just use table names here, because
+                           ;; PostgreSQL support for the POINT datatype fails
+                           ;; to implement EXCEPT support, and the query then
+                           ;; fails with:
+                           ;;
+                           ;; could not identify an equality operator for type point
+                           ;;
+                           :collect (if (string= "point" type)
+                                        (format nil "~s::text" name)
+                                        (format nil "~s" name))))
+                  (sql  (format nil
+                                "select count(*) from (select ~{~a~^, ~} from ~a except select ~{~a~^, ~} from expected.~a) ss"
+                                cols
+                                unqualified-table-name
+                                cols
+                                unqualified-table-name))
+                  (diff-count (pomo:query sql :single)))
+             (log-message :notice "~a" sql)
+             (log-message :notice "Got a diff of ~a rows" diff-count)
+             (if (= 0 diff-count)
+                 (progn
+                   (log-message :log "Regress pass.")
+                   #-pgloader-image (values diff-count +os-code-success+)
+                   #+pgloader-image (uiop:quit +os-code-success+))
+                 (progn
+                   (log-message :log "Regress fail.")
+                   #-pgloader-image (values diff-count +os-code-error-regress+)
+                   #+pgloader-image (uiop:quit +os-code-error-regress+))))))))))
+
+
+;;;
+;;; Helper function to run a given command
+;;;
 (defun run-commands (source
 		     &key
 		       (start-logger t)

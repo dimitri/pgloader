@@ -194,6 +194,7 @@
 	   #:copy-from-queue
 	   #:list-databases
 	   #:list-tables
+	   #:list-columns-query
 	   #:list-columns
 	   #:list-indexes
 	   #:list-tables-cols
@@ -573,6 +574,7 @@
            #:parse-cli-fields
            #:parse-cli-casts
            #:parse-sql-file
+           #:parse-target-pg-db-uri
 
            ;; connection types / classes symbols for use in main
            #:connection
@@ -602,15 +604,18 @@
 ;;
 (defpackage #:pgloader
   (:use #:cl
-        #:pgloader.params #:pgloader.utils #:pgloader.parser)
+        #:pgloader.params #:pgloader.utils #:pgloader.parser
+        #:pgloader.connection)
   (:import-from #:pgloader.pgsql
                 #:pgconn-table-name
                 #:pgsql-connection
 		#:copy-from-file
 		#:list-databases
-		#:list-tables)
-  (:import-from #:pgloader.connection
-                #:connection-error)
+		#:list-tables
+		#:list-columns-query)
+  (:import-from #:pgloader.pgsql
+                #:with-pgsql-connection
+                #:with-schema)
   (:export #:*version-string*
 	   #:*state*
 	   #:*fd-path-root*

@@ -270,3 +270,44 @@
   (when filename
     (log-message :notice "reading SQL queries from ~s" filename)
     (pgloader.sql:read-queries (probe-file filename))))
+
+
+;;;
+;;; Helper for regression testing
+;;;
+(defrule pg-db-uri-from-command (or pg-db-uri-from-files
+                                    pg-db-uri-from-source-target
+                                    pg-db-uri-from-source-and-encoding))
+
+(defrule pg-db-uri-from-files (or load-csv-file-command
+                                  load-copy-file-command
+                                  load-fixed-cols-file-command)
+  (:lambda (command)
+    (destructuring-bind (source encoding fields pg-db-uri columns
+                                &key gucs &allow-other-keys)
+        command
+      (declare (ignore source encoding fields columns))
+      (list pg-db-uri gucs))))
+
+(defrule pg-db-uri-from-source-target (or load-ixf-command
+                                          load-sqlite-command
+                                          load-mysql-command
+                                          load-mssql-command)
+  (:lambda (command)
+    (destructuring-bind (source pg-db-uri &key gucs &allow-other-keys)
+        command
+      (declare (ignore source))
+      (list pg-db-uri gucs))))
+
+(defrule pg-db-uri-from-source-and-encoding (or load-dbf-command)
+  (:lambda (command)
+    (destructuring-bind (source encoding pg-db-uri &key gucs &allow-other-keys)
+        command
+      (declare (ignore source encoding))
+      (list pg-db-uri gucs))))
+
+(defun parse-target-pg-db-uri (command-file)
+  "Partially parse COMMAND-FILE and return its target connection string."
+  (let* ((content (read-file-into-string command-file)))
+
+    (parse 'pg-db-uri-from-command content :junk-allowed t)))
