@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "August 2015" "ff" ""
+.TH "PGLOADER" "1" "November 2015" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -1450,7 +1450,7 @@ This command instructs pgloader to load data from an IBM \fBIXF\fR file\. Here\'
 LOAD IXF
     FROM data/nsitra\.test1\.ixf
     INTO postgresql:///pgloader?nsitra\.test1
-    WITH truncate, create table
+    WITH truncate, create table, timezone UTC
 
   BEFORE LOAD DO
    $$ create schema if not exists nsitra; $$,
@@ -1501,6 +1501,12 @@ When this option is listed, pgloader creates the table using the meta data found
 .
 .IP
 This options expects as its value the possibly qualified name of the table to create\.
+.
+.IP "\(bu" 4
+\fItimezone\fR
+.
+.IP
+This options allows to specify which timezone is used when parsing timestamps from an IXF file, and defaults to \fIUTC\fR\. Expected values are either \fBUTC\fR, \fBGMT\fR or a single quoted location name such as \fB\'Universal\'\fR or \fB\'Europe/Paris\'\fR\.
 .
 .IP "" 0
 
@@ -2367,10 +2373,10 @@ The cast clause allows to specify custom casting rules, either to overload the d
 Please refer to the MySQL CAST clause for details\.
 .
 .IP "\(bu" 4
-\fIINCLUDING ONLY TABLE NAMES MATCHING\fR
+\fIINCLUDING ONLY TABLE NAMES LIKE\fR
 .
 .IP
-Introduce a comma separated list of table names or \fIregular expression\fR used to limit the tables to migrate to a sublist\.
+Introduce a comma separated list of table name patterns used to limit the tables to migrate to a sublist\.
 .
 .IP
 Example:
@@ -2379,7 +2385,7 @@ Example:
 .
 .nf
 
-INCLUDING ONLY TABLE NAMES MATCHING ~/film/, \'actor\'
+INCLUDING ONLY TABLE NAMES LIKE \'Invoice%\'
 .
 .fi
 .
@@ -2387,16 +2393,16 @@ INCLUDING ONLY TABLE NAMES MATCHING ~/film/, \'actor\'
 
 .
 .IP "\(bu" 4
-\fIEXCLUDING TABLE NAMES MATCHING\fR
+\fIEXCLUDING TABLE NAMES LIKE\fR
 .
 .IP
-Introduce a comma separated list of table names or \fIregular expression\fR used to exclude table names from the migration\. This filter only applies to the result of the \fIINCLUDING\fR filter\.
+Introduce a comma separated list of table name patterns used to exclude table names from the migration\. This filter only applies to the result of the \fIINCLUDING\fR filter\.
 .
 .IP "" 4
 .
 .nf
 
-EXCLUDING TABLE NAMES MATCHING ~<ory>
+EXCLUDING TABLE NAMES LIKE \'appointments\'
 .
 .fi
 .

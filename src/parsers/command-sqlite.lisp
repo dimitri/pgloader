@@ -49,6 +49,18 @@ load database
     (bind (((_ opts) source))
       (cons :sqlite-options opts))))
 
+(defrule including-like
+    (and kw-including kw-only kw-table kw-names kw-like filter-list-like)
+  (:lambda (source)
+    (bind (((_ _ _ _ _ filter-list) source))
+      (cons :including filter-list))))
+
+(defrule excluding-like
+    (and kw-excluding kw-table kw-names kw-like filter-list-like)
+  (:lambda (source)
+    (bind (((_ _ _ _ filter-list) source))
+      (cons :excluding filter-list))))
+
 (defrule sqlite-db-uri (and "sqlite://" filename)
   (:lambda (source)
     (bind (((_ filename) source)) filename)))
@@ -77,8 +89,8 @@ load database
 (defrule load-sqlite-optional-clauses (* (or sqlite-options
                                              gucs
                                              casts
-                                             including-matching
-                                             excluding-matching))
+                                             including-like
+                                             excluding-like))
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
 

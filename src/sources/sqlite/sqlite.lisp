@@ -125,13 +125,13 @@
                             :section :pre)
       (with-connection (conn (source-db sqlite))
         (let ((*sqlite-db* (conn-handle conn)))
-          (setf all-columns   (filter-column-list (list-all-columns *sqlite-db*)
-                                                  :including including
-                                                  :excluding excluding)
+          (setf all-columns   (list-all-columns :db *sqlite-db*
+                                                :including including
+                                                :excluding excluding)
 
-                all-indexes   (filter-column-list (list-all-indexes *sqlite-db*)
-                                                  :including including
-                                                  :excluding excluding)))
+                all-indexes   (list-all-indexes :db *sqlite-db*
+                                                :including including
+                                                :excluding excluding)))
 
         ;; return how many objects we're going to deal with in total
         ;; for stats collection

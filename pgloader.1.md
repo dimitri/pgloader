@@ -1979,22 +1979,22 @@ The `sqlite` command accepts the following clauses and options:
 
     Please refer to the MySQL CAST clause for details.
 
-  - *INCLUDING ONLY TABLE NAMES MATCHING*
+  - *INCLUDING ONLY TABLE NAMES LIKE*
 
-	Introduce a comma separated list of table names or *regular expression*
-	used to limit the tables to migrate to a sublist.
+	Introduce a comma separated list of table name patterns used to limit
+	the tables to migrate to a sublist.
 
     Example:
 
-	    INCLUDING ONLY TABLE NAMES MATCHING ~/film/, 'actor'
+	    INCLUDING ONLY TABLE NAMES LIKE 'Invoice%'
 
-  - *EXCLUDING TABLE NAMES MATCHING*
+  - *EXCLUDING TABLE NAMES LIKE*
 
-    Introduce a comma separated list of table names or *regular expression*
-    used to exclude table names from the migration. This filter only applies
-    to the result of the *INCLUDING* filter.
+    Introduce a comma separated list of table name patterns used to exclude
+    table names from the migration. This filter only applies to the result
+    of the *INCLUDING* filter.
 
-	    EXCLUDING TABLE NAMES MATCHING ~<ory>
+	    EXCLUDING TABLE NAMES LIKE 'appointments'
 
 ### DEFAULT SQLite CASTING RULES
 

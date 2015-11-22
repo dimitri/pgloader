@@ -2,6 +2,8 @@ load database
      from 'sqlite/Chinook_Sqlite_AutoIncrementPKs.sqlite'
      into postgresql:///pgloader
 
+ -- including only table names like 'Invoice%'
+
  with include drop, create tables, create indexes, reset sequences
 
   set work_mem to '16MB', maintenance_work_mem to '512 MB';

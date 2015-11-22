@@ -106,6 +106,7 @@
                          (:file "command-dbf")
                          (:file "command-cast-rules")
                          (:file "command-mysql")
+                         (:file "command-including-like")
                          (:file "command-mssql")
                          (:file "command-sqlite")
                          (:file "command-archive")

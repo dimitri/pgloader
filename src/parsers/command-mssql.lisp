@@ -43,19 +43,6 @@
     (bind (((_ opts) source))
       (cons :mssql-options opts))))
 
-(defrule like-expression (and "'" (+ (not "'")) "'")
-  (:lambda (le)
-    (bind (((_ like _) le)) (text like))))
-
-(defrule another-like-expression (and comma like-expression)
-  (:lambda (source)
-    (bind (((_ like) source)) like)))
-
-(defrule filter-list-like (and like-expression (* another-like-expression))
-  (:lambda (source)
-    (destructuring-bind (filter1 filters) source
-      (list* filter1 filters))))
-
 (defrule including-in-schema
     (and kw-including kw-only kw-table kw-names kw-like filter-list-like
          kw-in kw-schema quoted-namestring)
@@ -63,7 +50,8 @@
     (bind (((_ _ _ _ _ filter-list _ _ schema) source))
       (cons schema filter-list))))
 
-(defrule including-like (and including-in-schema (* including-in-schema))
+(defrule including-like-in-schema
+    (and including-in-schema (* including-in-schema))
   (:lambda (source)
     (destructuring-bind (inc1 incs) source
       (cons :including (list* inc1 incs)))))
@@ -75,7 +63,8 @@
     (bind (((_ _ _ _ filter-list _ _ schema) source))
       (cons schema filter-list))))
 
-(defrule excluding-like (and excluding-in-schema (* excluding-in-schema))
+(defrule excluding-like-in-schema
+    (and excluding-in-schema (* excluding-in-schema))
   (:lambda (source)
     (destructuring-bind (excl1 excls) source
       (cons :excluding (list* excl1 excls)))))
@@ -89,8 +78,8 @@
                                             casts
                                             before-load
                                             after-load
-                                            including-like
-                                            excluding-like))
+                                            including-like-in-schema
+                                            excluding-like-in-schema))
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
 
