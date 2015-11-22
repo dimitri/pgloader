@@ -158,7 +158,7 @@
   "Stream the given SQLite database down to PostgreSQL."
   (declare (ignore only-tables))
   (let* ((cffi:*default-foreign-encoding* encoding)
-         (copy-kernel  (make-kernel 2))
+         (copy-kernel  (make-kernel 4))
          (copy-channel (let ((lp:*kernel* copy-kernel)) (lp:make-channel)))
          (table-count  0)
          idx-kernel idx-channel)
@@ -230,11 +230,13 @@
       ;; now end the kernels
       (let ((lp:*kernel* copy-kernel))
         (with-stats-collection ("COPY Threads Completion" :section :post)
-            (loop :for tasks :below (* 2 table-count)
-               :do (destructuring-bind (task . table-name)
+            (loop :for tasks :below (* 4 table-count)
+               :do (destructuring-bind (task table-name seconds)
                        (lp:receive-result copy-channel)
-                     (log-message :debug "Finished processing ~a for ~s"
-                                  task table-name)))
+                     (log-message :debug "Finished processing ~a for ~s ~50T~6$s"
+                                  task table-name seconds)
+                     (when (eq :writer task)
+                       (update-stats :data table-name :secs seconds))))
           (lp:end-kernel)))
 
       (let ((lp:*kernel* idx-kernel))
