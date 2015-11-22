@@ -4,6 +4,9 @@ load database
 
  -- with include drop, create tables, create indexes, reset sequences
 
-  cast column character.f1 to text drop typemod
+  -- excluding table names like 'appointments'
+
+  cast column character.f1 to text drop typemod,
+       column appointments.time to timestamptz drop default
 
   set work_mem to '16MB', maintenance_work_mem to '512 MB';
