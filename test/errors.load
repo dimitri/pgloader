@@ -29,7 +29,8 @@ LOAD CSV
           search_path to 'err'  -- test GUC settings in retry path
 
    BEFORE LOAD DO
-     $$ create schema if not exists err; $$,
+     $$ drop schema if exists err cascade; $$,
+     $$ create schema err; $$,
      $$ drop table if exists err.errors; $$,
      $$ create table err.errors (
          a integer primary key,
