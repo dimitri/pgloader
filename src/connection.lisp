@@ -140,7 +140,14 @@
   (let ((conn (gensym "conn")))
     `(let* ((,conn ,connection)
             (,var (handler-case
-                      (open-connection ,conn)
+                      ;; in some cases (client_min_messages set to debug5
+                      ;; for example), PostgreSQL might send us some
+                      ;; WARNINGs already when opening a new connection
+                      (handler-bind ((cl-postgres:postgresql-warning
+                                      #'(lambda (w)
+                                          (log-message :warning "~a" w)
+                                          (muffle-warning))))
+                        (open-connection ,conn))
                     (condition (e)
                       (cond ((typep ,connection 'fd-connection)
                              (error 'fd-connection-error
