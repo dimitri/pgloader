@@ -71,6 +71,7 @@
       (handler-bind ((cl-csv:csv-parse-error
                       #'(lambda (c)
                           (log-message :error "~a" c)
+                          (update-stats :data (target csv) :errs 1)
                           (cl-csv::continue))))
         (cl-csv:read-csv stream
                          :row-fn process-fn
@@ -84,6 +85,6 @@
                          :newline (csv-newline csv)))
     (condition (e)
       (progn
-        (log-message :error "~a" e)
+        (log-message :fatal "~a" e)
         (update-stats :data (target csv) :errs 1)))))
 

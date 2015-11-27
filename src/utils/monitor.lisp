@@ -220,6 +220,7 @@
                           :read (update-stats-read event)
                           :rows (update-stats-rows event)
                           :secs (update-stats-secs event)
+                          :errs (update-stats-errs event)
                           :rs   (update-stats-rs event)
                           :ws   (update-stats-ws event)))
 
