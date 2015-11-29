@@ -47,7 +47,7 @@
   "Fetch from the QUEUE messages containing how many rows are in the
    *writer-batch* for us to send down to PostgreSQL, and when that's done
    update stats."
-  (let ((start-time (get-internal-real-time)))
+  (let ((seconds 0))
     (when truncate
       (truncate-tables pgconn (list table-name)))
 
@@ -61,21 +61,28 @@
           (loop
              :for (mesg batch read oversized?) := (lq:pop-queue queue)
              :until (eq :end-of-data mesg)
-             :for rows := (copy-batch unqualified-table-name columns batch read)
+             :for (rows batch-seconds) :=
+             (let ((start-time (get-internal-real-time)))
+               (list (copy-batch unqualified-table-name columns batch read)
+                     (elapsed-time-since start-time)))
              :do (progn
                    ;; The SBCL implementation needs some Garbage Collection
                    ;; decision making help... and now is a pretty good time.
                    #+sbcl (when oversized? (sb-ext:gc :full t))
-                   (log-message :debug "copy-batch[~a] ~a ~d row~:p~:[~; [oversized]~]"
+                   (log-message :debug
+                                "copy-batch[~a] ~a ~d row~:p in ~6$s~@[ [oversized]~]"
                                 (lp:kernel-worker-index)
-                                unqualified-table-name rows oversized?)
-                   (update-stats :data table-name :rows rows))))))
+                                unqualified-table-name
+                                rows
+                                batch-seconds
+                                oversized?)
+                   (update-stats :data table-name :rows rows)
+                   (incf seconds batch-seconds))))))
 
-    (let ((seconds (elapsed-time-since start-time)))
-      (log-message :info "Writer[~a] for ~a is done in ~6$s"
-                   (lp:kernel-worker-index) table-name seconds)
-      (update-stats :data table-name :ws seconds)
-      (list :writer table-name seconds))))
+    (update-stats :data table-name :ws seconds)
+    (log-message :debug "Writer[~a] for ~a is done in ~6$s"
+                 (lp:kernel-worker-index) table-name seconds)
+    (list :writer table-name seconds)))
 
 ;;;
 ;;; Compute how many rows we're going to try loading next, depending on
