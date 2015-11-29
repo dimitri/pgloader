@@ -18,13 +18,11 @@
         ;; of a data error being signaled, that's the BATCH here.
         (let ((copier (cl-postgres:open-db-writer db table-name columns)))
           (unwind-protect
-               (loop for i below batch-rows
-                  for copy-string = (aref batch i)
-                  do (when (or (eq :data *log-min-messages*)
-                               (eq :data *client-min-messages*))
-                       (log-message :data "> ~s" copy-string))
-                  do (cl-postgres:db-write-row copier nil copy-string)
-                  finally (return batch-rows))
+               (loop :for i :below batch-rows
+                  :for copy-string := (aref batch i)
+                  :do (when copy-string
+                        (cl-postgres:db-write-row copier nil copy-string))
+                  :finally (return batch-rows))
             (cl-postgres:close-db-writer copier))))
 
     ;; If PostgreSQL signals a data error, process the batch by isolating
@@ -62,7 +60,7 @@
 
           (loop
              :for (mesg batch read oversized?) := (lq:pop-queue queue)
-             :until (eq mesg :end-of-data)
+             :until (eq :end-of-data mesg)
              :for rows := (copy-batch unqualified-table-name columns batch read)
              :do (progn
                    ;; The SBCL implementation needs some Garbage Collection

@@ -40,7 +40,6 @@
 	      :components
 	      ((:file "params")
 	       (:file "package" :depends-on ("params"))
-               (:file "queue"   :depends-on ("params" "package"))
 
                (:module "monkey"
                         :components
@@ -51,6 +50,7 @@
                         :depends-on ("package" "params")
                         :components
                         ((:file "charsets")
+                         (:file "batch")
                          (:file "threads")
                          (:file "logs")
                          (:file "utils")
@@ -121,8 +121,7 @@
                                      "connection"
                                      "pgsql"
                                      "utils"
-                                     "parsers"
-                                     "queue")
+                                     "parsers")
 			:components
                         ((:module "common"
                                   :components

@@ -110,6 +110,13 @@
            #:show-encodings
            #:make-external-format))
 
+(defpackage #:pgloader.batch
+  (:use #:cl #:pgloader.params #:pgloader.monitor)
+  (:export #:*current-batch*
+           #:make-batch
+           #:batch-row
+           #:finish-current-batch))
+
 
 ;;
 ;; Not really a source, more a util package to deal with http and zip
@@ -226,7 +233,7 @@
 (defpackage #:pgloader.sources
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
-        #:pgloader.schema #:pgloader.pgsql)
+        #:pgloader.schema #:pgloader.pgsql #:pgloader.batch)
   (:import-from #:pgloader.transforms
                 #:precision
                 #:scale
@@ -286,17 +293,6 @@
            #:*cast-rules*
            #:cast))
 
-
-(defpackage #:pgloader.queue
-  (:use #:cl #:pgloader.params #:pgloader.monitor)
-  (:import-from #:pgloader.pgsql
-                #:format-vector-row)
-  (:import-from #:pgloader.sources
-                #:map-rows
-                #:transforms
-                #:target)
-  (:export #:cook-batches))
-
 
 ;;;
 ;;; Other utilities
@@ -325,7 +321,7 @@
 (defpackage #:pgloader.csv
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
-        #:pgloader.sources #:pgloader.queue)
+        #:pgloader.sources)
   (:import-from #:pgloader.pgsql
                 #:maybe-drop-indexes
                 #:create-indexes-again)
@@ -342,7 +338,7 @@
 (defpackage #:pgloader.fixed
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
-        #:pgloader.sources #:pgloader.queue)
+        #:pgloader.sources)
   (:import-from #:pgloader.csv
                 #:csv-connection
                 #:specs
@@ -357,7 +353,7 @@
 (defpackage #:pgloader.copy
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
-        #:pgloader.sources #:pgloader.queue)
+        #:pgloader.sources)
   (:import-from #:pgloader.csv
                 #:csv-connection
                 #:specs
@@ -372,7 +368,7 @@
 (defpackage #:pgloader.ixf
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
-        #:pgloader.sources #:pgloader.queue)
+        #:pgloader.sources)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
 		#:pgsql-execute
@@ -389,7 +385,7 @@
 (defpackage #:pgloader.db3
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
-        #:pgloader.sources #:pgloader.queue)
+        #:pgloader.sources)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
 		#:pgsql-execute
@@ -407,7 +403,7 @@
 (defpackage #:pgloader.mysql
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
-        #:pgloader.sources #:pgloader.queue)
+        #:pgloader.sources)
   (:import-from #:pgloader.transforms #:precision #:scale)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-connection
@@ -448,7 +444,7 @@
 (defpackage #:pgloader.sqlite
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
-        #:pgloader.sources #:pgloader.queue)
+        #:pgloader.sources)
   (:import-from #:pgloader.transforms #:precision #:scale)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
@@ -476,7 +472,7 @@
 (defpackage #:pgloader.mssql
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
-        #:pgloader.sources #:pgloader.queue)
+        #:pgloader.sources)
   (:import-from #:pgloader.transforms #:precision #:scale)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-connection

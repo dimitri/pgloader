@@ -10,13 +10,18 @@
   "Stream data as read by the map-queue method on the COPY argument into QUEUE,
    as given."
   (log-message :debug "Reader started for ~a" (target copy))
-  (let ((start-time (get-internal-real-time)))
-    (map-rows copy :process-row-fn (lambda (data)
+  (let ((start-time (get-internal-real-time))
+        (*current-batch* (make-batch)))
+    (map-rows copy :process-row-fn (lambda (row)
                                      (when (or (eq :data *log-min-messages*)
                                                (eq :data *client-min-messages*))
-                                       (log-message :data "< ~s" data))
-                                     (lq:push-queue data queue)))
-    (lq:push-queue :end-of-data queue)
+                                       (log-message :data "< ~s" row))
+                                     (batch-row row (target copy) queue)))
+    ;; last batch
+    (finish-current-batch (target copy) queue)
+
+    ;; mark end of stream
+    (lq:push-queue (list :end-of-data nil nil nil) queue)
 
     (let ((seconds (elapsed-time-since start-time)))
      (log-message :info "Reader for ~a is done in ~6$s" (target copy) seconds)
@@ -29,12 +34,44 @@
   (log-message :debug "Transformer in action for ~a!" (target copy))
   (let ((start-time (get-internal-real-time)))
 
-    (pgloader.queue:cook-batches copy raw-queue formatted-queue pre-formatted)
+    (loop :for (mesg batch count oversized?) := (lq:pop-queue raw-queue)
+       :until (eq :end-of-data mesg)
+       :do (let ((batch-start-time (get-internal-real-time)))
+             ;; transform each row of the batch into a copy-string
+             (loop :for i :below count
+                :do (let ((copy-string
+                           (handler-case
+                               (with-output-to-string (s)
+                                 (format-vector-row s
+                                                    (aref batch i)
+                                                    (transforms copy)
+                                                    pre-formatted))
+                             (condition (e)
+                               (log-message :error "~a" e)
+                               (update-stats :data (target copy) :errs 1)
+                               nil))))
+                      (when (or (eq :data *log-min-messages*)
+                                (eq :data *client-min-messages*))
+                        (log-message :data "> ~s" copy-string))
+
+                      (setf (aref batch i) copy-string)))
+
+             ;; the batch is ready, log about it
+             (log-message :debug "format-data-to-copy[~a] ~d row in ~6$s"
+                          (lp:kernel-worker-index)
+                          count
+                          (elapsed-time-since batch-start-time))
+             ;; and send the formatted batch of copy-strings down to PostgreSQL
+             (lq:push-queue (list mesg batch count oversized?) formatted-queue)))
+
+    ;; mark end of stream, twice because we hardcode 2 COPY processes, see below
+    (lq:push-queue (list :end-of-data nil nil nil) formatted-queue)
+    (lq:push-queue (list :end-of-data nil nil nil) formatted-queue)
 
     ;; and return
     (let ((seconds (elapsed-time-since start-time)))
-     (log-message :info "Transformer for ~a is done in ~6$s" (target copy) seconds)
-     (list :worker (target copy) seconds))))
+      (log-message :info "Transformer for ~a is done in ~6$s" (target copy) seconds)
+      (list :worker (target copy) seconds))))
 
 (defmethod copy-column-list ((copy copy))
   "Default column list is an empty list."
@@ -59,7 +96,7 @@
   "Copy data from COPY source into PostgreSQL."
   (let* ((lp:*kernel* (or kernel (make-kernel 4)))
          (channel     (or channel (lp:make-channel)))
-         (rawq        (lq:make-queue))
+         (rawq        (lq:make-queue :fixed-capacity *concurrent-batches*))
          (fmtq        (lq:make-queue :fixed-capacity *concurrent-batches*))
          (table-name  (format-table-name (target copy))))
 
