@@ -201,6 +201,8 @@
                              &key
                                materialize-views
                                only-tables
+                               (create-indexes   t)
+                               (foreign-keys     t)
                                including
                                excluding)
   "MySQL introspection to prepare the migration."
@@ -230,20 +232,22 @@
                                                     :including including
                                                     :excluding excluding)
 
-             all-fkeys     (list-all-fkeys :only-tables only-tables
-                                           :including including
-                                           :excluding excluding)
-
-             all-indexes   (list-all-indexes :only-tables only-tables
-                                             :including including
-                                             :excluding excluding)
-
              view-columns  (cond (view-names
                                   (list-all-columns :only-tables view-names
                                                     :table-type :view))
 
                                  ((eq :all materialize-views)
                                   (list-all-columns :table-type :view))))
+
+       (when foreign-keys
+         (setf all-fkeys     (list-all-fkeys :only-tables only-tables
+                                             :including including
+                                             :excluding excluding)))
+
+       (when create-indexes
+         (setf all-indexes   (list-all-indexes :only-tables only-tables
+                                               :including including
+                                               :excluding excluding)))
 
        ;; return how many objects we're going to deal with in total
        ;; for stats collection
@@ -307,6 +311,8 @@
         (fetch-mysql-metadata mysql
                               :materialize-views materialize-views
                               :only-tables only-tables
+                              :create-indexes create-indexes
+                              :foreign-keys foreign-keys
                               :including including
                               :excluding excluding)
 
