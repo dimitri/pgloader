@@ -1791,12 +1791,12 @@ Numbers:
 
 Texts:
 
-  - type char       to varchar keep typemod
-  - type varchar    to text
-  - type tinytext   to text
-  - type text       to text
-  - type mediumtext to text
-  - type longtext   to text
+  - type char       to varchar keep typemod using remove-null-characters
+  - type varchar    to text using remove-null-characters
+  - type tinytext   to text using remove-null-characters
+  - type text       to text using remove-null-characters
+  - type mediumtext to text using remove-null-characters
+  - type longtext   to text using remove-null-characters
 
 Binary:
 
@@ -2230,9 +2230,13 @@ The provided transformation functions are:
 
     Convert an empty string to a null.
 
-  - *right-trimg*
+  - *right-trim*
 
     Remove whitespace at end of string.
+
+  - *remove-null-characters*
+
+    Remove `NUL` characters (`0x0`) from given strings.
 
   - *byte-vector-to-bytea*
 

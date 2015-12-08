@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "November 2015" "ff" ""
+.TH "PGLOADER" "1" "December 2015" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -2139,22 +2139,22 @@ type decimal to decimal keep typemod
 Texts:
 .
 .IP "\(bu" 4
-type char to varchar keep typemod
+type char to varchar keep typemod using remove\-null\-characters
 .
 .IP "\(bu" 4
-type varchar to text
+type varchar to text using remove\-null\-characters
 .
 .IP "\(bu" 4
-type tinytext to text
+type tinytext to text using remove\-null\-characters
 .
 .IP "\(bu" 4
-type text to text
+type text to text using remove\-null\-characters
 .
 .IP "\(bu" 4
-type mediumtext to text
+type mediumtext to text using remove\-null\-characters
 .
 .IP "\(bu" 4
-type longtext to text
+type longtext to text using remove\-null\-characters
 .
 .IP "" 0
 .
@@ -2848,10 +2848,16 @@ Out: "{foo,bar}"
 Convert an empty string to a null\.
 .
 .IP "\(bu" 4
-\fIright\-trimg\fR
+\fIright\-trim\fR
 .
 .IP
 Remove whitespace at end of string\.
+.
+.IP "\(bu" 4
+\fIremove\-null\-characters\fR
+.
+.IP
+Remove \fBNUL\fR characters (\fB0x0\fR) from given strings\.
 .
 .IP "\(bu" 4
 \fIbyte\-vector\-to\-bytea\fR
