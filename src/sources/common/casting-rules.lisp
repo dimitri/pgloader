@@ -158,6 +158,11 @@
               (setf first-match-using using))
          until target
          finally
+           (log-message :info "CAST ~a.~a ~a [~s, ~:[NULL~;NOT NULL~]~:[~*~;, ~a~]] TO ~s"
+                        table-name column-name ctype default
+                        (string= "NO" nullable)
+                        (string/= "" extra) extra
+                        (format-pgsql-type source target using))
            (return
              (list :transform-fn (or first-match-using using)
                    :pgtype (format-pgsql-type source target using)))))))
