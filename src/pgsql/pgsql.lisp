@@ -48,9 +48,6 @@
    *writer-batch* for us to send down to PostgreSQL, and when that's done
    update stats."
   (let ((seconds 0))
-    (when truncate
-      (truncate-tables pgconn (list table-name)))
-
     (with-pgsql-connection (pgconn)
       (with-schema (unqualified-table-name table-name)
         (with-disabled-triggers (unqualified-table-name
@@ -63,7 +60,8 @@
              :until (eq :end-of-data mesg)
              :for (rows batch-seconds) :=
              (let ((start-time (get-internal-real-time)))
-               (list (copy-batch unqualified-table-name columns batch read)
+               (list (copy-batch (apply-identifier-case unqualified-table-name)
+                                 columns batch read)
                      (elapsed-time-since start-time)))
              :do (progn
                    ;; The SBCL implementation needs some Garbage Collection

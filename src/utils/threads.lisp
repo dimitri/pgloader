@@ -17,6 +17,7 @@
                             (*log-min-messages*    . ,*log-min-messages*)
 
                             ;; needed in create index specific kernels
+                            (*pgsql-reserved-keywords* . ',*pgsql-reserved-keywords*)
                             (*preserve-index-names* . ,*preserve-index-names*)
 
                             ;; bindings updates for libs

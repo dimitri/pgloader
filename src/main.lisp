@@ -407,23 +407,21 @@
 
     ;; once we are done running the load-file, compare the loaded data with
     ;; our expected data file
-    (let* ((expected-subdir    (directory-namestring
-                                (asdf:system-relative-pathname
-                                 :pgloader "test/regress/expected/")))
-           (expected-data-file (make-pathname :defaults load-file
-                                              :type "out"
-                                              :directory expected-subdir)))
-      (destructuring-bind (target *pg-settings*)
-          (parse-target-pg-db-uri load-file)
-       (log-message :log "Comparing loaded data against ~s"
-                    expected-data-file)
+    (bind ((expected-subdir        (directory-namestring
+                                    (asdf:system-relative-pathname
+                                     :pgloader "test/regress/expected/")))
+           (expected-data-file     (make-pathname :defaults load-file
+                                                  :type "out"
+                                                  :directory expected-subdir))
+           ((target *pg-settings*) (parse-target-pg-db-uri load-file))
+           (*pgsql-reserved-keywords* (list-reserved-keywords target))
 
-       (let ((expected-data-source
+           (expected-data-source
               (parse-source-string-for-type
                :copy (uiop:native-namestring expected-data-file)))
 
-             ;; change target table-name schema
-             (expected-data-target
+           ;; change target table-name schema
+           (expected-data-target
               (let ((e-d-t (clone-connection target)))
                 (setf (pgconn-table-name e-d-t)
                       (cons "expected"
@@ -432,29 +430,33 @@
                               (cons   (cdr (pgconn-table-name e-d-t))))))
                 e-d-t)))
 
-         ;; prepare expected table in "expected" schema
-         (with-pgsql-connection (target)
-           (with-schema (unqualified-table-name (pgconn-table-name target))
-             (let ((drop   (format nil "drop table if exists expected.~a;"
-                                   unqualified-table-name))
-                   (create (format nil "create table expected.~a(like ~a);"
-                                   unqualified-table-name unqualified-table-name)))
-               (log-message :notice "~a" drop)
-               (pomo:query drop)
-               (log-message :notice "~a" create)
-               (pomo:query create))))
+      (log-message :log "Comparing loaded data against ~s" expected-data-file)
 
-         ;; load expected data
-         (load-data :from expected-data-source
-                    :into expected-data-target
-                    :options '(:truncate t)
-                    :start-logger nil))
+      ;; prepare expected table in "expected" schema
+      (with-pgsql-connection (target)
+        (with-schema (unqualified-table-name (pgconn-table-name target))
+          (let* ((tname  (apply-identifier-case unqualified-table-name))
+                 (drop   (format nil "drop table if exists expected.~a;"
+                                 tname))
+                 (create (format nil "create table expected.~a(like ~a);"
+                                 tname tname)))
+            (log-message :notice "~a" drop)
+            (pomo:query drop)
+            (log-message :notice "~a" create)
+            (pomo:query create))))
+
+      ;; load expected data
+      (load-data :from expected-data-source
+                 :into expected-data-target
+                 :options '(:truncate t)
+                 :start-logger nil)
 
        ;; now compare both
        (with-pgsql-connection (target)
          (with-schema (unqualified-table-name (pgconn-table-name target))
-           (let* ((cols (loop :for (name type)
-                           :in (list-columns-query unqualified-table-name)
+           (let* ((tname  (apply-identifier-case unqualified-table-name))
+                  (cols (loop :for (name type)
+                           :in (list-columns-query tname)
                            ;;
                            ;; We can't just use table names here, because
                            ;; PostgreSQL support for the POINT datatype fails
@@ -469,9 +471,9 @@
                   (sql  (format nil
                                 "select count(*) from (select ~{~a~^, ~} from ~a except select ~{~a~^, ~} from expected.~a) ss"
                                 cols
-                                unqualified-table-name
+                                tname
                                 cols
-                                unqualified-table-name))
+                                tname))
                   (diff-count (pomo:query sql :single)))
              (log-message :notice "~a" sql)
              (log-message :notice "Got a diff of ~a rows" diff-count)
@@ -483,7 +485,7 @@
                  (progn
                    (log-message :log "Regress fail.")
                    #-pgloader-image (values diff-count +os-code-error-regress+)
-                   #+pgloader-image (uiop:quit +os-code-error-regress+))))))))))
+                   #+pgloader-image (uiop:quit +os-code-error-regress+)))))))))
 
 
 ;;;

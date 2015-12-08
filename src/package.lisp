@@ -601,7 +601,7 @@
 (defpackage #:pgloader
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.parser
-        #:pgloader.connection)
+        #:pgloader.connection #:metabang.bind)
   (:import-from #:pgloader.pgsql
                 #:pgconn-table-name
                 #:pgsql-connection
@@ -611,7 +611,9 @@
 		#:list-columns-query)
   (:import-from #:pgloader.pgsql
                 #:with-pgsql-connection
-                #:with-schema)
+                #:with-schema
+                #:list-reserved-keywords
+                #:apply-identifier-case)
   (:export #:*version-string*
 	   #:*state*
 	   #:*fd-path-root*

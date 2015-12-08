@@ -3,9 +3,6 @@
 ;;;
 (in-package pgloader.pgsql)
 
-(defvar *pgsql-reserved-keywords* nil
-  "We need to always quote PostgreSQL reserved keywords")
-
 (defun quoted-p (s)
   "Return true if s is a double-quoted string"
   (and (eq (char s 0) #\")

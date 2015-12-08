@@ -1,14 +1,14 @@
 LOAD CSV
      FROM INLINE
-     INTO postgresql:///pgloader?public.header
+     INTO postgresql:///pgloader?"group"
 
      WITH truncate,
           fields terminated by ',',
           csv header
 
    BEFORE LOAD DO
-    $$ drop table if exists header; $$,
-    $$ CREATE TABLE header
+    $$ drop table if exists "group"; $$,
+    $$ CREATE TABLE "group"
        (
           somefields     text,
           rekplcode      text,

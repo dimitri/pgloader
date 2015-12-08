@@ -120,6 +120,13 @@
           ;; http://www.anarazel.de/talks/pgconf-eu-2015-10-30/concurrency.pdf
           ;;
           ;; Let's just hardcode 2 threads for that then.
+          ;;
+          ;; Also, we need to do the TRUNCATE here before starting the
+          ;; threads, so that it's done just once.
+          (when truncate
+            (truncate-tables (clone-connection (target-db copy))
+                             (list (target copy))))
+
           (loop :for w :below 2
              :do (lp:submit-task channel
                                  #'pgloader.pgsql:copy-from-queue
@@ -127,7 +134,6 @@
                                  (target copy)
                                  fmtq
                                  :columns (copy-column-list copy)
-                                 :truncate truncate
                                  :disable-triggers disable-triggers))
 
           ;; now wait until both the tasks are over, and kill the kernel

@@ -15,6 +15,7 @@
 	   #:*client-min-messages*
 	   #:*log-min-messages*
            #:*report-stream*
+           #:*pgsql-reserved-keywords*
            #:*identifier-case*
            #:*preserve-index-names*
 	   #:*copy-batch-rows*
@@ -94,6 +95,9 @@
 ;;;
 ;;; When converting from other databases, how to deal with case sensitivity?
 ;;;
+(defvar *pgsql-reserved-keywords* nil
+  "We need to always quote PostgreSQL reserved keywords")
+
 (defparameter *identifier-case* :downcase
   "Dealing with source databases casing rules.")
 
