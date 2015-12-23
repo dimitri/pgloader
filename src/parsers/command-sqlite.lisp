@@ -90,7 +90,9 @@ load database
                                              gucs
                                              casts
                                              including-like
-                                             excluding-like))
+                                             excluding-like
+                                             before-load
+                                             after-load))
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
 
@@ -108,7 +110,7 @@ load database
 
 (defun lisp-code-for-loading-from-sqlite (sqlite-db-conn pg-db-conn
                                           &key
-                                            gucs casts
+                                            gucs casts before after
                                             ((:sqlite-options options))
                                             ((:including incl))
                                             ((:excluding excl)))
@@ -123,16 +125,23 @@ load database
              (make-instance 'pgloader.sqlite::copy-sqlite
                             :target-db ,pg-db-conn
                             :source-db source-db)))
+
+       ,(sql-code-block pg-db-conn :pre before "before load")
+
        (pgloader.sqlite:copy-database source
                                       :including ',incl
                                       :excluding ',excl
-                                      ,@(remove-batch-control-option options)))))
+                                      ,@(remove-batch-control-option options))
+
+       ,(sql-code-block pg-db-conn :post after "after load"))))
 
 (defrule load-sqlite-database load-sqlite-command
   (:lambda (source)
     (destructuring-bind (sqlite-uri
                          pg-db-uri
-                         &key gucs casts sqlite-options including excluding)
+                         &key
+                         gucs casts before after
+                         sqlite-options including excluding)
         source
       (cond (*dry-run*
              (lisp-code-for-sqlite-dry-run sqlite-uri pg-db-uri))
@@ -140,6 +149,8 @@ load database
              (lisp-code-for-loading-from-sqlite sqlite-uri pg-db-uri
                                                 :gucs gucs
                                                 :casts casts
+                                                :before before
+                                                :after after
                                                 :sqlite-options sqlite-options
                                                 :including including
                                                 :excluding excluding))))))

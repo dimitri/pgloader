@@ -605,7 +605,9 @@
          (lisp-code-for-loading-from-sqlite source target
                                             :gucs gucs
                                             :casts casts
-                                            :sqlite-options options))
+                                            :sqlite-options options
+                                            :before before
+                                            :after after))
 
         (mysql-connection
          (lisp-code-for-loading-from-mysql source target
