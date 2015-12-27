@@ -129,11 +129,12 @@
                (source
                 (make-instance 'pgloader.copy:copy-copy
                                :target-db ,pg-db-conn
-                               :source source-db
-                               :target ',(pgconn-table-name pg-db-conn)
-                               :encoding ,encoding
-                               :fields ',fields
-                               :columns ',columns
+                               :source    source-db
+                               :target    (create-table
+                                           ',(pgconn-table-name pg-db-conn))
+                               :encoding  ,encoding
+                               :fields   ',fields
+                               :columns  ',columns
                                ,@(remove-batch-control-option
                                   options :extras '(:truncate
                                                     :drop-indexes

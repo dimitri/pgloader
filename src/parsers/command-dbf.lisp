@@ -96,7 +96,8 @@
      (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
-            (table-name   ',(pgconn-table-name pg-db-conn))
+            (table         (create-table
+                            ',(pgconn-table-name pg-db-conn)))
             (source-db     (with-stats-collection ("fetch" :section :pre)
                              (expand (fetch-file ,dbf-db-conn))))
             (source
@@ -104,7 +105,7 @@
                             :target-db ,pg-db-conn
                             :encoding ,encoding
                             :source-db source-db
-                            :target table-name)))
+                            :target table)))
 
        ,(sql-code-block pg-db-conn :pre before "before load")
 

@@ -74,22 +74,18 @@
          (paren-pos (position #\( ctype)))
     (if paren-pos (subseq ctype 0 paren-pos) ctype)))
 
-(defun cast-sqlite-column-definition-to-pgsql (sqlite-column)
-  "Return the PostgreSQL column definition from the MySQL one."
-  (multiple-value-bind (column fn)
-      (with-slots (table-name name dtype ctype default nullable)
-          sqlite-column
-        (cast table-name name dtype ctype default nullable nil))
-    ;; the SQLite driver smartly maps data to the proper CL type, but the
-    ;; pgloader API only wants to see text representations to send down the
-    ;; COPY protocol.
-    (values column (or fn (lambda (val) (if val (format nil "~a" val) :null))))))
+(defmethod cast ((col coldef))
+  "Return the PostgreSQL type definition from given SQLite column definition."
+  (with-slots (table-name name dtype ctype default nullable)
+      col
+    (let ((pgcol
+           (apply-casting-rules table-name name dtype ctype default nullable nil)))
+      ;; the SQLite driver smartly maps data to the proper CL type, but the
+      ;; pgloader API only wants to see text representations to send down
+      ;; the COPY protocol.
+      (unless (column-transform pgcol)
+        (setf (column-transform pgcol)
+              (lambda (val) (if val (format nil "~a" val) :null))))
 
-(defmethod format-pgsql-column ((col coldef))
-  "Return a string representing the PostgreSQL column definition."
-  (let* ((column-name (apply-identifier-case (coldef-name col)))
-	 (type-definition
-          (with-slots (table-name name dtype ctype nullable default)
-              col
-            (cast table-name name dtype ctype default nullable nil))))
-    (format nil "~a ~22t ~a" column-name type-definition)))
+      pgcol)))
+

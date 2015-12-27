@@ -168,6 +168,7 @@
   `(lambda ()
      (let* ((*default-cast-rules* ',*mysql-default-cast-rules*)
             (*cast-rules*         ',casts)
+            (*decoding-as*        ',decoding-as)
             ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
@@ -181,8 +182,8 @@
        (pgloader.mysql:copy-database source
                                      :including ',incl
                                      :excluding ',excl
-                                     :decoding-as ',decoding-as
                                      :materialize-views ',views
+                                     :set-table-oids t
                                      ,@(remove-batch-control-option options))
 
        ,(sql-code-block pg-db-conn :post after "after load"))))

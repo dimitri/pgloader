@@ -3,46 +3,6 @@
 ;;;
 (in-package pgloader.pgsql)
 
-(defun quoted-p (s)
-  "Return true if s is a double-quoted string"
-  (and (eq (char s 0) #\")
-       (eq (char s (- (length s) 1)) #\")))
-
-(defun apply-identifier-case (identifier)
-  "Return given IDENTIFIER with CASE handled to be PostgreSQL compatible."
-  (let* ((lowercase-identifier (cl-ppcre:regex-replace-all
-                                "[^a-zA-Z0-9.]" (string-downcase identifier) "_"))
-         (*identifier-case*
-          ;; we might need to force to :quote in some cases
-          ;;
-          ;; http://www.postgresql.org/docs/9.1/static/sql-syntax-lexical.html
-          ;;
-          ;; SQL identifiers and key words must begin with a letter (a-z, but
-          ;; also letters with diacritical marks and non-Latin letters) or an
-          ;; underscore (_).
-          (cond ((quoted-p identifier)
-                 :none)
-
-                ((not (cl-ppcre:scan "^[A-Za-z_][A-Za-z0-9_$]*$" identifier))
-                 :quote)
-
-                ((member lowercase-identifier *pgsql-reserved-keywords*
-                         :test #'string=)
-                 (progn
-                   ;; we need to both downcase and quote here
-                   (when (eq :downcase *identifier-case*)
-                     (setf identifier lowercase-identifier))
-                   :quote))
-
-                ;; in other cases follow user directive
-                (t *identifier-case*))))
-
-    (ecase *identifier-case*
-      (:downcase lowercase-identifier)
-      (:quote    (format nil "\"~a\""
-                         (cl-ppcre:regex-replace-all "\"" identifier "\"\"")))
-      (:none     identifier))))
-
 ;;;
 ;;; Some parts of the logic here needs to be specialized depending on the
 ;;; source type, such as SQLite or MySQL. To do so, sources must define
@@ -61,18 +21,18 @@
     column, or nil of none is required. If no special extra type is ever
     needed, it's allowed not to specialize this generic into a method."))
 
-(defmethod format-pgsql-column ((col pgsql-column))
-  "Return a string representing the PostgreSQL column definition."
-  (let* ((column-name
-	  (apply-identifier-case (pgsql-column-name col)))
-	 (type-definition
-	  (format nil
-		  "~a~@[~a~]~:[~; not null~]~@[ default ~a~]"
-		  (pgsql-column-type-name col)
-		  (pgsql-column-type-mod col)
-		  (pgsql-column-nullable col)
-		  (pgsql-column-default col))))
-    (format nil "~a ~22t ~a" column-name type-definition)))
+;; (defmethod format-pgsql-column ((col pgsql-column))
+;;   "Return a string representing the PostgreSQL column definition."
+;;   (let* ((column-name
+;; 	  (apply-identifier-case (pgsql-column-name col)))
+;; 	 (type-definition
+;; 	  (format nil
+;; 		  "~a~@[~a~]~:[~; not null~]~@[ default ~a~]"
+;; 		  (pgsql-column-type-name col)
+;; 		  (pgsql-column-type-mod col)
+;; 		  (pgsql-column-nullable col)
+;; 		  (pgsql-column-default col))))
+;;     (format nil "~a ~22t ~a" column-name type-definition)))
 
 (defmethod format-extra-type ((col T) &key include-drop)
   "The default `format-extra-type' implementation returns an empty list."
@@ -96,25 +56,17 @@
 
 (defmethod format-pgsql-create-fkey ((fk pgsql-fkey))
   "Generate the PostgreSQL statement to rebuild a MySQL Foreign Key"
-  (let* ((constraint-name (apply-identifier-case (pgsql-fkey-name fk)))
-	 (table-name      (apply-identifier-case (pgsql-fkey-table-name fk)))
-         (fkey-columns    (mapcar (lambda (column-name)
-                                    (apply-identifier-case column-name))
-                                  (pgsql-fkey-columns fk)))
-	 (foreign-table   (apply-identifier-case (pgsql-fkey-foreign-table fk)))
-         (foreign-columns (mapcar #'apply-identifier-case
-                                  (pgsql-fkey-foreign-columns fk))))
-    (format nil
-	    "ALTER TABLE ~a ADD CONSTRAINT ~a FOREIGN KEY(~{~a~^,~}) REFERENCES ~a(~{~a~^,~})~:[~*~; ON UPDATE ~a~]~:[~*~; ON DELETE ~a~]"
-	    table-name
-	    constraint-name
-	    fkey-columns
-	    foreign-table
-	    foreign-columns
-            (pgsql-fkey-update-rule fk)
-            (pgsql-fkey-update-rule fk)
-            (pgsql-fkey-delete-rule fk)
-            (pgsql-fkey-delete-rule fk))))
+  (format nil
+          "ALTER TABLE ~a ADD CONSTRAINT ~a FOREIGN KEY(~{~a~^,~}) REFERENCES ~a(~{~a~^,~})~:[~*~; ON UPDATE ~a~]~:[~*~; ON DELETE ~a~]"
+          (pgsql-fkey-table-name fk)
+          (pgsql-fkey-name fk)        ; constraint name
+          (pgsql-fkey-columns fk)
+          (pgsql-fkey-foreign-table fk)
+          (pgsql-fkey-foreign-columns fk)
+          (pgsql-fkey-update-rule fk)
+          (pgsql-fkey-update-rule fk)
+          (pgsql-fkey-delete-rule fk)
+          (pgsql-fkey-delete-rule fk)))
 
 (defmethod format-pgsql-drop-fkey ((fk pgsql-fkey) &key all-pgsql-fkeys)
   "Generate the PostgreSQL statement to rebuild a MySQL Foreign Key"
@@ -127,118 +79,128 @@
       ;; alter table if exists ... drop constraint if exists ...
       (format nil "ALTER TABLE ~a DROP CONSTRAINT ~a" table-name constraint-name))))
 
-(defun drop-pgsql-fkeys (all-fkeys)
+(defun drop-pgsql-fkeys (catalog)
   "Drop all Foreign Key Definitions given, to prepare for a clean run."
   (let ((all-pgsql-fkeys (list-tables-and-fkeys)))
-    (loop for (table-name . fkeys) in all-fkeys
-       do
-	 (loop for fkey in fkeys
-	    for sql = (format-pgsql-drop-fkey fkey
-					      :all-pgsql-fkeys all-pgsql-fkeys)
-	    when sql
-	    do
-	      (log-message :notice "~a;" sql)
-	      (pgsql-execute sql)))))
+    (loop :for table :in (table-list catalog)
+       :do
+       (loop :for fkey :in (table-fkey-list table)
+          :for sql := (format-pgsql-drop-fkey fkey
+                                              :all-pgsql-fkeys all-pgsql-fkeys)
+          :when sql
+          :do
+          (log-message :notice "~a;" sql)
+          (pgsql-execute sql)))))
 
-(defun create-pgsql-fkeys (pgconn all-fkeys
+(defun create-pgsql-fkeys (catalog
                            &key
                              (section :post)
                              (label "Foreign Keys"))
   "Actually create the Foreign Key References that where declared in the
    MySQL database"
-  (new-label section label)
-  (loop for (table-name . fkeys) in all-fkeys
-     do (loop for fkey in fkeys
-	   for sql = (format-pgsql-create-fkey fkey)
-	   do
-	     (log-message :notice "~a;" sql)
-	     (pgsql-execute-with-timing section label sql))))
+  (with-stats-collection (label :section section :use-result-as-rows t)
+      (loop :for table :in (table-list catalog)
+         :sum (loop :for fkey :in (table-fkey-list table)
+                 :for sql := (format-pgsql-create-fkey fkey)
+                 :do (progn             ; for indentation purposes
+                       (log-message :notice "~a;" sql)
+                       (pgsql-execute-with-timing section label sql))
+                 :count t))))
 
 
 ;;;
 ;;; Table schema rewriting support
 ;;;
-(defun create-table-sql (table-name cols &key if-not-exists)
+(defun create-table-sql (table &key if-not-exists)
   "Return a PostgreSQL CREATE TABLE statement from given COLS.
 
    Each element of the COLS list is expected to be of a type handled by the
    `format-pgsql-column' generic function."
   (with-output-to-string (s)
-    (let ((table-name (apply-identifier-case table-name)))
-      (format s "CREATE TABLE~:[~; IF NOT EXISTS~] ~a ~%(~%"
-	      if-not-exists
-	      table-name))
+    (format s "CREATE TABLE~:[~; IF NOT EXISTS~] ~a ~%(~%"
+            if-not-exists
+            (format-table-name table))
     (loop
-       for (col . last?) on cols
-       for pg-coldef = (format-pgsql-column col)
-       do (format s "  ~a~:[~;,~]~%" pg-coldef last?))
+       :for (col . last?) :on (table-column-list table)
+       :for pg-coldef := (format-column col)
+       :do (format s "  ~a~:[~;,~]~%" pg-coldef last?))
     (format s ");~%")))
 
-(defun drop-table-if-exists-sql (table-name)
+(defun drop-table-if-exists-sql (table)
   "Return the PostgreSQL DROP TABLE IF EXISTS statement for TABLE-NAME."
-  (let ((table-name (apply-identifier-case table-name)))
-    (format nil "DROP TABLE IF EXISTS ~a~% CASCADE;" table-name)))
+  (format nil "DROP TABLE IF EXISTS ~a CASCADE;" (format-table-name table)))
 
-(defun create-table-sql-list (all-columns
+(defun create-table-sql-list (table-list
 			      &key
 				if-not-exists
 				include-drop)
-  "Return the list of CREATE TABLE statements to run against PostgreSQL.
-
-   The ALL-COLUMNS parameter must be a list of alist associations where the
-   car is the table-name (a string) and the cdr is a column list. Each
-   element of the column list is expected to be of a type handled by the
-   `format-pgsql-column' generic function, such as `pgsql-column'."
+  "Return the list of CREATE TABLE statements to run against PostgreSQL."
   (loop
-     for (table-name . cols) in all-columns
-     for extra-types = (loop for col in cols
-			  append (format-extra-type col
-						    :include-drop include-drop))
+     :for table :in table-list
+     :for cols  := (table-column-list table)
+     :for fields := (table-field-list table)
+     :for extra-types := (loop :for field :in fields
+                            :append (format-extra-type
+                                     field :include-drop include-drop))
 
-     when include-drop
-     collect (drop-table-if-exists-sql table-name)
+     :when include-drop
+     :collect (drop-table-if-exists-sql table)
 
-     when extra-types append extra-types
+     :when extra-types :append extra-types
 
-     collect (create-table-sql table-name cols :if-not-exists if-not-exists)))
+     :collect (create-table-sql table :if-not-exists if-not-exists)))
 
-(defun create-tables (all-columns
-		      &key
+(defun create-table-list (table-list
+                          &key
+                            if-not-exists
+                            include-drop
+                            (client-min-messages :notice))
+  "Create all tables in database dbname in PostgreSQL."
+  (loop
+     :for sql :in (create-table-sql-list table-list
+                                         :if-not-exists if-not-exists
+                                         :include-drop include-drop)
+     :count (not (null sql)) :into nb-tables
+     :when sql
+     :do (progn
+           (log-message :info "~a" sql)
+           (pgsql-execute sql :client-min-messages client-min-messages))
+     :finally (return nb-tables)))
+
+(defun create-tables (catalog
+                      &key
 			if-not-exists
 			include-drop
 			(client-min-messages :notice))
-  "Create all tables in database dbname in PostgreSQL.
+  "Create all tables from the given database CATALOG."
+  (create-table-list (table-list catalog)
+                     :if-not-exists if-not-exists
+                     :include-drop include-drop
+                     :client-min-messages client-min-messages))
 
-   The ALL-COLUMNS parameter must be a list of alist associations where the
-   car is the table-name (a string) and the cdr is a column list. Each
-   element of the column list is expected to be of a type handled by the
-   `format-pgsql-column' generic function, such as `pgsql-column'."
-  (loop
-     for sql in (create-table-sql-list all-columns
-				       :if-not-exists if-not-exists
-				       :include-drop include-drop)
-     count (not (null sql)) into nb-tables
-     when sql
-     do
-       (log-message :info "~a" sql)
-       (pgsql-execute sql :client-min-messages client-min-messages)
-     finally (return nb-tables)))
+(defun create-views (catalog
+                     &key
+                       if-not-exists
+                       include-drop
+                       (client-min-messages :notice))
+  "Create all tables from the given database CATALOG."
+  (create-table-list (view-list catalog)
+                     :if-not-exists if-not-exists
+                     :include-drop include-drop
+                     :client-min-messages client-min-messages))
 
-(defun truncate-tables (pgconn table-name-list)
+(defun truncate-tables (pgconn catalog-or-table)
   "Truncate given TABLE-NAME in database DBNAME"
   (with-pgsql-transaction (:pgconn pgconn)
-    (flet ((process-table-name (table-name)
-             (typecase table-name
-               (cons
-                (format nil "~a.~a"
-                        (apply-identifier-case (car table-name))
-                        (apply-identifier-case (cdr table-name))))
-               (string
-                (apply-identifier-case table-name)))))
-      (let ((sql (format nil "TRUNCATE ~{~a~^,~};"
-                         (mapcar #'process-table-name table-name-list))))
-        (log-message :notice "~a" sql)
-        (pomo:execute sql)))))
+    (let ((sql
+           (format nil "TRUNCATE ~{~a~^,~};"
+                   (mapcar #'format-table-name
+                           (etypecase catalog-or-table
+                             (catalog (table-list catalog-or-table))
+                             (schema  (table-list catalog-or-table))
+                             (table   (list catalog-or-table)))))))
+      (log-message :notice "~a" sql)
+      (pomo:execute sql))))
 
 (defun disable-triggers (table-name)
   "Disable triggers on TABLE-NAME. Needs to be called with a PostgreSQL
@@ -301,10 +263,7 @@
                          (format nil "idx_~a_~a"
                                  (pgsql-index-table-oid index)
                                  (pgsql-index-name index))))
-	 (table-name (apply-identifier-case (pgsql-index-table-name index)))
-	 (index-name (apply-identifier-case index-name))
-
-	 (cols (mapcar #'apply-identifier-case (pgsql-index-columns index))))
+	 (index-name (apply-identifier-case index-name)))
     (cond
       ((or (pgsql-index-primary index)
            (and (pgsql-index-condef index) (pgsql-index-unique index)))
@@ -313,36 +272,39 @@
         ;; LOCK on the table before we have the index done already
         (or (pgsql-index-sql index)
             (format nil "CREATE UNIQUE INDEX ~a ON ~a (~{~a~^, ~});"
-                    index-name table-name cols))
+                    index-name
+                    (pgsql-index-table-name index)
+                    (pgsql-index-columns index)))
         (format nil
                 "ALTER TABLE ~a ADD ~a USING INDEX ~a;"
-                table-name
+                (pgsql-index-table-name index)
                 (cond ((pgsql-index-primary index) "PRIMARY KEY")
                       ((pgsql-index-unique index) "UNIQUE"))
                 index-name)))
 
       ((pgsql-index-condef index)
        (format nil "ALTER TABLE ~a ADD ~a;"
-               table-name (pgsql-index-condef index)))
+               (pgsql-index-table-name index)
+               (pgsql-index-condef index)))
 
       (t
        (or (pgsql-index-sql index)
            (format nil "CREATE~:[~; UNIQUE~] INDEX ~a ON ~a (~{~a~^, ~});"
                    (pgsql-index-unique index)
                    index-name
-                   table-name
-                   cols))))))
+                   (pgsql-index-table-name index)
+                   (pgsql-index-columns index)))))))
 
 (defmethod format-pgsql-drop-index ((index pgsql-index))
   "Generate the PostgreSQL statement to DROP the index."
-  (let* ((table-name (apply-identifier-case (pgsql-index-table-name index)))
-	 (index-name (apply-identifier-case (pgsql-index-name index))))
+  (let* ((index-name (apply-identifier-case (pgsql-index-name index))))
     (cond ((pgsql-index-conname index)
            ;; here always quote the constraint name, currently the name
            ;; comes from one source only, the PostgreSQL database catalogs,
            ;; so don't question it, quote it.
            (format nil "ALTER TABLE ~a DROP CONSTRAINT ~s;"
-                   table-name (pgsql-index-conname index)))
+                   (pgsql-index-table-name index)
+                   (pgsql-index-conname index)))
 
           (t
            (format nil "DROP INDEX ~a;" index-name)))))
@@ -375,22 +337,22 @@
 ;;;
 ;;; Protect from non-unique index names
 ;;;
-(defun set-table-oids (all-indexes)
+(defun set-table-oids (catalog)
   "MySQL allows using the same index name against separate tables, which
    PostgreSQL forbids. To get unicity in index names without running out of
    characters (we are allowed only 63), we use the table OID instead.
 
    This function grabs the table OIDs in the PostgreSQL database and update
    the definitions with them."
-  (let* ((table-names (mapcar #'apply-identifier-case
-                              (mapcar #'car all-indexes)))
+  (let* ((table-names (mapcar #'format-table-name (table-list catalog)))
 	 (table-oids  (pgloader.pgsql:list-table-oids table-names)))
-    (loop for (table-name-raw . indexes) in all-indexes
-       for table-name = (apply-identifier-case table-name-raw)
-       for table-oid = (cdr (assoc table-name table-oids :test #'string=))
-       unless table-oid do (error "OID not found for ~s." table-name)
-       do (loop for index in indexes
-	     do (setf (pgsql-index-table-oid index) table-oid)))))
+    (loop :for table :in (table-list catalog)
+       :for table-name := (format-table-name table)
+       :for table-oid := (cdr (assoc table-name table-oids :test #'string=))
+       :unless table-oid :do (error "OID not found for ~s." table-name)
+       :do (setf (table-oid table) table-oid)
+           (loop :for index :in (table-index-list table)
+              :do (setf (pgsql-index-table-oid index) table-oid)))))
 
 ;;;
 ;;; Drop indexes before loading
@@ -459,10 +421,53 @@
 ;;;
 ;;; Sequences
 ;;;
-(defun reset-sequences (table-names &key pgconn (section :post))
+(defun reset-sequences (catalog &key pgconn (section :post))
   "Reset all sequences created during this MySQL migration."
   (log-message :notice "Reset sequences")
   (with-stats-collection ("Reset Sequences"
                           :use-result-as-rows t
                           :section section)
-    (reset-all-sequences pgconn :tables table-names)))
+      (reset-all-sequences pgconn :tables (table-list catalog))))
+
+
+;;;
+;;; Comments
+;;;
+(defun comment-on-tables-and-columns (catalog)
+  "Install comments on tables and columns from CATALOG."
+  (let* ((quote
+          ;; just something improbably found in a table comment, to use as
+          ;; dollar quoting, and generated at random at that.
+          ;;
+          ;; because somehow it appears impossible here to benefit from
+          ;; the usual SQL injection protection offered by the Extended
+          ;; Query Protocol from PostgreSQL.
+          (concatenate 'string
+                       (map 'string #'code-char
+                            (loop :repeat 5
+                               :collect (+ (random 26) (char-code #\A))))
+                       "_"
+                       (map 'string #'code-char
+                            (loop :repeat 5
+                               :collect (+ (random 26) (char-code #\A)))))))
+    (with-stats-collection ("Install comments"
+                            :use-result-as-rows t
+                            :section :post)
+        (loop :for table :in (table-list catalog)
+           :for sql := (when (table-comment table)
+                         (format nil "comment on table ~a is $~a$~a$~a$"
+                                 (table-name table)
+                                 quote (table-comment table) quote))
+           :count (when sql
+                    (log-message :notice "~a" sql)
+                    (pgsql-execute-with-timing :post "Comments" sql))
+
+           :sum (loop :for column :in (table-column-list table)
+                   :for sql := (when (column-comment column)
+                                 (format nil "comment on column ~a.~a is $~a$~a$~a$"
+                                         (table-name table)
+                                         (column-name column)
+                                         quote (column-comment column) quote))
+                   :count (when sql
+                            (log-message :notice "~a;" sql)
+                            (pgsql-execute-with-timing :post "Comments" sql)))))))

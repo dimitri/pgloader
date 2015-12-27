@@ -171,6 +171,41 @@
 
 
 ;;;
+;;; MySQL specific fields representation and low-level
+;;;
+(defstruct (mysql-column
+	     (:constructor make-mysql-column
+			   (table-name name comment dtype ctype default nullable extra)))
+  table-name name dtype ctype default nullable extra comment)
+
+(defmethod format-extra-type ((col mysql-column) &key include-drop)
+  "Return a string representing the extra needed PostgreSQL CREATE TYPE
+   statement, if such is needed"
+  (let ((dtype (mysql-column-dtype col)))
+    (when (or (string-equal "enum" dtype)
+	      (string-equal "set" dtype))
+      (list
+       (when include-drop
+	 (let* ((type-name
+		 (get-enum-type-name (mysql-column-table-name col)
+				     (mysql-column-name col))))
+		 (format nil "DROP TYPE IF EXISTS ~a;" type-name)))
+
+       (get-create-enum (mysql-column-table-name col)
+			(mysql-column-name col)
+			(mysql-column-ctype col))))))
+
+(defmethod cast ((col mysql-column))
+  "Return the PostgreSQL type definition from given MySQL column definition."
+  (with-slots (table-name name dtype ctype default nullable extra comment)
+      col
+    (let ((pgcol
+           (apply-casting-rules table-name name dtype ctype default nullable extra)))
+      (setf (column-comment pgcol) comment)
+      pgcol)))
+
+
+;;;
 ;;; MySQL specific testing.
 ;;;
 ;;; TODO: move that to general testing.
@@ -178,7 +213,7 @@
 (defun test-casts ()
   "Just test some cases for the casts"
   (let ((*cast-rules*
-	 '(;; (:source (:column "col1" :auto-increment nil)
+	 '( ;; (:source (:column "col1" :auto-increment nil)
 	   ;;  :target (:type "timestamptz"
 	   ;; 	     :drop-default nil
 	   ;; 	     :drop-not-null nil)
@@ -229,10 +264,10 @@
     (format t "   ~a~30T~a~65T~a~%" "MySQL ctype" "PostgreSQL type" "transform")
     (format t "   ~a~30T~a~65T~a~%" "-----------" "---------------" "---------")
     (loop
-       for (name dtype ctype nullable default extra) in columns
-       for mycol = (make-mysql-column "table" name dtype ctype nullable default extra)
-       for (pgtype fn) = (multiple-value-bind (pgcol fn)
-                             (cast "table" name dtype ctype nullable default extra)
-                           (list pgcol fn))
-       do
-	 (format t "~a: ~a~30T~a~65T~:[~;using ~a~]~%" name ctype pgtype fn fn))))
+       :for (name dtype ctype nullable default extra) :in columns
+       :for mycol := (make-mysql-column "table" name dtype ctype nullable default extra)
+       :for pgcol := (cast mycol)
+       :do (format t "~a: ~a~30T~a~65T~:[~;using ~a~]~%" name ctype
+                   (format-column pgcol)
+                   (pgloader.pgsql::column-transform pgcol)
+                   (pgloader.pgsql::column-transform pgcol)))))

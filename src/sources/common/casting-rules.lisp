@@ -72,20 +72,8 @@
 	     (or (null ai-s-p) (eq auto-increment rule-source-auto-increment)))
 	  (list :using using :target rule-target))))))
 
-(defun format-pgsql-default-value (default &optional using-cast-fn)
-  "Returns suitably quoted default value for CREATE TABLE command."
-  (cond
-    ((null default) "NULL")
-    ((and (stringp default) (string= "NULL" default)) default)
-    ((and (stringp default) (string= "CURRENT_TIMESTAMP" default)) default)
-    (t
-     ;; apply the transformation function to the default value
-     (if using-cast-fn (format-pgsql-default-value
-			(funcall using-cast-fn default))
-	 (format nil "'~a'" default)))))
-
-(defun format-pgsql-type (source target using)
-  "Returns a string suitable for a PostgreSQL type definition"
+(defun make-pgsql-type (source target using)
+  "Returns a COLUMN struct suitable for a PostgreSQL type definition"
   (destructuring-bind (&key ((:table-name source-table-name))
 			    ((:column-name source-column-name))
 			    ((:type source-type))
@@ -112,30 +100,30 @@
 		 (when source-typemod
 		   (destructuring-bind (a . b) source-typemod
 		     (format nil "(~a~:[~*~;,~a~])" a b b)))))
-	    (format nil
-		    "~a~:[~*~;~a~]~:[~; not null~]~:[~; default ~a~]"
-		    type-name
-		    (and source-typemod (not drop-typemod))
-		    pg-typemod
-		    (and source-not-null (not drop-not-null))
-		    (and source-default (not drop-default))
-		    (format-pgsql-default-value source-default using))))
+            (make-column :name (apply-identifier-case source-column-name)
+                         :type-name type-name
+                         :type-mod (when (and source-typemod (not drop-typemod))
+                                     pg-typemod)
+                         :nullable (not (and source-not-null (not drop-not-null)))
+                         :default (when (and source-default (not drop-default))
+                                    (format-default-value source-default using))
+                         :transform using)))
 
 	;; NO MATCH
 	;;
 	;; prefer char(24) over just char, that is the column type over the
 	;; data type.
-        (format nil "~a~:[~; not null~]~:[~; default ~a~]"
-                source-ctype
-                source-not-null
-                source-default
-                (format-pgsql-default-value source-default using)))))
+        (make-column :name (apply-identifier-case source-column-name)
+                     :type-name source-ctype
+                     :nullable (not source-not-null)
+                     :default (format-default-value source-default using)
+                     :transform using))))
 
-(defun apply-casting-rules (dtype ctype default nullable extra
-			    &key
-			      table-name column-name ; ENUM support
-			      (rules (append *cast-rules*
-					     *default-cast-rules*)))
+(defun apply-casting-rules (table-name column-name
+                            dtype ctype default nullable extra
+                            &key
+                              (rules (append *cast-rules*
+                                             *default-cast-rules*)))
   "Apply the given RULES to the MySQL SOURCE type definition"
   (let* ((typemod        (parse-column-typemod dtype ctype))
 	 (not-null       (string-equal nullable "NO"))
@@ -150,30 +138,19 @@
                                       :auto-increment ,auto-increment)))
     (let (first-match-using)
       (loop
-         for rule in rules
-         for (target using) = (destructuring-bind (&key target using)
-                                  (cast-rule-matches rule source)
-                                (list target using))
-         do (when (and (null target) using (null first-match-using))
-              (setf first-match-using using))
-         until target
-         finally
-           (log-message :info "CAST ~a.~a ~a [~s, ~:[NULL~;NOT NULL~]~:[~*~;, ~a~]] TO ~s"
-                        table-name column-name ctype default
-                        (string= "NO" nullable)
-                        (string/= "" extra) extra
-                        (format-pgsql-type source target using))
-           (return
-             (list :transform-fn (or first-match-using using)
-                   :pgtype (format-pgsql-type source target using)))))))
+         :for rule :in rules
+         :for (target using) := (destructuring-bind (&key target using)
+                                    (cast-rule-matches rule source)
+                                  (list target using))
+         :do (when (and (null target) using (null first-match-using))
+               (setf first-match-using using))
+         :until target
+         :finally (let ((coldef (make-pgsql-type source target using)))
+                    (log-message :info "CAST ~a.~a ~a [~s, ~:[NULL~;NOT NULL~]~:[~*~;, ~a~]] TO ~s~@[ USING ~a~]"
+                                 table-name column-name ctype default
+                                 (string= "NO" nullable)
+                                 (string/= "" extra) extra
+                                 (format-column coldef)
+                                 using)
+                    (return coldef))))))
 
-(defun cast (table-name column-name dtype ctype default nullable extra)
-  "Convert a MySQL datatype to a PostgreSQL datatype.
-
-DYTPE is the MySQL data_type and CTYPE the MySQL column_type, for example
-that would be int and int(7) or varchar and varchar(25)."
-  (destructuring-bind (&key pgtype transform-fn &allow-other-keys)
-      (apply-casting-rules dtype ctype default nullable extra
-			   :table-name table-name
-			   :column-name column-name)
-    (values pgtype transform-fn)))

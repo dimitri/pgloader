@@ -8,7 +8,7 @@
 ;;; COPY protocol, and retry the batch avoiding known bad rows (from parsing
 ;;; COPY error messages) in case some data related conditions are signaled.
 ;;;
-(defun copy-batch (table-name columns batch batch-rows
+(defun copy-batch (table columns batch batch-rows
                    &key (db pomo:*database*))
   "Copy current *writer-batch* into TABLE-NAME."
   (handler-case
@@ -16,7 +16,8 @@
         ;; We need to keep a copy of the rows we send through the COPY
         ;; protocol to PostgreSQL to be able to process them again in case
         ;; of a data error being signaled, that's the BATCH here.
-        (let ((copier (cl-postgres:open-db-writer db table-name columns)))
+        (let* ((table-name (format-table-name table))
+               (copier     (cl-postgres:open-db-writer db table-name columns)))
           (unwind-protect
                (loop :for i :below batch-rows
                   :for copy-string := (aref batch i)
@@ -33,35 +34,35 @@
       cl-postgres-error::internal-error
       cl-postgres-error::insufficient-resources
       cl-postgres-error::program-limit-exceeded) (condition)
-      (retry-batch table-name columns batch batch-rows condition))))
+      (retry-batch table columns batch batch-rows condition))))
 
 ;;;
 ;;; We receive fully prepared batch from an lparallel queue, push their
 ;;; content down to PostgreSQL, handling any data related errors in the way.
 ;;;
-(defun copy-from-queue (pgconn table-name queue
+(defun copy-from-queue (pgconn table queue
 			&key
                           columns
-                          (truncate t)
                           disable-triggers)
   "Fetch from the QUEUE messages containing how many rows are in the
    *writer-batch* for us to send down to PostgreSQL, and when that's done
    update stats."
   (let ((seconds 0))
     (with-pgsql-connection (pgconn)
-      (with-schema (unqualified-table-name table-name)
+      (with-schema (unqualified-table-name table)
         (with-disabled-triggers (unqualified-table-name
                                  :disable-triggers disable-triggers)
           (log-message :info "pgsql:copy-from-queue[~a]: ~a ~a"
-                       (lp:kernel-worker-index) table-name columns)
+                       (lp:kernel-worker-index)
+                       (format-table-name table)
+                       columns)
 
           (loop
              :for (mesg batch read oversized?) := (lq:pop-queue queue)
              :until (eq :end-of-data mesg)
              :for (rows batch-seconds) :=
              (let ((start-time (get-internal-real-time)))
-               (list (copy-batch (apply-identifier-case unqualified-table-name)
-                                 columns batch read)
+               (list (copy-batch table columns batch read)
                      (elapsed-time-since start-time)))
              :do (progn
                    ;; The SBCL implementation needs some Garbage Collection
@@ -74,13 +75,14 @@
                                 rows
                                 batch-seconds
                                 oversized?)
-                   (update-stats :data table-name :rows rows)
+                   (update-stats :data table :rows rows)
                    (incf seconds batch-seconds))))))
 
-    (update-stats :data table-name :ws seconds)
+    (update-stats :data table :ws seconds)
     (log-message :debug "Writer[~a] for ~a is done in ~6$s"
-                 (lp:kernel-worker-index) table-name seconds)
-    (list :writer table-name seconds)))
+                 (lp:kernel-worker-index)
+                 (format-table-name table) seconds)
+    (list :writer table seconds)))
 
 ;;;
 ;;; Compute how many rows we're going to try loading next, depending on
@@ -133,7 +135,7 @@
 ;;;
 ;;; The main retry batch function.
 ;;;
-(defun retry-batch (table-name columns batch batch-rows condition
+(defun retry-batch (table columns batch batch-rows condition
                     &optional (current-batch-pos 0)
                     &aux (nb-errors 0))
   "Batch is a list of rows containing at least one bad row, the first such
@@ -152,7 +154,7 @@
        (when (= current-batch-pos next-error)
          (log-message :info "error recovery at ~d/~d, processing bad row"
                       (+ 1 next-error) batch-rows)
-         (process-bad-row table-name condition (aref batch current-batch-pos))
+         (process-bad-row table condition (aref batch current-batch-pos))
          (incf current-batch-pos)
          (incf nb-errors))
 
@@ -161,7 +163,8 @@
          (when (< 0 current-batch-rows)
           (handler-case
               (with-pgsql-transaction (:database pomo:*database*)
-                (let* ((stream
+                (let* ((table-name (format-table-name table))
+                       (stream
                         (cl-postgres:open-db-writer pomo:*database*
                                                     table-name columns)))
 

@@ -51,27 +51,45 @@
       (error "IXF Type mapping unknown for: ~d" ixf-type))
     pgtype))
 
-(defun format-default-value (default)
-  "IXF has some default values that we want to transform here, statically."
-  (cond ((string= "CURRENT TIMESTAMP" default) "CURRENT_TIMESTAMP")
-        (t default)))
+(defun transform-function (field)
+  "Return the transformation functions needed to cast from ixf-column data."
+  (let ((coltype (cast-ixf-type (ixf:ixf-column-type field))))
+    ;;
+    ;; The IXF driver we use maps the data type and gets
+    ;; back proper CL typed objects, where we only want to
+    ;; deal with text.
+    ;;
+    (cond ((or (string-equal "float" coltype)
+               (string-equal "real" coltype)
+               (string-equal "double precision" coltype)
+               (and (<= 7 (length coltype))
+                    (string-equal "numeric" coltype :end2 7)))
+           #'pgloader.transforms::float-to-string)
 
-(defmethod format-pgsql-column ((col ixf:ixf-column))
-  "Return a string reprensenting the PostgreSQL column definition"
-  (let* ((column-name (apply-identifier-case (ixf:ixf-column-name col)))
-         (type-definition
-          (format nil
-                  "~a~:[ not null~;~]~:[~*~; default ~a~]"
-                  (cast-ixf-type (ixf:ixf-column-type col))
-                  (ixf:ixf-column-nullable col)
-                  (ixf:ixf-column-has-default col)
-                  (format-default-value (ixf:ixf-column-default col)))))
+          ((string-equal "text" coltype)
+           nil)
 
-    (format nil "~a ~22t ~a" column-name type-definition)))
+          ((string-equal "bytea" coltype)
+           #'pgloader.transforms::byte-vector-to-bytea)
 
-(defun list-all-columns (ixf-stream table-name)
+          (t
+           (lambda (c)
+             (when c
+               (princ-to-string c)))))))
+
+(defmethod cast ((col ixf:ixf-column))
+  "Return the PostgreSQL type definition from given IXF column definition."
+  (make-column :name (apply-identifier-case (ixf:ixf-column-name col))
+               :type-name (cast-ixf-type (ixf:ixf-column-type col))
+               :nullable (ixf:ixf-column-nullable col)
+               :default (when (ixf:ixf-column-has-default col)
+                          (format-default-value
+                           (ixf:ixf-column-default col)))
+               :transform (transform-function col)
+               :comment (ixf:ixf-column-desc col)))
+
+(defun list-all-columns (ixf-stream table)
   "Return the list of columns for the given IXF-FILE-NAME."
   (ixf:with-ixf-stream (ixf ixf-stream)
-    (list (cons table-name
-                (coerce (ixf:ixf-table-columns (ixf:ixf-file-table ixf))
-                        'list)))))
+    (loop :for field :across (ixf:ixf-table-columns (ixf:ixf-file-table ixf))
+       :do (add-field table field))))

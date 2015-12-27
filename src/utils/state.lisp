@@ -28,12 +28,6 @@
   (rs   0.0 :type float)
   (ws   0.0 :type float))
 
-(defun format-table-name (table-name)
-  "TABLE-NAME might be a CONS of a schema name and a table name."
-  (etypecase table-name
-    (cons    (format nil "~a.~a" (car table-name) (cdr table-name)))
-    (string  table-name)))
-
 (defun relative-pathname (filename type &optional dbname)
   "Return the pathname of a file of type TYPE (dat or log) under *ROOT-DIR*"
   (let ((dir (if dbname

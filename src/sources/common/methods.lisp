@@ -9,7 +9,7 @@
 (defmethod queue-raw-data ((copy copy) queue)
   "Stream data as read by the map-queue method on the COPY argument into QUEUE,
    as given."
-  (log-message :debug "Reader started for ~a" (target copy))
+  (log-message :debug "Reader started for ~a" (format-table-name (target copy)))
   (let ((start-time (get-internal-real-time))
         (*current-batch* (make-batch)))
     (map-rows copy :process-row-fn (lambda (row)
@@ -24,14 +24,16 @@
     (lq:push-queue (list :end-of-data nil nil nil) queue)
 
     (let ((seconds (elapsed-time-since start-time)))
-     (log-message :info "Reader for ~a is done in ~6$s" (target copy) seconds)
+      (log-message :info "Reader for ~a is done in ~6$s"
+                   (format-table-name (target copy)) seconds)
      (list :reader (target copy) seconds))))
 
 (defmethod format-data-to-copy ((copy copy) raw-queue formatted-queue
                                 &optional pre-formatted)
   "Loop over the data in the RAW-QUEUE and prepare it in batches in the
    FORMATED-QUEUE, ready to be sent down to PostgreSQL using the COPY protocol."
-  (log-message :debug "Transformer in action for ~a!" (target copy))
+  (log-message :debug "Transformer in action for ~a!"
+               (format-table-name (target copy)))
   (let ((start-time (get-internal-real-time)))
 
     (loop :for (mesg batch count oversized?) := (lq:pop-queue raw-queue)
@@ -70,7 +72,8 @@
 
     ;; and return
     (let ((seconds (elapsed-time-since start-time)))
-      (log-message :info "Transformer for ~a is done in ~6$s" (target copy) seconds)
+      (log-message :info "Transformer for ~a is done in ~6$s"
+                   (format-table-name (target copy)) seconds)
       (list :worker (target copy) seconds))))
 
 (defmethod copy-column-list ((copy copy))
@@ -125,7 +128,7 @@
           ;; threads, so that it's done just once.
           (when truncate
             (truncate-tables (clone-connection (target-db copy))
-                             (list (target copy))))
+                             (target copy)))
 
           (loop :for w :below 2
              :do (lp:submit-task channel

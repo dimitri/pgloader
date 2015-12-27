@@ -108,7 +108,82 @@
            ;; charsets
            #:list-encodings-and-aliases
            #:show-encodings
-           #:make-external-format))
+           #:make-external-format
+
+           ;; quoting
+           #:apply-identifier-case
+
+           ;; Schema structure bits
+           #:catalog
+           #:schema
+           #:table
+           #:column
+           #:index
+           #:index
+           #:fkey
+
+           #:cast                       ; generic function for sources
+
+           #:make-catalog
+           #:make-schema
+           #:make-table
+           #:create-table
+           #:make-view
+           #:make-column
+           #:make-index
+           #:make-index
+           #:make-fkey
+
+           #:catalog-name
+           #:catalog-schema-list
+           #:schema-name
+           #:schema-table-list
+           #:schema-view-list
+           #:table-name
+           #:table-source-name
+           #:table-schema
+           #:table-oid
+           #:table-comment
+           #:table-field-list
+           #:table-column-list
+           #:table-index-list
+           #:table-fkey-list
+           #:column-name
+           #:column-type-name
+           #:column-type-mod
+           #:column-type-nullable
+           #:column-default
+           #:column-comment
+           #:column-transform
+
+           #:table-list
+           #:view-list
+           #:add-schema
+           #:find-schema
+           #:maybe-add-schema
+           #:add-table
+           #:find-table
+           #:maybe-add-table
+           #:add-view
+           #:find-view
+           #:maybe-add-view
+           #:add-field
+           #:add-column
+           #:add-index
+           #:add-fkey
+           #:find-fkey
+           #:maybe-add-fkey
+           #:count-tables
+           #:count-views
+           #:count-indexes
+           #:count-fkeys
+           #:max-indexes-per-table
+
+           #:push-to-end
+           #:with-schema
+
+           #:format-default-value
+           #:format-column))
 
 (defpackage #:pgloader.batch
   (:use #:cl #:pgloader.params #:pgloader.monitor)
@@ -196,23 +271,14 @@
 	   #:pgsql-execute
 	   #:pgsql-execute-with-timing
 	   #:pgsql-connect-and-execute-with-timing
+
+           ;; PostgreSQL schema facilities
 	   #:truncate-tables
 	   #:copy-from-file
 	   #:copy-from-queue
-	   #:list-databases
-	   #:list-tables
-	   #:list-columns-query
-	   #:list-columns
-	   #:list-indexes
-	   #:list-tables-cols
-	   #:list-tables-and-fkeys
-	   #:list-reserved-keywords
-	   #:list-table-oids
 	   #:reset-all-sequences
-	   #:get-date-columns
-           #:format-vector-row
-	   #:apply-identifier-case
 	   #:create-tables
+	   #:create-views
 	   #:format-pgsql-column
 	   #:format-extra-type
 	   #:make-pgsql-fkey
@@ -228,12 +294,30 @@
            #:drop-indexes
            #:maybe-drop-indexes
            #:create-indexes-again
-           #:reset-sequences))
+           #:reset-sequences
+           #:comment-on-tables-and-columns
+
+           ;; PostgreSQL introspection queries
+	   #:list-databases
+	   #:list-tables
+	   #:list-columns-query
+	   #:list-columns
+	   #:list-indexes
+	   #:list-tables-cols
+	   #:list-tables-and-fkeys
+	   #:list-table-oids
+
+           ;; PostgreSQL Identifiers
+	   #:list-reserved-keywords
+
+           ;; PostgreSQL data format
+	   #:get-date-columns
+           #:format-vector-row))
 
 (defpackage #:pgloader.sources
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
-        #:pgloader.schema #:pgloader.pgsql #:pgloader.batch)
+        #:pgloader.pgsql #:pgloader.batch)
   (:import-from #:pgloader.transforms
                 #:precision
                 #:scale
@@ -244,6 +328,7 @@
                 #:parse-date-format)
   (:export #:copy
            #:md-copy
+           #:db-copy
 
            ;; Accessors
 	   #:source-db
@@ -277,9 +362,13 @@
            #:expand-spec
            #:open-next-stream
 
-           ;; common schema facilities
-           #:push-to-end
-           #:with-schema
+           ;; the db-methods
+           #:fetch-metadata
+           #:prepare-pgsql-database
+           #:cleanup
+           #:instanciate-table-copy-object
+           #:complete-pgsql-database
+           #:end-kernels
 
            ;; file based utils for CSV, fixed etc
            #:with-open-file-or-stream
@@ -291,7 +380,8 @@
            ;; database cast machinery
            #:*default-cast-rules*
            #:*cast-rules*
-           #:cast))
+           #:apply-casting-rules
+           #:format-pgsql-type))
 
 
 ;;;
@@ -373,7 +463,6 @@
 		#:with-pgsql-transaction
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
-		#:apply-identifier-case
 		#:create-tables
 		#:format-pgsql-column
                 #:format-vector-row)
@@ -390,7 +479,6 @@
 		#:with-pgsql-transaction
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
-		#:apply-identifier-case
 		#:create-tables
 		#:format-pgsql-column
                 #:format-vector-row)
@@ -410,10 +498,10 @@
 		#:with-pgsql-transaction
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
-		#:apply-identifier-case
 		#:list-tables-and-fkeys
 		#:list-table-oids
 		#:create-tables
+		#:create-views
                 #:truncate-tables
 		#:format-pgsql-column
 		#:format-extra-type
@@ -427,9 +515,11 @@
 		#:create-indexes-in-kernel
                 #:set-table-oids
                 #:format-vector-row
-                #:reset-sequences)
+                #:reset-sequences
+                #:comment-on-tables-and-columns)
   (:export #:mysql-connection
            #:copy-mysql
+           #:*decoding-as*
 	   #:*mysql-default-cast-rules*
            #:with-mysql-connection
 	   #:map-rows
@@ -450,7 +540,6 @@
 		#:with-pgsql-transaction
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
-		#:apply-identifier-case
 		#:create-tables
                 #:truncate-tables
 		#:format-pgsql-column
@@ -459,7 +548,8 @@
 		#:format-pgsql-create-index
 		#:create-indexes-in-kernel
                 #:set-table-oids
-                #:reset-sequences)
+                #:reset-sequences
+                #:comment-on-tables-and-columns)
   (:export #:sqlite-connection
            #:copy-sqlite
            #:*sqlite-default-cast-rules*
@@ -480,10 +570,10 @@
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
 		#:pgsql-connect-and-execute-with-timing
-		#:apply-identifier-case
 		#:list-tables-and-fkeys
 		#:list-table-oids
 		#:create-tables
+		#:create-views
                 #:truncate-tables
 		#:format-pgsql-column
 		#:format-extra-type
@@ -532,7 +622,8 @@
 		#:with-pgsql-transaction
 		#:pgsql-execute
                 #:pgconn-use-ssl
-                #:pgconn-table-name)
+                #:pgconn-table-name
+                #:make-table)
   (:import-from #:pgloader.csv
                 #:csv-connection
                 #:specs
@@ -546,6 +637,7 @@
                 #:*cast-rules*)
   (:import-from #:pgloader.mysql
                 #:mysql-connection
+                #:*decoding-as*
                 #:*mysql-default-cast-rules*)
   (:import-from #:pgloader.mssql
                 #:mssql-connection
@@ -612,8 +704,7 @@
   (:import-from #:pgloader.pgsql
                 #:with-pgsql-connection
                 #:with-schema
-                #:list-reserved-keywords
-                #:apply-identifier-case)
+                #:list-reserved-keywords)
   (:export #:*version-string*
 	   #:*state*
 	   #:*fd-path-root*

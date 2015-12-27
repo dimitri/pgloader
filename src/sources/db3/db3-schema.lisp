@@ -39,25 +39,25 @@
 	     (:constructor make-db3-field (name type length)))
   name type length)
 
-(defmethod format-pgsql-column ((col db3-field))
-  "Return a string representing the PostgreSQL column definition."
-  (let* ((column-name
-	  (apply-identifier-case (db3-field-name col)))
-	 (type-definition
-	  (cdr (assoc (db3-field-type col)
-		      *db3-pgsql-type-mapping*
-		      :test #'string=))))
-    (format nil "~a ~22t ~a" column-name type-definition)))
-
-(defun list-all-columns (db3 table-name)
+(defun list-all-columns (db3 table)
   "Return the list of columns for the given DB3-FILE-NAME."
-  (list
-   (cons table-name
-         (loop
-            for field in (db3::fields db3)
-            collect (make-db3-field (db3::field-name field)
-                                    (db3::field-type field)
-                                    (db3::field-length field))))))
+  (loop
+     :for field :in (db3::fields db3)
+     :do (add-field table (make-db3-field (db3::field-name field)
+                                          (db3::field-type field)
+                                          (db3::field-length field)))))
+
+(defmethod cast ((field db3-field))
+  "Return the PostgreSQL type definition given the DB3 one."
+  (let ((type (db3-field-type field)))
+    (make-column :name (apply-identifier-case (db3-field-name field))
+                 :type-name (cdr (assoc type
+                                        *db3-pgsql-type-mapping*
+                                        :test #'string=))
+                 :transform (cond ((string= type "L") #'logical-to-boolean)
+                                  ((string= type "C") #'db3-trim-string)
+                                  ((string= type "D") #'db3-date-to-pgsql-date)
+                                  (t                  nil)))))
 
 (declaim (inline logical-to-boolean
 		 db3-trim-string
@@ -78,14 +78,3 @@
 	(day   (subseq value 6 8)))
     (format nil "~a-~a-~a" year month day)))
 
-(defun list-transforms (db3)
-  "Return the list of transforms to apply to each row of data in order to
-   convert values to PostgreSQL format"
-  (loop
-     for field in (db3::fields db3)
-     for type = (db3::field-type field)
-     collect
-       (cond ((string= type "L") #'logical-to-boolean)
-             ((string= type "C") #'db3-trim-string)
-             ((string= type "D") #'db3-date-to-pgsql-date)
-             (t                  nil))))

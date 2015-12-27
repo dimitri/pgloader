@@ -6,6 +6,36 @@
 (defvar *sqlite-db* nil
   "The SQLite database connection handler.")
 
+;;;
+;;; Integration with the pgloader Source API
+;;;
+(defclass sqlite-connection (fd-connection) ())
+
+(defmethod initialize-instance :after ((slconn sqlite-connection) &key)
+  "Assign the type slot to sqlite."
+  (setf (slot-value slconn 'type) "sqlite"))
+
+(defmethod open-connection ((slconn sqlite-connection) &key)
+  (setf (conn-handle slconn)
+        (sqlite:connect (fd-path slconn)))
+  (log-message :debug "CONNECTED TO ~a" (fd-path slconn))
+  slconn)
+
+(defmethod close-connection ((slconn sqlite-connection))
+  (sqlite:disconnect (conn-handle slconn))
+  (setf (conn-handle slconn) nil)
+  slconn)
+
+(defmethod clone-connection ((slconn sqlite-connection))
+  (change-class (call-next-method slconn) 'sqlite-connection))
+
+(defmethod query ((slconn sqlite-connection) sql &key)
+  (sqlite:execute-to-list (conn-handle slconn) sql))
+
+
+;;;
+;;; SQLite schema introspection facilities
+;;;
 (defun filter-list-to-where-clause (filter-list
                                     &optional
                                       not
@@ -35,21 +65,24 @@
     (loop for (name) in (sqlite:execute-to-list db sql)
        collect name)))
 
-(defun list-columns (table-name &optional (db *sqlite-db*))
+(defun list-columns (table &optional (db *sqlite-db*))
   "Return the list of columns found in TABLE-NAME."
-  (let ((sql (format nil "PRAGMA table_info(~a)" table-name)))
-    (loop for (seq name type nullable default pk-id) in
-	 (sqlite:execute-to-list db sql)
-       collect (make-coldef table-name
-                            seq
-                            name
-                            (ctype-to-dtype (normalize type))
-                            (normalize type)
-                            (= 1 nullable)
-                            (unquote default)
-                            pk-id))))
+  (let* ((table-name (table-source-name table))
+         (sql        (format nil "PRAGMA table_info(~a)" table-name)))
+    (loop :for (seq name type nullable default pk-id) :in
+       (sqlite:execute-to-list db sql)
+       :do (let ((field (make-coldef table-name
+                                     seq
+                                     name
+                                     (ctype-to-dtype (normalize type))
+                                     (normalize type)
+                                     (= 1 nullable)
+                                     (unquote default)
+                                     pk-id)))
+             (add-field table field)))))
 
-(defun list-all-columns (&key
+(defun list-all-columns (schema
+                         &key
                            (db *sqlite-db*)
                            including
                            excluding)
@@ -57,7 +90,8 @@
   (loop :for table-name :in (list-tables :db db
                                          :including including
                                          :excluding excluding)
-     :collect (cons table-name (list-columns table-name db))))
+     :do (let ((table (add-table schema table-name)))
+           (list-columns table db))))
 
 (defstruct sqlite-idx name table-name sql)
 
@@ -68,7 +102,8 @@
   "Generate the PostgresQL statement to build the given SQLite index definition."
   (sqlite-idx-sql index))
 
-(defun list-all-indexes (&key
+(defun list-all-indexes (schema
+                         &key
                            (db *sqlite-db*)
                            including
                            excluding)
@@ -84,15 +119,13 @@
                      excluding          ; do we print the clause?
                      (filter-list-to-where-clause excluding t))))
     (log-message :info "~a" sql)
-    (loop :with schema := nil
+    (loop
        :for (index-name table-name sql) :in (sqlite:execute-to-list db sql)
        :when sql
-       :do (let ((entry  (assoc table-name schema :test 'equal))
+       :do (let ((table  (find-table schema table-name))
                  (idxdef (make-sqlite-idx :name index-name
                                           :table-name table-name
                                           :sql sql)))
-             (if entry
-                 (push-to-end idxdef (cdr entry))
-                 (push-to-end (cons table-name (list idxdef)) schema)))
+             (add-index table idxdef))
        :finally (return schema))))
 

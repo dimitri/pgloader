@@ -65,13 +65,12 @@
 
                          ;; those are one-package-per-file
                          (:file "transforms")
-                         (:file "read-sql-files")))
+                         (:file "read-sql-files")
+                         (:file "quoting")
+                         (:file "schema-structs" :depends-on ("quoting"))))
 
                ;; generic connection api
                (:file "connection" :depends-on ("utils"))
-
-               ;; some table name and schema facilities
-               (:file "schema" :depends-on ("package"))
 
 	       ;; package pgloader.pgsql
 	       (:module pgsql
@@ -128,6 +127,7 @@
                                   ((:file "api")
                                    (:file "methods"    :depends-on ("api"))
                                    (:file "md-methods" :depends-on ("api"))
+                                   (:file "db-methods" :depends-on ("api"))
                                    (:file "casting-rules")
                                    (:file "files-and-pathnames")
                                    (:file "project-fields")))

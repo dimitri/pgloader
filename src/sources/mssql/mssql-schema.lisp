@@ -43,27 +43,6 @@
 
 
 ;;;
-;;; We store the whole database schema in memory with the following
-;;; organisation:
-;;;
-;;;  - an alist of (schema . tables)
-;;;     - where tables is an alist of (name . cols)
-;;;        - where cols is a list of mssql-column struct instances
-;;;
-(defun qualify-name (schema table-name)
-  "Return the fully qualified name."
-  (let ((sn (apply-identifier-case schema))
-        (tn (apply-identifier-case table-name)))
-    (format nil "~a.~a" sn tn)))
-
-(defun qualified-table-name-list (schema-table-cols-alist)
-  "Return a flat list of qualified table names."
-  (loop :for (schema . tables) :in schema-table-cols-alist
-     :append (loop :for (table . cols) :in tables
-                :collect (cons (qualify-name schema table) cols))))
-
-
-;;;
 ;;; Those functions are to be called from withing an already established
 ;;; MS SQL Connection.
 ;;;
@@ -88,19 +67,19 @@
                                schema-col schema table-col not table-name))
                      table-name-list)))
 
-(defun list-all-columns (&key
+(defun list-all-columns (catalog
+                         &key
 			   (table-type :table)
                            including
                            excluding
 			 &aux
 			   (table-type-name (cdr (assoc table-type *table-type*))))
   (loop
-     :with result := nil
-     :for (schema table-name name type default nullable identity
-                  character-maximum-length
-                  numeric-precision numeric-precision-radix numeric-scale
-                  datetime-precision
-                  character-set-name collation-name)
+     :for (schema-name table-name name type default nullable identity
+                       character-maximum-length
+                       numeric-precision numeric-precision-radix numeric-scale
+                       datetime-precision
+                       character-set-name collation-name)
      :in
      (mssql-query (format nil "
   select c.table_schema,
@@ -149,40 +128,34 @@
 order by c.table_schema, c.table_name, c.ordinal_position"
                           (db-name *mssql-db*)
                           table-type-name
-                          including   ; do we print the clause?
+                          including     ; do we print the clause?
                           (filter-list-to-where-clause including
                                                        nil
                                                        "c.table_schema"
                                                        "c.table_name")
-                          excluding   ; do we print the clause?
+                          excluding     ; do we print the clause?
                           (filter-list-to-where-clause excluding
                                                        t
                                                        "c.table_schema"
                                                        "c.table_name")))
      :do
-     (let* ((s-entry    (assoc schema result :test 'equal))
-            (t-entry    (when s-entry
-                          (assoc table-name (cdr s-entry) :test 'equal)))
-            (column
+     (let* ((schema     (maybe-add-schema catalog schema-name))
+            (table      (maybe-add-table schema table-name))
+            (field
              (make-mssql-column
-              schema table-name name type default nullable
+              schema-name table-name name type default nullable
               (eq 1 identity)
               character-maximum-length
               numeric-precision numeric-precision-radix numeric-scale
               datetime-precision
               character-set-name collation-name)))
-       (if s-entry
-           (if t-entry
-               (push-to-end column (cdr t-entry))
-               (push-to-end (cons table-name (list column)) (cdr s-entry)))
-           (push-to-end (cons schema (list (cons table-name (list column)))) result)))
-     :finally (return result)))
+       (add-field table field))
+     :finally (return catalog)))
 
-(defun list-all-indexes (&key including excluding)
+(defun list-all-indexes (catalog &key including excluding)
   "Get the list of MSSQL index definitions per table."
   (loop
-     :with result := nil
-     :for (schema table name col unique pkey)
+     :for (schema-name table-name index-name col unique pkey)
      :in  (mssql-query (format nil "
     select schema_name(schema_id) as SchemaName,
            o.name as TableName,
@@ -220,34 +193,20 @@ order by SchemaName,
                                                             "o.name"
                                                             )))
      :do
-     (let* ((s-entry    (assoc schema result :test 'equal))
-            (t-entry    (when s-entry
-                          (assoc table (cdr s-entry) :test 'equal)))
-            (i-entry    (when t-entry
-                          (assoc name (cdr t-entry) :test 'equal)))
-            (index      (make-pgsql-index :name name
+     (let* ((schema     (find-schema catalog schema-name))
+            (table      (find-table schema table-name))
+            (index      (make-pgsql-index :name index-name
                                           :primary (= pkey 1)
                                           :table-name (qualify-name schema table)
                                           :unique (= unique 1)
                                           :columns (list col))))
-       (if s-entry
-           (if t-entry
-               (if i-entry
-                   (push-to-end col
-                         (pgloader.pgsql::pgsql-index-columns (cdr i-entry)))
-                   (push-to-end (cons name index) (cdr t-entry)))
-               (push-to-end (cons table (list (cons name index))) (cdr s-entry)))
-           (push-to-end (cons schema
-                              (list (cons table
-                                          (list (cons name index))))) result)))
-     :finally
-     (return result)))
+       (add-index table index))
+     :finally (return catalog)))
 
-(defun list-all-fkeys (&key including excluding)
+(defun list-all-fkeys (catalog &key including excluding)
   "Get the list of MSSQL index definitions per table."
   (loop
-     :with result := nil
-     :for (name schema table col fschema ftable fcol)
+     :for (fkey-name schema-name table-name col fschema ftable fcol)
      :in  (mssql-query (format nil "
    SELECT
            REPLACE(KCU1.CONSTRAINT_NAME, '.', '_') AS 'CONSTRAINT_NAME'
@@ -291,32 +250,19 @@ ORDER BY KCU1.CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
                                                             "kcu1.table_schema"
                                                             "kcu1.table_name")))
      :do
-     (let* ((s-entry    (assoc schema result :test 'equal))
-            (t-entry    (when s-entry
-                          (assoc table (cdr s-entry) :test 'equal)))
-            (f-entry    (when t-entry
-                          (assoc name (cdr t-entry) :test 'equal)))
-            (fkey
-             (make-pgsql-fkey :name name
+     (let* ((schema     (find-schema catalog schema-name))
+            (table      (find-table schema table-name))
+            (pg-fkey
+             (make-pgsql-fkey :name fkey-name
                               :table-name (qualify-name schema table)
                               :columns (list col)
                               :foreign-table (qualify-name fschema ftable)
-                              :foreign-columns (list fcol))))
-       (if s-entry
-           (if t-entry
-               (if f-entry
-                   (let ((fkey (cdr f-entry)))
-                     (push-to-end col (pgloader.pgsql::pgsql-fkey-columns fkey))
-                     (push-to-end fcol
-                                  (pgloader.pgsql::pgsql-fkey-foreign-columns fkey)))
-                   (push-to-end (cons name fkey) (cdr t-entry)))
-               (push-to-end (cons table (list (cons name fkey))) (cdr s-entry)))
-           (push-to-end (cons schema
-                              (list (cons table
-                                          (list (cons name fkey))))) result)))
-     :finally
-     ;; we did push, we need to reverse here
-     (return result)))
+                              :foreign-columns (list fcol)))
+            (fkey       (maybe-add-fkey table fkey-name pg-fkey
+                                        :key #'pgloader.pgsql::pgsql-fkey-name)))
+       (push-to-end col  (pgloader.pgsql::pgsql-fkey-columns fkey))
+       (push-to-end fcol (pgloader.pgsql::pgsql-fkey-foreign-columns fkey)))
+     :finally (return catalog)))
 
 
 ;;;

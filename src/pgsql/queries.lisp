@@ -237,16 +237,16 @@
 ;; 				unless (eq attnum :NULL)
 ;; 				collect attnum)))))
 
-(defun list-tables-and-fkeys (&optional schema)
+(defun list-tables-and-fkeys (&optional schema-name)
   "Yet another table listing query."
-  (loop for (relname fkeys) in (pomo:query (format nil "
+  (loop :for (relname fkeys) :in (pomo:query (format nil "
   select relname, array_to_string(array_agg(conname), ',')
     from pg_class c
          join pg_namespace n on n.oid = c.relnamespace
          left join pg_constraint co on c.oid = co.conrelid
     where contype = 'f' and nspname = ~:[current_schema()~;'~a'~]
- group by relname;" schema schema))
-     collect (cons relname (sq:split-sequence #\, fkeys))))
+ group by relname;" schema-name schema-name))
+     :collect (cons relname (sq:split-sequence #\, fkeys))))
 
 (defun list-columns-query (table-name &optional schema)
   "Returns the list of columns for table TABLE-NAME in schema SCHEMA, and
@@ -268,10 +268,10 @@
          :in (list-columns-query unqualified-table-name schema)
          :collect name))))
 
-(defun list-indexes (table-name)
+(defun list-indexes (table)
   "List all indexes for TABLE-NAME in SCHEMA. A PostgreSQL connection must
    be already established when calling that function."
-  (with-schema (unqualified-table-name table-name)
+  (with-schema (unqualified-table-name table)
     (loop :for (index-name table-name table-oid primary unique sql conname condef)
        :in (pomo:query (format nil "
 select i.relname,
@@ -286,8 +286,7 @@ select i.relname,
        join pg_class i ON i.oid = x.indexrelid
        left join pg_constraint c ON c.conindid = i.oid
  where indrelid = '~@[~a.~]~a'::regclass"
-                               (when (typep table-name 'cons)
-                                 (car table-name))
+                               (table-schema table)
                                unqualified-table-name))
        :collect (make-pgsql-index :name index-name
                                   :table-name table-name
@@ -426,7 +425,7 @@ select i.relname,
       (when tables
         (pomo:execute
          (format nil "create temp table reloids(oid) as values ~{('~a'::regclass)~^,~}"
-                 (mapcar #'apply-identifier-case tables))))
+                 (mapcar #'format-table-name tables))))
 
       (handler-case
           (let ((sql (format nil "

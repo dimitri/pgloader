@@ -102,27 +102,19 @@
 
           (t type))))
 
-(defmethod format-pgsql-column ((col mssql-column))
-  "Return a string representing the PostgreSQL column definition."
-  (let* ((column-name (apply-identifier-case (mssql-column-name col)))
-	 (type-definition
-	  (with-slots (schema table-name name type default nullable)
-	      col
-            (declare (ignore schema))   ; FIXME
-            (let ((ctype (mssql-column-ctype col)))
-              (cast table-name name type ctype default nullable nil)))))
-    (format nil "~a ~22t ~a" column-name type-definition)))
+(defmethod cast ((field mssql-column))
+  "Return the PostgreSQL type definition from given MS SQL column definition."
+  (with-slots (schema table-name name type default nullable)
+      field
+    (declare (ignore schema))   ; FIXME
+    (let* ((ctype (mssql-column-ctype field))
+           (pgcol
+            (apply-casting-rules table-name name type ctype default nullable nil)))
+      ;; the MS SQL driver smartly maps data to the proper CL type, but the
+      ;; pgloader API only wants to see text representations to send down the
+      ;; COPY protocol.
+      (unless (column-transform pgcol)
+        (setf (column-transform pgcol)
+              (lambda (val) (if val (format nil "~a" val) :null))))
+      pgcol)))
 
-(defun cast-mssql-column-definition-to-pgsql (mssql-column)
-  "Return the PostgreSQL column definition from the MS SQL one."
-  (multiple-value-bind (column fn)
-      (with-slots (schema table-name name type default nullable)
-          mssql-column
-        (declare (ignore schema))       ; FIXME
-        (let ((ctype (mssql-column-ctype mssql-column)))
-          (cast table-name name type ctype default nullable nil)))
-
-    ;; the MS SQL driver smartly maps data to the proper CL type, but the
-    ;; pgloader API only wants to see text representations to send down the
-    ;; COPY protocol.
-    (values column (or fn (lambda (val) (if val (format nil "~a" val) :null))))))

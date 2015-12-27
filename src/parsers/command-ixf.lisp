@@ -84,7 +84,7 @@
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
             (timezone     (getf ',options :timezone))
-            (table-name   ',(pgconn-table-name pg-db-conn))
+            (table-name   (create-table ',(pgconn-table-name pg-db-conn)))
             (source-db    (with-stats-collection ("fetch" :section :pre)
                               (expand (fetch-file ,ixf-db-conn))))
             (source

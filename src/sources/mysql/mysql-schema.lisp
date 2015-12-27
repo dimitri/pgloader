@@ -8,42 +8,6 @@
 
 
 ;;;
-;;; Specific implementation of schema migration, see the API in
-;;; src/pgsql/schema.lisp
-;;;
-(defstruct (mysql-column
-	     (:constructor make-mysql-column
-			   (table-name name dtype ctype default nullable extra)))
-  table-name name dtype ctype default nullable extra)
-
-(defmethod format-pgsql-column ((col mysql-column))
-  "Return a string representing the PostgreSQL column definition."
-  (let* ((column-name (apply-identifier-case (mysql-column-name col)))
-	 (type-definition
-	  (with-slots (table-name name dtype ctype default nullable extra)
-	      col
-	    (cast table-name name dtype ctype default nullable extra))))
-    (format nil "~a ~22t ~a" column-name type-definition)))
-
-(defmethod format-extra-type ((col mysql-column) &key include-drop)
-  "Return a string representing the extra needed PostgreSQL CREATE TYPE
-   statement, if such is needed"
-  (let ((dtype (mysql-column-dtype col)))
-    (when (or (string-equal "enum" dtype)
-	      (string-equal "set" dtype))
-      (list
-       (when include-drop
-	 (let* ((type-name
-		 (get-enum-type-name (mysql-column-table-name col)
-				     (mysql-column-name col))))
-		 (format nil "DROP TYPE IF EXISTS ~a;" type-name)))
-
-       (get-create-enum (mysql-column-table-name col)
-			(mysql-column-name col)
-			(mysql-column-ctype col))))))
-
-
-;;;
 ;;; General utility to manage MySQL connection
 ;;;
 (defclass mysql-connection (db-connection) ())
@@ -193,7 +157,8 @@
 
         (t default)))
 
-(defun list-all-columns (&key
+(defun list-all-columns (schema
+                         &key
 			   (table-type :table)
 			   only-tables
                            including
@@ -202,11 +167,11 @@
 			   (table-type-name (cdr (assoc table-type *table-type*))))
   "Get the list of MySQL column names per table."
   (loop
-     with schema = nil
-     for (table-name name dtype ctype default nullable extra)
-     in
-       (mysql-query (format nil "
-  select c.table_name, c.column_name,
+     :for (tname tcomment cname ccomment dtype ctype default nullable extra)
+     :in
+     (mysql-query (format nil "
+  select c.table_name, t.table_comment,
+         c.column_name, c.column_comment,
          c.data_type, c.column_type, c.column_default,
          c.is_nullable, c.extra
     from information_schema.columns c
@@ -216,34 +181,38 @@
          ~:[~*~;and (~{table_name ~a~^ or ~})~]
          ~:[~*~;and (~{table_name ~a~^ and ~})~]
 order by table_name, ordinal_position"
-                            (db-name *connection*)
-                            table-type-name
-                            only-tables ; do we print the clause?
-                            only-tables
-                            including   ; do we print the clause?
-                            (filter-list-to-where-clause including)
-                            excluding   ; do we print the clause?
-                            (filter-list-to-where-clause excluding t)))
-     do
-       (let* ((entry   (assoc table-name schema :test 'equal))
-              (def-val (cleanup-default-value dtype default))
-              (column  (make-mysql-column
-                        table-name name dtype ctype def-val nullable extra)))
-         (if entry
-             (push-to-end column (cdr entry))
-             (push-to-end (cons table-name (list column)) schema)))
-     finally
-       (return schema)))
+                          (db-name *connection*)
+                          table-type-name
+                          only-tables   ; do we print the clause?
+                          only-tables
+                          including     ; do we print the clause?
+                          (filter-list-to-where-clause including)
+                          excluding     ; do we print the clause?
+                          (filter-list-to-where-clause excluding t)))
+     :do
+     (let* ((table
+             (case table-type
+               (:view (maybe-add-view schema tname :comment tcomment))
+               (:table (maybe-add-table schema tname :comment tcomment))))
+            (def-val (cleanup-default-value dtype default))
+            (field   (make-mysql-column
+                      tname cname (unless (or (null ccomment)
+                                              (string= "" ccomment))
+                                    ccomment)
+                      dtype ctype def-val nullable extra)))
+       (add-field table field))
+     :finally
+     (return schema)))
 
-(defun list-all-indexes (&key
+(defun list-all-indexes (schema
+                         &key
                            only-tables
                            including
                            excluding)
   "Get the list of MySQL index definitions per table."
   (loop
-     with schema = nil
-     for (table-name name non-unique cols)
-     in (mysql-query (format nil "
+     :for (table-name name non-unique cols)
+     :in (mysql-query (format nil "
   SELECT table_name, index_name, non_unique,
          cast(GROUP_CONCAT(column_name order by seq_in_index) as char)
     FROM information_schema.statistics
@@ -259,31 +228,31 @@ GROUP BY table_name, index_name;"
                              (filter-list-to-where-clause including)
                              excluding  ; do we print the clause?
                              (filter-list-to-where-clause excluding t)))
-     do (let ((entry (assoc table-name schema :test 'equal))
-              (index
-               (make-pgsql-index :name name
-                                 :primary (string= name "PRIMARY")
-                                 :table-name table-name
-                                 :unique (not (string= "1" non-unique))
-                                 :columns (sq:split-sequence #\, cols))))
-          (if entry
-              (push-to-end index (cdr entry))
-              (push-to-end (cons table-name (list index)) schema)))
-     finally
+     :do (let ((table (find-table schema table-name))
+               (index
+                (make-pgsql-index :name name ; further processing is needed
+                                  :primary (string= name "PRIMARY")
+                                  :table-name (apply-identifier-case table-name)
+                                  :unique (not (string= "1" non-unique))
+                                  :columns (mapcar
+                                            #'apply-identifier-case
+                                            (sq:split-sequence #\, cols)))))
+           (add-index table index))
+     :finally
        (return schema)))
 
 ;;;
 ;;; MySQL Foreign Keys
 ;;;
-(defun list-all-fkeys (&key
+(defun list-all-fkeys (schema
+                       &key
                          only-tables
                          including
                          excluding)
   "Get the list of MySQL Foreign Keys definitions per table."
   (loop
-     with schema = nil
-     for (table-name name ftable cols fcols update-rule delete-rule)
-     in (mysql-query (format nil "
+     :for (table-name name ftable cols fcols update-rule delete-rule)
+     :in (mysql-query (format nil "
     SELECT tc.table_name, tc.constraint_name, k.referenced_table_name ft,
 
            group_concat(         k.column_name
@@ -321,20 +290,21 @@ GROUP BY table_name, index_name;"
                              (filter-list-to-where-clause including)
                              excluding  ; do we print the clause?
                              (filter-list-to-where-clause excluding t)))
-     do (let ((entry (assoc table-name schema :test 'equal))
+     :do (let ((table (find-table schema table-name))
               (fk
-               (make-pgsql-fkey :name name
-                                :table-name table-name
-                                :columns (sq:split-sequence #\, cols)
-                                :foreign-table ftable
-                                :foreign-columns (sq:split-sequence #\, fcols)
+               (make-pgsql-fkey :name (apply-identifier-case name)
+                                :table-name (apply-identifier-case table-name)
+                                :columns (mapcar #'apply-identifier-case
+                                                 (sq:split-sequence #\, cols))
+                                :foreign-table (apply-identifier-case ftable)
+                                :foreign-columns (mapcar
+                                                  #'apply-identifier-case
+                                                  (sq:split-sequence #\, fcols))
                                 :update-rule update-rule
                                 :delete-rule delete-rule)))
-          (if entry
-              (push-to-end fk (cdr entry))
-              (push-to-end (cons table-name (list fk)) schema)))
-     finally
-       (return schema)))
+           (add-fkey table fk))
+     :finally
+     (return schema)))
 
 
 ;;;

@@ -55,11 +55,11 @@
                                  :rs rs
                                  :ws ws)))
 
-(defun process-bad-row (table-name condition data)
+(defun process-bad-row (table condition data)
   "Send an event to log the bad row DATA in the reject and log files for given
    TABLE-NAME (a label in section :data), for reason found in CONDITION."
   (send-event (make-bad-row :section :data
-                            :label table-name
+                            :label table
                             :condition condition
                             :data data)))
 

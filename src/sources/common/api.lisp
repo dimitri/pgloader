@@ -138,3 +138,40 @@
   (:documentation "Process rows from a given input stream."))
 
 
+
+;;;
+;;; Class hierarchy allowing to share features for database sources, where
+;;; we do introspection to prepare an internal catalog and then cast that
+;;; catalog to PostgreSQL before copying the data over.
+;;;
+(defclass db-copy (copy) ()
+  (:documentation "pgloader Database Data Source (MySQL, SQLite, MS SQL)."))
+
+(defgeneric fetch-metadata (db-copy catalog
+                            &key
+                              materialize-views
+                              only-tables
+                              create-indexes
+                              foreign-keys
+                              including
+                              excluding))
+
+(defgeneric prepare-pgsql-database (db-copy catalog
+                                    &key
+                                      materialize-views
+                                      foreign-keys
+                                      include-drop)
+  (:documentation "Prepare the target PostgreSQL database."))
+
+(defgeneric cleanup (db-copy catalog &key materialize-views)
+  (:documentation "Clean-up after prepare-pgsql-database failure."))
+
+(defgeneric complete-pgsql-database (db-copy catalog pkeys
+                                     &key
+                                       data-only
+                                       foreign-keys
+                                       reset-sequences)
+  (:documentation "Alter load duties for database sources copy support."))
+
+(defgeneric instanciate-table-copy-object (db-copy table)
+  (:documentation "Create an new instance for copying TABLE data."))

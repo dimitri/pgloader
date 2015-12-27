@@ -118,6 +118,10 @@
 
 (defrule dsn-table-name (or qualified-table-name maybe-quoted-namestring)
   (:lambda (name)
+    ;; we can't make a table instance yet here, because for that we need to
+    ;; apply-identifier-case on it, and that requires to have initialized
+    ;; the *pgsql-reserved-keywords*, and we can't do that before parsing
+    ;; the target database connection string, can we?
     (cons :table-name name)))
 
 (defrule dsn-option-table-name (and (? (and "tablename" "="))
@@ -228,6 +232,6 @@
 (defun pgsql-connection-bindings (pg-db-uri gucs)
   "Generate the code needed to set PostgreSQL connection bindings."
   `((*pg-settings* ',gucs)
-    (pgloader.pgsql::*pgsql-reserved-keywords*
+    (*pgsql-reserved-keywords*
      (pgloader.pgsql:list-reserved-keywords ,pg-db-uri))))
 

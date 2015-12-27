@@ -165,6 +165,7 @@
        (pgloader.mssql:copy-database source
                                      :including ',including
                                      :excluding ',excluding
+                                     :set-table-oids t
                                      ,@(remove-batch-control-option options))
 
        ,(sql-code-block pg-db-conn :post after "after load"))))

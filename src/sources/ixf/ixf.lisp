@@ -8,7 +8,7 @@
 ;;;
 ;;; Integration with pgloader
 ;;;
-(defclass copy-ixf (copy)
+(defclass copy-ixf (db-copy)
   ((timezone    :accessor timezone	  ; timezone
 	        :initarg :timezone
                 :initform local-time:+utc-zone+))
@@ -17,50 +17,13 @@
 (defmethod initialize-instance :after ((source copy-ixf) &key)
   "Add a default value for transforms in case it's not been provided."
   (setf (slot-value source 'source)
-        (pathname-name (fd-path (source-db source))))
+        (let ((table-name (pathname-name (fd-path (source-db source)))))
+          (make-table :source-name table-name
+                      :name (apply-identifier-case table-name))))
 
   ;; force default timezone when nil
   (when (null (timezone source))
-    (setf (timezone source) local-time:+utc-zone+))
-
-  (with-connection (conn (source-db source))
-    (unless (and (slot-boundp source 'columns) (slot-value source 'columns))
-      (setf (slot-value source 'columns)
-            (list-all-columns (conn-handle conn)
-                              (or (typecase (target source)
-                                    (cons   (cdr (target source)))
-                                    (string (target source)))
-                                  (source source)))))
-
-    (let ((transforms (when (slot-boundp source 'transforms)
-                        (slot-value source 'transforms))))
-      (unless transforms
-        (setf (slot-value source 'transforms)
-              (loop :for field :in (cdar (columns source))
-                 :collect
-                 (let ((coltype (cast-ixf-type (ixf:ixf-column-type field))))
-                   ;;
-                   ;; The IXF driver we use maps the data type and gets
-                   ;; back proper CL typed objects, where we only want to
-                   ;; deal with text.
-                   ;;
-                   (cond ((or (string-equal "float" coltype)
-                              (string-equal "real" coltype)
-                              (string-equal "double precision" coltype)
-                              (and (<= 7 (length coltype))
-                                   (string-equal "numeric" coltype :end2 7)))
-                          #'pgloader.transforms::float-to-string)
-
-                         ((string-equal "text" coltype)
-                          nil)
-
-                         ((string-equal "bytea" coltype)
-                          #'pgloader.transforms::byte-vector-to-bytea)
-
-                         (t
-                          (lambda (c)
-                            (when c
-                              (princ-to-string c))))))))))))
+    (setf (timezone source) local-time:+utc-zone+)))
 
 (defmethod map-rows ((copy-ixf copy-ixf) &key process-row-fn)
   "Extract IXF data and call PROCESS-ROW-FN function with a single
@@ -73,9 +36,14 @@
         (ixf:read-headers ixf)
         (ixf:map-data ixf process-row-fn)))))
 
+(defun fetch-ixf-metadata (ixf table)
+  "Collect IXF metadata and prepare our catalog from that."
+  (with-connection (conn (source-db ixf))
+    (list-all-columns (conn-handle conn) table)))
+
 (defmethod copy-database ((ixf copy-ixf)
                           &key
-                            table-name
+                            table
                             data-only
 			    schema-only
                             (truncate         t)
@@ -86,23 +54,23 @@
 			    (reset-sequences  t))
   "Open the IXF and stream its content to a PostgreSQL database."
   (declare (ignore create-indexes reset-sequences))
-  (let* ((table-name  (or table-name
-			  (target ixf)
-			  (source ixf))))
+  (let* ((table  (or table (target ixf) (source ixf)))
+         (schema (make-schema :name (table-name table)
+                              :table-list (list table))))
 
-    ;; fix the table-name in the ixf object
-    (setf (target ixf) table-name)
+    ;; fix the table in the ixf object
+    (setf (target ixf) table)
+
+    ;; Get the IXF metadata and cast the IXF schema to PostgreSQL
+    (fetch-ixf-metadata ixf table)
+    (cast table)
 
     (handler-case
         (when (and (or create-tables schema-only) (not data-only))
-          (with-stats-collection ("create, truncate" :section :pre)
-              (with-pgsql-transaction (:pgconn (target-db ixf))
-                (when create-tables
-                  (with-schema (tname table-name)
-                    (log-message :notice "Create table \"~a\"" tname)
-                    (create-tables (columns ixf)
-                                   :include-drop include-drop
-                                   :if-not-exists t))))))
+          (prepare-pgsql-database ixf
+                                  (make-catalog :name (table-name table)
+                                                :schema-list (list schema))
+                                  :include-drop include-drop))
 
       (cl-postgres::database-error (e)
         (declare (ignore e))            ; a log has already been printed
@@ -110,5 +78,9 @@
         (return-from copy-database)))
 
     (unless schema-only
+      (setf (fields ixf)     (table-field-list table)
+            (columns ixf)    (table-column-list table)
+            (transforms ixf) (mapcar #'column-transform
+                                     (table-column-list table)))
       (copy-from ixf :truncate truncate :disable-triggers disable-triggers))))
 
