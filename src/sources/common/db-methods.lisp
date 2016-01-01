@@ -124,6 +124,7 @@
 			    (disable-triggers nil)
 			    (data-only        nil)
 			    (schema-only      nil)
+                            (create-schemas   nil)
 			    (create-tables    t)
 			    (include-drop     t)
 			    (create-indexes   t)
@@ -170,6 +171,7 @@
                                        catalog
                                        :set-table-oids set-table-oids
                                        :materialize-views materialize-views
+                                       :create-schemas create-schemas
                                        :foreign-keys foreign-keys
                                        :include-drop include-drop))
               (truncate
