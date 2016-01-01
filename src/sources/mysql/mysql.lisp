@@ -155,22 +155,12 @@
 
 (defmethod instanciate-table-copy-object ((copy copy-mysql) (table table))
   "Create an new instance for copying TABLE data."
-  (let* ((fields     (table-field-list table))
-         (columns    (table-column-list table))
-         (transforms (mapcar #'column-transform columns))
-         (encoding
+  (let ((new-instance (change-class (call-next-method copy table) 'copy-mysql)))
+    (setf (encoding new-instance)
           ;; force the data encoding when asked to
           (when *decoding-as*
             (loop :for (encoding . filters) :in *decoding-as*
                :when (apply-decoding-as-filters (table-name table) filters)
-               :return encoding))))
-    (make-instance (class-of copy)
-                   :source-db  (clone-connection (source-db copy))
-                   :target-db  (clone-connection (target-db copy))
-                   :source     table
-                   :target     (table-name table)
-                   :fields     fields
-                   :columns    columns
-                   :transforms transforms
-                   :encoding   encoding)))
+               :return encoding)))
+    new-instance))
 

@@ -99,7 +99,9 @@
        (pgloader.sources:copy-database source
                                        ,@(remove-batch-control-option
                                           options
-                                          :extras '(:timezone)))
+                                          :extras '(:timezone))
+                                       :foreign-keys nil
+                                       :reset-sequences nil)
 
        ,(sql-code-block pg-db-conn :post after "after load"))))
 

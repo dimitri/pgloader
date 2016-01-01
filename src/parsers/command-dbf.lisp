@@ -110,7 +110,10 @@
        ,(sql-code-block pg-db-conn :pre before "before load")
 
        (pgloader.sources:copy-database source
-                                       ,@(remove-batch-control-option options))
+                                       ,@(remove-batch-control-option options)
+                                       :create-indexes nil
+                                       :foreign-keys nil
+                                       :reset-sequences nil)
 
        ,(sql-code-block pg-db-conn :post after "after load"))))
 

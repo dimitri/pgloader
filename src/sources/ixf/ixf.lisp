@@ -36,51 +36,30 @@
         (ixf:read-headers ixf)
         (ixf:map-data ixf process-row-fn)))))
 
-(defun fetch-ixf-metadata (ixf table)
+(defmethod instanciate-table-copy-object ((ixf copy-ixf) (table table))
+  "Create an new instance for copying TABLE data."
+  (let ((new-instance (change-class (call-next-method ixf table) 'copy-ixf)))
+    (setf (timezone new-instance) (timezone ixf))
+    new-instance))
+
+(defmethod fetch-metadata ((ixf copy-ixf) (catalog catalog)
+                           &key
+                             materialize-views
+                             only-tables
+                             create-indexes
+                             foreign-keys
+                             including
+                             excluding)
   "Collect IXF metadata and prepare our catalog from that."
-  (with-connection (conn (source-db ixf))
-    (list-all-columns (conn-handle conn) table)))
+  (declare (ignore materialize-views only-tables create-indexes foreign-keys
+                   including excluding))
+  (let* ((table  (or (target ixf) (source ixf)))
+         (schema (add-schema catalog (table-name table))))
+    (push-to-end table (schema-table-list schema))
 
-(defmethod copy-database ((ixf copy-ixf)
-                          &key
-                            table
-                            data-only
-			    schema-only
-                            (truncate         t)
-                            (disable-triggers nil)
-                            (create-tables    t)
-			    (include-drop     t)
-			    (create-indexes   t)
-			    (reset-sequences  t))
-  "Open the IXF and stream its content to a PostgreSQL database."
-  (declare (ignore create-indexes reset-sequences))
-  (let* ((table  (or table (target ixf) (source ixf)))
-         (schema (make-schema :name (table-name table)
-                              :table-list (list table))))
+    (with-connection (conn (source-db ixf))
+      (list-all-columns (conn-handle conn) table))
 
-    ;; fix the table in the ixf object
-    (setf (target ixf) table)
+    catalog))
 
-    ;; Get the IXF metadata and cast the IXF schema to PostgreSQL
-    (fetch-ixf-metadata ixf table)
-    (cast table)
-
-    (handler-case
-        (when (and (or create-tables schema-only) (not data-only))
-          (prepare-pgsql-database ixf
-                                  (make-catalog :name (table-name table)
-                                                :schema-list (list schema))
-                                  :include-drop include-drop))
-
-      (cl-postgres::database-error (e)
-        (declare (ignore e))            ; a log has already been printed
-        (log-message :fatal "Failed to create the schema, see above.")
-        (return-from copy-database)))
-
-    (unless schema-only
-      (setf (fields ixf)     (table-field-list table)
-            (columns ixf)    (table-column-list table)
-            (transforms ixf) (mapcar #'column-transform
-                                     (table-column-list table)))
-      (copy-from ixf :truncate truncate :disable-triggers disable-triggers))))
 

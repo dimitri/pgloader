@@ -28,6 +28,11 @@
         (fd-db3 dbfconn) nil)
   dbfconn)
 
+(defmethod clone-connection ((c dbf-connection))
+  (let ((clone (change-class (call-next-method c) 'dbf-connection)))
+    (setf (fd-db3 clone) (fd-db3 c))
+    clone))
+
 (defvar *db3-pgsql-type-mapping*
   '(("C" . "text")			; ignore field-length
     ("N" . "numeric")			; handle both integers and floats

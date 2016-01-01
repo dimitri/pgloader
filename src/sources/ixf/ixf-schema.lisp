@@ -24,6 +24,9 @@
   (setf (conn-handle ixfconn) nil)
   ixfconn)
 
+(defmethod clone-connection ((c ixf-connection))
+  (change-class (call-next-method c) 'ixf-connection))
+
 (defvar *ixf-pgsql-type-mapping*
   '((#. ixf:+smallint+  . "smallint")
     (#. ixf:+integer+   . "integer")

@@ -154,7 +154,8 @@
                         :excluding excluding))
          pkeys
          (table-count   0)
-         (max-indexes   (max-indexes-per-table catalog))
+         (max-indexes   (when create-indexes
+                          (max-indexes-per-table catalog)))
          (idx-kernel    (when (and max-indexes (< 0 max-indexes))
                           (make-kernel max-indexes)))
          (idx-channel   (when idx-kernel
