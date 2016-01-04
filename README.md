@@ -60,6 +60,22 @@ pgloader is available under [The PostgreSQL Licence](http://www.postgresql.org/a
 
 ## INSTALL
 
+You can install pgloader directly from
+[apt.postgresql.org](https://wiki.postgresql.org/wiki/Apt) and from official
+debian repositories, see
+[packages.debian.org/pgloader](https://packages.debian.org/search?keywords=pgloader).
+
+    $ apt-get install pgloader
+
+You can also use a **docker** image for pgloader at
+<https://hub.docker.com/r/dimitri/pgloader/>:
+
+    $ docker pull dimitri/pgloader
+    $ docker run --rm --name pgloader dimitri/pgloader:latest pgloader --version
+    $ docker run --rm --name pgloader dimitri/pgloader:latest pgloader --help
+
+## Build from sources
+
 pgloader is now a Common Lisp program, tested using the
 [SBCL](http://sbcl.org/) (>= 1.1.14) and
 [Clozure CL](http://ccl.clozure.com/) implementations with
@@ -74,63 +90,15 @@ When building from sources, you should always build from the current git
 HEAD as it's basically the only source that is managed in a way to ensure it
 builds aginst current set of dependencies versions.
 
-<!--
-
-  Known broken for awhile
-## Testing a new feature
-
-Being a Common Lisp program, pgloader is able to *upgrade itself* at run
-time, and provides the command-line option `--self-upgrade` that just does
-that.
-
-If you want to test the current repository version (or any checkout really),
-it's possible to clone the sources then load them with an older pgloader
-release:
-
-    $ /usr/bin/pgloader --version
-    pgloader version "3.0.99"
-    compiled with SBCL 1.1.17
-    
-    $ git clone https://github.com/dimitri/pgloader.git /tmp/pgloader
-    $ /usr/bin/pgloader --self-upgrade /tmp/pgloader --version
-    Self-upgrading from sources at "/tmp/pgloader/"
-    pgloader version "3.0.fecae2c"
-    compiled with SBCL 1.1.17
-
-Here, the code from the *git clone* will be used at run-time. Self-upgrade
-is done first, then the main program entry point is called again with the
-new coded loaded in.
-
-Please note that the *binary* file (`/usr/bin/pgloader` or
-`./build/bin/pgloader`) is not modified in-place, so that if you want to run
-the same upgraded code again you will have to use the `--self-upgrade`
-command again. It might warrant for an option rename before `3.1.0` stable
-release.
-
- -->
-
-## The pgloader.lisp script
-
-Now you can use the `#!` script or build a self-contained binary executable
-file, as shown below.
-
-    ./pgloader.lisp --help
-
-Each time you run the `pgloader` command line, it will check that all its
-dependencies are installed and compiled and if that's not the case fetch
-them from the internet and prepare them (thanks to *Quicklisp*). So please
-be patient while that happens and make sure we can actually connect and
-download the dependencies.
-
-## Build Self-Contained binary file
+## More options when building from source
 
 The `Makefile` target `pgloader` knows how to produce a Self Contained
-Binary file for pgloader, named `pgloader.exe`:
+Binary file for pgloader, found at `./build/bin/pgloader`:
 
     $ make pgloader
 
 By default, the `Makefile` uses [SBCL](http://sbcl.org/) to compile your
-binary image, though it's possible to also build using
+binary image, though it's possible to build using
 [CCL](http://ccl.clozure.com/).
 
     $ make CL=ccl pgloader
@@ -148,16 +116,36 @@ You can also remove the `--compress-core` option that way:
 The `--compress-core` is unique to SBCL, so not used when `CC` is different
 from the `sbcl` value.
 
+You can also tweak the default amount of memory that the `pgloader` image
+will allow itself using when running through your data (don't ask for more
+than your current RAM tho):
+
+    $ make DYNSIZE=8192 pgloader
+
 The `make pgloader` command when successful outputs a `./build/bin/pgloader`
 file for you to use.
 
 ## Usage
 
-Give as many command files that you need to pgloader:
+You can either give a command file to pgloader or run it all from the
+command line, see the
+[pgloader quick start](http://pgloader.io/howto/quickstart.html) on
+<http://pgloader.io> for more details.
 
     $ ./build/bin/pgloader --help
     $ ./build/bin/pgloader <file.load>
-	
+
+For example, for a full migration from SQLite:
+
+    $ createdb newdb
+    $ pgloader ./test/sqlite/sqlite.db postgresql:///newdb
+
+Or for a full migration from MySQL, including schema definition (tables,
+indexes, foreign keys, comments) and parallel loading of the corrected data:
+
+    $ createdb pagila
+    $ pgloader mysql://user@localhost/sakila postgresql:///pagila
+
 See the documentation file `pgloader.1.md` for details. You can compile that
 file into a manual page or an HTML page thanks to the `ronn` application:
 
