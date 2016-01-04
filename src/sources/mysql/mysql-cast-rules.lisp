@@ -107,7 +107,7 @@
 
     ;;
     ;; cl-mysql returns binary values as a simple-array of bytes (as in
-    ;; ‘(UNSIGNED-BYTE 8)), that we then need to represent as proper
+    ;; '(UNSIGNED-BYTE 8)), that we then need to represent as proper
     ;; PostgreSQL bytea input.
     ;;
     (:source (:type "binary") :target (:type "bytea")
@@ -265,7 +265,7 @@
     (format t "   ~a~30T~a~65T~a~%" "-----------" "---------------" "---------")
     (loop
        :for (name dtype ctype nullable default extra) :in columns
-       :for mycol := (make-mysql-column "table" name dtype ctype nullable default extra)
+       :for mycol := (make-mysql-column "table" name nil dtype ctype nullable default extra)
        :for pgcol := (cast mycol)
        :do (format t "~a: ~a~30T~a~65T~:[~;using ~a~]~%" name ctype
                    (format-column pgcol)
