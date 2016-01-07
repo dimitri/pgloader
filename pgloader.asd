@@ -63,18 +63,18 @@
                                                        "report"))
                          (:file "archive" :depends-on ("logs"))
 
+                         ;; generic connection api
+                         (:file "connection" :depends-on ("archive"))
+
                          ;; those are one-package-per-file
                          (:file "transforms")
                          (:file "read-sql-files")
                          (:file "quoting")
                          (:file "schema-structs" :depends-on ("quoting"))))
 
-               ;; generic connection api
-               (:file "connection" :depends-on ("utils"))
-
 	       ;; package pgloader.pgsql
 	       (:module pgsql
-			:depends-on ("package" "params" "utils" "connection")
+			:depends-on ("package" "params" "utils")
 			:components
 			((:file "copy-format")
 			 (:file "queries")
@@ -85,8 +85,7 @@
                                              "schema"))))
 
                (:module "parsers"
-                        :depends-on ("params" "package" "utils"
-                                              "pgsql" "monkey" "connection")
+                        :depends-on ("params" "package" "utils" "pgsql" "monkey")
                         :serial t
                         :components
                         ((:file "parse-ini")
@@ -117,7 +116,6 @@
 			:depends-on ("monkey"  ; mssql driver patches
                                      "params"
                                      "package"
-                                     "connection"
                                      "pgsql"
                                      "utils"
                                      "parsers")
