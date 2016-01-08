@@ -363,6 +363,8 @@
     ((and (stringp default) (string= "CURRENT_TIMESTAMP" default)) default)
     ((and (stringp default) (string= "CURRENT TIMESTAMP" default))
      "CURRENT_TIMESTAMP")
+    ((and (stringp default) (string= "newsequentialid()" default))
+     "uuid_generate_v1()")
     (t
      ;; apply the transformation function to the default value
      (if transform (format-default-value (funcall transform default))
