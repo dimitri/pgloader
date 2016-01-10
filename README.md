@@ -103,13 +103,9 @@ binary image, though it's possible to build using
 
     $ make CL=ccl pgloader
 
-Note that the `Makefile` uses the `--compress-core` option when using SBCL,
-that should be enabled in your local copy of `SBCL`. If that's not the case,
-it's probably because you did compile and install `SBCL` yourself, so that
-you have a decently recent version to use. Then you need to compile it with
-the `--with-sb-core-compression` option.
-
-You can also remove the `--compress-core` option that way:
+If using `SBCL` and it supports core compression, the make process will
+use it to generate a smaller binary.  To force disabling core
+compression, you may use:
 
     $ make COMPRESS_CORE=no pgloader
 

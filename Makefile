@@ -35,27 +35,26 @@ BUILDAPP_CCL  = $(BUILDDIR)/bin/buildapp.ccl$(EXE)
 BUILDAPP_SBCL = $(BUILDDIR)/bin/buildapp.sbcl$(EXE)
 
 ifeq ($(CL),sbcl)
-BUILDAPP   = $(BUILDAPP_SBCL)
-CL_OPTS    = --no-sysinit --no-userinit
+BUILDAPP      = $(BUILDAPP_SBCL)
+BUILDAPP_OPTS = --require sb-posix                      \
+                --require sb-bsd-sockets                \
+                --require sb-rotate-byte
+CL_OPTS    = --noinform --no-sysinit --no-userinit
 else
 BUILDAPP   = $(BUILDAPP_CCL)
 CL_OPTS    = --no-init
 endif
 
-COMPRESS_CORE ?= yes
-
 ifeq ($(CL),sbcl)
+COMPRESS_CORE ?= $(shell $(CL) --noinform \
+                               --quit     \
+                               --eval '(when (member :sb-core-compression cl:*features*) (write-string "yes"))')
+
+endif
+
+# note: on Windows_NT, we never core-compress; see above.
 ifeq ($(COMPRESS_CORE),yes)
 COMPRESS_CORE_OPT = --compress-core
-else
-COMPRESS_CORE_OPT = 
-endif
-endif
-
-ifeq ($(CL),sbcl)
-BUILDAPP_OPTS =          --require sb-posix                      \
-                         --require sb-bsd-sockets                \
-                         --require sb-rotate-byte
 endif
 
 DEBUILD_ROOT = /tmp/pgloader

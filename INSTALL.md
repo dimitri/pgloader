@@ -60,9 +60,9 @@ Now that the dependences are installed, just type make.
 
     make
 
-If using Mac OS X, and depending on how you did install `SBCL` and which
-version you have (the brew default did change recently), you might need to
-ask the Makefile to refrain from trying to compress your binary image:
+If your `SBCL` supports core compression, the make process will use it
+to generate a smaller binary.  To force disabling core compression, you
+may use:
 
     make COMPRESS_CORE=no
 
@@ -101,4 +101,3 @@ The `build` step install build dependencies in a debian jessie container,
 then `git clone` and build `pgloader` in `/opt/src/pgloader` and finally
 copy the resulting binary image in `/usr/local/bin/pgloader` so that it's
 easily available.
-
