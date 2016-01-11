@@ -952,8 +952,7 @@ columns arranged in a *fixed size* manner. Here's an example:
 
          WITH truncate
 
-          SET client_encoding to 'latin1',
-              work_mem to '14MB',
+          SET work_mem to '14MB',
               standard_conforming_strings to 'on'
 
     BEFORE LOAD DO
@@ -1104,8 +1103,7 @@ data as described in the PostgreSQL documentation. Here's an example:
 
          WITH truncate
 
-          SET client_encoding to 'latin1',
-              work_mem to '14MB',
+          SET work_mem to '14MB',
               standard_conforming_strings to 'on'
 
     BEFORE LOAD DO

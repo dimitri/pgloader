@@ -21,19 +21,20 @@
            (logs  (pgtable-reject-logs table)))
 
       ;; first log the rejected data
-      (with-open-file (reject-data-file data
+      (with-open-file (reject-data-stream data
                                         :direction :output
+                                        :element-type '(unsigned-byte 8)
                                         :if-exists :append
-                                        :if-does-not-exist :create
-                                        :external-format :utf-8)
+                                        :if-does-not-exist :create)
         ;; the row has already been processed when we get here
-        (write-string row reject-data-file))
+        (write-sequence row reject-data-stream)
+        (write-byte #. (char-code #\Newline) reject-data-stream))
 
       ;; now log the condition signaled to reject the data
-      (with-open-file (reject-logs-file logs
+      (with-open-file (reject-log-stream logs
                                         :direction :output
                                         :if-exists :append
                                         :if-does-not-exist :create
                                         :external-format :utf-8)
         ;; the row has already been processed when we get here
-        (format reject-logs-file "~a~%" condition)))))
+        (format reject-log-stream "~a~%" condition)))))

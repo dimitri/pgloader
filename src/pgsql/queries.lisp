@@ -298,6 +298,18 @@ select i.relname,
                                   :conname (unless (eq :null conname) conname)
                                   :condef  (unless (eq :null condef)  condef)))))
 
+(defun sanitize-user-gucs (gucs)
+  "Forbid certain actions such as setting a client_encoding different from utf8."
+  (append
+   (list (cons "client_encoding" "utf8"))
+   (loop :for (name . value) :in gucs
+      :when    (and (string-equal name "client_encoding")
+                    (not (member value '("utf-8" "utf8") :test #'string-equal)))
+      :do      (log-message :warning
+                            "pgloader always talk to PostgreSQL in utf-8, client_encoding has been forced to 'utf8'..")
+      :else
+      :collect (cons name value))))
+
 (defun list-reserved-keywords (pgconn)
   "Connect to PostgreSQL DBNAME and fetch reserved keywords."
   (handler-case

@@ -310,6 +310,9 @@
            ;; PostgreSQL Identifiers
 	   #:list-reserved-keywords
 
+           ;; PostgreSQL user provided GUCs
+           #:sanitize-user-gucs
+
            ;; PostgreSQL data format
 	   #:get-date-columns
            #:format-vector-row))

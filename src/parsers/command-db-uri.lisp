@@ -231,7 +231,7 @@
 
 (defun pgsql-connection-bindings (pg-db-uri gucs)
   "Generate the code needed to set PostgreSQL connection bindings."
-  `((*pg-settings* ',gucs)
+  `((*pg-settings* (pgloader.pgsql:sanitize-user-gucs ',gucs))
     (*pgsql-reserved-keywords*
      (pgloader.pgsql:list-reserved-keywords ,pg-db-uri))))
 
