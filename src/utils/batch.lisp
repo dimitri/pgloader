@@ -8,11 +8,25 @@
 ;;; reader fills in batches of data from the source of data, and the writer
 ;;; pushes the data down to PostgreSQL using the COPY protocol.
 ;;;
-(defstruct batch
-  (start (get-internal-real-time) :type fixnum)
-  (data  (make-array *copy-batch-rows*))
-  (count 0 :type fixnum)
-  (bytes  0 :type fixnum))
+(defstruct (batch
+             ;; we use &key as a trick for &aux to see the max-count, think let*
+             (:constructor make-batch (&key (max-count (init-batch-max-count))
+                                            &aux (data (make-array max-count)))))
+  (start     (get-internal-real-time) :type fixnum)
+  (data nil                           :type simple-array)
+  (count     0                        :type fixnum)
+  (max-count 0                        :type fixnum)
+  (bytes     0                        :type fixnum))
+
+;;;
+;;; The simplest way to avoid all batches being sent at the same time to
+;;; PostgreSQL is to make them of different sizes. Here we tweak the batch
+;;; size from *copy-batch-rows* to that effect.
+;;;
+(defun init-batch-max-count (&optional (batch-rows *copy-batch-rows*))
+  "Return a number between 0.7 and 1.3 times batch-rows."
+  ;; 0.7 < 0.7 + (random 0.6) < 1.3
+  (truncate (* batch-rows (+ 0.7 (random 0.6)))))
 
 (defun finish-batch (batch target queue &optional oversized?)
   (with-slots (start data count) batch
@@ -42,7 +56,7 @@
    writer."
   (let ((maybe-new-batch
          (let ((oversized? (oversized? batch)))
-           (if (or (= (batch-count batch) *copy-batch-rows*)
+           (if (or (= (batch-count batch) (batch-max-count batch))
                    oversized?)
                (progn
                  ;; close current batch, prepare next one
