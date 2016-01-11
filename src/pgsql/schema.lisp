@@ -368,18 +368,18 @@
 ;;;
 ;;; Higher level API to care about indexes
 ;;;
-(defun maybe-drop-indexes (target table-name &key (section :pre) drop-indexes)
+(defun maybe-drop-indexes (target table &key (section :pre) drop-indexes)
   "Drop the indexes for TABLE-NAME on TARGET PostgreSQL connection, and
    returns a list of indexes to create again."
   (with-pgsql-connection (target)
-    (let ((indexes (list-indexes table-name))
+    (let ((indexes (list-indexes table))
           ;; we get the list of indexes from PostgreSQL catalogs, so don't
           ;; question their spelling, just quote them.
           (*identifier-case* :quote))
       (cond ((and indexes (not drop-indexes))
              (log-message :warning
                           "Target table ~s has ~d indexes defined against it."
-                          table-name (length indexes))
+                          (format-table-name table) (length indexes))
              (log-message :warning
                           "That could impact loading performance badly.")
              (log-message :warning
