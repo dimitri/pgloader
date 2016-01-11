@@ -119,7 +119,7 @@
       ;; allow for some debugging
       (if compile (compile nil projection) projection))))
 
-(defun reformat-then-process (&key fields columns target process-row-fn)
+(defun reformat-then-process (&key fields columns target)
   "Return a lambda form to apply to each row we read.
 
    The lambda closes over the READ paramater, which is a counter of how many
@@ -130,12 +130,10 @@
       (if (or (null row)
               (and (null (car row)) (null (cdr row))))
           (log-message :notice "Skipping empty line.")
-          (let ((projected-vector
-                 (handler-case
-                     (funcall projection row)
-                   (condition (e)
-                     (update-stats :data target :errs 1)
-                     (log-message :error "Could not read input: ~a" e)))))
-            (when projected-vector
-              (funcall process-row-fn projected-vector)))))))
+
+          (handler-case
+              (funcall projection row)
+            (condition (e)
+              (update-stats :data target :errs 1)
+              (log-message :error "Could not read input: ~a" e)))))))
 

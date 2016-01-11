@@ -36,15 +36,15 @@
 
                (log-message :debug "Parsed header columns ~s" (fields copy)))
 
-	     ;; read in the text file, split it into columns, process NULL
-	     ;; columns the way postmodern expects them, and call
-	     ;; PROCESS-ROW-FN on them
-	     (let ((reformat-then-process
-		    (reformat-then-process :fields  (fields copy)
-					   :columns (columns copy)
-					   :target  (target copy)
-					   :process-row-fn process-row-fn)))
-               (process-rows copy input reformat-then-process))))))
+	     ;; read in the text file, split it into columns
+	     (process-rows copy input process-row-fn)))))
+
+(defmethod preprocess-row ((copy md-copy))
+  "The file based readers possibly have extra work to do with user defined
+   fields to columns projections (mapping)."
+  (reformat-then-process :fields  (fields copy)
+                         :columns (columns copy)
+                         :target  (target copy)))
 
 (defmethod copy-column-list ((copy md-copy))
   "We did reformat-then-process the column list, so we now send them in the

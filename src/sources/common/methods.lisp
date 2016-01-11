@@ -6,75 +6,99 @@
 ;;;
 ;;; Common API implementation
 ;;;
-(defmethod queue-raw-data ((copy copy) queue)
+(defmethod queue-raw-data ((copy copy) queue-list)
   "Stream data as read by the map-queue method on the COPY argument into QUEUE,
    as given."
   (log-message :debug "Reader started for ~a" (format-table-name (target copy)))
-  (let ((start-time (get-internal-real-time))
-        (*current-batch* (make-batch)))
-    (map-rows copy :process-row-fn (lambda (row)
-                                     (when (or (eq :data *log-min-messages*)
-                                               (eq :data *client-min-messages*))
-                                       (log-message :data "< ~s" row))
-                                     (batch-row row (target copy) queue)))
-    ;; last batch
-    (finish-current-batch (target copy) queue)
+  (let* ((start-time (get-internal-real-time))
+         (blist  (loop :for queue :in queue-list :collect (make-batch)))
+         (bclist (nconc blist blist))   ; build a circular list
+         (qlist  (copy-list queue-list))
+         (qclist (nconc qlist qlist))   ; build a circular list
+         (process-row
+          (lambda (row)
+            (when (or (eq :data *log-min-messages*)
+                      (eq :data *client-min-messages*))
+              (log-message :data "< ~s" row))
+            (prog1
+                (setf (car bclist)      ; batch-row might create a new batch
+                      (batch-row (car bclist) row (target copy) (car qclist)))
+              ;; round robin on batches and queues
+              (setf bclist (cdr bclist)
+                    qclist (cdr qclist))))))
 
-    ;; mark end of stream
-    (lq:push-queue (list :end-of-data nil nil nil) queue)
+    ;; call the source-specific method for reading input data
+    (map-rows copy :process-row-fn process-row)
+
+    ;; process last batches and send them to queues
+    ;; and mark end of stream
+    (loop :repeat (length queue-list)
+       :for batch :in blist
+       :for queue :in qlist
+       :do (progn
+             (finish-batch batch (target copy) queue)
+             (push-end-of-data-message queue)))
 
     (let ((seconds (elapsed-time-since start-time)))
-      (log-message :info "Reader for ~a is done in ~6$s"
+      (log-message :debug "Reader for ~a is done in ~6$s"
                    (format-table-name (target copy)) seconds)
-     (list :reader (target copy) seconds))))
+      (list :reader (target copy) seconds))))
 
-(defmethod format-data-to-copy ((copy copy) raw-queue formatted-queue
+(defmethod format-data-to-copy ((copy copy) input-queue output-queue
                                 &optional pre-formatted)
   "Loop over the data in the RAW-QUEUE and prepare it in batches in the
    FORMATED-QUEUE, ready to be sent down to PostgreSQL using the COPY protocol."
-  (log-message :debug "Transformer in action for ~a!"
+  (log-message :debug "Transformer ~a in action for ~a!"
+               (lp:kernel-worker-index)
                (format-table-name (target copy)))
-  (let ((start-time (get-internal-real-time)))
+  (let* ((start-time (get-internal-real-time))
+         (preprocess (preprocess-row copy)))
 
-    (loop :for (mesg batch count oversized?) := (lq:pop-queue raw-queue)
+    (loop :for (mesg batch count oversized?) := (lq:pop-queue input-queue)
        :until (eq :end-of-data mesg)
        :do (let ((batch-start-time (get-internal-real-time)))
              ;; transform each row of the batch into a copy-string
              (loop :for i :below count
-                :do (let ((copy-string
-                           (handler-case
-                               (with-output-to-string (s)
-                                 (format-vector-row s
-                                                    (aref batch i)
-                                                    (transforms copy)
-                                                    pre-formatted))
-                             (condition (e)
-                               (log-message :error "~a" e)
-                               (update-stats :data (target copy) :errs 1)
-                               nil))))
+                :do (let* ((row (if preprocess
+                                    (funcall preprocess (aref batch i))
+                                    (aref batch i)))
+                           (copy-data
+                            (handler-case
+                                (format-vector-row row
+                                                   (transforms copy)
+                                                   pre-formatted)
+                              (condition (e)
+                                (log-message :error "~a" e)
+                                (update-stats :data (target copy) :errs 1)
+                                nil))))
                       (when (or (eq :data *log-min-messages*)
                                 (eq :data *client-min-messages*))
-                        (log-message :data "> ~s" copy-string))
+                        (log-message :data "> ~s" copy-data))
 
-                      (setf (aref batch i) copy-string)))
+                      (setf (aref batch i) copy-data)))
 
              ;; the batch is ready, log about it
              (log-message :debug "format-data-to-copy[~a] ~d row in ~6$s"
                           (lp:kernel-worker-index)
                           count
                           (elapsed-time-since batch-start-time))
-             ;; and send the formatted batch of copy-strings down to PostgreSQL
-             (lq:push-queue (list mesg batch count oversized?) formatted-queue)))
 
-    ;; mark end of stream, twice because we hardcode 2 COPY processes, see below
-    (lq:push-queue (list :end-of-data nil nil nil) formatted-queue)
-    (lq:push-queue (list :end-of-data nil nil nil) formatted-queue)
+             ;; and send the formatted batch of copy-strings down to PostgreSQL
+             (lq:push-queue (list mesg batch count oversized?) output-queue)))
+
+    ;; mark end of stream
+    (push-end-of-data-message output-queue)
 
     ;; and return
     (let ((seconds (elapsed-time-since start-time)))
-      (log-message :info "Transformer for ~a is done in ~6$s"
+      (log-message :info "Transformer[~a] for ~a is done in ~6$s"
+                   (lp:kernel-worker-index)
                    (format-table-name (target copy)) seconds)
       (list :worker (target copy) seconds))))
+
+(defmethod preprocess-row ((copy copy))
+  "The default preprocessing of raw data is to do nothing."
+  nil)
 
 (defmethod copy-column-list ((copy copy))
   "Default column list is an empty list."
@@ -90,47 +114,62 @@
                     (format-vector-row text-file row (transforms copy)))))
       (map-rows copy :process-row-fn row-fn))))
 
+(defun task-count (concurrency)
+  "Return how many threads we are going to start given a number of WORKERS."
+  (+ 1 concurrency concurrency))
+
 (defmethod copy-from ((copy copy)
                       &key
                         (kernel nil k-s-p)
                         (channel nil c-s-p)
+                        (worker-count 8)
+                        (concurrency 2)
                         truncate
                         disable-triggers)
-  "Copy data from COPY source into PostgreSQL."
-  (let* ((lp:*kernel* (or kernel (make-kernel 4)))
-         (channel     (or channel (lp:make-channel)))
-         (rawq        (lq:make-queue :fixed-capacity *concurrent-batches*))
-         (fmtq        (lq:make-queue :fixed-capacity *concurrent-batches*))
-         (table-name  (format-table-name (target copy))))
+  "Copy data from COPY source into PostgreSQL.
+
+   We allow WORKER-COUNT simultaneous workers to be active at the same time
+   in the context of this COPY object. A single unit of work consist of
+   several kinds of workers:
+
+     - a reader getting raw data from the COPY source with `map-rows',
+     - N transformers preparing raw data for PostgreSQL COPY protocol,
+     - N writers sending the data down to PostgreSQL.
+
+   The N here is setup to the CONCURRENCY parameter: with a CONCURRENCY of
+   2, we start (+ 1 2 2) = 5 concurrent tasks, with a CONCURRENCY of 4 we
+   start (+ 1 4 4) = 9 concurrent tasks, of which only WORKER-COUNT may be
+   active simultaneously."
+  (let* ((table-name   (format-table-name (target copy)))
+         (lp:*kernel*  (or kernel (make-kernel worker-count)))
+         (channel      (or channel (lp:make-channel)))
+         ;; Now, prepare data queues for workers:
+         ;;   reader -> transformers -> writers
+         (rawqs       (loop :repeat concurrency :collect
+                         (lq:make-queue :fixed-capacity *concurrent-batches*)))
+         (fmtqs       (loop :repeat concurrency :collect
+                         (lq:make-queue :fixed-capacity *concurrent-batches*))))
 
     (with-stats-collection ((target copy) :dbname (db-name (target-db copy)))
         (lp:task-handler-bind () ;; ((error #'lp:invoke-transfer-error))
           (log-message :info "COPY ~s" table-name)
 
-          ;; start a tast to read data from the source into the queue
-          (lp:submit-task channel #'queue-raw-data copy rawq)
+          ;; start a task to read data from the source into the queue
+          (lp:submit-task channel #'queue-raw-data copy rawqs)
 
-          ;; now start a transformer thread to process raw vectors from our
+          ;; now start transformer threads to process raw vectors from our
           ;; source into preprocessed batches to send down to PostgreSQL
-          (lp:submit-task channel #'format-data-to-copy copy rawq fmtq)
+          (loop :for rawq :in rawqs
+             :for fmtq :in fmtqs
+             :do (lp:submit-task channel #'format-data-to-copy copy rawq fmtq))
 
-          ;; And start two tasks to push that data from the queue into
-          ;; PostgreSQL; Andres Freund research/benchmarks show that in every
-          ;; PostgreSQL releases up to 9.5 included the highest throughput of
-          ;; COPY TO the same table is achieved with 2 concurrent clients...
-          ;;
-          ;; See Extension Lock Scalability slide in
-          ;; http://www.anarazel.de/talks/pgconf-eu-2015-10-30/concurrency.pdf
-          ;;
-          ;; Let's just hardcode 2 threads for that then.
-          ;;
           ;; Also, we need to do the TRUNCATE here before starting the
           ;; threads, so that it's done just once.
           (when truncate
             (truncate-tables (clone-connection (target-db copy))
                              (target copy)))
 
-          (loop :for w :below 2
+          (loop :for fmtq :in fmtqs
              :do (lp:submit-task channel
                                  #'pgloader.pgsql:copy-from-queue
                                  (clone-connection (target-db copy))
@@ -141,7 +180,5 @@
 
           ;; now wait until both the tasks are over, and kill the kernel
           (unless c-s-p
-            (loop :repeat (lp:kernel-worker-count)
-               :do (lp:receive-result channel)
-               :finally (progn (log-message :info "COPY ~s done." table-name)
-                               (unless k-s-p (lp:end-kernel)))))))))
+            (log-message :info "COPY ~s done." table-name)
+            (unless k-s-p (lp:end-kernel :wait t)))))))

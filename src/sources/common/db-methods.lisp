@@ -120,6 +120,8 @@
 ;;;
 (defmethod copy-database ((copy db-copy)
 			  &key
+                            (worker-count     8)
+                            (concurrency      1)
 			    (truncate         nil)
 			    (disable-triggers nil)
 			    (data-only        nil)
@@ -137,7 +139,7 @@
                             set-table-oids
 			    materialize-views)
   "Export database source data and Import it into PostgreSQL"
-  (let* ((copy-kernel  (make-kernel 8))
+  (let* ((copy-kernel  (make-kernel worker-count))
          (copy-channel (let ((lp:*kernel* copy-kernel)) (lp:make-channel)))
          (catalog      (fetch-metadata
                         copy
@@ -208,6 +210,7 @@
              (unless schema-only
                (incf table-count)
                (copy-from table-source
+                          :concurrency concurrency
                           :kernel copy-kernel
                           :channel copy-channel
                           :disable-triggers disable-triggers))
@@ -230,7 +233,8 @@
 
     ;; now end the kernels
     (end-kernels copy-kernel copy-channel idx-kernel idx-channel
-                 table-count (count-indexes catalog))
+                 table-count (count-indexes catalog)
+                 :concurrency concurrency)
 
     ;;
     ;; Complete the PostgreSQL database before handing over.
@@ -251,16 +255,16 @@
 ;;;
 ;;; Lower level tools
 ;;;
-(defun end-kernels (copy-kernel copy-channel
-                    idx-kernel idx-channel
-                    table-count index-count)
+(defun end-kernels (copy-kernel copy-channel idx-kernel idx-channel
+                    table-count index-count
+                    &key (concurrency 2))
   "Terminate the lparallel kernels, waiting for all threads."
   (when copy-kernel
     (let ((lp:*kernel* copy-kernel))
       (with-stats-collection ("COPY Threads Completion" :section :post
                                                         :use-result-as-read t
                                                         :use-result-as-rows t)
-          (let ((workers-count (* 4 table-count)))
+          (let ((workers-count (* table-count (task-count concurrency))))
             (loop :for tasks :below workers-count
                :do (destructuring-bind (task table-name seconds)
                        (lp:receive-result copy-channel)
@@ -270,7 +274,7 @@
                        (update-stats :data table-name :secs seconds))))
             (prog1
                 workers-count
-              (lp:end-kernel))))))
+              (lp:end-kernel :wait nil))))))
 
   (when idx-kernel
     (let ((lp:*kernel* idx-kernel))

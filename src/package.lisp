@@ -187,10 +187,10 @@
 
 (defpackage #:pgloader.batch
   (:use #:cl #:pgloader.params #:pgloader.monitor)
-  (:export #:*current-batch*
-           #:make-batch
+  (:export #:make-batch
            #:batch-row
-           #:finish-current-batch))
+           #:finish-batch
+           #:push-end-of-data-message))
 
 
 ;;

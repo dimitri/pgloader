@@ -39,6 +39,12 @@
    "Load data from SOURCE and funcall PROCESS-ROW-FUN for each row found in
     the SOURCE data. Each ROW is passed as a vector of objects."))
 
+(defgeneric proprocess-row (source)
+  (:documentation
+   "Some source readers have pre-processing to do on the raw data, such as
+    CSV user-defined field projections to PostgreSQL columns. This function
+    returns the pre-processing function, which must be a funcallable object."))
+
 (defgeneric queue-raw-data (source queue)
   (:documentation "Send raw data from the reader to the worker queue."))
 

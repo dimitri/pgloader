@@ -10,18 +10,14 @@
 ;;;
 (defstruct batch
   (start (get-internal-real-time) :type fixnum)
-  (data  (make-array *copy-batch-rows* :element-type 'simple-string)
-         :type (vector simple-string *))
+  (data  (make-array *copy-batch-rows*))
   (count 0 :type fixnum)
   (bytes  0 :type fixnum))
 
-(defvar *current-batch* nil)
-
-(defun finish-current-batch (target queue
-                             &optional oversized? (batch *current-batch*))
+(defun finish-batch (batch target queue &optional oversized?)
   (with-slots (start data count) batch
     (when (< 0 count)
-      (log-message :debug "finish-current-batch[~a] ~d row~:p in ~6$s"
+      (log-message :debug "finish-batch[~a] ~d row~:p in ~6$s"
                    (lp:kernel-worker-index) count
                    (elapsed-time-since start))
       (update-stats :data target
@@ -29,24 +25,36 @@
                     :rs (elapsed-time-since start))
       (lq:push-queue (list :batch data count oversized?) queue))))
 
+(defun push-end-of-data-message (queue)
+  "Push a fake batch marker to signal end-of-data in QUEUE."
+  ;; the message must look like the finish-batch message overall
+  (lq:push-queue (list :end-of-data nil nil nil) queue))
+
 (declaim (inline oversized?))
-(defun oversized? (&optional (batch *current-batch*))
+(defun oversized? (batch)
   "Return a generalized boolean that is true only when BATCH is considered
    over-sized when its size in BYTES is compared *copy-batch-size*."
   (and *copy-batch-size*      ; defaults to nil
        (<= *copy-batch-size* (batch-bytes batch))))
 
-(defun batch-row (row target queue)
+(defun batch-row (batch row target queue)
   "Add ROW to the reader batch. When the batch is full, provide it to the
    writer."
-  (let ((oversized? (oversized? *current-batch*)))
-    (when (or (= (batch-count *current-batch*) *copy-batch-rows*)
-              oversized?)
-      ;; close current batch, prepare next one
-      (finish-current-batch target queue oversized?)
-      (setf *current-batch* (make-batch))))
+  (let ((maybe-new-batch
+         (let ((oversized? (oversized? batch)))
+           (if (or (= (batch-count batch) *copy-batch-rows*)
+                   oversized?)
+               (progn
+                 ;; close current batch, prepare next one
+                 (finish-batch batch target queue oversized?)
+                 (make-batch))
 
-  (with-slots (data count bytes) *current-batch*
-    (setf (aref data count) row)
-    (incf count)))
+               ;; return given batch, it's still current
+               batch))))
+
+    (with-slots (data count bytes) maybe-new-batch
+      (setf (aref data count) row)
+      (incf count))
+
+    maybe-new-batch))
 
