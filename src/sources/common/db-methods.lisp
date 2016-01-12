@@ -73,7 +73,7 @@
   (when reset-sequences
     (reset-sequences catalog :pgconn (clone-connection (target-db copy))))
 
-  (with-pgsql-transaction (:pgconn (clone-connection (target-db copy)))
+  (with-pgsql-connection ((clone-connection (target-db copy)))
     ;;
     ;; Turn UNIQUE indexes into PRIMARY KEYS now
     ;;
