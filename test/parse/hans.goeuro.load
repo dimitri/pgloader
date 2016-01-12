@@ -26,8 +26,9 @@ LOAD DATABASE
       column ascii.s using byte-vector-to-bytea,
       column enumerate.foo using empty-string-to-null,
 
-      column ip.ip_address to inet keep not null drop typemod
+      column ip.ip_address to inet keep not null drop typemod,
 
+      type decimal when (= precision 1) to boolean drop typemod
 
  MATERIALIZE VIEWS nonexisting,
    d as $$

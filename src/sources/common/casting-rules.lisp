@@ -27,7 +27,7 @@
 	    (mapcar #'parse-integer
 		    (sq:split-sequence #\, column-type
 				       :start (+ 1 start-1) :end end))
-	  (cons a b))))))
+	  (list a b))))))
 
 (defun typemod-expr-matches-p (rule-typemod-expr typemod)
   "Check if an expression such as (< 10) matches given typemod."
@@ -98,7 +98,7 @@
 		   (t type)))
 		(pg-typemod
 		 (when source-typemod
-		   (destructuring-bind (a . b) source-typemod
+		   (destructuring-bind (a &optional b) source-typemod
 		     (format nil "(~a~:[~*~;,~a~])" a b b)))))
             (make-column :name (apply-identifier-case source-column-name)
                          :type-name type-name
