@@ -20,7 +20,8 @@
         (cl-postgres::with-syncing
           (cl-postgres::write-uint1 cl-postgres::socket 100)
           (cl-postgres::write-uint4 cl-postgres::socket (+ 4 (length data)))
-          (loop :for byte :across data :do (write-byte byte cl-postgres::socket))))))
+          (loop :for byte :across data
+             :do (write-byte byte cl-postgres::socket))))))
   (incf (cl-postgres::copier-count copier)))
 
 (defun copy-batch (table columns batch batch-rows
