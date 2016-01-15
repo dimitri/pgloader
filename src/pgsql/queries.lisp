@@ -306,7 +306,7 @@ select i.relname,
       :when    (and (string-equal name "client_encoding")
                     (not (member value '("utf-8" "utf8") :test #'string-equal)))
       :do      (log-message :warning
-                            "pgloader always talk to PostgreSQL in utf-8, client_encoding has been forced to 'utf8'..")
+                            "pgloader always talk to PostgreSQL in utf-8, client_encoding has been forced to 'utf8'.")
       :else
       :collect (cons name value))))
 
