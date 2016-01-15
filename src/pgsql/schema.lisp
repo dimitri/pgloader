@@ -241,18 +241,15 @@
   ;; indexes' option (in CSV mode and the like)
   name table-name table-oid primary unique columns sql conname condef)
 
-(defgeneric index-table-name (index)
-  (:documentation
-   "Return the name of the table to attach this index to."))
-
-(defgeneric format-pgsql-create-index (index)
+(defgeneric format-pgsql-create-index (table index)
   (:documentation
    "Return the PostgreSQL command to define an Index."))
 
-(defmethod index-table-name ((index pgsql-index))
-  (pgsql-index-table-name index))
+(defgeneric format-pgsql-drop-index (table index)
+  (:documentation
+   "Return the PostgreSQL command to drop an Index."))
 
-(defmethod format-pgsql-create-index ((index pgsql-index))
+(defmethod format-pgsql-create-index ((table table) (index pgsql-index))
   "Generate the PostgreSQL statement list to rebuild a Foreign Key"
   (let* ((index-name (if (and *preserve-index-names*
                               (not (string-equal "primary" (pgsql-index-name index)))
@@ -273,18 +270,18 @@
         (or (pgsql-index-sql index)
             (format nil "CREATE UNIQUE INDEX ~a ON ~a (~{~a~^, ~});"
                     index-name
-                    (pgsql-index-table-name index)
+                    (format-table-name table)
                     (pgsql-index-columns index)))
         (format nil
                 "ALTER TABLE ~a ADD ~a USING INDEX ~a;"
-                (pgsql-index-table-name index)
+                (format-table-name table)
                 (cond ((pgsql-index-primary index) "PRIMARY KEY")
                       ((pgsql-index-unique index) "UNIQUE"))
                 index-name)))
 
       ((pgsql-index-condef index)
        (format nil "ALTER TABLE ~a ADD ~a;"
-               (pgsql-index-table-name index)
+               (format-table-name table)
                (pgsql-index-condef index)))
 
       (t
@@ -292,10 +289,10 @@
            (format nil "CREATE~:[~; UNIQUE~] INDEX ~a ON ~a (~{~a~^, ~});"
                    (pgsql-index-unique index)
                    index-name
-                   (pgsql-index-table-name index)
+                   (format-table-name table)
                    (pgsql-index-columns index)))))))
 
-(defmethod format-pgsql-drop-index ((index pgsql-index))
+(defmethod format-pgsql-drop-index ((table table) (index pgsql-index))
   "Generate the PostgreSQL statement to DROP the index."
   (let* ((index-name (apply-identifier-case (pgsql-index-name index))))
     (cond ((pgsql-index-conname index)
@@ -303,7 +300,7 @@
            ;; comes from one source only, the PostgreSQL database catalogs,
            ;; so don't question it, quote it.
            (format nil "ALTER TABLE ~a DROP CONSTRAINT ~s;"
-                   (pgsql-index-table-name index)
+                   (format-table-name table)
                    (pgsql-index-conname index)))
 
           (t
@@ -312,17 +309,17 @@
 ;;;
 ;;; Parallel index building.
 ;;;
-(defun create-indexes-in-kernel (pgconn indexes kernel channel
+(defun create-indexes-in-kernel (pgconn table kernel channel
 				 &key (label "Create Indexes"))
   "Create indexes for given table in dbname, using given lparallel KERNEL
    and CHANNEL so that the index build happen in concurrently with the data
    copying."
   (let* ((lp:*kernel* kernel))
     (loop
-       :for index :in indexes
+       :for index :in (table-index-list table)
        :collect (multiple-value-bind (sql pkey)
                     ;; we postpone the pkey upgrade of the index for later.
-                    (format-pgsql-create-index index)
+                    (format-pgsql-create-index table index)
 
                   (log-message :notice "~a" sql)
                   (lp:submit-task channel
@@ -357,11 +354,11 @@
 ;;;
 ;;; Drop indexes before loading
 ;;;
-(defun drop-indexes (section pgsql-index-list)
+(defun drop-indexes (section table)
   "Drop indexes in PGSQL-INDEX-LIST. A PostgreSQL connection must already be
    active when calling that function."
-  (loop :for index :in pgsql-index-list
-     :do (let ((sql (format-pgsql-drop-index index)))
+  (loop :for index :in (table-index-list table)
+     :do (let ((sql (format-pgsql-drop-index table index)))
            (log-message :notice "~a" sql)
            (pgsql-execute-with-timing section "drop indexes" sql))))
 
@@ -376,6 +373,10 @@
           ;; we get the list of indexes from PostgreSQL catalogs, so don't
           ;; question their spelling, just quote them.
           (*identifier-case* :quote))
+
+      ;; set the indexes list in the table structure
+      (setf (table-index-list table) indexes)
+
       (cond ((and indexes (not drop-indexes))
              (log-message :warning
                           "Target table ~s has ~d indexes defined against it."
@@ -388,26 +389,24 @@
             (indexes
              ;; drop the indexes now
              (with-stats-collection ("drop indexes" :section section)
-                 (drop-indexes section indexes))))
+                 (drop-indexes section table)))))))
 
-      ;; and return the indexes list
-      indexes)))
-
-(defun create-indexes-again (target indexes &key (section :post) drop-indexes)
+(defun create-indexes-again (target table &key (section :post) drop-indexes)
   "Create the indexes that we dropped previously."
-  (when (and indexes drop-indexes)
+  (when (and (table-index-list table) drop-indexes)
     (let* ((*preserve-index-names* t)
            ;; we get the list of indexes from PostgreSQL catalogs, so don't
            ;; question their spelling, just quote them.
            (*identifier-case* :quote)
-           (idx-kernel  (make-kernel (length indexes)))
+           (idx-kernel  (make-kernel (count-indexes table)))
            (idx-channel (let ((lp:*kernel* idx-kernel))
                           (lp:make-channel))))
       (let ((pkeys
-             (create-indexes-in-kernel target indexes idx-kernel idx-channel)))
+             (create-indexes-in-kernel target table idx-kernel idx-channel)))
 
         (with-stats-collection ("Index Build Completion" :section section)
-            (loop :for idx :in indexes :do (lp:receive-result idx-channel)))
+            (loop :repeat (count-indexes table)
+               :do (lp:receive-result idx-channel)))
 
         ;; turn unique indexes into pkeys now
         (with-pgsql-connection (target)

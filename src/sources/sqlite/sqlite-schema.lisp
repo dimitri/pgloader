@@ -98,7 +98,7 @@
 (defmethod index-table-name ((index sqlite-idx))
   (sqlite-idx-table-name index))
 
-(defmethod format-pgsql-create-index ((index sqlite-idx))
+(defmethod format-pgsql-create-index ((table table) (index sqlite-idx))
   "Generate the PostgresQL statement to build the given SQLite index definition."
   (sqlite-idx-sql index))
 

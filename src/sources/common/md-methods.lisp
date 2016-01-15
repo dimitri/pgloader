@@ -71,12 +71,15 @@
   (declare (ignore data-only schema-only
                    create-tables include-drop
                    create-indexes reset-sequences))
-  (let ((indexes (maybe-drop-indexes (target-db copy)
-                                     (target copy)
-                                     :drop-indexes drop-indexes)))
-    (copy-from copy
-               :truncate truncate
-               :disable-triggers disable-triggers)
 
-    ;; re-create the indexes
-    (create-indexes-again (target-db copy) indexes :drop-indexes drop-indexes)))
+  ;; this sets (table-index-list (target copy))
+  (maybe-drop-indexes (target-db copy)
+                      (target copy)
+                      :drop-indexes drop-indexes)
+
+  (copy-from copy :truncate truncate :disable-triggers disable-triggers)
+
+  ;; re-create the indexes from the target table entry
+  (create-indexes-again (target-db copy)
+                        (target copy)
+                        :drop-indexes drop-indexes))

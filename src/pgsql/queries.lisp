@@ -112,6 +112,7 @@
 
 (defmethod query ((pgconn pgsql-connection) sql &key)
   (let ((pomo:*database* (conn-handle pgconn)))
+    (log-message :debug "~a" sql)
     (pomo:query sql)))
 
 (defmacro handling-pgsql-notices (&body forms)
@@ -271,9 +272,20 @@
 (defun list-indexes (table)
   "List all indexes for TABLE-NAME in SCHEMA. A PostgreSQL connection must
    be already established when calling that function."
-  (with-schema (unqualified-table-name table)
-    (loop :for (index-name table-name table-oid primary unique sql conname condef)
-       :in (pomo:query (format nil "
+  (let ((schema (or (table-schema table)
+                    (cdr (assoc "search_path" *pg-settings* :test #'string-equal))))
+        (sql-set-search-path "SET search_path TO '';"))
+    ;; we force the search_path to emty value so that ::regclass special
+    ;; cast and the pg_get_indexdef() and the pg_get_contraintdef() returns
+    ;; the fully qualified table name, even when the table is found in the
+    ;; 'public' schema.
+    (log-message :debug "~a" sql-set-search-path)
+    (pgloader.pgsql:pgsql-execute sql-set-search-path)
+
+    (prog1
+        (loop
+           :with sql-index-list
+           := (let ((sql (format nil "
 select i.relname,
        indrelid::regclass,
        indrelid,
@@ -285,18 +297,27 @@ select i.relname,
   from pg_index x
        join pg_class i ON i.oid = x.indexrelid
        left join pg_constraint c ON c.conindid = i.oid
- where indrelid = '~@[~a.~]~a'::regclass"
-                               (table-schema table)
-                               unqualified-table-name))
-       :collect (make-pgsql-index :name index-name
-                                  :table-name table-name
-                                  :table-oid table-oid
-                                  :primary primary
-                                  :unique unique
-                                  :columns nil
-                                  :sql sql
-                                  :conname (unless (eq :null conname) conname)
-                                  :condef  (unless (eq :null condef)  condef)))))
+ where indrelid = '~:[~*public.~;~a.~]~a'::regclass"
+                                 schema schema
+                                 (table-name table))))
+                (log-message :debug "~a" sql)
+                sql)
+
+           :for (index-name table-name table-oid primary unique sql conname condef)
+           :in (pomo:query sql-index-list)
+
+           :collect (make-pgsql-index :name index-name
+                                      :table-name table-name
+                                      :table-oid table-oid
+                                      :primary primary
+                                      :unique unique
+                                      :columns nil
+                                      :sql sql
+                                      :conname (unless (eq :null conname) conname)
+                                      :condef  (unless (eq :null condef)  condef)))
+      (let ((sql-reset-search-path "reset search_path;"))
+        (log-message :debug "~a" sql-reset-search-path)
+        (pgloader.pgsql:pgsql-execute sql-reset-search-path)))))
 
 (defun sanitize-user-gucs (gucs)
   "Forbid certain actions such as setting a client_encoding different from utf8."

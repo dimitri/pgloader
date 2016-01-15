@@ -224,12 +224,12 @@
              ;; index build might get unsync: indexes for different tables
              ;; will get built in parallel --- not a big problem.
              (when (and create-indexes (not data-only))
-               (let* ((indexes (table-index-list table))
-                      (*preserve-index-names* (eq :preserve index-names)))
+               (let* ((*preserve-index-names* (eq :preserve index-names)))
                  (alexandria:appendf
                   pkeys
                   (create-indexes-in-kernel (target-db copy)
-                                            indexes idx-kernel idx-channel))))))
+                                            table
+                                            idx-kernel idx-channel))))))
 
     ;; now end the kernels
     (end-kernels copy-kernel copy-channel idx-kernel idx-channel
