@@ -31,14 +31,8 @@
                         option-table-name
                         option-timezone))
 
-(defrule another-ixf-option (and comma ixf-option)
-  (:lambda (source)
-    (bind (((_ option) source)) option)))
-
-(defrule ixf-option-list (and ixf-option (* another-ixf-option))
-  (:lambda (source)
-    (destructuring-bind (opt1 opts) source
-      (alexandria:alist-plist `(,opt1 ,@opts)))))
+(defrule ixf-options (and kw-with (and ixf-option (* (and comma ixf-option))))
+  (:function flatten-option-list))
 
 ;;; piggyback on DBF parsing
 (defrule ixf-options (and kw-with ixf-option-list)
@@ -77,8 +71,7 @@
 
 (defun lisp-code-for-loading-from-ixf (ixf-db-conn pg-db-conn
                                        &key
-                                         gucs before after
-                                         ((:ixf-options options)))
+                                         gucs before after options)
   `(lambda ()
      (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
@@ -108,7 +101,7 @@
 (defrule load-ixf-file load-ixf-command
   (:lambda (command)
     (bind (((source pg-db-uri
-                    &key ((:ixf-options options)) gucs before after) command))
+                    &key options gucs before after) command))
       (cond (*dry-run*
              (lisp-code-for-csv-dry-run pg-db-uri))
             (t
@@ -116,4 +109,4 @@
                                              :gucs gucs
                                              :before before
                                              :after after
-                                             :ixf-options options))))))
+                                             :options options))))))

@@ -29,19 +29,9 @@
                           option-encoding
                           option-identifiers-case))
 
-(defrule another-mssql-option (and comma mssql-option)
-  (:lambda (source)
-    (bind (((_ option) source)) option)))
-
-(defrule mssql-option-list (and mssql-option (* another-mssql-option))
-  (:lambda (source)
-    (destructuring-bind (opt1 opts) source
-      (alexandria:alist-plist (list* opt1 opts)))))
-
-(defrule mssql-options (and kw-with mssql-option-list)
-  (:lambda (source)
-    (bind (((_ opts) source))
-      (cons :mssql-options opts))))
+(defrule mssql-options (and kw-with
+                            (and mssql-option (* (and comma mssql-option))))
+  (:function flatten-option-list))
 
 (defrule including-in-schema
     (and kw-including kw-only kw-table kw-names kw-like filter-list-like
@@ -141,10 +131,8 @@
 
 (defun lisp-code-for-loading-from-mssql (ms-db-conn pg-db-conn
                                          &key
-                                           gucs casts before after
-                                           ((:mssql-options options))
-                                           (including)
-                                           (excluding))
+                                           gucs casts before after options
+                                           including excluding)
   `(lambda ()
      ;; now is the time to load the CFFI lib we need (freetds)
      (let (#+sbcl(sb-ext:*muffled-warnings* 'style-warning))
@@ -174,8 +162,7 @@
   (:lambda (source)
     (bind (((ms-db-uri pg-db-uri
                        &key
-                       gucs casts before after including excluding
-                       ((:mssql-options options)))
+                       gucs casts before after including excluding options)
             source))
       (cond (*dry-run*
              (lisp-code-for-mssql-dry-run ms-db-uri pg-db-uri))
@@ -185,7 +172,7 @@
                                                :casts casts
                                                :before before
                                                :after after
-                                               :mssql-options options
+                                               :options options
                                                :including including
                                                :excluding excluding))))))
 

@@ -5,6 +5,30 @@
 (in-package :pgloader.parser)
 
 ;;;
+;;; MySQL options
+;;;
+(defrule mysql-option (or option-workers
+                          option-batch-rows
+                          option-batch-size
+                          option-batch-concurrency
+			  option-truncate
+                          option-disable-triggers
+			  option-data-only
+			  option-schema-only
+			  option-include-drop
+			  option-create-tables
+			  option-create-indexes
+			  option-index-names
+			  option-reset-sequences
+			  option-foreign-keys
+			  option-identifiers-case))
+
+(defrule mysql-options (and kw-with
+                            (and mysql-option (* (and comma mysql-option))))
+  (:function flatten-option-list))
+
+
+;;;
 ;;; Materialize views by copying their data over, allows for doing advanced
 ;;; ETL processing by having parts of the processing happen on the MySQL
 ;;; query side.
@@ -160,8 +184,7 @@
 
 (defun lisp-code-for-loading-from-mysql (my-db-conn pg-db-conn
                                          &key
-                                           gucs casts views before after
-                                           ((:mysql-options options))
+                                           gucs casts views before after options
                                            ((:including incl))
                                            ((:excluding excl))
                                            ((:decoding decoding-as)))
@@ -194,7 +217,7 @@
                          pg-db-uri
                          &key
                          gucs casts views before after
-                         mysql-options including excluding decoding)
+                         options including excluding decoding)
         source
       (cond (*dry-run*
              (lisp-code-for-mysql-dry-run my-db-uri pg-db-uri))
@@ -205,7 +228,7 @@
                                                :views views
                                                :before before
                                                :after after
-                                               :mysql-options mysql-options
+                                               :options options
                                                :including including
                                                :excluding excluding
                                                :decoding decoding))))))

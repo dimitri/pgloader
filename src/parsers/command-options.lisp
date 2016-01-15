@@ -129,38 +129,41 @@
     (bind (((action _ _) preserve-or-uniquify))
       (cons :index-names action))))
 
-(defrule mysql-option (or option-workers
-                          option-batch-rows
-                          option-batch-size
-                          option-batch-concurrency
-			  option-truncate
-                          option-disable-triggers
-			  option-data-only
-			  option-schema-only
-			  option-include-drop
-			  option-create-tables
-			  option-create-indexes
-			  option-index-names
-			  option-reset-sequences
-			  option-foreign-keys
-			  option-identifiers-case))
+(defrule option-encoding (and kw-encoding encoding)
+  (:lambda (enc)
+    (cons :encoding
+          (if enc
+              (destructuring-bind (kw-encoding encoding) enc
+                (declare (ignore kw-encoding))
+                encoding)
+              :utf-8))))
 
 (defrule comma (and ignore-whitespace #\, ignore-whitespace)
   (:constant :comma))
 
-(defrule another-mysql-option (and comma mysql-option)
-  (:lambda (source)
-    (bind (((_ option) source)) option)))
+(defun flatten-option-list (with-option-list)
+  "Flatten given WITH-OPTION-LIST into a flat plist:
 
-(defrule mysql-option-list (and mysql-option (* another-mysql-option))
-  (:lambda (source)
-    (destructuring-bind (opt1 opts) source
-      (alexandria:alist-plist (list* opt1 opts)))))
+   Input: (:with
+           ((:INCLUDE-DROP . T)
+            ((:COMMA (:CREATE-TABLES . T)) (:COMMA (:CREATE-INDEXES . T))
+             (:COMMA (:RESET-SEQUENCES . T)))))
 
-(defrule mysql-options (and kw-with mysql-option-list)
-  (:lambda (source)
-    (bind (((_ opts) source))
-      (cons :mysql-options opts))))
+   Output: (:INCLUDE-DROP T :CREATE-TABLES T
+            :CREATE-INDEXES T :RESET-SEQUENCES T)"
+  (destructuring-bind (with option-list) with-option-list
+    (declare (ignore with))
+    (cons :options
+          (alexandria:alist-plist
+           (append (list (first option-list))
+                   (loop :for node :in (second option-list)
+                      ;; bypass :comma
+                      :append (cdr node)))))))
+
+
+;;;
+;;; PostgreSQL GUCs, another kind of options
+;;;
 
 ;; we don't validate GUCs, that's PostgreSQL job.
 (defrule generic-optname optname-element

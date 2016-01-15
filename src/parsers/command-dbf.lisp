@@ -30,19 +30,8 @@
                         option-create-tables
                         option-table-name))
 
-(defrule another-dbf-option (and comma dbf-option)
-  (:lambda (source)
-    (bind (((_ option) source)) option)))
-
-(defrule dbf-option-list (and dbf-option (* another-dbf-option))
-  (:lambda (source)
-    (destructuring-bind (opt1 opts) source
-      (alexandria:alist-plist `(,opt1 ,@opts)))))
-
-(defrule dbf-options (and kw-with dbf-option-list)
-  (:lambda (source)
-    (bind (((_ opts) source))
-      (cons :dbf-options opts))))
+(defrule dbf-options (and kw-with (and dbf-option (* (and comma dbf-option))))
+  (:function flatten-option-list))
 
 (defrule dbf-uri (and "dbf://" filename)
   (:lambda (source)
@@ -90,8 +79,7 @@
 (defun lisp-code-for-loading-from-dbf (dbf-db-conn pg-db-conn
                                        &key
                                          (encoding :ascii)
-                                         gucs before after
-                                         ((:dbf-options options)))
+                                         gucs before after options)
   `(lambda ()
      (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
@@ -120,7 +108,7 @@
 (defrule load-dbf-file load-dbf-command
   (:lambda (command)
     (bind (((source encoding pg-db-uri
-                    &key ((:dbf-options options)) gucs before after) command))
+                    &key options gucs before after) command))
       (cond (*dry-run*
              (lisp-code-for-dbf-dry-run source pg-db-uri))
             (t
@@ -129,4 +117,4 @@
                                              :gucs gucs
                                              :before before
                                              :after after
-                                             :dbf-options options))))))
+                                             :options options))))))

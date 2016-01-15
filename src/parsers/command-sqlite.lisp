@@ -13,15 +13,6 @@ load database
 
   set work_mem to '16MB', maintenance_work_mem to '512 MB';
 |#
-(defrule option-encoding (and kw-encoding encoding)
-  (:lambda (enc)
-    (cons :encoding
-          (if enc
-              (destructuring-bind (kw-encoding encoding) enc
-                (declare (ignore kw-encoding))
-                encoding)
-              :utf-8))))
-
 (defrule sqlite-option (or option-batch-rows
                            option-batch-size
                            option-batch-concurrency
@@ -35,19 +26,9 @@ load database
 			   option-reset-sequences
                            option-encoding))
 
-(defrule another-sqlite-option (and comma sqlite-option)
-  (:lambda (source)
-    (bind (((_ option) source)) option)))
-
-(defrule sqlite-option-list (and sqlite-option (* another-sqlite-option))
-  (:lambda (source)
-    (destructuring-bind (opt1 opts) source
-      (alexandria:alist-plist (list* opt1 opts)))))
-
-(defrule sqlite-options (and kw-with sqlite-option-list)
-  (:lambda (source)
-    (bind (((_ opts) source))
-      (cons :sqlite-options opts))))
+(defrule sqlite-options (and kw-with
+                             (and sqlite-option (* (and comma sqlite-option))))
+  (:function flatten-option-list))
 
 (defrule including-like
     (and kw-including kw-only kw-table kw-names kw-like filter-list-like)
@@ -110,8 +91,7 @@ load database
 
 (defun lisp-code-for-loading-from-sqlite (sqlite-db-conn pg-db-conn
                                           &key
-                                            gucs casts before after
-                                            ((:sqlite-options options))
+                                            gucs casts before after options
                                             ((:including incl))
                                             ((:excluding excl)))
   `(lambda ()
@@ -140,8 +120,7 @@ load database
     (destructuring-bind (sqlite-uri
                          pg-db-uri
                          &key
-                         gucs casts before after
-                         sqlite-options including excluding)
+                         gucs casts before after options including excluding)
         source
       (cond (*dry-run*
              (lisp-code-for-sqlite-dry-run sqlite-uri pg-db-uri))
@@ -151,7 +130,7 @@ load database
                                                 :casts casts
                                                 :before before
                                                 :after after
-                                                :sqlite-options sqlite-options
+                                                :options options
                                                 :including including
                                                 :excluding excluding))))))
 
