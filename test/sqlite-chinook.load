@@ -4,6 +4,8 @@ load database
 
  -- including only table names like 'Invoice%'
 
- with include drop, create tables, create indexes, reset sequences
+ with workers = 4,
+      concurrency = 1,
+      include drop, create tables, create indexes, reset sequences
 
   set work_mem to '16MB', maintenance_work_mem to '512 MB';

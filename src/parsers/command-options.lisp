@@ -30,6 +30,13 @@
     (bind (((_ _ nb) workers))
       (cons :workers (parse-integer (text nb))))))
 
+(defrule option-concurrency (and kw-concurrency
+                                 equal-sign
+                                 (+ (digit-char-p character)))
+  (:lambda (concurrency)
+    (bind (((_ _ nb) concurrency))
+      (cons :concurrency (parse-integer (text nb))))))
+
 (defrule option-batch-rows (and kw-batch kw-rows equal-sign
                                 (+ (digit-char-p character)))
   (:lambda (batch-rows)

@@ -13,7 +13,9 @@ load database
 
   set work_mem to '16MB', maintenance_work_mem to '512 MB';
 |#
-(defrule sqlite-option (or option-batch-rows
+(defrule sqlite-option (or option-workers
+                           option-concurrency
+                           option-batch-rows
                            option-batch-size
                            option-batch-concurrency
                            option-truncate

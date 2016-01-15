@@ -61,12 +61,19 @@
 			    drop-indexes
 
                             ;; generic API, but ignored here
-			    data-only
+                            workers
+                            concurrency
+                            data-only
 			    schema-only
                             create-tables
 			    include-drop
+                            foreign-keys
 			    create-indexes
-			    reset-sequences)
+			    reset-sequences
+                            materialize-views
+                            set-table-oids
+                            including
+                            excluding)
   "Copy the contents of the COPY formated file to PostgreSQL."
   (declare (ignore data-only schema-only
                    create-tables include-drop

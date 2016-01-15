@@ -388,6 +388,53 @@ line tool `psql` implements a `\copy` command that knows how to stream a
 file local to the client over the network and into the PostgreSQL server,
 using the same protocol as pgloader uses.
 
+## A NOTE ABOUT PARALLELISM
+
+pgloader uses several concurrent tasks to process the data being loaded:
+
+  - a reader task reads the data in,
+
+  - at least one transformer task is responsible for applying the needed
+    transformations to given data so that it fits PostgreSQL expectations,
+    those transformations include CSV like user-defined *projections*,
+    database *casting* (default and user given), and PostgreSQL specific
+    *formatting* of the data for the COPY protocol and in unicode,
+
+  - at least one writer task is responsible for sending the data down to
+    PostgreSQL using the COPY protocol.
+
+The idea behind having the transformer task do the *formatting* is so that
+in the event of bad rows being rejected by PostgreSQL the retry process
+doesn't have to do that step again.
+
+At the moment, the number of transformer and writer tasks are forced into
+being the same, which allows for a very simple *queueing* model to be
+implemented: the reader task fills in one queue per transformer task,
+which then pops from that queue and pushes to a writer queue per COPY
+task.
+
+The parameter *workers* allows to control how many worker threads are
+allowed to be active at any time (that's the parallelism level); and the
+parameter *concurrency* allows to control how many tasks are started to
+handle the data (they may not all run at the same time, depending on the
+*workers* setting).
+
+With a *concurrency* of 2, we start 1 reader thread, 2 transformer threads
+and 2 writer tasks, that's 5 concurrent tasks to schedule into *workers*
+threads.
+
+So with `workers = 4, concurrency = 2`, the parallel scheduler will
+maintain active only 4 of the 5 tasks that are started.
+
+With `workers = 8, concurrency = 1`, we then are able to work on several
+units of work at the same time. In the database sources, a unit of work is a
+table, so those settings allow pgloader to be active on as many as 3 tables
+at any time in the load process.
+
+As the `CREATE INDEX` threads started by pgloader are only waiting until
+PostgreSQL is done with the real work, those threads are *NOT* counted into
+the concurrency levels as detailed here.
+
 ## SOURCE FORMATS
 
 pgloader supports the following input formats:
@@ -494,6 +541,22 @@ Some clauses are common to all commands:
        - *do not use option*
 
     See each specific command for details.
+
+    All data sources specific commands support the following options:
+
+      - *batch rows = R*
+      - *batch size = ... MB*
+      - *batch concurrency = ...*
+
+    See the section BATCH BEHAVIOUR OPTIONS for more details.
+
+    In addition, the data sources *mysql*, *sqlite*, *mssql*, *ixf* and
+    *dbf* all support the following settings:
+
+       - *workers = W*
+       - *concurrency = C*
+
+    See section A NOTE ABOUT PARALLELISM for more details.
 
   - *SET*
 
@@ -682,14 +745,10 @@ The global batch behaviour options are:
   - *batch concurrency*
 
     Takes a numeric value as argument, defaults to `10`. That's the number
-    of batches that pgloader is allows to build in memory, even when only a
-    single batch at a time might be sent to PostgreSQL.
-
-    Supporting more than a single batch being sent at a time is on the TODO
-    list of pgloader, but is not implemented yet. This option is about
-    controlling the memory needs of pgloader as a trade-off to the
-    performances characteristics, and not about parallel activity of
-    pgloader.
+    of batches that pgloader is allows to build in memory in each reader
+    thread. See the *workers* setting for how many reader threads are
+    allowed to run at the same time: each of them is allowed as many as
+    *batch concurrency* batches.
 
 Other options are specific to each input source, please refer to specific
 parts of the documentation for their listing and covering.
@@ -1399,7 +1458,8 @@ Here's an example:
          FROM      mysql://root@localhost/sakila
          INTO postgresql://localhost:54393/sakila
 
-     WITH include drop, create tables, create indexes, reset sequences
+     WITH include drop, create tables, create indexes, reset sequences,
+          workers = 8, concurrency = 1
 
       SET maintenance_work_mem to '128MB',
           work_mem to '12MB',

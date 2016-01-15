@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "December 2015" "ff" ""
+.TH "PGLOADER" "1" "January 2016" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -458,6 +458,41 @@ When given a file that the PostgreSQL \fBCOPY\fR command knows how to parse, and
 .P
 Note that while the \fBCOPY\fR command is restricted to read either from its standard input or from a local file on the server\'s file system, the command line tool \fBpsql\fR implements a \fB\ecopy\fR command that knows how to stream a file local to the client over the network and into the PostgreSQL server, using the same protocol as pgloader uses\.
 .
+.SH "A NOTE ABOUT PARALLELISM"
+pgloader uses several concurrent tasks to process the data being loaded:
+.
+.IP "\(bu" 4
+a reader task reads the data in,
+.
+.IP "\(bu" 4
+at least one transformer task is responsible for applying the needed transformations to given data so that it fits PostgreSQL expectations, those transformations include CSV like user\-defined \fIprojections\fR, database \fIcasting\fR (default and user given), and PostgreSQL specific \fIformatting\fR of the data for the COPY protocol and in unicode,
+.
+.IP "\(bu" 4
+at least one writer task is responsible for sending the data down to PostgreSQL using the COPY protocol\.
+.
+.IP "" 0
+.
+.P
+The idea behind having the transformer task do the \fIformatting\fR is so that in the event of bad rows being rejected by PostgreSQL the retry process doesn\'t have to do that step again\.
+.
+.P
+At the moment, the number of transformer and writer tasks are forced into being the same, which allows for a very simple \fIqueueing\fR model to be implemented: the reader task fills in one queue per transformer task, which then pops from that queue and pushes to a writer queue per COPY task\.
+.
+.P
+The parameter \fIworkers\fR allows to control how many worker threads are allowed to be active at any time (that\'s the parallelism level); and the parameter \fIconcurrency\fR allows to control how many tasks are started to handle the data (they may not all run at the same time, depending on the \fIworkers\fR setting)\.
+.
+.P
+With a \fIconcurrency\fR of 2, we start 1 reader thread, 2 transformer threads and 2 writer tasks, that\'s 5 concurrent tasks to schedule into \fIworkers\fR threads\.
+.
+.P
+So with \fBworkers = 4, concurrency = 2\fR, the parallel scheduler will maintain active only 4 of the 5 tasks that are started\.
+.
+.P
+With \fBworkers = 8, concurrency = 1\fR, we then are able to work on several units of work at the same time\. In the database sources, a unit of work is a table, so those settings allow pgloader to be active on as many as 3 tables at any time in the load process\.
+.
+.P
+As the \fBCREATE INDEX\fR threads started by pgloader are only waiting until PostgreSQL is done with the real work, those threads are \fINOT\fR counted into the concurrency levels as detailed here\.
+.
 .SH "SOURCE FORMATS"
 pgloader supports the following input formats:
 .
@@ -568,6 +603,37 @@ Set of options to apply to the command, using a global syntax of either:
 .
 .IP
 See each specific command for details\.
+.
+.IP
+All data sources specific commands support the following options:
+.
+.IP "\(bu" 4
+\fIbatch rows = R\fR
+.
+.IP "\(bu" 4
+\fIbatch size = \.\.\. MB\fR
+.
+.IP "\(bu" 4
+\fIbatch concurrency = \.\.\.\fR
+.
+.IP "" 0
+.
+.IP
+See the section BATCH BEHAVIOUR OPTIONS for more details\.
+.
+.IP
+In addition, the data sources \fImysql\fR, \fIsqlite\fR, \fImssql\fR, \fIixf\fR and \fIdbf\fR all support the following settings:
+.
+.IP "\(bu" 4
+\fIworkers = W\fR
+.
+.IP "\(bu" 4
+\fIconcurrency = C\fR
+.
+.IP "" 0
+.
+.IP
+See section A NOTE ABOUT PARALLELISM for more details\.
 .
 .IP "\(bu" 4
 \fISET\fR
@@ -769,10 +835,7 @@ Takes a memory unit as argument, such as \fI20 MB\fR, its default value\. Accept
 \fIbatch concurrency\fR
 .
 .IP
-Takes a numeric value as argument, defaults to \fB10\fR\. That\'s the number of batches that pgloader is allows to build in memory, even when only a single batch at a time might be sent to PostgreSQL\.
-.
-.IP
-Supporting more than a single batch being sent at a time is on the TODO list of pgloader, but is not implemented yet\. This option is about controlling the memory needs of pgloader as a trade\-off to the performances characteristics, and not about parallel activity of pgloader\.
+Takes a numeric value as argument, defaults to \fB10\fR\. That\'s the number of batches that pgloader is allows to build in memory in each reader thread\. See the \fIworkers\fR setting for how many reader threads are allowed to run at the same time: each of them is allowed as many as \fIbatch concurrency\fR batches\.
 .
 .IP "" 0
 .
@@ -1085,8 +1148,7 @@ LOAD FIXED
 
      WITH truncate
 
-      SET client_encoding to \'latin1\',
-          work_mem to \'14MB\',
+      SET work_mem to \'14MB\',
           standard_conforming_strings to \'on\'
 
 BEFORE LOAD DO
@@ -1295,8 +1357,7 @@ LOAD COPY
 
      WITH truncate
 
-      SET client_encoding to \'latin1\',
-          work_mem to \'14MB\',
+      SET work_mem to \'14MB\',
           standard_conforming_strings to \'on\'
 
 BEFORE LOAD DO
@@ -1647,7 +1708,8 @@ LOAD DATABASE
      FROM      mysql://root@localhost/sakila
      INTO postgresql://localhost:54393/sakila
 
- WITH include drop, create tables, create indexes, reset sequences
+ WITH include drop, create tables, create indexes, reset sequences,
+      workers = 8, concurrency = 1
 
   SET maintenance_work_mem to \'128MB\',
       work_mem to \'12MB\',

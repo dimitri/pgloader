@@ -77,13 +77,21 @@
 
 (defgeneric copy-database (source
 			   &key
+                             workers
+                             concurrency
 			     truncate
 			     data-only
 			     schema-only
 			     create-tables
 			     include-drop
+                             foreign-keys
 			     create-indexes
-			     reset-sequences)
+			     reset-sequences
+                             disable-triggers
+                             materialize-views
+                             set-table-oids
+                             including
+                             excluding)
   (:documentation
    "Auto-discover source schema, convert it to PostgreSQL, migrate the data
     from the source definition to PostgreSQL for all the discovered

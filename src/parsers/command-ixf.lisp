@@ -18,7 +18,9 @@
   (:lambda (tzopt)
     (bind (((_ tz) tzopt)) (cons :timezone tz))))
 
-(defrule ixf-option (or option-batch-rows
+(defrule ixf-option (or option-workers
+                        option-concurrency
+                        option-batch-rows
                         option-batch-size
                         option-batch-concurrency
                         option-truncate
@@ -33,12 +35,6 @@
 
 (defrule ixf-options (and kw-with (and ixf-option (* (and comma ixf-option))))
   (:function flatten-option-list))
-
-;;; piggyback on DBF parsing
-(defrule ixf-options (and kw-with ixf-option-list)
-  (:lambda (source)
-    (bind (((_ opts) source))
-      (cons :ixf-options opts))))
 
 (defrule ixf-uri (and "ixf://" filename)
   (:lambda (source)

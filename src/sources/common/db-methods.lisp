@@ -120,7 +120,7 @@
 ;;;
 (defmethod copy-database ((copy db-copy)
 			  &key
-                            (worker-count     8)
+                            (workers          4)
                             (concurrency      1)
 			    (truncate         nil)
 			    (disable-triggers nil)
@@ -139,7 +139,7 @@
                             set-table-oids
 			    materialize-views)
   "Export database source data and Import it into PostgreSQL"
-  (let* ((copy-kernel  (make-kernel worker-count))
+  (let* ((copy-kernel  (make-kernel workers))
          (copy-channel (let ((lp:*kernel* copy-kernel)) (lp:make-channel)))
          (catalog      (fetch-metadata
                         copy
