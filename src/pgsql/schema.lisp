@@ -406,7 +406,8 @@
 
         (with-stats-collection ("Index Build Completion" :section section)
             (loop :repeat (count-indexes table)
-               :do (lp:receive-result idx-channel)))
+               :do (lp:receive-result idx-channel))
+          (lp:end-kernel :wait t))
 
         ;; turn unique indexes into pkeys now
         (with-pgsql-connection (target)

@@ -438,7 +438,7 @@
            #:md-spec
            #:md-strm
            #:expand-spec
-           #:open-next-stream
+           #:clone-copy-for
 
            ;; the db-methods
            #:fetch-metadata
@@ -451,7 +451,6 @@
            ;; file based utils for CSV, fixed etc
            #:with-open-file-or-stream
 	   #:get-pathname
-	   #:get-absolute-pathname
 	   #:project-fields
 	   #:reformat-then-process
 

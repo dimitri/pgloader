@@ -133,7 +133,8 @@
 ;;;
 ;;; Tools for every connection classes
 ;;;
-(defmacro with-connection ((var connection) &body forms)
+(defmacro with-connection ((var connection &rest args &key &allow-other-keys)
+                           &body forms)
   "Connect to DB-CONNECTION and handle any condition when doing so, and when
    connected execute FORMS in a protected way so that we always disconnect
    at the end."
@@ -147,7 +148,7 @@
                                       #'(lambda (w)
                                           (log-message :warning "~a" w)
                                           (muffle-warning))))
-                        (open-connection ,conn))
+                        (apply #'open-connection ,conn (list ,@args)))
                     (condition (e)
                       (cond ((typep ,connection 'fd-connection)
                              (error 'fd-connection-error

@@ -48,6 +48,24 @@
     (unless transforms
       (setf (slot-value csv 'transforms) (make-list (length columns))))))
 
+(defmethod clone-copy-for ((csv copy-csv) path-spec)
+  "Create a copy of CSV for loading data from PATH-SPEC."
+  (let ((csv-for-path-spec
+         (change-class (call-next-method csv path-spec) 'copy-csv)))
+    (loop :for slot-name :in '(source-type
+                               separator
+                               newline
+                               quote
+                               escape
+                               escape-mode
+                               trim-blanks)
+       :do (when (slot-boundp csv slot-name)
+             (setf (slot-value csv-for-path-spec slot-name)
+                   (slot-value csv slot-name))))
+
+    ;; return the new instance!
+    csv-for-path-spec))
+
 ;;;
 ;;; Read a file format in CSV format, and call given function on each line.
 ;;;

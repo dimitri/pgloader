@@ -567,7 +567,7 @@
          (lisp-code-for-loading-from-copy source fields target
                                           :encoding (or encoding :default)
                                           :gucs gucs
-                                          :copy-options options
+                                          :options options
                                           :before before
                                           :after after))
 
@@ -575,7 +575,7 @@
          (lisp-code-for-loading-from-fixed source fields target
                                            :encoding encoding
                                            :gucs gucs
-                                           :fixed-options options
+                                           :options options
                                            :before before
                                            :after after))
 
@@ -583,21 +583,21 @@
          (lisp-code-for-loading-from-csv source fields target
                                          :encoding encoding
                                          :gucs gucs
-                                         :csv-options options
+                                         :options options
                                          :before before
                                          :after after))
 
         (dbf-connection
          (lisp-code-for-loading-from-dbf source target
                                          :gucs gucs
-                                         :dbf-options options
+                                         :options options
                                          :before before
                                          :after after))
 
         (ixf-connection
          (lisp-code-for-loading-from-ixf source target
                                          :gucs gucs
-                                         :ixf-options options
+                                         :options options
                                          :before before
                                          :after after))
 
@@ -605,7 +605,7 @@
          (lisp-code-for-loading-from-sqlite source target
                                             :gucs gucs
                                             :casts casts
-                                            :sqlite-options options
+                                            :options options
                                             :before before
                                             :after after))
 
@@ -613,7 +613,7 @@
          (lisp-code-for-loading-from-mysql source target
                                            :gucs gucs
                                            :casts casts
-                                           :mysql-options options
+                                           :options options
                                            :before before
                                            :after after))
 
@@ -621,7 +621,7 @@
          (lisp-code-for-loading-from-mssql source target
                                            :gucs gucs
                                            :casts casts
-                                           :mssql-options options
+                                           :options options
                                            :before before
                                            :after after))))
      :start-logger nil)))

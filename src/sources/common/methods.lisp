@@ -180,5 +180,8 @@
 
           ;; now wait until both the tasks are over, and kill the kernel
           (unless c-s-p
+            (log-message :debug "waiting for ~d tasks" (task-count concurrency))
+            (loop :repeat (task-count concurrency)
+               :do (lp:receive-result channel))
             (log-message :info "COPY ~s done." table-name)
             (unless k-s-p (lp:end-kernel :wait t)))))))

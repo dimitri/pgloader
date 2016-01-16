@@ -103,7 +103,9 @@
     (bind (((_ _ _ escape-mode) term))
       (cons :escape-mode escape-mode))))
 
-(defrule csv-option (or option-batch-rows
+(defrule csv-option (or option-workers
+                        option-concurrency
+                        option-batch-rows
                         option-batch-size
                         option-batch-concurrency
                         option-truncate
@@ -120,19 +122,9 @@
                         option-keep-unquoted-blanks
                         option-csv-escape-mode))
 
-(defrule another-csv-option (and comma csv-option)
-  (:lambda (source)
-    (bind (((_ option) source)) option)))
-
-(defrule csv-option-list (and csv-option (* another-csv-option))
-  (:lambda (source)
-    (destructuring-bind (opt1 opts) source
-      (alexandria:alist-plist `(,opt1 ,@opts)))))
-
-(defrule csv-options (and kw-with csv-option-list)
-  (:lambda (source)
-    (bind (((_ opts) source))
-      (cons :csv-options opts))))
+(defrule csv-options (and kw-with
+                             (and csv-option (* (and comma csv-option))))
+  (:function flatten-option-list))
 
 ;;
 ;; CSV per-field reading options
@@ -414,8 +406,10 @@
                                        &key
                                          (encoding :utf-8)
                                          columns
-                                         gucs before after
-                                         ((:csv-options options)))
+                                         gucs before after options
+                                       &aux
+                                         (worker-count (getf options :worker-count))
+                                         (concurrency  (getf options :concurrency)))
   `(lambda ()
      (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
@@ -425,7 +419,7 @@
        (progn
          ,(sql-code-block pg-db-conn :pre before "before load")
 
-         (let ((truncate (getf ',options :truncate))
+         (let ((truncate         (getf ',options :truncate))
                (disable-triggers (getf ',options :disable-triggers))
                (drop-indexes     (getf ',options :drop-indexes))
                (source
@@ -438,10 +432,16 @@
                                :fields    ',fields
                                :columns   ',columns
                                ,@(remove-batch-control-option
-                                  options :extras '(:truncate
+                                  options :extras '(:worker-count
+                                                    :concurrency
+                                                    :truncate
                                                     :drop-indexes
                                                     :disable-triggers)))))
            (pgloader.sources:copy-database source
+                                           ,@ (when worker-count
+                                                (list :worker-count worker-count))
+                                           ,@ (when concurrency
+                                                (list :concurrency concurrency))
                                            :truncate truncate
                                            :drop-indexes drop-indexes
                                            :disable-triggers disable-triggers))
@@ -451,7 +451,7 @@
 (defrule load-csv-file load-csv-file-command
   (:lambda (command)
     (bind (((source encoding fields pg-db-uri columns
-                    &key ((:csv-options options)) gucs before after) command))
+                    &key options gucs before after) command))
       (cond (*dry-run*
              (lisp-code-for-csv-dry-run pg-db-uri))
             (t
@@ -461,4 +461,4 @@
                                              :gucs gucs
                                              :before before
                                              :after after
-                                             :csv-options options))))))
+                                             :options options))))))

@@ -30,6 +30,10 @@
     (unless transforms
       (setf (slot-value fixed 'transforms) (make-list (length columns))))))
 
+(defmethod clone-copy-for ((fixed copy-fixed) path-spec)
+  "Create a copy of FIXED for loading data from PATH-SPEC."
+  (change-class (call-next-method fixed path-spec) 'copy-fixed))
+
 (declaim (inline parse-row))
 
 (defun parse-row (fixed-cols-specs line)

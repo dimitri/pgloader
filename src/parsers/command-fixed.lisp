@@ -43,7 +43,9 @@
   (:lambda (source)
     (bind (((_ field-defs _) source)) field-defs)))
 
-(defrule fixed-option (or option-batch-rows
+(defrule fixed-option (or option-workers
+                          option-concurrency
+                          option-batch-rows
                           option-batch-size
                           option-batch-concurrency
                           option-truncate
@@ -51,19 +53,9 @@
                           option-disable-triggers
 			  option-skip-header))
 
-(defrule another-fixed-option (and comma fixed-option)
-  (:lambda (source)
-    (bind (((_ option) source)) option)))
-
-(defrule fixed-option-list (and fixed-option (* another-fixed-option))
-  (:lambda (source)
-    (destructuring-bind (opt1 opts) source
-      (alexandria:alist-plist `(,opt1 ,@opts)))))
-
-(defrule fixed-options (and kw-with csv-option-list)
-  (:lambda (source)
-    (bind (((_ opts) source))
-      (cons :fixed-options opts))))
+(defrule fixed-options (and kw-with
+                            (and fixed-option (* (and comma fixed-option))))
+  (:function flatten-option-list))
 
 (defrule fixed-uri (and "fixed://" filename)
   (:lambda (source)
@@ -120,8 +112,10 @@
                                          &key
                                            (encoding :utf-8)
                                            columns
-                                           gucs before after
-                                           ((:fixed-options options)))
+                                           gucs before after options
+                                         &aux
+                                           (worker-count (getf options :worker-count))
+                                           (concurrency  (getf options :concurrency)))
   `(lambda ()
      (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
@@ -146,6 +140,10 @@
                                :skip-lines ,(or (getf options :skip-line) 0))))
 
            (pgloader.sources:copy-database source
+                                           ,@ (when worker-count
+                                                (list :worker-count worker-count))
+                                           ,@ (when concurrency
+                                                (list :concurrency concurrency))
                                            :truncate truncate
                                            :drop-indexes drop-indexes
                                            :disable-triggers disable-triggers))
@@ -155,7 +153,7 @@
 (defrule load-fixed-cols-file load-fixed-cols-file-command
   (:lambda (command)
     (bind (((source encoding fields pg-db-uri columns
-                    &key ((:fixed-options options)) gucs before after) command))
+                    &key options gucs before after) command))
       (cond (*dry-run*
              (lisp-code-for-csv-dry-run pg-db-uri))
             (t
@@ -165,4 +163,4 @@
                                                :gucs gucs
                                                :before before
                                                :after after
-                                               :fixed-options options))))))
+                                               :options options))))))

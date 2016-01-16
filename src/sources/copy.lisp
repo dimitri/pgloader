@@ -10,12 +10,7 @@
   (setf (slot-value copy 'type) "copy"))
 
 (defclass copy-copy (md-copy)
-  ((encoding    :accessor encoding	  ; file encoding
-	        :initarg :encoding)	  ;
-   (skip-lines  :accessor skip-lines	  ; we might want to skip COPY lines
-	        :initarg :skip-lines	  ;
-		:initform 0)              ;
-   (delimiter   :accessor delimiter       ; see COPY options for TEXT
+  ((delimiter   :accessor delimiter       ; see COPY options for TEXT
                 :initarg :delimiter       ; in PostgreSQL docs
                 :initform #\Tab)
    (null-as     :accessor null-as
@@ -34,6 +29,18 @@
                                           (slot-value copy 'target)))))
     (unless transforms
       (setf (slot-value copy 'transforms) (make-list (length columns))))))
+
+(defmethod clone-copy-for ((copy copy-copy) path-spec)
+  "Create a copy of FIXED for loading data from PATH-SPEC."
+  (let ((copy-for-path-spec
+         (change-class (call-next-method copy path-spec) 'copy-copy)))
+    (loop :for slot-name :in '(delimiter null-as)
+       :do (when (slot-boundp copy slot-name)
+             (setf (slot-value copy-for-path-spec slot-name)
+                   (slot-value copy slot-name))))
+
+    ;; return the new instance!
+    copy-for-path-spec))
 
 (declaim (inline parse-row))
 

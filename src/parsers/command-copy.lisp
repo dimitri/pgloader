@@ -33,7 +33,9 @@
 (defrule option-null (and kw-null quoted-string)
   (:destructure (kw null) (declare (ignore kw)) (cons :null-as null)))
 
-(defrule copy-option (or option-batch-rows
+(defrule copy-option (or option-workers
+                         option-concurrency
+                         option-batch-rows
                          option-batch-size
                          option-batch-concurrency
                          option-truncate
@@ -43,19 +45,9 @@
                          option-delimiter
                          option-null))
 
-(defrule another-copy-option (and comma copy-option)
-  (:lambda (source)
-    (bind (((_ option) source)) option)))
-
-(defrule copy-option-list (and copy-option (* another-copy-option))
-  (:lambda (source)
-    (destructuring-bind (opt1 opts) source
-      (alexandria:alist-plist `(,opt1 ,@opts)))))
-
-(defrule copy-options (and kw-with copy-option-list)
-  (:lambda (source)
-    (bind (((_ opts) source))
-      (cons :copy-options opts))))
+(defrule copy-options (and kw-with
+                           (and copy-option (* (and comma copy-option))))
+  (:function flatten-option-list))
 
 (defrule copy-uri (and "copy://" filename)
   (:lambda (source)
@@ -112,8 +104,10 @@
                                         &key
                                           (encoding :utf-8)
                                           columns
-                                          gucs before after
-                                          ((:copy-options options)))
+                                          gucs before after options
+                                        &aux
+                                          (worker-count (getf options :worker-count))
+                                          (concurrency  (getf options :concurrency)))
   `(lambda ()
      (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
@@ -136,10 +130,16 @@
                                :fields   ',fields
                                :columns  ',columns
                                ,@(remove-batch-control-option
-                                  options :extras '(:truncate
+                                  options :extras '(:worker-count
+                                                    :concurrency
+                                                    :truncate
                                                     :drop-indexes
                                                     :disable-triggers)))))
            (pgloader.sources:copy-database source
+                                           ,@ (when worker-count
+                                                (list :worker-count worker-count))
+                                           ,@ (when concurrency
+                                                (list :concurrency concurrency))
                                            :truncate truncate
                                            :drop-indexes drop-indexes
                                            :disable-triggers disable-triggers))
@@ -149,7 +149,7 @@
 (defrule load-copy-file load-copy-file-command
   (:lambda (command)
     (bind (((source encoding fields pg-db-uri columns
-                    &key ((:copy-options options)) gucs before after) command))
+                    &key options gucs before after) command))
       (cond (*dry-run*
              (lisp-code-for-csv-dry-run pg-db-uri))
             (t
@@ -159,4 +159,4 @@
                                               :gucs gucs
                                               :before before
                                               :after after
-                                              :copy-options options))))))
+                                              :options options))))))

@@ -151,6 +151,8 @@
 (defgeneric process-rows (md-copy stream process-fn)
   (:documentation "Process rows from a given input stream."))
 
+(defgeneric clone-copy-for (md-copy path-spec)
+  (:documentation "Create a new instance for copying PATH-SPEC data."))
 
 
 ;;;
@@ -188,4 +190,4 @@
   (:documentation "Alter load duties for database sources copy support."))
 
 (defgeneric instanciate-table-copy-object (db-copy table)
-  (:documentation "Create an new instance for copying TABLE data."))
+  (:documentation "Create a new instance for copying TABLE data."))

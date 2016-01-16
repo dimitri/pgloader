@@ -550,8 +550,7 @@ Some clauses are common to all commands:
 
     See the section BATCH BEHAVIOUR OPTIONS for more details.
 
-    In addition, the data sources *mysql*, *sqlite*, *mssql*, *ixf* and
-    *dbf* all support the following settings:
+    In addition, the following settings are available:
 
        - *workers = W*
        - *concurrency = C*

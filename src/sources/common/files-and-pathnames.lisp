@@ -12,7 +12,11 @@
   (print-unreadable-object (c stream :type t :identity t)
     (with-slots (type spec) c
       (let ((path (when (slot-boundp c 'path) (slot-value c 'path))))
-        (format stream "~a://~a:~{~a~^,~}" type (first spec) path)))))
+        (etypecase path
+          (string
+           (format stream "~a://~a:~a" type (first spec) path))
+          (list
+           (format stream "~a://~a:~{~a~^,~}" type (first spec) path)))))))
 
 (defmethod expand :after ((md md-connection))
   "Expand the archive for the MD connection."
@@ -30,15 +34,12 @@
 (defgeneric expand-spec (md-connection)
   (:documentation "Expand specification for an FD source."))
 
-(defgeneric open-next-stream (md-connection &rest args &key)
-  (:documentation "Open the next input stream from FD."))
-
 (defmethod expand-spec ((md md-connection))
   "Given fd spec as a CONS of a source type and a tagged object, expand the
   tagged object depending on the source type and return a list of pathnames."
   (destructuring-bind (type &rest part) (md-spec md)
     (ecase type
-      (:inline   (list (caar part)))
+      (:inline   (list (md-spec md)))
       (:stdin    (list *standard-input*))
       (:regex    (destructuring-bind (keep regex root) part
 		   (filter-directory regex
@@ -51,39 +52,31 @@
 		   (if (probe-file realname) (list realname)
 		       (error "File does not exists: '~a'." realname)))))))
 
-(defmethod open-next-stream ((md md-connection)
-                             &rest args
-                             &key &allow-other-keys)
-  "Switch to the following file in the PATH list."
-  ;; first close current stream
-  (when (slot-boundp md 'strm)
-    (close (md-strm md)))
-
-  ;; now open the new one
+(defmethod open-connection ((md md-connection)
+                            &rest args
+                            &key &allow-other-keys)
+  "We know how to open several kinds of specs here, all that target a single
+   file as input. The multi-file specs must have been expanded before trying
+   to open the connection."
   (when (fd-path md)
-    (let ((current-path (pop (fd-path md))))
-      (when current-path
-        (log-message :info "Open ~s" current-path)
-        (prog1
-            (setf (md-strm md)
-                  (typecase current-path
-                    (stream current-path)
-                    (t      (apply #'open current-path args))))
-          ;;
-          ;; The :inline md spec is a little special, it's a filename and a
-          ;; position where to skip to at opening the file. It allows for
-          ;; easier self-contained tests.
-          ;;
-          (when (eq :inline (car (md-spec md)))
-            (file-position (md-strm md) (cdadr (md-spec md)))))))))
+    (log-message :notice "Opening ~s" (fd-path md)) ; info
+    (cond ;; inline
+          ((and (listp (fd-path md))
+                (eq :inline (first (fd-path md))))
+           (destructuring-bind (filename . position)
+               (second (fd-path md))
+             ;; open the filename with given extra args
+             (setf (md-strm md) (apply #'open filename args))
+             ;; and position the stream as expected
+             (file-position (md-strm md) position)))
 
-(defmethod open-connection ((md md-connection) &key)
-  "The fd connection supports several specs to open a connection:
-     - if we have a path, that's a single file to open
-     - otherwise spec is an CONS wherin
-         - car is the source type
-         - cdr is an object suitable for `get-absolute-pathname`"
-  (setf (fd-path md) (expand-spec md))
+          ;; stdin
+          ((streamp (fd-path md))
+           (setf (md-strm md) (fd-path md)))
+
+          ;; other cases should be filenames
+          (t
+           (setf (md-strm md) (apply #'open (fd-path md) args)))))
   md)
 
 (defmethod close-connection ((md md-connection))
@@ -91,8 +84,7 @@
   (when (and (slot-boundp md 'strm) (md-strm md))
     (close (md-strm md)))
 
-  (setf (md-strm md) nil
-        (fd-path md) nil))
+  (setf (md-strm md) nil))
 
 (defun get-pathname (dbname table-name &key (fd-path-root *fd-path-root*))
   "Return a pathname where to read or write the file data"
