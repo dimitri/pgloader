@@ -8,7 +8,7 @@
 ;;; Utility function using those definitions are found in schema.lisp in the
 ;;; same directory.
 ;;;
-(in-package :pgloader.utils)
+(in-package :pgloader.schema)
 
 (defmacro push-to-end (item place)
   `(setf ,place (nconc ,place (list ,item))))
@@ -314,14 +314,14 @@
 ;;; Not a generic/method because only used for the table object, and we want
 ;;; to use the usual structure print-method in stack traces.
 ;;;
-(defun format-table-name (table)
+(defgeneric format-table-name (object)
+  (:documentation "Format the OBJECT name for PostgreSQL."))
+
+(defmethod format-table-name ((table table))
   "TABLE should be a table instance, but for hysterical raisins might be a
    CONS of a schema name and a table name, or just the table name as a
    string."
-  (etypecase table
-    (table   (format nil "~@[~a.~]~a" (table-schema table) (table-name table)))
-    (cons    (format nil "~a.~a" (car table) (cdr table)))
-    (string  table)))
+  (format nil "~@[~a.~]~a" (table-schema table) (table-name table)))
 
 
 ;;;

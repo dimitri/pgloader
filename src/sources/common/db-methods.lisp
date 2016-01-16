@@ -109,7 +109,7 @@
                    :source-db  (clone-connection (source-db copy))
                    :target-db  (clone-connection (target-db copy))
                    :source     table
-                   :target     (table-name table)
+                   :target     table
                    :fields     fields
                    :columns    columns
                    :transforms transforms)))
@@ -155,7 +155,7 @@
                         :including including
                         :excluding excluding))
          pkeys
-         (table-count   0)
+         (writers-count (make-hash-table :size (count-tables catalog)))
          (max-indexes   (when create-indexes
                           (max-indexes-per-table catalog)))
          (idx-kernel    (when (and max-indexes (< 0 max-indexes))
@@ -208,33 +208,70 @@
 
              ;; first COPY the data from source to PostgreSQL, using copy-kernel
              (unless schema-only
-               (incf table-count)
+               ;; prepare the writers-count hash-table, as we start
+               ;; copy-from, we have concurrency tasks writing.
+               (setf (gethash table writers-count) concurrency)
                (copy-from table-source
                           :concurrency concurrency
                           :kernel copy-kernel
                           :channel copy-channel
-                          :disable-triggers disable-triggers))
-
-             ;; Create the indexes for that table in parallel with the next
-             ;; COPY, and all at once in concurrent threads to benefit from
-             ;; PostgreSQL synchronous scan ability
-             ;;
-             ;; We just push new index build as they come along, if one
-             ;; index build requires much more time than the others our
-             ;; index build might get unsync: indexes for different tables
-             ;; will get built in parallel --- not a big problem.
-             (when (and create-indexes (not data-only))
-               (let* ((*preserve-index-names* (eq :preserve index-names)))
-                 (alexandria:appendf
-                  pkeys
-                  (create-indexes-in-kernel (target-db copy)
-                                            table
-                                            idx-kernel idx-channel))))))
+                          :disable-triggers disable-triggers))))
 
     ;; now end the kernels
-    (end-kernels copy-kernel copy-channel idx-kernel idx-channel
-                 table-count (count-indexes catalog)
-                 :concurrency concurrency)
+    ;; and each time a table is done, launch its indexing
+    (unless schema-only
+      (let ((lp:*kernel* copy-kernel))
+        (with-stats-collection ("COPY Threads Completion" :section :post
+                                                          :use-result-as-read t
+                                                          :use-result-as-rows t)
+            (let ((worker-count (* (hash-table-count writers-count)
+                                   (task-count concurrency))))
+              (loop :for tasks :below worker-count
+                 :do (destructuring-bind (task table seconds)
+                         (lp:receive-result copy-channel)
+                       (log-message :debug
+                                    "Finished processing ~a for ~s ~50T~6$s"
+                                    task (format-table-name table) seconds)
+                       (when (eq :writer task)
+                         (update-stats :data table :secs seconds)
+
+                         ;;
+                         ;; Start the CREATE INDEX parallel tasks only when
+                         ;; the data has been fully copied over to the
+                         ;; corresponding table, that's when the writers
+                         ;; count is down to zero.
+                         ;;
+                         (decf (gethash table writers-count))
+                         (log-message :debug "writers-counts[~a] = ~a"
+                                      (format-table-name table)
+                                      (gethash table writers-count))
+
+                         (when (and create-indexes
+                                    (not data-only)
+                                    (zerop (gethash table writers-count)))
+                           (let* ((*preserve-index-names*
+                                   (eq :preserve index-names)))
+                             (alexandria:appendf
+                              pkeys
+                              (create-indexes-in-kernel (target-db copy)
+                                                        table
+                                                        idx-kernel
+                                                        idx-channel)))))))
+              (prog1
+                  worker-count
+                (lp:end-kernel :wait nil))))))
+
+    (when create-indexes
+      (let ((lp:*kernel* idx-kernel))
+        ;; wait until the indexes are done being built...
+        ;; don't forget accounting for that waiting time.
+        (with-stats-collection ("Index Build Completion" :section :post
+                                                         :use-result-as-read t
+                                                         :use-result-as-rows t)
+            (loop :for count :below (count-indexes catalog)
+                   :do (lp:receive-result idx-channel))
+          (lp:end-kernel :wait t)
+          (count-indexes catalog))))
 
     ;;
     ;; Complete the PostgreSQL database before handing over.
@@ -250,39 +287,3 @@
     ;; Time to cleanup!
     ;;
     (cleanup copy catalog :materialize-views materialize-views)))
-
-
-;;;
-;;; Lower level tools
-;;;
-(defun end-kernels (copy-kernel copy-channel idx-kernel idx-channel
-                    table-count index-count
-                    &key (concurrency 2))
-  "Terminate the lparallel kernels, waiting for all threads."
-  (when copy-kernel
-    (let ((lp:*kernel* copy-kernel))
-      (with-stats-collection ("COPY Threads Completion" :section :post
-                                                        :use-result-as-read t
-                                                        :use-result-as-rows t)
-          (let ((worker-count (* table-count (task-count concurrency))))
-            (loop :for tasks :below worker-count
-               :do (destructuring-bind (task table-name seconds)
-                       (lp:receive-result copy-channel)
-                     (log-message :debug "Finished processing ~a for ~s ~50T~6$s"
-                                  task table-name seconds)
-                     (when (eq :writer task)
-                       (update-stats :data table-name :secs seconds))))
-            (prog1
-                worker-count
-              (lp:end-kernel :wait nil))))))
-
-  (when idx-kernel
-    (let ((lp:*kernel* idx-kernel))
-      ;; wait until the indexes are done being built...
-      ;; don't forget accounting for that waiting time.
-      (with-stats-collection ("Index Build Completion" :section :post
-                                                       :use-result-as-read t
-                                                       :use-result-as-rows t)
-          (loop :for count :below index-count
-             :count (lp:receive-result idx-channel)))
-      (lp:end-kernel))))

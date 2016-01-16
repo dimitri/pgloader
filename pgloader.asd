@@ -55,8 +55,21 @@
                          (:file "logs")
                          (:file "utils")
                          (:file "state")
+
+                         ;; user defined transforms package and pgloader
+                         ;; provided ones
+                         (:file "transforms")
+
+                         ;; PostgreSQL related utils
+                         (:file "read-sql-files")
+                         (:file "quoting")
+                         (:file "schema-structs" :depends-on ("quoting"))
+
+                         ;; State, monitoring, reporting
                          (:file "reject"  :depends-on ("state"))
-                         (:file "report"  :depends-on ("state" "utils"))
+                         (:file "report"  :depends-on ("state"
+                                                       "utils"
+                                                       "schema-structs"))
                          (:file "monitor" :depends-on ("logs"
                                                        "state"
                                                        "reject"
@@ -64,13 +77,7 @@
                          (:file "archive" :depends-on ("logs"))
 
                          ;; generic connection api
-                         (:file "connection" :depends-on ("archive"))
-
-                         ;; those are one-package-per-file
-                         (:file "transforms")
-                         (:file "read-sql-files")
-                         (:file "quoting")
-                         (:file "schema-structs" :depends-on ("quoting"))))
+                         (:file "connection" :depends-on ("archive"))))
 
 	       ;; package pgloader.pgsql
 	       (:module pgsql

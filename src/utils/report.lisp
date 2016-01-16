@@ -143,23 +143,24 @@
   "Report a whole summary."
   (when header (report-header))
   (loop
-     for table-name in (reverse (pgstate-tabnames pgstate))
-     for pgtable = (gethash table-name (pgstate-tables pgstate))
-     do
-       (with-slots (read rows errs secs rs ws) pgtable
-	 (format *report-stream*
-                 *header-tname-format*
-                 *max-length-table-name*
-                 (format-table-name table-name))
-         (report-results read rows errs
-                         (cond ((> 0 secs) (format-interval secs nil))
-                               ((and rs ws (= 0 secs))
-                                (format-interval (max rs ws) nil))
-                               (t (format-interval secs nil)))
-                         (when (and rs (not (= rs 0.0))) (format-interval rs nil))
-                         (when (and ws (not (= ws 0.0))) (format-interval ws nil))))
-     finally (when footer
-	       (report-pgstate-stats pgstate footer))))
+     :for label :in (reverse (pgstate-tabnames pgstate))
+     :for pgtable := (gethash label (pgstate-tables pgstate))
+     :do (with-slots (read rows errs secs rs ws) pgtable
+           (format *report-stream*
+                   *header-tname-format*
+                   *max-length-table-name*
+                   (etypecase label
+                     (string label)
+                     (table  (format-table-name label))))
+           (report-results read rows errs
+                           (cond ((> 0 secs) (format-interval secs nil))
+                                 ((and rs ws (= 0 secs))
+                                  (format-interval (max rs ws) nil))
+                                 (t (format-interval secs nil)))
+                           (when (and rs (not (= rs 0.0))) (format-interval rs nil))
+                           (when (and ws (not (= ws 0.0))) (format-interval ws nil))))
+     :finally (when footer
+                (report-pgstate-stats pgstate footer))))
 
 (defun parse-summary-type (&optional (pathname *summary-pathname*))
   "Return the summary type we want: human-readable, csv, json."
@@ -173,7 +174,10 @@
   "Compute the max length of a table-name in the legend."
   (reduce #'max
           (mapcar #'length
-                  (mapcar #'format-table-name
+                  (mapcar (lambda (entry)
+                            (etypecase entry
+                              (string entry)
+                              (table  (format-table-name entry))))
                           (append (pgstate-tabnames data)
                                   (pgstate-tabnames pre)
                                   (pgstate-tabnames post)

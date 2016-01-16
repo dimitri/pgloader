@@ -23,8 +23,81 @@
            #:start-logger
            #:stop-logger))
 
-(defpackage #:pgloader.state
+(defpackage #:pgloader.schema
   (:use #:cl #:pgloader.params)
+  (:export #:catalog
+           #:schema
+           #:table
+           #:column
+           #:index
+           #:index
+           #:fkey
+
+           #:cast                       ; generic function for sources
+
+           #:make-catalog
+           #:make-schema
+           #:make-table
+           #:create-table
+           #:make-view
+           #:make-column
+           #:make-index
+           #:make-index
+           #:make-fkey
+
+           #:catalog-name
+           #:catalog-schema-list
+           #:schema-name
+           #:schema-table-list
+           #:schema-view-list
+           #:table-name
+           #:table-source-name
+           #:table-schema
+           #:table-oid
+           #:table-comment
+           #:table-field-list
+           #:table-column-list
+           #:table-index-list
+           #:table-fkey-list
+           #:column-name
+           #:column-type-name
+           #:column-type-mod
+           #:column-type-nullable
+           #:column-default
+           #:column-comment
+           #:column-transform
+
+           #:table-list
+           #:view-list
+           #:add-schema
+           #:find-schema
+           #:maybe-add-schema
+           #:add-table
+           #:find-table
+           #:maybe-add-table
+           #:add-view
+           #:find-view
+           #:maybe-add-view
+           #:add-field
+           #:add-column
+           #:add-index
+           #:add-fkey
+           #:find-fkey
+           #:maybe-add-fkey
+           #:count-tables
+           #:count-views
+           #:count-indexes
+           #:count-fkeys
+           #:max-indexes-per-table
+
+           #:push-to-end
+           #:with-schema
+
+           #:format-default-value
+           #:format-column))
+
+(defpackage #:pgloader.state
+  (:use #:cl #:pgloader.params #:pgloader.schema)
   (:export #:format-table-name
            #:make-pgstate
            #:pgstate-tabnames
@@ -70,7 +143,9 @@
            #:timing))
 
 (defpackage #:pgloader.utils
-  (:use #:cl #:pgloader.params #:pgloader.monitor #:pgloader.state)
+  (:use #:cl
+        #:pgloader.params #:pgloader.schema
+        #:pgloader.monitor #:pgloader.state)
   (:import-from #:alexandria
                 #:appendf
                 #:read-file-into-string)
@@ -113,7 +188,7 @@
            ;; quoting
            #:apply-identifier-case
 
-           ;; Schema structure bits
+           ;; schema
            #:catalog
            #:schema
            #:table
