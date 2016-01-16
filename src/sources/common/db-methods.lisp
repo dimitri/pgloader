@@ -120,7 +120,7 @@
 ;;;
 (defmethod copy-database ((copy db-copy)
 			  &key
-                            (workers          4)
+                            (worker-count     4)
                             (concurrency      1)
 			    (truncate         nil)
 			    (disable-triggers nil)
@@ -139,7 +139,7 @@
                             set-table-oids
 			    materialize-views)
   "Export database source data and Import it into PostgreSQL"
-  (let* ((copy-kernel  (make-kernel workers))
+  (let* ((copy-kernel  (make-kernel worker-count))
          (copy-channel (let ((lp:*kernel* copy-kernel)) (lp:make-channel)))
          (catalog      (fetch-metadata
                         copy
@@ -264,8 +264,8 @@
       (with-stats-collection ("COPY Threads Completion" :section :post
                                                         :use-result-as-read t
                                                         :use-result-as-rows t)
-          (let ((workers-count (* table-count (task-count concurrency))))
-            (loop :for tasks :below workers-count
+          (let ((worker-count (* table-count (task-count concurrency))))
+            (loop :for tasks :below worker-count
                :do (destructuring-bind (task table-name seconds)
                        (lp:receive-result copy-channel)
                      (log-message :debug "Finished processing ~a for ~s ~50T~6$s"
@@ -273,7 +273,7 @@
                      (when (eq :writer task)
                        (update-stats :data table-name :secs seconds))))
             (prog1
-                workers-count
+                worker-count
               (lp:end-kernel :wait nil))))))
 
   (when idx-kernel

@@ -61,8 +61,9 @@
 			    drop-indexes
 
                             ;; generic API, but ignored here
-                            workers
-                            concurrency
+                            (worker-count 8)
+                            (concurrency 2)
+
                             data-only
 			    schema-only
                             create-tables
@@ -76,15 +77,20 @@
                             excluding)
   "Copy the contents of the COPY formated file to PostgreSQL."
   (declare (ignore data-only schema-only
-                   create-tables include-drop
-                   create-indexes reset-sequences))
+                   create-tables include-drop foreign-keys
+                   create-indexes reset-sequences materialize-views
+                   set-table-oids including excluding))
 
   ;; this sets (table-index-list (target copy))
   (maybe-drop-indexes (target-db copy)
                       (target copy)
                       :drop-indexes drop-indexes)
 
-  (copy-from copy :truncate truncate :disable-triggers disable-triggers)
+  (copy-from copy
+             :worker-count worker-count
+             :concurrency concurrency
+             :truncate truncate
+             :disable-triggers disable-triggers)
 
   ;; re-create the indexes from the target table entry
   (create-indexes-again (target-db copy)

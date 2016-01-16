@@ -28,7 +28,7 @@
 (defrule option-workers (and kw-workers equal-sign (+ (digit-char-p character)))
   (:lambda (workers)
     (bind (((_ _ nb) workers))
-      (cons :workers (parse-integer (text nb))))))
+      (cons :worker-count (parse-integer (text nb))))))
 
 (defrule option-concurrency (and kw-concurrency
                                  equal-sign

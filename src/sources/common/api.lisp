@@ -77,7 +77,7 @@
 
 (defgeneric copy-database (source
 			   &key
-                             workers
+                             worker-count
                              concurrency
 			     truncate
 			     data-only
