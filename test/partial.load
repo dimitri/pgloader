@@ -12,7 +12,7 @@
  */
 LOAD CSV
      FROM inline (a, b, c, d, e)
-     INTO postgresql:///pgloader?partial (a, b, c, e)
+     INTO postgresql:///pgloader?csv.partial (a, b, c, e)
 
      WITH drop indexes,
           fields optionally enclosed by '"',
@@ -24,15 +24,16 @@ LOAD CSV
           standard_conforming_strings to 'on'
 
    BEFORE LOAD DO
-   $$ drop table if exists partial; $$,
-   $$ create table partial (
+   $$ drop table if exists csv.partial; $$,
+   $$ create table csv.partial (
        a integer unique,
        b text,
        c text,
        d text,
        e text
       );
-   $$;
+   $$,
+   $$ create index on csv.partial(b); $$ ;
 
 
 

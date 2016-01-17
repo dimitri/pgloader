@@ -239,7 +239,7 @@
   ;; the struct is used both for supporting new index creation from non
   ;; PostgreSQL system and for drop/create indexes when using the 'drop
   ;; indexes' option (in CSV mode and the like)
-  name table-name table-oid primary unique columns sql conname condef)
+  name schema table-name table-oid primary unique columns sql conname condef)
 
 (defgeneric format-pgsql-create-index (table index)
   (:documentation
@@ -268,11 +268,15 @@
         ;; ensure good concurrency here, don't take the ACCESS EXCLUSIVE
         ;; LOCK on the table before we have the index done already
         (or (pgsql-index-sql index)
-            (format nil "CREATE UNIQUE INDEX ~a ON ~a (~{~a~^, ~});"
+            (format nil "CREATE UNIQUE INDEX ~@[~a.~]~a ON ~a (~{~a~^, ~});"
+                    (pgsql-index-schema index)
                     index-name
                     (format-table-name table)
                     (pgsql-index-columns index)))
         (format nil
+                ;; don't use the index schema name here, PostgreSQL doesn't
+                ;; like it, might be implicit from the table's schema
+                ;; itself...
                 "ALTER TABLE ~a ADD ~a USING INDEX ~a;"
                 (format-table-name table)
                 (cond ((pgsql-index-primary index) "PRIMARY KEY")
@@ -286,15 +290,17 @@
 
       (t
        (or (pgsql-index-sql index)
-           (format nil "CREATE~:[~; UNIQUE~] INDEX ~a ON ~a (~{~a~^, ~});"
+           (format nil "CREATE~:[~; UNIQUE~] INDEX ~@[~a.~]~a ON ~a (~{~a~^, ~});"
                    (pgsql-index-unique index)
+                   (pgsql-index-schema index)
                    index-name
                    (format-table-name table)
                    (pgsql-index-columns index)))))))
 
 (defmethod format-pgsql-drop-index ((table table) (index pgsql-index))
   "Generate the PostgreSQL statement to DROP the index."
-  (let* ((index-name (apply-identifier-case (pgsql-index-name index))))
+  (let* ((schema-name (apply-identifier-case (pgsql-index-schema index)))
+         (index-name  (apply-identifier-case (pgsql-index-name index))))
     (cond ((pgsql-index-conname index)
            ;; here always quote the constraint name, currently the name
            ;; comes from one source only, the PostgreSQL database catalogs,
@@ -304,7 +310,7 @@
                    (pgsql-index-conname index)))
 
           (t
-           (format nil "DROP INDEX ~a;" index-name)))))
+           (format nil "DROP INDEX ~@[~a.~]~a;" schema-name index-name)))))
 
 ;;;
 ;;; Parallel index building.

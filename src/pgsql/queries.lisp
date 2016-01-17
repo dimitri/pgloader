@@ -272,21 +272,11 @@
 (defun list-indexes (table)
   "List all indexes for TABLE-NAME in SCHEMA. A PostgreSQL connection must
    be already established when calling that function."
-  (let ((schema (or (table-schema table)
-                    (cdr (assoc "search_path" *pg-settings* :test #'string-equal))))
-        (sql-set-search-path "SET search_path TO '';"))
-    ;; we force the search_path to emty value so that ::regclass special
-    ;; cast and the pg_get_indexdef() and the pg_get_contraintdef() returns
-    ;; the fully qualified table name, even when the table is found in the
-    ;; 'public' schema.
-    (log-message :debug "~a" sql-set-search-path)
-    (pgloader.pgsql:pgsql-execute sql-set-search-path)
-
-    (prog1
-        (loop
-           :with sql-index-list
-           := (let ((sql (format nil "
+  (loop
+     :with sql-index-list
+     := (let ((sql (format nil "
 select i.relname,
+       n.nspname,
        indrelid::regclass,
        indrelid,
        indisprimary,
@@ -296,28 +286,26 @@ select i.relname,
        pg_get_constraintdef(c.oid)
   from pg_index x
        join pg_class i ON i.oid = x.indexrelid
+       join pg_namespace n ON n.oid = i.relnamespace
        left join pg_constraint c ON c.conindid = i.oid
- where indrelid = '~:[~*public.~;~a.~]~a'::regclass"
-                                 schema schema
-                                 (table-name table))))
-                (log-message :debug "~a" sql)
-                sql)
+ where indrelid = '~a'::regclass"
+                           (format-table-name table))))
+          (log-message :debug "~a" sql)
+          sql)
 
-           :for (index-name table-name table-oid primary unique sql conname condef)
-           :in (pomo:query sql-index-list)
+     :for (name schema table-name table-oid primary unique sql conname condef)
+     :in (pomo:query sql-index-list)
 
-           :collect (make-pgsql-index :name index-name
-                                      :table-name table-name
-                                      :table-oid table-oid
-                                      :primary primary
-                                      :unique unique
-                                      :columns nil
-                                      :sql sql
-                                      :conname (unless (eq :null conname) conname)
-                                      :condef  (unless (eq :null condef)  condef)))
-      (let ((sql-reset-search-path "reset search_path;"))
-        (log-message :debug "~a" sql-reset-search-path)
-        (pgloader.pgsql:pgsql-execute sql-reset-search-path)))))
+     :collect (make-pgsql-index :name name
+                                :schema schema
+                                :table-name table-name
+                                :table-oid table-oid
+                                :primary primary
+                                :unique unique
+                                :columns nil
+                                :sql sql
+                                :conname (unless (eq :null conname) conname)
+                                :condef  (unless (eq :null condef)  condef))))
 
 (defun sanitize-user-gucs (gucs)
   "Forbid certain actions such as setting a client_encoding different from utf8."
