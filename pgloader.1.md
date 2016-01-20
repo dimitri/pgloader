@@ -1500,7 +1500,7 @@ The `database` command accepts the following clauses and options:
       - *include drop*
 
 		When this option is listed, pgloader drops all the tables in the
-		target PostgreSQL database whose names appear in the SQLite
+		target PostgreSQL database whose names appear in the MySQL
 		database. This option allows for using the same command several
 		times in a row until you figure out all the options, starting
 		automatically from a clean environment. Please note that `CASCADE`
