@@ -33,7 +33,8 @@
   (push (cl-log:start-messenger 'text-file-messenger
 				:name "logfile"
 				:filter *log-min-messages*
-				:filename log-filename)
+				:filename log-filename
+                                :external-format :utf-8)
 	*log-messengers*)
 
   (push (cl-log:start-messenger 'text-stream-messenger
