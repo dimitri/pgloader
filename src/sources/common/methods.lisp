@@ -151,7 +151,13 @@
                          (lq:make-queue :fixed-capacity *concurrent-batches*))))
 
     (with-stats-collection ((target copy) :dbname (db-name (target-db copy)))
-        (lp:task-handler-bind () ;; ((error #'lp:invoke-transfer-error))
+        (lp:task-handler-bind
+            ((error #'(lambda (condition)
+                        (log-message :error "A thread failed with error: ~a"
+                                     condition)
+                        (if (member *client-min-messages* (list :debug :data))
+                            (lp::invoke-debugger condition)
+                            (lp::invoke-transfer-error condition)))))
           (log-message :info "COPY ~s" table-name)
 
           ;; start a task to read data from the source into the queue
