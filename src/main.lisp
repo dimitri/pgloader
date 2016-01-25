@@ -324,7 +324,26 @@
                                                   before after))
                       (t
                        ;; process the files
-                       (mapcar #'process-command-file arguments))))
+                       ;; other options are not going to be used here
+                       (let ((cli-options `(("--type"     ,type)
+                                            ("--encoding" ,encoding)
+                                            ("--set"      ,set)
+                                            ("--with"     ,with)
+                                            ("--field"    ,field)
+                                            ("--cast"     ,cast)
+                                            ("--before"   ,before)
+                                            ("--after"    ,after))))
+                         (loop :for (cli-option-name cli-option-value)
+                            :in cli-options
+                            :when cli-option-value
+                            :do (log-message
+                                 :fatal
+                                 "Option ~s is ignored when using a load file"
+                                 cli-option-name))
+
+                         ;; when we issued a single error previously, do nothing
+                         (unless (remove-if #'null (mapcar #'second cli-options))
+                           (mapcar #'process-command-file arguments))))))
 
                 (source-definition-error (c)
                   (log-message :fatal "~a" c)

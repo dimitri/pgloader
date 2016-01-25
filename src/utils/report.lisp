@@ -133,8 +133,9 @@
                     (when (and ws (not (= ws 0.0))) (format-interval ws nil)))))
 
 (defun report-pgstate-stats (pgstate legend)
-  (with-slots (read rows errs secs rs ws) pgstate
-    (report-footer legend read rows errs secs rs ws)))
+  (with-slots (tabnames read rows errs secs rs ws) pgstate
+    (when tabnames
+      (report-footer legend read rows errs secs rs ws))))
 
 ;;;
 ;;; Pretty print the whole summary from a state
