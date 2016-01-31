@@ -1,6 +1,6 @@
 # pgloader build tool
 APP_NAME   = pgloader
-VERSION    = 3.3.0.50 # development version for 3.3.0
+VERSION    = 3.3.0.50
 
 # use either sbcl or ccl
 CL	   = sbcl
@@ -21,6 +21,9 @@ LIBS       = $(BUILDDIR)/libs.stamp
 QLDIR      = $(BUILDDIR)/quicklisp
 MANIFEST   = $(BUILDDIR)/manifest.ql
 LATEST     = $(BUILDDIR)/pgloader-latest.tgz
+BUNDLENAME = pgloader-bundle-$(VERSION)
+BUNDLEDIR  = $(BUILDDIR)/bundle/$(BUNDLENAME)
+BUNDLE     = $(BUILDDIR)/$(BUNDLENAME).tgz
 
 ifeq ($(OS),Windows_NT)
 EXE           = .exe
@@ -160,9 +163,33 @@ pgloader-standalone:
                        --dynamic-space-size $(DYNSIZE)         \
                        $(COMPRESS_CORE_OPT)                    \
                        --output $(PGLOADER)
-
 test: $(PGLOADER)
 	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) -C test regress
+
+clean-bundle:
+	rm -rf $(BUNDLEDIR)
+
+$(BUNDLEDIR):
+	mkdir -p $@
+	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp                \
+             --eval '(ql:bundle-systems (list "pgloader" "buildapp") :to "$@")' \
+             --eval '(quit)'
+
+$(BUNDLE): $(BUNDLEDIR)
+	cp bundle/README.md bundle/Makefile $(BUNDLEDIR)
+	git archive --format=tar --prefix=pgloader-$(VERSION)/ master \
+	     | tar -C $(BUNDLEDIR)/local-projects/ -xf -
+	tar -C build/bundle 		    \
+            --options='compression-level=9' \
+            --exclude bin   		    \
+            --exclude test/sqlite           \
+            -czf $@ pgloader-bundle-$(VERSION)
+
+bundle: $(BUNDLE)
+
+test-bundle:
+	$(MAKE) -C $(BUNDLEDIR) test
+
 
 deb:
 	# intended for use on a debian system

@@ -1,6 +1,4 @@
 # Ignore everything in this directory
 *
 # Except this file
-!bin
-!bundle
 !.gitignore
