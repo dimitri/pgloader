@@ -5,7 +5,7 @@
 ;;; need those bits of code in utils/ rather than pgsql/.
 ;;;
 
-(in-package :pgloader.utils)
+(in-package :pgloader.quoting)
 
 (defun quoted-p (s)
   "Return true if s is a double-quoted string"

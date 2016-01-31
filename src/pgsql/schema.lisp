@@ -88,9 +88,7 @@
           :for sql := (format-pgsql-drop-fkey fkey
                                               :all-pgsql-fkeys all-pgsql-fkeys)
           :when sql
-          :do
-          (log-message :notice "~a;" sql)
-          (pgsql-execute sql)))))
+          :do (pgsql-execute sql)))))
 
 (defun create-pgsql-fkeys (catalog
                            &key
@@ -102,9 +100,7 @@
       (loop :for table :in (table-list catalog)
          :sum (loop :for fkey :in (table-fkey-list table)
                  :for sql := (format-pgsql-create-fkey fkey)
-                 :do (progn             ; for indentation purposes
-                       (log-message :notice "~a;" sql)
-                       (pgsql-execute-with-timing section label sql))
+                 :do (pgsql-execute-with-timing section label sql)
                  :count t))))
 
 
@@ -162,9 +158,7 @@
                                          :include-drop include-drop)
      :count (not (null sql)) :into nb-tables
      :when sql
-     :do (progn
-           (log-message :info "~a" sql)
-           (pgsql-execute sql :client-min-messages client-min-messages))
+     :do (pgsql-execute sql :client-min-messages client-min-messages)
      :finally (return nb-tables)))
 
 (defun create-tables (catalog
@@ -199,7 +193,6 @@
                              (catalog (table-list catalog-or-table))
                              (schema  (table-list catalog-or-table))
                              (table   (list catalog-or-table)))))))
-      (log-message :notice "~a" sql)
       (pomo:execute sql))))
 
 (defun disable-triggers (table-name)
@@ -207,7 +200,6 @@
    connection already opened."
   (let ((sql (format nil "ALTER TABLE ~a DISABLE TRIGGER ALL;"
                      (apply-identifier-case table-name))))
-    (log-message :info "~a" sql)
     (pomo:execute sql)))
 
 (defun enable-triggers (table-name)
@@ -215,7 +207,6 @@
    connection already opened."
   (let ((sql (format nil "ALTER TABLE ~a ENABLE TRIGGER ALL;"
                      (apply-identifier-case table-name))))
-    (log-message :info "~a" sql)
     (pomo:execute sql)))
 
 (defmacro with-disabled-triggers ((table-name &key disable-triggers)
@@ -327,7 +318,6 @@
                     ;; we postpone the pkey upgrade of the index for later.
                     (format-pgsql-create-index table index)
 
-                  (log-message :notice "~a" sql)
                   (lp:submit-task channel
                                   #'pgsql-connect-and-execute-with-timing
                                   ;; each thread must have its own connection
@@ -365,7 +355,6 @@
    active when calling that function."
   (loop :for index :in (table-index-list table)
      :do (let ((sql (format-pgsql-drop-index table index)))
-           (log-message :notice "~a" sql)
            (pgsql-execute-with-timing section "drop indexes" sql))))
 
 ;;;
@@ -420,9 +409,7 @@
           (with-stats-collection ("Constraints" :section section)
               (loop :for sql :in pkeys
                  :when sql
-                 :do (progn
-                       (log-message :notice "~a" sql)
-                       (pgsql-execute-with-timing section "Constraints" sql)))))))))
+                 :do (pgsql-execute-with-timing section "Constraints" sql))))))))
 
 ;;;
 ;;; Sequences
@@ -465,7 +452,6 @@
                                  (table-name table)
                                  quote (table-comment table) quote))
            :count (when sql
-                    (log-message :notice "~a" sql)
                     (pgsql-execute-with-timing :post "Comments" sql))
 
            :sum (loop :for column :in (table-column-list table)
@@ -475,5 +461,4 @@
                                          (column-name column)
                                          quote (column-comment column) quote))
                    :count (when sql
-                            (log-message :notice "~a;" sql)
                             (pgsql-execute-with-timing :post "Comments" sql)))))))

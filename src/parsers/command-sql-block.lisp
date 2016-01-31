@@ -69,6 +69,5 @@
        (with-pgsql-transaction (:pgconn ,pgconn)
 	 (loop for command in ',commands
 	    do
-	      (log-message :notice command)
 	      (pgsql-execute command :client-min-messages :error)
             counting command)))))

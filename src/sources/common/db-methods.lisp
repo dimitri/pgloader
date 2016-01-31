@@ -34,7 +34,6 @@
           (loop :for schema :in (catalog-schema-list catalog)
              :do (when create-schemas
                    (let ((sql (format nil "CREATE SCHEMA ~a;" schema)))
-                     (log-message :notice "~a" sql)
                      (pgsql-execute sql)))))
 
         (create-tables catalog :include-drop include-drop)

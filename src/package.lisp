@@ -23,8 +23,12 @@
            #:start-logger
            #:stop-logger))
 
-(defpackage #:pgloader.schema
+(defpackage #:pgloader.quoting
   (:use #:cl #:pgloader.params)
+  (:export #:apply-identifier-case))
+
+(defpackage #:pgloader.schema
+  (:use #:cl #:pgloader.params #:pgloader.quoting)
   (:export #:catalog
            #:schema
            #:table
@@ -34,6 +38,8 @@
            #:fkey
 
            #:cast                       ; generic function for sources
+
+           #:apply-identifier-case
 
            #:make-catalog
            #:make-schema
@@ -93,13 +99,13 @@
            #:push-to-end
            #:with-schema
 
+           #:format-table-name
            #:format-default-value
            #:format-column))
 
 (defpackage #:pgloader.state
   (:use #:cl #:pgloader.params #:pgloader.schema)
-  (:export #:format-table-name
-           #:make-pgstate
+  (:export #:make-pgstate
            #:pgstate-tabnames
            #:pgstate-tables
            #:pgstate-read
@@ -162,7 +168,6 @@
 
            ;; state
            #:make-pgstate
-           #:format-table-name
            #:pgstate-tabnames
 
            ;; events
@@ -257,6 +262,7 @@
            #:push-to-end
            #:with-schema
 
+           #:format-table-name
            #:format-default-value
            #:format-column))
 
@@ -328,11 +334,6 @@
            #:db-port
            #:db-user
            #:db-pass))
-
-(defpackage #:pgloader.schema
-  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.connection)
-  (:export #:push-to-end
-           #:with-schema))
 
 (defpackage #:pgloader.pgsql
   (:use #:cl

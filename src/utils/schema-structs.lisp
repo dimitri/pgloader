@@ -338,13 +338,11 @@
             (table  (if (table-schema ,table-name)
                         (let ((sql (format nil "SET search_path TO ~a;"
                                            (table-schema ,table-name))))
-                          (log-message :notice "~a" sql)
                           (pgloader.pgsql:pgsql-execute sql)
                           (table-name ,table-name))
                         (table-name ,table-name)))
             (cons   (let ((sql (format nil "SET search_path TO ~a;"
                                        (car ,table-name))))
-                      (log-message :notice "~a" sql)
                       (pgloader.pgsql:pgsql-execute sql)
                       (cdr ,table-name)))
             (string ,table-name))))

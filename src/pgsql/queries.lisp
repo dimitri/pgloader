@@ -194,15 +194,18 @@
     (declare (ignore res))
     (update-stats section label :read count :rows count :secs secs)))
 
-(defun pgsql-execute (sql &key ((:client-min-messages level)))
+(defun pgsql-execute (sql &key client-min-messages)
   "Execute given SQL in current transaction"
-  (when level
+  (when client-min-messages
     (pomo:execute
-     (format nil "SET LOCAL client_min_messages TO ~a;" (symbol-name level))))
+     (format nil "SET LOCAL client_min_messages TO ~a;"
+             (symbol-name client-min-messages))))
 
+  (log-message :notice "~a" sql)
   (pomo:execute sql)
 
-  (when level (pomo:execute (format nil "RESET client_min_messages;"))))
+  (when client-min-messages
+    (pomo:execute (format nil "RESET client_min_messages;"))))
 
 ;;;
 ;;; PostgreSQL Utility Queries
