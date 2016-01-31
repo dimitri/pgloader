@@ -32,7 +32,7 @@
   "non-nil when this build is a release build.")
 
 (defparameter *major-version* "3.3")
-(defparameter *minor-version* "0.50")
+(defparameter *minor-version* "0.51")
 
 (defun git-hash ()
   "Return the current abbreviated git hash of the development tree."
