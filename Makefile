@@ -180,7 +180,6 @@ $(BUNDLE): $(BUNDLEDIR)
 	git archive --format=tar --prefix=pgloader-$(VERSION)/ master \
 	     | tar -C $(BUNDLEDIR)/local-projects/ -xf -
 	tar -C build/bundle 		    \
-            --options='compression-level=9' \
             --exclude bin   		    \
             --exclude test/sqlite           \
             -czf $@ pgloader-bundle-$(VERSION)
