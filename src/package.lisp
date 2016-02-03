@@ -68,7 +68,7 @@
            #:column-name
            #:column-type-name
            #:column-type-mod
-           #:column-type-nullable
+           #:column-nullable
            #:column-default
            #:column-comment
            #:column-transform
@@ -99,9 +99,7 @@
            #:push-to-end
            #:with-schema
 
-           #:format-table-name
-           #:format-default-value
-           #:format-column))
+           #:format-table-name))
 
 (defpackage #:pgloader.state
   (:use #:cl #:pgloader.params #:pgloader.schema)

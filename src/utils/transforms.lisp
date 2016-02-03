@@ -226,7 +226,9 @@
   (declare (type (or null string (simple-array (unsigned-byte 8) (*))) vector))
   (etypecase vector
     (null nil)
-    (string (assert (string= "" vector)) nil)
+    (string (if (string= "" vector)
+                nil
+                (error "byte-vector-to-bytea called on a string: ~s" vector)))
     (simple-array
      (let ((hex-digits "0123456789abcdef")
            (bytea (make-array (+ 2 (* 2 (length vector)))

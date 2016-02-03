@@ -347,35 +347,3 @@
                       (cdr ,table-name)))
             (string ,table-name))))
      ,@body))
-
-
-
-;;;
-;;; PostgreSQL column and type output
-;;;
-(defun format-default-value (default &optional transform)
-  "Returns suitably quoted default value for CREATE TABLE command."
-  (cond
-    ((null default) "NULL")
-    ((and (stringp default) (string= "NULL" default)) default)
-    ((and (stringp default) (string= "CURRENT_TIMESTAMP" default)) default)
-    ((and (stringp default) (string= "CURRENT TIMESTAMP" default))
-     "CURRENT_TIMESTAMP")
-    ((and (stringp default) (string= "newsequentialid()" default))
-     "uuid_generate_v1()")
-    (t
-     ;; apply the transformation function to the default value
-     (if transform (format-default-value (funcall transform default))
-	 (format nil "'~a'" default)))))
-
-(defmethod format-column ((column column))
-  "Format the PostgreSQL data type."
-  (with-slots (name type-name type-mod nullable default transform) column
-    (format nil
-            "~a ~22t ~a~:[~*~;~a~]~:[ not null~;~]~:[~; default ~a~]"
-            name
-            type-name
-            type-mod
-            type-mod
-            nullable
-            default default)))
