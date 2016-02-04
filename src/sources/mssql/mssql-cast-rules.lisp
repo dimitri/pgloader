@@ -8,7 +8,10 @@
   `((:source (:type "char")      :target (:type "text" :drop-typemod t))
     (:source (:type "nchar")     :target (:type "text" :drop-typemod t))
     (:source (:type "varchar")   :target (:type "text" :drop-typemod t))
-    (:source (:type "nvarchar")  :target (:type "text" :drop-typemod t))
+
+    (:source (:type "nvarchar")  :target (:type "text" :drop-typemod t) 
+             :using pgloader.transforms::sql-server-nvarchar-to-text)
+
     (:source (:type "xml")       :target (:type "text" :drop-typemod t))
 
     (:source (:type "bit") :target (:type "boolean")

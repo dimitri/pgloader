@@ -281,6 +281,7 @@
                    (t
                     date-string-or-integer)))))))
 
+
 (defun sql-server-uniqueidentifier-to-uuid (id)
   (declare (type (or null (array (unsigned-byte 8) (16))) id))
   (when id
@@ -314,3 +315,11 @@
            ((string= "((1))" bit-string-or-integer) "t")
            (t nil)))))
 
+(defun sql-server-nvarchar-to-text (str)
+  "fix strings beginning N' in the data base: not especially that sometimes they have () as well!"
+  (declare  (type (or null string) str))
+  (unless (null str)
+    (let ((result (string-trim "()" str)))
+      (when (and (> (length result) 1) (string= "N'" str :end2 2))
+        (setf result (string-trim "'" (subseq str 1))))
+      result)))
