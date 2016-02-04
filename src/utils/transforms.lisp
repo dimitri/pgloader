@@ -69,7 +69,8 @@
 		 byte-vector-to-bytea
                  sqlite-timestamp-to-timestamp
                  sql-server-uniqueidentifier-to-uuid
-                 sql-server-bit-to-boolean))
+                 sql-server-bit-to-boolean
+                 varbinary-to-string))
 
 
 ;;;
@@ -314,3 +315,10 @@
            ((string= "((1))" bit-string-or-integer) "t")
            (t nil)))))
 
+(defun varbinary-to-string (string)
+  (let ((babel::*default-character-encoding*
+         (or qmynd::*mysql-encoding*
+             babel::*default-character-encoding*)))
+    (etypecase string
+      (string string)
+      (vector (babel:octets-to-string string)))))

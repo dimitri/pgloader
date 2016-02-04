@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "January 2016" "ff" ""
+.TH "PGLOADER" "1" "February 2016" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -1758,7 +1758,7 @@ When loading from a \fBMySQL\fR database, the following options are supported, a
 \fIinclude drop\fR
 .
 .IP
-When this option is listed, pgloader drops all the tables in the target PostgreSQL database whose names appear in the SQLite database\. This option allows for using the same command several times in a row until you figure out all the options, starting automatically from a clean environment\. Please note that \fBCASCADE\fR is used to ensure that tables are dropped even if there are foreign keys pointing to them\. This is precisely what \fBinclude drop\fR is intended to do: drop all target tables and recreate them\.
+When this option is listed, pgloader drops all the tables in the target PostgreSQL database whose names appear in the MySQL database\. This option allows for using the same command several times in a row until you figure out all the options, starting automatically from a clean environment\. Please note that \fBCASCADE\fR is used to ensure that tables are dropped even if there are foreign keys pointing to them\. This is precisely what \fBinclude drop\fR is intended to do: drop all target tables and recreate them\.
 .
 .IP
 Great care needs to be taken when using \fBinclude drop\fR, as it will cascade to \fIall\fR objects referencing the target tables, possibly including other tables that are not being loaded from the source DB\.
@@ -2944,6 +2944,12 @@ The SQL Server driver receives data fo type uniqueidentifier as byte vector that
 .
 .IP
 Converts a unix timestamp (number of seconds elapsed since beginning of 1970) into a proper PostgreSQL timestamp format\.
+.
+.IP "\(bu" 4
+\fIvarbinary\-to\-string\fR
+.
+.IP
+Converts binary encoded string (such as a MySQL \fBvarbinary\fR entry) to a decoded text, using the table\'s encoding that may be overloaded with the \fIDECODING TABLE NAMES MATCHING\fR clause\.
 .
 .IP "" 0
 .

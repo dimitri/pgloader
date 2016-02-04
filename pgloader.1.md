@@ -2318,6 +2318,12 @@ The provided transformation functions are:
     Converts a unix timestamp (number of seconds elapsed since beginning of
     1970) into a proper PostgreSQL timestamp format.
 
+  - *varbinary-to-string*
+
+    Converts binary encoded string (such as a MySQL `varbinary` entry) to a
+    decoded text, using the table's encoding that may be overloaded with the
+    *DECODING TABLE NAMES MATCHING* clause.
+
 ## LOAD MESSAGES
 
 This command is still experimental and allows receiving messages via

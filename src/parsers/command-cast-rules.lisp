@@ -92,16 +92,29 @@
 	    :drop-not-null drop-not-null))))
 
 (defun function-name-character-p (char)
-  (or (member char #.(quote (coerce "/:.-%" 'list)))
+  (or (member char #.(quote (coerce "/.-%" 'list)))
       (alphanumericp char)))
 
-(defrule function-name (* (function-name-character-p character))
-  (:text t))
+(defrule function-name (+ (function-name-character-p character))
+  (:lambda (fname)
+    (text fname)))
 
-(defrule cast-function (and kw-using function-name)
-  (:lambda (function)
-    (bind (((_ fname) function))
-      (intern (string-upcase fname) :pgloader.transforms))))
+(defrule package-and-function-names (and function-name
+                                         (or ":" "::")
+                                         function-name)
+  (:lambda (pfn)
+    (bind (((pname _ fname) pfn))
+      (intern (string-upcase fname) (find-package (string-upcase pname))))))
+
+(defrule maybe-qualified-function-name (or package-and-function-names
+                                           function-name)
+  (:lambda (fname)
+    (typecase fname
+      (string (intern (string-upcase fname) :pgloader.transforms))
+      (symbol fname))))
+
+(defrule cast-function (and kw-using maybe-qualified-function-name)
+  (:destructure (using symbol) (declare (ignore using)) symbol))
 
 (defun fix-target-type (source target)
   "When target has :type nil, steal the source :type definition."
