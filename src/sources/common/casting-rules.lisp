@@ -47,7 +47,7 @@
 		((:typemod typemod-expr) nil tm-s-p)
 		((:default rule-source-default) nil d-s-p)
 		((:not-null rule-source-not-null) nil n-s-p)
-		((:auto-increment rule-source-auto-increment) nil ai-s-p)
+		((:auto-increment rule-source-auto-increment))
 		&allow-other-keys)
 	rule-source
       (destructuring-bind (&key table-name
@@ -69,7 +69,11 @@
 	     (or (null tm-s-p) (typemod-expr-matches-p typemod-expr typemod))
 	     (or (null d-s-p)  (string= default rule-source-default))
 	     (or (null n-s-p)  (eq not-null rule-source-not-null))
-	     (or (null ai-s-p) (eq auto-increment rule-source-auto-increment)))
+
+             ;; current RULE only matches SOURCE when both have an
+             ;; auto_increment property, or none have it.
+             (or (and auto-increment rule-source-auto-increment)
+                 (and (not auto-increment) (not rule-source-auto-increment))))
 	  (list :using using :target rule-target))))))
 
 (defun make-pgsql-type (source target using)
