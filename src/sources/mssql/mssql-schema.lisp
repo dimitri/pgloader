@@ -197,7 +197,7 @@ order by SchemaName,
             (table      (find-table schema table-name))
             (index      (make-pgsql-index :name index-name
                                           :primary (= pkey 1)
-                                          :table-name (qualify-name schema table)
+                                          :table-name (format-table-name table)
                                           :unique (= unique 1)
                                           :columns (list col))))
        (add-index table index))
@@ -254,9 +254,15 @@ ORDER BY KCU1.CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
             (table      (find-table schema table-name))
             (pg-fkey
              (make-pgsql-fkey :name fkey-name
-                              :table-name (qualify-name schema table)
+                              :table-name (format-table-name table)
                               :columns (list col)
-                              :foreign-table (qualify-name fschema ftable)
+                              :foreign-table
+                              (format-table-name
+                               ;; for code re-use, create a table instance here.
+                               (make-table
+                                :source-name (cons "~" fschema ftable)
+                                :name (apply-identifier-case ftable)
+                                :schema fshema))
                               :foreign-columns (list fcol)))
             (fkey       (maybe-add-fkey table fkey-name pg-fkey
                                         :key #'pgloader.pgsql::pgsql-fkey-name)))
