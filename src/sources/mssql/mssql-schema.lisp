@@ -260,9 +260,9 @@ ORDER BY KCU1.CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
                               (format-table-name
                                ;; for code re-use, create a table instance here.
                                (make-table
-                                :source-name (cons "~" fschema ftable)
+                                :source-name (cons fschema ftable)
                                 :name (apply-identifier-case ftable)
-                                :schema fshema))
+                                :schema fschema))
                               :foreign-columns (list fcol)))
             (fkey       (maybe-add-fkey table fkey-name pg-fkey
                                         :key #'pgloader.pgsql::pgsql-fkey-name)))
