@@ -126,13 +126,16 @@
         (let ((worker-count (* (length path-list)
                                (task-count concurrency))))
           (loop :for tasks :below worker-count
-             :do (destructuring-bind (task table seconds)
-                     (lp:receive-result channel)
-                   (log-message :debug
-                                "Finished processing ~a for ~s ~50T~6$s"
-                                task (format-table-name table) seconds)
-                   (when (eq :writer task)
-                     (update-stats :data table :secs seconds))))
+             :do (handler-case
+                     (destructuring-bind (task table seconds)
+                         (lp:receive-result channel)
+                       (log-message :debug
+                                    "Finished processing ~a for ~s ~50T~6$s"
+                                    task (format-table-name table) seconds)
+                       (when (eq :writer task)
+                         (update-stats :data table :secs seconds)))
+                   (condition (e)
+                     (log-message :fatal "~a" e))))
           (prog1
               worker-count
             (lp:end-kernel :wait nil))))

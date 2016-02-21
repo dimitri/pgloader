@@ -350,7 +350,8 @@
                   (uiop:quit +os-code-error-bad-source+))
 
                 (condition (c)
-                  (when debug (invoke-debugger c))
+                  (log-message :fatal "~a" c)
+                  (print-backtrace c debug *standard-output*)
                   (uiop:quit +os-code-error+))))))
 
         ;; done.

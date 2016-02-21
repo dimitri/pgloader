@@ -27,30 +27,57 @@
 (defun copy-batch (table columns batch batch-rows
                    &key (db pomo:*database*))
   "Copy current *writer-batch* into TABLE-NAME."
-  (handler-case
-      (with-pgsql-transaction (:database db)
-        ;; We need to keep a copy of the rows we send through the COPY
-        ;; protocol to PostgreSQL to be able to process them again in case
-        ;; of a data error being signaled, that's the BATCH here.
-        (let* ((table-name (format-table-name table))
-               (copier     (cl-postgres:open-db-writer db table-name columns)))
-          (unwind-protect
-               (loop :for i :below batch-rows
-                  :for data := (aref batch i)
-                  :do (when data
-                        (db-write-row copier data))
-                  :finally (return batch-rows))
-            (cl-postgres:close-db-writer copier))))
+  ;; We need to keep a copy of the rows we send through the COPY
+  ;; protocol to PostgreSQL to be able to process them again in case
+  ;; of a data error being signaled, that's the BATCH here.
+  (let ((pomo:*database* db))
+    (handling-pgsql-notices
+      ;; We can't use with-pgsql-transaction here because of the specifics
+      ;; of error handling in case of cl-postgres:open-db-writer errors: the
+      ;; transaction is dead already when we get a signal, and the COMMIT or
+      ;; ABORT steps then trigger a protocol error on a #\Z message.
+      (pomo:execute "BEGIN")
+      (handler-case
+          (let* ((table-name (format-table-name table))
+                 (copier
+                  (handler-case
+                      (cl-postgres:open-db-writer db table-name columns)
+                    (condition (c)
+                      ;; failed to open the COPY protocol mode (e.g. missing
+                      ;; columns on the target table), stop here,
+                      ;; transaction is dead already (no ROLLBACK needed).
+                      (log-message :fatal
+                                   "Can't init COPY to ~a~@[(~{~a~^, ~})~]: ~%~a"
+                                   (format-table-name table)
+                                   columns
+                                   c)
+                      (update-stats :data table :errs 1)
+                      (return-from copy-batch 0)))))
+            (unwind-protect
+                 (loop :for i :below batch-rows
+                    :for data := (aref batch i)
+                    :do (when data
+                          (db-write-row copier data))
+                    :finally (return batch-rows))
+              (cl-postgres:close-db-writer copier)
+              (pomo:execute "COMMIT")))
 
-    ;; If PostgreSQL signals a data error, process the batch by isolating
-    ;; erroneous data away and retrying the rest.
-    ((or
-      cl-postgres-error::data-exception
-      cl-postgres-error::integrity-violation
-      cl-postgres-error::internal-error
-      cl-postgres-error::insufficient-resources
-      cl-postgres-error::program-limit-exceeded) (condition)
-      (retry-batch table columns batch batch-rows condition))))
+        ;; If PostgreSQL signals a data error, process the batch by isolating
+        ;; erroneous data away and retrying the rest.
+        ((or
+          cl-postgres-error::data-exception
+          cl-postgres-error::integrity-violation
+          cl-postgres-error::internal-error
+          cl-postgres-error::insufficient-resources
+          cl-postgres-error::program-limit-exceeded) (condition)
+          ;; clean the current transaction before retrying new ones
+          (pomo:execute "ROLLBACK")
+          (retry-batch table columns batch batch-rows condition))
+
+        (condition (c)
+          ;; non retryable failures
+          (log-message :error "Non-retryable error ~a" c)
+          (pomo:execute "ROLLBACK"))))))
 
 ;;;
 ;;; We receive fully prepared batch from an lparallel queue, push their
@@ -83,7 +110,9 @@
              :do (progn
                    ;; The SBCL implementation needs some Garbage Collection
                    ;; decision making help... and now is a pretty good time.
-                   #+sbcl (when oversized? (sb-ext:gc :full t))
+                   #+sbcl (when oversized?
+                            (log-message :debug "Forcing a full GC.")
+                            (sb-ext:gc :full t))
                    (log-message :debug
                                 "copy-batch[~a] ~a ~d row~:p in ~6$s~@[ [oversized]~]"
                                 (lp:kernel-worker-index)

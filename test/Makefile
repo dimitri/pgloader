@@ -14,6 +14,7 @@ REGRESS= allcols.load 		    \
          csv-header.load            \
          csv-json.load              \
          csv-keep-extra-blanks.load \
+         csv-missing-col.load       \
          csv-non-printable.load     \
          csv-nulls.load             \
          csv-temp.load              \

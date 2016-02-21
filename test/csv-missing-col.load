@@ -1,0 +1,22 @@
+LOAD CSV
+     FROM inline (a, b, c, d, e, f, g)
+     INTO postgresql:///pgloader?missingcol (a, b, c, d, e, f, g)
+
+     WITH truncate,
+          fields optionally enclosed by '"',
+          fields escaped by double-quote,
+          fields terminated by ','
+
+   BEFORE LOAD DO
+    $$ drop table if exists missingcol; $$,
+    $$ create table missingcol (
+         a text, b text, x text, d text, e text, f text, g text
+       );
+    $$;
+
+"2.6.190.56","2.6.190.63","33996344","33996351","GB","United Kingdom"
+"3.0.0.0","4.17.135.31","50331648","68257567","US","United States"
+"4.17.135.32","4.17.135.63","68257568","68257599","CA","Canada"
+"4.17.135.64","4.17.142.255","68257600","68259583","US","United States"
+"4.17.143.0","4.17.143.15","68259584","68259599","CA","Canada"
+"4.17.143.16","4.18.32.71","68259600","68296775","US","United States"

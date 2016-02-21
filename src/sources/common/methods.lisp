@@ -155,8 +155,17 @@
             ((error #'(lambda (condition)
                         (log-message :error "A thread failed with error: ~a"
                                      condition)
+                        #-pgloader-image
                         (if (member *client-min-messages* (list :debug :data))
                             (lp::invoke-debugger condition)
+                            (lp::invoke-transfer-error condition))
+                        #+pgloader-image
+                        (if (member *client-min-messages* (list :debug :data))
+                            (log-message :fatal "Backtrace: ~a"
+                                         (trivial-backtrace:print-backtrace
+                                          condition
+                                          :output nil
+                                          :verbose t))
                             (lp::invoke-transfer-error condition)))))
           (log-message :info "COPY ~s" table-name)
 
