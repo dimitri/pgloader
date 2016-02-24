@@ -9,8 +9,10 @@
   (cond
     ((null default) "NULL")
     ((and (stringp default) (string= "NULL" default)) default)
-    ((and (stringp default) (string= "CURRENT_TIMESTAMP" default)) default)
-    ((and (stringp default) (string= "CURRENT TIMESTAMP" default))
+    ((and (stringp default)
+          ;; address CURRENT_TIMESTAMP(6) and other spellings
+          (or (uiop:string-prefix-p "CURRENT_TIMESTAMP" default)
+              (string= "CURRENT TIMESTAMP" default)))
      "CURRENT_TIMESTAMP")
     ((and (stringp default) (string= "newsequentialid()" default))
      "uuid_generate_v1()")
