@@ -83,5 +83,8 @@
 
         ;; return how many objects we're going to deal with in total
         ;; for stats collection
-        (+ (count-tables catalog) (count-indexes catalog)))))
+        (+ (count-tables catalog) (count-indexes catalog))))
+
+  ;; be sure to return the catalog itself
+  catalog)
 
