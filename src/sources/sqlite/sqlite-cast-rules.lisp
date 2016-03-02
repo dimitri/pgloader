@@ -59,6 +59,7 @@
              (tokens (remove-if (lambda (token)
                                   (or (member token '("unsigned" "short"
                                                       "varying" "native"
+                                                      "nocase"
                                                       "auto_increment")
                                               :test #'string-equal)
                                       ;; remove typemod too, as in "integer (8)"
