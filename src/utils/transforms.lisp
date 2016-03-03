@@ -62,7 +62,8 @@
 		 int-to-ip
 		 ip-range
 		 convert-mysql-point
-		 float-to-string
+		 integer-to-string
+                 float-to-string
                  empty-string-to-null
 		 set-to-enum-array
 		 right-trim
@@ -185,6 +186,21 @@
     (let* ((point (subseq mysql-point-as-string 5)))
       (setf (aref point (position #\Space point)) #\,)
       point)))
+
+(defun integer-to-string (integer-string)
+  "Transform INTEGER-STRING parameter into a proper string representation of
+   it. In particular be careful of quoted-integers, thanks to SQLite default
+   values."
+  (declare (type (or null string fixnum) integer-string))
+  (when integer-string
+    (typecase integer-string
+      (integer (princ-to-string integer-string))
+      (string  (handler-case
+                   (parse-integer integer-string :start 0)
+                 (condition (c)
+                   (declare (ignore c))
+                   (parse-integer integer-string :start 1
+                                  :end (- (length integer-string) 1))))))))
 
 (defun float-to-string (float)
   "Transform a Common Lisp float value into its string representation as

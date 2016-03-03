@@ -15,8 +15,11 @@
     (:source (:type "nchar")     :target (:type "text" :drop-typemod t))
     (:source (:type "clob")      :target (:type "text" :drop-typemod t))
 
-    (:source (:type "tinyint") :target (:type "smallint"))
-    (:source (:type "integer") :target (:type "bigint"))
+    (:source (:type "tinyint") :target (:type "smallint")
+             :using pgloader.transforms::integer-to-string)
+
+    (:source (:type "integer") :target (:type "bigint")
+             :using pgloader.transforms::integer-to-string)
 
     (:source (:type "float") :target (:type "float")
              :using pgloader.transforms::float-to-string)

@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "February 2016" "ff" ""
+.TH "PGLOADER" "1" "March 2016" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -2480,10 +2480,10 @@ When migrating from SQLite the following Casting Rules are provided:
 Numbers:
 .
 .IP "\(bu" 4
-type tinyint to smallint
+type tinyint to smallint using integer\-to\-string
 .
 .IP "\(bu" 4
-type integer to bigint
+type integer to bigint using integer\-to\-string
 .
 .IP "\(bu" 4
 type float to float using float\-to\-string
@@ -2861,6 +2861,24 @@ Converts from the \fBastext\fR representation of points in MySQL to the PostgreS
 
 In:  "POINT(48\.5513589 7\.6926827)"
 Out: "(48\.5513589,7\.6926827)"
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fIinteger\-to\-string\fR
+.
+.IP
+Converts a integer string or a Common Lisp integer into a string suitable for a PostgreSQL integer\. Takes care of quoted integers\.
+.
+.IP "" 4
+.
+.nf
+
+In:  "\e"0\e""
+Out: "0"
 .
 .fi
 .

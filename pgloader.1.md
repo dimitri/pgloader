@@ -2059,8 +2059,8 @@ When migrating from SQLite the following Casting Rules are provided:
 
 Numbers:
 
-  - type tinyint to smallint
-  - type integer to bigint
+  - type tinyint to smallint using integer-to-string
+  - type integer to bigint   using integer-to-string
 
   - type float to float   using float-to-string
   - type real to real     using float-to-string
@@ -2267,6 +2267,14 @@ The provided transformation functions are:
 
         In:  "POINT(48.5513589 7.6926827)"
         Out: "(48.5513589,7.6926827)"
+
+  - *integer-to-string*
+
+    Converts a integer string or a Common Lisp integer into a string
+    suitable for a PostgreSQL integer. Takes care of quoted integers.
+
+	    In:  "\"0\""
+		Out: "0"
 
   - *float-to-string*
 
