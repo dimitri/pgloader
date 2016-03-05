@@ -17,7 +17,7 @@
 (defun close-foreign-libs ()
   "Close Foreign libs in use by pgloader at application save time."
   (let (#+sbcl (sb-ext:*muffled-warnings* 'style-warning))
-    (mapc #'cffi:close-foreign-library '(cl+ssl::libssl
+    (mapc #'cffi:close-foreign-library '(;; cl+ssl::libssl
                                          mssql::sybdb))))
 
 (defun open-foreign-libs ()
@@ -27,8 +27,10 @@
     ;; in only when the data source is a MS SQL database.
     (cffi:load-foreign-library 'cl+ssl::libssl)))
 
+#|
 #+ccl  (push #'open-foreign-libs *lisp-startup-functions*)
 #+sbcl (push #'open-foreign-libs sb-ext:*init-hooks*)
+|#
 
 #+ccl  (push #'close-foreign-libs *save-exit-functions*)
 #+sbcl (push #'close-foreign-libs sb-ext:*save-hooks*)
