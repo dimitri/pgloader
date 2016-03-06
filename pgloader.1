@@ -1725,6 +1725,8 @@ LOAD DATABASE
  \-\- INCLUDING ONLY TABLE NAMES MATCHING ~/film/, \'actor\'
  \-\- EXCLUDING TABLE NAMES MATCHING ~<ory>
  \-\- DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf8
+ \-\- ALTER TABLE NAMES MATCHING \'film\' RENAME TO \'films\'
+ \-\- ALTER TABLE NAMES MATCHING ~/_list$/ SET SCHEMA \'mv\'
 
  BEFORE LOAD DO
  $$ create schema if not exists sakila; $$;
@@ -2103,6 +2105,31 @@ DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf8
 .
 .IP
 You can use as many such rules as you need, all with possibly different encodings\.
+.
+.IP "\(bu" 4
+\fIALTER TABLE NAMES MATCHING\fR
+.
+.IP
+Introduce a comma separated list of table names or \fIregular expressions\fR that you want to target in the pgloader \fIALTER TABLE\fR command\. The only two available actions are \fISET SCHEMA\fR and \fIRENAME TO\fR, both take a quoted string as parameter:
+.
+.IP "" 4
+.
+.nf
+
+ALTER TABLE NAMES MATCHING ~/_list$/, \'sales_by_store\', ~/sales_by/
+ SET SCHEMA \'mv\'
+
+ALTER TABLE NAMES MATCHING \'film\' RENAME TO \'films\'
+.
+.fi
+.
+.IP "" 0
+.
+.IP
+You can use as many such rules as you need\. The list of tables to be migrated is searched in pgloader memory against the \fIALTER TABLE\fR matching rules, and for each command pgloader stops at the first matching criteria (regexp or string)\.
+.
+.IP
+No \fIALTER TABLE\fR command is sent to PostgreSQL, the modification happens at the level of the pgloader in\-memory representation of your source database schema\. In case of a name change, the mapping is kept and reused in the \fIforeign key\fR and \fIindex\fR support\.
 .
 .IP "" 0
 .

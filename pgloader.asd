@@ -34,6 +34,7 @@
                  #:mssql                ; M$ SQL connectivity
                  #:uuid             ; Transforming MS SQL unique identifiers
                  #:quri                 ; decode URI parameters
+                 #:cl-ppcre             ; Perl Compatible Regular Expressions
 		 )
     :components
     ((:module "src"
@@ -64,6 +65,7 @@
                          (:file "read-sql-files")
                          (:file "quoting")
                          (:file "schema-structs" :depends-on ("quoting"))
+                         (:file "alter-table"    :depends-on ("schema-structs"))
 
                          ;; State, monitoring, reporting
                          (:file "reject"  :depends-on ("state"))
@@ -114,6 +116,8 @@
                          (:file "command-copy")
                          (:file "command-dbf")
                          (:file "command-cast-rules")
+                         (:file "command-materialize-views")
+                         (:file "command-alter-table")
                          (:file "command-mysql")
                          (:file "command-including-like")
                          (:file "command-mssql")

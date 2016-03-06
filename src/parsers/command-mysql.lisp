@@ -30,57 +30,8 @@
 
 
 ;;;
-;;; Materialize views by copying their data over, allows for doing advanced
-;;; ETL processing by having parts of the processing happen on the MySQL
-;;; query side.
-;;;
-(defrule view-name (and (alpha-char-p character)
-			(* (or (alpha-char-p character)
-			       (digit-char-p character)
-			       #\_)))
-  (:text t))
-
-(defrule view-sql (and kw-as dollar-quoted)
-  (:destructure (as sql) (declare (ignore as)) sql))
-
-(defrule view-definition (and view-name (? view-sql))
-  (:destructure (name sql) (cons name sql)))
-
-(defrule another-view-definition (and comma view-definition)
-  (:lambda (source)
-    (bind (((_ view) source)) view)))
-
-(defrule views-list (and view-definition (* another-view-definition))
-  (:lambda (vlist)
-    (destructuring-bind (view1 views) vlist
-      (list* view1 views))))
-
-(defrule materialize-all-views (and kw-materialize kw-all kw-views)
-  (:constant :all))
-
-(defrule materialize-view-list (and kw-materialize kw-views views-list)
-  (:destructure (mat views list) (declare (ignore mat views)) list))
-
-(defrule materialize-views (or materialize-view-list materialize-all-views)
-  (:lambda (views)
-    (cons :views views)))
-
-
-;;;
 ;;; Including only some tables or excluding some others
 ;;;
-(defrule namestring-or-regex (or quoted-namestring quoted-regex))
-
-(defrule another-namestring-or-regex (and comma namestring-or-regex)
-  (:lambda (source)
-    (bind (((_ re) source)) re)))
-
-(defrule filter-list-matching
-    (and namestring-or-regex (* another-namestring-or-regex))
-  (:lambda (source)
-    (destructuring-bind (filter1 filters) source
-      (list* filter1 filters))))
-
 (defrule including-matching
     (and kw-including kw-only kw-table kw-names kw-matching filter-list-matching)
   (:lambda (source)
@@ -115,6 +66,7 @@
 (defrule load-mysql-optional-clauses (* (or mysql-options
                                             gucs
                                             casts
+                                            alter-table
                                             materialize-views
                                             including-matching
                                             excluding-matching
@@ -186,6 +138,7 @@
 (defun lisp-code-for-loading-from-mysql (my-db-conn pg-db-conn
                                          &key
                                            gucs casts views before after options
+                                           alter-table
                                            ((:including incl))
                                            ((:excluding excl))
                                            ((:decoding decoding-as)))
@@ -207,6 +160,7 @@
                                      :including ',incl
                                      :excluding ',excl
                                      :materialize-views ',views
+                                     :alter-table ',alter-table
                                      :set-table-oids t
                                      ,@(remove-batch-control-option options))
 
@@ -218,7 +172,7 @@
                          pg-db-uri
                          &key
                          gucs casts views before after
-                         options including excluding decoding)
+                         options alter-table including excluding decoding)
         source
       (cond (*dry-run*
              (lisp-code-for-mysql-dry-run my-db-uri pg-db-uri))
@@ -230,6 +184,7 @@
                                                :before before
                                                :after after
                                                :options options
+                                               :alter-table alter-table
                                                :including including
                                                :excluding excluding
                                                :decoding decoding))))))

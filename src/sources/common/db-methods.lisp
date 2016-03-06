@@ -136,6 +136,7 @@
 			    including
 			    excluding
                             set-table-oids
+                            alter-table
 			    materialize-views)
   "Export database source data and Import it into PostgreSQL"
   (let* ((copy-kernel  (make-kernel worker-count))
@@ -165,6 +166,11 @@
 
     ;; cast the catalog into something PostgreSQL can work on
     (cast catalog)
+
+    ;; if asked, now alter the catalog with given rules: the alter-table
+    ;; keyword parameter actually contains a set of alter table rules.
+    (when alter-table
+      (alter-table catalog alter-table))
 
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (handler-case
@@ -200,10 +206,13 @@
                               (view-list catalog))
 
        :do (let ((table-source (instanciate-table-copy-object copy table)))
-             (log-message :debug "TARGET: ~a" (target table-source))
+             ;; that needs *print-circle* to true, and anyway it's too much
+             ;; output in general.
+             ;;
+             ;; (log-message :debug "TARGET: ~a" (target table-source))
              (log-message :debug "TRANSFORMS(~a): ~s"
                           (format-table-name table)
-                          (mapcar #'column-transform (table-column-list table)))
+                          (transforms table-source))
 
              ;; first COPY the data from source to PostgreSQL, using copy-kernel
              (unless schema-only

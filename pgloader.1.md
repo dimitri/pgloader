@@ -1474,6 +1474,8 @@ Here's an example:
      -- INCLUDING ONLY TABLE NAMES MATCHING ~/film/, 'actor'
      -- EXCLUDING TABLE NAMES MATCHING ~<ory>
      -- DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf8
+     -- ALTER TABLE NAMES MATCHING 'film' RENAME TO 'films'
+     -- ALTER TABLE NAMES MATCHING ~/_list$/ SET SCHEMA 'mv'
 
      BEFORE LOAD DO
      $$ create schema if not exists sakila; $$;
@@ -1792,6 +1794,28 @@ The `database` command accepts the following clauses and options:
 
     You can use as many such rules as you need, all with possibly different
     encodings.
+
+  - *ALTER TABLE NAMES MATCHING*
+
+    Introduce a comma separated list of table names or *regular expressions*
+    that you want to target in the pgloader *ALTER TABLE* command. The only
+    two available actions are *SET SCHEMA* and *RENAME TO*, both take a
+    quoted string as parameter:
+
+        ALTER TABLE NAMES MATCHING ~/_list$/, 'sales_by_store', ~/sales_by/
+         SET SCHEMA 'mv'
+       
+        ALTER TABLE NAMES MATCHING 'film' RENAME TO 'films'
+
+    You can use as many such rules as you need. The list of tables to be
+    migrated is searched in pgloader memory against the *ALTER TABLE*
+    matching rules, and for each command pgloader stops at the first
+    matching criteria (regexp or string).
+
+    No *ALTER TABLE* command is sent to PostgreSQL, the modification happens
+    at the level of the pgloader in-memory representation of your source
+    database schema. In case of a name change, the mapping is kept and
+    reused in the *foreign key* and *index* support.
 
 ### LIMITATIONS
 

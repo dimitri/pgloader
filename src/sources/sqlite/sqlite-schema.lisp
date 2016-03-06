@@ -124,7 +124,6 @@
        :when sql
        :do (let ((table  (find-table schema table-name))
                  (idxdef (make-sqlite-idx :name index-name
-                                          :table-name table-name
                                           :sql sql)))
              (add-index table idxdef))
        :finally (return schema))))

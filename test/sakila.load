@@ -21,10 +21,17 @@ load database
  -- MATERIALIZE VIEWS film_list, staff_list
  MATERIALIZE ALL VIEWS
 
+ ALTER TABLE NAMES MATCHING ~/_list$/, 'sales_by_store', ~/sales_by/
+  SET SCHEMA 'mv'
+
+ ALTER TABLE NAMES MATCHING 'sales_by_store' RENAME TO 'sales_by_store_list'
+ ALTER TABLE NAMES MATCHING 'film' RENAME TO 'films'
+
  -- INCLUDING ONLY TABLE NAMES MATCHING ~/film/, 'actor'
  -- EXCLUDING TABLE NAMES MATCHING ~<ory>
 
  BEFORE LOAD DO
  $$ create schema if not exists sakila; $$,
- $$ alter database sakila set search_path to sakila, public; $$;
+ $$ create schema if not exists mv; $$,
+ $$ alter database sakila set search_path to sakila, mv, public; $$;
 

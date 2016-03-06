@@ -98,6 +98,7 @@
 
            #:push-to-end
            #:with-schema
+           #:alter-table
 
            #:format-table-name))
 
@@ -259,6 +260,7 @@
 
            #:push-to-end
            #:with-schema
+           #:alter-table
 
            #:format-table-name
            #:format-default-value

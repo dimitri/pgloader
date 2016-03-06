@@ -44,7 +44,7 @@
 ;;; API for Foreign Keys
 ;;;
 (defstruct pgsql-fkey
-  name table-name columns foreign-table foreign-columns update-rule delete-rule)
+  name table columns foreign-table foreign-columns update-rule delete-rule)
 
 (defgeneric format-pgsql-create-fkey (fkey)
   (:documentation
@@ -58,10 +58,10 @@
   "Generate the PostgreSQL statement to rebuild a MySQL Foreign Key"
   (format nil
           "ALTER TABLE ~a ADD CONSTRAINT ~a FOREIGN KEY(~{~a~^,~}) REFERENCES ~a(~{~a~^,~})~:[~*~; ON UPDATE ~a~]~:[~*~; ON DELETE ~a~]"
-          (pgsql-fkey-table-name fk)
+          (format-table-name (pgsql-fkey-table fk))
           (pgsql-fkey-name fk)        ; constraint name
           (pgsql-fkey-columns fk)
-          (pgsql-fkey-foreign-table fk)
+          (format-table-name (pgsql-fkey-foreign-table fk))
           (pgsql-fkey-foreign-columns fk)
           (pgsql-fkey-update-rule fk)
           (pgsql-fkey-update-rule fk)
@@ -71,9 +71,9 @@
 (defmethod format-pgsql-drop-fkey ((fk pgsql-fkey) &key all-pgsql-fkeys)
   "Generate the PostgreSQL statement to rebuild a MySQL Foreign Key"
   (let* ((constraint-name (apply-identifier-case (pgsql-fkey-name fk)))
-	 (table-name      (apply-identifier-case (pgsql-fkey-table-name fk)))
-	 (fkeys         (cdr (assoc table-name all-pgsql-fkeys :test #'string=)))
-	 (fkey-exists   (member constraint-name fkeys :test #'string=)))
+	 (table-name      (format-table-name (pgsql-fkey-table fk)))
+	 (fkeys           (cdr (assoc table-name all-pgsql-fkeys :test #'string=)))
+	 (fkey-exists     (member constraint-name fkeys :test #'string=)))
     (when fkey-exists
       ;; we could do that without all-pgsql-fkeys in 9.2 and following with:
       ;; alter table if exists ... drop constraint if exists ...
@@ -230,7 +230,7 @@
   ;; the struct is used both for supporting new index creation from non
   ;; PostgreSQL system and for drop/create indexes when using the 'drop
   ;; indexes' option (in CSV mode and the like)
-  name schema table-name table-oid primary unique columns sql conname condef)
+  name schema table-oid primary unique columns sql conname condef)
 
 (defgeneric format-pgsql-create-index (table index)
   (:documentation

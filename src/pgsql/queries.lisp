@@ -301,7 +301,6 @@ select i.relname,
 
      :collect (make-pgsql-index :name name
                                 :schema schema
-                                :table-name table-name
                                 :table-oid table-oid
                                 :primary primary
                                 :unique unique

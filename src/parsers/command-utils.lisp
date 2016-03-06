@@ -51,3 +51,4 @@
 (defrule trimmed-name (and ignore-whitespace name)
   (:destructure (whitespace name) (declare (ignore whitespace)) name))
 
+(defrule namestring-or-regex (or quoted-namestring quoted-regex))

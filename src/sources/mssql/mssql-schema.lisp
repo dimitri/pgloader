@@ -197,7 +197,6 @@ order by SchemaName,
             (table      (find-table schema table-name))
             (index      (make-pgsql-index :name index-name
                                           :primary (= pkey 1)
-                                          :table-name (format-table-name table)
                                           :unique (= unique 1)
                                           :columns (list col))))
        (add-index table index))
@@ -206,7 +205,7 @@ order by SchemaName,
 (defun list-all-fkeys (catalog &key including excluding)
   "Get the list of MSSQL index definitions per table."
   (loop
-     :for (fkey-name schema-name table-name col fschema ftable fcol)
+     :for (fkey-name schema-name table-name col fschema-name ftable-name fcol)
      :in  (mssql-query (format nil "
    SELECT
            REPLACE(KCU1.CONSTRAINT_NAME, '.', '_') AS 'CONSTRAINT_NAME'
@@ -252,17 +251,13 @@ ORDER BY KCU1.CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
      :do
      (let* ((schema     (find-schema catalog schema-name))
             (table      (find-table schema table-name))
+            (fschema    (find-schema catalog fschema-name))
+            (ftable     (find-table fschema ftable-name))
             (pg-fkey
              (make-pgsql-fkey :name fkey-name
-                              :table-name (format-table-name table)
+                              :table table
                               :columns (list col)
-                              :foreign-table
-                              (format-table-name
-                               ;; for code re-use, create a table instance here.
-                               (make-table
-                                :source-name (cons fschema ftable)
-                                :name (apply-identifier-case ftable)
-                                :schema fschema))
+                              :foreign-table ftable
                               :foreign-columns (list fcol)))
             (fkey       (maybe-add-fkey table fkey-name pg-fkey
                                         :key #'pgloader.pgsql::pgsql-fkey-name)))

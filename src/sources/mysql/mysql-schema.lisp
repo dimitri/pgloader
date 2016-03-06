@@ -232,7 +232,6 @@ GROUP BY table_name, index_name;"
                (index
                 (make-pgsql-index :name name ; further processing is needed
                                   :primary (string= name "PRIMARY")
-                                  :table-name (apply-identifier-case table-name)
                                   :unique (not (string= "1" non-unique))
                                   :columns (mapcar
                                             #'apply-identifier-case
@@ -251,7 +250,7 @@ GROUP BY table_name, index_name;"
                          excluding)
   "Get the list of MySQL Foreign Keys definitions per table."
   (loop
-     :for (table-name name ftable cols fcols update-rule delete-rule)
+     :for (table-name name ftable-name cols fcols update-rule delete-rule)
      :in (mysql-query (format nil "
     SELECT tc.table_name, tc.constraint_name, k.referenced_table_name ft,
 
@@ -283,25 +282,26 @@ GROUP BY table_name, index_name;"
          ~:[~*~;and (~{tc.table_name ~a~^ and ~})~]
 
  GROUP BY tc.table_name, tc.constraint_name, ft"
-                             (db-name *connection*) (db-name *connection*)
-                             only-tables ; do we print the clause?
-                             only-tables
-                             including  ; do we print the clause?
-                             (filter-list-to-where-clause including)
-                             excluding  ; do we print the clause?
-                             (filter-list-to-where-clause excluding t)))
-     :do (let ((table (find-table schema table-name))
-              (fk
-               (make-pgsql-fkey :name (apply-identifier-case name)
-                                :table-name (apply-identifier-case table-name)
-                                :columns (mapcar #'apply-identifier-case
-                                                 (sq:split-sequence #\, cols))
-                                :foreign-table (apply-identifier-case ftable)
-                                :foreign-columns (mapcar
-                                                  #'apply-identifier-case
-                                                  (sq:split-sequence #\, fcols))
-                                :update-rule update-rule
-                                :delete-rule delete-rule)))
+                              (db-name *connection*) (db-name *connection*)
+                              only-tables ; do we print the clause?
+                              only-tables
+                              including ; do we print the clause?
+                              (filter-list-to-where-clause including)
+                              excluding ; do we print the clause?
+                              (filter-list-to-where-clause excluding t)))
+     :do (let* ((table  (find-table schema table-name))
+                (ftable (find-table schema ftable-name))
+                (fk
+                 (make-pgsql-fkey :name (apply-identifier-case name)
+                                  :table table
+                                  :columns (mapcar #'apply-identifier-case
+                                                   (sq:split-sequence #\, cols))
+                                  :foreign-table ftable
+                                  :foreign-columns (mapcar
+                                                    #'apply-identifier-case
+                                                    (sq:split-sequence #\, fcols))
+                                  :update-rule update-rule
+                                  :delete-rule delete-rule)))
            (add-fkey table fk))
      :finally
      (return schema)))
