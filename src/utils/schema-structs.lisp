@@ -250,7 +250,7 @@
   "Find FKEY-NAME in TABLE and return the FKEY object of this name."
   (find fkey-name (table-fkey-list table) :key key :test test))
 
-(defmethod maybe-add-fkey ((table table) fkey-name fkey &key key test)
+(defmethod maybe-add-fkey ((table table) fkey-name fkey &key key (test #'string=))
   "Add the foreign key FKEY to the table-fkey-list of TABLE unless it
   already exists, and return the FKEY object."
   (let ((fkey (find-fkey table fkey-name :key key :test test)))
