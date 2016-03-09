@@ -109,7 +109,11 @@
     (declare (ignore schema))   ; FIXME
     (let* ((ctype (mssql-column-ctype field))
            (pgcol
-            (apply-casting-rules table-name name type ctype default nullable nil)))
+            (apply-casting-rules table-name name type ctype
+                                 ;; drop default value (forcing it to nil
+                                 ;; here) for serial data types
+                                 (unless (string= "bigserial" ctype) default)
+                                 nullable nil)))
       ;; the MS SQL driver smartly maps data to the proper CL type, but the
       ;; pgloader API only wants to see text representations to send down the
       ;; COPY protocol.
