@@ -39,6 +39,7 @@
 (defun mssql-query (query)
   "Execute given QUERY within the current *connection*, and set proper
    defaults for pgloader."
+  (log-message :debug "MSSQL: sending query: ~a" query)
   (mssql:query query :connection (conn-handle *mssql-db*)))
 
 
