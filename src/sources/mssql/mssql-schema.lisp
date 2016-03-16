@@ -257,9 +257,9 @@ ORDER BY KCU1.CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
             (pg-fkey
              (make-pgsql-fkey :name fkey-name
                               :table table
-                              :columns (list col)
+                              :columns nil
                               :foreign-table ftable
-                              :foreign-columns (list fcol)))
+                              :foreign-columns nil))
             (fkey       (maybe-add-fkey table fkey-name pg-fkey
                                         :key #'pgloader.pgsql::pgsql-fkey-name)))
        (push-to-end col  (pgloader.pgsql::pgsql-fkey-columns fkey))
