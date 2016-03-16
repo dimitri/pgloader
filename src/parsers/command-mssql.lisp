@@ -28,6 +28,7 @@
                           option-create-schemas
                           option-create-indexes
                           option-reset-sequences
+			  option-foreign-keys
                           option-encoding
                           option-identifiers-case))
 

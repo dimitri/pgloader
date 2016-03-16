@@ -9,7 +9,11 @@
     (:source (:type "nchar")     :target (:type "text" :drop-typemod t))
     (:source (:type "varchar")   :target (:type "text" :drop-typemod t))
     (:source (:type "nvarchar")  :target (:type "text" :drop-typemod t))
+    (:source (:type "ntext")     :target (:type "text" :drop-typemod t))
     (:source (:type "xml")       :target (:type "text" :drop-typemod t))
+
+    (:source (:type "int" :auto-increment t)
+             :target (:type "bigserial" :drop-default t))
 
     (:source (:type "bit") :target (:type "boolean")
              :using pgloader.transforms::sql-server-bit-to-boolean)
@@ -80,11 +84,7 @@
 (defmethod mssql-column-ctype ((col mssql-column))
   "Build the ctype definition from the full mssql-column information."
   (let ((type (mssql-column-type col)))
-    (cond ((and (string= type "int")
-                (mssql-column-identity col))
-           "bigserial")
-
-          ((member type '("float" "real") :test #'string=)
+    (cond ((member type '("float" "real") :test #'string=)
            ;; see https://msdn.microsoft.com/en-us/library/ms173773.aspx
            ;; scale is supposed to be nil, and useless in PostgreSQL, so we
            ;; just ignore it
@@ -108,12 +108,9 @@
       field
     (declare (ignore schema))   ; FIXME
     (let* ((ctype (mssql-column-ctype field))
+           (extra (when (mssql-column-identity field) "auto_increment"))
            (pgcol
-            (apply-casting-rules table-name name type ctype
-                                 ;; drop default value (forcing it to nil
-                                 ;; here) for serial data types
-                                 (unless (string= "bigserial" ctype) default)
-                                 nullable nil)))
+            (apply-casting-rules table-name name type ctype default nullable extra)))
       ;; the MS SQL driver smartly maps data to the proper CL type, but the
       ;; pgloader API only wants to see text representations to send down the
       ;; COPY protocol.

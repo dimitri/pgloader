@@ -31,21 +31,22 @@
           (drop-pgsql-fkeys catalog))
 
         (when create-schemas
-          (loop :for schema :in (catalog-schema-list catalog)
-             :do (when create-schemas
-                   (let ((sql (format nil "CREATE SCHEMA ~a;" schema)))
-                     (pgsql-execute sql)))))
+          (log-message :debug "Create schemas")
+          (create-schemas catalog :include-drop include-drop))
 
+        (log-message :debug "Create tables")
         (create-tables catalog :include-drop include-drop)
 
         ;; Some database sources allow the same index name being used
         ;; against several tables, so we add the PostgreSQL table OID in the
         ;; index name, to differenciate. Set the table oids now.
         (when set-table-oids
+          (log-message :debug "Set table OIDs")
           (set-table-oids catalog))
 
         ;; We might have to MATERIALIZE VIEWS
         (when materialize-views
+          (log-message :debug "Create views for matview support")
           (create-views catalog :include-drop include-drop)))))
 
 (defmethod cleanup ((copy db-copy) (catalog catalog) &key materialize-views)
@@ -206,14 +207,6 @@
                               (view-list catalog))
 
        :do (let ((table-source (instanciate-table-copy-object copy table)))
-             ;; that needs *print-circle* to true, and anyway it's too much
-             ;; output in general.
-             ;;
-             ;; (log-message :debug "TARGET: ~a" (target table-source))
-             (log-message :debug "TRANSFORMS(~a): ~s"
-                          (format-table-name table)
-                          (transforms table-source))
-
              ;; first COPY the data from source to PostgreSQL, using copy-kernel
              (unless schema-only
                ;; prepare the writers-count hash-table, as we start

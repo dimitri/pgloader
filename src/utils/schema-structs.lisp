@@ -11,7 +11,10 @@
 (in-package :pgloader.schema)
 
 (defmacro push-to-end (item place)
-  `(setf ,place (nconc ,place (list ,item))))
+  `(progn
+     (setf ,place (nconc ,place (list ,item)))
+     ;; and return the item we just pushed at the end of the place
+     ,item))
 
 ;;;
 ;;; TODO: stop using anonymous data structures for database catalogs,
@@ -148,8 +151,7 @@
   (let ((schema (make-schema :source-name schema-name
                              :name (when schema-name
                                      (apply-identifier-case schema-name)))))
-    (push-to-end schema (catalog-schema-list catalog))
-    schema))
+    (push-to-end schema (catalog-schema-list catalog))))
 
 (defmethod add-table ((schema schema) table-name &key comment)
   "Add TABLE-NAME to SCHEMA and return the new table instance."
@@ -159,8 +161,7 @@
                      :schema (schema-name schema)
                      :comment (unless (or (null comment) (string= "" comment))
                                 comment))))
-    (push-to-end table (schema-table-list schema))
-    table))
+    (push-to-end table (schema-table-list schema))))
 
 (defmethod add-view ((schema schema) view-name &key comment)
   "Add TABLE-NAME to SCHEMA and return the new table instance."
@@ -170,8 +171,7 @@
                      :schema (schema-name schema)
                      :comment (unless (or (null comment) (string= "" comment))
                                 comment))))
-    (push-to-end view (schema-view-list schema))
-    view))
+    (push-to-end view (schema-view-list schema))))
 
 (defmethod find-schema ((catalog catalog) schema-name &key)
   "Find SCHEMA-NAME in CATALOG and return the SCHEMA object of this name."
@@ -208,13 +208,11 @@
 
 (defmethod add-field ((table table) field &key)
   "Add COLUMN to TABLE and return the TABLE."
-  (push-to-end field (table-field-list table))
-  table)
+  (push-to-end field (table-field-list table)))
 
 (defmethod add-column ((table table) column &key)
   "Add COLUMN to TABLE and return the TABLE."
-  (push-to-end column (table-column-list table))
-  table)
+  (push-to-end column (table-column-list table)))
 
 (defmethod cast ((table table))
   "Cast all fields in table into columns."
@@ -253,8 +251,8 @@
 (defmethod maybe-add-fkey ((table table) fkey-name fkey &key key (test #'string=))
   "Add the foreign key FKEY to the table-fkey-list of TABLE unless it
   already exists, and return the FKEY object."
-  (let ((fkey (find-fkey table fkey-name :key key :test test)))
-    (or fkey (add-fkey table fkey))))
+  (let ((current-fkey (find-fkey table fkey-name :key key :test test)))
+    (or current-fkey (add-fkey table fkey))))
 
 
 ;;;

@@ -29,12 +29,10 @@
   "Extract Mssql data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row."
   (with-connection (*mssql-db* (source-db mssql))
-    (let* ((sql  (destructuring-bind (schema . table-name)
-                     (source mssql)
-                   (format nil "SELECT ~{~a~^, ~} FROM [~a].[~a];"
-                           (get-column-list (fields mssql))
-                           schema
-                           table-name))))
+    (let* ((sql  (format nil "SELECT ~{~a~^, ~} FROM [~a].[~a];"
+                         (get-column-list (fields mssql))
+                         (table-schema (source mssql))
+                         (table-name (source mssql)))))
       (log-message :debug "~a" sql)
       (handler-case
           (handler-bind

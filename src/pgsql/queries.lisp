@@ -241,6 +241,11 @@
 ;; 				unless (eq attnum :NULL)
 ;; 				collect attnum)))))
 
+(defun list-schemas ()
+  "Return the list of PostgreSQL schemas in the already established
+   PostgreSQL connection."
+  (pomo:query "SELECT nspname FROM pg_catalog.pg_namespace;" :column))
+
 (defun list-tables-and-fkeys (&optional schema-name)
   "Yet another table listing query."
   (loop :for (relname fkeys) :in (pomo:query (format nil "

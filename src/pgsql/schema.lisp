@@ -161,6 +161,28 @@
      :do (pgsql-execute sql :client-min-messages client-min-messages)
      :finally (return nb-tables)))
 
+(defun create-schemas (catalog
+                       &key
+                         include-drop
+                         (client-min-messages :notice))
+  "Create all schemas from the given database CATALOG."
+  (let ((schema-list (list-schemas)))
+    (when include-drop
+      ;; if asked, first DROP the schema CASCADE.
+      (loop :for schema :in (catalog-schema-list catalog)
+         :for schema-name := (schema-name schema)
+         :when (member schema-name schema-list :test #'string=)
+         :do (let ((sql (format nil "DROP SCHEMA ~a CASCADE;" schema-name)))
+               (pgsql-execute sql :client-min-messages client-min-messages))))
+
+    ;; now create the schemas (again?)
+    (loop :for schema :in (catalog-schema-list catalog)
+       :for schema-name := (schema-name schema)
+       :when (or include-drop
+                 (not (member schema-name schema-list :test #'string=)))
+       :do (let ((sql (format nil "CREATE SCHEMA ~a;" (schema-name schema))))
+             (pgsql-execute sql :client-min-messages client-min-messages)))))
+
 (defun create-tables (catalog
                       &key
 			if-not-exists

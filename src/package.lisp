@@ -353,6 +353,7 @@
 	   #:copy-from-file
 	   #:copy-from-queue
 	   #:reset-all-sequences
+	   #:create-schemas
 	   #:create-tables
 	   #:create-views
 	   #:format-pgsql-column
