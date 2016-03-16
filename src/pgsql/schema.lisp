@@ -116,10 +116,15 @@
     (format s "CREATE TABLE~:[~; IF NOT EXISTS~] ~a ~%(~%"
             if-not-exists
             (format-table-name table))
-    (loop
-       :for (col . last?) :on (table-column-list table)
-       :for pg-coldef := (format-column col)
-       :do (format s "  ~a~:[~;,~]~%" pg-coldef last?))
+    (let ((max (reduce #'max
+                       (mapcar #'length
+                               (mapcar #'column-name (table-column-list table))))))
+     (loop
+        :for (col . last?) :on (table-column-list table)
+        :for pg-coldef := (format-column col
+                                         :pretty-print t
+                                         :max-column-name-length max )
+        :do (format s "  ~a~:[~;,~]~%" pg-coldef last?)))
     (format s ");~%")))
 
 (defun drop-table-if-exists-sql (table)

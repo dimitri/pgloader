@@ -29,11 +29,18 @@
                         nil)))
 	 (format nil "'~a'" default)))))
 
-(defmethod format-column ((column column))
+(defgeneric format-column (column &key pretty-print)
+  (:documentation "Format COLUMN definition for CREATE TABLE purpose."))
+
+(defmethod format-column ((column column)
+                          &key
+                            pretty-print
+                            ((:max-column-name-length max)))
   "Format the PostgreSQL data type."
   (format nil
-          "~a ~22t ~a~:[~*~;~a~]~:[ not null~;~]~:[~; default ~a~]"
+          "~a~vt~a~:[~*~;~a~]~:[ not null~;~]~:[~; default ~a~]"
           (column-name column)
+          (if pretty-print (or (+ 2 max) 22) 1)
           (column-type-name column)
           (column-type-mod column)
           (column-type-mod column)
