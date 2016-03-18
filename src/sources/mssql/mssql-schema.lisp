@@ -196,11 +196,13 @@ order by SchemaName,
      :do
      (let* ((schema     (find-schema catalog schema-name))
             (table      (find-table schema table-name))
-            (index      (make-pgsql-index :name index-name
+            (pg-index   (make-pgsql-index :name index-name
                                           :primary (= pkey 1)
                                           :unique (= unique 1)
-                                          :columns (list col))))
-       (add-index table index))
+                                          :columns nil))
+            (index      (maybe-add-index table index-name pg-index
+                                         :key #'pgloader.pgsql::pgsql-index-name)))
+       (push-to-end col (pgloader.pgsql::pgsql-index-columns index)))
      :finally (return catalog)))
 
 (defun list-all-fkeys (catalog &key including excluding)

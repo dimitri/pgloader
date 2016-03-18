@@ -87,6 +87,8 @@
            #:add-field
            #:add-column
            #:add-index
+           #:find-index
+           #:maybe-add-index
            #:add-fkey
            #:find-fkey
            #:maybe-add-fkey
@@ -249,6 +251,8 @@
            #:add-field
            #:add-column
            #:add-index
+           #:find-index
+           #:maybe-add-index
            #:add-fkey
            #:find-fkey
            #:maybe-add-fkey

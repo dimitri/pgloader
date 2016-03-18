@@ -77,9 +77,13 @@
   (:documentation
    "Find a table by TABLE-NAME in a schema OBJECT and return the table"))
 
+(defgeneric find-index (object index-name &key key test)
+  (:documentation
+   "Find an index by INDEX-NAME in a table OBJECT and return the index"))
+
 (defgeneric find-fkey (object fkey-name &key key test)
   (:documentation
-   "Find a table by FKEY-NAME in a table OBJECT and return the fkey"))
+   "Find a foreign key by FKEY-NAME in a table OBJECT and return the fkey"))
 
 (defgeneric maybe-add-schema (object schema-name &key)
   (:documentation "Add a new schema or return existing one."))
@@ -89,6 +93,9 @@
 
 (defgeneric maybe-add-view (object view-name &key)
   (:documentation "Add a new view or return existing one."))
+
+(defgeneric maybe-add-index (object index-name index &key key test)
+  (:documentation "Add a new index or return existing one."))
 
 (defgeneric maybe-add-fkey (object fkey-name fkey &key key test)
   (:documentation "Add a new fkey or return existing one."))
@@ -231,19 +238,29 @@
   (loop :for schema :in (catalog-schema-list catalog)
      :do (cast schema)))
 
+;;;
+;;; There's no simple equivalent to array_agg() in MS SQL, so the index and
+;;; fkey queries return a row per index|fkey column rather than per
+;;; index|fkey. Hence this extra API:
+;;;
 (defmethod add-index ((table table) index &key)
   "Add INDEX to TABLE and return the TABLE."
   (push-to-end index (table-index-list table)))
+
+(defmethod find-index ((table table) index-name &key key (test #'string=))
+  "Find INDEX-NAME in TABLE and return the INDEX object of this name."
+  (find index-name (table-index-list table) :key key :test test))
+
+(defmethod maybe-add-index ((table table) index-name index &key key (test #'string=))
+  "Add the index INDEX to the table-index-list of TABLE unless it already
+   exists, and return the INDEX object."
+  (let ((current-index (find-index table index-name :key key :test test)))
+    (or current-index (add-index table index))))
 
 (defmethod add-fkey ((table table) fkey &key)
   "Add FKEY to TABLE and return the TABLE."
   (push-to-end fkey (table-fkey-list table)))
 
-;;;
-;;; There's no simple equivalent to array_agg() in MS SQL, so the fkey query
-;;; returns a row per fkey column rather than per fkey. Hence this extra
-;;; API:
-;;;
 (defmethod find-fkey ((table table) fkey-name &key key (test #'string=))
   "Find FKEY-NAME in TABLE and return the FKEY object of this name."
   (find fkey-name (table-fkey-list table) :key key :test test))
