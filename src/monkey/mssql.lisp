@@ -78,32 +78,52 @@
   (logior byte (- (mask-field (byte 1 (1- (* n 8))) byte))))
 
 (defun sysdb-data-to-lisp (%dbproc data type len)
-  (if (> len 0)
-      (case (foreign-enum-keyword '%syb-value-type type)
-        ((:syb-varchar :syb-text) (foreign-string-to-lisp data :count len))
-        (:syb-char (string-trim #(#\Space) (foreign-string-to-lisp data :count len)))
-        ((:syb-bit :syb-bitn) (mem-ref data :int))
-        (:syb-int1 (unsigned-to-signed (mem-ref data :unsigned-int) 1))
-        (:syb-int2 (unsigned-to-signed (mem-ref data :unsigned-int) 2))
-        (:syb-int4 (unsigned-to-signed (mem-ref data :unsigned-int) 4))
-        (:syb-int8 (mem-ref data :int8))
-        (:syb-flt8 (mem-ref data :double))
-        (:syb-datetime
-         (with-foreign-pointer (%buf +numeric-buf-sz+)
-           (foreign-string-to-lisp %buf
-                                   :count (%dbconvert %dbproc type data -1 :syb-char %buf +numeric-buf-sz+))))
-        ((:syb-money :syb-money4 :syb-decimal :syb-numeric)
-         (with-foreign-pointer (%buf +numeric-buf-sz+)
-           (parse-number:parse-number
-            (foreign-string-to-lisp %buf
-                                    :count (%dbconvert %dbproc type data -1 :syb-char %buf +numeric-buf-sz+)))))
-        ((:syb-image :syb-binary :syb-varbinary :syb-blob)
-         (let ((vector (make-array len :element-type '(unsigned-byte 8))))
-           (dotimes (i len)
-             (setf (aref vector i) (mem-ref data :uchar i)))
-           vector))
-        (otherwise (error "not supported type ~A"
-                          (foreign-enum-keyword '%syb-value-type type))))))
+  (let ((syb-type (foreign-enum-keyword '%syb-value-type type)))
+    (case syb-type
+      ;; we accept emtpy string (len is 0)
+      ((:syb-char :syb-varchar :syb-text)
+       (foreign-string-to-lisp data :count len))
+
+      (otherwise
+       ;; other types must have a non-zero len now, or we just return nil.
+       (if (> len 0)
+           (case syb-type
+             ((:syb-bit :syb-bitn) (mem-ref data :int))
+             (:syb-int1 (unsigned-to-signed (mem-ref data :unsigned-int) 1))
+             (:syb-int2 (unsigned-to-signed (mem-ref data :unsigned-int) 2))
+             (:syb-int4 (unsigned-to-signed (mem-ref data :unsigned-int) 4))
+             (:syb-int8 (mem-ref data :int8))
+             (:syb-flt8 (mem-ref data :double))
+             (:syb-datetime
+              (with-foreign-pointer (%buf +numeric-buf-sz+)
+                (let ((count
+                       (%dbconvert %dbproc
+                                   type
+                                   data
+                                   -1
+                                   :syb-char
+                                   %buf
+                                   +numeric-buf-sz+)))
+                 (foreign-string-to-lisp %buf :count count))))
+             ((:syb-money :syb-money4 :syb-decimal :syb-numeric)
+              (with-foreign-pointer (%buf +numeric-buf-sz+)
+                (let ((count
+                       (%dbconvert %dbproc
+                                   type
+                                   data
+                                   -1
+                                   :syb-char
+                                   %buf
+                                   +numeric-buf-sz+)))
+                 (parse-number:parse-number
+                  (foreign-string-to-lisp %buf :count count )))))
+             ((:syb-image :syb-binary :syb-varbinary :syb-blob)
+              (let ((vector (make-array len :element-type '(unsigned-byte 8))))
+                (dotimes (i len)
+                  (setf (aref vector i) (mem-ref data :uchar i)))
+                vector))
+             (otherwise (error "not supported type ~A"
+                               (foreign-enum-keyword '%syb-value-type type)))))))))
 
 ;; (defconstant +dbbuffer+ 14)
 
