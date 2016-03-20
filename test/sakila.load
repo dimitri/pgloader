@@ -9,10 +9,11 @@ load database
 
  WITH concurrency = 1, workers = 6
 
-  SET maintenance_work_mem to '128MB', work_mem to '12MB', search_path to 'sakila'
+  SET maintenance_work_mem to '128MB',
+      work_mem to '12MB',
+      search_path to 'sakila, public, "$user"'
 
- CAST -- type datetime to timestamptz drop default drop not null using zero-dates-to-null,
-      type date drop not null drop default using zero-dates-to-null,
+ CAST type date drop not null drop default using zero-dates-to-null,
       type datetime to timestamp drop default drop not null using zero-dates-to-null
 
       -- type tinyint to boolean using tinyint-to-boolean,

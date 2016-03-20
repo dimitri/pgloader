@@ -170,11 +170,19 @@
   "Set given GUCs to given values for the current session."
   (let ((pomo:*database* (or database pomo:*database*)))
     (loop
-       for (name . value) in alist
-       for set = (format nil "SET~:[~; LOCAL~] ~a TO '~a'" transaction name value)
-       do
-	 (log-message :debug set)
-	 (pomo:execute set))))
+       :for (name . value) :in alist
+       :for set := (cond
+                     ((string-equal "search_path" name)
+                      ;; for search_path, don't quote the value
+                      (format nil "SET~:[~; LOCAL~] ~a TO ~a"
+                              transaction name value))
+                     (t
+                      ;; general case: quote the value
+                      (format nil "SET~:[~; LOCAL~] ~a TO '~a'"
+                              transaction name value)))
+       :do (progn                       ; indent helper
+             (log-message :debug set)
+             (pomo:execute set)))))
 
 (defun pgsql-connect-and-execute-with-timing (pgconn section label sql &key (count 1))
   "Run pgsql-execute-with-timing within a newly establised connection."
