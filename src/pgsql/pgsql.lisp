@@ -25,7 +25,9 @@
   (incf (cl-postgres::copier-count copier)))
 
 (defun copy-batch (table columns batch batch-rows
-                   &key (db pomo:*database*))
+                   &key
+                     (db pomo:*database*)
+                     on-error-stop)
   "Copy current *writer-batch* into TABLE-NAME."
   ;; We need to keep a copy of the rows we send through the COPY
   ;; protocol to PostgreSQL to be able to process them again in case
@@ -70,9 +72,19 @@
           cl-postgres-error::internal-error
           cl-postgres-error::insufficient-resources
           cl-postgres-error::program-limit-exceeded) (condition)
-          ;; clean the current transaction before retrying new ones
+
           (pomo:execute "ROLLBACK")
-          (retry-batch table columns batch batch-rows condition))
+
+          (if on-error-stop
+              ;; re-signal the condition to upper level
+              (progn
+                (log-message :fatal "~a" condition)
+                (error "Stop loading data for table ~s on first error."
+                       (format-table-name table)))
+
+              ;; normal behavior, on-error-stop being nil
+              ;; clean the current transaction before retrying new ones
+              (retry-batch table columns batch batch-rows condition)))
 
         (condition (c)
           ;; non retryable failures
@@ -86,7 +98,8 @@
 (defun copy-from-queue (pgconn table queue
 			&key
                           columns
-                          disable-triggers)
+                          disable-triggers
+                          on-error-stop)
   "Fetch from the QUEUE messages containing how many rows are in the
    *writer-batch* for us to send down to PostgreSQL, and when that's done
    update stats."
@@ -105,7 +118,8 @@
              :until (eq :end-of-data mesg)
              :for (rows batch-seconds) :=
              (let ((start-time (get-internal-real-time)))
-               (list (copy-batch table columns batch read)
+               (list (copy-batch table columns batch read
+                                 :on-error-stop on-error-stop)
                      (elapsed-time-since start-time)))
              :do (progn
                    ;; The SBCL implementation needs some Garbage Collection

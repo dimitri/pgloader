@@ -7,6 +7,7 @@
   (:use #:cl)
   (:export #:*version-string*
            #:*dry-run*
+           #:*on-error-stop*
            #:*self-upgrade-immutable-systems*
 	   #:*fd-path-root*
 	   #:*root-dir*
@@ -67,6 +68,9 @@
 
 (defparameter *dry-run* nil
   "Set to non-nil to only run checks about the load setup.")
+
+(defparameter *on-error-stop* nil
+  "Set to non-nil to for pgloader to refrain from handling errors, quitting instead.")
 
 (defparameter *fd-path-root* nil
   "Where to load files from, when loading from an archive or expanding regexps.")

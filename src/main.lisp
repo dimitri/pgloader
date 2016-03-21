@@ -55,7 +55,10 @@
      :documentation "Read user code from files")
 
     ("dry-run" :type boolean
-     :documentation "Only check database connections, don't load anything.")
+               :documentation "Only check database connections, don't load anything.")
+
+    ("on-error-stop" :type boolean
+                     :documentation "Refrain from handling errors properly.")
 
     (("with") :type string :list t :optional t
      :documentation "Load options")
@@ -195,7 +198,8 @@
             (usage argv :quit t)))
 
       (destructuring-bind (&key help version quiet verbose debug logfile
-				list-encodings upgrade-config dry-run
+				list-encodings upgrade-config
+                                dry-run on-error-stop
                                 ((:load-lisp-file load))
 				client-min-messages log-min-messages summary
 				root-dir self-upgrade
@@ -267,6 +271,9 @@
 
         ;; Should we run in dry-run mode?
         (setf *dry-run* dry-run)
+
+        ;; Should we stop at first error?
+        (setf *on-error-stop* on-error-stop)
 
 	;; Now process the arguments
 	(when arguments

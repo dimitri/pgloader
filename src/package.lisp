@@ -793,6 +793,8 @@
 	   #:*fd-path-root*
 	   #:*root-dir*
 	   #:*pg-settings*
+           #:*dry-run*
+           #:*on-error-stop*
 
            #:load-data
            #:parse-source-string

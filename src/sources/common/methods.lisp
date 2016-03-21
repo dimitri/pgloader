@@ -125,6 +125,7 @@
                         (worker-count 8)
                         (concurrency 2)
                         truncate
+                        (on-error-stop *on-error-stop*)
                         disable-triggers)
   "Copy data from COPY source into PostgreSQL.
 
@@ -191,6 +192,7 @@
                                  (target copy)
                                  fmtq
                                  :columns (copy-column-list copy)
+                                 :on-error-stop on-error-stop
                                  :disable-triggers disable-triggers))
 
           ;; now wait until both the tasks are over, and kill the kernel

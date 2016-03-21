@@ -120,6 +120,7 @@
 ;;;
 (defmethod copy-database ((copy db-copy)
 			  &key
+                            (on-error-stop    *on-error-stop*)
                             (worker-count     4)
                             (concurrency      1)
 			    (truncate         nil)
@@ -216,6 +217,7 @@
                           :concurrency concurrency
                           :kernel copy-kernel
                           :channel copy-channel
+                          :on-error-stop on-error-stop
                           :disable-triggers disable-triggers))))
 
     ;; now end the kernels

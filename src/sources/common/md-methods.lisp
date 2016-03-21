@@ -71,6 +71,7 @@
 
 (defmethod copy-database ((copy md-copy)
                           &key
+                            (on-error-stop *on-error-stop*)
                             truncate
                             disable-triggers
 			    drop-indexes
@@ -116,6 +117,7 @@
                         :concurrency concurrency
                         :kernel lp:*kernel*
                         :channel channel
+                        :on-error-stop on-error-stop
                         :truncate nil
                         :disable-triggers disable-triggers)))
 
