@@ -120,6 +120,20 @@ Those options are meant to tweak `pgloader` behavior when loading data.
     Those functions should be defined in the `pgloader.transforms` package.
     This option can appear more than once in the command line.
 
+  * `--dry-run`:
+
+    Allow testing a `.load` file without actually trying to load any data.
+    It's useful to debug it until it's ok, in particular to fix connection
+    strings.
+
+  * `--on-error-stop`
+
+    Alter pgloader behavior: rather than trying to be smart about error
+    handling and continue loading good data, separating away the bad one,
+    just stop as soon as PostgreSQL refuses anything sent to it. Useful to
+    debug data processing, transformation function and specific type
+    casting.
+
   * `--self-upgrade <directory>`:
 
     Specify a <directory> where to find pgloader sources so that one of the

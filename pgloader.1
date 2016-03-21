@@ -113,50 +113,55 @@ Parse given files in the command line as \fBpgloader\.conf\fR files with the \fB
 .SS "GENERAL OPTIONS"
 Those options are meant to tweak \fBpgloader\fR behavior when loading data\.
 .
-.TP
-\fB\-v\fR, \fB\-\-verbose\fR
-Be verbose\.
+.IP "\(bu" 4
+\fB\-v\fR, \fB\-\-verbose\fR: Be verbose\.
 .
-.TP
-\fB\-q\fR, \fB\-\-quiet\fR
-Be quiet\.
+.IP "\(bu" 4
+\fB\-q\fR, \fB\-\-quiet\fR: Be quiet\.
 .
-.TP
-\fB\-d\fR, \fB\-\-debug\fR
-Show debug level information messages\.
+.IP "\(bu" 4
+\fB\-d\fR, \fB\-\-debug\fR: Show debug level information messages\.
 .
-.TP
-\fB\-D\fR, \fB\-\-root\-dir\fR
-Set the root working directory (default to "/tmp/pgloader")\.
+.IP "\(bu" 4
+\fB\-D\fR, \fB\-\-root\-dir\fR: Set the root working directory (default to "/tmp/pgloader")\.
 .
-.TP
-\fB\-L\fR, \fB\-\-logfile\fR
-Set the pgloader log file (default to "/tmp/pgloader\.log")\.
+.IP "\(bu" 4
+\fB\-L\fR, \fB\-\-logfile\fR: Set the pgloader log file (default to "/tmp/pgloader\.log")\.
 .
-.TP
-\fB\-\-log\-min\-messages\fR
-Minimum level of verbosity needed for log message to make it to the logfile\. One of critical, log, error, warning, notice, info or debug\.
+.IP "\(bu" 4
+\fB\-\-log\-min\-messages\fR: Minimum level of verbosity needed for log message to make it to the logfile\. One of critical, log, error, warning, notice, info or debug\.
 .
-.TP
-\fB\-\-client\-min\-messages\fR
-Minimum level of verbosity needed for log message to make it to the console\. One of critical, log, error, warning, notice, info or debug\.
+.IP "\(bu" 4
+\fB\-\-client\-min\-messages\fR: Minimum level of verbosity needed for log message to make it to the console\. One of critical, log, error, warning, notice, info or debug\.
 .
-.TP
-\fB\-S\fR, \fB\-\-summary\fR
-A filename where to copy the summary output\. When relative, the filename is expanded into \fB*root\-dir*\fR\.
+.IP "\(bu" 4
+\fB\-S\fR, \fB\-\-summary\fR: A filename where to copy the summary output\. When relative, the filename is expanded into \fB*root\-dir*\fR\.
 .
 .IP
 The format of the filename defaults to being \fIhuman readable\fR\. It is possible to have the output in machine friendly formats such as \fICSV\fR, \fICOPY\fR (PostgreSQL\'s own COPY format) or \fIJSON\fR by specifying a filename with the extension resp\. \fB\.csv\fR, \fB\.copy\fR or \fB\.json\fR\.
 .
-.TP
-\fB\-l <file>\fR, \fB\-\-load\-lisp\-file <file>\fR
-Specify a lisp \fIfile\fR to compile and load into the pgloader image before reading the commands, allowing to define extra transformation function\. Those functions should be defined in the \fBpgloader\.transforms\fR package\. This option can appear more than once in the command line\.
+.IP "\(bu" 4
+\fB\-l <file>\fR, \fB\-\-load\-lisp\-file <file>\fR: Specify a lisp \fIfile\fR to compile and load into the pgloader image before reading the commands, allowing to define extra transformation function\. Those functions should be defined in the \fBpgloader\.transforms\fR package\. This option can appear more than once in the command line\.
 .
-.TP
+.IP "\(bu" 4
+\fB\-\-dry\-run\fR:
+.
+.IP
+Allow testing a \fB\.load\fR file without actually trying to load any data\. It\'s useful to debug it until it\'s ok, in particular to fix connection strings\.
+.
+.IP "\(bu" 4
+\fB\-\-on\-error\-stop\fR
+.
+.IP
+Alter pgloader behavior: rather than trying to be smart about error handling and continue loading good data, separating away the bad one, just stop as soon as PostgreSQL refuses anything sent to it\. Useful to debug data processing, transformation function and specific type casting\.
+.
+.IP "\(bu" 4
 \fB\-\-self\-upgrade <directory>\fR:
 .
 .IP
 Specify a \fIdirectory\fR where to find pgloader sources so that one of the very first things it does is dynamically loading\-in (and compiling to machine code) another version of itself, usually a newer one like a very recent git checkout\.
+.
+.IP "" 0
 .
 .SS "COMMAND LINE ONLY OPERATIONS"
 Those options are meant to be used when using \fBpgloader\fR from the command line only, rather than using a command file and the rich command clauses and parser\. In simple cases, it can be much easier to use the \fISOURCE\fR and \fITARGET\fR directly on the command line, then tweak the loading with those options:
