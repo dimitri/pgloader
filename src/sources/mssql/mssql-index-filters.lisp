@@ -42,6 +42,8 @@
                    (list
                     (destructuring-bind (op id &optional arg) node
                       (case op
+                        (:is-null     (format s "~a IS NULL" id))
+                        (:is-not-null (format s "~a IS NOT NULL" id))
                         (:between
                          (format s "~a between ~a and ~a"
                                  id (first arg) (second arg)))
