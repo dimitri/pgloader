@@ -364,7 +364,18 @@
 (defmethod process-index-definitions ((table table) &key sql-dialect)
   "Rewrite all index filter in TABLE."
   (loop :for index :in (table-index-list table)
-     :do (let ((pg-filter (translate-index-filter table index sql-dialect)))
+     :do (let ((pg-filter
+                (handler-case
+                    (translate-index-filter table index sql-dialect)
+                  (condition (c)
+                    (log-message :error
+                                 "Failed to translate index ~s on table ~s because of filter clause ~s"
+                                 (pgsql-index-name index)
+                                 (format-table-name table)
+                                 (pgsql-index-filter index))
+                    (log-message :debug "filter translation error: ~a" c)
+                    ;; try to create the index without the WHERE clause...
+                    (setf (pgsql-index-filter index) nil)))))
            (log-message :info "tranlate-index-filter: ~s" pg-filter)
            (setf (pgsql-index-filter index) pg-filter))))
 
