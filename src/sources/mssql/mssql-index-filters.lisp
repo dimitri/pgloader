@@ -19,9 +19,14 @@
                                    :key #'column-name
                                    :test #'string=)))
                  (assert (not (null col)))
-                 (list operator pg-id (when argument
-                                        (funcall (column-transform col)
-                                                 argument)))))))
+                 (list operator
+                       pg-id
+                       (typecase argument
+                         (null nil)
+                         (list
+                          (mapcar (column-transform col) (rest argument)))
+                         (t
+                          (funcall (column-transform col) argument))))))))
     (when (pgsql-index-filter index)
       (let* ((raw-expr (parse-index-filter-clause (pgsql-index-filter index)))
              (pg-expr
@@ -36,7 +41,14 @@
                    (string (format s "  ~a  " node))
                    (list
                     (destructuring-bind (op id &optional arg) node
-                      (format s "~a ~a~@[ '~a'~]" id op arg))))))))))
+                      (case op
+                        (:between
+                         (format s "~a between ~a and ~a"
+                                 id (first arg) (second arg)))
+                        (:in
+                         (format s "~a in ~{~a~^, ~}" id arg))
+                        (otherwise
+                         (format s "~a ~a~@[ '~a'~]" id op arg))))))))))))
 
 (defun parse-index-filter-clause (filter)
   "Parse the filter clause for a MS SQL index, see
@@ -75,6 +87,15 @@
 (defrule >  ">"  (:constant :>))
 (defrule <> "<>" (:constant :<>))
 (defrule != "!=" (:constant :<>))
+
+(defrule in (and (? whitespace) (~ "in") (? whitespace)) (:constant :in))
+(defrule o-p (and (? whitespace) "(" (? whitespace)) (:constant "("))
+(defrule c-p (and (? whitespace) ")" (? whitespace)) (:constant ")"))
+
+(defrule between (and (? whitespace) (~ "between") (? whitespace))
+  (:constant :between))
+
+(defrule and-op (and (? whitespace) (~ "and") (? whitespace)) (:constant "and"))
 
 (defrule mssql-operator (and (? whitespace) (or = <= < >= > <> !=))
   (:lambda (op) (second op)))
@@ -123,26 +144,26 @@
 (defrule another-constant (and "," (? whitespace) mssql-constant)
   (:function third))
 
-(defrule mssql-in-list (and "(" mssql-constant (* another-constant) ")")
+
+(defrule mssql-in-list (and o-p mssql-constant (* another-constant) c-p)
   (:lambda (in) (list* (second in) (third in))))
 
-(defrule mssql-where-in (and (? whitespace) (~ "in") mssql-in-list)
-  (:function third))
+(defrule mssql-where-in (and mssql-identifier in mssql-in-list)
+  (:destructure (id op list) (list op id list)))
 
 (defrule mssql-where-between (and (? whitespace)
                                   mssql-identifier
-                                  (~ "between")
-                                  mssql-constant
-                                  (~ "and")
-                                  mssql-constant)
-  (:function rest))
+                                  between mssql-constant and-op mssql-constant)
+  (:lambda (between) (list (third between)
+                           (second between)
+                           (list (fourth between) (sixth between)))))
 
 (defrule mssql-index-filter (and (? "(")
                                  (? whitespace)
-                                 (or mssql-where-op
+                                 (or mssql-where-in
+                                     mssql-where-between
                                      mssql-where-is-null
-                                     mssql-where-in
-                                     mssql-where-between)
+                                     mssql-where-op)
                                  (? whitespace)
                                  (? ")"))
   (:function third))
