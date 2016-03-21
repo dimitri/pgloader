@@ -97,7 +97,7 @@
 
 (defrule and-op (and (? whitespace) (~ "and") (? whitespace)) (:constant "and"))
 
-(defrule mssql-operator (and (? whitespace) (or = <= < >= > <> !=))
+(defrule mssql-operator (and (? whitespace) (or = <> <= < >= > !=))
   (:lambda (op) (second op)))
 
 (defrule number (+ (digit-char-p character)) (:text t))
