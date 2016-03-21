@@ -257,7 +257,7 @@
   ;; the struct is used both for supporting new index creation from non
   ;; PostgreSQL system and for drop/create indexes when using the 'drop
   ;; indexes' option (in CSV mode and the like)
-  name schema table-oid primary unique columns sql conname condef)
+  name schema table-oid primary unique columns sql conname condef filter)
 
 (defgeneric format-pgsql-create-index (table index)
   (:documentation
@@ -266,6 +266,16 @@
 (defgeneric format-pgsql-drop-index (table index)
   (:documentation
    "Return the PostgreSQL command to drop an Index."))
+
+(defgeneric translate-index-filter (table index sql-dialect)
+  (:documentation
+   "Translate the filter clause of INDEX in PostgreSQL slang."))
+
+(defmethod translate-index-filter ((table table)
+                                   (index pgsql-index)
+                                   (sql-dialect t))
+  "Implement a default facility that does nothing."
+  nil)
 
 (defmethod format-pgsql-create-index ((table table) (index pgsql-index))
   "Generate the PostgreSQL statement list to rebuild a Foreign Key"
@@ -286,11 +296,13 @@
         ;; ensure good concurrency here, don't take the ACCESS EXCLUSIVE
         ;; LOCK on the table before we have the index done already
         (or (pgsql-index-sql index)
-            (format nil "CREATE UNIQUE INDEX ~@[~a.~]~a ON ~a (~{~a~^, ~});"
+            (format nil
+                    "CREATE UNIQUE INDEX ~@[~a.~]~a ON ~a (~{~a~^, ~})~@[ WHERE ~a~];"
                     (pgsql-index-schema index)
                     index-name
                     (format-table-name table)
-                    (pgsql-index-columns index)))
+                    (pgsql-index-columns index)
+                    (pgsql-index-filter index)))
         (format nil
                 ;; don't use the index schema name here, PostgreSQL doesn't
                 ;; like it, might be implicit from the table's schema
@@ -308,12 +320,14 @@
 
       (t
        (or (pgsql-index-sql index)
-           (format nil "CREATE~:[~; UNIQUE~] INDEX ~@[~a.~]~a ON ~a (~{~a~^, ~});"
+           (format nil
+                   "CREATE~:[~; UNIQUE~] INDEX ~@[~a.~]~a ON ~a (~{~a~^, ~})~@[ WHERE ~a~];"
                    (pgsql-index-unique index)
                    (pgsql-index-schema index)
                    index-name
                    (format-table-name table)
-                   (pgsql-index-columns index)))))))
+                   (pgsql-index-columns index)
+                   (pgsql-index-filter index)))))))
 
 (defmethod format-pgsql-drop-index ((table table) (index pgsql-index))
   "Generate the PostgreSQL statement to DROP the index."
@@ -329,6 +343,30 @@
 
           (t
            (format nil "DROP INDEX ~@[~a.~]~a;" schema-name index-name)))))
+
+
+;;;
+;;; API to rewrite index WHERE clauses (filter)
+;;;
+(defgeneric process-index-definitions (object &key sql-dialect)
+  (:documentation "Rewrite all indexes filters in given catalog OBJECT."))
+
+(defmethod process-index-definitions ((catalog catalog) &key sql-dialect)
+  "Rewrite all index filters in CATALOG."
+  (loop :for schema :in (catalog-schema-list catalog)
+     :do (process-index-definitions schema :sql-dialect sql-dialect)))
+
+(defmethod process-index-definitions ((schema schema) &key sql-dialect)
+  "Rewrite all index filters in CATALOG."
+  (loop :for table :in (schema-table-list schema)
+     :do (process-index-definitions table :sql-dialect sql-dialect)))
+
+(defmethod process-index-definitions ((table table) &key sql-dialect)
+  "Rewrite all index filter in TABLE."
+  (loop :for index :in (table-index-list table)
+     :do (let ((pg-filter (translate-index-filter table index sql-dialect)))
+           (log-message :info "tranlate-index-filter: ~s" pg-filter)
+           (setf (pgsql-index-filter index) pg-filter))))
 
 ;;;
 ;;; Parallel index building.

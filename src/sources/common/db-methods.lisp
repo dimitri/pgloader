@@ -169,6 +169,9 @@
     ;; cast the catalog into something PostgreSQL can work on
     (cast catalog)
 
+    ;; support code for index filters (where clauses)
+    (process-index-definitions catalog :sql-dialect (class-name (class-of copy)))
+
     ;; if asked, now alter the catalog with given rules: the alter-table
     ;; keyword parameter actually contains a set of alter table rules.
     (when alter-table
@@ -272,7 +275,7 @@
                                                          :use-result-as-read t
                                                          :use-result-as-rows t)
             (loop :for count :below (count-indexes catalog)
-                   :do (lp:receive-result idx-channel))
+               :do (lp:receive-result idx-channel))
           (lp:end-kernel :wait t)
           (count-indexes catalog))))
 

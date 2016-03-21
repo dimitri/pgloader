@@ -367,8 +367,12 @@
 	   #:format-pgsql-drop-fkey
            #:drop-pgsql-fkeys
            #:create-pgsql-fkeys
+           #:pgsql-index
+           #:pgsql-index-filter
 	   #:make-pgsql-index
 	   #:index-table-name
+           #:translate-index-filter
+           #:process-index-definitions
 	   #:format-pgsql-create-index
 	   #:create-indexes-in-kernel
            #:set-table-oids
@@ -679,6 +683,13 @@
 	   #:copy-from
 	   #:copy-database
 	   #:list-tables))
+
+(defpackage #:pgloader.mssql.index-filter
+  (:use #:cl #:esrap #:pgloader.utils #:pgloader.mssql)
+  (:import-from #:pgloader.pgsql
+                #:pgsql-index
+                #:pgsql-index-filter
+                #:translate-index-filter))
 
 (defpackage #:pgloader.syslog
   (:use #:cl #:pgloader.params #:pgloader.utils)

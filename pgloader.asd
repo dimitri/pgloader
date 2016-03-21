@@ -190,7 +190,9 @@
                                           :depends-on ("mssql-cast-rules"))
                                    (:file "mssql"
                                           :depends-on ("mssql-cast-rules"
-                                                       "mssql-schema"))))
+                                                       "mssql-schema"))
+                                   (:file "mssql-index-filters"
+                                          :depends-on ("mssql"))))
 
                          (:module "mysql"
                                   :depends-on ("common")

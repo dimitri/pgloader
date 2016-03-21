@@ -156,14 +156,15 @@ order by c.table_schema, c.table_name, c.ordinal_position"
 (defun list-all-indexes (catalog &key including excluding)
   "Get the list of MSSQL index definitions per table."
   (loop
-     :for (schema-name table-name index-name col unique pkey)
+     :for (schema-name table-name index-name col unique pkey filter)
      :in  (mssql-query (format nil "
     select schema_name(schema_id) as SchemaName,
            o.name as TableName,
            REPLACE(i.name, '.', '_') as IndexName,
            co.[name] as ColumnName,
            i.is_unique,
-           i.is_primary_key
+           i.is_primary_key,
+           i.filter_definition
 
     from sys.indexes i
          join sys.objects o on i.object_id = o.object_id
@@ -199,7 +200,8 @@ order by SchemaName,
             (pg-index   (make-pgsql-index :name index-name
                                           :primary (= pkey 1)
                                           :unique (= unique 1)
-                                          :columns nil))
+                                          :columns nil
+                                          :filter filter))
             (index      (maybe-add-index table index-name pg-index
                                          :key #'pgloader.pgsql::pgsql-index-name)))
        (push-to-end col (pgloader.pgsql::pgsql-index-columns index)))
