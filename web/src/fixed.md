@@ -16,9 +16,9 @@ You can find more files from them at the
 Here's our command:
 
     LOAD ARCHIVE
-       FROM http://www.census.gov/geo/maps-data/data/docs/gazetteer/places2k.zip
+       FROM http://www2.census.gov/geo/docs/maps-data/data/gazetteer/places2k.zip
        INTO postgresql:///pgloader
-    
+
        BEFORE LOAD DO
          $$ drop table if exists places; $$,
          $$ create table places
@@ -29,7 +29,7 @@ Here's our command:
               loc_name  varchar(64)
            );
          $$
-         
+
        LOAD FIXED
             FROM FILENAME MATCHING ~/places2k.txt/
                  WITH ENCODING latin1
@@ -37,7 +37,7 @@ Here's our command:
                     usps           from   0 for  2,
                     fips           from   2 for  2,
                     fips_code      from   4 for  5,
-                    "LocationName" from   9 for 64 [trim right whitespace],
+                    loc_name       from   9 for 64 [trim right whitespace],
                     p              from  73 for  9,
                     h              from  82 for  9,
                     land           from  91 for 14,
@@ -49,7 +49,7 @@ Here's our command:
                  )
             INTO postgresql:///pgloader?places
                  (
-    	        usps, fips, fips_code, "LocationName"
+    	        usps, fips, fips_code, loc_name
                  );
 
 You can see the full list of options in the
