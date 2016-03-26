@@ -95,8 +95,7 @@ quicklisp: $(QLDIR)/setup.lisp ;
 clones: $(QLDIR)/local-projects/cl-ixf \
         $(QLDIR)/local-projects/cl-db3 \
         $(QLDIR)/local-projects/cl-csv \
-        $(QLDIR)/local-projects/qmynd  \
-        $(QLDIR)/local-projects/esrap ;
+        $(QLDIR)/local-projects/qmynd ;
 
 $(LIBS): $(QLDIR)/setup.lisp clones
 	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp                 \
