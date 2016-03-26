@@ -84,7 +84,9 @@
 
               ;; normal behavior, on-error-stop being nil
               ;; clean the current transaction before retrying new ones
-              (retry-batch table columns batch batch-rows condition)))
+              (progn
+                (log-message :error "~a" condition)
+                (retry-batch table columns batch batch-rows condition))))
 
         (condition (c)
           ;; non retryable failures
