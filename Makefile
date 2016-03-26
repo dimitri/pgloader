@@ -82,9 +82,6 @@ $(QLDIR)/local-projects/cl-db3:
 $(QLDIR)/local-projects/cl-csv:
 	git clone https://github.com/AccelerationNet/cl-csv.git $@
 
-$(QLDIR)/local-projects/esrap:
-	git clone -b wip-better-errors https://github.com/scymtym/esrap.git $@
-
 $(QLDIR)/setup.lisp:
 	mkdir -p $(BUILDDIR)
 	curl -o $(BUILDDIR)/quicklisp.lisp http://beta.quicklisp.org/quicklisp.lisp
