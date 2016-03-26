@@ -364,6 +364,7 @@
 (defmethod process-index-definitions ((table table) &key sql-dialect)
   "Rewrite all index filter in TABLE."
   (loop :for index :in (table-index-list table)
+     :when (pgsql-index-filter index)
      :do (let ((pg-filter
                 (handler-case
                     (translate-index-filter table index sql-dialect)

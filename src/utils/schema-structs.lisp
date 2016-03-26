@@ -30,7 +30,7 @@
 ;;; implemented in each source separately.
 ;;;
 (defstruct catalog name schema-list)
-(defstruct schema source-name name table-list view-list)
+(defstruct schema source-name name catalog table-list view-list)
 (defstruct table source-name name schema oid comment
            ;; field is for SOURCE
            ;; column is for TARGET
@@ -155,7 +155,8 @@
 
 (defmethod add-schema ((catalog catalog) schema-name &key)
   "Add SCHEMA-NAME to CATALOG and return the new schema instance."
-  (let ((schema (make-schema :source-name schema-name
+  (let ((schema (make-schema :catalog catalog
+                             :source-name schema-name
                              :name (when schema-name
                                      (apply-identifier-case schema-name)))))
     (push-to-end schema (catalog-schema-list catalog))))
@@ -165,7 +166,7 @@
   (let ((table
          (make-table :source-name table-name
                      :name (apply-identifier-case table-name)
-                     :schema (schema-name schema)
+                     :schema schema
                      :comment (unless (or (null comment) (string= "" comment))
                                 comment))))
     (push-to-end table (schema-table-list schema))))
@@ -175,7 +176,7 @@
   (let ((view
          (make-table :source-name view-name
                      :name (apply-identifier-case view-name)
-                     :schema (schema-name schema)
+                     :schema schema
                      :comment (unless (or (null comment) (string= "" comment))
                                 comment))))
     (push-to-end view (schema-view-list schema))))
@@ -336,29 +337,21 @@
   "TABLE should be a table instance, but for hysterical raisins might be a
    CONS of a schema name and a table name, or just the table name as a
    string."
-  (format nil "~@[~a.~]~a" (table-schema table) (table-name table)))
+  (format nil "~@[~a.~]~a"
+          (schema-name (table-schema table))
+          (table-name table)))
 
 
-;;;
-;;; Still lacking round tuits here, so for the moment the representation of
-;;; a table name is either a string or a cons built from schema and
-;;; table-name.
-;;;
 (defmacro with-schema ((var table-name) &body body)
   "When table-name is a CONS, SET search_path TO its CAR and return its CDR,
    otherwise just return the TABLE-NAME. A PostgreSQL connection must be
    established when calling this function."
-  `(let ((,var
-          (typecase ,table-name
-            (table  (if (table-schema ,table-name)
-                        (let ((sql (format nil "SET search_path TO ~a;"
-                                           (table-schema ,table-name))))
-                          (pgloader.pgsql:pgsql-execute sql)
-                          (table-name ,table-name))
-                        (table-name ,table-name)))
-            (cons   (let ((sql (format nil "SET search_path TO ~a;"
-                                       (car ,table-name))))
-                      (pgloader.pgsql:pgsql-execute sql)
-                      (cdr ,table-name)))
-            (string ,table-name))))
-     ,@body))
+  (let ((schema-name (gensym "SCHEMA-NAME")))
+    `(let* ((,schema-name (schema-name (table-schema ,table-name)))
+            (,var
+             (progn
+               (if ,schema-name
+                   (let ((sql (format nil "SET search_path TO ~a;" ,schema-name)))
+                     (pgloader.pgsql:pgsql-execute sql)))
+               (table-name ,table-name))))
+       ,@body)))

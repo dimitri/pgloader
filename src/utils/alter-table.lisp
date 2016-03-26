@@ -49,7 +49,9 @@
 ;;;
 (defun alter-table-set-schema (table schema-name)
   "Alter the schema of TABLE, set SCHEMA-NAME instead."
-  (setf (table-schema table) schema-name))
+  (let* ((catalog (schema-catalog (table-schema table)))
+         (schema  (maybe-add-schema catalog schema-name)))
+    (setf (table-schema table) schema)))
 
 (defun alter-table-rename (table new-name)
   "Alter the name of TABLE to NEW-NAME."
@@ -60,12 +62,50 @@
 ;;; Apply the match rules as given by the parser to a table name.
 ;;;
 
-(declaim (inline rule-matches))
-(defun rule-matches (match-rule table)
+(defgeneric rule-matches (match-rule object)
+  (:documentation "Returns non-nill when MATCH-RULE matches with OBJECT."))
+
+(defmethod rule-matches ((match-rule match-rule) (table table))
   "Return non-nil when TABLE matches given MATCH-RULE."
-  (declare (type match-rule match-rule) (type table table))
   (let ((table-name (table-source-name table)))
     (ecase (match-rule-type match-rule)
       (:string (string= (match-rule-target match-rule) table-name))
       (:regex  (cl-ppcre:scan (match-rule-target match-rule) table-name)))))
 
+(defmethod rule-matches ((match-rule match-rule) (schema schema))
+  "Return non-nil when TABLE matches given MATCH-RULE."
+  (let ((schema-name (schema-source-name schema)))
+    (ecase (match-rule-type match-rule)
+      (:string (string= (match-rule-target match-rule) schema-name))
+      (:regex  (cl-ppcre:scan (match-rule-target match-rule) schema-name)))))
+
+
+;;;
+;;; Also implement ALTER SCHEMA support here, it's using the same underlying
+;;; structure.
+;;;
+(defgeneric alter-schema (object alter-schema-rule-list))
+
+(defmethod alter-schema ((catalog catalog) alter-schema-rule-list)
+  "Apply ALTER-SCHEMA-RULE-LIST to all schema of CATALOG."
+  (loop :for schema :in (catalog-schema-list catalog)
+     :do (alter-schema schema alter-schema-rule-list)))
+
+(defmethod alter-schema ((schema schema) alter-schema-rule-list)
+  "Apply ALTER-SCHEMA-RULE-LIST to SCHEMA."
+  ;;
+  ;; alter-schema-rule-list is a list of set of rules, within each set we
+  ;; only apply the first rules that matches.
+  ;;
+  (loop :for rule-list :in alter-schema-rule-list
+     :do (let ((match-rule
+                (loop :for match-rule :in rule-list
+                   :thereis (when (rule-matches match-rule schema)
+                              match-rule))))
+           (when match-rule
+             (apply (match-rule-action match-rule)
+                    (list* schema (match-rule-args match-rule)))))))
+
+(defun alter-schema-rename (schema new-name)
+  "Alter the name fo the given schema to new-name."
+  (setf (schema-name schema) new-name))

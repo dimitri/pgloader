@@ -56,3 +56,23 @@
     (cons :alter-table
           (loop :for (command ws) :in alter-table-command-list
              :collect command))))
+
+;;;
+;;; ALTER SCHEMA ... RENAME TO ...
+;;;
+;;; Useful mainly for MS SQL at the moment
+;;;
+(defrule alter-schema-rename-to (and kw-alter kw-schema quoted-namestring
+                                     kw-rename kw-to quoted-namestring)
+  (:lambda (alter-schema-command)
+    (bind (((_ _ current-name _ _ new-name) alter-schema-command))
+      (pgloader.schema::make-match-rule
+       :type :string
+       :target current-name
+       :action #'pgloader.schema::alter-schema-rename
+       :args (list new-name)))))
+
+;;; currently we only support a single ALTER SCHEMA variant
+(defrule alter-schema alter-schema-rename-to
+  (:lambda (alter-schema-rename-to)
+    (cons :alter-schema (list (list alter-schema-rename-to)))))

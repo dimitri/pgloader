@@ -114,6 +114,24 @@
                    :columns    columns
                    :transforms transforms)))
 
+(defun process-catalog (copy catalog &key alter-table alter-schema)
+  "Do all the PostgreSQL catalog tweaking here: casts, index WHERE clause
+   rewriting, pgloader level alter schema and alter table commands."
+  ;; cast the catalog into something PostgreSQL can work on
+  (cast catalog)
+
+  ;; support code for index filters (where clauses)
+  (process-index-definitions catalog :sql-dialect (class-name (class-of copy)))
+
+  ;; we may have to alter schemas
+  (when alter-schema
+    (alter-schema catalog alter-schema))
+
+  ;; if asked, now alter the catalog with given rules: the alter-table
+  ;; keyword parameter actually contains a set of alter table rules.
+  (when alter-table
+    (alter-table catalog alter-table)))
+
 
 ;;;
 ;;; Generic enough implementation of the copy-database method.
@@ -139,6 +157,7 @@
 			    excluding
                             set-table-oids
                             alter-table
+                            alter-schema
 			    materialize-views)
   "Export database source data and Import it into PostgreSQL"
   (let* ((copy-kernel  (make-kernel worker-count))
@@ -166,16 +185,11 @@
                           (let ((lp:*kernel* idx-kernel))
                             (lp:make-channel)))))
 
-    ;; cast the catalog into something PostgreSQL can work on
-    (cast catalog)
-
-    ;; support code for index filters (where clauses)
-    (process-index-definitions catalog :sql-dialect (class-name (class-of copy)))
-
-    ;; if asked, now alter the catalog with given rules: the alter-table
-    ;; keyword parameter actually contains a set of alter table rules.
-    (when alter-table
-      (alter-table catalog alter-table))
+    ;; apply catalog level transformations to support the database migration
+    ;; that's CAST rules, index WHERE clause rewriting and ALTER commands
+    (process-catalog copy catalog
+                     :alter-table alter-table
+                     :alter-schema alter-schema)
 
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (handler-case

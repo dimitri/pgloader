@@ -54,6 +54,7 @@
            #:catalog-name
            #:catalog-schema-list
            #:schema-name
+           #:schema-source-name
            #:schema-table-list
            #:schema-view-list
            #:table-name
@@ -101,6 +102,7 @@
            #:push-to-end
            #:with-schema
            #:alter-table
+           #:alter-schema
 
            #:format-table-name))
 
@@ -218,6 +220,7 @@
            #:catalog-name
            #:catalog-schema-list
            #:schema-name
+           #:schema-source-name
            #:schema-table-list
            #:schema-view-list
            #:table-name
@@ -265,6 +268,7 @@
            #:push-to-end
            #:with-schema
            #:alter-table
+           #:alter-schema
 
            #:format-table-name
            #:format-default-value
