@@ -496,7 +496,7 @@
                                         (format nil "~s::text" name)
                                         (format nil "~s" name))))
                   (sql  (format nil
-                                "select count(*) from (select ~{~a~^, ~} from ~a except select ~{~a~^, ~} from expected.~a) ss"
+                                "select count(*) from (select ~{~a~^, ~} from expected.~a except select ~{~a~^, ~} from ~a) ss"
                                 cols
                                 tname
                                 cols
