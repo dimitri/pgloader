@@ -32,7 +32,15 @@
 
 (defmethod clone-copy-for ((fixed copy-fixed) path-spec)
   "Create a copy of FIXED for loading data from PATH-SPEC."
-  (change-class (call-next-method fixed path-spec) 'copy-fixed))
+  (let ((fixed-clone
+         (change-class (call-next-method fixed path-spec) 'copy-fixed)))
+    (loop :for slot-name :in '(encoding skip-lines)
+       :do (when (slot-boundp fixed slot-name)
+             (setf (slot-value fixed-clone slot-name)
+                   (slot-value fixed slot-name))))
+
+    ;; return the new instance!
+    fixed-clone))
 
 (declaim (inline parse-row))
 
