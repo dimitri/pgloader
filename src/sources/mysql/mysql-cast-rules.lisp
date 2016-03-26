@@ -189,11 +189,44 @@
 	 (let* ((type-name
 		 (get-enum-type-name (mysql-column-table-name col)
 				     (mysql-column-name col))))
-		 (format nil "DROP TYPE IF EXISTS ~a;" type-name)))
+           (format nil "DROP TYPE IF EXISTS ~a;" type-name)))
 
        (get-create-enum (mysql-column-table-name col)
 			(mysql-column-name col)
 			(mysql-column-ctype col))))))
+
+(defmethod format-extra-triggers ((col mysql-column) &key include-drop)
+  "Return a list of string representing the extra SQL commands needed to
+   implement some MySQL features as PostgreSQL triggers, such as on update
+   CURRENT_TIMESTAMP."
+  (when (string= (mysql-column-extra col) "on update CURRENT_TIMESTAMP")
+    (let* ((col-name (apply-identifier-case (mysql-column-name col)))
+           (fun-name (format nil "on_update_current_timestamp_~a" col-name))
+           (update-fun-sql
+            (format nil "
+CREATE OR REPLACE FUNCTION ~a()
+ RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+   NEW.~a = now();
+   RETURN NEW;
+END;
+$$;"
+                    fun-name col-name))
+           (trigger-sql
+            (format nil "
+CREATE TRIGGER on_update_current_timestamp
+ BEFORE UPDATE ON ~a
+  FOR EACH ROW EXECUTE PROCEDURE ~a();"
+                    (mysql-column-table-name col) fun-name)))
+      (append
+       (when include-drop
+         (list
+          (format nil "DROP FUNCTION IF EXISTS ~a();" fun-name)
+          (format nil "DROP TRIGGER IF EXISTS on_update_current_timestamp ON ~a;"
+                  (mysql-column-table-name col))))
+       (list update-fun-sql trigger-sql)))))
 
 (defmethod cast ((col mysql-column))
   "Return the PostgreSQL type definition from given MySQL column definition."

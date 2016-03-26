@@ -21,21 +21,18 @@
     column, or nil of none is required. If no special extra type is ever
     needed, it's allowed not to specialize this generic into a method."))
 
-;; (defmethod format-pgsql-column ((col pgsql-column))
-;;   "Return a string representing the PostgreSQL column definition."
-;;   (let* ((column-name
-;; 	  (apply-identifier-case (pgsql-column-name col)))
-;; 	 (type-definition
-;; 	  (format nil
-;; 		  "~a~@[~a~]~:[~; not null~]~@[ default ~a~]"
-;; 		  (pgsql-column-type-name col)
-;; 		  (pgsql-column-type-mod col)
-;; 		  (pgsql-column-nullable col)
-;; 		  (pgsql-column-default col))))
-;;     (format nil "~a ~22t ~a" column-name type-definition)))
+(defgeneric format-extra-trigger (col &key include-drop)
+  (:documentation
+   "Return a list of string representing the extra SQL commands needed to
+    implement PostgreSQL triggers."))
 
 (defmethod format-extra-type ((col T) &key include-drop)
   "The default `format-extra-type' implementation returns an empty list."
+  (declare (ignorable include-drop))
+  nil)
+
+(defmethod format-extra-triggers ((col T) &key include-drop)
+  "The default `format-extra-triggers' implementation returns an empty list."
   (declare (ignorable include-drop))
   nil)
 
@@ -143,13 +140,18 @@
      :for extra-types := (loop :for field :in fields
                             :append (format-extra-type
                                      field :include-drop include-drop))
+     :for extra-triggers := (loop :for field :in fields
+                               :append (format-extra-triggers
+                                        field :include-drop include-drop))
 
      :when include-drop
      :collect (drop-table-if-exists-sql table)
 
      :when extra-types :append extra-types
 
-     :collect (create-table-sql table :if-not-exists if-not-exists)))
+     :collect (create-table-sql table :if-not-exists if-not-exists)
+
+     :when extra-triggers :append extra-triggers))
 
 (defun create-table-list (table-list
                           &key

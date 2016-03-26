@@ -366,6 +366,7 @@
 	   #:create-views
 	   #:format-pgsql-column
 	   #:format-extra-type
+	   #:format-extra-triggers
 	   #:make-pgsql-fkey
 	   #:format-pgsql-create-fkey
 	   #:format-pgsql-drop-fkey
@@ -596,6 +597,7 @@
                 #:truncate-tables
 		#:format-pgsql-column
 		#:format-extra-type
+		#:format-extra-triggers
 		#:make-pgsql-fkey
 		#:format-pgsql-create-fkey
 		#:format-pgsql-drop-fkey
