@@ -70,6 +70,7 @@
                                             gucs
                                             casts
                                             alter-schema
+                                            alter-table
                                             before-load
                                             after-load
                                             including-like-in-schema
@@ -136,7 +137,7 @@
 (defun lisp-code-for-loading-from-mssql (ms-db-conn pg-db-conn
                                          &key
                                            gucs casts before after options
-                                           alter-schema
+                                           alter-schema alter-table
                                            including excluding)
   `(lambda ()
      ;; now is the time to load the CFFI lib we need (freetds)
@@ -159,6 +160,7 @@
                                      :including ',including
                                      :excluding ',excluding
                                      :alter-schema ',alter-schema
+                                     :alter-table ',alter-table
                                      :set-table-oids t
                                      ,@(remove-batch-control-option options))
 
@@ -168,7 +170,7 @@
   (:lambda (source)
     (bind (((ms-db-uri pg-db-uri
                        &key
-                       gucs casts before after alter-schema
+                       gucs casts before after alter-schema alter-table
                        including excluding options)
             source))
       (cond (*dry-run*
@@ -180,6 +182,7 @@
                                                :before before
                                                :after after
                                                :alter-schema alter-schema
+                                               :alter-table alter-table
                                                :options options
                                                :including including
                                                :excluding excluding))))))

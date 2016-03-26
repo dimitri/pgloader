@@ -32,7 +32,7 @@
     (let* ((sql  (format nil "SELECT ~{~a~^, ~} FROM [~a].[~a];"
                          (get-column-list (fields mssql))
                          (schema-source-name (table-schema (source mssql)))
-                         (table-name (source mssql)))))
+                         (table-source-name (source mssql)))))
       (log-message :debug "~a" sql)
       (handler-case
           (handler-bind

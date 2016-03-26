@@ -2195,6 +2195,25 @@ The `mssql` command accepts the following clauses and options:
 
 	    EXCLUDING TABLE NAMES MATCHING 'LocalAccount' in schema 'dbo'
 
+  - *ALTER SCHEMA '...' RENAME TO '...'*
+
+    Allows to rename a schema on the flight, so that for instance the tables
+    found in the schema 'dbo' in your source database will get migrated into
+    the schema 'public' in the target database with this command:
+
+        ALTER SCHEMA 'dbo' RENAME TO 'public'
+
+  - *ALTER TABLE NAMES MATCHING ... IN SCHEMA '...'*
+
+    See the MySQL explanation for this clause above. It works the same in
+    the context of migrating from MS SQL, only with the added option to
+    specify the name of the schema where to find the definition of the
+    target tables.
+
+    The matching is done in pgloader itself, with a Common Lisp regular
+    expression lib, so doesn't depend on the *LIKE* implementation of MS
+    SQL, nor on the lack of support for regular expressions in the engine.
+
 ### DEFAULT MS SQL CASTING RULES
 
 When migrating from MS SQL the following Casting Rules are provided:

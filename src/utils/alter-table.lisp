@@ -12,7 +12,7 @@
                     :action #'pgloader.schema::alter-table-set-schema
                     :args (list "mv"))
 |#
-(defstruct match-rule type target action args)
+(defstruct match-rule type target schema action args)
 
 (defgeneric alter-table (object alter-table-rule-list))
 
@@ -67,10 +67,14 @@
 
 (defmethod rule-matches ((match-rule match-rule) (table table))
   "Return non-nil when TABLE matches given MATCH-RULE."
-  (let ((table-name (table-source-name table)))
-    (ecase (match-rule-type match-rule)
-      (:string (string= (match-rule-target match-rule) table-name))
-      (:regex  (cl-ppcre:scan (match-rule-target match-rule) table-name)))))
+  (let ((schema-name (schema-source-name (table-schema table)))
+        (rule-schema (match-rule-schema match-rule))
+        (table-name  (table-source-name table)))
+    (when (or (null rule-schema)
+              (and rule-schema (string= rule-schema schema-name)))
+      (ecase (match-rule-type match-rule)
+        (:string (string= (match-rule-target match-rule) table-name))
+        (:regex  (cl-ppcre:scan (match-rule-target match-rule) table-name))))))
 
 (defmethod rule-matches ((match-rule match-rule) (schema schema))
   "Return non-nil when TABLE matches given MATCH-RULE."

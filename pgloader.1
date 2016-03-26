@@ -2679,6 +2679,32 @@ EXCLUDING TABLE NAMES MATCHING \'LocalAccount\' in schema \'dbo\'
 .IP "" 0
 
 .
+.IP "\(bu" 4
+\fIALTER SCHEMA \'\.\.\.\' RENAME TO \'\.\.\.\'\fR
+.
+.IP
+Allows to rename a schema on the flight, so that for instance the tables found in the schema \'dbo\' in your source database will get migrated into the schema \'public\' in the target database with this command:
+.
+.IP "" 4
+.
+.nf
+
+ALTER SCHEMA \'dbo\' RENAME TO \'public\'
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fIALTER TABLE NAMES MATCHING \.\.\. IN SCHEMA \'\.\.\.\'\fR
+.
+.IP
+See the MySQL explanation for this clause above\. It works the same in the context of migrating from MS SQL, only with the added option to specify the name of the schema where to find the definition of the target tables\.
+.
+.IP
+The matching is done in pgloader itself, with a Common Lisp regular expression lib, so doesn\'t depend on the \fILIKE\fR implementation of MS SQL, nor on the lack of support for regular expressions in the engine\.
+.
 .IP "" 0
 .
 .SS "DEFAULT MS SQL CASTING RULES"

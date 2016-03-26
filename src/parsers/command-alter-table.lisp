@@ -28,6 +28,9 @@
     (bind (((_ _ _ _ match-rule-target-list) alter-table))
       match-rule-target-list)))
 
+(defrule in-schema (and kw-in kw-schema quoted-namestring)
+  (:function third))
+
 (defrule rename-to (and kw-rename kw-to quoted-namestring)
   (:lambda (stmt)
     (bind (((_ _ new-name) stmt))
@@ -41,13 +44,17 @@
 (defrule alter-table-action (or rename-to
                                 set-schema))
 
-(defrule alter-table-command (and alter-table-names-matching alter-table-action)
+(defrule alter-table-command (and alter-table-names-matching
+                                  (? in-schema)
+                                  alter-table-action)
   (:lambda (alter-table-command)
-    (destructuring-bind (match-rule-target-list action) alter-table-command
+    (destructuring-bind (match-rule-target-list schema action)
+        alter-table-command
       (loop :for match-rule-target :in match-rule-target-list
          :collect (pgloader.schema::make-match-rule
                    :type   (first match-rule-target)
                    :target (second match-rule-target)
+                   :schema schema
                    :action (first action)
                    :args   (rest action))))))
 
