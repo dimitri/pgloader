@@ -150,8 +150,11 @@
     (cons   (make-table :source-name maybe-qualified-name
                         :name (apply-identifier-case
                                (cdr maybe-qualified-name))
-                        :schema (apply-identifier-case
-                                 (car maybe-qualified-name))))))
+                        :schema
+                        (let ((sname (car maybe-qualified-name)))
+                          (make-schema :catalog nil
+                                       :source-name sname
+                                       :name (apply-identifier-case sname)))))))
 
 (defmethod add-schema ((catalog catalog) schema-name &key)
   "Add SCHEMA-NAME to CATALOG and return the new schema instance."
@@ -338,7 +341,7 @@
    CONS of a schema name and a table name, or just the table name as a
    string."
   (format nil "~@[~a.~]~a"
-          (schema-name (table-schema table))
+          (when (table-schema table) (schema-name (table-schema table)))
           (table-name table)))
 
 
@@ -347,7 +350,8 @@
    otherwise just return the TABLE-NAME. A PostgreSQL connection must be
    established when calling this function."
   (let ((schema-name (gensym "SCHEMA-NAME")))
-    `(let* ((,schema-name (schema-name (table-schema ,table-name)))
+    `(let* ((,schema-name (when (table-schema ,table-name)
+                            (schema-name (table-schema ,table-name))))
             (,var
              (progn
                (if ,schema-name

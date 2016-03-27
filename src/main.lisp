@@ -440,28 +440,32 @@
            (expected-data-file     (make-pathname :defaults load-file
                                                   :type "out"
                                                   :directory expected-subdir))
-           ((target *pg-settings*) (parse-target-pg-db-uri load-file))
-           (*pgsql-reserved-keywords* (list-reserved-keywords target))
+           ((target-conn *pg-settings*) (parse-target-pg-db-uri load-file))
+           (*pgsql-reserved-keywords* (list-reserved-keywords target-conn))
+           (target-table (create-table (pgconn-table-name target-conn)))
 
            (expected-data-source
-              (parse-source-string-for-type
-               :copy (uiop:native-namestring expected-data-file)))
+            (parse-source-string-for-type
+             :copy (uiop:native-namestring expected-data-file)))
 
            ;; change target table-name schema
            (expected-data-target
-              (let ((e-d-t (clone-connection target)))
-                (setf (pgconn-table-name e-d-t)
-                      (cons "expected"
-                            (typecase (pgconn-table-name e-d-t)
-                              (string (pgconn-table-name e-d-t))
-                              (cons   (cdr (pgconn-table-name e-d-t))))))
-                e-d-t)))
+            (let ((e-d-t (clone-connection target-conn)))
+              (setf (pgconn-table-name e-d-t)
+                    ;;
+                    ;; The connection facility still works with cons here,
+                    ;; rather than table structure instances, because of
+                    ;; depedencies as explained in
+                    ;; src/parsers/command-db-uri.lisp
+                    ;;
+                    (cons "expected" (table-name target-table)))
+              e-d-t)))
 
       (log-message :log "Comparing loaded data against ~s" expected-data-file)
 
       ;; prepare expected table in "expected" schema
-      (with-pgsql-connection (target)
-        (with-schema (unqualified-table-name (pgconn-table-name target))
+      (with-pgsql-connection (target-conn)
+        (with-schema (unqualified-table-name target-table)
           (let* ((tname  (apply-identifier-case unqualified-table-name))
                  (drop   (format nil "drop table if exists expected.~a;"
                                  tname))
@@ -478,41 +482,41 @@
                  :options '(:truncate t)
                  :start-logger nil)
 
-       ;; now compare both
-       (with-pgsql-connection (target)
-         (with-schema (unqualified-table-name (pgconn-table-name target))
-           (let* ((tname  (apply-identifier-case unqualified-table-name))
-                  (cols (loop :for (name type)
-                           :in (list-columns-query tname)
-                           ;;
-                           ;; We can't just use table names here, because
-                           ;; PostgreSQL support for the POINT datatype fails
-                           ;; to implement EXCEPT support, and the query then
-                           ;; fails with:
-                           ;;
-                           ;; could not identify an equality operator for type point
-                           ;;
-                           :collect (if (string= "point" type)
-                                        (format nil "~s::text" name)
-                                        (format nil "~s" name))))
-                  (sql  (format nil
-                                "select count(*) from (select ~{~a~^, ~} from expected.~a except select ~{~a~^, ~} from ~a) ss"
-                                cols
-                                tname
-                                cols
-                                tname))
-                  (diff-count (pomo:query sql :single)))
-             (log-message :notice "~a" sql)
-             (log-message :notice "Got a diff of ~a rows" diff-count)
-             (if (= 0 diff-count)
-                 (progn
-                   (log-message :log "Regress pass.")
-                   #-pgloader-image (values diff-count +os-code-success+)
-                   #+pgloader-image (uiop:quit +os-code-success+))
-                 (progn
-                   (log-message :log "Regress fail.")
-                   #-pgloader-image (values diff-count +os-code-error-regress+)
-                   #+pgloader-image (uiop:quit +os-code-error-regress+)))))))))
+      ;; now compare both
+      (with-pgsql-connection (target-conn)
+        (with-schema (unqualified-table-name target-table)
+          (let* ((tname  (apply-identifier-case unqualified-table-name))
+                 (cols (loop :for (name type)
+                          :in (list-columns-query tname)
+                          ;;
+                          ;; We can't just use table names here, because
+                          ;; PostgreSQL support for the POINT datatype fails
+                          ;; to implement EXCEPT support, and the query then
+                          ;; fails with:
+                          ;;
+                          ;; could not identify an equality operator for type point
+                          ;;
+                          :collect (if (string= "point" type)
+                                       (format nil "~s::text" name)
+                                       (format nil "~s" name))))
+                 (sql  (format nil
+                               "select count(*) from (select ~{~a~^, ~} from expected.~a except select ~{~a~^, ~} from ~a) ss"
+                               cols
+                               tname
+                               cols
+                               tname))
+                 (diff-count (pomo:query sql :single)))
+            (log-message :notice "~a" sql)
+            (log-message :notice "Got a diff of ~a rows" diff-count)
+            (if (= 0 diff-count)
+                (progn
+                  (log-message :log "Regress pass.")
+                  #-pgloader-image (values diff-count +os-code-success+)
+                  #+pgloader-image (uiop:quit +os-code-success+))
+                (progn
+                  (log-message :log "Regress fail.")
+                  #-pgloader-image (values diff-count +os-code-error-regress+)
+                  #+pgloader-image (uiop:quit +os-code-error-regress+)))))))))
 
 
 ;;;
