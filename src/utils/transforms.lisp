@@ -193,14 +193,15 @@
    values."
   (declare (type (or null string fixnum) integer-string))
   (when integer-string
-    (typecase integer-string
-      (integer (princ-to-string integer-string))
-      (string  (handler-case
-                   (parse-integer integer-string :start 0)
-                 (condition (c)
-                   (declare (ignore c))
-                   (parse-integer integer-string :start 1
-                                  :end (- (length integer-string) 1))))))))
+    (princ-to-string
+     (typecase integer-string
+       (integer integer-string)
+       (string  (handler-case
+                    (parse-integer integer-string :start 0)
+                  (condition (c)
+                    (declare (ignore c))
+                    (parse-integer integer-string :start 1
+                                   :end (- (length integer-string) 1)))))))))
 
 (defun float-to-string (float)
   "Transform a Common Lisp float value into its string representation as
