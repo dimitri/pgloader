@@ -54,7 +54,7 @@
 (defmethod format-pgsql-create-fkey ((fk pgsql-fkey))
   "Generate the PostgreSQL statement to rebuild a MySQL Foreign Key"
   (format nil
-          "ALTER TABLE ~a ADD CONSTRAINT ~a FOREIGN KEY(~{~a~^,~}) REFERENCES ~a(~{~a~^,~})~:[~*~; ON UPDATE ~a~]~:[~*~; ON DELETE ~a~]"
+          "ALTER TABLE ~a ADD ~@[CONSTRAINT ~a ~]FOREIGN KEY(~{~a~^,~}) REFERENCES ~a(~{~a~^,~})~:[~*~; ON UPDATE ~a~]~:[~*~; ON DELETE ~a~]"
           (format-table-name (pgsql-fkey-table fk))
           (pgsql-fkey-name fk)        ; constraint name
           (pgsql-fkey-columns fk)
@@ -67,14 +67,15 @@
 
 (defmethod format-pgsql-drop-fkey ((fk pgsql-fkey) &key all-pgsql-fkeys)
   "Generate the PostgreSQL statement to rebuild a MySQL Foreign Key"
-  (let* ((constraint-name (apply-identifier-case (pgsql-fkey-name fk)))
-	 (table-name      (format-table-name (pgsql-fkey-table fk)))
-	 (fkeys           (cdr (assoc table-name all-pgsql-fkeys :test #'string=)))
-	 (fkey-exists     (member constraint-name fkeys :test #'string=)))
-    (when fkey-exists
-      ;; we could do that without all-pgsql-fkeys in 9.2 and following with:
-      ;; alter table if exists ... drop constraint if exists ...
-      (format nil "ALTER TABLE ~a DROP CONSTRAINT ~a" table-name constraint-name))))
+  (when (pgsql-fkey-name fk)
+   (let* ((constraint-name (apply-identifier-case (pgsql-fkey-name fk)))
+          (table-name      (format-table-name (pgsql-fkey-table fk)))
+          (fkeys           (cdr (assoc table-name all-pgsql-fkeys :test #'string=)))
+          (fkey-exists     (member constraint-name fkeys :test #'string=)))
+     (when fkey-exists
+       ;; we could do that without all-pgsql-fkeys in 9.2 and following with:
+       ;; alter table if exists ... drop constraint if exists ...
+       (format nil "ALTER TABLE ~a DROP CONSTRAINT ~a" table-name constraint-name)))))
 
 (defun drop-pgsql-fkeys (catalog)
   "Drop all Foreign Key Definitions given, to prepare for a clean run."

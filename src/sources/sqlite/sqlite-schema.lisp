@@ -93,38 +93,73 @@
      :do (let ((table (add-table schema table-name)))
            (list-columns table db))))
 
-(defstruct sqlite-idx name table-name sql)
+
+;;;
+;;; Index support
+;;;
+(defun is-index-pk (table index-col-name-list)
+  "The only way to know with SQLite pragma introspection if a particular
+   UNIQUE index is actually PRIMARY KEY is by comparing the list of column
+   names in the index with the ones marked with non-zero pk in the table
+   definition."
+  (equal (loop :for field :in (table-field-list table)
+            :when (< 0 (coldef-pk-id field))
+            :collect (coldef-name field))
+         index-col-name-list))
 
-(defmethod index-table-name ((index sqlite-idx))
-  (sqlite-idx-table-name index))
+(defun list-index-cols (index-name &optional (db *sqlite-db*))
+  "Return the list of columns in INDEX-NAME."
+  (let ((sql (format nil "PRAGMA index_info(~a)" index-name)))
+    (loop :for (index-pos table-pos col-name) :in (sqlite:execute-to-list db sql)
+       :collect col-name)))
 
-(defmethod format-pgsql-create-index ((table table) (index sqlite-idx))
-  "Generate the PostgresQL statement to build the given SQLite index definition."
-  (sqlite-idx-sql index))
-
-(defun list-all-indexes (schema
-                         &key
-                           (db *sqlite-db*)
-                           including
-                           excluding)
-  "Get the list of SQLite index definitions per table."
-  (let ((sql (format nil
-                     "SELECT name, tbl_name, replace(replace(sql, '[', ''), ']', '')
-                        FROM sqlite_master
-                       WHERE type='index'
-                             ~:[~*~;AND (~{~a~^~&~10t or ~})~]
-                             ~:[~*~;AND (~{~a~^~&~10t and ~})~]"
-                     including          ; do we print the clause?
-                     (filter-list-to-where-clause including nil)
-                     excluding          ; do we print the clause?
-                     (filter-list-to-where-clause excluding t))))
-    (log-message :info "~a" sql)
+(defun list-indexes (table &optional (db *sqlite-db*))
+  "Return the list of indexes attached to TABLE."
+  (let* ((table-name (table-source-name table))
+         (sql        (format nil "PRAGMA index_list(~a)" table-name)))
     (loop
-       :for (index-name table-name sql) :in (sqlite:execute-to-list db sql)
-       :when sql
-       :do (let ((table  (find-table schema table-name))
-                 (idxdef (make-sqlite-idx :name index-name
-                                          :sql sql)))
-             (add-index table idxdef))
-       :finally (return schema))))
+       :for (seq index-name unique origin partial) :in (sqlite:execute-to-list db sql)
+       :do (let* ((cols  (list-index-cols index-name db))
+                  (index (make-pgsql-index :name index-name
+                                           :primary (is-index-pk table cols)
+                                           :unique (= unique 1)
+                                           :columns cols)))
+             (add-index table index)))))
 
+(defun list-all-indexes (schema &key (db *sqlite-db*))
+  "Get the list of SQLite index definitions per table."
+  (loop :for table :in (schema-table-list schema)
+     :do (list-indexes table db)))
+
+
+;;;
+;;; Foreign keys support
+;;;
+(defun list-fkeys (table &optional (db *sqlite-db*))
+  "Return the list of indexes attached to TABLE."
+  (let* ((table-name (table-source-name table))
+         (sql        (format nil "PRAGMA foreign_key_list(~a)" table-name)))
+    (loop
+       :with fkey-table := (make-hash-table)
+       :for (id seq ftable-name from to on-update on-delete match)
+       :in (sqlite:execute-to-list db sql)
+
+       :do (let* ((ftable (find-table (table-schema table) ftable-name))
+                  (fkey   (or (gethash id fkey-table)
+                              (let ((pg-fkey
+                                     (make-pgsql-fkey :table table
+                                                      :columns nil
+                                                      :foreign-table ftable
+                                                      :foreign-columns nil
+                                                      :update-rule on-update
+                                                      :delete-rule on-delete)))
+                                (setf (gethash id fkey-table) pg-fkey)
+                                (add-fkey table pg-fkey)
+                                pg-fkey))))
+             (push-to-end from (pgsql-fkey-columns fkey))
+             (push-to-end to   (pgsql-fkey-foreign-columns fkey))))))
+
+(defun list-all-fkeys (schema &key (db *sqlite-db*))
+  "Get the list of SQLite foreign keys definitions per table."
+  (loop :for table :in (schema-table-list schema)
+     :do (list-fkeys table db)))

@@ -26,6 +26,7 @@ load database
 			   option-create-tables
 			   option-create-indexes
 			   option-reset-sequences
+                           option-foreign-keys
                            option-encoding))
 
 (defrule sqlite-options (and kw-with
@@ -111,6 +112,7 @@ load database
        ,(sql-code-block pg-db-conn :pre before "before load")
 
        (pgloader.sqlite:copy-database source
+                                      :set-table-oids t
                                       :including ',incl
                                       :excluding ',excl
                                       ,@(remove-batch-control-option options))

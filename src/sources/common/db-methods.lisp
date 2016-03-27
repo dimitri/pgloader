@@ -80,9 +80,7 @@
     (unless data-only
       (loop :for sql :in pkeys
          :when sql
-         :do (progn
-               (log-message :notice "~a" sql)
-               (pgsql-execute-with-timing :post "Primary Keys" sql))))
+         :do (pgsql-execute-with-timing :post "Primary Keys" sql)))
 
     ;;
     ;; Foreign Key Constraints

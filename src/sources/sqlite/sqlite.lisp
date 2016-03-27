@@ -93,12 +93,12 @@
                            &key
                              materialize-views
                              only-tables
-                             create-indexes
-                             foreign-keys
+                             (create-indexes t)
+                             (foreign-keys   t)
                              including
                              excluding)
   "SQLite introspection to prepare the migration."
-  (declare (ignore materialize-views only-tables foreign-keys))
+  (declare (ignore materialize-views only-tables))
   (let ((schema (add-schema catalog nil)))
     (with-stats-collection ("fetch meta data"
                             :use-result-as-rows t
@@ -112,10 +112,10 @@
                               :excluding excluding)
 
             (when create-indexes
-              (list-all-indexes schema
-                                :db *sqlite-db*
-                                :including including
-                                :excluding excluding)))
+              (list-all-indexes schema :db *sqlite-db*))
+
+            (when foreign-keys
+              (list-all-fkeys schema :db *sqlite-db*)))
 
           ;; return how many objects we're going to deal with in total
           ;; for stats collection

@@ -368,6 +368,8 @@
 	   #:format-extra-type
 	   #:format-extra-triggers
 	   #:make-pgsql-fkey
+           #:pgsql-fkey-columns
+           #:pgsql-fkey-foreign-columns
 	   #:format-pgsql-create-fkey
 	   #:format-pgsql-drop-fkey
            #:drop-pgsql-fkeys
@@ -640,6 +642,9 @@
 		#:index-table-name
 		#:format-pgsql-create-index
 		#:create-indexes-in-kernel
+                #:make-pgsql-fkey
+                #:pgsql-fkey-columns
+                #:pgsql-fkey-foreign-columns
                 #:set-table-oids
                 #:reset-sequences
                 #:comment-on-tables-and-columns)
