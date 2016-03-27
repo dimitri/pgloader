@@ -14,7 +14,8 @@
           (or (uiop:string-prefix-p "CURRENT_TIMESTAMP" default)
               (string= "CURRENT TIMESTAMP" default)))
      "CURRENT_TIMESTAMP")
-    ((and (stringp default) (string= "newsequentialid()" default))
+    ((and (stringp default) (or (string= "newid()" default)
+                                (string= "newsequentialid()" default)))
      "uuid_generate_v1()")
     (t
      ;; apply the transformation function to the default value
