@@ -195,12 +195,19 @@
 			(mysql-column-name col)
 			(mysql-column-ctype col))))))
 
-(defmethod format-extra-triggers ((col mysql-column) &key include-drop)
+(defmethod format-extra-triggers ((table table) (col mysql-column) &key drop)
   "Return a list of string representing the extra SQL commands needed to
    implement some MySQL features as PostgreSQL triggers, such as on update
-   CURRENT_TIMESTAMP."
+   CURRENT_TIMESTAMP.
+
+   When drop is t, only output the DROP sql statements."
   (when (string= (mysql-column-extra col) "on update CURRENT_TIMESTAMP")
-    (let* ((col-name (apply-identifier-case (mysql-column-name col)))
+    (let* ((field-pos (position (mysql-column-name col)
+                                (table-field-list table)
+                                :key #'mysql-column-name
+                                :test #'string=))
+           (col-name (funcall #'column-name
+                              (nth field-pos (table-column-list table))))
            (fun-name (format nil "on_update_current_timestamp_~a" col-name))
            (update-fun-sql
             (format nil "
@@ -219,14 +226,16 @@ $$;"
 CREATE TRIGGER on_update_current_timestamp
  BEFORE UPDATE ON ~a
   FOR EACH ROW EXECUTE PROCEDURE ~a();"
-                    (mysql-column-table-name col) fun-name)))
-      (append
-       (when include-drop
-         (list
-          (format nil "DROP FUNCTION IF EXISTS ~a();" fun-name)
-          (format nil "DROP TRIGGER IF EXISTS on_update_current_timestamp ON ~a;"
-                  (mysql-column-table-name col))))
-       (list update-fun-sql trigger-sql)))))
+                    (format-table-name table) fun-name)))
+      (if drop
+          (list
+           ;; don't DROP the function here, because it might be shared by
+           ;; several tables with "on update" rules on a field sharing the
+           ;; same name (such as "last_update").
+           ;; the CREATE OR REPLACE FUNCTION will then be innoffensive.
+           (format nil "DROP TRIGGER IF EXISTS on_update_current_timestamp ON ~a;"
+                   (mysql-column-table-name col)))
+          (list update-fun-sql trigger-sql)))))
 
 (defmethod cast ((col mysql-column))
   "Return the PostgreSQL type definition from given MySQL column definition."

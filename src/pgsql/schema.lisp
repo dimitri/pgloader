@@ -21,7 +21,7 @@
     column, or nil of none is required. If no special extra type is ever
     needed, it's allowed not to specialize this generic into a method."))
 
-(defgeneric format-extra-trigger (col &key include-drop)
+(defgeneric format-extra-triggers (table col &key drop)
   (:documentation
    "Return a list of string representing the extra SQL commands needed to
     implement PostgreSQL triggers."))
@@ -31,9 +31,9 @@
   (declare (ignorable include-drop))
   nil)
 
-(defmethod format-extra-triggers ((col T) &key include-drop)
+(defmethod format-extra-triggers ((table T) (col T) &key drop)
   "The default `format-extra-triggers' implementation returns an empty list."
-  (declare (ignorable include-drop))
+  (declare (ignorable table col drop))
   nil)
 
 
@@ -140,18 +140,25 @@
      :for extra-types := (loop :for field :in fields
                             :append (format-extra-type
                                      field :include-drop include-drop))
-     :for extra-triggers := (loop :for field :in fields
-                               :append (format-extra-triggers
-                                        field :include-drop include-drop))
+
+     :for pre-extra-triggers
+     := (when include-drop
+          (loop :for field :in fields
+             :append (format-extra-triggers table field :drop t)))
+
+     :for post-extra-triggers
+     := (loop :for field :in fields
+           :append (format-extra-triggers table field))
 
      :when include-drop
      :collect (drop-table-if-exists-sql table)
 
      :when extra-types :append extra-types
+     :when pre-extra-triggers :append pre-extra-triggers
 
      :collect (create-table-sql table :if-not-exists if-not-exists)
 
-     :when extra-triggers :append extra-triggers))
+     :when post-extra-triggers :append post-extra-triggers))
 
 (defun create-table-list (table-list
                           &key
@@ -222,21 +229,21 @@
                              (catalog (table-list catalog-or-table))
                              (schema  (table-list catalog-or-table))
                              (table   (list catalog-or-table)))))))
-      (pomo:execute sql))))
+      (pgsql-execute sql))))
 
 (defun disable-triggers (table-name)
   "Disable triggers on TABLE-NAME. Needs to be called with a PostgreSQL
    connection already opened."
   (let ((sql (format nil "ALTER TABLE ~a DISABLE TRIGGER ALL;"
                      (apply-identifier-case table-name))))
-    (pomo:execute sql)))
+    (pgsql-execute sql)))
 
 (defun enable-triggers (table-name)
   "Disable triggers on TABLE-NAME. Needs to be called with a PostgreSQL
    connection already opened."
   (let ((sql (format nil "ALTER TABLE ~a ENABLE TRIGGER ALL;"
                      (apply-identifier-case table-name))))
-    (pomo:execute sql)))
+    (pgsql-execute sql)))
 
 (defmacro with-disabled-triggers ((table-name &key disable-triggers)
                                   &body forms)
