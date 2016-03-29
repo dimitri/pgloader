@@ -322,7 +322,8 @@
   "Count how many indexes maximum per table are listed in SCHEMA."
   (reduce #'max (mapcar #'length
                         (mapcar #'table-index-list
-                                (schema-table-list schema)))))
+                                (schema-table-list schema)))
+          :initial-value 0))
 "Count how many indexes maximum per table are listed in SCHEMA."
 
 (defmethod max-indexes-per-table ((catalog catalog) &key)
