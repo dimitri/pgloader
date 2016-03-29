@@ -53,6 +53,9 @@
     (:source (:type "binary") :target (:type "bytea")
              :using pgloader.transforms::byte-vector-to-bytea)
 
+    (:source (:type "image") :target (:type "bytea")
+             :using pgloader.transforms::byte-vector-to-bytea)
+
     (:source (:type "varbinary") :target (:type "bytea")
              :using pgloader.transforms::byte-vector-to-bytea)
 
