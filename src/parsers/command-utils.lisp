@@ -24,7 +24,7 @@
 (defrule keep-a-single-whitespace (+ (or #\space #\tab #\newline #\linefeed))
   (:constant " "))
 
-(defrule whitespace (+ (or #\space #\tab #\newline #\linefeed comments))
+(defrule whitespace (+ (or #\space #\tab #\return #\newline #\linefeed comments))
   (:constant 'whitespace))
 
 (defrule ignore-whitespace (* whitespace)
