@@ -48,6 +48,7 @@
                           option-batch-rows
                           option-batch-size
                           option-batch-concurrency
+                          option-max-parallel-create-index
                           option-truncate
                           option-drop-indexes
                           option-disable-triggers

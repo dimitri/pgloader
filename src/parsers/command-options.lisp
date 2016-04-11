@@ -37,6 +37,12 @@
     (bind (((_ _ nb) concurrency))
       (cons :concurrency (parse-integer (text nb))))))
 
+(defrule option-max-parallel-create-index
+    (and kw-max kw-parallel kw-create kw-index equal-sign
+         (+ (digit-char-p character)))
+  (:lambda (opt)
+    (cons :max-parallel-create-index (parse-integer (text (sixth opt))))))
+
 (defrule option-batch-rows (and kw-batch kw-rows equal-sign
                                 (+ (digit-char-p character)))
   (:lambda (batch-rows)

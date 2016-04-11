@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "March 2016" "ff" ""
+.TH "PGLOADER" "1" "April 2016" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -498,6 +498,9 @@ With \fBworkers = 8, concurrency = 1\fR, we then are able to work on several uni
 .P
 As the \fBCREATE INDEX\fR threads started by pgloader are only waiting until PostgreSQL is done with the real work, those threads are \fINOT\fR counted into the concurrency levels as detailed here\.
 .
+.P
+By default, as many \fBCREATE INDEX\fR threads as the maximum number of indexes per table are found in your source schema\. It is possible to set the \fBmax parallel create index\fR \fIWITH\fR option to another number in case there\'s just too many of them to create\.
+.
 .SH "SOURCE FORMATS"
 pgloader supports the following input formats:
 .
@@ -634,6 +637,9 @@ In addition, the following settings are available:
 .
 .IP "\(bu" 4
 \fIconcurrency = C\fR
+.
+.IP "\(bu" 4
+\fImax parallel create index = I\fR
 .
 .IP "" 0
 .

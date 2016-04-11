@@ -79,6 +79,7 @@
 			   &key
                              worker-count
                              concurrency
+                             max-parallel-create-index
 			     truncate
 			     data-only
 			     schema-only

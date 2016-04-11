@@ -473,14 +473,19 @@
              (with-stats-collection ("drop indexes" :section section)
                  (drop-indexes section table)))))))
 
-(defun create-indexes-again (target table &key (section :post) drop-indexes)
+(defun create-indexes-again (target table
+                             &key
+                               max-parallel-create-index
+                               (section :post)
+                               drop-indexes)
   "Create the indexes that we dropped previously."
   (when (and (table-index-list table) drop-indexes)
     (let* ((*preserve-index-names* t)
            ;; we get the list of indexes from PostgreSQL catalogs, so don't
            ;; question their spelling, just quote them.
            (*identifier-case* :quote)
-           (idx-kernel  (make-kernel (count-indexes table)))
+           (idx-kernel  (make-kernel (or max-parallel-create-index
+                                         (count-indexes table))))
            (idx-channel (let ((lp:*kernel* idx-kernel))
                           (lp:make-channel))))
       (let ((pkeys

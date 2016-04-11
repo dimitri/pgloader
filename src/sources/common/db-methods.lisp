@@ -139,6 +139,7 @@
                             (on-error-stop    *on-error-stop*)
                             (worker-count     4)
                             (concurrency      1)
+                            max-parallel-create-index
 			    (truncate         nil)
 			    (disable-triggers nil)
 			    (data-only        nil)
@@ -178,7 +179,8 @@
          (max-indexes   (when create-indexes
                           (max-indexes-per-table catalog)))
          (idx-kernel    (when (and max-indexes (< 0 max-indexes))
-                          (make-kernel max-indexes)))
+                          (make-kernel (or max-parallel-create-index
+                                           max-indexes))))
          (idx-channel   (when idx-kernel
                           (let ((lp:*kernel* idx-kernel))
                             (lp:make-channel)))))

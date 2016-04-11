@@ -76,6 +76,8 @@
                             disable-triggers
 			    drop-indexes
 
+                            max-parallel-create-index
+
                             ;; generic API, but ignored here
                             (worker-count 4)
                             (concurrency 1)
@@ -146,4 +148,5 @@
   ;; re-create the indexes from the target table entry
   (create-indexes-again (target-db copy)
                         (target copy)
+                        :max-parallel-create-index max-parallel-create-index
                         :drop-indexes drop-indexes))

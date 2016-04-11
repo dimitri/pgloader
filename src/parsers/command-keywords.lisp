@@ -54,6 +54,8 @@
   (def-keyword-rule "rows")
   (def-keyword-rule "size")
   (def-keyword-rule "concurrency")
+  (def-keyword-rule "max")
+  (def-keyword-rule "parallel")
   (def-keyword-rule "reject")
   (def-keyword-rule "file")
   (def-keyword-rule "log")

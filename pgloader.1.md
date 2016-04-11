@@ -449,6 +449,11 @@ As the `CREATE INDEX` threads started by pgloader are only waiting until
 PostgreSQL is done with the real work, those threads are *NOT* counted into
 the concurrency levels as detailed here.
 
+By default, as many `CREATE INDEX` threads as the maximum number of indexes
+per table are found in your source schema. It is possible to set the `max
+parallel create index` *WITH* option to another number in case there's just
+too many of them to create.
+
 ## SOURCE FORMATS
 
 pgloader supports the following input formats:
@@ -568,6 +573,7 @@ Some clauses are common to all commands:
 
        - *workers = W*
        - *concurrency = C*
+       - *max parallel create index = I*
 
     See section A NOTE ABOUT PARALLELISM for more details.
 
