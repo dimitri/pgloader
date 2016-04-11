@@ -8,7 +8,8 @@ LOAD CSV
           fields escaped by backslash-quote
 
       SET work_mem to '128MB',
-          standard_conforming_strings to 'on'
+          standard_conforming_strings to 'on',
+          application_name to 'my app name'
 
    BEFORE LOAD DO
     $$ create extension if not exists hstore; $$,
