@@ -198,7 +198,8 @@
                             (format nil "~{~}"
                                     (log-message-description event)
                                     (log-message-arguments event))
-                            (log-message-description event))))
+                            (log-message-description event)))
+                  (*print-circle* t))
               (cl-log:log-message (log-message-category event) "~a" mesg)))
 
            (new-label

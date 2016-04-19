@@ -306,7 +306,13 @@ FROM
                                                     (sq:split-sequence #\, fcols))
                                   :update-rule update-rule
                                   :delete-rule delete-rule)))
-           (add-fkey table fk))
+           (if (and name table ftable)
+               (add-fkey table fk)
+               (log-message :error
+                            "Incomplete Foreign Key definition: constraint ~s on table ~s referencing table ~s"
+                            name
+                            (when table (format-table-name table))
+                            (when ftable (format-table-name ftable)))))
      :finally
      (return schema)))
 
