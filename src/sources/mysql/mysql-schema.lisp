@@ -213,7 +213,7 @@ order by table_name, ordinal_position"
   (loop
      :for (table-name name non-unique cols)
      :in (mysql-query (format nil "
-  SELECT table_name, index_name, non_unique,
+  SELECT table_name, index_name, sum(non_unique),
          cast(GROUP_CONCAT(column_name order by seq_in_index) as char)
     FROM information_schema.statistics
    WHERE table_schema = '~a'
@@ -232,7 +232,7 @@ GROUP BY table_name, index_name;"
                (index
                 (make-pgsql-index :name name ; further processing is needed
                                   :primary (string= name "PRIMARY")
-                                  :unique (not (string= "1" non-unique))
+                                  :unique (string= "0" non-unique)
                                   :columns (mapcar
                                             #'apply-identifier-case
                                             (sq:split-sequence #\, cols)))))
