@@ -189,7 +189,7 @@
 	 (let* ((type-name
 		 (get-enum-type-name (mysql-column-table-name col)
 				     (mysql-column-name col))))
-           (format nil "DROP TYPE IF EXISTS ~a;" type-name)))
+           (format nil "DROP TYPE IF EXISTS ~a CASCADE;" type-name)))
 
        (get-create-enum (mysql-column-table-name col)
 			(mysql-column-name col)
