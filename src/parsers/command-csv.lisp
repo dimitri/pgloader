@@ -420,9 +420,10 @@
        (progn
          ,(sql-code-block pg-db-conn :pre before "before load")
 
-         (let ((truncate         (getf ',options :truncate))
-               (disable-triggers (getf ',options :disable-triggers))
-               (drop-indexes     (getf ',options :drop-indexes))
+         (let ((truncate                  (getf ',options :truncate))
+               (disable-triggers          (getf ',options :disable-triggers))
+               (drop-indexes              (getf ',options :drop-indexes))
+               (max-parallel-create-index (getf ',options :max-parallel-create-index))
                (source
                 (make-instance 'pgloader.csv:copy-csv
                                :target-db  ,pg-db-conn
@@ -437,7 +438,8 @@
                                                     :concurrency
                                                     :truncate
                                                     :drop-indexes
-                                                    :disable-triggers)))))
+                                                    :disable-triggers
+                                                    :max-parallel-create-index)))))
            (pgloader.sources:copy-database source
                                            ,@ (when worker-count
                                                 (list :worker-count worker-count))
@@ -445,7 +447,8 @@
                                                 (list :concurrency concurrency))
                                            :truncate truncate
                                            :drop-indexes drop-indexes
-                                           :disable-triggers disable-triggers))
+                                           :disable-triggers disable-triggers
+                                           :max-parallel-create-index max-parallel-create-index))
 
          ,(sql-code-block pg-db-conn :post after "after load")))))
 
