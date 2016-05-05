@@ -127,8 +127,9 @@
          ,(sql-code-block pg-db-conn :pre before "before load")
 
          (let ((truncate ,(getf options :truncate))
-               (disable-triggers ,(getf options :disable-triggers))
-               (drop-indexes     ,(getf options :drop-indexes))
+               (disable-triggers              ,(getf options :disable-triggers))
+               (drop-indexes                  ,(getf options :drop-indexes))
+               (max-parallel-create-index     ,(getf options :max-parallel-create-index))
                (source
                 (make-instance 'pgloader.fixed:copy-fixed
                                :target-db ,pg-db-conn
@@ -147,7 +148,8 @@
                                                 (list :concurrency concurrency))
                                            :truncate truncate
                                            :drop-indexes drop-indexes
-                                           :disable-triggers disable-triggers))
+                                           :disable-triggers disable-triggers
+                                           :max-parallel-create-index max-parallel-create-index))
 
          ,(sql-code-block pg-db-conn :post after "after load")))))
 
