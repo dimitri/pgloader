@@ -3,7 +3,6 @@ install:
   - sudo apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net --recv-keys ACCC4CF8
   - echo "deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
   - sudo apt-get update
-  - sudo DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" dist-upgrade
   - wget http://pgsql.tapoueh.org/sbcl/sbcl_1.2.0-1_amd64.deb
   - sudo dpkg -i sbcl_1.2.0-1_amd64.deb
   - sudo apt-get install -f
