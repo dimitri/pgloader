@@ -71,16 +71,16 @@ docs:
 	ronn -roff pgloader.1.md
 
 $(QLDIR)/local-projects/qmynd:
-	git clone https://github.com/qitab/qmynd.git $@
+	git clone --depth 1 https://github.com/qitab/qmynd.git $@
 
 $(QLDIR)/local-projects/cl-ixf:
-	git clone https://github.com/dimitri/cl-ixf.git $@
+	git clone --depth 1 https://github.com/dimitri/cl-ixf.git $@
 
 $(QLDIR)/local-projects/cl-db3:
-	git clone https://github.com/dimitri/cl-db3.git $@
+	git clone --depth 1 https://github.com/dimitri/cl-db3.git $@
 
 $(QLDIR)/local-projects/cl-csv:
-	git clone https://github.com/AccelerationNet/cl-csv.git $@
+	git clone --depth 1 https://github.com/AccelerationNet/cl-csv.git $@
 
 $(QLDIR)/setup.lisp:
 	mkdir -p $(BUILDDIR)
