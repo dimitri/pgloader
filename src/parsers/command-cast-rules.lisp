@@ -75,21 +75,26 @@
 (defrule cast-drop-not-null (and kw-drop kw-not kw-null)
   (:constant (list :drop-not-null t)))
 
+(defrule cast-set-not-null (and kw-set kw-not kw-null)
+  (:constant (list :set-not-null t)))
+
 (defrule cast-def (+ (or cast-to-type
 			 cast-keep-default
 			 cast-drop-default
 			 cast-keep-typemod
 			 cast-drop-typemod
 			 cast-keep-not-null
-			 cast-drop-not-null))
+			 cast-drop-not-null
+                         cast-set-not-null))
   (:lambda (source)
     (destructuring-bind
-	  (&key type drop-default drop-typemod drop-not-null &allow-other-keys)
+	  (&key type drop-default drop-typemod drop-not-null set-not-null &allow-other-keys)
 	(apply #'append source)
       (list :type type
 	    :drop-default drop-default
 	    :drop-typemod drop-typemod
-	    :drop-not-null drop-not-null))))
+	    :drop-not-null drop-not-null
+            :set-not-null set-not-null))))
 
 (defun function-name-character-p (char)
   (or (member char #.(quote (coerce "/.-%" 'list)))
