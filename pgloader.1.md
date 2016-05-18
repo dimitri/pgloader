@@ -1892,8 +1892,8 @@ Numbers:
 
 Texts:
 
-  - type char       to varchar keep typemod using remove-null-characters
-  - type varchar    to text using remove-null-characters
+  - type char       to char keep typemod using remove-null-characters
+  - type varchar    to varchar keep typemod using remove-null-characters
   - type tinytext   to text using remove-null-characters
   - type text       to text using remove-null-characters
   - type mediumtext to text using remove-null-characters
