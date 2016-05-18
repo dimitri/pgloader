@@ -1070,7 +1070,25 @@ The `fixed` format command accepts the following clauses and options:
 
 	    Reads the data from the standard input stream.
 
-	The *FROM* option also supports an optional comma separated list of
+      - *FILENAMES MATCHING*
+
+        The whole *matching* clause must follow the following rule:
+
+	        [ ALL FILENAMES | [ FIRST ] FILENAME ]
+            MATCHING regexp
+            [ IN DIRECTORY '...' ]
+
+        The *matching* clause applies given *regular expression* (see above
+        for exact syntax, several options can be used here) to filenames.
+        It's then possible to load data from only the first match of all of
+        them.
+
+        The optional *IN DIRECTORY* clause allows specifying which directory
+        to walk for finding the data files, and can be either relative to
+        where the command file is read from, or absolute. The given
+        directory must exists.
+
+    The *FROM* option also supports an optional comma separated list of
 	*field* names describing what is expected in the `FIXED` data file.
 
 	Each field name is composed of the field name followed with specific
@@ -1207,6 +1225,33 @@ The `COPY` format command accepts the following clauses and options:
     URLs and zip files containing a single dbf file of the same name. Fetch
     such a zip file from an HTTP address is of course supported.
 
+	  - *inline*
+
+        The data is found after the end of the parsed commands. Any number
+        of empty lines between the end of the commands and the beginning of
+        the data is accepted.
+
+	  - *stdin*
+
+	    Reads the data from the standard input stream.
+
+      - *FILENAMES MATCHING*
+
+        The whole *matching* clause must follow the following rule:
+
+	        [ ALL FILENAMES | [ FIRST ] FILENAME ]
+            MATCHING regexp
+            [ IN DIRECTORY '...' ]
+
+        The *matching* clause applies given *regular expression* (see above
+        for exact syntax, several options can be used here) to filenames.
+        It's then possible to load data from only the first match of all of
+        them.
+
+        The optional *IN DIRECTORY* clause allows specifying which directory
+        to walk for finding the data files, and can be either relative to
+        where the command file is read from, or absolute. The given
+        directory must exists.
 
   - *WITH*
 

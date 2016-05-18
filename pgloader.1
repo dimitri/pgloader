@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "April 2016" "ff" ""
+.TH "PGLOADER" "1" "May 2016" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -1206,6 +1206,30 @@ The data is found after the end of the parsed commands\. Any number of empty lin
 .IP
 Reads the data from the standard input stream\.
 .
+.IP "\(bu" 4
+\fIFILENAMES MATCHING\fR
+.
+.IP
+The whole \fImatching\fR clause must follow the following rule:
+.
+.IP "" 4
+.
+.nf
+
+[ ALL FILENAMES | [ FIRST ] FILENAME ]
+MATCHING regexp
+[ IN DIRECTORY \'\.\.\.\' ]
+.
+.fi
+.
+.IP "" 0
+.
+.IP
+The \fImatching\fR clause applies given \fIregular expression\fR (see above for exact syntax, several options can be used here) to filenames\. It\'s then possible to load data from only the first match of all of them\.
+.
+.IP
+The optional \fIIN DIRECTORY\fR clause allows specifying which directory to walk for finding the data files, and can be either relative to where the command file is read from, or absolute\. The given directory must exists\.
+.
 .IP "" 0
 .
 .IP
@@ -1398,6 +1422,45 @@ The \fBCOPY\fR format command accepts the following clauses and options:
 .
 .IP
 Filename where to load the data from\. This support local files, HTTP URLs and zip files containing a single dbf file of the same name\. Fetch such a zip file from an HTTP address is of course supported\.
+.
+.IP "\(bu" 4
+\fIinline\fR
+.
+.IP
+The data is found after the end of the parsed commands\. Any number of empty lines between the end of the commands and the beginning of the data is accepted\.
+.
+.IP "\(bu" 4
+\fIstdin\fR
+.
+.IP
+Reads the data from the standard input stream\.
+.
+.IP "\(bu" 4
+\fIFILENAMES MATCHING\fR
+.
+.IP
+The whole \fImatching\fR clause must follow the following rule:
+.
+.IP "" 4
+.
+.nf
+
+[ ALL FILENAMES | [ FIRST ] FILENAME ]
+MATCHING regexp
+[ IN DIRECTORY \'\.\.\.\' ]
+.
+.fi
+.
+.IP "" 0
+.
+.IP
+The \fImatching\fR clause applies given \fIregular expression\fR (see above for exact syntax, several options can be used here) to filenames\. It\'s then possible to load data from only the first match of all of them\.
+.
+.IP
+The optional \fIIN DIRECTORY\fR clause allows specifying which directory to walk for finding the data files, and can be either relative to where the command file is read from, or absolute\. The given directory must exists\.
+.
+.IP "" 0
+
 .
 .IP "\(bu" 4
 \fIWITH\fR
