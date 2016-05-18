@@ -1775,7 +1775,7 @@ The `database` command accepts the following clauses and options:
 	    The spelling *keep default* explicitly prevents that behaviour and
 	    can be used to overload the default casting rules.
 
-	  - *drop not null*, *keep not null*
+	  - *drop not null*, *keep not null*, *set not null*
 
         When the option *drop not null* is listed, pgloader drops any
         existing `NOT NULL` constraint associated with the given source
@@ -1784,6 +1784,10 @@ The `database` command accepts the following clauses and options:
 
 	    The spelling *keep not null* explicitly prevents that behaviour and
 	    can be used to overload the default casting rules.
+
+        When the option *set not null* is listed, pgloader sets a `NOT NULL`
+        constraint on the target column regardless whether it has been set
+        in the source MySQL column.
 
       - *drop typemod*, *keep typemod*
 

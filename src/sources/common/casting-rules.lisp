@@ -91,6 +91,7 @@
 	(destructuring-bind (&key type
 				  drop-default
 				  drop-not-null
+                                  set-not-null
 				  (drop-typemod t)
 				  &allow-other-keys)
 	    target
@@ -108,7 +109,7 @@
                          :type-name type-name
                          :type-mod (when (and source-typemod (not drop-typemod))
                                      pg-typemod)
-                         :nullable (not (and source-not-null (not drop-not-null)))
+                         :nullable (and (not set-not-null) (or (not source-not-null) drop-not-null))
                          :default (when (and source-default (not drop-default))
                                     (format-default-value source-default using))
                          :transform using)))
