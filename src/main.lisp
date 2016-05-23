@@ -440,7 +440,8 @@
            (expected-data-file     (make-pathname :defaults load-file
                                                   :type "out"
                                                   :directory expected-subdir))
-           ((target-conn *pg-settings*) (parse-target-pg-db-uri load-file))
+           ((target-conn gucs) (parse-target-pg-db-uri load-file))
+           (*pg-settings* (pgloader.pgsql:sanitize-user-gucs gucs))
            (*pgsql-reserved-keywords* (list-reserved-keywords target-conn))
            (target-table (create-table (pgconn-table-name target-conn)))
 
