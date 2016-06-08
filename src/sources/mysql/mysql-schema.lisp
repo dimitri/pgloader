@@ -175,7 +175,7 @@
          c.data_type, c.column_type, c.column_default,
          c.is_nullable, c.extra
     from information_schema.columns c
-         join information_schema.tables t using(table_schema, table_name)
+         join information_schema.tables t on binary t.table_schema=c.table_schema and binary t.table_name=c.table_name
    where c.table_schema = '~a' and t.table_type = '~a'
          ~:[~*~;and table_name in (~{'~a'~^,~})~]
          ~:[~*~;and (~{table_name ~a~^ or ~})~]
