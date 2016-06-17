@@ -1,24 +1,21 @@
 #!/usr/bin/env bash
 
-sudo yum -y install yum-utils rpmdevtools @development-tools \
-                    sbcl sqlite-devel zlib-devel
+sudo yum -y install yum-utils rpmdevtools @"Development Tools" \
+                    sqlite-devel zlib-devel
 
-# SBCL 1.1.14
-# http://www.mikeivanov.com/post/66510551125/installing-sbcl-1-1-on-rhel-centos-systems
-sudo yum -y groupinstall "Development Tools"
-wget http://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm
-sudo rpm -Uvh epel-release-6*.rpm 
+# SBCL 1.3, we'll overwrite the repo version of sbcl with a more recent one
+sudo yum -y install epel-release
 sudo yum install -y sbcl.x86_64
 
-wget http://downloads.sourceforge.net/project/sbcl/sbcl/1.1.14/sbcl-1.1.14-source.tar.bz2
-tar xfj sbcl-1.1.14-source.tar.bz2
-cd sbcl-1.1.14
-./make.sh --with-sb-thread --with-sb-core-compression > /dev/null 2>&1
+wget http://downloads.sourceforge.net/project/sbcl/sbcl/1.3.6/sbcl-1.3.6-source.tar.bz2
+tar xfj sbcl-1.3.6-source.tar.bz2
+cd sbcl-1.3.6
+./make.sh --with-sb-thread --with-sb-core-compression --prefix=/usr > /dev/null 2>&1
 sudo sh install.sh
 cd
 
-# remove the old version that we used to compile the newer one.
-sudo yum remove -y sbcl
+# Missing dependencies
+sudo yum -y install freetds-devel
 
 # prepare the rpmbuild setup
 rpmdev-setuptree

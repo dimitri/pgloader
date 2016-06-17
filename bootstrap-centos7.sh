@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-sudo yum -y install yum-utils rpmdevtools @development-tools \
+sudo yum -y install yum-utils rpmdevtools @"Development Tools" \
                         sqlite-devel zlib-devel
 
 # Enable epel for sbcl
