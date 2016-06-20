@@ -485,7 +485,7 @@ BEGIN
                || trim(trailing ')'
                   from replace(pg_get_expr(d.adbin, d.adrelid),
                                'nextval', 'setval'))
-               || ', (select greatest(max(' || a.attname || '), 1) from only '
+               || ', (select greatest(max(' || quote_ident(a.attname) || '), 1) from only '
                || quote_ident(nspname) || '.' || quote_ident(relname) || '));' as sql
          FROM pg_class c
               JOIN pg_namespace n on n.oid = c.relnamespace
