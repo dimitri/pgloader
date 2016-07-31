@@ -19,10 +19,10 @@
 (defrule number (or hex-number dec-number))
 
 (defrule field-start-position (and (? kw-from) ignore-whitespace number)
-  (:destructure (from ws pos) (declare (ignore from ws)) pos))
+  (:function third))
 
 (defrule fixed-field-length (and (? kw-for) ignore-whitespace number)
-  (:destructure (for ws len) (declare (ignore for ws)) len))
+  (:function third))
 
 (defrule fixed-source-field (and csv-field-name
 				 field-start-position fixed-field-length

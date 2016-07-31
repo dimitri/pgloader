@@ -102,16 +102,16 @@
 (defrule mssql-operator (and (? whitespace) (or = <> <= < >= > !=))
   (:lambda (op) (second op)))
 
-(defrule number (+ (digit-char-p character)) (:text t))
+(defrule digits (+ (digit-char-p character)) (:text t))
 (defrule quoted (and "'" (+ (not "'")) "'")  (:lambda (q) (text (second q))))
 
 (defrule mssql-constant-parens (and (? whitespace)
                                     "("
-                                    (or number quoted)
+                                    (or digits quoted)
                                     ")")
   (:function third))
 
-(defrule mssql-constant-no-parens (and (? whitespace) (or number quoted))
+(defrule mssql-constant-no-parens (and (? whitespace) (or digits quoted))
   (:function second))
 
 (defrule mssql-constant (or mssql-constant-parens mssql-constant-no-parens))
