@@ -8,8 +8,11 @@
 ;;; Utility function using those definitions are found in schema.lisp in the
 ;;; same directory.
 ;;;
-(in-package :pgloader.schema)
+(in-package :pgloader.catalog)
 
+;;;
+;;; A macro to ease writing the catalog handling API
+;;;
 (defmacro push-to-end (item place)
   `(progn
      (setf ,place (nconc ,place (list ,item)))
@@ -17,10 +20,20 @@
      ,item))
 
 ;;;
-;;; TODO: stop using anonymous data structures for database catalogs,
-;;; currently list of alists of lists... the madness has found its way in
-;;; lots of places tho.
+;;; One interesting thing to do to all those catalog objects is to be able
+;;; to print the DDL commands out: CREATE and DROP SQL statements.
 ;;;
+(defgeneric format-create-sql (object &key stream if-not-exists)
+  (:documentation "Generate proper SQL command to create OBJECT in
+  PostgreSQL. The output is written to STREAM."))
+
+(defgeneric format-drop-sql (object &key stream cascade)
+  (:documentation "Generate proper SQL command to drop OBJECT in PostgreSQL.
+  The output is written to STREAM."))
+
+(defgeneric format-default-value (column &key stream)
+  (:documentation "Generate proper value to be used as a default value for
+  given COLUMN in PostgreSQL. The output is written to STREAM."))
 
 ;;;
 ;;; A database catalog is a list of schema each containing a list of tables,
@@ -34,19 +47,38 @@
 (defstruct table source-name name schema oid comment
            ;; field is for SOURCE
            ;; column is for TARGET
-           field-list column-list index-list fkey-list)
+           field-list column-list index-list fkey-list trigger-list)
+
+;;;
+;;; When migrating from another database to PostgreSQL some data types might
+;;; need to be tranformed dynamically into User Defined Types: ENUMs, SET,
+;;; etc.
+;;;
+(defstruct sqltype name type source-def extra)
 
 ;;;
 ;;; The generic PostgreSQL column that the CAST generic function is asked to
 ;;; produce, so that we know how to CREATE TABLEs in PostgreSQL whatever the
 ;;; source is.
 ;;;
-(defstruct column name type-name type-mod nullable default comment transform)
+(defstruct column name type-name type-mod nullable default comment transform extra)
 
-;;; those are currently defined in ./schema.lisp
-;; (defstruct index name primary unique columns sql conname condef)
-;; (defstruct fkey
-;;   name columns foreign-table foreign-columns update-rule delete-rule)
+;;;
+;;; Index and Foreign Keys
+;;;
+(defstruct fkey
+  name table columns foreign-table foreign-columns condef
+  update-rule delete-rule match-rule deferrable initially-deferred)
+
+(defstruct index
+  name schema table primary unique columns sql conname condef filter)
+
+;;;
+;;; Triggers and trigger procedures, no args support (yet?)
+;;;
+(defstruct trigger name table action procedure-name procedure)
+
+(defstruct procedure name returns language body)
 
 ;;;
 ;;; Main data collection API
@@ -164,12 +196,13 @@
                                      (apply-identifier-case schema-name)))))
     (push-to-end schema (catalog-schema-list catalog))))
 
-(defmethod add-table ((schema schema) table-name &key comment)
+(defmethod add-table ((schema schema) table-name &key comment oid)
   "Add TABLE-NAME to SCHEMA and return the new table instance."
   (let ((table
          (make-table :source-name table-name
                      :name (apply-identifier-case table-name)
                      :schema schema
+                     :oid oid
                      :comment (unless (or (null comment) (string= "" comment))
                                 comment))))
     (push-to-end table (schema-table-list schema))))
@@ -205,11 +238,11 @@
   (let ((schema (find-schema catalog schema-name)))
     (or schema (add-schema catalog schema-name))))
 
-(defmethod maybe-add-table ((schema schema) table-name &key comment)
+(defmethod maybe-add-table ((schema schema) table-name &key comment oid)
   "Add TABLE-NAME to the table-list for SCHEMA, or return the existing table
    of the same name if it already exists in the schema table-list."
   (let ((table (find-table schema table-name)))
-    (or table (add-table schema table-name :comment comment))))
+    (or table (add-table schema table-name :oid oid :comment comment))))
 
 (defmethod maybe-add-view ((schema schema) view-name &key comment)
   "Add TABLE-NAME to the table-list for SCHEMA, or return the existing table
@@ -360,3 +393,4 @@
                      (pgloader.pgsql:pgsql-execute sql)))
                (table-name ,table-name))))
        ,@body)))
+

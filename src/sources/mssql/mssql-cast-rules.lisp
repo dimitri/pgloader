@@ -120,5 +120,24 @@
       (unless (column-transform pgcol)
         (setf (column-transform pgcol)
               (lambda (val) (if val (format nil "~a" val) :null))))
+
+      ;; normalize default values
+      ;; see *pgsql-default-values*
+      (setf (column-default pgcol)
+            (cond ((null default) :null)
+                  ((and (stringp default) (string= "NULL" default)) :null)
+
+                  ((and (stringp default)
+                        ;; address CURRENT_TIMESTAMP(6) and other spellings
+                        (or (uiop:string-prefix-p "CURRENT_TIMESTAMP" default)
+                            (string= "CURRENT TIMESTAMP" default)))
+                   :current-timestamp)
+
+                  ((and (stringp default)
+                        (or (string= "newid()" default)
+                            (string= "newsequentialid()" default)))
+                   :generate-uuid)
+
+                  (t default)))
       pgcol)))
 

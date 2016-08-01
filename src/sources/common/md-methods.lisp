@@ -99,10 +99,20 @@
                    create-indexes reset-sequences materialize-views
                    set-table-oids including excluding))
 
-  ;; this sets (table-index-list (target copy))
-  (maybe-drop-indexes (target-db copy)
-                      (target copy)
-                      :drop-indexes drop-indexes)
+  (let* ((pgsql-catalog
+          (fetch-pgsql-catalog (target-db copy) :table (target copy))))
+
+    (when (= 1 (count-tables pgsql-catalog))
+      ;; we found the target table, grab its definition
+      (setf (target copy)
+            (first (schema-table-list
+                    (first (catalog-schema-list pgsql-catalog))))))
+
+    ;; this sets (table-index-list (target copy))
+    (maybe-drop-indexes (target-db copy)
+                        (target copy)
+                        :drop-indexes drop-indexes))
+
 
   ;; ensure we truncate only one
   (when truncate

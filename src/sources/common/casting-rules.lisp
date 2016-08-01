@@ -111,7 +111,7 @@
                                      pg-typemod)
                          :nullable (and (not set-not-null) (or (not source-not-null) drop-not-null))
                          :default (when (and source-default (not drop-default))
-                                    (format-default-value source-default using))
+                                    source-default)
                          :transform using)))
 
 	;; NO MATCH
@@ -121,7 +121,7 @@
         (make-column :name (apply-identifier-case source-column-name)
                      :type-name source-ctype
                      :nullable (not source-not-null)
-                     :default (format-default-value source-default using)
+                     :default source-default
                      :transform using))))
 
 (defun apply-casting-rules (table-name column-name
@@ -155,7 +155,7 @@
                                  table-name column-name ctype default
                                  (string= "NO" nullable)
                                  (string/= "" extra) extra
-                                 (format-column coldef)
+                                 (format-create-sql coldef)
                                  using)
                     (return coldef))))))
 

@@ -34,12 +34,12 @@
 (defrule rename-to (and kw-rename kw-to quoted-namestring)
   (:lambda (stmt)
     (bind (((_ _ new-name) stmt))
-      (list #'pgloader.schema::alter-table-rename new-name))))
+      (list #'pgloader.catalog::alter-table-rename new-name))))
 
 (defrule set-schema (and kw-set kw-schema quoted-namestring)
   (:lambda (stmt)
     (bind (((_ _ schema) stmt))
-      (list #'pgloader.schema::alter-table-set-schema schema))))
+      (list #'pgloader.catalog::alter-table-set-schema schema))))
 
 (defrule alter-table-action (or rename-to
                                 set-schema))
@@ -51,7 +51,7 @@
     (destructuring-bind (match-rule-target-list schema action)
         alter-table-command
       (loop :for match-rule-target :in match-rule-target-list
-         :collect (pgloader.schema::make-match-rule
+         :collect (pgloader.catalog::make-match-rule
                    :type   (first match-rule-target)
                    :target (second match-rule-target)
                    :schema schema
@@ -73,10 +73,10 @@
                                      kw-rename kw-to quoted-namestring)
   (:lambda (alter-schema-command)
     (bind (((_ _ current-name _ _ new-name) alter-schema-command))
-      (pgloader.schema::make-match-rule
+      (pgloader.catalog::make-match-rule
        :type :string
        :target current-name
-       :action #'pgloader.schema::alter-schema-rename
+       :action #'pgloader.catalog::alter-schema-rename
        :args (list new-name)))))
 
 ;;; currently we only support a single ALTER SCHEMA variant

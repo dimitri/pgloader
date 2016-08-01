@@ -221,24 +221,26 @@ order by table_name, ordinal_position"
          ~:[~*~;and (~{table_name ~a~^ or ~})~]
          ~:[~*~;and (~{table_name ~a~^ and ~})~]
 GROUP BY table_name, index_name;"
-                             (db-name *connection*)
-                             only-tables ; do we print the clause?
-                             only-tables
-                             including  ; do we print the clause?
-                             (filter-list-to-where-clause including)
-                             excluding  ; do we print the clause?
-                             (filter-list-to-where-clause excluding t)))
-     :do (let ((table (find-table schema table-name))
-               (index
-                (make-pgsql-index :name name ; further processing is needed
-                                  :primary (string= name "PRIMARY")
-                                  :unique (string= "0" non-unique)
-                                  :columns (mapcar
-                                            #'apply-identifier-case
-                                            (sq:split-sequence #\, cols)))))
+                              (db-name *connection*)
+                              only-tables ; do we print the clause?
+                              only-tables
+                              including ; do we print the clause?
+                              (filter-list-to-where-clause including)
+                              excluding ; do we print the clause?
+                              (filter-list-to-where-clause excluding t)))
+     :do (let* ((table (find-table schema table-name))
+                (index
+                 (make-index :name name ; further processing is needed
+                             :schema schema
+                             :table table
+                             :primary (string= name "PRIMARY")
+                             :unique (string= "0" non-unique)
+                             :columns (mapcar
+                                       #'apply-identifier-case
+                                       (sq:split-sequence #\, cols)))))
            (add-index table index))
      :finally
-       (return schema)))
+     (return schema)))
 
 ;;;
 ;;; MySQL Foreign Keys
@@ -296,16 +298,16 @@ FROM
      :do (let* ((table  (find-table schema table-name))
                 (ftable (find-table schema ftable-name))
                 (fk
-                 (make-pgsql-fkey :name (apply-identifier-case name)
-                                  :table table
-                                  :columns (mapcar #'apply-identifier-case
-                                                   (sq:split-sequence #\, cols))
-                                  :foreign-table ftable
-                                  :foreign-columns (mapcar
-                                                    #'apply-identifier-case
-                                                    (sq:split-sequence #\, fcols))
-                                  :update-rule update-rule
-                                  :delete-rule delete-rule)))
+                 (make-fkey :name (apply-identifier-case name)
+                            :table table
+                            :columns (mapcar #'apply-identifier-case
+                                             (sq:split-sequence #\, cols))
+                            :foreign-table ftable
+                            :foreign-columns (mapcar
+                                              #'apply-identifier-case
+                                              (sq:split-sequence #\, fcols))
+                            :update-rule update-rule
+                            :delete-rule delete-rule)))
            (if (and name table ftable)
                (add-fkey table fk)
                (log-message :error

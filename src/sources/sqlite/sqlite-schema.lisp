@@ -120,10 +120,11 @@
     (loop
        :for (seq index-name unique origin partial) :in (sqlite:execute-to-list db sql)
        :do (let* ((cols  (list-index-cols index-name db))
-                  (index (make-pgsql-index :name index-name
-                                           :primary (is-index-pk table cols)
-                                           :unique (= unique 1)
-                                           :columns cols)))
+                  (index (make-index :name index-name
+                                     :table table
+                                     :primary (is-index-pk table cols)
+                                     :unique (= unique 1)
+                                     :columns cols)))
              (add-index table index)))))
 
 (defun list-all-indexes (schema &key (db *sqlite-db*))
@@ -147,17 +148,17 @@
        :do (let* ((ftable (find-table (table-schema table) ftable-name))
                   (fkey   (or (gethash id fkey-table)
                               (let ((pg-fkey
-                                     (make-pgsql-fkey :table table
-                                                      :columns nil
-                                                      :foreign-table ftable
-                                                      :foreign-columns nil
-                                                      :update-rule on-update
-                                                      :delete-rule on-delete)))
+                                     (make-fkey :table table
+                                                :columns nil
+                                                :foreign-table ftable
+                                                :foreign-columns nil
+                                                :update-rule on-update
+                                                :delete-rule on-delete)))
                                 (setf (gethash id fkey-table) pg-fkey)
                                 (add-fkey table pg-fkey)
                                 pg-fkey))))
-             (push-to-end from (pgsql-fkey-columns fkey))
-             (push-to-end to   (pgsql-fkey-foreign-columns fkey))))))
+             (push-to-end from (fkey-columns fkey))
+             (push-to-end to   (fkey-foreign-columns fkey))))))
 
 (defun list-all-fkeys (schema &key (db *sqlite-db*))
   "Get the list of SQLite foreign keys definitions per table."

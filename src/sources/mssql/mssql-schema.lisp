@@ -197,14 +197,16 @@ order by SchemaName,
      :do
      (let* ((schema     (find-schema catalog schema-name))
             (table      (find-table schema table-name))
-            (pg-index   (make-pgsql-index :name index-name
-                                          :primary (= pkey 1)
-                                          :unique (= unique 1)
-                                          :columns nil
-                                          :filter filter))
+            (pg-index   (make-index :name index-name
+                                    :schema schema
+                                    :table table
+                                    :primary (= pkey 1)
+                                    :unique (= unique 1)
+                                    :columns nil
+                                    :filter filter))
             (index      (maybe-add-index table index-name pg-index
                                          :key #'pgloader.pgsql::pgsql-index-name)))
-       (push-to-end col (pgloader.pgsql::pgsql-index-columns index)))
+       (push-to-end col (index-columns index)))
      :finally (return catalog)))
 
 (defun list-all-fkeys (catalog &key including excluding)
@@ -259,15 +261,15 @@ ORDER BY KCU1.CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
             (fschema    (find-schema catalog fschema-name))
             (ftable     (find-table fschema ftable-name))
             (pg-fkey
-             (make-pgsql-fkey :name fkey-name
-                              :table table
-                              :columns nil
-                              :foreign-table ftable
-                              :foreign-columns nil))
+             (make-fkey :name fkey-name
+                        :table table
+                        :columns nil
+                        :foreign-table ftable
+                        :foreign-columns nil))
             (fkey       (maybe-add-fkey table fkey-name pg-fkey
                                         :key #'pgloader.pgsql::pgsql-fkey-name)))
-       (push-to-end col  (pgloader.pgsql::pgsql-fkey-columns fkey))
-       (push-to-end fcol (pgloader.pgsql::pgsql-fkey-foreign-columns fkey)))
+       (push-to-end col  (fkey-columns fkey))
+       (push-to-end fcol (fkey-foreign-columns fkey)))
      :finally (return catalog)))
 
 

@@ -91,5 +91,14 @@
         (setf (column-transform pgcol)
               (lambda (val) (if val (format nil "~a" val) :null))))
 
+      (setf (column-default pgcol)
+            (cond ((and (stringp default) (string= "NULL" default)) :null)
+                  ((and (stringp default)
+                        ;; address CURRENT_TIMESTAMP(6) and other spellings
+                        (or (uiop:string-prefix-p "CURRENT_TIMESTAMP" default)
+                            (string= "CURRENT TIMESTAMP" default)))
+                   :current-timestamp)
+                  (t default)))
+
       pgcol)))
 

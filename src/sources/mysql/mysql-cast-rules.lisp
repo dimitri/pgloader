@@ -4,39 +4,9 @@
 
 (in-package :pgloader.mysql)
 
-;;;
-;;; Some functions to deal with ENUM and SET types
-;;;
-(defun explode-mysql-enum (ctype)
-  "Convert MySQL ENUM expression into a list of labels."
-  (cl-ppcre:register-groups-bind (list)
-      ("(?i)(?:ENUM|SET)\\s*\\((.*)\\)" ctype)
-    (first (cl-csv:read-csv list :separator #\, :quote #\' :escape "\\"))))
-
-(defun get-enum-type-name (table-name column-name)
-  "Return the Type Name we're going to use in PostgreSQL."
-  (apply-identifier-case (format nil "~a_~a" table-name column-name)))
-
-(defun get-create-enum (table-name column-name ctype)
-  "Return a PostgreSQL CREATE ENUM TYPE statement from MySQL enum column."
-  (with-output-to-string (s)
-    (format s "CREATE TYPE ~a AS ENUM (~{'~a'~^, ~});"
-	    (get-enum-type-name table-name column-name)
-	    (explode-mysql-enum ctype))))
-
-(defun cast-enum (table-name column-name type ctype typemod)
-  "Cast MySQL inline ENUM type to using a PostgreSQL named type.
-
-   The type naming is hardcoded to be table-name_column-name"
+(defun enum-or-set-name (table-name column-name type ctype typemod)
   (declare (ignore type ctype typemod))
-  (get-enum-type-name table-name column-name))
-
-(defun cast-set (table-name column-name type ctype typemod)
-  "Cast MySQL inline SET type to using a PostgreSQL ENUM Array.
-
-   The ENUM data type name is hardcoded to be table-name_column-name"
-  (declare (ignore type ctype typemod))
-  (format nil "\"~a_~a\"[]" table-name column-name))
+  (string-downcase (format nil "~a_~a" table-name column-name)))
 
 ;;;
 ;;; The default MySQL Type Casting Rules
@@ -157,10 +127,10 @@
 
     ;; Inline MySQL "interesting" datatype
     (:source (:type "enum")
-     :target (:type ,#'cast-enum))
+     :target (:type ,#'enum-or-set-name))
 
     (:source (:type "set")
-     :target (:type ,#'cast-set)
+     :target (:type ,#'enum-or-set-name)
      :using pgloader.transforms::set-to-enum-array)
 
     ;; geometric data types, just POINT for now
@@ -178,72 +148,62 @@
 			   (table-name name comment dtype ctype default nullable extra)))
   table-name name dtype ctype default nullable extra comment)
 
-(defmethod format-extra-type ((col mysql-column) &key include-drop)
-  "Return a string representing the extra needed PostgreSQL CREATE TYPE
-   statement, if such is needed"
-  (let ((dtype (mysql-column-dtype col)))
-    (when (or (string-equal "enum" dtype)
-	      (string-equal "set" dtype))
-      (list
-       (when include-drop
-	 (let* ((type-name
-		 (get-enum-type-name (mysql-column-table-name col)
-				     (mysql-column-name col))))
-           (format nil "DROP TYPE IF EXISTS ~a CASCADE;" type-name)))
-
-       (get-create-enum (mysql-column-table-name col)
-			(mysql-column-name col)
-			(mysql-column-ctype col))))))
-
-(defmethod format-extra-triggers ((table table) (col mysql-column) &key drop)
-  "Return a list of string representing the extra SQL commands needed to
-   implement some MySQL features as PostgreSQL triggers, such as on update
-   CURRENT_TIMESTAMP.
-
-   When drop is t, only output the DROP sql statements."
-  (when (string= (mysql-column-extra col) "on update CURRENT_TIMESTAMP")
-    (let* ((field-pos (position (mysql-column-name col)
-                                (table-field-list table)
-                                :key #'mysql-column-name
-                                :test #'string=))
-           (col-name (funcall #'column-name
-                              (nth field-pos (table-column-list table))))
-           (fun-name (format nil "on_update_current_timestamp_~a" col-name))
-           (update-fun-sql
-            (format nil "
-CREATE OR REPLACE FUNCTION ~a()
- RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-BEGIN
-   NEW.~a = now();
-   RETURN NEW;
-END;
-$$;"
-                    fun-name col-name))
-           (trigger-sql
-            (format nil "
-CREATE TRIGGER on_update_current_timestamp
- BEFORE UPDATE ON ~a
-  FOR EACH ROW EXECUTE PROCEDURE ~a();"
-                    (format-table-name table) fun-name)))
-      (if drop
-          (list
-           ;; don't DROP the function here, because it might be shared by
-           ;; several tables with "on update" rules on a field sharing the
-           ;; same name (such as "last_update").
-           ;; the CREATE OR REPLACE FUNCTION will then be innoffensive.
-           (format nil "DROP TRIGGER IF EXISTS on_update_current_timestamp ON ~a;"
-                   (mysql-column-table-name col)))
-          (list update-fun-sql trigger-sql)))))
+(defun explode-mysql-enum (ctype)
+  "Convert MySQL ENUM expression into a list of labels."
+  (cl-ppcre:register-groups-bind (list)
+      ("(?i)(?:ENUM|SET)\\s*\\((.*)\\)" ctype)
+    (first (cl-csv:read-csv list :separator #\, :quote #\' :escape "\\"))))
 
 (defmethod cast ((col mysql-column))
   "Return the PostgreSQL type definition from given MySQL column definition."
   (with-slots (table-name name dtype ctype default nullable extra comment)
       col
-    (let ((pgcol
-           (apply-casting-rules table-name name dtype ctype default nullable extra)))
+    (let* ((pgcol
+            (apply-casting-rules table-name name dtype ctype default nullable extra)))
       (setf (column-comment pgcol) comment)
+
+      ;; normalize default values
+      (setf (column-default pgcol)
+            (cond ((and (stringp default) (string= "NULL" default)) :null)
+                  ((and (stringp default)
+                        ;; address CURRENT_TIMESTAMP(6) and other spellings
+                        (or (uiop:string-prefix-p "CURRENT_TIMESTAMP" default)
+                            (string= "CURRENT TIMESTAMP" default)))
+                   :current-timestamp)
+                  (t default)))
+
+      ;; extra user-defined data types
+      (when (or (string-equal "set" dtype)
+                (string-equal "enum" dtype))
+        ;;
+        ;; SET and ENUM both need more care, if the target is PostgreSQL we
+        ;; need to create per-schema user defined data types that match the
+        ;; column local definition here.
+        ;;
+        (let ((sqltype-name (enum-or-set-name table-name
+                                              (column-name pgcol)
+                                              dtype
+                                              ctype
+                                              nil)))
+          (setf (column-type-name pgcol)
+                (make-sqltype :name sqltype-name
+                              :type (intern (string-upcase dtype)
+                                            (find-package "KEYWORD"))
+                              :source-def ctype
+                              :extra (explode-mysql-enum ctype)))))
+
+      ;; extra triggers
+      ;;
+      ;; See the generic function `post-process-catalog' for the next step.
+      ;;
+      (when (string= extra "on update CURRENT_TIMESTAMP")
+        (let* ((pro-name (format nil
+                                 "on_update_current_timestamp_~a"
+                                 (column-name pgcol))))
+          (setf (column-extra pgcol)
+                (make-trigger :name :on-update-current-timestamp
+                              :action "BEFORE UPDATE"
+                              :procedure-name pro-name))))
       pgcol)))
 
 

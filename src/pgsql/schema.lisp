@@ -1,92 +1,19 @@
 ;;;
 ;;; Tools to handle PostgreSQL tables and indexes creations
 ;;;
-(in-package pgloader.pgsql)
+(in-package #:pgloader.pgsql)
 
-;;;
-;;; Some parts of the logic here needs to be specialized depending on the
-;;; source type, such as SQLite or MySQL. To do so, sources must define
-;;; their own column struct and may implement the methods
-;;; `format-pgsql-column' and `format-extra-type' on those.
-;;;
-(defstruct pgsql-column name type-name type-mod nullable default)
-
-(defgeneric format-pgsql-column (col)
-  (:documentation
-   "Return the PostgreSQL column definition (type, default, not null, ...)"))
-
-(defgeneric format-extra-type (col &key include-drop)
-  (:documentation
-   "Return a list of PostgreSQL commands to create an extra type for given
-    column, or nil of none is required. If no special extra type is ever
-    needed, it's allowed not to specialize this generic into a method."))
-
-(defgeneric format-extra-triggers (table col &key drop)
-  (:documentation
-   "Return a list of string representing the extra SQL commands needed to
-    implement PostgreSQL triggers."))
-
-(defmethod format-extra-type ((col T) &key include-drop)
-  "The default `format-extra-type' implementation returns an empty list."
-  (declare (ignorable include-drop))
-  nil)
-
-(defmethod format-extra-triggers ((table T) (col T) &key drop)
-  "The default `format-extra-triggers' implementation returns an empty list."
-  (declare (ignorable table col drop))
-  nil)
-
-
 ;;;
 ;;; API for Foreign Keys
 ;;;
-(defstruct pgsql-fkey
-  name table columns foreign-table foreign-columns update-rule delete-rule)
-
-(defgeneric format-pgsql-create-fkey (fkey)
-  (:documentation
-   "Return the PostgreSQL command to define a Foreign Key Constraint."))
-
-(defgeneric format-pgsql-drop-fkey (fkey &key)
-  (:documentation
-   "Return the PostgreSQL command to DROP a Foreign Key Constraint."))
-
-(defmethod format-pgsql-create-fkey ((fk pgsql-fkey))
-  "Generate the PostgreSQL statement to rebuild a MySQL Foreign Key"
-  (format nil
-          "ALTER TABLE ~a ADD ~@[CONSTRAINT ~a ~]FOREIGN KEY(~{~a~^,~}) REFERENCES ~a(~{~a~^,~})~:[~*~; ON UPDATE ~a~]~:[~*~; ON DELETE ~a~]"
-          (format-table-name (pgsql-fkey-table fk))
-          (pgsql-fkey-name fk)        ; constraint name
-          (pgsql-fkey-columns fk)
-          (format-table-name (pgsql-fkey-foreign-table fk))
-          (pgsql-fkey-foreign-columns fk)
-          (pgsql-fkey-update-rule fk)
-          (pgsql-fkey-update-rule fk)
-          (pgsql-fkey-delete-rule fk)
-          (pgsql-fkey-delete-rule fk)))
-
-(defmethod format-pgsql-drop-fkey ((fk pgsql-fkey) &key all-pgsql-fkeys)
-  "Generate the PostgreSQL statement to rebuild a MySQL Foreign Key"
-  (when (pgsql-fkey-name fk)
-   (let* ((constraint-name (apply-identifier-case (pgsql-fkey-name fk)))
-          (table-name      (format-table-name (pgsql-fkey-table fk)))
-          (fkeys           (cdr (assoc table-name all-pgsql-fkeys :test #'string=)))
-          (fkey-exists     (member constraint-name fkeys :test #'string=)))
-     (when fkey-exists
-       ;; we could do that without all-pgsql-fkeys in 9.2 and following with:
-       ;; alter table if exists ... drop constraint if exists ...
-       (format nil "ALTER TABLE ~a DROP CONSTRAINT ~a" table-name constraint-name)))))
-
 (defun drop-pgsql-fkeys (catalog)
   "Drop all Foreign Key Definitions given, to prepare for a clean run."
-  (let ((all-pgsql-fkeys (list-tables-and-fkeys)))
-    (loop :for table :in (table-list catalog)
-       :do
-       (loop :for fkey :in (table-fkey-list table)
-          :for sql := (format-pgsql-drop-fkey fkey
-                                              :all-pgsql-fkeys all-pgsql-fkeys)
-          :when sql
-          :do (pgsql-execute sql)))))
+  (loop :for table :in (table-list catalog)
+     :do
+     (loop :for fkey :in (table-fkey-list table)
+        :for sql := (format-drop-sql fkey)
+        :when sql
+        :do (pgsql-execute sql))))
 
 (defun create-pgsql-fkeys (catalog
                            &key
@@ -97,69 +24,42 @@
   (with-stats-collection (label :section section :use-result-as-rows t)
       (loop :for table :in (table-list catalog)
          :sum (loop :for fkey :in (table-fkey-list table)
-                 :for sql := (format-pgsql-create-fkey fkey)
+                 :for sql := (format-create-sql fkey)
                  :do (pgsql-execute-with-timing section label sql)
                  :count t))))
 
 
 ;;;
-;;; Table schema rewriting support
+;;; Table schema support
 ;;;
-(defun create-table-sql (table &key if-not-exists)
-  "Return a PostgreSQL CREATE TABLE statement from given COLS.
+(defun create-sqltypes (catalog &key if-not-exists include-drop)
+  "Create the needed data types for given CATALOG."
+  (let ((sqltype-list))
+    ;; build the sqltype list
+    (loop :for table :in (table-list catalog)
+       :do (loop :for column :in (table-column-list table)
+              :do (when (typep (column-type-name column) 'sqltype)
+                    (pushnew (column-type-name column) sqltype-list
+                             :test #'string-equal
+                             :key #'sqltype-name))))
 
-   Each element of the COLS list is expected to be of a type handled by the
-   `format-pgsql-column' generic function."
-  (with-output-to-string (s)
-    (format s "CREATE TABLE~:[~; IF NOT EXISTS~] ~a ~%(~%"
-            if-not-exists
-            (format-table-name table))
-    (let ((max (reduce #'max
-                       (mapcar #'length
-                               (mapcar #'column-name (table-column-list table))))))
-     (loop
-        :for (col . last?) :on (table-column-list table)
-        :for pg-coldef := (format-column col
-                                         :pretty-print t
-                                         :max-column-name-length max )
-        :do (format s "  ~a~:[~;,~]~%" pg-coldef last?)))
-    (format s ");~%")))
-
-(defun drop-table-if-exists-sql (table)
-  "Return the PostgreSQL DROP TABLE IF EXISTS statement for TABLE-NAME."
-  (format nil "DROP TABLE IF EXISTS ~a CASCADE;" (format-table-name table)))
+    ;; now create the types
+    (loop :for sqltype :in sqltype-list
+       :when include-drop
+       :do (pgsql-execute (format-drop-sql sqltype :cascade t))
+       :do (pgsql-execute
+            (format-create-sql sqltype :if-not-exists if-not-exists)))))
 
 (defun create-table-sql-list (table-list
-			      &key
-				if-not-exists
-				include-drop)
+                              &key
+                                if-not-exists
+                                include-drop)
   "Return the list of CREATE TABLE statements to run against PostgreSQL."
-  (loop
-     :for table :in table-list
-     :for cols  := (table-column-list table)
-     :for fields := (table-field-list table)
-     :for extra-types := (loop :for field :in fields
-                            :append (format-extra-type
-                                     field :include-drop include-drop))
-
-     :for pre-extra-triggers
-     := (when include-drop
-          (loop :for field :in fields
-             :append (format-extra-triggers table field :drop t)))
-
-     :for post-extra-triggers
-     := (loop :for field :in fields
-           :append (format-extra-triggers table field))
-
+  (loop :for table :in table-list
      :when include-drop
-     :collect (drop-table-if-exists-sql table)
+     :collect (format-drop-sql table :cascade t)
 
-     :when extra-types :append extra-types
-     :when pre-extra-triggers :append pre-extra-triggers
-
-     :collect (create-table-sql table :if-not-exists if-not-exists)
-
-     :when post-extra-triggers :append post-extra-triggers))
+     :collect (format-create-sql table :if-not-exists if-not-exists)))
 
 (defun create-table-list (table-list
                           &key
@@ -220,6 +120,23 @@
                      :include-drop include-drop
                      :client-min-messages client-min-messages))
 
+(defun create-triggers (catalog &key (client-min-messages :notice))
+  "Create the catalog objects that come after the data has been loaded."
+  (let ((sql-list
+         (loop :for table :in (table-list catalog)
+            :do (process-triggers table)
+            :when (table-trigger-list table)
+            :append (loop :for trigger :in (table-trigger-list table)
+                       :collect (format-create-sql (trigger-procedure trigger))
+                       :collect (format-create-sql trigger)))))
+    (loop :for sql :in sql-list
+       :do (pgsql-execute sql :client-min-messages client-min-messages))))
+
+
+;;;
+;;; DDL Utilities: TRUNCATE, ENABLE/DISABLE triggers
+;;;
+
 (defun truncate-tables (pgconn catalog-or-table)
   "Truncate given TABLE-NAME in database DBNAME"
   (with-pgsql-transaction (:pgconn pgconn)
@@ -261,136 +178,6 @@
 
 
 ;;;
-;;; Index support
-;;;
-(defstruct pgsql-index
-  ;; the struct is used both for supporting new index creation from non
-  ;; PostgreSQL system and for drop/create indexes when using the 'drop
-  ;; indexes' option (in CSV mode and the like)
-  name schema table-oid primary unique columns sql conname condef filter)
-
-(defgeneric format-pgsql-create-index (table index)
-  (:documentation
-   "Return the PostgreSQL command to define an Index."))
-
-(defgeneric format-pgsql-drop-index (table index)
-  (:documentation
-   "Return the PostgreSQL command to drop an Index."))
-
-(defgeneric translate-index-filter (table index sql-dialect)
-  (:documentation
-   "Translate the filter clause of INDEX in PostgreSQL slang."))
-
-(defmethod translate-index-filter ((table table)
-                                   (index pgsql-index)
-                                   (sql-dialect t))
-  "Implement a default facility that does nothing."
-  nil)
-
-(defmethod format-pgsql-create-index ((table table) (index pgsql-index))
-  "Generate the PostgreSQL statement list to rebuild a Foreign Key"
-  (let* ((index-name (if (and *preserve-index-names*
-                              (not (string-equal "primary" (pgsql-index-name index)))
-                              (pgsql-index-table-oid index))
-                         (pgsql-index-name index)
-
-                         ;; in the general case, we build our own index name.
-                         (format nil "idx_~a_~a"
-                                 (pgsql-index-table-oid index)
-                                 (pgsql-index-name index))))
-	 (index-name (apply-identifier-case index-name)))
-    (cond
-      ((or (pgsql-index-primary index)
-           (and (pgsql-index-condef index) (pgsql-index-unique index)))
-       (values
-        ;; ensure good concurrency here, don't take the ACCESS EXCLUSIVE
-        ;; LOCK on the table before we have the index done already
-        (or (pgsql-index-sql index)
-            (format nil
-                    "CREATE UNIQUE INDEX ~@[~a.~]~a ON ~a (~{~a~^, ~})~@[ WHERE ~a~];"
-                    (pgsql-index-schema index)
-                    index-name
-                    (format-table-name table)
-                    (pgsql-index-columns index)
-                    (pgsql-index-filter index)))
-        (format nil
-                ;; don't use the index schema name here, PostgreSQL doesn't
-                ;; like it, might be implicit from the table's schema
-                ;; itself...
-                "ALTER TABLE ~a ADD ~a USING INDEX ~a;"
-                (format-table-name table)
-                (cond ((pgsql-index-primary index) "PRIMARY KEY")
-                      ((pgsql-index-unique index) "UNIQUE"))
-                index-name)))
-
-      ((pgsql-index-condef index)
-       (format nil "ALTER TABLE ~a ADD ~a;"
-               (format-table-name table)
-               (pgsql-index-condef index)))
-
-      (t
-       (or (pgsql-index-sql index)
-           (format nil
-                   "CREATE~:[~; UNIQUE~] INDEX ~@[~a.~]~a ON ~a (~{~a~^, ~})~@[ WHERE ~a~];"
-                   (pgsql-index-unique index)
-                   (pgsql-index-schema index)
-                   index-name
-                   (format-table-name table)
-                   (pgsql-index-columns index)
-                   (pgsql-index-filter index)))))))
-
-(defmethod format-pgsql-drop-index ((table table) (index pgsql-index))
-  "Generate the PostgreSQL statement to DROP the index."
-  (let* ((schema-name (apply-identifier-case (pgsql-index-schema index)))
-         (index-name  (apply-identifier-case (pgsql-index-name index))))
-    (cond ((pgsql-index-conname index)
-           ;; here always quote the constraint name, currently the name
-           ;; comes from one source only, the PostgreSQL database catalogs,
-           ;; so don't question it, quote it.
-           (format nil "ALTER TABLE ~a DROP CONSTRAINT ~s;"
-                   (format-table-name table)
-                   (pgsql-index-conname index)))
-
-          (t
-           (format nil "DROP INDEX ~@[~a.~]~a;" schema-name index-name)))))
-
-
-;;;
-;;; API to rewrite index WHERE clauses (filter)
-;;;
-(defgeneric process-index-definitions (object &key sql-dialect)
-  (:documentation "Rewrite all indexes filters in given catalog OBJECT."))
-
-(defmethod process-index-definitions ((catalog catalog) &key sql-dialect)
-  "Rewrite all index filters in CATALOG."
-  (loop :for schema :in (catalog-schema-list catalog)
-     :do (process-index-definitions schema :sql-dialect sql-dialect)))
-
-(defmethod process-index-definitions ((schema schema) &key sql-dialect)
-  "Rewrite all index filters in CATALOG."
-  (loop :for table :in (schema-table-list schema)
-     :do (process-index-definitions table :sql-dialect sql-dialect)))
-
-(defmethod process-index-definitions ((table table) &key sql-dialect)
-  "Rewrite all index filter in TABLE."
-  (loop :for index :in (table-index-list table)
-     :when (pgsql-index-filter index)
-     :do (let ((pg-filter
-                (handler-case
-                    (translate-index-filter table index sql-dialect)
-                  (condition (c)
-                    (log-message :error
-                                 "Failed to translate index ~s on table ~s because of filter clause ~s"
-                                 (pgsql-index-name index)
-                                 (format-table-name table)
-                                 (pgsql-index-filter index))
-                    (log-message :debug "filter translation error: ~a" c)
-                    ;; try to create the index without the WHERE clause...
-                    (setf (pgsql-index-filter index) nil)))))
-           (log-message :info "tranlate-index-filter: ~s" pg-filter)
-           (setf (pgsql-index-filter index) pg-filter))))
-
-;;;
 ;;; Parallel index building.
 ;;;
 (defun create-indexes-in-kernel (pgconn table kernel channel
@@ -403,7 +190,7 @@
        :for index :in (table-index-list table)
        :collect (multiple-value-bind (sql pkey)
                     ;; we postpone the pkey upgrade of the index for later.
-                    (format-pgsql-create-index table index)
+                    (format-create-sql index)
 
                   (lp:submit-task channel
                                   #'pgsql-connect-and-execute-with-timing
@@ -430,9 +217,7 @@
        :for table-name := (format-table-name table)
        :for table-oid := (cdr (assoc table-name table-oids :test #'string=))
        :unless table-oid :do (error "OID not found for ~s." table-name)
-       :do (setf (table-oid table) table-oid)
-           (loop :for index :in (table-index-list table)
-              :do (setf (pgsql-index-table-oid index) table-oid)))))
+       :do (setf (table-oid table) table-oid))))
 
 ;;;
 ;;; Drop indexes before loading
@@ -441,7 +226,7 @@
   "Drop indexes in PGSQL-INDEX-LIST. A PostgreSQL connection must already be
    active when calling that function."
   (loop :for index :in (table-index-list table)
-     :do (let ((sql (format-pgsql-drop-index table index)))
+     :do (let ((sql (format-drop-sql index)))
            (pgsql-execute-with-timing section "drop indexes" sql))))
 
 ;;;
@@ -451,13 +236,10 @@
   "Drop the indexes for TABLE-NAME on TARGET PostgreSQL connection, and
    returns a list of indexes to create again."
   (with-pgsql-connection (target)
-    (let ((indexes (list-indexes table))
+    (let ((indexes (table-index-list table))
           ;; we get the list of indexes from PostgreSQL catalogs, so don't
           ;; question their spelling, just quote them.
           (*identifier-case* :quote))
-
-      ;; set the indexes list in the table structure
-      (setf (table-index-list table) indexes)
 
       (cond ((and indexes (not drop-indexes))
              (log-message :warning

@@ -7,7 +7,7 @@
 (in-package #:pgloader.mssql.index-filter)
 
 (defmethod translate-index-filter ((table table)
-                                   (index pgsql-index)
+                                   (index index)
                                    (sql-dialect (eql 'copy-mssql)))
   "Transform given MS SQL index filter to PostgreSQL slang."
   (labels ((process-expr (expression)
@@ -27,8 +27,8 @@
                           (mapcar (column-transform col) (rest argument)))
                          (t
                           (funcall (column-transform col) argument))))))))
-    (when (pgsql-index-filter index)
-      (let* ((raw-expr (parse-index-filter-clause (pgsql-index-filter index)))
+    (when (index-filter index)
+      (let* ((raw-expr (parse-index-filter-clause (index-filter index)))
              (pg-expr
               (loop :for node :in raw-expr
                  :collect (typecase node

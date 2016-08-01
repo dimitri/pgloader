@@ -64,23 +64,23 @@
                          ;; PostgreSQL related utils
                          (:file "read-sql-files")
                          (:file "quoting")
-                         (:file "schema-structs" :depends-on ("quoting"))
-                         (:file "alter-table"    :depends-on ("schema-structs"))
+                         (:file "catalog"     :depends-on ("quoting"))
+                         (:file "alter-table" :depends-on ("catalog"))
 
                          ;; State, monitoring, reporting
                          (:file "reject"  :depends-on ("state"))
                          (:file "report"  :depends-on ("state"
                                                        "utils"
-                                                       "schema-structs"))
+                                                       "catalog"))
                          (:file "monitor" :depends-on ("logs"
                                                        "state"
                                                        "reject"
                                                        "report"))
                          (:file "archive" :depends-on ("logs"))
 
-                         (:file "pg-format-column" :depends-on ("schema-structs"
-                                                                "monitor"
-                                                                "state"))
+                         ;; (:file "pg-format-column" :depends-on ("catalog"
+                         ;;                                        "monitor"
+                         ;;                                        "state"))
 
                          ;; generic connection api
                          (:file "connection" :depends-on ("archive"))))
@@ -88,12 +88,20 @@
 	       ;; package pgloader.pgsql
 	       (:module pgsql
 			:depends-on ("package" "params" "utils")
+                        :serial t
 			:components
 			((:file "copy-format")
+                         (:file "connection")
+                         (:file "pgsql-ddl")
+                         (:file "pgsql-schema")
+                         (:file "pgsql-trigger")
+                         (:file "pgsql-index-filter")
 			 (:file "queries")
-			 (:file "schema")
-			 (:file "pgsql"
+			 (:file "schema" :depends-on ("pgsql-trigger"))
+                         (:file "retry-batch")
+			 (:file "copy-from-queue"
 				:depends-on ("copy-format"
+                                             "retry-batch"
                                              "queries"
                                              "schema"))))
 

@@ -2,7 +2,7 @@
 ;;; ALTER TABLE allows pgloader to apply transformations on the catalog
 ;;; retrieved before applying it to PostgreSQL: SET SCHEMA, RENAME, etc.
 ;;;
-(in-package :pgloader.schema)
+(in-package :pgloader.catalog)
 
 #|
    See src/parsers/command-alter-table.lisp

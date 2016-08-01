@@ -27,13 +27,19 @@
       (with-pgsql-transaction (:pgconn (target-db copy))
         ;; we need to first drop the Foreign Key Constraints, so that we
         ;; can DROP TABLE when asked
-        (when (and foreign-keys include-drop)
-          (drop-pgsql-fkeys catalog))
+        ;; (when (and foreign-keys include-drop)
+        ;;   (drop-pgsql-fkeys catalog))
 
         (when create-schemas
           (log-message :debug "Create schemas")
           (create-schemas catalog :include-drop include-drop))
 
+        ;; create new SQL types (ENUMs, SETs) if needed and before we get to
+        ;; the table definitions that will use them
+        (log-message :debug "Create SQL types (enums, sets)")
+        (create-sqltypes catalog :include-drop include-drop)
+
+        ;; now the tables
         (log-message :debug "Create tables")
         (create-tables catalog :include-drop include-drop)
 
@@ -42,11 +48,11 @@
         ;; index name, to differenciate. Set the table oids now.
         (when set-table-oids
           (log-message :debug "Set table OIDs")
-          (set-table-oids catalog))
+          (pgloader.pgsql::set-table-oids catalog))
 
         ;; We might have to MATERIALIZE VIEWS
         (when materialize-views
-          (log-message :debug "Create views for matview support")
+          (log-message :debug "Create tables for matview support")
           (create-views catalog :include-drop include-drop)))))
 
 (defmethod cleanup ((copy db-copy) (catalog catalog) &key materialize-views)
@@ -91,6 +97,12 @@
     ;;
     (when (and foreign-keys (not data-only))
       (create-pgsql-fkeys catalog))
+
+    ;;
+    ;; Triggers and stored procedures -- includes special default values
+    ;;
+    (with-pgsql-transaction (:pgconn (target-db copy))
+      (create-triggers catalog))
 
     ;;
     ;; And now, comments on tables and columns.

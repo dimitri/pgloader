@@ -2,6 +2,13 @@
 ;;;
 ;;; To avoid circular files dependencies, define all the packages here
 ;;;
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun cl-user::export-inherited-symbols (source target)
+    (let ((pkg-source (find-package (string-upcase source)))
+          (pkg-target (find-package (string-upcase target))))
+      (do-external-symbols (s pkg-source)
+        (export s pkg-target)))))
+
 (defpackage #:pgloader.transforms
   (:use #:cl)
   (:export #:precision
@@ -27,15 +34,21 @@
   (:use #:cl #:pgloader.params)
   (:export #:apply-identifier-case))
 
-(defpackage #:pgloader.schema
+(defpackage #:pgloader.catalog
   (:use #:cl #:pgloader.params #:pgloader.quoting)
-  (:export #:catalog
+  (:export #:format-create-sql
+           #:format-drop-sql
+           #:format-default-value
+
+           #:catalog
            #:schema
            #:table
+           #:sqltype
            #:column
            #:index
-           #:index
            #:fkey
+           #:trigger
+           #:procedure
 
            #:cast                       ; generic function for sources
 
@@ -46,17 +59,22 @@
            #:make-table
            #:create-table
            #:make-view
+           #:make-sqltype
            #:make-column
            #:make-index
-           #:make-index
            #:make-fkey
+           #:make-trigger
+           #:make-procedure
 
            #:catalog-name
            #:catalog-schema-list
+
            #:schema-name
+           #:schema-catalog
            #:schema-source-name
            #:schema-table-list
            #:schema-view-list
+
            #:table-name
            #:table-source-name
            #:table-schema
@@ -66,6 +84,13 @@
            #:table-column-list
            #:table-index-list
            #:table-fkey-list
+           #:table-trigger-list
+
+           #:sqltype-name
+           #:sqltype-type
+           #:sqltype-source-def
+           #:sqltype-extra
+
            #:column-name
            #:column-type-name
            #:column-type-mod
@@ -73,6 +98,41 @@
            #:column-default
            #:column-comment
            #:column-transform
+           #:column-extra
+
+           #:index-name
+           #:index-schema
+           #:index-table
+           #:index-primary
+           #:index-unique
+           #:index-columns
+           #:index-sql
+           #:index-conname
+           #:index-condef
+           #:index-filter
+
+           #:fkey-name
+           #:fkey-foreign-table
+           #:fkey-foreign-columns
+           #:fkey-table
+           #:fkey-columns
+           #:fkey-condef
+           #:fkey-update-rule
+           #:fkey-delete-rule
+           #:fkey-match-rule
+           #:fkey-deferrable
+           #:fkey-initially-deferred
+
+           #:trigger-name
+           #:trigger-table
+           #:trigger-action
+           #:trigger-procedure-name
+           #:trigger-procedure
+
+           #:procedure-name
+           #:procedure-returns
+           #:procedure-language
+           #:procedure-body
 
            #:table-list
            #:view-list
@@ -107,7 +167,7 @@
            #:format-table-name))
 
 (defpackage #:pgloader.state
-  (:use #:cl #:pgloader.params #:pgloader.schema)
+  (:use #:cl #:pgloader.params #:pgloader.catalog)
   (:export #:make-pgstate
            #:pgstate-tabnames
            #:pgstate-tables
@@ -153,31 +213,14 @@
 
 (defpackage #:pgloader.utils
   (:use #:cl
-        #:pgloader.params #:pgloader.schema
-        #:pgloader.monitor #:pgloader.state)
+        #:pgloader.params #:pgloader.catalog #:pgloader.monitor #:pgloader.state)
   (:import-from #:alexandria
                 #:appendf
                 #:read-file-into-string)
 
-  (:export #:with-monitor               ; monitor
-           #:*monitoring-queue*
-           #:with-stats-collection
-           #:elapsed-time-since
-	   #:timing
-
-           ;; bits from alexandria
+  (:export ;; bits from alexandria
            #:appendf
            #:read-file-into-string
-
-           ;; state
-           #:make-pgstate
-           #:pgstate-tabnames
-
-           ;; events
-           #:log-message
-           #:new-label
-           #:update-stats
-           #:process-bad-row
 
            ;; utils
 	   #:format-interval
@@ -194,85 +237,11 @@
            #:make-external-format
 
            ;; quoting
-           #:apply-identifier-case
+           #:apply-identifier-case))
 
-           ;; schema
-           #:catalog
-           #:schema
-           #:table
-           #:column
-           #:index
-           #:index
-           #:fkey
-
-           #:cast                       ; generic function for sources
-
-           #:make-catalog
-           #:make-schema
-           #:make-table
-           #:create-table
-           #:make-view
-           #:make-column
-           #:make-index
-           #:make-index
-           #:make-fkey
-
-           #:catalog-name
-           #:catalog-schema-list
-           #:schema-name
-           #:schema-source-name
-           #:schema-table-list
-           #:schema-view-list
-           #:table-name
-           #:table-source-name
-           #:table-schema
-           #:table-oid
-           #:table-comment
-           #:table-field-list
-           #:table-column-list
-           #:table-index-list
-           #:table-fkey-list
-           #:column-name
-           #:column-type-name
-           #:column-type-mod
-           #:column-type-nullable
-           #:column-default
-           #:column-comment
-           #:column-transform
-
-           #:table-list
-           #:view-list
-           #:add-schema
-           #:find-schema
-           #:maybe-add-schema
-           #:add-table
-           #:find-table
-           #:maybe-add-table
-           #:add-view
-           #:find-view
-           #:maybe-add-view
-           #:add-field
-           #:add-column
-           #:add-index
-           #:find-index
-           #:maybe-add-index
-           #:add-fkey
-           #:find-fkey
-           #:maybe-add-fkey
-           #:count-tables
-           #:count-views
-           #:count-indexes
-           #:count-fkeys
-           #:max-indexes-per-table
-
-           #:push-to-end
-           #:with-schema
-           #:alter-table
-           #:alter-schema
-
-           #:format-table-name
-           #:format-default-value
-           #:format-column))
+(cl-user::export-inherited-symbols "pgloader.catalog" "pgloader.utils")
+(cl-user::export-inherited-symbols "pgloader.monitor" "pgloader.utils")
+(cl-user::export-inherited-symbols "pgloader.state"   "pgloader.utils")
 
 (defpackage #:pgloader.batch
   (:use #:cl #:pgloader.params #:pgloader.monitor)
@@ -346,7 +315,7 @@
 (defpackage #:pgloader.pgsql
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
-        #:pgloader.schema)
+        #:pgloader.catalog)
   (:export #:pgsql-connection
            #:pgconn-use-ssl
            #:pgconn-table-name
@@ -356,40 +325,36 @@
 	   #:pgsql-execute-with-timing
 	   #:pgsql-connect-and-execute-with-timing
 
-           ;; PostgreSQL schema facilities
+           ;; postgresql schema facilities
 	   #:truncate-tables
 	   #:copy-from-file
 	   #:copy-from-queue
 	   #:reset-all-sequences
+
+           #:create-sqltypes
 	   #:create-schemas
 	   #:create-tables
 	   #:create-views
-	   #:format-pgsql-column
-	   #:format-extra-type
-	   #:format-extra-triggers
-	   #:make-pgsql-fkey
-           #:pgsql-fkey-columns
-           #:pgsql-fkey-foreign-columns
-	   #:format-pgsql-create-fkey
-	   #:format-pgsql-drop-fkey
            #:drop-pgsql-fkeys
            #:create-pgsql-fkeys
-           #:pgsql-index
-           #:pgsql-index-filter
-	   #:make-pgsql-index
-	   #:index-table-name
+           #:create-triggers
+
            #:translate-index-filter
            #:process-index-definitions
-	   #:format-pgsql-create-index
+
+           #:fetch-pgsql-catalog
 	   #:create-indexes-in-kernel
-           #:set-table-oids
            #:drop-indexes
            #:maybe-drop-indexes
            #:create-indexes-again
            #:reset-sequences
            #:comment-on-tables-and-columns
 
-           ;; PostgreSQL introspection queries
+           ;; index filter rewriting support
+           #:translate-index-filter
+           #:process-index-definitions
+
+           ;; postgresql introspection queries
 	   #:list-databases
 	   #:list-tables
 	   #:list-columns-query
@@ -399,13 +364,13 @@
 	   #:list-tables-and-fkeys
 	   #:list-table-oids
 
-           ;; PostgreSQL Identifiers
+           ;; postgresql identifiers
 	   #:list-reserved-keywords
 
-           ;; PostgreSQL user provided GUCs
+           ;; postgresql user provided gucs
            #:sanitize-user-gucs
 
-           ;; PostgreSQL data format
+           ;; postgresql data format
 	   #:get-date-columns
            #:format-vector-row))
 
@@ -425,7 +390,7 @@
            #:md-copy
            #:db-copy
 
-           ;; Accessors
+           ;; accessors
 	   #:source-db
 	   #:target-db
 	   #:source
@@ -437,7 +402,7 @@
            #:skip-lines
            #:header
 
-           ;; Main protocol/API
+           ;; main protocol/api
 	   #:map-rows
            #:copy-column-list
            #:queue-raw-data
@@ -446,7 +411,7 @@
 	   #:copy-to
 	   #:copy-database
 
-           ;; md-copy protocol/API
+           ;; md-copy protocol/api
            #:parse-header
            #:process-rows
 
@@ -465,7 +430,7 @@
            #:complete-pgsql-database
            #:end-kernels
 
-           ;; file based utils for CSV, fixed etc
+           ;; file based utils for csv, fixed etc
            #:with-open-file-or-stream
 	   #:get-pathname
 	   #:project-fields
@@ -479,7 +444,7 @@
 
 
 ;;;
-;;; Other utilities
+;;; other utilities
 ;;;
 (defpackage #:pgloader.ini
   (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.connection)
@@ -500,7 +465,7 @@
 
 
 ;;
-;; Specific source handling
+;; specific source handling
 ;;
 (defpackage #:pgloader.csv
   (:use #:cl
@@ -558,7 +523,6 @@
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
 		#:create-tables
-		#:format-pgsql-column
                 #:format-vector-row)
   (:export #:ixf-connection
            #:copy-ixf
@@ -574,7 +538,6 @@
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
 		#:create-tables
-		#:format-pgsql-column
                 #:format-vector-row)
   (:export #:dbf-connection
            #:copy-db3
@@ -597,18 +560,9 @@
 		#:create-tables
 		#:create-views
                 #:truncate-tables
-		#:format-pgsql-column
-		#:format-extra-type
-		#:format-extra-triggers
-		#:make-pgsql-fkey
-		#:format-pgsql-create-fkey
-		#:format-pgsql-drop-fkey
                 #:drop-pgsql-fkeys
                 #:create-pgsql-fkeys
-		#:make-pgsql-index
-		#:format-pgsql-create-index
 		#:create-indexes-in-kernel
-                #:set-table-oids
                 #:format-vector-row
                 #:reset-sequences
                 #:comment-on-tables-and-columns)
@@ -637,15 +591,7 @@
 		#:pgsql-execute-with-timing
 		#:create-tables
                 #:truncate-tables
-		#:format-pgsql-column
-		#:make-pgsql-index
-		#:index-table-name
-		#:format-pgsql-create-index
 		#:create-indexes-in-kernel
-                #:make-pgsql-fkey
-                #:pgsql-fkey-columns
-                #:pgsql-fkey-foreign-columns
-                #:set-table-oids
                 #:reset-sequences
                 #:comment-on-tables-and-columns)
   (:export #:sqlite-connection
@@ -672,18 +618,9 @@
 		#:list-table-oids
 		#:create-tables
 		#:create-views
-                #:truncate-tables
-		#:format-pgsql-column
-		#:format-extra-type
-		#:make-pgsql-fkey
-		#:format-pgsql-create-fkey
-		#:format-pgsql-drop-fkey
                 #:drop-pgsql-fkeys
                 #:create-pgsql-fkeys
-		#:make-pgsql-index
-		#:format-pgsql-create-index
 		#:create-indexes-in-kernel
-                #:set-table-oids
                 #:format-vector-row
                 #:reset-sequences)
   (:export #:mssql-connection
@@ -698,8 +635,6 @@
 (defpackage #:pgloader.mssql.index-filter
   (:use #:cl #:esrap #:pgloader.utils #:pgloader.mssql)
   (:import-from #:pgloader.pgsql
-                #:pgsql-index
-                #:pgsql-index-filter
                 #:translate-index-filter))
 
 (defpackage #:pgloader.syslog
@@ -713,7 +648,7 @@
 
 
 ;;;
-;;; The Command Parser
+;;; the command parser
 ;;;
 (defpackage #:pgloader.parser
   (:use #:cl #:esrap #:metabang.bind
@@ -755,7 +690,7 @@
   (:export #:parse-commands
            #:parse-commands-from-file
 
-           ;; tools to enable complete CLI parsing in main.lisp
+           ;; tools to enable complete cli parsing in main.lisp
            #:process-relative-pathnames
 	   #:parse-source-string
 	   #:parse-source-string-for-type
@@ -793,7 +728,7 @@
 
 
 ;;
-;; Main package
+;; main package
 ;;
 (defpackage #:pgloader
   (:use #:cl
