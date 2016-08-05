@@ -78,10 +78,6 @@
                                                        "report"))
                          (:file "archive" :depends-on ("logs"))
 
-                         ;; (:file "pg-format-column" :depends-on ("catalog"
-                         ;;                                        "monitor"
-                         ;;                                        "state"))
-
                          ;; generic connection api
                          (:file "connection" :depends-on ("archive"))))
 
