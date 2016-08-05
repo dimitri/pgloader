@@ -13,10 +13,11 @@
         ;; rewrite the table constraint as an including expression
         (let ((schema
                (or (table-schema table)
-                   (make-schema :name (query-table-schema (table-name table))))))
-         (setf including
-               (list (cons (schema-name schema)
-                           (list (table-name table)))))))
+                   (query-table-schema table))))
+          (setf including
+                (list (cons (schema-name schema)
+                            (list
+                             (format-table-name-as-including-exp table)))))))
 
       (list-all-columns catalog
                         :table-type :table
@@ -31,17 +32,42 @@
                       :including including
                       :excluding excluding))
 
+    (log-message :debug "fetch-pgsql-catalog: ~d tables, ~d indexes, ~d fkeys"
+                 (count-tables catalog)
+                 (count-indexes catalog)
+                 (count-fkeys catalog))
+
+    (when (and table (/= 1 (count-tables catalog)))
+      (error "pgloader found ~d target tables for name ~s|:~{~%  ~a~}"
+             (count-tables catalog)
+             (format-table-name table)
+             (mapcar #'format-table-name (table-list catalog))))
+
     catalog))
 
-(defun query-table-schema (table-name)
+(defun format-table-name-as-including-exp (table)
+  "Return a table name suitable for a catalog lookup using ~ operator."
+  (let ((table-name (table-name table)))
+    (format nil "^~a$"
+            (cond ((pgloader.quoting::quoted-p table-name)
+                   ;; when the table name comes from the user (e.g. in the
+                   ;; load file) then we might have to unquote it: the
+                   ;; PostgreSQL catalogs does not store object names in
+                   ;; their quoted form.
+                   (subseq table-name 1 (1- (length table-name))))
+
+                  (t table-name)))))
+
+(defun query-table-schema (table)
   "Get PostgreSQL schema name where to locate TABLE-NAME by following the
   current search_path rules. A PostgreSQL connection must be opened."
-  (pomo:query (format nil "
+  (make-schema :name
+               (pomo:query (format nil "
   select nspname
     from pg_namespace n
     join pg_class c on n.oid = c.relnamespace
    where c.oid = '~a'::regclass;"
-                      table-name) :single))
+                                   (table-name table)) :single)))
 
 
 (defvar *table-type* '((:table    . "r")
@@ -142,13 +168,13 @@ order by n.nspname, r.relname"
                              including  ; do we print the clause?
                              (filter-list-to-where-clause including
                                                           nil
-                                                          "n.nspname"
-                                                          "i.relname")
+                                                          "rn.nspname"
+                                                          "r.relname")
                              excluding  ; do we print the clause?
                              (filter-list-to-where-clause excluding
                                                           nil
-                                                          "n.nspname"
-                                                          "i.relname")))
+                                                          "rn.nspname"
+                                                          "r.relname")))
      :do (let* ((schema   (find-schema catalog schema-name))
                 (tschema  (find-schema catalog table-schema))
                 (table    (find-table tschema table-name))

@@ -188,18 +188,20 @@
   (let* ((lp:*kernel* kernel))
     (loop
        :for index :in (table-index-list table)
-       :collect (multiple-value-bind (sql pkey)
-                    ;; we postpone the pkey upgrade of the index for later.
-                    (format-create-sql index)
+       :for pkey := (multiple-value-bind (sql pkey)
+                        ;; we postpone the pkey upgrade of the index for later.
+                        (format-create-sql index)
 
-                  (lp:submit-task channel
-                                  #'pgsql-connect-and-execute-with-timing
-                                  ;; each thread must have its own connection
-                                  (clone-connection pgconn)
-                                  :post label sql)
+                      (lp:submit-task channel
+                                      #'pgsql-connect-and-execute-with-timing
+                                      ;; each thread must have its own connection
+                                      (clone-connection pgconn)
+                                      :post label sql)
 
-                  ;; return the pkey "upgrade" statement
-                  pkey))))
+                      ;; return the pkey "upgrade" statement
+                      pkey)
+       :when pkey
+       :collect pkey)))
 
 ;;;
 ;;; Protect from non-unique index names
@@ -232,58 +234,64 @@
 ;;;
 ;;; Higher level API to care about indexes
 ;;;
-(defun maybe-drop-indexes (target table &key (section :pre) drop-indexes)
+(defun maybe-drop-indexes (target catalog &key (section :pre) drop-indexes)
   "Drop the indexes for TABLE-NAME on TARGET PostgreSQL connection, and
    returns a list of indexes to create again."
   (with-pgsql-connection (target)
-    (let ((indexes (table-index-list table))
-          ;; we get the list of indexes from PostgreSQL catalogs, so don't
-          ;; question their spelling, just quote them.
-          (*identifier-case* :quote))
+    (loop :for table :in (table-list catalog)
+       :do
+       (let ((indexes (table-index-list table))
+             ;; we get the list of indexes from PostgreSQL catalogs, so don't
+             ;; question their spelling, just quote them.
+             (*identifier-case* :quote))
 
-      (cond ((and indexes (not drop-indexes))
-             (log-message :warning
-                          "Target table ~s has ~d indexes defined against it."
-                          (format-table-name table) (length indexes))
-             (log-message :warning
-                          "That could impact loading performance badly.")
-             (log-message :warning
-                          "Consider the option 'drop indexes'."))
+         (cond ((and indexes (not drop-indexes))
+                (log-message :warning
+                             "Target table ~s has ~d indexes defined against it."
+                             (format-table-name table) (length indexes))
+                (log-message :warning
+                             "That could impact loading performance badly.")
+                (log-message :warning
+                             "Consider the option 'drop indexes'."))
 
-            (indexes
-             ;; drop the indexes now
-             (with-stats-collection ("drop indexes" :section section)
-                 (drop-indexes section table)))))))
+               (indexes
+                ;; drop the indexes now
+                (with-stats-collection ("drop indexes" :section section)
+                    (drop-indexes section table))))))))
 
-(defun create-indexes-again (target table
+(defun create-indexes-again (target catalog
                              &key
                                max-parallel-create-index
                                (section :post)
                                drop-indexes)
   "Create the indexes that we dropped previously."
-  (when (and (table-index-list table) drop-indexes)
+  (when drop-indexes
     (let* ((*preserve-index-names* t)
            ;; we get the list of indexes from PostgreSQL catalogs, so don't
            ;; question their spelling, just quote them.
            (*identifier-case* :quote)
            (idx-kernel  (make-kernel (or max-parallel-create-index
-                                         (count-indexes table))))
+                                         (count-indexes catalog))))
            (idx-channel (let ((lp:*kernel* idx-kernel))
                           (lp:make-channel))))
-      (let ((pkeys
-             (create-indexes-in-kernel target table idx-kernel idx-channel)))
+      (loop :for table :in (table-list catalog)
+         :when (table-index-list table)
+         :do
+         (let ((pkeys
+                (create-indexes-in-kernel target table idx-kernel idx-channel)))
 
-        (with-stats-collection ("Index Build Completion" :section section)
-            (loop :repeat (count-indexes table)
-               :do (lp:receive-result idx-channel))
-          (lp:end-kernel :wait t))
+           (with-stats-collection ("Index Build Completion" :section section)
+               (loop :repeat (count-indexes table)
+                  :do (lp:receive-result idx-channel))
+             (lp:end-kernel :wait t))
 
-        ;; turn unique indexes into pkeys now
-        (with-pgsql-connection (target)
-          (with-stats-collection ("Constraints" :section section)
-              (loop :for sql :in pkeys
-                 :when sql
-                 :do (pgsql-execute-with-timing section "Constraints" sql))))))))
+           ;; turn unique indexes into pkeys now
+           (with-stats-collection ("Constraints" :section section)
+               (pgsql-connect-and-execute-with-timing target
+                                                      section
+                                                      "Constrants"
+                                                      pkeys)))))))
+
 
 ;;;
 ;;; Sequences

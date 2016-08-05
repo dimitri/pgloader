@@ -226,8 +226,8 @@
 ;;;
 ;;; DDL support with stats (timing, object count)
 ;;;
-
-(defun pgsql-connect-and-execute-with-timing (pgconn section label sql &key (count 1))
+(defun pgsql-connect-and-execute-with-timing (pgconn section label sql
+                                              &key (count 1))
   "Run pgsql-execute-with-timing within a newly establised connection."
   (with-pgsql-connection (pgconn)
     (pomo:with-transaction ()
@@ -252,8 +252,10 @@
      (format nil "SET LOCAL client_min_messages TO ~a;"
              (symbol-name client-min-messages))))
 
-  (log-message :notice "~a" sql)
-  (pomo:execute sql)
+  (loop :for sql :in (alexandria::ensure-list sql)
+     :do (progn
+           (log-message :notice "~a" sql)
+           (pomo:execute sql)))
 
   (when client-min-messages
     (pomo:execute (format nil "RESET client_min_messages;"))))

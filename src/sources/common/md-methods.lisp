@@ -100,63 +100,61 @@
                    set-table-oids including excluding))
 
   (let* ((pgsql-catalog
-          (fetch-pgsql-catalog (target-db copy) :table (target copy))))
-
-    (when (= 1 (count-tables pgsql-catalog))
-      ;; we found the target table, grab its definition
-      (setf (target copy)
-            (first (schema-table-list
-                    (first (catalog-schema-list pgsql-catalog))))))
+          (handler-case
+              (fetch-pgsql-catalog (target-db copy) :table (target copy))
+            (condition (e)
+              (log-message :fatal "Failed to fetch target PostgreSQL catalogs.")
+              (log-message :fatal "~a" e)
+              (return-from copy-database)))))
 
     ;; this sets (table-index-list (target copy))
     (maybe-drop-indexes (target-db copy)
-                        (target copy)
-                        :drop-indexes drop-indexes))
+                        pgsql-catalog
+                        :drop-indexes drop-indexes)
 
+    ;; ensure we truncate only once, do it before going parallel
+    (when truncate
+      (truncate-tables (target-db copy) pgsql-catalog))
 
-  ;; ensure we truncate only one
-  (when truncate
-    (truncate-tables (clone-connection (target-db copy)) (target copy)))
+    ;; expand the specs of our source, we might have to care about several
+    ;; files actually.
+    (let* ((lp:*kernel* (make-kernel worker-count))
+           (channel     (lp:make-channel))
+           (path-list   (expand-spec (source copy))))
+      (loop :for path-spec :in path-list
+         :do (let ((table-source (clone-copy-for copy path-spec)))
+               (copy-from table-source
+                          :concurrency concurrency
+                          :kernel lp:*kernel*
+                          :channel channel
+                          :on-error-stop on-error-stop
+                          :truncate nil
+                          :disable-triggers disable-triggers)))
 
-  ;; expand the specs of our source, we might have to care about several
-  ;; files actually.
-  (let* ((lp:*kernel* (make-kernel worker-count))
-         (channel     (lp:make-channel))
-         (path-list   (expand-spec (source copy))))
-    (loop :for path-spec :in path-list
-       :do (let ((table-source (clone-copy-for copy path-spec)))
-             (copy-from table-source
-                        :concurrency concurrency
-                        :kernel lp:*kernel*
-                        :channel channel
-                        :on-error-stop on-error-stop
-                        :truncate nil
-                        :disable-triggers disable-triggers)))
+      ;; end kernel
+      (with-stats-collection ("COPY Threads Completion" :section :post
+                                                        :use-result-as-read t
+                                                        :use-result-as-rows t)
+          (let ((worker-count (* (length path-list)
+                                 (task-count concurrency))))
+            (loop :for tasks :below worker-count
+               :do (handler-case
+                       (destructuring-bind (task table seconds)
+                           (lp:receive-result channel)
+                         (log-message :debug
+                                      "Finished processing ~a for ~s ~50T~6$s"
+                                      task (format-table-name table) seconds)
+                         (when (eq :writer task)
+                           (update-stats :data table :secs seconds)))
+                     (condition (e)
+                       (log-message :fatal "~a" e))))
+            (prog1
+                worker-count
+              (lp:end-kernel :wait nil))))
+      (lp:end-kernel :wait t))
 
-    ;; end kernel
-    (with-stats-collection ("COPY Threads Completion" :section :post
-                                                      :use-result-as-read t
-                                                      :use-result-as-rows t)
-        (let ((worker-count (* (length path-list)
-                               (task-count concurrency))))
-          (loop :for tasks :below worker-count
-             :do (handler-case
-                     (destructuring-bind (task table seconds)
-                         (lp:receive-result channel)
-                       (log-message :debug
-                                    "Finished processing ~a for ~s ~50T~6$s"
-                                    task (format-table-name table) seconds)
-                       (when (eq :writer task)
-                         (update-stats :data table :secs seconds)))
-                   (condition (e)
-                     (log-message :fatal "~a" e))))
-          (prog1
-              worker-count
-            (lp:end-kernel :wait nil))))
-    (lp:end-kernel :wait t))
-
-  ;; re-create the indexes from the target table entry
-  (create-indexes-again (target-db copy)
-                        (target copy)
-                        :max-parallel-create-index max-parallel-create-index
-                        :drop-indexes drop-indexes))
+    ;; re-create the indexes from the target table entry
+    (create-indexes-again (target-db copy)
+                          pgsql-catalog
+                          :max-parallel-create-index max-parallel-create-index
+                          :drop-indexes drop-indexes)))

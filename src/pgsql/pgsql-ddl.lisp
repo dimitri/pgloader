@@ -159,7 +159,7 @@
                     (format-table-name table)
                     (index-columns index)
                     (index-filter index)))
-        (format stream
+        (format nil
                 ;; don't use the index schema name here, PostgreSQL doesn't
                 ;; like it, might be implicit from the table's schema
                 ;; itself...
