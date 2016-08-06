@@ -3,36 +3,15 @@
 ;;;
 (in-package #:pgloader.pgsql)
 
-;;;
-;;; API for Foreign Keys
-;;;
-(defun drop-pgsql-fkeys (catalog)
-  "Drop all Foreign Key Definitions given, to prepare for a clean run."
-  (loop :for table :in (table-list catalog)
-     :do
-     (loop :for fkey :in (table-fkey-list table)
-        :for sql := (format-drop-sql fkey)
-        :when sql
-        :do (pgsql-execute sql))))
-
-(defun create-pgsql-fkeys (catalog
-                           &key
-                             (section :post)
-                             (label "Foreign Keys"))
-  "Actually create the Foreign Key References that where declared in the
-   MySQL database"
-  (with-stats-collection (label :section section :use-result-as-rows t)
-      (loop :for table :in (table-list catalog)
-         :sum (loop :for fkey :in (table-fkey-list table)
-                 :for sql := (format-create-sql fkey)
-                 :do (pgsql-execute-with-timing section label sql)
-                 :count t))))
-
 
 ;;;
 ;;; Table schema support
 ;;;
-(defun create-sqltypes (catalog &key if-not-exists include-drop)
+(defun create-sqltypes (catalog
+                        &key
+                          if-not-exists
+                          include-drop
+                          (client-min-messages :notice))
   "Create the needed data types for given CATALOG."
   (let ((sqltype-list))
     ;; build the sqltype list
@@ -46,9 +25,11 @@
     ;; now create the types
     (loop :for sqltype :in sqltype-list
        :when include-drop
-       :do (pgsql-execute (format-drop-sql sqltype :cascade t))
+       :do (pgsql-execute (format-drop-sql sqltype :cascade t)
+                          :client-min-messages client-min-messages)
        :do (pgsql-execute
-            (format-create-sql sqltype :if-not-exists if-not-exists)))))
+            (format-create-sql sqltype :if-not-exists if-not-exists)
+            :client-min-messages client-min-messages))))
 
 (defun create-table-sql-list (table-list
                               &key
@@ -137,17 +118,17 @@
 ;;; DDL Utilities: TRUNCATE, ENABLE/DISABLE triggers
 ;;;
 
-(defun truncate-tables (pgconn catalog-or-table)
-  "Truncate given TABLE-NAME in database DBNAME"
-  (with-pgsql-transaction (:pgconn pgconn)
-    (let ((sql
-           (format nil "TRUNCATE ~{~a~^,~};"
-                   (mapcar #'format-table-name
-                           (etypecase catalog-or-table
-                             (catalog (table-list catalog-or-table))
-                             (schema  (table-list catalog-or-table))
-                             (table   (list catalog-or-table)))))))
-      (pgsql-execute sql))))
+(defun truncate-tables (catalog-or-table)
+  "Truncate given TABLE-NAME in database DBNAME. A PostgreSQL connection
+   must already be active when calling that function."
+  (let ((sql
+         (format nil "TRUNCATE ~{~a~^,~};"
+                 (mapcar #'format-table-name
+                         (etypecase catalog-or-table
+                           (catalog (table-list catalog-or-table))
+                           (schema  (table-list catalog-or-table))
+                           (table   (list catalog-or-table)))))))
+    (pgsql-execute sql)))
 
 (defun disable-triggers (table-name)
   "Disable triggers on TABLE-NAME. Needs to be called with a PostgreSQL
@@ -178,6 +159,33 @@
 
 
 ;;;
+;;; API for Foreign Keys
+;;;
+(defun drop-pgsql-fkeys (catalog)
+  "Drop all Foreign Key Definitions given, to prepare for a clean run."
+  (loop :for table :in (table-list catalog)
+     :do
+     (loop :for fkey :in (table-fkey-list table)
+        :for sql := (format-drop-sql fkey :cascade t)
+        :when sql
+        :do (pgsql-execute sql))))
+
+(defun create-pgsql-fkeys (catalog
+                           &key
+                             (section :post)
+                             (label "Foreign Keys"))
+  "Actually create the Foreign Key References that where declared in the
+   MySQL database"
+  (with-stats-collection (label :section section :use-result-as-rows t)
+      (loop :for table :in (table-list catalog)
+         :sum (loop :for fkey :in (table-fkey-list table)
+                 :for sql := (format-create-sql fkey)
+                 :do (pgsql-execute-with-timing section label sql)
+                 :count t))))
+
+
+
+;;;
 ;;; Parallel index building.
 ;;;
 (defun create-indexes-in-kernel (pgconn table kernel channel
@@ -203,6 +211,7 @@
        :when pkey
        :collect pkey)))
 
+
 ;;;
 ;;; Protect from non-unique index names
 ;;;
@@ -214,50 +223,52 @@
    This function grabs the table OIDs in the PostgreSQL database and update
    the definitions with them."
   (let* ((table-names (mapcar #'format-table-name (table-list catalog)))
-	 (table-oids  (pgloader.pgsql:list-table-oids table-names)))
+	 (oid-map     (list-table-oids table-names)))
     (loop :for table :in (table-list catalog)
        :for table-name := (format-table-name table)
-       :for table-oid := (cdr (assoc table-name table-oids :test #'string=))
+       :for table-oid := (gethash table-name oid-map)
        :unless table-oid :do (error "OID not found for ~s." table-name)
        :do (setf (table-oid table) table-oid))))
 
+
 ;;;
 ;;; Drop indexes before loading
 ;;;
 (defun drop-indexes (section table)
   "Drop indexes in PGSQL-INDEX-LIST. A PostgreSQL connection must already be
    active when calling that function."
-  (loop :for index :in (table-index-list table)
-     :do (let ((sql (format-drop-sql index)))
-           (pgsql-execute-with-timing section "drop indexes" sql))))
+  (let ((sql-index-list
+         (loop :for index :in (table-index-list table)
+            :collect (format-drop-sql index :cascade t))))
+    (pgsql-execute-with-timing section "drop indexes" sql-index-list)))
 
 ;;;
 ;;; Higher level API to care about indexes
 ;;;
-(defun maybe-drop-indexes (target catalog &key (section :pre) drop-indexes)
+(defun maybe-drop-indexes (catalog &key (section :pre) drop-indexes)
   "Drop the indexes for TABLE-NAME on TARGET PostgreSQL connection, and
-   returns a list of indexes to create again."
-  (with-pgsql-connection (target)
-    (loop :for table :in (table-list catalog)
-       :do
-       (let ((indexes (table-index-list table))
-             ;; we get the list of indexes from PostgreSQL catalogs, so don't
-             ;; question their spelling, just quote them.
-             (*identifier-case* :quote))
+   returns a list of indexes to create again. A PostgreSQL connection must
+   already be active when calling that function."
+  (loop :for table :in (table-list catalog)
+     :do
+     (let ((indexes (table-index-list table))
+           ;; we get the list of indexes from PostgreSQL catalogs, so don't
+           ;; question their spelling, just quote them.
+           (*identifier-case* :quote))
 
-         (cond ((and indexes (not drop-indexes))
-                (log-message :warning
-                             "Target table ~s has ~d indexes defined against it."
-                             (format-table-name table) (length indexes))
-                (log-message :warning
-                             "That could impact loading performance badly.")
-                (log-message :warning
-                             "Consider the option 'drop indexes'."))
+       (cond ((and indexes (not drop-indexes))
+              (log-message :warning
+                           "Target table ~s has ~d indexes defined against it."
+                           (format-table-name table) (length indexes))
+              (log-message :warning
+                           "That could impact loading performance badly.")
+              (log-message :warning
+                           "Consider the option 'drop indexes'."))
 
-               (indexes
-                ;; drop the indexes now
-                (with-stats-collection ("drop indexes" :section section)
-                    (drop-indexes section table))))))))
+             (indexes
+              ;; drop the indexes now
+              (with-stats-collection ("drop indexes" :section section)
+                  (drop-indexes section table)))))))
 
 (defun create-indexes-again (target catalog
                              &key
@@ -296,13 +307,58 @@
 ;;;
 ;;; Sequences
 ;;;
-(defun reset-sequences (catalog &key pgconn (section :post))
+(defun reset-sequences (target catalog &key (section :post))
   "Reset all sequences created during this MySQL migration."
   (log-message :notice "Reset sequences")
   (with-stats-collection ("Reset Sequences"
                           :use-result-as-rows t
                           :section section)
-      (reset-all-sequences pgconn :tables (table-list catalog))))
+      (let ((tables  (table-list catalog)))
+        (with-pgsql-connection (target)
+          (set-session-gucs *pg-settings*)
+          (pomo:execute "set client_min_messages to warning;")
+          (pomo:execute "listen seqs")
+
+          (when tables
+            (pomo:execute
+             (format nil "create temp table reloids(oid) as values ~{('~a'::regclass)~^,~}"
+                     (mapcar #'format-table-name tables))))
+
+          (handler-case
+              (let ((sql (format nil "
+DO $$
+DECLARE
+  n integer := 0;
+  r record;
+BEGIN
+  FOR r in
+       SELECT 'select '
+               || trim(trailing ')'
+                  from replace(pg_get_expr(d.adbin, d.adrelid),
+                               'nextval', 'setval'))
+               || ', (select greatest(max(' || quote_ident(a.attname) || '), 1) from only '
+               || quote_ident(nspname) || '.' || quote_ident(relname) || '));' as sql
+         FROM pg_class c
+              JOIN pg_namespace n on n.oid = c.relnamespace
+              JOIN pg_attribute a on a.attrelid = c.oid
+              JOIN pg_attrdef d on d.adrelid = a.attrelid
+                                 and d.adnum = a.attnum
+                                 and a.atthasdef
+        WHERE relkind = 'r' and a.attnum > 0
+              and pg_get_expr(d.adbin, d.adrelid) ~~ '^nextval'
+              ~@[and c.oid in (select oid from reloids)~]
+  LOOP
+    n := n + 1;
+    EXECUTE r.sql;
+  END LOOP;
+
+  PERFORM pg_notify('seqs', n::text);
+END;
+$$; " tables)))
+                (pomo:execute sql))
+            ;; now get the notification signal
+            (cl-postgres:postgresql-notification (c)
+              (parse-integer (cl-postgres:postgresql-notification-payload c))))))))
 
 
 ;;;

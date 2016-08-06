@@ -36,18 +36,6 @@
 		:initform t))
   (:documentation "pgloader CSV Data Source"))
 
-(defmethod initialize-instance :after ((csv copy-csv) &key)
-  "Compute the real source definition from the given source parameter, and
-   set the transforms function list as needed too."
-  (let ((transforms (when (slot-boundp csv 'transforms)
-		      (slot-value csv 'transforms)))
-	(columns
-	 (or (slot-value csv 'columns)
-	     (pgloader.pgsql:list-columns (slot-value csv 'target-db)
-					  (slot-value csv 'target)))))
-    (unless transforms
-      (setf (slot-value csv 'transforms) (make-list (length columns))))))
-
 (defmethod clone-copy-for ((csv copy-csv) path-spec)
   "Create a copy of CSV for loading data from PATH-SPEC."
   (let ((csv-for-path-spec

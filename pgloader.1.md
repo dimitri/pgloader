@@ -1616,7 +1616,12 @@ The `database` command accepts the following clauses and options:
       - *create no tables*
 
 	    When this option is listed, pgloader skips the creation of table
-	    before lading data, target tables must then already exist.
+	    before loading data, target tables must then already exist.
+
+        Also, when using *create no tables* pgloader fetches the metadata
+        from the current target database and checks type casting, then will
+        remove constraints and indexes prior to loading the data and install
+        them back again once the loading is done.
 
 	  - *create indexes*
 
@@ -2079,7 +2084,12 @@ The `sqlite` command accepts the following clauses and options:
       - *create no tables*
 
 	    When this option is listed, pgloader skips the creation of table
-	    before lading data, target tables must then already exist.
+	    before loading data, target tables must then already exist.
+
+        Also, when using *create no tables* pgloader fetches the metadata
+        from the current target database and checks type casting, then will
+        remove constraints and indexes prior to loading the data and install
+        them back again once the loading is done.
 
 	  - *create indexes*
 

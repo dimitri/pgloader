@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "May 2016" "ff" ""
+.TH "PGLOADER" "1" "August 2016" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -1876,7 +1876,10 @@ When this option is listed, pgloader creates the table using the meta data found
 \fIcreate no tables\fR
 .
 .IP
-When this option is listed, pgloader skips the creation of table before lading data, target tables must then already exist\.
+When this option is listed, pgloader skips the creation of table before loading data, target tables must then already exist\.
+.
+.IP
+Also, when using \fIcreate no tables\fR pgloader fetches the metadata from the current target database and checks type casting, then will remove constraints and indexes prior to loading the data and install them back again once the loading is done\.
 .
 .IP "\(bu" 4
 \fIcreate indexes\fR
@@ -2063,13 +2066,16 @@ When the option \fIdrop default\fR is listed, pgloader drops any existing defaul
 The spelling \fIkeep default\fR explicitly prevents that behaviour and can be used to overload the default casting rules\.
 .
 .IP "\(bu" 4
-\fIdrop not null\fR, \fIkeep not null\fR
+\fIdrop not null\fR, \fIkeep not null\fR, \fIset not null\fR
 .
 .IP
 When the option \fIdrop not null\fR is listed, pgloader drops any existing \fBNOT NULL\fR constraint associated with the given source MySQL datatype when it creates the tables in the PostgreSQL database\.
 .
 .IP
 The spelling \fIkeep not null\fR explicitly prevents that behaviour and can be used to overload the default casting rules\.
+.
+.IP
+When the option \fIset not null\fR is listed, pgloader sets a \fBNOT NULL\fR constraint on the target column regardless whether it has been set in the source MySQL column\.
 .
 .IP "\(bu" 4
 \fIdrop typemod\fR, \fIkeep typemod\fR
@@ -2302,10 +2308,10 @@ type decimal to decimal keep typemod
 Texts:
 .
 .IP "\(bu" 4
-type char to varchar keep typemod using remove\-null\-characters
+type char to char keep typemod using remove\-null\-characters
 .
 .IP "\(bu" 4
-type varchar to text using remove\-null\-characters
+type varchar to varchar keep typemod using remove\-null\-characters
 .
 .IP "\(bu" 4
 type tinytext to text using remove\-null\-characters
@@ -2476,7 +2482,10 @@ When this option is listed, pgloader creates the table using the meta data found
 \fIcreate no tables\fR
 .
 .IP
-When this option is listed, pgloader skips the creation of table before lading data, target tables must then already exist\.
+When this option is listed, pgloader skips the creation of table before loading data, target tables must then already exist\.
+.
+.IP
+Also, when using \fIcreate no tables\fR pgloader fetches the metadata from the current target database and checks type casting, then will remove constraints and indexes prior to loading the data and install them back again once the loading is done\.
 .
 .IP "\(bu" 4
 \fIcreate indexes\fR

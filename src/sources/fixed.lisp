@@ -18,18 +18,6 @@
 		:initform 0))
   (:documentation "pgloader Fixed Columns Data Source"))
 
-(defmethod initialize-instance :after ((fixed copy-fixed) &key)
-  "Compute the real source definition from the given source parameter, and
-   set the transforms function list as needed too."
-  (let ((transforms (when (slot-boundp fixed 'transforms)
-		      (slot-value fixed 'transforms)))
-	(columns
-	 (or (slot-value fixed 'columns)
-	     (pgloader.pgsql:list-columns (slot-value fixed 'target-db)
-					  (slot-value fixed 'target)))))
-    (unless transforms
-      (setf (slot-value fixed 'transforms) (make-list (length columns))))))
-
 (defmethod clone-copy-for ((fixed copy-fixed) path-spec)
   "Create a copy of FIXED for loading data from PATH-SPEC."
   (let ((fixed-clone

@@ -90,16 +90,17 @@
                          (:file "connection")
                          (:file "pgsql-ddl")
                          (:file "pgsql-schema")
+                         (:file "merge-catalogs" :depends-on ("pgsql-schema"))
                          (:file "pgsql-trigger")
                          (:file "pgsql-index-filter")
-			 (:file "queries")
-			 (:file "schema" :depends-on ("pgsql-trigger"))
+			 (:file "pgsql-create-schema" :depends-on ("pgsql-trigger"))
                          (:file "retry-batch")
 			 (:file "copy-from-queue"
 				:depends-on ("copy-format"
+                                             "connection"
                                              "retry-batch"
-                                             "queries"
-                                             "schema"))))
+                                             "pgsql-create-schema"
+                                             "pgsql-schema"))))
 
                (:module "parsers"
                         :depends-on ("params" "package" "utils" "pgsql" "monkey")
@@ -210,13 +211,18 @@
                                           :depends-on ("mysql-cast-rules"
                                                        "mysql-schema"))))))
 
+               (:module "regress"
+                        :depends-on ("params" "package" "utils" "pgsql")
+                        :components ((:file "regress")))
+
 	       ;; the main entry file, used when building a stand-alone
 	       ;; executable image
 	       (:file "main" :depends-on ("params"
                                           "package"
                                           "utils"
                                           "parsers"
-                                          "sources"))))
+                                          "sources"
+                                          "regress"))))
 
      ;; to produce the website
      (:module "web"

@@ -25,7 +25,13 @@
 	   #:*pg-settings*
 	   #:*default-tmpdir*
 	   #:init-params-from-environment
-	   #:getenv-default))
+	   #:getenv-default
+
+           #:+os-code-success+
+           #:+os-code-error+
+           #:+os-code-error-usage+
+           #:+os-code-error-bad-source+
+           #:+os-code-error-regress+))
 
 (in-package :pgloader.params)
 
@@ -146,3 +152,13 @@
   (setf *default-tmpdir*
 	(fad:pathname-as-directory
 	 (getenv-default "TMPDIR" *default-tmpdir*))))
+
+;;;
+;;; Some command line constants for OS errors codes
+;;;
+(defparameter +os-code-success+          0)
+(defparameter +os-code-error+            1)
+(defparameter +os-code-error-usage+      2)
+(defparameter +os-code-error-bad-source+ 4)
+(defparameter +os-code-error-regress+    5)
+

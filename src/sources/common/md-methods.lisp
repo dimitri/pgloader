@@ -64,7 +64,8 @@
                  :target     (target copy)
                  :fields     (fields copy)
                  :columns    (columns copy)
-                 :transforms (transforms copy)
+                 :transforms (or (transforms copy)
+                                 (make-list (length (columns copy))))
                  :encoding   (encoding copy)
                  :skip-lines (skip-lines copy)
                  :header     (header copy)))
@@ -99,22 +100,38 @@
                    create-indexes reset-sequences materialize-views
                    set-table-oids including excluding))
 
-  (let* ((pgsql-catalog
-          (handler-case
-              (fetch-pgsql-catalog (target-db copy) :table (target copy))
-            (condition (e)
-              (log-message :fatal "Failed to fetch target PostgreSQL catalogs.")
-              (log-message :fatal "~a" e)
-              (return-from copy-database)))))
+  (let* ((pgconn (target-db copy))
+         pgsql-catalog)
 
-    ;; this sets (table-index-list (target copy))
-    (maybe-drop-indexes (target-db copy)
-                        pgsql-catalog
-                        :drop-indexes drop-indexes)
+    (handler-case
+        (with-pgsql-connection (pgconn)
+          (setf pgsql-catalog
+                (fetch-pgsql-catalog (db-name pgconn) :table (target copy)))
 
-    ;; ensure we truncate only once, do it before going parallel
-    (when truncate
-      (truncate-tables (target-db copy) pgsql-catalog))
+          ;; if the user didn't tell us the column list of the table, now is
+          ;; a proper time to set it in the copy object
+          (unless (and (slot-boundp copy 'columns)
+                       (slot-value copy 'columns))
+            (setf (columns copy)
+                  (mapcar (lambda (col)
+                            ;; we need to handle the md-copy format for the
+                            ;; column list, which allow for user given
+                            ;; options: each column is a list which car is
+                            ;; the column name.
+                            (list (column-name col)))
+                          (table-field-list (first (table-list pgsql-catalog))))))
+
+          ;; this sets (table-index-list (target copy))
+          (maybe-drop-indexes pgsql-catalog :drop-indexes drop-indexes)
+
+          ;; now is the proper time to truncate, before parallel operations
+          (when truncate
+            (truncate-tables pgsql-catalog)))
+
+      (condition (e)
+        (log-message :fatal "Failed to prepare target PostgreSQL table.")
+        (log-message :fatal "~a" e)
+        (return-from copy-database)))
 
     ;; expand the specs of our source, we might have to care about several
     ;; files actually.
@@ -128,7 +145,6 @@
                           :kernel lp:*kernel*
                           :channel channel
                           :on-error-stop on-error-stop
-                          :truncate nil
                           :disable-triggers disable-triggers)))
 
       ;; end kernel

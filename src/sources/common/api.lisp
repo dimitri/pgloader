@@ -58,7 +58,7 @@
   (:documentation
    "Return the list of column names for the data sent in the queue."))
 
-(defgeneric copy-from (source &key truncate)
+(defgeneric copy-from (source &key)
   (:documentation
    "Load data from SOURCE into its target as defined by the SOURCE object."))
 

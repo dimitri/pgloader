@@ -329,7 +329,7 @@
 	   #:truncate-tables
 	   #:copy-from-file
 	   #:copy-from-queue
-	   #:reset-all-sequences
+           #:set-table-oids
 
            #:create-sqltypes
 	   #:create-schemas
@@ -343,6 +343,8 @@
            #:process-index-definitions
 
            #:fetch-pgsql-catalog
+           #:merge-catalogs
+
 	   #:create-indexes-in-kernel
            #:drop-indexes
            #:maybe-drop-indexes

@@ -11,6 +11,8 @@
 (defmethod prepare-pgsql-database ((copy db-copy)
                                    (catalog catalog)
                                    &key
+                                     truncate
+                                     create-tables
                                      create-schemas
                                      set-table-oids
                                      materialize-views
@@ -25,34 +27,58 @@
 
   (with-stats-collection ("create, drop" :use-result-as-rows t :section :pre)
       (with-pgsql-transaction (:pgconn (target-db copy))
-        ;; we need to first drop the Foreign Key Constraints, so that we
-        ;; can DROP TABLE when asked
-        ;; (when (and foreign-keys include-drop)
-        ;;   (drop-pgsql-fkeys catalog))
-
         (when create-schemas
-          (log-message :debug "Create schemas")
+          (log-message :notice "Create schemas")
           (create-schemas catalog :include-drop include-drop))
 
-        ;; create new SQL types (ENUMs, SETs) if needed and before we get to
-        ;; the table definitions that will use them
-        (log-message :debug "Create SQL types (enums, sets)")
-        (create-sqltypes catalog :include-drop include-drop)
+        (if create-tables
+            (progn
+              ;; create new SQL types (ENUMs, SETs) if needed and before we
+              ;; get to the table definitions that will use them
+              (log-message :notice "Create SQL types (enums, sets)")
+              (create-sqltypes catalog
+                               :include-drop include-drop
+                               :client-min-messages :error)
 
-        ;; now the tables
-        (log-message :debug "Create tables")
-        (create-tables catalog :include-drop include-drop)
+              ;; now the tables
+              (log-message :notice "Create tables")
+              (create-tables catalog
+                             :include-drop include-drop
+                             :client-min-messages :error))
+
+            (progn
+              ;; if we're not going to create the tables, now is the time to
+              ;; remove the constraints: indexes, primary keys, foreign keys
+              ;;
+              ;; to be able to do that properly, get the constraints from
+              ;; the pre-existing target database catalog
+              (let ((pgsql-catalog
+                     (fetch-pgsql-catalog (db-name (target-db copy))
+                                          :source-catalog catalog)))
+                (merge-catalogs catalog pgsql-catalog))
+
+              ;; now the foreign keys and only then the indexes, because a
+              ;; drop constraint on a primary key cascades to the drop of
+              ;; any foreign key that targets the primary key
+              (when foreign-keys
+                (drop-pgsql-fkeys catalog))
+
+              (loop :for table :in (table-list catalog)
+                 :do (drop-indexes :pre table))
+
+              (when truncate
+                (truncate-tables catalog))))
 
         ;; Some database sources allow the same index name being used
         ;; against several tables, so we add the PostgreSQL table OID in the
         ;; index name, to differenciate. Set the table oids now.
-        (when set-table-oids
-          (log-message :debug "Set table OIDs")
-          (pgloader.pgsql::set-table-oids catalog))
+        (when (and create-tables set-table-oids)
+          (log-message :notice "Set table OIDs")
+          (set-table-oids catalog))
 
         ;; We might have to MATERIALIZE VIEWS
         (when materialize-views
-          (log-message :debug "Create tables for matview support")
+          (log-message :notice "Create tables for matview support")
           (create-views catalog :include-drop include-drop)))))
 
 (defmethod cleanup ((copy db-copy) (catalog catalog) &key materialize-views)
@@ -67,6 +93,7 @@
                                     &key
                                       data-only
                                       foreign-keys
+                                      create-triggers
                                       reset-sequences)
   "After loading the data into PostgreSQL, we can now reset the sequences
      and declare foreign keys."
@@ -77,32 +104,31 @@
   ;; while CREATE INDEX statements are in flight (avoid locking).
   ;;
   (when reset-sequences
-    (reset-sequences catalog :pgconn (clone-connection (target-db copy))))
+    (reset-sequences (clone-connection (target-db copy)) catalog))
 
   (with-pgsql-connection ((clone-connection (target-db copy)))
     ;;
     ;; Turn UNIQUE indexes into PRIMARY KEYS now
     ;;
     (unless data-only
-      (loop :for sql :in pkeys
-         :when sql
-         :do (pgsql-execute-with-timing :post "Primary Keys" sql)))
+      (pgsql-execute-with-timing :post "Primary Keys" pkeys)
 
-    ;;
-    ;; Foreign Key Constraints
-    ;;
-    ;; We need to have finished loading both the reference and the refering
-    ;; tables to be able to build the foreign keys, so wait until all tables
-    ;; and indexes are imported before doing that.
-    ;;
-    (when (and foreign-keys (not data-only))
-      (create-pgsql-fkeys catalog))
+      ;;
+      ;; Foreign Key Constraints
+      ;;
+      ;; We need to have finished loading both the reference and the refering
+      ;; tables to be able to build the foreign keys, so wait until all tables
+      ;; and indexes are imported before doing that.
+      ;;
+      (when foreign-keys
+        (create-pgsql-fkeys catalog))
 
-    ;;
-    ;; Triggers and stored procedures -- includes special default values
-    ;;
-    (with-pgsql-transaction (:pgconn (target-db copy))
-      (create-triggers catalog))
+      ;;
+      ;; Triggers and stored procedures -- includes special default values
+      ;;
+      (when create-triggers
+        (with-pgsql-transaction (:pgconn (target-db copy))
+          (create-triggers catalog))))
 
     ;;
     ;; And now, comments on tables and columns.
@@ -205,17 +231,21 @@
 
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (handler-case
-        (cond ((and (or create-tables schema-only) (not data-only))
-               (prepare-pgsql-database copy
-                                       catalog
-                                       :set-table-oids set-table-oids
-                                       :materialize-views materialize-views
-                                       :create-schemas create-schemas
-                                       :foreign-keys foreign-keys
-                                       :include-drop include-drop))
-              (truncate
-               (truncate-tables (target-db copy) catalog)))
-
+        (prepare-pgsql-database copy
+                                catalog
+                                :truncate (and truncate (not create-tables))
+                                :create-tables (and create-tables
+                                                    (or schema-only
+                                                        (not data-only)))
+                                :create-schemas (and create-schemas
+                                                     (or schema-only
+                                                         (not data-only)))
+                                :include-drop include-drop
+                                :foreign-keys (and foreign-keys
+                                                   (or schema-only
+                                                       (not data-only)))
+                                :set-table-oids set-table-oids
+                                :materialize-views materialize-views)
       ;;
       ;; In case some error happens in the preparatory transaction, we
       ;; need to stop now and refrain from trying to load the data into
@@ -282,7 +312,11 @@
                                     (not data-only)
                                     (zerop (gethash table writers-count)))
                            (let* ((*preserve-index-names*
-                                   (eq :preserve index-names)))
+                                   (or (eq :preserve index-names)
+                                       ;; if we didn't create the tables, we
+                                       ;; are re-installing the pre-existing
+                                       ;; indexes
+                                       (not create-tables))))
                              (alexandria:appendf
                               pkeys
                               (create-indexes-in-kernel (target-db copy)
@@ -313,6 +347,11 @@
                              pkeys
                              :data-only data-only
                              :foreign-keys foreign-keys
+                             ;; only create triggers (for default values)
+                             ;; when we've been responsible for creating the
+                             ;; tables -- otherwise assume the schema is
+                             ;; good as it is
+                             :create-triggers create-tables
                              :reset-sequences reset-sequences)
 
     ;;

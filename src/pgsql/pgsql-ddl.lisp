@@ -13,7 +13,6 @@
           (schema-name schema)))
 
 (defmethod format-drop-sql ((schema schema) &key (stream nil) cascade)
-  (declare (ignore pgsql))
   (format stream "DROP SCHEMA ~s~@[ CASCADE~];" (schema-name schema) cascade))
 
 
@@ -186,19 +185,20 @@
                    (index-filter index)))))))
 
 (defmethod format-drop-sql ((index index) &key (stream nil) cascade)
-  (declare (ignore cascade))
   (let* ((schema-name (schema-name (index-schema index)))
          (index-name  (index-name index)))
     (cond ((index-conname index)
            ;; here always quote the constraint name, currently the name
            ;; comes from one source only, the PostgreSQL database catalogs,
            ;; so don't question it, quote it.
-           (format stream "ALTER TABLE ~a DROP CONSTRAINT ~s;"
+           (format stream "ALTER TABLE ~a DROP CONSTRAINT ~s~@[ CASCADE~];"
                    (format-table-name (index-table index))
-                   (index-conname index)))
+                   (index-conname index)
+                   cascade))
 
           (t
-           (format stream "DROP INDEX ~@[~a.~]~a;" schema-name index-name)))))
+           (format stream "DROP INDEX ~@[~a.~]~a~@[ CASCADE~];"
+                   schema-name index-name cascade)))))
 
 
 ;;;
@@ -207,7 +207,7 @@
 (defmethod format-create-sql ((fk fkey) &key (stream nil) if-not-exists)
   (declare (ignore if-not-exists))
   (format stream
-          "ALTER TABLE ~a ADD ~@[CONSTRAINT ~a ~]FOREIGN KEY(~{~a~^,~}) REFERENCES ~a(~{~a~^,~})~:[~*~; ON UPDATE ~a~]~:[~*~; ON DELETE ~a~]"
+          "ALTER TABLE ~a ADD ~@[CONSTRAINT ~s ~]FOREIGN KEY(~{~a~^,~}) REFERENCES ~a(~{~a~^,~})~:[~*~; ON UPDATE ~a~]~:[~*~; ON DELETE ~a~]"
           (format-table-name (fkey-table fk))
           (fkey-name fk)        ; constraint name
           (fkey-columns fk)
@@ -219,10 +219,10 @@
           (fkey-delete-rule fk)))
 
 (defmethod format-drop-sql ((fk fkey) &key (stream nil) cascade)
-  (declare (ignore cascade))
-  (let* ((constraint-name (apply-identifier-case (fkey-name fk)))
+  (let* ((constraint-name (fkey-name fk))
          (table-name      (format-table-name (fkey-table fk))))
-    (format stream "ALTER TABLE ~a DROP CONSTRAINT ~a" table-name constraint-name)))
+    (format stream "ALTER TABLE ~a DROP CONSTRAINT ~s~@[ CASCADE~];"
+            table-name constraint-name cascade)))
 
 
 ;;;
@@ -238,7 +238,6 @@
           (trigger-procedure-name trigger)))
 
 (defmethod format-drop-sql ((trigger trigger) &key (stream nil) cascade)
-  (declare (ignore pgsql))
   (format stream
           "DROP TRIGGER ~a ON ~a~@[ CASCADE~];"
           (trigger-name trigger)
@@ -259,7 +258,6 @@
           (procedure-body procedure)))
 
 (defmethod format-drop-sql ((procedure procedure) &key (stream nil) cascade)
-  (declare (ignore pgsql))
   (format stream
           "DROP FUNCTION ~a()~@[ CASCADE~];" (procedure-name procedure) cascade))
 

@@ -124,7 +124,6 @@
                         (channel nil c-s-p)
                         (worker-count 8)
                         (concurrency 2)
-                        truncate
                         (on-error-stop *on-error-stop*)
                         disable-triggers)
   "Copy data from COPY source into PostgreSQL.
@@ -178,12 +177,6 @@
           (loop :for rawq :in rawqs
              :for fmtq :in fmtqs
              :do (lp:submit-task channel #'format-data-to-copy copy rawq fmtq))
-
-          ;; Also, we need to do the TRUNCATE here before starting the
-          ;; threads, so that it's done just once.
-          (when truncate
-            (truncate-tables (clone-connection (target-db copy))
-                             (target copy)))
 
           (loop :for fmtq :in fmtqs
              :do (lp:submit-task channel
