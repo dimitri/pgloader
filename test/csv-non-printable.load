@@ -4,7 +4,11 @@
 
 LOAD CSV
    FROM inline with encoding 'LATIN1'
+        HAVING FIELDS ("Some-Field", c2, c3)
    INTO postgresql:///pgloader?tab_csv
+        (
+          c1 text using "Some-Field", c2, c3
+        )
    WITH truncate,
         skip header = 0,
         fields terminated by ',',
