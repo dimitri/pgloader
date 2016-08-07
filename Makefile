@@ -172,9 +172,11 @@ $(BUNDLEDIR):
              --eval '(quit)'
 
 $(BUNDLE): $(BUNDLEDIR)
-	cp bundle/README.md bundle/Makefile $(BUNDLEDIR)
+	cp bundle/README.md $(BUNDLEDIR)
+	sed -e s/%VERSION%/$(VERSION)/ < bundle/Makefile > $(BUNDLEDIR)/Makefile
 	git archive --format=tar --prefix=pgloader-$(VERSION)/ master \
 	     | tar -C $(BUNDLEDIR)/local-projects/ -xf -
+	make QLDIR=$(BUNDLEDIR) clones
 	tar -C build/bundle 		    \
             --exclude bin   		    \
             --exclude test/sqlite           \

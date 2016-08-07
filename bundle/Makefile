@@ -3,7 +3,7 @@
 CL = sbcl
 
 APP_NAME   = pgloader
-VERSION    = 3.3.0.50
+VERSION    = %VERSION%
 
 ifeq ($(OS),Windows_NT)
 EXE           = .exe
@@ -43,7 +43,7 @@ $(BUILDAPP):
              --eval '(buildapp:build-buildapp "$@")'                  \
              --eval '(quit)'
 
-$(PGLOADER): $(BUILDAPP) clones
+$(PGLOADER): $(BUILDAPP)
 	$(BUILDAPP)      --logfile /tmp/pgloader-bundle-build.log     \
                          $(BUILDAPP_OPTS)                             \
                          --sbcl $(CL)                                 \
@@ -57,30 +57,6 @@ $(PGLOADER): $(BUILDAPP) clones
                          --output $@.tmp
 	# that's ugly, but necessary when building on Windows :(
 	mv $@.tmp $@
-
-#
-# Provide the current versions of some packages, not the Quicklisp one:
-#
-local-projects/qmynd:
-	git clone https://github.com/qitab/qmynd.git $@
-
-local-projects/cl-ixf:
-	git clone https://github.com/dimitri/cl-ixf.git $@
-
-local-projects/cl-db3:
-	git clone https://github.com/dimitri/cl-db3.git $@
-
-local-projects/cl-csv:
-	git clone https://github.com/AccelerationNet/cl-csv.git $@
-
-local-projects/esrap:
-	git clone https://github.com/scymtym/esrap.git $@
-
-clones: local-projects/cl-ixf \
-        local-projects/cl-db3 \
-        local-projects/cl-csv \
-        local-projects/qmynd  \
-        local-projects/esrap ;
 
 test: $(PGLOADER)
 	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) -C $(SRCDIR)/test regress
