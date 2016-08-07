@@ -206,17 +206,22 @@
 ;;;
 (defmethod format-create-sql ((fk fkey) &key (stream nil) if-not-exists)
   (declare (ignore if-not-exists))
-  (format stream
-          "ALTER TABLE ~a ADD ~@[CONSTRAINT ~s ~]FOREIGN KEY(~{~a~^,~}) REFERENCES ~a(~{~a~^,~})~:[~*~; ON UPDATE ~a~]~:[~*~; ON DELETE ~a~]"
-          (format-table-name (fkey-table fk))
-          (fkey-name fk)        ; constraint name
-          (fkey-columns fk)
-          (format-table-name (fkey-foreign-table fk))
-          (fkey-foreign-columns fk)
-          (fkey-update-rule fk)
-          (fkey-update-rule fk)
-          (fkey-delete-rule fk)
-          (fkey-delete-rule fk)))
+  (if (and (fkey-name fk) (fkey-condef fk))
+      (format stream "ALTER TABLE ~a ADD CONSTRAINT ~s ~a"
+              (format-table-name (fkey-table fk))
+              (fkey-name fk)
+              (fkey-condef fk))
+      (format stream
+              "ALTER TABLE ~a ADD ~@[CONSTRAINT ~s ~]FOREIGN KEY(~{~a~^,~}) REFERENCES ~a(~{~a~^,~})~:[~*~; ON UPDATE ~a~]~:[~*~; ON DELETE ~a~]"
+              (format-table-name (fkey-table fk))
+              (fkey-name fk)            ; constraint name
+              (fkey-columns fk)
+              (format-table-name (fkey-foreign-table fk))
+              (fkey-foreign-columns fk)
+              (fkey-update-rule fk)
+              (fkey-update-rule fk)
+              (fkey-delete-rule fk)
+              (fkey-delete-rule fk))))
 
 (defmethod format-drop-sql ((fk fkey) &key (stream nil) cascade)
   (let* ((constraint-name (fkey-name fk))
