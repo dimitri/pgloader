@@ -451,8 +451,8 @@ At the end of a load containing rejected rows, you will find two files in the \f
 .P
 The \fB\.dat\fR file is formatted in PostgreSQL the text COPY format as documented in http://www\.postgresql\.org/docs/9\.2/static/sql\-copy\.html#AEN66609 \fI\fR\.
 .
-.SH "A NOTE ABOUT PERFORMANCES"
-pgloader has been developed with performances in mind, to be able to cope with ever growing needs in loading large amounts of data into PostgreSQL\.
+.SH "A NOTE ABOUT PERFORMANCE"
+pgloader has been developed with performance in mind, to be able to cope with ever growing needs in loading large amounts of data into PostgreSQL\.
 .
 .P
 The basic architecture it uses is the old Unix pipe model, where a thread is responsible for loading the data (reading a CSV file, querying MySQL, etc) and fills pre\-processed data into a queue\. Another threads feeds from the queue, apply some more \fItransformations\fR to the input data and stream the end result to PostgreSQL using the COPY protocol\.
@@ -834,7 +834,7 @@ The global batch behaviour options are:
 \fIbatch rows\fR
 .
 .IP
-Takes a numeric value as argument, used as the maximum number of rows allowed in a batch\. The default is \fB25 000\fR and can be changed to try having better performances characteristics or to control pgloader memory usage;
+Takes a numeric value as argument, used as the maximum number of rows allowed in a batch\. The default is \fB25 000\fR and can be changed to try having better performance characteristics or to control pgloader memory usage;
 .
 .IP "\(bu" 4
 \fIbatch size\fR
@@ -1050,7 +1050,7 @@ When this option is listed, pgloader issues a \fBTRUNCATE\fR command against the
 When this option is listed, pgloader issues \fBDROP INDEX\fR commands against all the indexes defined on the target table before copying the data, then \fBCREATE INDEX\fR commands once the \fBCOPY\fR is done\.
 .
 .IP
-In order to get the best performances possible, all the indexes are created in parallel and when done the primary keys are built again from the unique indexes just created\. This two step process allows creating the primary key index in parallel with the other indexes, as only the \fBALTER TABLE\fR command needs an \fIaccess exclusive lock\fR on the target table\.
+In order to get the best performance possible, all the indexes are created in parallel and when done the primary keys are built again from the unique indexes just created\. This two step process allows creating the primary key index in parallel with the other indexes, as only the \fBALTER TABLE\fR command needs an \fIaccess exclusive lock\fR on the target table\.
 .
 .IP "\(bu" 4
 \fIdisable triggers\fR

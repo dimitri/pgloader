@@ -381,9 +381,9 @@ containing the full PostgreSQL client side logs about the rejected data.
 The `.dat` file is formatted in PostgreSQL the text COPY format as documented
 in [http://www.postgresql.org/docs/9.2/static/sql-copy.html#AEN66609]().
 
-## A NOTE ABOUT PERFORMANCES
+## A NOTE ABOUT PERFORMANCE
 
-pgloader has been developed with performances in mind, to be able to cope
+pgloader has been developed with performance in mind, to be able to cope
 with ever growing needs in loading large amounts of data into PostgreSQL.
 
 The basic architecture it uses is the old Unix pipe model, where a thread is
@@ -751,7 +751,7 @@ The global batch behaviour options are:
 
     Takes a numeric value as argument, used as the maximum number of rows
     allowed in a batch. The default is `25 000` and can be changed to try
-    having better performances characteristics or to control pgloader memory
+    having better performance characteristics or to control pgloader memory
     usage;
 
   - *batch size*
@@ -914,7 +914,7 @@ The `csv` format command accepts the following clauses and options:
         against all the indexes defined on the target table before copying
         the data, then `CREATE INDEX` commands once the `COPY` is done.
 
-        In order to get the best performances possible, all the indexes are
+        In order to get the best performance possible, all the indexes are
         created in parallel and when done the primary keys are built again
         from the unique indexes just created. This two step process allows
         creating the primary key index in parallel with the other indexes,
