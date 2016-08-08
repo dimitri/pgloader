@@ -176,12 +176,11 @@
                              (label "Foreign Keys"))
   "Actually create the Foreign Key References that where declared in the
    MySQL database"
-  (with-stats-collection (label :section section :use-result-as-rows t)
-      (loop :for table :in (table-list catalog)
-         :sum (loop :for fkey :in (table-fkey-list table)
-                 :for sql := (format-create-sql fkey)
-                 :do (pgsql-execute-with-timing section label sql)
-                 :count t))))
+  (loop :for table :in (table-list catalog)
+     :sum (loop :for fkey :in (table-fkey-list table)
+             :for sql := (format-create-sql fkey)
+             :do (pgsql-execute-with-timing section label sql)
+             :count t)))
 
 
 
