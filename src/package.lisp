@@ -101,6 +101,7 @@
            #:column-extra
 
            #:index-name
+           #:index-oid
            #:index-schema
            #:index-table
            #:index-primary
@@ -110,8 +111,10 @@
            #:index-conname
            #:index-condef
            #:index-filter
+           #:index-fk-deps
 
            #:fkey-name
+           #:fkey-oid
            #:fkey-foreign-table
            #:fkey-foreign-columns
            #:fkey-table
@@ -357,13 +360,11 @@
            #:process-index-definitions
 
            ;; postgresql introspection queries
-	   #:list-databases
-	   #:list-tables
-	   #:list-columns-query
-	   #:list-columns
-	   #:list-indexes
-	   #:list-tables-cols
-	   #:list-tables-and-fkeys
+	   #:list-all-columns
+	   #:list-all-indexes
+	   #:list-all-fkeys
+	   #:list-missing-fk-deps
+	   #:list-schemas
 	   #:list-table-oids
 
            ;; postgresql identifiers
@@ -452,7 +453,6 @@
   (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.connection)
   (:import-from #:alexandria #:read-file-into-string)
   (:import-from #:pgloader.pgsql
-		#:list-columns
 		#:with-pgsql-transaction
 		#:pgsql-execute)
   (:export #:read-ini-file
@@ -557,7 +557,6 @@
 		#:with-pgsql-transaction
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
-		#:list-tables-and-fkeys
 		#:list-table-oids
 		#:create-tables
 		#:create-views
@@ -578,7 +577,6 @@
 	   #:copy-from
 	   #:copy-database
 	   #:list-databases
-	   #:list-tables
 	   #:export-database
 	   #:export-import-database))
 
@@ -602,8 +600,7 @@
 	   #:map-rows
 	   #:copy-to
 	   #:copy-from
-	   #:copy-database
-	   #:list-tables))
+	   #:copy-database))
 
 (defpackage #:pgloader.mssql
   (:use #:cl
@@ -616,7 +613,6 @@
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
 		#:pgsql-connect-and-execute-with-timing
-		#:list-tables-and-fkeys
 		#:list-table-oids
 		#:create-tables
 		#:create-views
@@ -631,8 +627,7 @@
 	   #:map-rows
 	   #:copy-to
 	   #:copy-from
-	   #:copy-database
-	   #:list-tables))
+	   #:copy-database))
 
 (defpackage #:pgloader.mssql.index-filter
   (:use #:cl #:esrap #:pgloader.utils #:pgloader.mssql)
@@ -739,10 +734,7 @@
   (:import-from #:pgloader.pgsql
                 #:pgconn-table-name
                 #:pgsql-connection
-		#:copy-from-file
-		#:list-databases
-		#:list-tables
-		#:list-columns-query)
+		#:copy-from-file)
   (:import-from #:pgloader.pgsql
                 #:with-pgsql-connection
                 #:with-schema
@@ -764,9 +756,7 @@
 	   #:parse-commands
 	   #:with-database-uri
 	   #:slurp-file-into-string
-	   #:copy-from-file
-	   #:list-databases
-	   #:list-tables))
+	   #:copy-from-file))
 
 (in-package #:pgloader)
 

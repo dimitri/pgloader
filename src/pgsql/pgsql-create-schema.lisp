@@ -25,6 +25,7 @@
     ;; now create the types
     (loop :for sqltype :in sqltype-list
        :when include-drop
+       :count t
        :do (pgsql-execute (format-drop-sql sqltype :cascade t)
                           :client-min-messages client-min-messages)
        :do (pgsql-execute
@@ -111,7 +112,8 @@
                        :collect (format-create-sql (trigger-procedure trigger))
                        :collect (format-create-sql trigger)))))
     (loop :for sql :in sql-list
-       :do (pgsql-execute sql :client-min-messages client-min-messages))))
+       :do (pgsql-execute sql :client-min-messages client-min-messages)
+       :count t)))
 
 
 ;;;
@@ -121,14 +123,16 @@
 (defun truncate-tables (catalog-or-table)
   "Truncate given TABLE-NAME in database DBNAME. A PostgreSQL connection
    must already be active when calling that function."
-  (let ((sql
-         (format nil "TRUNCATE ~{~a~^,~};"
-                 (mapcar #'format-table-name
-                         (etypecase catalog-or-table
-                           (catalog (table-list catalog-or-table))
-                           (schema  (table-list catalog-or-table))
-                           (table   (list catalog-or-table)))))))
-    (pgsql-execute sql)))
+  (let* ((target-list (mapcar #'format-table-name
+                              (etypecase catalog-or-table
+                                (catalog (table-list catalog-or-table))
+                                (schema  (table-list catalog-or-table))
+                                (table   (list catalog-or-table)))))
+         (sql
+          (format nil "TRUNCATE ~{~a~^,~};" target-list)))
+    (pgsql-execute sql)
+    ;; return how many tables we just TRUNCATEd
+    (length target-list)))
 
 (defun disable-triggers (table-name)
   "Disable triggers on TABLE-NAME. Needs to be called with a PostgreSQL
@@ -161,26 +165,36 @@
 ;;;
 ;;; API for Foreign Keys
 ;;;
-(defun drop-pgsql-fkeys (catalog)
+(defun drop-pgsql-fkeys (catalog &key (cascade t))
   "Drop all Foreign Key Definitions given, to prepare for a clean run."
   (loop :for table :in (table-list catalog)
-     :do
-     (loop :for fkey :in (table-fkey-list table)
-        :for sql := (format-drop-sql fkey :cascade t)
-        :when sql
-        :do (pgsql-execute sql))))
+     :sum (loop :for fkey :in (table-fkey-list table)
+             :for sql := (format-drop-sql fkey :cascade cascade)
+             :do (pgsql-execute sql)
+             :count t)
+     ;; also DROP the foreign keys that depend on the indexes we want to DROP
+     :sum (loop :for index :in (table-index-list table)
+             :sum (loop :for fkey :in (index-fk-deps index)
+                     :for sql := (format-drop-sql fkey :cascade t)
+                     :do (progn
+                           (log-message :debug "EXTRA FK DEPS!")
+                           (pgsql-execute sql))
+                     :count t))))
 
-(defun create-pgsql-fkeys (catalog
-                           &key
-                             (section :post)
-                             (label "Foreign Keys"))
+(defun create-pgsql-fkeys (catalog)
   "Actually create the Foreign Key References that where declared in the
    MySQL database"
   (loop :for table :in (table-list catalog)
      :sum (loop :for fkey :in (table-fkey-list table)
              :for sql := (format-create-sql fkey)
-             :do (pgsql-execute-with-timing section label sql)
-             :count t)))
+             :do (pgsql-execute sql)
+             :count t)
+     :sum (loop :for index :in (table-index-list table)
+             :sum (loop :for fkey :in (index-fk-deps index)
+                     :for sql := (format-create-sql fkey)
+                     :do (log-message :debug "EXTRA FK DEPS!")
+                     :do (pgsql-execute sql)
+                     :count t))))
 
 
 
@@ -227,19 +241,26 @@
        :for table-name := (format-table-name table)
        :for table-oid := (gethash table-name oid-map)
        :unless table-oid :do (error "OID not found for ~s." table-name)
+       :count t
        :do (setf (table-oid table) table-oid))))
 
 
 ;;;
 ;;; Drop indexes before loading
 ;;;
-(defun drop-indexes (section table)
+(defun drop-indexes (table-or-catalog &key cascade)
   "Drop indexes in PGSQL-INDEX-LIST. A PostgreSQL connection must already be
    active when calling that function."
   (let ((sql-index-list
-         (loop :for index :in (table-index-list table)
-            :collect (format-drop-sql index :cascade t))))
-    (pgsql-execute-with-timing section "drop indexes" sql-index-list)))
+         (loop :for index
+            :in (typecase table-or-catalog
+                  (table   (table-index-list table-or-catalog))
+                  (catalog (loop :for table :in (table-list table-or-catalog)
+                              :append (table-index-list table))))
+            :collect (format-drop-sql index :cascade cascade))))
+    (pgsql-execute sql-index-list)
+    ;; return how many indexes we just DROPed
+    (length sql-index-list)))
 
 ;;;
 ;;; Higher level API to care about indexes
@@ -265,9 +286,7 @@
                            "Consider the option 'drop indexes'."))
 
              (indexes
-              ;; drop the indexes now
-              (with-stats-collection ("drop indexes" :section section)
-                  (drop-indexes section table)))))))
+              (drop-indexes table))))))
 
 (defun create-indexes-again (target catalog
                              &key
@@ -380,22 +399,19 @@ $$; " tables)))
                        (map 'string #'code-char
                             (loop :repeat 5
                                :collect (+ (random 26) (char-code #\A)))))))
-    (with-stats-collection ("Install comments"
-                            :use-result-as-rows t
-                            :section :post)
-        (loop :for table :in (table-list catalog)
-           :for sql := (when (table-comment table)
-                         (format nil "comment on table ~a is $~a$~a$~a$"
-                                 (table-name table)
-                                 quote (table-comment table) quote))
-           :count (when sql
-                    (pgsql-execute-with-timing :post "Comments" sql))
+    (loop :for table :in (table-list catalog)
+       :for sql := (when (table-comment table)
+                     (format nil "comment on table ~a is $~a$~a$~a$"
+                             (table-name table)
+                             quote (table-comment table) quote))
+       :count (when sql
+                (pgsql-execute-with-timing :post "Comments" sql))
 
-           :sum (loop :for column :in (table-column-list table)
-                   :for sql := (when (column-comment column)
-                                 (format nil "comment on column ~a.~a is $~a$~a$~a$"
-                                         (table-name table)
-                                         (column-name column)
-                                         quote (column-comment column) quote))
-                   :count (when sql
-                            (pgsql-execute-with-timing :post "Comments" sql)))))))
+       :sum (loop :for column :in (table-column-list table)
+               :for sql := (when (column-comment column)
+                             (format nil "comment on column ~a.~a is $~a$~a$~a$"
+                                     (table-name table)
+                                     (column-name column)
+                                     quote (column-comment column) quote))
+               :count (when sql
+                        (pgsql-execute-with-timing :post "Comments" sql))))))

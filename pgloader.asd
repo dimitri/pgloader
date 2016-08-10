@@ -154,7 +154,7 @@
                                   :depends-on ("common")
                                   :components
                                   ((:file "csv-guess")
-                                   (:file "csv-database")
+                                   ;; (:file "csv-database")
                                    (:file "csv")))
 
 			 (:file "fixed"

@@ -12,7 +12,7 @@
          (including (cond ((and table (not including))
                            (make-including-expr-from-table table))
 
-                          ((and catalog (not including))
+                          ((and source-catalog (not including))
                            (make-including-expr-from-catalog source-catalog))
 
                           (t
@@ -31,10 +31,18 @@
                     :including including
                     :excluding excluding)
 
-    (log-message :debug "fetch-pgsql-catalog: ~d tables, ~d indexes, ~d fkeys"
+    ;; fetch fkey we depend on with UNIQUE indexes but that have been
+    ;; excluded from the target list, we still need to take care of them to
+    ;; be able to DROP then CREATE those indexes again
+    (list-missing-fk-deps catalog)
+
+    (log-message :debug "fetch-pgsql-catalog: ~d tables, ~d indexes, ~d+~d fkeys"
                  (count-tables catalog)
                  (count-indexes catalog)
-                 (count-fkeys catalog))
+                 (count-fkeys catalog)
+                 (loop :for table :in (table-list catalog)
+                    :sum (loop :for index :in (table-index-list table)
+                            :sum (length (index-fk-deps index)))))
 
     (when (and table (/= 1 (count-tables catalog)))
       (error "pgloader found ~d target tables for name ~s|:~{~%  ~a~}"
@@ -185,10 +193,13 @@
 (defun list-all-indexes (catalog &key including excluding)
   "Get the list of PostgreSQL index definitions per table."
   (loop
-     :for (schema-name name table-schema table-name primary unique sql conname condef)
+     :for (schema-name name oid
+                       table-schema table-name
+                       primary unique sql conname condef)
      :in (pomo:query (format nil "
   select n.nspname,
          i.relname,
+         i.oid,
          rn.nspname,
          r.relname,
          indisprimary,
@@ -224,6 +235,7 @@ order by n.nspname, r.relname"
                 (table    (find-table tschema table-name))
                 (pg-index
                  (make-index :name name
+                             :oid oid
                              :schema schema
                              :table table
                              :primary primary
@@ -238,12 +250,15 @@ order by n.nspname, r.relname"
 (defun list-all-fkeys (catalog &key including excluding)
   "Get the list of PostgreSQL index definitions per table."
   (loop
-     :for (schema-name table-name fschema-name ftable-name conname cols fcols
-                       updrule delrule mrule deferrable deferred condef)
+     :for (schema-name table-name fschema-name ftable-name
+                       conoid conname condef
+                       cols fcols
+                       updrule delrule mrule deferrable deferred)
      :in
      (pomo:query (format nil "
  select n.nspname, c.relname, nf.nspname, cf.relname as frelname,
-        conname,
+        r.oid, conname,
+        pg_catalog.pg_get_constraintdef(r.oid, true) as condef,
         (select string_agg(attname, ',')
            from pg_attribute
           where attrelid = r.conrelid and array[attnum] <@ conkey
@@ -253,8 +268,7 @@ order by n.nspname, r.relname"
           where attrelid = r.confrelid and array[attnum] <@ confkey
         ) as confkey,
         confupdtype, confdeltype, confmatchtype,
-        condeferrable, condeferred,
-        pg_catalog.pg_get_constraintdef(r.oid, true) as condef
+        condeferrable, condeferred
    from pg_catalog.pg_constraint r
         JOIN pg_class c on r.conrelid = c.oid
         JOIN pg_namespace n on c.relnamespace = n.oid
@@ -306,6 +320,7 @@ order by n.nspname, r.relname"
                   (ftable   (find-table fschema ftable-name))
                   (fk
                    (make-fkey :name conname
+                              :oid conoid
                               :condef condef
                               :table table
                               :columns (split-sequence:split-sequence #\, cols)
@@ -322,6 +337,66 @@ order by n.nspname, r.relname"
                               conname))))
      :finally (return catalog)))
 
+(defun list-missing-fk-deps (catalog)
+  "Add in the CATALOG the foreign keys we don't have to deal with directly
+   but that the primary keys we are going to DROP then CREATE again depend
+   on: we need to take care of those first."
+  (destructuring-bind (pkey-oid-hash-table pkey-oid-list fkey-oid-list)
+      (loop :with pk-hash := (make-hash-table)
+         :for table :in (table-list catalog)
+         :append (mapcar #'index-oid (table-index-list table)) :into pk
+         :append (mapcar #'fkey-oid (table-fkey-list table)) :into fk
+         :do (loop :for index :in (table-index-list table)
+                :do (setf (gethash (index-oid index) pk-hash) index))
+         :finally (return (list pk-hash pk fk)))
+
+    (when pkey-oid-list
+      (loop :for (schema-name table-name fschema-name ftable-name
+                              conoid conname condef index-oid)
+         :in (pomo:query (format nil "
+with pkeys(oid) as (
+  values~{(~d)~^,~}
+),
+     knownfkeys(oid) as (
+  values~{(~d)~^,~}
+),
+  pkdeps as (
+  select pkeys.oid, pg_depend.objid
+    from pg_depend
+         join pkeys on pg_depend.refobjid = pkeys.oid
+   where     classid = 'pg_catalog.pg_constraint'::regclass
+         and refclassid = 'pg_catalog.pg_class'::regclass
+)
+ select n.nspname, c.relname, nf.nspname, cf.relname as frelname,
+        r.oid as conoid, conname,
+        pg_catalog.pg_get_constraintdef(r.oid, true) as condef,
+        pkdeps.oid as index_oid
+   from pg_catalog.pg_constraint r
+        JOIN pkdeps on r.oid = pkdeps.objid
+        JOIN pg_class c on r.conrelid = c.oid
+        JOIN pg_namespace n on c.relnamespace = n.oid
+        JOIN pg_class cf on r.confrelid = cf.oid
+        JOIN pg_namespace nf on cf.relnamespace = nf.oid
+  where NOT EXISTS (select 1 from knownfkeys where oid = r.oid)"
+                                 pkey-oid-list
+                                 (or fkey-oid-list (list -1))))
+         ;;
+         ;; We don't need to reference the main catalog entries for the tables
+         ;; here, as the only goal is to be sure to DROP then CREATE again the
+         ;; existing constraint that depend on the UNIQUE indexes we have to
+         ;; DROP then CREATE again.
+         ;;
+         :do (let* ((schema  (make-schema :name schema-name))
+                    (table   (make-table :name table-name :schema schema))
+                    (fschema (make-schema :name fschema-name))
+                    (ftable  (make-table :name ftable-name :schema fschema))
+                    (index   (gethash index-oid pkey-oid-hash-table)))
+               (push-to-end (make-fkey :name conname
+                                       :oid conoid
+                                       :condef condef
+                                       :table table
+                                       :foreign-table ftable)
+                            (index-fk-deps index)))))))
 
 
 ;;;

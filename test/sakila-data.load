@@ -10,6 +10,11 @@ load database
  WITH concurrency = 1, workers = 6,
       max parallel create index = 4
 
+      -- uncomment the following line to test loading into an already
+      -- existing schema, and make sure the schema actually is ready by
+      -- having done a first migration without those options:
+      , create no tables, include drop, truncate
+
   SET maintenance_work_mem to '128MB',
       work_mem to '12MB',
       search_path to 'sakila, public, "$user"'
@@ -30,7 +35,7 @@ load database
  ALTER TABLE NAMES MATCHING 'film' RENAME TO 'films'
 
  -- INCLUDING ONLY TABLE NAMES MATCHING ~/film/, 'actor'
- -- EXCLUDING TABLE NAMES MATCHING ~<ory>
+ EXCLUDING TABLE NAMES MATCHING ~<ory>
 
  BEFORE LOAD DO
  $$ create schema if not exists sakila; $$,

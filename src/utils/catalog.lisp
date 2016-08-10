@@ -67,11 +67,21 @@
 ;;; Index and Foreign Keys
 ;;;
 (defstruct fkey
-  name table columns foreign-table foreign-columns condef
+  name oid table columns foreign-table foreign-columns condef
   update-rule delete-rule match-rule deferrable initially-deferred)
 
+;;;
+;;; An index, that might be underlying a e.g. UNIQUE constraint conname, in
+;;; which case we need to use condef to build the index again from its
+;;; definition, and drop the conname to drop the index.
+;;;
+;;; Also, primary keys might be dependencies of foreign keys, including ones
+;;; that are out of scope for our load specifications and hence, catalog. We
+;;; keep track of them in fk-deps so that we know to remove them then
+;;; install them again at proper times.
+;;;
 (defstruct index
-  name schema table primary unique columns sql conname condef filter)
+  name oid schema table primary unique columns sql conname condef filter fk-deps)
 
 ;;;
 ;;; Triggers and trigger procedures, no args support (yet?)

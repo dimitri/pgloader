@@ -310,7 +310,10 @@ FROM
                             :delete-rule delete-rule)))
            (if (and name table ftable)
                (add-fkey table fk)
-               (log-message :error
+               ;; chances are this comes from the EXCLUDING clause, but
+               ;; we'll make for it in fetching missing dependencies for
+               ;; (unique) indexes
+               (log-message :info
                             "Incomplete Foreign Key definition: constraint ~s on table ~s referencing table ~s"
                             name
                             (when table (format-table-name table))

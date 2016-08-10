@@ -25,61 +25,80 @@
    That function mutates index definitions in ALL-INDEXES."
   (log-message :notice "~:[~;DROP then ~]CREATE TABLES" include-drop)
 
-  (with-stats-collection ("create, drop" :use-result-as-rows t :section :pre)
-      (with-pgsql-transaction (:pgconn (target-db copy))
-        (when create-schemas
-          (log-message :notice "Create schemas")
-          (create-schemas catalog :include-drop include-drop))
+  (with-pgsql-transaction (:pgconn (target-db copy))
+    (when create-schemas
+      (with-stats-collection ("Create Schemas" :section :pre
+                                               :use-result-as-read t
+                                               :use-result-as-rows t)
+        (create-schemas catalog :include-drop include-drop)))
 
-        (if create-tables
-            (progn
-              ;; create new SQL types (ENUMs, SETs) if needed and before we
-              ;; get to the table definitions that will use them
-              (log-message :notice "Create SQL types (enums, sets)")
-              (create-sqltypes catalog
-                               :include-drop include-drop
-                               :client-min-messages :error)
-
-              ;; now the tables
-              (log-message :notice "Create tables")
-              (create-tables catalog
+    (if create-tables
+        (progn
+          ;; create new SQL types (ENUMs, SETs) if needed and before we
+          ;; get to the table definitions that will use them
+          (with-stats-collection ("Create SQL Types" :section :pre
+                                                     :use-result-as-read t
+                                                     :use-result-as-rows t)
+            (create-sqltypes catalog
                              :include-drop include-drop
                              :client-min-messages :error))
 
-            (progn
-              ;; if we're not going to create the tables, now is the time to
-              ;; remove the constraints: indexes, primary keys, foreign keys
-              ;;
-              ;; to be able to do that properly, get the constraints from
-              ;; the pre-existing target database catalog
-              (let ((pgsql-catalog
-                     (fetch-pgsql-catalog (db-name (target-db copy))
-                                          :source-catalog catalog)))
-                (merge-catalogs catalog pgsql-catalog))
+          ;; now the tables
+          (with-stats-collection ("Create tables" :section :pre
+                                                  :use-result-as-read t
+                                                  :use-result-as-rows t)
+            (create-tables catalog
+                           :include-drop include-drop
+                           :client-min-messages :error)))
 
-              ;; now the foreign keys and only then the indexes, because a
-              ;; drop constraint on a primary key cascades to the drop of
-              ;; any foreign key that targets the primary key
-              (when foreign-keys
-                (drop-pgsql-fkeys catalog))
+        (progn
+          ;; if we're not going to create the tables, now is the time to
+          ;; remove the constraints: indexes, primary keys, foreign keys
+          ;;
+          ;; to be able to do that properly, get the constraints from
+          ;; the pre-existing target database catalog
+          (let ((pgsql-catalog
+                 (fetch-pgsql-catalog (db-name (target-db copy))
+                                      :source-catalog catalog)))
+            (merge-catalogs catalog pgsql-catalog))
 
-              (loop :for table :in (table-list catalog)
-                 :do (drop-indexes :pre table))
+          ;; now the foreign keys and only then the indexes, because a
+          ;; drop constraint on a primary key cascades to the drop of
+          ;; any foreign key that targets the primary key
+          (when foreign-keys
+            (with-stats-collection ("Drop Foreign Keys" :section :pre
+                                                        :use-result-as-read t
+                                                        :use-result-as-rows t)
+              (drop-pgsql-fkeys catalog)))
 
-              (when truncate
-                (truncate-tables catalog))))
+          (with-stats-collection ("Drop Indexes" :section :pre
+                                                 :use-result-as-read t
+                                                 :use-result-as-rows t)
+            ;; we want to error out early in case we can't DROP the
+            ;; index, don't CASCADE
+            (drop-indexes catalog :cascade nil))
 
-        ;; Some database sources allow the same index name being used
-        ;; against several tables, so we add the PostgreSQL table OID in the
-        ;; index name, to differenciate. Set the table oids now.
-        (when (and create-tables set-table-oids)
-          (log-message :notice "Set table OIDs")
-          (set-table-oids catalog))
+          (when truncate
+            (with-stats-collection ("Truncate" :section :pre
+                                               :use-result-as-read t
+                                               :use-result-as-rows t)
+              (truncate-tables catalog)))))
 
-        ;; We might have to MATERIALIZE VIEWS
-        (when materialize-views
-          (log-message :notice "Create tables for matview support")
-          (create-views catalog :include-drop include-drop)))))
+    ;; Some database sources allow the same index name being used
+    ;; against several tables, so we add the PostgreSQL table OID in the
+    ;; index name, to differenciate. Set the table oids now.
+    (when (and create-tables set-table-oids)
+      (with-stats-collection ("Set Table OIDs" :section :pre
+                                               :use-result-as-read t
+                                               :use-result-as-rows t)
+        (set-table-oids catalog)))
+
+    ;; We might have to MATERIALIZE VIEWS
+    (when materialize-views
+      (with-stats-collection ("Create MatViews Tables" :section :pre
+                                                       :use-result-as-read t
+                                                       :use-result-as-rows t)
+        (create-views catalog :include-drop include-drop)))))
 
 (defmethod cleanup ((copy db-copy) (catalog catalog) &key materialize-views)
   "In case anything wrong happens at `prepare-pgsql-database' step, this
@@ -121,20 +140,28 @@
       ;; and indexes are imported before doing that.
       ;;
       (when foreign-keys
-        (create-pgsql-fkeys catalog))
+        (with-stats-collection ("Create Foreign Keys" :section :post
+                                                      :use-result-as-read t
+                                                      :use-result-as-rows t)
+          (create-pgsql-fkeys catalog)))
 
       ;;
       ;; Triggers and stored procedures -- includes special default values
       ;;
       (when create-triggers
-        (with-pgsql-transaction (:pgconn (target-db copy))
-          (create-triggers catalog))))
+        (with-stats-collection ("Create Triggers" :section :post
+                                                  :use-result-as-read t
+                                                  :use-result-as-rows t)
+          (with-pgsql-transaction (:pgconn (target-db copy))
+            (create-triggers catalog)))))
 
     ;;
     ;; And now, comments on tables and columns.
     ;;
-    (log-message :notice "Comments")
-    (comment-on-tables-and-columns catalog)))
+    (with-stats-collection ("Install Comments" :section :post
+                                               :use-result-as-read t
+                                               :use-result-as-rows t)
+      (comment-on-tables-and-columns catalog))))
 
 (defmethod instanciate-table-copy-object ((copy db-copy) (table table))
   "Create an new instance for copying TABLE data."

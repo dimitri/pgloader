@@ -20,8 +20,6 @@
    Also, we want to recheck the cast situation and the selected
    transformation functions of each column."
 
-  (log-message :log "MERGE CATALOGS!")
-
   (let (skip-list)
     (loop :for source-schema :in (catalog-schema-list source-catalog)
        :do (let* ((schema-name
