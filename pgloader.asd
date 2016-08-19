@@ -225,7 +225,7 @@
                                           "regress"))))
 
      ;; to produce the website
-     (:module "web"
+     (:module "docs"
               :components
               ((:module src
                         :components

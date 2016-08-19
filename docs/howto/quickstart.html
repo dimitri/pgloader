@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="shortcut icon" href="../../docs-assets/ico/favicon.png">
+
+    <title>pgloader</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="../dist/css/bootstrap.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="../dist/carousel.css" rel="stylesheet">
+  </head>
+<!-- NAVBAR
+================================================== -->
+  <body>
+    <div class="navbar-wrapper">
+      <div class="container">
+
+        <div class="navbar navbar-inverse navbar-static-top" role="navigation">
+          <div class="container">
+            <div class="navbar-header">
+              <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+              </button>
+              <a class="navbar-brand" href="../index.html">pgloader</a>
+            </div>
+            <div class="navbar-collapse collapse">
+              <ul class="nav navbar-nav">
+                <li><a href="../index.html">Home</a></li>
+                <li><a href="quickstart.html">Quick Start</a></li>
+                <li><a href="pgloader.1.html">Reference documentation</a></li>
+                <li class="dropdown active">
+                  <a href="#" class="dropdown-toggle" data-toggle="dropdown">Advanced HowTos <b class="caret"></b></a>
+                  <ul class="dropdown-menu">
+                    <li class="dropdown-header">Plain Files</li>
+                    <li><a href="csv.html">CSV</a></li>
+                    <li><a href="fixed.html">Fixed format</a></li>
+                    <li><a href="geolite.html">Geolite</a></li>
+                    <li class="divider"></li>
+                    <li class="dropdown-header">Databases</li>
+                    <li><a href="dBase.html">dBase</a></li>
+                    <li><a href="sqlite.html">SQLite</a></li>
+                    <li><a href="mysql.html">MySQL</a></li>
+                  </ul>
+                </li>
+                <li><a href="../download.html">Download</a></li>
+                <li><a href="../sponsors.html">Sponsors</a></li>
+                <li><a href="../pgloader-moral-license.html">License</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- an empty carousel -->
+    <div id="myCarousel" class="carousel slide" data-ride="carousel" style="height: 100px">
+      <div class="carousel-inner" style="height: 100px">
+        <div class="item active" style="height: 100px">
+          <img data-src="holder.js/900x100/auto/#777:#7a7a7a" style="height: 100px">
+          <!-- <div class="container"> -->
+          <!--   <div class="carousel-caption"> -->
+          <!--     <h1>Load data into PostgreSQL. Fast.</h1> -->
+          <!--     <p></p> -->
+          <!--   </div> -->
+          <!-- </div> -->
+        </div>
+      </div>
+    </div><!-- /.carousel -->
+
+    <div class="container">
+      <div class="row">
+        <div class="col-md-2"> </div>
+        <div class="col-md-8">
+<h1>pgloader: a quickstart</h1><p>In simple cases, pgloader is very easy to use. </p><h2>CSV</h2><p>Load data from a CSV file into a pre-existing table in your database: </p><pre><code>pgloader --type csv                                   \  
+         --field id --field field                     \  
+         --with truncate                              \  
+         --with "fields terminated by ','"            \  
+         ./test/data/matching-1.csv                   \  
+         postgres:///pgloader?tablename=matching </code></pre><p>In that example the whole loading is driven from the command line, bypassing the need for writing a command in the pgloader command syntax entirely. As there's no command though, the extra information needed must be provided on the command line using the <code>--type</code> and <code>--field</code> and <code>--with</code> switches. </p><p>For documentation about the available syntaxes for the <code>--field</code> and <code>--with</code> switches, please refer to the CSV section later in the man page. </p><p>Note also that the PostgreSQL URI includes the target <em>tablename</em>. </p><h2>Reading from STDIN</h2><p>File based pgloader sources can be loaded from the standard input, as in the following example: </p><pre><code>pgloader --type csv                                         \  
+         --field "usps,geoid,aland,awater,aland_sqmi,awater_sqmi,intptlat,intptlong" \  
+         --with "skip header = 1"                          \  
+         --with "fields terminated by '\t'"                \  
+         -                                                 \  
+         postgresql:///pgloader?districts_longlat          \  
+         &lt; test/data/2013_Gaz_113CDs_national.txt </code></pre><p>The dash (<code>-</code>) character as a source is used to mean <em>standard input</em>, as usual in Unix command lines. It's possible to stream compressed content to pgloader with this technique, using the Unix pipe: </p><pre><code>gunzip -c source.gz | pgloader --type csv ... - pgsql:///target?foo </code></pre><h2>Loading from CSV available through HTTP</h2><p>The same command as just above can also be run if the CSV file happens to be found on a remote HTTP location: </p><pre><code>pgloader --type csv                                                     \  
+         --field "usps,geoid,aland,awater,aland_sqmi,awater_sqmi,intptlat,intptlong" \  
+         --with "skip header = 1"                                       \  
+         --with "fields terminated by '\t'"                             \  
+         http://pgsql.tapoueh.org/temp/2013_Gaz_113CDs_national.txt     \  
+         postgresql:///pgloader?districts_longlat </code></pre><p>Some more options have to be used in that case, as the file contains a one-line header (most commonly that's column names, could be a copyright notice). Also, in that case, we specify all the fields right into a single <code>--field</code> option argument. </p><p>Again, the PostgreSQL target connection string must contain the <em>tablename</em> option and you have to ensure that the target table exists and may fit the data. Here's the SQL command used in that example in case you want to try it yourself: </p><pre><code>create table districts_longlat  
+(  
+         usps        text,  
+         geoid       text,  
+         aland       bigint,  
+         awater      bigint,  
+         aland_sqmi  double precision,  
+         awater_sqmi double precision,  
+         intptlat    double precision,  
+         intptlong   double precision  
+); </code></pre><p>Also notice that the same command will work against an archived version of the same data. </p><h2>Streaming CSV data from an HTTP compressed file</h2><p>Finally, it's important to note that pgloader first fetches the content from the HTTP URL it to a local file, then expand the archive when it's recognized to be one, and only then processes the locally expanded file. </p><p>In some cases, either because pgloader has no direct support for your archive format or maybe because expanding the archive is not feasible in your environment, you might want to <em>stream</em> the content straight from its remote location into PostgreSQL. Here's how to do that, using the old battle tested Unix Pipes trick: </p><pre><code>curl http://pgsql.tapoueh.org/temp/2013_Gaz_113CDs_national.txt.gz \  
+| gunzip -c                                                        \  
+| pgloader --type csv                                              \  
+           --field "usps,geoid,aland,awater,aland_sqmi,awater_sqmi,intptlat,intptlong"  
+           --with "skip header = 1"                                \  
+           --with "fields terminated by '\t'"                      \  
+           -                                                       \  
+           postgresql:///pgloader?districts_longlat </code></pre><p>Now the OS will take care of the streaming and buffering between the network and the commands and pgloader will take care of streaming the data down to PostgreSQL. </p><h2>Migrating from SQLite</h2><p>The following command will open the SQLite database, discover its tables definitions including indexes and foreign keys, migrate those definitions while <em>casting</em> the data type specifications to their PostgreSQL equivalent and then migrate the data over: </p><pre><code>createdb newdb  
+pgloader ./test/sqlite/sqlite.db postgresql:///newdb </code></pre><h2>Migrating from MySQL</h2><p>Just create a database where to host the MySQL data and definitions and have pgloader do the migration for you in a single command line: </p><pre><code>createdb pagila  
+pgloader mysql://user@localhost/sakila postgresql:///pagila </code></pre><h2>Fetching an archived DBF file from a HTTP remote location</h2><p>It's possible for pgloader to download a file from HTTP, unarchive it, and only then open it to discover the schema then load the data: </p><pre><code>createdb foo  
+pgloader --type dbf http://www.insee.fr/fr/methodes/nomenclatures/cog/telechargement/2013/dbf/historiq2013.zip postgresql:///foo </code></pre><p>Here it's not possible for pgloader to guess the kind of data source it's being given, so it's necessary to use the <code>--type</code> command line switch. </p>          </div>
+        <div class="col-md-2"> </div>
+        </div>
+
+      <!-- FOOTER -->
+      <footer>
+        <p class="pull-right"><a href="#">Back to top</a></p>
+        <p>&copy; 2013-2014 Dimitri Fontaine. &middot;</p>
+      </footer>
+
+    </div><!-- /.container -->
+
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
+    <script src="../dist/js/bootstrap.min.js"></script>
+    <!-- <script src="docs-assets/js/holder.js"></script> -->
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-47059482-2', 'tapoueh.org');
+  ga('send', 'pageview');
+
+</script>
+  </body>
+</html>

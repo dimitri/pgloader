@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="shortcut icon" href="../../docs-assets/ico/favicon.png">
+
+    <title>pgloader</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="../dist/css/bootstrap.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="../dist/carousel.css" rel="stylesheet">
+  </head>
+<!-- NAVBAR
+================================================== -->
+  <body>
+    <div class="navbar-wrapper">
+      <div class="container">
+
+        <div class="navbar navbar-inverse navbar-static-top" role="navigation">
+          <div class="container">
+            <div class="navbar-header">
+              <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+              </button>
+              <a class="navbar-brand" href="../index.html">pgloader</a>
+            </div>
+            <div class="navbar-collapse collapse">
+              <ul class="nav navbar-nav">
+                <li><a href="../index.html">Home</a></li>
+                <li><a href="quickstart.html">Quick Start</a></li>
+                <li><a href="pgloader.1.html">Reference documentation</a></li>
+                <li class="dropdown active">
+                  <a href="#" class="dropdown-toggle" data-toggle="dropdown">Advanced HowTos <b class="caret"></b></a>
+                  <ul class="dropdown-menu">
+                    <li class="dropdown-header">Plain Files</li>
+                    <li><a href="csv.html">CSV</a></li>
+                    <li><a href="fixed.html">Fixed format</a></li>
+                    <li><a href="geolite.html">Geolite</a></li>
+                    <li class="divider"></li>
+                    <li class="dropdown-header">Databases</li>
+                    <li><a href="dBase.html">dBase</a></li>
+                    <li><a href="sqlite.html">SQLite</a></li>
+                    <li><a href="mysql.html">MySQL</a></li>
+                  </ul>
+                </li>
+                <li><a href="../download.html">Download</a></li>
+                <li><a href="../sponsors.html">Sponsors</a></li>
+                <li><a href="../pgloader-moral-license.html">License</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- an empty carousel -->
+    <div id="myCarousel" class="carousel slide" data-ride="carousel" style="height: 100px">
+      <div class="carousel-inner" style="height: 100px">
+        <div class="item active" style="height: 100px">
+          <img data-src="holder.js/900x100/auto/#777:#7a7a7a" style="height: 100px">
+          <!-- <div class="container"> -->
+          <!--   <div class="carousel-caption"> -->
+          <!--     <h1>Load data into PostgreSQL. Fast.</h1> -->
+          <!--     <p></p> -->
+          <!--   </div> -->
+          <!-- </div> -->
+        </div>
+      </div>
+    </div><!-- /.carousel -->
+
+    <div class="container">
+      <div class="row">
+        <div class="col-md-2"> </div>
+        <div class="col-md-8">
+<h1>Loading MaxMind Geolite Data with pgloader</h1><p>The <a href="http://www.maxmind.com/">MaxMind</a> provides a free dataset for geolocation, which is quite popular. Using pgloader you can download the lastest version of it, extract the CSV files from the archive and load their content into your database directly. </p><h2>The Command</h2><p>To load data with <a href="http://pgloader.io/">pgloader</a> you need to define in a <em>command</em> the operations in some details. Here's our example for loading the Geolite data: </p><pre><code>/*  
+ * Loading from a ZIP archive containing CSV files. The full test can be  
+ * done with using the archive found at  
+ * http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV/GeoLiteCity-latest.zip  
+ *  
+ * And a very light version of this data set is found at  
+ * http://pgsql.tapoueh.org/temp/foo.zip for quick testing.  
+ */  
+ 
+LOAD ARCHIVE  
+   FROM http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV/GeoLiteCity-latest.zip  
+   INTO postgresql:///ip4r  
+ 
+   BEFORE LOAD DO  
+     $$ create extension if not exists ip4r; $$,  
+     $$ create schema if not exists geolite; $$,  
+     $$ create table if not exists geolite.location  
+       (  
+          locid      integer primary key,  
+          country    text,  
+          region     text,  
+          city       text,  
+          postalcode text,  
+          location   point,  
+          metrocode  text,  
+          areacode   text  
+       );  
+     $$,  
+     $$ create table if not exists geolite.blocks  
+       (  
+          iprange    ip4r,  
+          locid      integer  
+       );  
+     $$,  
+     $$ drop index if exists geolite.blocks_ip4r_idx; $$,  
+     $$ truncate table geolite.blocks, geolite.location cascade; $$  
+ 
+   LOAD CSV  
+        FROM FILENAME MATCHING ~/GeoLiteCity-Location.csv/  
+             WITH ENCODING iso-8859-1  
+             (  
+                locId,  
+                country,  
+                region     null if blanks,  
+                city       null if blanks,  
+                postalCode null if blanks,  
+                latitude,  
+                longitude,  
+                metroCode  null if blanks,  
+                areaCode   null if blanks  
+             )  
+        INTO postgresql:///ip4r?geolite.location  
+             (  
+                locid,country,region,city,postalCode,  
+                location point using (format nil "(~a,~a)" longitude latitude),  
+                metroCode,areaCode  
+             )  
+        WITH skip header = 2,  
+             fields optionally enclosed by '"',  
+             fields escaped by double-quote,  
+             fields terminated by ','  
+ 
+  AND LOAD CSV  
+        FROM FILENAME MATCHING ~/GeoLiteCity-Blocks.csv/  
+             WITH ENCODING iso-8859-1  
+             (  
+                startIpNum, endIpNum, locId  
+             )  
+        INTO postgresql:///ip4r?geolite.blocks  
+             (  
+                iprange ip4r using (ip-range startIpNum endIpNum),  
+                locId  
+             )  
+        WITH skip header = 2,  
+             fields optionally enclosed by '"',  
+             fields escaped by double-quote,  
+             fields terminated by ','  
+ 
+   FINALLY DO  
+     $$ create index blocks_ip4r_idx on geolite.blocks using gist(iprange); $$; </code></pre><p>You can see the full list of options in the <a href="pgloader.1.html">pgloader reference manual</a>, with a complete description of the options you see here. </p><p>Note that while the <em>Geolite</em> data is using a pair of integers (<em>start</em>, <em>end</em>) to represent <em>ipv4</em> data, we use the very poweful <a href="https://github.com/RhodiumToad/ip4r">ip4r</a> PostgreSQL Extension instead. </p><p>The transformation from a pair of integers into an IP is done dynamically by the pgloader process. </p><p>Also, the location is given as a pair of <em>float</em> columns for the <em>longitude</em> and the <em>latitude</em> where PostgreSQL offers the <a href="http://www.postgresql.org/docs/9.3/interactive/functions-geometry.html">point</a> datatype, so the pgloader command here will actually transform the data on the fly to use the appropriate data type and its input representation. </p><h2>Loading the data</h2><p>Here's how to start loading the data. Note that the ouput here has been edited so as to facilitate its browsing online. </p><pre><code>$ pgloader archive.load  
+... LOG Starting pgloader, log system is ready.  
+... LOG Parsing commands from file "/Users/dim/dev/pgloader/test/archive.load"  
+... LOG Fetching 'http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV/GeoLiteCity-latest.zip'  
+... LOG Extracting files from archive '//private/var/folders/w7/9n8v8pw54t1gngfff0lj16040000gn/T/pgloader//GeoLiteCity-latest.zip'  
+ 
+       table name       read   imported     errors            time  
+-----------------  ---------  ---------  ---------  --------------  
+         download          0          0          0         11.592s  
+          extract          0          0          0          1.012s  
+      before load          6          6          0          0.019s  
+-----------------  ---------  ---------  ---------  --------------  
+ geolite.location     470387     470387          0          7.743s  
+   geolite.blocks    1903155    1903155          0         16.332s  
+-----------------  ---------  ---------  ---------  --------------  
+          finally          1          1          0         31.692s  
+-----------------  ---------  ---------  ---------  --------------  
+Total import time    2373542    2373542          0        1m8.390s </code></pre><p>The timing of course includes the transformation of the <em>1.9 million</em> pairs of integer into a single <em>ipv4 range</em> each. The <em>finally</em> step consists of creating the <em>GiST</em> specialized index as given in the main command: </p><pre><code>CREATE INDEX blocks_ip4r_idx ON geolite.blocks USING gist(iprange); </code></pre><p>That index will then be used to speed up queries wanting to find which recorded geolocation contains a specific IP address: </p><pre><code>ip4r&gt; select *  
+        from      geolite.location l  
+             join geolite.blocks b using(locid)  
+       where iprange &gt;&gt;= '8.8.8.8';  
+ 
+-[ RECORD 1 ]------------------  
+locid      | 223  
+country    | US  
+region     |  
+city       |  
+postalcode |  
+location   | (-97,38)  
+metrocode  |  
+areacode   |  
+iprange    | 8.8.8.8-8.8.37.255  
+ 
+Time: 0.747 ms </code></pre>          </div>
+        <div class="col-md-2"> </div>
+        </div>
+
+      <!-- FOOTER -->
+      <footer>
+        <p class="pull-right"><a href="#">Back to top</a></p>
+        <p>&copy; 2013-2014 Dimitri Fontaine. &middot;</p>
+      </footer>
+
+    </div><!-- /.container -->
+
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
+    <script src="../dist/js/bootstrap.min.js"></script>
+    <!-- <script src="docs-assets/js/holder.js"></script> -->
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-47059482-2', 'tapoueh.org');
+  ga('send', 'pageview');
+
+</script>
+  </body>
+</html>

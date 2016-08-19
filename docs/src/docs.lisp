@@ -6,19 +6,19 @@
 (in-package #:pgloader.docs)
 
 (defparameter *docs-sources-directory*
-  (asdf:system-relative-pathname :pgloader "web/src/"))
+  (asdf:system-relative-pathname :pgloader "docs/src/"))
 
 (defparameter *docs-output-directory*
-  (asdf:system-relative-pathname :pgloader "web/howto/"))
+  (asdf:system-relative-pathname :pgloader "docs/howto/"))
 
 (defparameter *reference*
   (asdf:system-relative-pathname :pgloader "pgloader.1.md"))
 
 (defparameter *header*
-  (asdf:system-relative-pathname :pgloader "web/howto/header.html"))
+  (asdf:system-relative-pathname :pgloader "docs/howto/header.html"))
 
 (defparameter *footer*
-  (asdf:system-relative-pathname :pgloader "web/howto/footer.html"))
+  (asdf:system-relative-pathname :pgloader "docs/howto/footer.html"))
 
 (defun build-page (file &optional target)
   "Build the HTML page from the markdown source FILE into the HTML TARGET."

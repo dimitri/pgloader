@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="shortcut icon" href="../../docs-assets/ico/favicon.png">
+
+    <title>pgloader</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="../dist/css/bootstrap.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="../dist/carousel.css" rel="stylesheet">
+  </head>
+<!-- NAVBAR
+================================================== -->
+  <body>
+    <div class="navbar-wrapper">
+      <div class="container">
+
+        <div class="navbar navbar-inverse navbar-static-top" role="navigation">
+          <div class="container">
+            <div class="navbar-header">
+              <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+              </button>
+              <a class="navbar-brand" href="../index.html">pgloader</a>
+            </div>
+            <div class="navbar-collapse collapse">
+              <ul class="nav navbar-nav">
+                <li><a href="../index.html">Home</a></li>
+                <li><a href="quickstart.html">Quick Start</a></li>
+                <li><a href="pgloader.1.html">Reference documentation</a></li>
+                <li class="dropdown active">
+                  <a href="#" class="dropdown-toggle" data-toggle="dropdown">Advanced HowTos <b class="caret"></b></a>
+                  <ul class="dropdown-menu">
+                    <li class="dropdown-header">Plain Files</li>
+                    <li><a href="csv.html">CSV</a></li>
+                    <li><a href="fixed.html">Fixed format</a></li>
+                    <li><a href="geolite.html">Geolite</a></li>
+                    <li class="divider"></li>
+                    <li class="dropdown-header">Databases</li>
+                    <li><a href="dBase.html">dBase</a></li>
+                    <li><a href="sqlite.html">SQLite</a></li>
+                    <li><a href="mysql.html">MySQL</a></li>
+                  </ul>
+                </li>
+                <li><a href="../download.html">Download</a></li>
+                <li><a href="../sponsors.html">Sponsors</a></li>
+                <li><a href="../pgloader-moral-license.html">License</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- an empty carousel -->
+    <div id="myCarousel" class="carousel slide" data-ride="carousel" style="height: 100px">
+      <div class="carousel-inner" style="height: 100px">
+        <div class="item active" style="height: 100px">
+          <img data-src="holder.js/900x100/auto/#777:#7a7a7a" style="height: 100px">
+          <!-- <div class="container"> -->
+          <!--   <div class="carousel-caption"> -->
+          <!--     <h1>Load data into PostgreSQL. Fast.</h1> -->
+          <!--     <p></p> -->
+          <!--   </div> -->
+          <!-- </div> -->
+        </div>
+      </div>
+    </div><!-- /.carousel -->
+
+    <div class="container">
+      <div class="row">
+        <div class="col-md-2"> </div>
+        <div class="col-md-8">
+<h1>Loading SQLite files with pgloader</h1><p>The SQLite database is a respected solution to manage your data with. Its embeded nature makes it a source of migrations when a projects now needs to handle more concurrency, which <a href="http://www.postgresql.org/">PostgreSQL</a> is very good at. pgloader can help you there. </p><h2>The Command</h2><p>To load data with <a href="http://pgloader.io/">pgloader</a> you need to define in a <em>command</em> the operations in some details. Here's our command: </p><pre><code>load database  
+     from 'sqlite/Chinook_Sqlite_AutoIncrementPKs.sqlite'  
+     into postgresql:///pgloader  
+ 
+ with include drop, create tables, create indexes, reset sequences  
+ 
+  set work_mem to '16MB', maintenance_work_mem to '512 MB'; </code></pre><p>You can see the full list of options in the <a href="pgloader.1.html">pgloader reference manual</a>, with a complete description of the options you see here. </p><p>Note that here pgloader will benefit from the meta-data information found in the SQLite file to create a PostgreSQL database capable of hosting the data as described, then load the data. </p><h2>Loading the data</h2><p>Let's start the <code>pgloader</code> command with our <code>sqlite.load</code> command file: </p><pre><code>$ pgloader sqlite.load  
+... LOG Starting pgloader, log system is ready.  
+... LOG Parsing commands from file "/Users/dim/dev/pgloader/test/sqlite.load"  
+... WARNING Postgres warning: table "album" does not exist, skipping  
+... WARNING Postgres warning: table "artist" does not exist, skipping  
+... WARNING Postgres warning: table "customer" does not exist, skipping  
+... WARNING Postgres warning: table "employee" does not exist, skipping  
+... WARNING Postgres warning: table "genre" does not exist, skipping  
+... WARNING Postgres warning: table "invoice" does not exist, skipping  
+... WARNING Postgres warning: table "invoiceline" does not exist, skipping  
+... WARNING Postgres warning: table "mediatype" does not exist, skipping  
+... WARNING Postgres warning: table "playlist" does not exist, skipping  
+... WARNING Postgres warning: table "playlisttrack" does not exist, skipping  
+... WARNING Postgres warning: table "track" does not exist, skipping  
+            table name       read   imported     errors            time  
+----------------------  ---------  ---------  ---------  --------------  
+      create, truncate          0          0          0          0.052s  
+                 Album        347        347          0          0.070s  
+                Artist        275        275          0          0.014s  
+              Customer         59         59          0          0.014s  
+              Employee          8          8          0          0.012s  
+                 Genre         25         25          0          0.018s  
+               Invoice        412        412          0          0.032s  
+           InvoiceLine       2240       2240          0          0.077s  
+             MediaType          5          5          0          0.012s  
+              Playlist         18         18          0          0.008s  
+         PlaylistTrack       8715       8715          0          0.071s  
+                 Track       3503       3503          0          0.105s  
+index build completion          0          0          0          0.000s  
+----------------------  ---------  ---------  ---------  --------------  
+        Create Indexes         20         20          0          0.279s  
+       reset sequences          0          0          0          0.043s  
+----------------------  ---------  ---------  ---------  --------------  
+  Total streaming time      15607      15607          0          0.476s </code></pre><p>We can see that <a href="pgloader">http://pgloader.io</a> did download the file from its HTTP URL location then <em>unziped</em> it before loading it. </p><p>Also, the <em>WARNING</em> messages we see here are expected as the PostgreSQL database is empty when running the command, and pgloader is using the SQL commands <code>DROP TABLE IF EXISTS</code> when the given command uses the <code>include drop</code> option. </p><p>Note that the output of the command has been edited to facilitate its browsing online. </p>          </div>
+        <div class="col-md-2"> </div>
+        </div>
+
+      <!-- FOOTER -->
+      <footer>
+        <p class="pull-right"><a href="#">Back to top</a></p>
+        <p>&copy; 2013-2014 Dimitri Fontaine. &middot;</p>
+      </footer>
+
+    </div><!-- /.container -->
+
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
+    <script src="../dist/js/bootstrap.min.js"></script>
+    <!-- <script src="docs-assets/js/holder.js"></script> -->
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-47059482-2', 'tapoueh.org');
+  ga('send', 'pageview');
+
+</script>
+  </body>
+</html>
