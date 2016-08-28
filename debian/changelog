@@ -1,3 +1,9 @@
+pgloader (3.3.1+dfsg-1) unstable; urgency=medium
+
+  * New release, bugfixes and new features
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Sun, 28 Aug 2016 21:07:47 +0300
+
 pgloader (3.2.2+dfsg-1) unstable; urgency=medium
 
   * New release, lots of bugfixes, some new features
