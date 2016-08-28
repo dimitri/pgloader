@@ -315,11 +315,10 @@
              (lp:end-kernel :wait t))
 
            ;; turn unique indexes into pkeys now
-           (with-stats-collection ("Constraints" :section section)
-               (pgsql-connect-and-execute-with-timing target
-                                                      section
-                                                      "Constrants"
-                                                      pkeys)))))))
+           (pgsql-connect-and-execute-with-timing target
+                                                  section
+                                                  "Constraints"
+                                                  pkeys))))))
 
 
 ;;;
