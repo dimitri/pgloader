@@ -14,7 +14,7 @@ LOAD ARCHIVE
       FIELDS TERMINATED BY ','
 
   AND LOAD CSV
-    FROM ALL FILENAMES MATCHING ~/F[A-Z]{4}1[45]|OZ20/
+    FROM ALL FILENAMES MATCHING ~/F[A-Z]{4}1[456]|OW20/
       WITH ENCODING iso-8859-2
       (ticker, quote_date, open, high, low, close, volume, openint)
     INTO postgresql:///stocks?intf_derivatives
