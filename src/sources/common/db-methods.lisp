@@ -98,7 +98,10 @@
       (with-stats-collection ("Create MatViews Tables" :section :pre
                                                        :use-result-as-read t
                                                        :use-result-as-rows t)
-        (create-views catalog :include-drop include-drop)))))
+        (create-views catalog :include-drop include-drop))))
+
+  ;; log the catalog we just fetched and (maybe) merged
+  (log-message :data "CATALOG: ~s" catalog))
 
 (defmethod cleanup ((copy db-copy) (catalog catalog) &key materialize-views)
   "In case anything wrong happens at `prepare-pgsql-database' step, this

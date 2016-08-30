@@ -121,6 +121,8 @@
                             (list (column-name col)))
                           (table-field-list (first (table-list pgsql-catalog))))))
 
+          (log-message :data "CATALOG: ~s" pgsql-catalog)
+
           ;; this sets (table-index-list (target copy))
           (maybe-drop-indexes pgsql-catalog :drop-indexes drop-indexes)
 

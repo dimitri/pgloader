@@ -194,12 +194,12 @@
            (log-message
             ;; cl-log:log-message is a macro, we can't use apply
             ;; here, so we need to break a level of abstraction
-            (let ((mesg (if (log-message-arguments event)
-                            (format nil "~{~}"
-                                    (log-message-description event)
-                                    (log-message-arguments event))
-                            (log-message-description event)))
-                  (*print-circle* t))
+            (let* ((*print-circle* t)
+                   (mesg (if (log-message-arguments event)
+                             (format nil "~{~}"
+                                     (log-message-description event)
+                                     (log-message-arguments event))
+                             (log-message-description event))))
               (cl-log:log-message (log-message-category event) "~a" mesg)))
 
            (new-label
