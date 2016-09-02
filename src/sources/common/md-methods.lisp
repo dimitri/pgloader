@@ -140,14 +140,18 @@
     (let* ((lp:*kernel* (make-kernel worker-count))
            (channel     (lp:make-channel))
            (path-list   (expand-spec (source copy))))
-      (loop :for path-spec :in path-list
-         :do (let ((table-source (clone-copy-for copy path-spec)))
-               (copy-from table-source
-                          :concurrency concurrency
-                          :kernel lp:*kernel*
-                          :channel channel
-                          :on-error-stop on-error-stop
-                          :disable-triggers disable-triggers)))
+      (with-stats-collection ("Files Processed" :section :post
+                                                :use-result-as-read t
+                                                :use-result-as-rows t)
+        (loop :for path-spec :in path-list
+           :count t
+           :do (let ((table-source (clone-copy-for copy path-spec)))
+                 (copy-from table-source
+                            :concurrency concurrency
+                            :kernel lp:*kernel*
+                            :channel channel
+                            :on-error-stop on-error-stop
+                            :disable-triggers disable-triggers))))
 
       ;; end kernel
       (with-stats-collection ("COPY Threads Completion" :section :post
