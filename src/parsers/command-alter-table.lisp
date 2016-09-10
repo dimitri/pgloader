@@ -5,9 +5,10 @@
 ;;;
 (in-package #:pgloader.parser)
 
-(defrule match-rule-target-regex quoted-regex)
+(defrule match-rule-target-regex quoted-regex
+  (:lambda (re) (make-regex-match-rule :target re)))
 (defrule match-rule-target-string quoted-namestring
-  (:lambda (x) (list :string x)))
+  (:lambda (s) (make-string-match-rule :target s)))
 
 (defrule match-rule-target (or match-rule-target-string
                                match-rule-target-regex))
@@ -48,12 +49,11 @@
                                   (? in-schema)
                                   alter-table-action)
   (:lambda (alter-table-command)
-    (destructuring-bind (match-rule-target-list schema action)
+    (destructuring-bind (rule-list schema action)
         alter-table-command
-      (loop :for match-rule-target :in match-rule-target-list
-         :collect (pgloader.catalog::make-match-rule
-                   :type   (first match-rule-target)
-                   :target (second match-rule-target)
+      (loop :for rule :in rule-list
+         :collect (make-match-rule
+                   :rule   rule
                    :schema schema
                    :action (first action)
                    :args   (rest action))))))

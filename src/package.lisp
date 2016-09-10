@@ -164,8 +164,22 @@
 
            #:push-to-end
            #:with-schema
+
            #:alter-table
            #:alter-schema
+           #:string-match-rule
+           #:make-string-match-rule
+           #:string-match-rule-target
+           #:regex-match-rule
+           #:make-regex-match-rule
+           #:regex-match-rule-target
+           #:matches
+           #:match-rule
+           #:make-match-rule
+           #:match-rule-rule
+           #:match-rule-schema
+           #:match-rule-action
+           #:match-rule-args
 
            #:format-table-name))
 

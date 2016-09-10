@@ -4,6 +4,20 @@
 ;;;
 (in-package :pgloader.catalog)
 
+;;;
+;;; Support for the INCLUDING and EXCLUDING clauses
+;;;
+(defstruct string-match-rule target)
+(defstruct regex-match-rule target)
+
+(defgeneric matches (rule string)
+  (:documentation "Return non-nul if the STRING matches given RULE.")
+  (:method ((rule string-match-rule) string)
+    (string= (string-match-rule-target rule) string))
+
+  (:method ((rule regex-match-rule) string)
+    (cl-ppcre:scan (regex-match-rule-target rule) string)))
+
 #|
    See src/parsers/command-alter-table.lisp
 
@@ -12,7 +26,7 @@
                     :action #'pgloader.schema::alter-table-set-schema
                     :args (list "mv"))
 |#
-(defstruct match-rule type target schema action args)
+(defstruct match-rule rule schema action args)
 
 (defgeneric alter-table (object alter-table-rule-list))
 
@@ -72,16 +86,12 @@
         (table-name  (table-source-name table)))
     (when (or (null rule-schema)
               (and rule-schema (string= rule-schema schema-name)))
-      (ecase (match-rule-type match-rule)
-        (:string (string= (match-rule-target match-rule) table-name))
-        (:regex  (cl-ppcre:scan (match-rule-target match-rule) table-name))))))
+      (matches (match-rule-rule match-rule) table-name))))
 
 (defmethod rule-matches ((match-rule match-rule) (schema schema))
   "Return non-nil when TABLE matches given MATCH-RULE."
   (let ((schema-name (schema-source-name schema)))
-    (ecase (match-rule-type match-rule)
-      (:string (string= (match-rule-target match-rule) schema-name))
-      (:regex  (cl-ppcre:scan (match-rule-target match-rule) schema-name)))))
+    (matches (match-rule-rule match-rule) schema-name)))
 
 
 ;;;

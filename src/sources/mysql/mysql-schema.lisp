@@ -144,8 +144,15 @@
   "Given an INCLUDING or EXCLUDING clause, turn it into a MySQL WHERE clause."
   (mapcar (lambda (filter)
             (typecase filter
-              (string (format nil "~:[~;!~]= '~a'" not filter))
-              (cons   (format nil "~:[~;NOT ~]REGEXP '~a'" not (cadr filter)))))
+              (string-match-rule
+               (format nil "~:[~;!~]= '~a'"
+                       not
+                       (string-match-rule-target filter)))
+
+              (regex-match-rule
+               (format nil "~:[~;NOT ~]REGEXP '~a'"
+                       not
+                       (regex-match-rule-target filter)))))
           filter-list))
 
 (defun cleanup-default-value (dtype default)
