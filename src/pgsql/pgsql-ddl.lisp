@@ -12,8 +12,9 @@
           if-not-exists
           (schema-name schema)))
 
-(defmethod format-drop-sql ((schema schema) &key (stream nil) cascade)
-  (format stream "DROP SCHEMA ~s~@[ CASCADE~];" (schema-name schema) cascade))
+(defmethod format-drop-sql ((schema schema) &key (stream nil) cascade if-exists)
+  (format stream "DROP SCHEMA~@[ IF EXISTS~] ~s~@[ CASCADE~];"
+          if-exists (schema-name schema) cascade))
 
 
 ;;;
@@ -27,8 +28,9 @@
              (sqltype-name sqltype)
              (sqltype-extra sqltype)))))
 
-(defmethod format-drop-sql ((sqltype sqltype) &key (stream nil) cascade)
-  (format stream "DROP TYPE ~s~@[ CASCADE~];" (sqltype-name sqltype) cascade))
+(defmethod format-drop-sql ((sqltype sqltype) &key (stream nil) cascade if-exists)
+  (format stream "DROP TYPE~:[~; IF EXISTS~] ~s~@[ CASCADE~];"
+          if-exists (sqltype-name sqltype) cascade))
 
 
 ;;;
@@ -59,11 +61,11 @@
                        (format s "~:[~;,~]~%" last?))))
             (format s ");~%"))))
 
-(defmethod format-drop-sql ((table table) &key (stream nil) cascade)
+(defmethod format-drop-sql ((table table) &key (stream nil) cascade (if-exists t))
   "Return the PostgreSQL DROP TABLE IF EXISTS statement for TABLE-NAME."
   (format stream
-          "DROP TABLE IF EXISTS ~a~@[ CASCADE~];"
-          (format-table-name table) cascade))
+          "DROP TABLE~:[~; IF EXISTS~] ~a~@[ CASCADE~];"
+          if-exists (format-table-name table) cascade))
 
 
 ;;;
@@ -184,21 +186,23 @@
                    (index-columns index)
                    (index-filter index)))))))
 
-(defmethod format-drop-sql ((index index) &key (stream nil) cascade)
+(defmethod format-drop-sql ((index index) &key (stream nil) cascade if-exists)
   (let* ((schema-name (schema-name (index-schema index)))
          (index-name  (index-name index)))
     (cond ((index-conname index)
            ;; here always quote the constraint name, currently the name
            ;; comes from one source only, the PostgreSQL database catalogs,
            ;; so don't question it, quote it.
-           (format stream "ALTER TABLE ~a DROP CONSTRAINT ~s~@[ CASCADE~];"
+           (format stream
+                   "ALTER TABLE ~a DROP CONSTRAINT~:[~; IF EXISTS~] ~s~@[ CASCADE~];"
                    (format-table-name (index-table index))
+                   if-exists
                    (index-conname index)
                    cascade))
 
           (t
-           (format stream "DROP INDEX ~@[~a.~]~a~@[ CASCADE~];"
-                   schema-name index-name cascade)))))
+           (format stream "DROP INDEX~:[~; IF EXISTS~] ~@[~a.~]~a~@[ CASCADE~];"
+                   if-exists schema-name index-name cascade)))))
 
 
 ;;;
@@ -223,11 +227,11 @@
               (fkey-delete-rule fk)
               (fkey-delete-rule fk))))
 
-(defmethod format-drop-sql ((fk fkey) &key (stream nil) cascade)
+(defmethod format-drop-sql ((fk fkey) &key (stream nil) cascade if-exists)
   (let* ((constraint-name (fkey-name fk))
          (table-name      (format-table-name (fkey-table fk))))
-    (format stream "ALTER TABLE ~a DROP CONSTRAINT ~s~@[ CASCADE~];"
-            table-name constraint-name cascade)))
+    (format stream "ALTER TABLE ~a DROP CONSTRAINT~:[~; IF EXISTS~] ~s~@[ CASCADE~];"
+            table-name if-exists constraint-name cascade)))
 
 
 ;;;
@@ -242,9 +246,10 @@
           (format-table-name (trigger-table trigger))
           (trigger-procedure-name trigger)))
 
-(defmethod format-drop-sql ((trigger trigger) &key (stream nil) cascade)
+(defmethod format-drop-sql ((trigger trigger) &key (stream nil) cascade if-exists)
   (format stream
-          "DROP TRIGGER ~a ON ~a~@[ CASCADE~];"
+          "DROP TRIGGER~:[~; IF EXISTS~] ~a ON ~a~@[ CASCADE~];"
+          if-exists
           (trigger-name trigger)
           (format-table-name (trigger-table trigger))
           cascade))
@@ -262,9 +267,10 @@
           (procedure-language procedure)
           (procedure-body procedure)))
 
-(defmethod format-drop-sql ((procedure procedure) &key (stream nil) cascade)
+(defmethod format-drop-sql ((procedure procedure) &key (stream nil) cascade if-exists)
   (format stream
-          "DROP FUNCTION ~a()~@[ CASCADE~];" (procedure-name procedure) cascade))
+          "DROP FUNCTION~:[~; IF EXISTS~] ~a()~@[ CASCADE~];"
+          if-exists (procedure-name procedure) cascade))
 
 
 ;;;

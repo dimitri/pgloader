@@ -27,7 +27,7 @@
   (:documentation "Generate proper SQL command to create OBJECT in
   PostgreSQL. The output is written to STREAM."))
 
-(defgeneric format-drop-sql (object &key stream cascade)
+(defgeneric format-drop-sql (object &key stream cascade if-exists)
   (:documentation "Generate proper SQL command to drop OBJECT in PostgreSQL.
   The output is written to STREAM."))
 

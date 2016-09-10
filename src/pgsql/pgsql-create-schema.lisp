@@ -26,7 +26,7 @@
     (loop :for sqltype :in sqltype-list
        :when include-drop
        :count t
-       :do (pgsql-execute (format-drop-sql sqltype :cascade t)
+       :do (pgsql-execute (format-drop-sql sqltype :cascade t :if-exists t)
                           :client-min-messages client-min-messages)
        :do (pgsql-execute
             (format-create-sql sqltype :if-not-exists if-not-exists)
@@ -38,8 +38,9 @@
                                 include-drop)
   "Return the list of CREATE TABLE statements to run against PostgreSQL."
   (loop :for table :in table-list
+
      :when include-drop
-     :collect (format-drop-sql table :cascade t)
+     :collect (format-drop-sql table :cascade t :if-exists t)
 
      :collect (format-create-sql table :if-not-exists if-not-exists)))
 
@@ -169,13 +170,13 @@
   "Drop all Foreign Key Definitions given, to prepare for a clean run."
   (loop :for table :in (table-list catalog)
      :sum (loop :for fkey :in (table-fkey-list table)
-             :for sql := (format-drop-sql fkey :cascade cascade)
+             :for sql := (format-drop-sql fkey :cascade cascade :if-exists t)
              :do (pgsql-execute sql)
              :count t)
      ;; also DROP the foreign keys that depend on the indexes we want to DROP
      :sum (loop :for index :in (table-index-list table)
              :sum (loop :for fkey :in (index-fk-deps index)
-                     :for sql := (format-drop-sql fkey :cascade t)
+                     :for sql := (format-drop-sql fkey :cascade t :if-exists t)
                      :do (progn
                            (log-message :debug "EXTRA FK DEPS!")
                            (pgsql-execute sql))
@@ -257,7 +258,7 @@
                   (table   (table-index-list table-or-catalog))
                   (catalog (loop :for table :in (table-list table-or-catalog)
                               :append (table-index-list table))))
-            :collect (format-drop-sql index :cascade cascade))))
+            :collect (format-drop-sql index :cascade cascade :if-exists t))))
     (pgsql-execute sql-index-list)
     ;; return how many indexes we just DROPed
     (length sql-index-list)))
@@ -265,7 +266,7 @@
 ;;;
 ;;; Higher level API to care about indexes
 ;;;
-(defun maybe-drop-indexes (catalog &key (section :pre) drop-indexes)
+(defun maybe-drop-indexes (catalog &key drop-indexes)
   "Drop the indexes for TABLE-NAME on TARGET PostgreSQL connection, and
    returns a list of indexes to create again. A PostgreSQL connection must
    already be active when calling that function."
