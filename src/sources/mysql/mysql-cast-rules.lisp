@@ -6,7 +6,8 @@
 
 (defun enum-or-set-name (table-name column-name type ctype typemod)
   (declare (ignore type ctype typemod))
-  (string-downcase (format nil "~a_~a" table-name column-name)))
+  (apply-identifier-case
+   (format nil "~a_~a" (unquote table-name #\") (unquote column-name #\"))))
 
 ;;;
 ;;; The default MySQL Type Casting Rules
@@ -194,12 +195,12 @@
 
       ;; extra triggers
       ;;
-      ;; See the generic function `post-process-catalog' for the next step.
+      ;; See src/pgsql/pgsql-trigger.lisp
       ;;
       (when (string= extra "on update CURRENT_TIMESTAMP")
         (let* ((pro-name (format nil
                                  "on_update_current_timestamp_~a"
-                                 (column-name pgcol))))
+                                 (unquote (column-name pgcol) #\"))))
           (setf (column-extra pgcol)
                 (make-trigger :name :on-update-current-timestamp
                               :action "BEFORE UPDATE"

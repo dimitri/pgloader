@@ -8,12 +8,12 @@
 ;;; Schemas
 ;;;
 (defmethod format-create-sql ((schema schema) &key (stream nil) if-not-exists)
-  (format stream "CREATE SCHEMA~@[~IF NOT EXISTS~] ~s;"
+  (format stream "CREATE SCHEMA~@[~IF NOT EXISTS~] ~a;"
           if-not-exists
           (schema-name schema)))
 
 (defmethod format-drop-sql ((schema schema) &key (stream nil) cascade if-exists)
-  (format stream "DROP SCHEMA~@[ IF EXISTS~] ~s~@[ CASCADE~];"
+  (format stream "DROP SCHEMA~@[ IF EXISTS~] ~a~@[ CASCADE~];"
           if-exists (schema-name schema) cascade))
 
 
@@ -29,7 +29,7 @@
              (sqltype-extra sqltype)))))
 
 (defmethod format-drop-sql ((sqltype sqltype) &key (stream nil) cascade if-exists)
-  (format stream "DROP TYPE~:[~; IF EXISTS~] ~s~@[ CASCADE~];"
+  (format stream "DROP TYPE~:[~; IF EXISTS~] ~a~@[ CASCADE~];"
           if-exists (sqltype-name sqltype) cascade))
 
 
@@ -194,7 +194,7 @@
            ;; comes from one source only, the PostgreSQL database catalogs,
            ;; so don't question it, quote it.
            (format stream
-                   "ALTER TABLE ~a DROP CONSTRAINT~:[~; IF EXISTS~] ~s~@[ CASCADE~];"
+                   "ALTER TABLE ~a DROP CONSTRAINT~:[~; IF EXISTS~] ~a~@[ CASCADE~];"
                    (format-table-name (index-table index))
                    if-exists
                    (index-conname index)
@@ -211,12 +211,12 @@
 (defmethod format-create-sql ((fk fkey) &key (stream nil) if-not-exists)
   (declare (ignore if-not-exists))
   (if (and (fkey-name fk) (fkey-condef fk))
-      (format stream "ALTER TABLE ~a ADD CONSTRAINT ~s ~a"
+      (format stream "ALTER TABLE ~a ADD CONSTRAINT ~a ~a"
               (format-table-name (fkey-table fk))
               (fkey-name fk)
               (fkey-condef fk))
       (format stream
-              "ALTER TABLE ~a ADD ~@[CONSTRAINT ~s ~]FOREIGN KEY(~{~a~^,~}) REFERENCES ~a(~{~a~^,~})~:[~*~; ON UPDATE ~a~]~:[~*~; ON DELETE ~a~]"
+              "ALTER TABLE ~a ADD ~@[CONSTRAINT ~a ~]FOREIGN KEY(~{~a~^,~}) REFERENCES ~a(~{~a~^,~})~:[~*~; ON UPDATE ~a~]~:[~*~; ON DELETE ~a~]"
               (format-table-name (fkey-table fk))
               (fkey-name fk)            ; constraint name
               (fkey-columns fk)
@@ -230,7 +230,7 @@
 (defmethod format-drop-sql ((fk fkey) &key (stream nil) cascade if-exists)
   (let* ((constraint-name (fkey-name fk))
          (table-name      (format-table-name (fkey-table fk))))
-    (format stream "ALTER TABLE ~a DROP CONSTRAINT~:[~; IF EXISTS~] ~s~@[ CASCADE~];"
+    (format stream "ALTER TABLE ~a DROP CONSTRAINT~:[~; IF EXISTS~] ~a~@[ CASCADE~];"
             table-name if-exists constraint-name cascade)))
 
 

@@ -25,14 +25,22 @@
 ;;;
 ;;; Unquote SQLite default values, might be useful elsewhere
 ;;;
-(defun unquote (string &optional (quote #\'))
+(defun unquote (string &optional (quote #\') (escape #\\))
   "Given '0', returns 0."
   (declare (type (or null simple-string) string))
   (when string
     (let ((l (length string)))
-      (if (char= quote (aref string 0) (aref string (1- l)))
-          (subseq string 1 (1- l))
-          string))))
+      (cond ((and (<= 2 l)               ; "string"
+                  (char= quote (aref string 0) (aref string (1- l))))
+             (subseq string 1 (1- l)))
+
+            ((and (<= 4 l)               ; \"string\"
+                  (char= escape (aref string 0) (aref string (- l 2)))
+                  (char= quote (aref string 1) (aref string (- l 1))))
+             (subseq string 2 (- l 2)))
+
+            (t
+             string)))))
 
 ;;;
 ;;; Process ~/ references at run-time (not at compile time!)

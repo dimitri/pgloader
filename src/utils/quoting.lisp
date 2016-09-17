@@ -43,6 +43,6 @@
 
     (ecase *identifier-case*
       (:downcase lowercase-identifier)
-      (:quote    (format nil "\"~a\""
+      (:quote    (format nil "~s"
                          (cl-ppcre:regex-replace-all "\"" identifier "\"\"")))
       (:none     identifier))))
