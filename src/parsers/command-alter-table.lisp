@@ -74,8 +74,7 @@
   (:lambda (alter-schema-command)
     (bind (((_ _ current-name _ _ new-name) alter-schema-command))
       (pgloader.catalog::make-match-rule
-       :type :string
-       :target current-name
+       :rule (make-string-match-rule :target current-name)
        :action #'pgloader.catalog::alter-schema-rename
        :args (list new-name)))))
 
