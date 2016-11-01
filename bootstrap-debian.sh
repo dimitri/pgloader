@@ -32,7 +32,7 @@ sudo apt-get install -y postgresql-9.3 postgresql-contrib-9.3 \
                         sbcl                                  \
                         git patch unzip                       \
                         devscripts pandoc                     \
-                        libsqlite3-dev                        \
+                        freetds-dev libsqlite3-dev            \
                         gnupg gnupg-agent
 
 sudo DEBIAN_FRONTEND=noninteractive \
@@ -40,11 +40,9 @@ sudo DEBIAN_FRONTEND=noninteractive \
 
 # SBCL
 #
-# we need to backport SBCL from sid to have a recent enough version of the
-# compiler and run time we depend on
-sudo apt-get -y build-dep sbcl
-sudo apt-get source -b sbcl > /dev/null 2>&1 # too verbose
-sudo dpkg -i *.deb
+# we used to need to backport SBCL, it's only the case now in wheezy, all
+# the later distributions are uptodate enough for our needs here.
+sudo apt-get -y install sbcl
 
 HBA=/etc/postgresql/9.3/main/pg_hba.conf
 echo "local all all trust"              | sudo tee $HBA

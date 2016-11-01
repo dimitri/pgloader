@@ -8,7 +8,7 @@ sudo yum -y install epel-release
 sudo yum -y install sbcl 
 
 # Missing dependency
-sudo yum install freetds -y
+sudo yum install freetds freetds-devel -y
 sudo ln -s /usr/lib64/libsybdb.so.5 /usr/lib64/libsybdb.so
 
 # prepare the rpmbuild setup
