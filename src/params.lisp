@@ -45,11 +45,11 @@
   "Return the current abbreviated git hash of the development tree."
   (handler-case
       (let ((git-hash `("git" "--no-pager" "log" "-n1" "--format=format:%h")))
-        (uiop:with-current-directory ((asdf:system-source-directory :pgloader))
-          (multiple-value-bind (stdout stderr code)
-              (uiop:run-program git-hash :output :string)
-            (declare (ignore code stderr))
-            stdout)))
+        (multiple-value-bind (stdout stderr code)
+            (uiop:run-program git-hash :output :string
+                              :directory (asdf:system-source-directory :pgloader))
+          (declare (ignore code stderr))
+          stdout))
     (condition (e)
       ;; in case anything happen, just return X.Y.Z~devel
       (declare (ignore e))
