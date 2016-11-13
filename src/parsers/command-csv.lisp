@@ -111,6 +111,7 @@
                         option-max-parallel-create-index
                         option-truncate
                         option-disable-triggers
+                        option-identifiers-case
                         option-drop-indexes
                         option-skip-header
                         option-csv-header
@@ -406,6 +407,7 @@
   `(lambda ()
      (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
+            ,@(identifier-case-binding options)
               (source-db (with-stats-collection ("fetch" :section :pre)
                              (expand (fetch-file ,csv-conn)))))
 

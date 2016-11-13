@@ -25,6 +25,7 @@
                         option-batch-concurrency
                         option-truncate
                         option-disable-triggers
+                        option-identifiers-case
                         option-data-only
                         option-schema-only
                         option-include-drop

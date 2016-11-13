@@ -30,7 +30,8 @@
                         option-include-drop
                         option-create-table
                         option-create-tables
-                        option-table-name))
+                        option-table-name
+                        option-identifiers-case))
 
 (defrule dbf-options (and kw-with (and dbf-option (* (and comma dbf-option))))
   (:function flatten-option-list))

@@ -42,6 +42,7 @@
                          option-truncate
                          option-drop-indexes
                          option-disable-triggers
+                         option-identifiers-case
                          option-skip-header
                          option-delimiter
                          option-null))
@@ -112,6 +113,7 @@
   `(lambda ()
      (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
+            ,@(identifier-case-binding options)              
               (source-db (with-stats-collection ("fetch" :section :pre)
                              (expand (fetch-file ,copy-conn)))))
 

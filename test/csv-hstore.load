@@ -1,11 +1,12 @@
 LOAD CSV
      FROM INLINE
-     INTO postgresql://dim@localhost/pgloader?hs
+     INTO postgresql://dim@localhost/pgloader?"HS"
 
      WITH truncate,
           fields terminated by '\t',
           fields not enclosed,
-          fields escaped by backslash-quote
+          fields escaped by backslash-quote,
+          quote identifiers
 
       SET work_mem to '128MB',
           standard_conforming_strings to 'on',
@@ -13,8 +14,8 @@ LOAD CSV
 
    BEFORE LOAD DO
     $$ create extension if not exists hstore; $$,
-    $$ drop table if exists hs; $$,
-    $$ CREATE TABLE hs
+    $$ drop table if exists "HS"; $$,
+    $$ CREATE TABLE "HS"
        (
           id     serial primary key,
           kv     hstore
