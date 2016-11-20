@@ -7,8 +7,10 @@ load csv
     with fields optionally enclosed by '"', 
          fields terminated by ',',
          truncate,
-         workers = 8,
-         concurrency = 1
+         disable triggers,
+         drop indexes
+         -- workers = 8,
+         -- concurrency = 1
 
   before load do
     $$ drop table if exists matching; $$,

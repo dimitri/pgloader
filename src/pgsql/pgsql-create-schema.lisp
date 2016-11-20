@@ -295,7 +295,8 @@
                                (section :post)
                                drop-indexes)
   "Create the indexes that we dropped previously."
-  (when drop-indexes
+  (when (and drop-indexes
+             (< 0 (count-indexes catalog)))
     (let* ((*preserve-index-names* t)
            ;; we get the list of indexes from PostgreSQL catalogs, so don't
            ;; question their spelling, just quote them.
