@@ -1,3 +1,9 @@
+pgloader (3.3.1+dfsg-2) unstable; urgency=medium
+
+  * Add tzdata to build-depends (Closes: #839468)
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Thu, 03 Nov 2016 14:32:28 +0100
+
 pgloader (3.3.1+dfsg-1) unstable; urgency=medium
 
   * New release, bugfixes and new features
