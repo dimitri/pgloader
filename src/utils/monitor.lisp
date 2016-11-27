@@ -27,6 +27,7 @@
 ;;;
 (defstruct start start-logger)
 (defstruct stop  stop-logger)
+(defstruct report-summary reset)
 (defstruct noop)
 (defstruct log-message category description arguments)
 (defstruct new-label section label dbname)
@@ -62,6 +63,9 @@
                             :label table
                             :condition condition
                             :data data)))
+
+(defun flush-summary (&key reset)
+  (send-event (make-report-summary :reset reset)))
 
 ;;;
 ;;; Easier API to manage statistics collection and state updates
@@ -173,20 +177,21 @@
             (cl-log:log-message :info "Stopping monitor")
 
             ;; report the summary now
-            (let* ((summary-stream (when *summary-pathname*
-                                     (open *summary-pathname*
-                                           :direction :output
-                                           :if-exists :rename
-                                           :if-does-not-exist :create)))
-                   (*report-stream* (or summary-stream *standard-output*)))
-              (report-full-summary "Total import time"
-                                   *sections*
-                                   (elapsed-time-since start-time))
-              (when summary-stream (close summary-stream)))
+            (destructuring-bind (&key pre data post) *sections*
+              (unless (and (null pre) (null data) (null post))
+                (report-current-summary start-time)))
 
             ;; time to shut down the logger?
             (when (stop-stop-logger event)
               (pgloader.logs:stop-logger)))
+
+           (report-summary
+            (report-current-summary start-time)
+
+            (when (report-summary-reset event)
+              (setf *sections* (list :pre  (make-pgstate)
+                                     :data (make-pgstate)
+                                     :post (make-pgstate)))))
 
            (noop
             (sleep 0.2))                ; avoid buzy looping
@@ -231,6 +236,19 @@
                               (bad-row-data event))))
 
      :until (typep event 'stop)))
+
+(defun report-current-summary (start-time)
+  "Print out the current summary."
+  (let* ((summary-stream (when *summary-pathname*
+                           (open *summary-pathname*
+                                 :direction :output
+                                 :if-exists :rename
+                                 :if-does-not-exist :create)))
+         (*report-stream* (or summary-stream *standard-output*)))
+    (report-full-summary "Total import time"
+                         *sections*
+                         (elapsed-time-since start-time))
+    (when summary-stream (close summary-stream))))
 
 
 ;;;

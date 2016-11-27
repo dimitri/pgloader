@@ -16,7 +16,7 @@
   ;; now do our work
   (with-monitor (:start-logger start-logger)
     (log-message :log "Regression testing: ~s" load-file)
-    (process-command-file load-file)
+    (process-command-file (list load-file) :flush-summary nil)
 
     ;; once we are done running the load-file, compare the loaded data with
     ;; our expected data file
@@ -67,7 +67,8 @@
       (load-data :from expected-data-source
                  :into expected-data-target
                  :options '(:truncate t)
-                 :start-logger nil)
+                 :start-logger nil
+                 :flush-summary nil)
 
       ;; now compare both
       (with-pgsql-connection (target-conn)

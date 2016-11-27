@@ -221,6 +221,7 @@
            #:new-label
            #:update-stats
            #:process-bad-row
+           #:flush-summary
            #:with-stats-collection
            #:send-event
            #:start-monitor

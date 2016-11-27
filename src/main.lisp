@@ -81,12 +81,12 @@
     ("regress" :type boolean :optional t
                :documentation "Drive regression testing")))
 
-(defun print-backtrace (condition debug stream)
+(defun print-backtrace (condition debug)
   "Depending on DEBUG, print out the full backtrace or just a shorter
    message on STREAM for given CONDITION."
   (if debug
-      (trivial-backtrace:print-backtrace condition :output stream :verbose t)
-      (trivial-backtrace:print-condition condition stream)))
+      (trivial-backtrace:print-backtrace condition :output nil)
+      (trivial-backtrace:print-condition condition nil)))
 
 (defun mkdir-or-die (path debug &optional (stream *standard-output*))
   "Create a directory at given PATH and exit with an error message when
@@ -272,36 +272,36 @@
 	  (let* ((*log-filename*      (log-file-name logfile))
                  (*summary-pathname*  (parse-summary-filename summary debug)))
 
-            (with-monitor ()
-              ;; tell the user where to look for interesting things
-              (log-message :log "Main logs in '~a'"
-                           (uiop:native-namestring *log-filename*))
-              (log-message :log "Data errors in '~a'~%" *root-dir*)
+            (handler-case
+                ;; The handler-case is to catch unhandled exceptions at the
+                ;; top level.
+                ;;
+                ;; The handler-bind below is to be able to offer a
+                ;; meaningful backtrace to the user in case of unexpected
+                ;; conditions being signaled.
+                (with-monitor ()
+                  ;; tell the user where to look for interesting things
+                  (log-message :log "Main logs in '~a'"
+                               (uiop:native-namestring *log-filename*))
+                  (log-message :log "Data errors in '~a'~%" *root-dir*)
 
-              ;; load extra lisp code provided for by the user
-              (when load
-                (loop for filename in load do
-                     (handler-case
-                         (load-extra-transformation-functions filename)
-                       (condition (e)
-                         (log-message :fatal
-                                      "Failed to load lisp source file ~s~%"
-                                      filename)
-                         (log-message :error "~a" e)
-                         (uiop:quit +os-code-error+)))))
+                  ;; load extra lisp code provided for by the user
+                  (when load
+                    (loop for filename in load do
+                         (handler-case
+                             (load-extra-transformation-functions filename)
+                           (condition (e)
+                             (log-message :fatal
+                                          "Failed to load lisp source file ~s~%"
+                                          filename)
+                             (log-message :error "~a" e)
+                             (uiop:quit +os-code-error+)))))
 
-              (handler-case
-                  ;; The handler-case is to catch unhandled exceptions at the
-                  ;; top level.
-                  ;;
-                  ;; The handler-bind is to be able to offer a meaningful
-                  ;; backtrace to the user in case of unexpected conditions
-                  ;; being signaled.
                   (handler-bind
                       ((condition
                         #'(lambda (condition)
-                            (log-message :fatal "We have a situation here.")
-                            (print-backtrace condition debug *standard-output*))))
+                            (log-message :fatal "~a"
+                                         (print-backtrace condition debug)))))
 
                     (cond
                       ((and regress (= 1 (length arguments)))
@@ -341,16 +341,17 @@
 
                          ;; when we issued a single error previously, do nothing
                          (unless (remove-if #'null (mapcar #'second cli-options))
-                           (mapcar #'process-command-file arguments))))))
+                           (process-command-file arguments)))))))
 
-                (source-definition-error (c)
-                  (log-message :fatal "~a" c)
-                  (uiop:quit +os-code-error-bad-source+))
+              (source-definition-error (c)
+                (declare (ignore c))    ; handler-bind printed it out
+                (sleep 0.3)             ; wait until monitor stops...
+                (uiop:quit +os-code-error-bad-source+))
 
-                (condition (c)
-                  (log-message :fatal "~a" c)
-                  (print-backtrace c debug *standard-output*)
-                  (uiop:quit +os-code-error+))))))
+              (condition (c)
+                (declare (ignore c))    ; handler-bind printed it out
+                (sleep 0.3)             ; wait until monitor stops...
+                (uiop:quit +os-code-error+)))))
 
         ;; done.
 	(uiop:quit +os-code-success+)))))
@@ -359,12 +360,27 @@
 ;;;
 ;;; Helper functions to actually do things
 ;;;
-(defun process-command-file (filename)
-  "Process FILENAME as a pgloader command file (.load)."
-  (let ((truename (probe-file filename)))
-    (if truename
-        (run-commands truename :start-logger nil)
-        (log-message :error "Can not find file: ~s" filename))))
+(define-condition load-files-not-found-error (error)
+  ((filename-list :initarg :filename-list))
+  (:report (lambda (err stream)
+             (format stream
+                     ;; start lines with 3 spaces because of trivial-backtrace
+                     "~{No such file or directory: ~s~^~%   ~}"
+                     (slot-value err 'filename-list)))))
+
+(defun process-command-file (filename-list &key (flush-summary t))
+  "Process each FILENAME in FILENAME-LIST as a pgloader command
+   file (.load)."
+  (loop :for filename :in filename-list
+     :for truename := (probe-file filename)
+     :unless truename :collect filename :into not-found-list
+     :do (if truename
+             (run-commands truename
+                           :start-logger nil
+                           :flush-summary flush-summary)
+             (log-message :error "Can not find file: ~s" filename))
+     :finally (when not-found-list
+                (error 'load-files-not-found-error :filename-list not-found-list))))
 
 (defun process-source-and-target (source target
                                   type encoding set with field cast
@@ -374,9 +390,10 @@
          (source-uri (if type
                          (parse-source-string-for-type type source)
                          (parse-source-string source)))
-         (type       (when source
+         (type       (when (and source
+                                (typep source-uri 'connection))
                        (parse-cli-type (conn-type source-uri))))
-         (target-uri (parse-target-string target)))
+         (target-uri (ignore-errors (parse-target-string target))))
 
     ;; some verbosity about the parsing "magic"
     (log-message :info "SOURCE: ~s" source)
@@ -384,9 +401,10 @@
 
     (cond ((and (null source-uri)
                 (null target-uri)
-                (probe-file (uiop:parse-unix-namestring source))
-                (probe-file (uiop:parse-unix-namestring target)))
-           (mapcar #'process-command-file (list source target)))
+                ;; (probe-file (uiop:parse-unix-namestring source))
+                ;; (probe-file (uiop:parse-unix-namestring target))
+                )
+           (process-command-file (list source target)))
 
           ((null source)
            (log-message :fatal
@@ -419,6 +437,7 @@
 (defun run-commands (source
 		     &key
 		       (start-logger t)
+                       (flush-summary t)
                        ((:summary *summary-pathname*) *summary-pathname*)
 		       ((:log-filename *log-filename*) *log-filename*)
 		       ((:log-min-messages *log-min-messages*) *log-min-messages*)
@@ -442,7 +461,10 @@
                                     (parse-commands-from-file source)
                                     (parse-commands source)))))))
 
-      (loop for func in funcs do (funcall func)))))
+      (loop :for func :in funcs
+         :do (funcall func)
+         :do (when flush-summary
+               (flush-summary :reset t))))))
 
 
 ;;;
@@ -455,7 +477,7 @@
 
 (defun load-data (&key ((:from source)) ((:into target))
                     encoding fields options gucs casts before after
-                    (start-logger t))
+                    (start-logger t) (flush-summary t))
   "Load data from SOURCE into TARGET."
   (declare (type connection source)
            (type pgsql-connection target))
@@ -549,4 +571,5 @@
                                            :options options
                                            :before before
                                            :after after))))
-     :start-logger nil)))
+     :start-logger nil
+     :flush-summary flush-summary)))
