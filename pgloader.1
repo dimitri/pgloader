@@ -1819,10 +1819,13 @@ The \fBdatabase\fR command accepts the following clauses and options:
 \fIFROM\fR
 .
 .IP
-Must be a connection URL pointing to a MySQL database\. At the moment only MySQL is supported as a pgloader source\.
+Must be a connection URL pointing to a MySQL database\.
 .
 .IP
 If the connection URI contains a table name, then only this table is migrated from MySQL to PostgreSQL\.
+.
+.IP
+See the \fBSOURCE CONNECTION STRING\fR section above for details on how to write the connection string\. Environment variables described in \fIhttp://dev\.mysql\.com/doc/refman/5\.0/en/environment\-variables\.html\fR can be used as default values too\. If the user is not provided, then it defaults to \fBUSER\fR environment variable value\. The password can be provided with the environment variable \fBMYSQL_PWD\fR\. The host can be provided with the environment variable \fBMYSQL_HOST\fR and otherwise defaults to \fBlocalhost\fR\. The port can be provided with the environment variable \fBMYSQL_TCP_PORT\fR and otherwise defaults to \fB3306\fR\.
 .
 .IP "\(bu" 4
 \fIWITH\fR

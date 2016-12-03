@@ -1555,11 +1555,20 @@ The `database` command accepts the following clauses and options:
 
   - *FROM*
 
-	Must be a connection URL pointing to a MySQL database. At the moment
-	only MySQL is supported as a pgloader source.
+	Must be a connection URL pointing to a MySQL database.
 
     If the connection URI contains a table name, then only this table is
   	migrated from MySQL to PostgreSQL.
+
+    See the `SOURCE CONNECTION STRING` section above for details on how to
+    write the connection string. Environment variables described in
+    <http://dev.mysql.com/doc/refman/5.0/en/environment-variables.html> can
+    be used as default values too. If the user is not provided, then it
+    defaults to `USER` environment variable value. The password can be
+    provided with the environment variable `MYSQL_PWD`. The host can be
+    provided with the environment variable `MYSQL_HOST` and otherwise
+    defaults to `localhost`. The port can be provided with the environment
+    variable `MYSQL_TCP_PORT` and otherwise defaults to `3306`.
 
   - *WITH*
 
