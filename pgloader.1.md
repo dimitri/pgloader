@@ -445,6 +445,12 @@ units of work at the same time. In the database sources, a unit of work is a
 table, so those settings allow pgloader to be active on as many as 3 tables
 at any time in the load process.
 
+The defaults are `workers = 4, concurrency = 1` when loading from a database
+source, and `workers = 8, concurrency = 2` when loading from something else
+(currently, a file). Those defaults are arbitrary and waiting for feedback
+from users, so please consider providing feedback if you play with the
+settings.
+
 As the `CREATE INDEX` threads started by pgloader are only waiting until
 PostgreSQL is done with the real work, those threads are *NOT* counted into
 the concurrency levels as detailed here.

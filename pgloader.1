@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "August 2016" "ff" ""
+.TH "PGLOADER" "1" "December 2016" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -494,6 +494,9 @@ So with \fBworkers = 4, concurrency = 2\fR, the parallel scheduler will maintain
 .
 .P
 With \fBworkers = 8, concurrency = 1\fR, we then are able to work on several units of work at the same time\. In the database sources, a unit of work is a table, so those settings allow pgloader to be active on as many as 3 tables at any time in the load process\.
+.
+.P
+The defaults are \fBworkers = 4, concurrency = 1\fR when loading from a database source, and \fBworkers = 8, concurrency = 2\fR when loading from something else (currently, a file)\. Those defaults are arbitrary and waiting for feedback from users, so please consider providing feedback if you play with the settings\.
 .
 .P
 As the \fBCREATE INDEX\fR threads started by pgloader are only waiting until PostgreSQL is done with the real work, those threads are \fINOT\fR counted into the concurrency levels as detailed here\.
