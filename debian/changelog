@@ -1,3 +1,10 @@
+pgloader (3.3.2+dfsg-1) unstable; urgency=medium
+
+  * Fixes github issue 453 (Closes: #843555)
+  * Maintenance release.
+
+ -- Dimitri Fontaine <dim@tapoueh.org>  Sat, 03 Dec 2016 19:36:56 +0300
+
 pgloader (3.3.1+dfsg-2) unstable; urgency=medium
 
   * Add tzdata to build-depends (Closes: #839468)

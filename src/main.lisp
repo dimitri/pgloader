@@ -99,7 +99,7 @@
     (condition (e)
       ;; any error here is a panic
       (if debug
-	  (print-backtrace e debug stream)
+	  (format stream "PANIC: ~a~%" (print-backtrace e debug))
 	  (format stream "PANIC: ~a.~%" e))
       (uiop:quit))))
 
