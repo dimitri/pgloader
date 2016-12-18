@@ -15,7 +15,8 @@
   "Create the needed data types for given CATALOG."
   (let ((sqltype-list))
     ;; build the sqltype list
-    (loop :for table :in (table-list catalog)
+    (loop :for table :in (append (table-list catalog)
+                                 (view-list catalog))
        :do (loop :for column :in (table-column-list table)
               :do (when (typep (column-type-name column) 'sqltype)
                     (pushnew (column-type-name column) sqltype-list
