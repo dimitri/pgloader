@@ -82,7 +82,7 @@
                              including
                              excluding)
   "MySQL introspection to prepare the migration."
-  (let ((schema        (add-schema catalog nil))
+  (let ((schema        (add-schema catalog (catalog-name catalog)))
         (view-names    (unless (eq :all materialize-views)
                          (mapcar #'car materialize-views))))
     (with-stats-collection ("fetch meta data"

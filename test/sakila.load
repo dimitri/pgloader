@@ -8,7 +8,8 @@ load database
  -- WITH batch rows = 10000
 
  WITH concurrency = 1, workers = 6,
-      max parallel create index = 4
+      max parallel create index = 4-- ,
+      -- quote identifiers
 
   SET maintenance_work_mem to '128MB',
       work_mem to '12MB',
@@ -29,11 +30,13 @@ load database
  ALTER TABLE NAMES MATCHING 'sales_by_store' RENAME TO 'sales_by_store_list'
  ALTER TABLE NAMES MATCHING 'film' RENAME TO 'films'
 
+ ALTER SCHEMA 'sakila' RENAME TO 'pagila'
+
  -- INCLUDING ONLY TABLE NAMES MATCHING ~/film/, 'actor'
  -- EXCLUDING TABLE NAMES MATCHING ~<ory>
 
  BEFORE LOAD DO
- $$ create schema if not exists sakila; $$,
+ $$ create schema if not exists pagila; $$,
  $$ create schema if not exists mv; $$,
- $$ alter database sakila set search_path to sakila, mv, public; $$;
+ $$ alter database sakila set search_path to pagila, mv, public; $$;
 

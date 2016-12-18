@@ -68,6 +68,7 @@
                                             gucs
                                             casts
                                             alter-table
+                                            alter-schema
                                             materialize-views
                                             including-matching
                                             excluding-matching
@@ -139,7 +140,7 @@
 (defun lisp-code-for-loading-from-mysql (my-db-conn pg-db-conn
                                          &key
                                            gucs casts views before after options
-                                           alter-table
+                                           alter-table alter-schema
                                            ((:including incl))
                                            ((:excluding excl))
                                            ((:decoding decoding-as)))
@@ -162,6 +163,7 @@
                                      :excluding ',excl
                                      :materialize-views ',views
                                      :alter-table ',alter-table
+                                     :alter-schema ',alter-schema
                                      :set-table-oids t
                                      ,@(remove-batch-control-option options))
 
@@ -172,8 +174,9 @@
     (destructuring-bind (my-db-uri
                          pg-db-uri
                          &key
-                         gucs casts views before after
-                         options alter-table including excluding decoding)
+                         gucs casts views before after options
+                         alter-table alter-schema
+                         including excluding decoding)
         source
       (cond (*dry-run*
              (lisp-code-for-mysql-dry-run my-db-uri pg-db-uri))
@@ -186,6 +189,7 @@
                                                :after after
                                                :options options
                                                :alter-table alter-table
+                                               :alter-schema alter-schema
                                                :including including
                                                :excluding excluding
                                                :decoding decoding))))))
