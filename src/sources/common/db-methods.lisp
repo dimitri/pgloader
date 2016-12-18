@@ -133,7 +133,9 @@
     ;; Turn UNIQUE indexes into PRIMARY KEYS now
     ;;
     (unless data-only
-      (pgsql-execute-with-timing :post "Primary Keys" pkeys)
+      (pgsql-execute-with-timing :post "Primary Keys"
+                                 pkeys
+                                 :count (length pkeys))
 
       ;;
       ;; Foreign Key Constraints
