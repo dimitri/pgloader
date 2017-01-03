@@ -230,4 +230,4 @@ latest:
 
 check: test ;
 
-.PHONY: test pgloader-standalone
+.PHONY: test pgloader-standalone docs

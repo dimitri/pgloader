@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "December 2016" "ff" ""
+.TH "PGLOADER" "1" "January 2017" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -487,7 +487,21 @@ At the moment, the number of transformer and writer tasks are forced into being 
 The parameter \fIworkers\fR allows to control how many worker threads are allowed to be active at any time (that\'s the parallelism level); and the parameter \fIconcurrency\fR allows to control how many tasks are started to handle the data (they may not all run at the same time, depending on the \fIworkers\fR setting)\.
 .
 .P
-With a \fIconcurrency\fR of 2, we start 1 reader thread, 2 transformer threads and 2 writer tasks, that\'s 5 concurrent tasks to schedule into \fIworkers\fR threads\.
+We allow \fIworkers\fR simultaneous workers to be active at the same time in the context of a single table\. A single unit of work consist of several kinds of workers:
+.
+.IP "\(bu" 4
+a reader getting raw data from the source,
+.
+.IP "\(bu" 4
+N transformers preparing raw data for PostgreSQL COPY protocol,
+.
+.IP "\(bu" 4
+N writers sending the data down to PostgreSQL\.
+.
+.IP "" 0
+.
+.P
+The N here is setup to the \fIconcurrency\fR parameter: with a \fICONCURRENCY\fR of 2, we start (+ 1 2 2) = 5 concurrent tasks, with a \fIconcurrency\fR of 4 we start (+ 1 4 4) = 9 concurrent tasks, of which only \fIworkers\fR may be active simultaneously\.
 .
 .P
 So with \fBworkers = 4, concurrency = 2\fR, the parallel scheduler will maintain active only 4 of the 5 tasks that are started\.

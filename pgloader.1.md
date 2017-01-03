@@ -433,9 +433,18 @@ parameter *concurrency* allows to control how many tasks are started to
 handle the data (they may not all run at the same time, depending on the
 *workers* setting).
 
-With a *concurrency* of 2, we start 1 reader thread, 2 transformer threads
-and 2 writer tasks, that's 5 concurrent tasks to schedule into *workers*
-threads.
+We allow *workers* simultaneous workers to be active at the same time in the
+context of a single table. A single unit of work consist of several kinds of
+workers:
+
+  - a reader getting raw data from the source,
+  - N transformers preparing raw data for PostgreSQL COPY protocol,
+  - N writers sending the data down to PostgreSQL.
+
+The N here is setup to the *concurrency* parameter: with a *CONCURRENCY* of
+2, we start (+ 1 2 2) = 5 concurrent tasks, with a *concurrency* of 4 we
+start (+ 1 4 4) = 9 concurrent tasks, of which only *workers* may be active
+simultaneously.
 
 So with `workers = 4, concurrency = 2`, the parallel scheduler will
 maintain active only 4 of the 5 tasks that are started.
