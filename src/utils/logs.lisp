@@ -9,8 +9,9 @@
 (defcategory :error   (or :error :log))
 (defcategory :warning (or :warning :error))
 (defcategory :notice  (or :notice :warning))
-(defcategory :info    (or :info :notice))
-(defcategory :debug   (or :debug :info))
+(defcategory :sql     (or :sql :notice))
+(defcategory :info    (or :info :sql))
+(defcategory :debug   (or :debug :sql))
 (defcategory :data    (or :data :debug))
 
 (defvar *log-messengers* nil

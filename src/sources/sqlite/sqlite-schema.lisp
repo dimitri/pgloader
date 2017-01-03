@@ -30,6 +30,7 @@
   (change-class (call-next-method slconn) 'sqlite-connection))
 
 (defmethod query ((slconn sqlite-connection) sql &key)
+  (log-message :sql "SQLite: sending query: ~a" sql)
   (sqlite:execute-to-list (conn-handle slconn) sql))
 
 

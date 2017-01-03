@@ -126,7 +126,7 @@
 
 (defmethod query ((pgconn pgsql-connection) sql &key)
   (let ((pomo:*database* (conn-handle pgconn)))
-    (log-message :debug "~a" sql)
+    (log-message :sql "~a" sql)
     (pomo:query sql)))
 
 (defmacro handling-pgsql-notices (&body forms)
@@ -254,7 +254,7 @@
 
   (loop :for sql :in (alexandria::ensure-list sql)
      :do (progn
-           (log-message :notice "~a" sql)
+           (log-message :sql "~a" sql)
            (pomo:execute sql)))
 
   (when client-min-messages

@@ -34,12 +34,13 @@
 
 (defmethod query ((msconn mssql-connection) sql &key)
   "Send SQL query to MSCONN connection."
+  (log-message :sql "MSSQL: sending query: ~a" query)
   (mssql:query sql :connection (conn-handle msconn)))
 
 (defun mssql-query (query)
   "Execute given QUERY within the current *connection*, and set proper
    defaults for pgloader."
-  (log-message :debug "MSSQL: sending query: ~a" query)
+  (log-message :sql "MSSQL: sending query: ~a" query)
   (mssql:query query :connection (conn-handle *mssql-db*)))
 
 
