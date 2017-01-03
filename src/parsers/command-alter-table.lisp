@@ -6,7 +6,7 @@
 (in-package #:pgloader.parser)
 
 (defrule match-rule-target-regex quoted-regex
-  (:lambda (re) (make-regex-match-rule :target re)))
+  (:lambda (re) (make-regex-match-rule :target (second re))))
 (defrule match-rule-target-string quoted-namestring
   (:lambda (s) (make-string-match-rule :target s)))
 
