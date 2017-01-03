@@ -68,7 +68,7 @@
                  :into expected-data-target
                  :options '(:truncate t)
                  :start-logger nil
-                 :flush-summary nil)
+                 :flush-summary t)
 
       ;; now compare both
       (with-pgsql-connection (target-conn)

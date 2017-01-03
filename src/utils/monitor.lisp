@@ -176,16 +176,13 @@
            (stop
             (cl-log:log-message :info "Stopping monitor")
 
-            ;; report the summary now
-            (destructuring-bind (&key pre data post) *sections*
-              (unless (and (null pre) (null data) (null post))
-                (report-current-summary start-time)))
-
             ;; time to shut down the logger?
             (when (stop-stop-logger event)
               (pgloader.logs:stop-logger)))
 
            (report-summary
+            (cl-log:log-message :log "report summary ~@[reset~]"
+                                (report-summary-reset event))
             (report-current-summary start-time)
 
             (when (report-summary-reset event)
