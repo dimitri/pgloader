@@ -1,6 +1,6 @@
 LOAD CSV
      FROM INLINE
-     INTO postgresql://dim@localhost/pgloader?"HS"
+     INTO postgresql://dim@localhost/pgloader?public."HS"
 
      WITH truncate,
           fields terminated by '\t',

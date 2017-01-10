@@ -88,7 +88,7 @@
   "Return an expression suitable to be used as an :including parameter."
   (let ((schema (or (table-schema table)
                     (query-table-schema table))))
-    (list (cons (schema-name schema)
+    (list (cons (ensure-unquoted (schema-name schema))
                 (list
                  (format-table-name-as-including-exp table))))))
 
