@@ -124,6 +124,12 @@
   (setf (conn-handle pgconn) nil)
   pgconn)
 
+(defmethod query ((pgconn (eql nil)) sql &key)
+  "Case when a connection already exists around the call, as per
+   `with-connection' and `with-transaction'."
+  (log-message :sql "~a" sql)
+  (pomo:query sql))
+
 (defmethod query ((pgconn pgsql-connection) sql &key)
   (let ((pomo:*database* (conn-handle pgconn)))
     (log-message :sql "~a" sql)

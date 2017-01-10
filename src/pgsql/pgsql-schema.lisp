@@ -45,7 +45,7 @@
                             :sum (length (index-fk-deps index)))))
 
     (when (and table (/= 1 (count-tables catalog)))
-      (error "pgloader found ~d target tables for name ~s|:~{~%  ~a~}"
+      (error "pgloader found ~d target tables for name ~a:~{~%  ~a~}"
              (count-tables catalog)
              (format-table-name table)
              (mapcar #'format-table-name (table-list catalog))))
@@ -149,7 +149,8 @@
   "Get the list of PostgreSQL column names per table."
   (loop :for (schema-name table-name table-oid name type typmod notnull default)
      :in
-     (pomo:query (format nil "
+     (query nil
+            (format nil "
     select nspname, relname, c.oid, attname,
            t.oid::regtype as type,
            case when atttypmod > 0 then atttypmod - 4 else null end as typmod,
@@ -168,17 +169,17 @@
            ~:[~*~;and (~{~a~^~&~10t and ~})~]
 
   order by nspname, relname, attnum"
-                         table-type-name
-                         including      ; do we print the clause?
-                         (filter-list-to-where-clause including
-                                                      nil
-                                                      "n.nspname"
-                                                      "c.relname")
-                         excluding      ; do we print the clause?
-                         (filter-list-to-where-clause excluding
-                                                      nil
-                                                      "n.nspname"
-                                                      "c.relname")))
+                    table-type-name
+                    including           ; do we print the clause?
+                    (filter-list-to-where-clause including
+                                                 nil
+                                                 "n.nspname"
+                                                 "c.relname")
+                    excluding           ; do we print the clause?
+                    (filter-list-to-where-clause excluding
+                                                 nil
+                                                 "n.nspname"
+                                                 "c.relname")))
      :do
      (let* ((schema    (maybe-add-schema catalog schema-name))
             (table     (maybe-add-table schema table-name :oid table-oid))
@@ -196,7 +197,8 @@
      :for (schema-name name oid
                        table-schema table-name
                        primary unique sql conname condef)
-     :in (pomo:query (format nil "
+     :in (query nil
+                (format nil "
   select n.nspname,
          i.relname,
          i.oid,
@@ -220,16 +222,16 @@
          ~:[~*~;and (~{~a~^~&~10t or ~})~]
          ~:[~*~;and (~{~a~^~&~10t and ~})~]
 order by n.nspname, r.relname"
-                             including  ; do we print the clause?
-                             (filter-list-to-where-clause including
-                                                          nil
-                                                          "rn.nspname"
-                                                          "r.relname")
-                             excluding  ; do we print the clause?
-                             (filter-list-to-where-clause excluding
-                                                          nil
-                                                          "rn.nspname"
-                                                          "r.relname")))
+                        including       ; do we print the clause?
+                        (filter-list-to-where-clause including
+                                                     nil
+                                                     "rn.nspname"
+                                                     "r.relname")
+                        excluding       ; do we print the clause?
+                        (filter-list-to-where-clause excluding
+                                                     nil
+                                                     "rn.nspname"
+                                                     "r.relname")))
      :do (let* ((schema   (find-schema catalog schema-name))
                 (tschema  (find-schema catalog table-schema))
                 (table    (find-table tschema table-name))
@@ -255,7 +257,8 @@ order by n.nspname, r.relname"
                        cols fcols
                        updrule delrule mrule deferrable deferred)
      :in
-     (pomo:query (format nil "
+     (query nil
+            (format nil "
  select n.nspname, c.relname, nf.nspname, cf.relname as frelname,
         r.oid, conname,
         pg_catalog.pg_get_constraintdef(r.oid, true) as condef,
@@ -282,26 +285,26 @@ order by n.nspname, r.relname"
          ~:[~*~;and (~{~a~^~&~10t and ~})~]
          ~:[~*~;and (~{~a~^~&~10t or ~})~]
          ~:[~*~;and (~{~a~^~&~10t and ~})~]"
-                         including      ; do we print the clause (table)?
-                         (filter-list-to-where-clause including
-                                                      nil
-                                                      "n.nspname"
-                                                      "c.relname")
-                         excluding      ; do we print the clause (table)?
-                         (filter-list-to-where-clause excluding
-                                                      nil
-                                                      "n.nspname"
-                                                      "c.relname")
-                         including      ; do we print the clause (ftable)?
-                         (filter-list-to-where-clause including
-                                                      nil
-                                                      "nf.nspname"
-                                                      "cf.relname")
-                         excluding      ; do we print the clause (ftable)?
-                         (filter-list-to-where-clause excluding
-                                                      nil
-                                                      "nf.nspname"
-                                                      "cf.relname")))
+                    including           ; do we print the clause (table)?
+                    (filter-list-to-where-clause including
+                                                 nil
+                                                 "n.nspname"
+                                                 "c.relname")
+                    excluding           ; do we print the clause (table)?
+                    (filter-list-to-where-clause excluding
+                                                 nil
+                                                 "n.nspname"
+                                                 "c.relname")
+                    including           ; do we print the clause (ftable)?
+                    (filter-list-to-where-clause including
+                                                 nil
+                                                 "nf.nspname"
+                                                 "cf.relname")
+                    excluding           ; do we print the clause (ftable)?
+                    (filter-list-to-where-clause excluding
+                                                 nil
+                                                 "nf.nspname"
+                                                 "cf.relname")))
      :do (flet ((pg-fk-rule-to-action (rule)
                   (case rule
                     (#\a "NO ACTION")
@@ -353,7 +356,8 @@ order by n.nspname, r.relname"
     (when pkey-oid-list
       (loop :for (schema-name table-name fschema-name ftable-name
                               conoid conname condef index-oid)
-         :in (pomo:query (format nil "
+         :in (query nil
+                    (format nil "
 with pkeys(oid) as (
   values~{(~d)~^,~}
 ),
@@ -378,8 +382,8 @@ with pkeys(oid) as (
         JOIN pg_class cf on r.confrelid = cf.oid
         JOIN pg_namespace nf on cf.relnamespace = nf.oid
   where NOT EXISTS (select 1 from knownfkeys where oid = r.oid)"
-                                 pkey-oid-list
-                                 (or fkey-oid-list (list -1))))
+                            pkey-oid-list
+                            (or fkey-oid-list (list -1))))
          ;;
          ;; We don't need to reference the main catalog entries for the tables
          ;; here, as the only goal is to be sure to DROP then CREATE again the
@@ -413,9 +417,11 @@ with pkeys(oid) as (
   (let ((oidmap (make-hash-table :size (length table-names) :test #'equal)))
     (when table-names
       (loop :for (name oid)
-         :in (pomo:query
-              (format nil
-                      "select n, n::regclass::oid from (values ~{('~a')~^,~}) as t(n)"
-                      table-names))
+         :in (query nil
+                    (format nil
+                            "
+select n, n::regclass::oid
+  from (values ~{('~a')~^,~}) as t(n)"
+                            table-names))
          :do (setf (gethash name oidmap) oid)))
     oidmap))
