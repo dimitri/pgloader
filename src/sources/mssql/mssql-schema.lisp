@@ -34,7 +34,7 @@
 
 (defmethod query ((msconn mssql-connection) sql &key)
   "Send SQL query to MSCONN connection."
-  (log-message :sql "MSSQL: sending query: ~a" query)
+  (log-message :sql "MSSQL: sending query: ~a" sql)
   (mssql:query sql :connection (conn-handle msconn)))
 
 (defun mssql-query (query)
@@ -205,8 +205,8 @@ order by SchemaName,
                                     :unique (= unique 1)
                                     :columns nil
                                     :filter filter))
-            (index      (maybe-add-index table index-name pg-index
-                                         :key #'pgloader.pgsql::pgsql-index-name)))
+            (index
+             (maybe-add-index table index-name pg-index :key #'index-name)))
        (push-to-end col (index-columns index)))
      :finally (return catalog)))
 
@@ -267,8 +267,8 @@ ORDER BY KCU1.CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
                         :columns nil
                         :foreign-table ftable
                         :foreign-columns nil))
-            (fkey       (maybe-add-fkey table fkey-name pg-fkey
-                                        :key #'pgloader.pgsql::pgsql-fkey-name)))
+            (fkey
+             (maybe-add-fkey table fkey-name pg-fkey :key #'fkey-name)))
        (push-to-end col  (fkey-columns fkey))
        (push-to-end fcol (fkey-foreign-columns fkey)))
      :finally (return catalog)))
