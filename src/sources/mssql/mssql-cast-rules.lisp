@@ -124,7 +124,7 @@
       ;; normalize default values
       ;; see *pgsql-default-values*
       (setf (column-default pgcol)
-            (cond ((null default) :null)
+            (cond ((and (null default) (column-nullable pgcol)) :null)
                   ((and (stringp default) (string= "NULL" default)) :null)
 
                   ((and (stringp default)
