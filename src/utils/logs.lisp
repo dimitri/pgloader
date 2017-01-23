@@ -11,7 +11,7 @@
 (defcategory :notice  (or :notice :warning))
 (defcategory :sql     (or :sql :notice))
 (defcategory :info    (or :info :sql))
-(defcategory :debug   (or :debug :sql))
+(defcategory :debug   (or :debug :info))
 (defcategory :data    (or :data :debug))
 
 (defvar *log-messengers* nil
