@@ -109,7 +109,9 @@
                          :type-name type-name
                          :type-mod (when (and source-typemod (not drop-typemod))
                                      pg-typemod)
-                         :nullable (and (not set-not-null) (or (not source-not-null) drop-not-null))
+                         :nullable (and (not set-not-null)
+                                        (or (not source-not-null)
+                                            drop-not-null))
                          :default (when (and source-default (not drop-default))
                                     source-default)
                          :transform using)))
@@ -151,7 +153,7 @@
                (setf first-match-using using))
          :until target
          :finally (let ((coldef (make-pgsql-type source target using)))
-                    (log-message :info "CAST ~a.~a ~a [~s, ~:[NULL~;NOT NULL~]~:[~*~;, ~a~]] TO ~s~@[ USING ~a~]"
+                    (log-message :info "CAST ~a.~a ~a [~s, ~:[NULL~;NOT NULL~]~:[~*~;, ~a~]] TO ~a~@[ USING ~a~]"
                                  table-name column-name ctype default
                                  (string= "NO" nullable)
                                  (string/= "" extra) extra
