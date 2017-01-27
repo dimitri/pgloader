@@ -2303,6 +2303,16 @@ The `mssql` command accepts the following clauses and options:
     expression lib, so doesn't depend on the *LIKE* implementation of MS
     SQL, nor on the lack of support for regular expressions in the engine.
 
+### Driver setup and encoding
+
+pgloader is using the `FreeTDS` driver, and internally expects the data to
+be sent in utf-8. To achieve that, you can configure the FreeTDS driver with
+those defaults, in the file `~/.freetds.conf`:
+
+    [global]
+    	tds version = 7.4
+    	client charset = UTF-8
+
 ### DEFAULT MS SQL CASTING RULES
 
 When migrating from MS SQL the following Casting Rules are provided:

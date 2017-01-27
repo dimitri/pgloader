@@ -2805,6 +2805,21 @@ The matching is done in pgloader itself, with a Common Lisp regular expression l
 .
 .IP "" 0
 .
+.SS "Driver setup and encoding"
+pgloader is using the \fBFreeTDS\fR driver, and internally expects the data to be sent in utf\-8\. To achieve that, you can configure the FreeTDS driver with those defaults, in the file \fB~/\.freetds\.conf\fR:
+.
+.IP "" 4
+.
+.nf
+
+[global]
+    tds version = 7\.4
+    client charset = UTF\-8
+.
+.fi
+.
+.IP "" 0
+.
 .SS "DEFAULT MS SQL CASTING RULES"
 When migrating from MS SQL the following Casting Rules are provided:
 .
