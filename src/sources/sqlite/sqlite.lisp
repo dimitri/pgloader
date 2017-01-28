@@ -57,8 +57,11 @@
 (defmethod map-rows ((sqlite copy-sqlite) &key process-row-fn)
   "Extract SQLite data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row"
-  (let ((sql      (format nil "SELECT * FROM ~a" (table-source-name (source sqlite))))
-        (pgtypes  (map 'vector #'column-type-name (columns sqlite))))
+  (let* ((table-name (table-source-name (source sqlite)))
+         (cols       (mapcar #'coldef-name (fields sqlite)))
+         (sql        (format nil "SELECT ~{`~a`~^, ~} FROM `~a`;" cols table-name))
+         (pgtypes    (map 'vector #'column-type-name (columns sqlite))))
+    (log-message :sql "SQLite: ~a" sql)
     (with-connection (*sqlite-db* (source-db sqlite))
       (let* ((db (conn-handle *sqlite-db*))
              (encoding (sqlite-encoding db)))
@@ -88,6 +91,10 @@
           (condition (e)
             (log-message :error "~a" e)
             (update-stats :data (target sqlite) :errs 1)))))))
+
+(defmethod copy-column-list ((sqlite copy-sqlite))
+  "Send the data in the SQLite column ordering."
+  (mapcar #'apply-identifier-case (mapcar #'coldef-name (fields sqlite))))
 
 (defmethod fetch-metadata (sqlite catalog
                            &key
