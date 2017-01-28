@@ -167,7 +167,7 @@
                                           :output nil
                                           :verbose t))
                             (lp::invoke-transfer-error condition)))))
-          (log-message :info "COPY ~s" table-name)
+          (log-message :notice "COPY ~s" table-name)
 
           ;; start a task to read data from the source into the queue
           (lp:submit-task channel #'queue-raw-data copy rawqs)
@@ -193,5 +193,5 @@
             (log-message :debug "waiting for ~d tasks" (task-count concurrency))
             (loop :repeat (task-count concurrency)
                :do (lp:receive-result channel))
-            (log-message :info "COPY ~s done." table-name)
+            (log-message :notice "COPY ~s done." table-name)
             (unless k-s-p (lp:end-kernel :wait t)))))))
