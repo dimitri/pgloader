@@ -23,7 +23,7 @@ You will note in particular:
 We need a recent enough [SBCL](http://sbcl.org/) version and that means
 backporting the one found in `sid` rather than using the very old one found
 in current *stable* debian release. See `bootstrap-debian.sh` for details
-about how to backport a recent enough SBCL here (1.1.14 or newer).
+about how to backport a recent enough SBCL here (1.2.5 or newer).
 
 ### Mac OS X
 

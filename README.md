@@ -77,7 +77,7 @@ You can also use a **docker** image for pgloader at
 ## Build from sources
 
 pgloader is now a Common Lisp program, tested using the
-[SBCL](http://sbcl.org/) (>= 1.1.14) and
+[SBCL](http://sbcl.org/) (>= 1.2.5) and
 [Clozure CL](http://ccl.clozure.com/) implementations with
 [Quicklisp](http://www.quicklisp.org/beta/).
 
