@@ -282,9 +282,10 @@ ORDER BY KCU1.CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
 
    Mostly we just use the name, and make try to avoid parsing dates."
   (case (intern (string-upcase type) "KEYWORD")
-    (:datetime  (format nil "convert(varchar, [~a], 126)" name))
-    (:bigint    (format nil "cast([~a] as numeric)" name))
-    (t          (format nil "[~a]" name))))
+    (:datetime       (format nil "convert(varchar, [~a], 126)" name))
+    (:smalldatetime  (format nil "convert(varchar, [~a], 126)" name))
+    (:bigint         (format nil "cast([~a] as numeric)" name))
+    (t               (format nil "[~a]" name))))
 
 (defun get-column-list (columns)
   "Tweak how we fetch the column values to avoid parsing when possible."
