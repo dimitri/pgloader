@@ -665,6 +665,7 @@
 (defpackage #:pgloader.parser
   (:use #:cl #:esrap #:metabang.bind
         #:pgloader.params #:pgloader.utils #:pgloader.sql #:pgloader.connection)
+  (:shadow #:namestring #:number #:inline)
   (:import-from #:alexandria #:read-file-into-string)
   (:import-from #:pgloader.sources
                 #:md-connection
