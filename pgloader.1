@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "January 2017" "ff" ""
+.TH "PGLOADER" "1" "February 2017" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -1819,8 +1819,18 @@ LOAD DATABASE
  \-\- ALTER TABLE NAMES MATCHING \'film\' RENAME TO \'films\'
  \-\- ALTER TABLE NAMES MATCHING ~/_list$/ SET SCHEMA \'mv\'
 
+ ALTER TABLE NAMES MATCHING ~/_list$/, \'sales_by_store\', ~/sales_by/
+  SET SCHEMA \'mv\'
+
+ ALTER TABLE NAMES MATCHING \'film\' RENAME TO \'films\'
+ ALTER TABLE NAMES MATCHING ~/\./ SET (fillfactor=\'40\')
+
+ ALTER SCHEMA \'sakila\' RENAME TO \'pagila\'
+
  BEFORE LOAD DO
- $$ create schema if not exists sakila; $$;
+   $$ create schema if not exists pagila; $$,
+   $$ create schema if not exists mv;     $$,
+   $$ alter database sakila set search_path to pagila, mv, public; $$;
 .
 .fi
 .
@@ -2220,6 +2230,8 @@ ALTER TABLE NAMES MATCHING ~/_list$/, \'sales_by_store\', ~/sales_by/
  SET SCHEMA \'mv\'
 
 ALTER TABLE NAMES MATCHING \'film\' RENAME TO \'films\'
+
+ALTER TABLE NAMES MATCHING ~/\./ SET (fillfactor=\'40\')
 .
 .fi
 .
@@ -2230,6 +2242,9 @@ You can use as many such rules as you need\. The list of tables to be migrated i
 .
 .IP
 No \fIALTER TABLE\fR command is sent to PostgreSQL, the modification happens at the level of the pgloader in\-memory representation of your source database schema\. In case of a name change, the mapping is kept and reused in the \fIforeign key\fR and \fIindex\fR support\.
+.
+.IP
+The \fISET ()\fR action takes effect as a \fIWITH\fR clause for the \fBCREATE TABLE\fR command that pgloader will run when it has to create a table\.
 .
 .IP "" 0
 .

@@ -1556,9 +1556,20 @@ Here's an example:
      -- DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf8
      -- ALTER TABLE NAMES MATCHING 'film' RENAME TO 'films'
      -- ALTER TABLE NAMES MATCHING ~/_list$/ SET SCHEMA 'mv'
+     
+     ALTER TABLE NAMES MATCHING ~/_list$/, 'sales_by_store', ~/sales_by/
+      SET SCHEMA 'mv'
+    
+     ALTER TABLE NAMES MATCHING 'film' RENAME TO 'films'
+     ALTER TABLE NAMES MATCHING ~/./ SET (fillfactor='40')
+    
+     ALTER SCHEMA 'sakila' RENAME TO 'pagila'
 
      BEFORE LOAD DO
-     $$ create schema if not exists sakila; $$;
+       $$ create schema if not exists pagila; $$,
+       $$ create schema if not exists mv;     $$,
+       $$ alter database sakila set search_path to pagila, mv, public; $$;
+
 
 The `database` command accepts the following clauses and options:
 
@@ -1904,6 +1915,8 @@ The `database` command accepts the following clauses and options:
          SET SCHEMA 'mv'
        
         ALTER TABLE NAMES MATCHING 'film' RENAME TO 'films'
+        
+        ALTER TABLE NAMES MATCHING ~/./ SET (fillfactor='40')
 
     You can use as many such rules as you need. The list of tables to be
     migrated is searched in pgloader memory against the *ALTER TABLE*
@@ -1914,6 +1927,9 @@ The `database` command accepts the following clauses and options:
     at the level of the pgloader in-memory representation of your source
     database schema. In case of a name change, the mapping is kept and
     reused in the *foreign key* and *index* support.
+    
+    The *SET ()* action takes effect as a *WITH* clause for the `CREATE
+    TABLE` command that pgloader will run when it has to create a table.
 
 ### LIMITATIONS
 

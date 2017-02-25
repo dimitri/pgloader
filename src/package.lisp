@@ -80,6 +80,7 @@
            #:table-schema
            #:table-oid
            #:table-comment
+           #:table-storage-parameter-list
            #:table-field-list
            #:table-column-list
            #:table-index-list

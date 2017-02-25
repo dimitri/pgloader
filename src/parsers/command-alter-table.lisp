@@ -42,8 +42,14 @@
     (bind (((_ _ schema) stmt))
       (list #'pgloader.catalog::alter-table-set-schema schema))))
 
+(defrule set-storage-parameters (and kw-set #\( generic-option-list #\))
+  (:lambda (stmt)
+    (bind (((_ _ parameters _) stmt))
+      (list #'pgloader.catalog::alter-table-set-storage-parameters parameters))))
+
 (defrule alter-table-action (or rename-to
-                                set-schema))
+                                set-schema
+                                set-storage-parameters))
 
 (defrule alter-table-command (and alter-table-names-matching
                                   (? in-schema)

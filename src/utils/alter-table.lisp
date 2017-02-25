@@ -71,6 +71,10 @@
   "Alter the name of TABLE to NEW-NAME."
   (setf (table-name table) new-name))
 
+(defun alter-table-set-storage-parameters (table parameters)
+  "Alter the storage parameters of TABLE."
+  (setf (table-storage-parameter-list table) parameters))
+
 
 ;;;
 ;;; Apply the match rules as given by the parser to a table name.

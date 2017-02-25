@@ -59,7 +59,14 @@
                                           :pretty-print t
                                           :max-column-name-length max)
                        (format s "~:[~;,~]~%" last?))))
-            (format s ");~%"))))
+            (format s ")")
+
+            (when (table-storage-parameter-list table)
+              (format s "~%WITH (~{~a = '~a'~^,~%     ~})"
+                      (alexandria:alist-plist
+                       (table-storage-parameter-list table))))
+
+            (format s ";~%"))))
 
 (defmethod format-drop-sql ((table table) &key (stream nil) cascade (if-exists t))
   "Return the PostgreSQL DROP TABLE IF EXISTS statement for TABLE-NAME."

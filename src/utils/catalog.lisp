@@ -44,7 +44,7 @@
 ;;;
 (defstruct catalog name schema-list)
 (defstruct schema source-name name catalog table-list view-list)
-(defstruct table source-name name schema oid comment
+(defstruct table source-name name schema oid comment storage-parameter-list
            ;; field is for SOURCE
            ;; column is for TARGET
            field-list column-list index-list fkey-list trigger-list)

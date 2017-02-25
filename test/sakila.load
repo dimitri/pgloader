@@ -29,6 +29,7 @@ load database
 
  ALTER TABLE NAMES MATCHING 'sales_by_store' RENAME TO 'sales_by_store_list'
  ALTER TABLE NAMES MATCHING 'film' RENAME TO 'films'
+ ALTER TABLE NAMES MATCHING ~/./ SET (fillfactor='40')
 
  ALTER SCHEMA 'sakila' RENAME TO 'pagila'
 
