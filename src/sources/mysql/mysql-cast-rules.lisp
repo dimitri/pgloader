@@ -135,6 +135,10 @@
      :using pgloader.transforms::set-to-enum-array)
 
     ;; geometric data types, just POINT for now
+    (:source (:type "geometry")
+     :target (:type "point")
+     :using pgloader.transforms::convert-mysql-point)
+
     (:source (:type "point")
      :target (:type "point")
      :using pgloader.transforms::convert-mysql-point))
