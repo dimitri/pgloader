@@ -37,7 +37,8 @@
 
              (loop :for source-table :in (schema-table-list source-schema)
                 :for target-table := (find-table target-schema
-                                                 (table-name source-table))
+                                                 (ensure-unquoted
+                                                  (table-name source-table)))
                 :do (if target-table
                         (progn
                           ;; re-use indexes and fkeys from target-catalog
