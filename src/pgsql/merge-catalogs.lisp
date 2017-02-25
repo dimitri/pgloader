@@ -115,7 +115,8 @@
                           (column-name target-column))))))
 
 (defvar *type-name-mapping*
-  '(("serial"      "integer")
+  '(("int"         "integer")
+    ("serial"      "integer")
     ("bigserial"   "bigint")
     ("char"        "character")
     ("varchar"     "character varying")
