@@ -128,6 +128,11 @@
             (cond ((and (null default) (column-nullable pgcol)) :null)
                   ((and (stringp default) (string= "NULL" default)) :null)
 
+                  ;; fix stupid N'' behavior from MS SQL column default
+                  ((and (stringp default)
+                        (uiop:string-enclosed-p "N'" default "'"))
+                   (subseq default 2 (+ (length default) -1)))
+
                   ((and (stringp default)
                         ;; address CURRENT_TIMESTAMP(6) and other spellings
                         (or (uiop:string-prefix-p "CURRENT_TIMESTAMP" default)
