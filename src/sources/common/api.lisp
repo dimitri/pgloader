@@ -175,6 +175,11 @@
 
 (defgeneric prepare-pgsql-database (db-copy catalog
                                     &key
+                                      truncate
+                                      create-tables
+                                      create-schemas
+                                      drop-indexes
+                                      set-table-oids
                                       materialize-views
                                       foreign-keys
                                       include-drop)
@@ -185,8 +190,9 @@
 
 (defgeneric complete-pgsql-database (db-copy catalog pkeys
                                      &key
-                                       data-only
                                        foreign-keys
+                                       create-indexes
+                                       create-triggers
                                        reset-sequences)
   (:documentation "Alter load duties for database sources copy support."))
 

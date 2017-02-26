@@ -260,7 +260,7 @@
 
   (loop :for sql :in (alexandria::ensure-list sql)
      :do (progn
-           (log-message :sql "~a" sql)
+           (log-message :notice "~a" sql)
            (pomo:execute sql)))
 
   (when client-min-messages

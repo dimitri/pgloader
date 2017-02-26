@@ -14,6 +14,7 @@
                                      truncate
                                      create-tables
                                      create-schemas
+                                     drop-indexes
                                      set-table-oids
                                      materialize-views
                                      foreign-keys
@@ -23,7 +24,7 @@
    tables for materialized views.
 
    That function mutates index definitions in ALL-INDEXES."
-  (log-message :notice "~:[~;DROP then ~]CREATE TABLES" include-drop)
+  (log-message :info "~:[~;DROP then ~]CREATE TABLES" include-drop)
 
   (with-pgsql-transaction (:pgconn (target-db copy))
     (when create-schemas
@@ -71,12 +72,13 @@
                                                         :use-result-as-rows t)
               (drop-pgsql-fkeys catalog)))
 
-          (with-stats-collection ("Drop Indexes" :section :pre
-                                                 :use-result-as-read t
-                                                 :use-result-as-rows t)
-            ;; we want to error out early in case we can't DROP the
-            ;; index, don't CASCADE
-            (drop-indexes catalog :cascade nil))
+          (when drop-indexes
+            (with-stats-collection ("Drop Indexes" :section :pre
+                                                   :use-result-as-read t
+                                                   :use-result-as-rows t)
+              ;; we want to error out early in case we can't DROP the
+              ;; index, don't CASCADE
+              (drop-indexes catalog :cascade nil)))
 
           (when truncate
             (with-stats-collection ("Truncate" :section :pre
@@ -113,8 +115,8 @@
                                     (catalog catalog)
                                     pkeys
                                     &key
-                                      data-only
                                       foreign-keys
+                                      create-indexes
                                       create-triggers
                                       reset-sequences)
   "After loading the data into PostgreSQL, we can now reset the sequences
@@ -132,7 +134,7 @@
     ;;
     ;; Turn UNIQUE indexes into PRIMARY KEYS now
     ;;
-    (unless data-only
+    (when create-indexes
       (pgsql-execute-with-timing :post "Primary Keys"
                                  pkeys
                                  :count (length pkeys))
@@ -200,29 +202,6 @@
   (when alter-table
     (alter-table catalog alter-table)))
 
-(defun create-indexes (copy table kernel channel
-                       &key
-                         data-only
-                         create-tables
-                         create-indexes
-                         (index-names :uniquify))
-  "Launch the CREATE INDEX in parralel for given table. Returns a list of
-   the UNIQUE indexes that are created here and need to then be upgraded as
-   PRIMARY KEYS."
-  (when (and create-indexes (not data-only))
-    (let* ((*preserve-index-names*
-            (or (eq :preserve index-names)
-                ;; if we didn't create the tables, we
-                ;; are re-installing the pre-existing
-                ;; indexes
-                (not create-tables))))
-      ;; that returns Primary Keys to be upgraded from the UNIQUE indexes
-      ;; that we just prepared in this step.
-      (create-indexes-in-kernel (target-db copy)
-                                table
-                                kernel
-                                channel))))
-
 
 ;;;
 ;;; Generic enough implementation of the copy-database method.
@@ -252,7 +231,21 @@
                             alter-schema
 			    materialize-views)
   "Export database source data and Import it into PostgreSQL"
-  (let* ((copy-kernel  (make-kernel worker-count))
+  (let* ((copy-data      (or data-only (not schema-only)))
+         (create-ddl     (or schema-only (not data-only)))
+         (create-tables  (and create-tables create-ddl))
+         (create-schemas (and create-schemas create-ddl))
+         (foreign-keys   (and foreign-keys create-ddl))
+         (drop-indexes   (or create-ddl include-drop))
+         (create-indexes (or drop-indexes (and create-indexes create-ddl)))
+
+         (*preserve-index-names*
+          (or (eq :preserve index-names)
+              ;; if we didn't create the tables, we are re-installing the
+              ;; pre-existing indexes
+              (not create-tables)))
+
+         (copy-kernel  (make-kernel worker-count))
          (copy-channel (let ((lp:*kernel* copy-kernel)) (lp:make-channel)))
          (catalog      (fetch-metadata
                         copy
@@ -262,9 +255,9 @@
                                  (fd-connection (pathname-name
                                                  (fd-path (source-db copy))))))
                         :materialize-views materialize-views
-                        :only-tables only-tables
                         :create-indexes create-indexes
                         :foreign-keys foreign-keys
+                        :only-tables only-tables
                         :including including
                         :excluding excluding))
          pkeys
@@ -288,17 +281,12 @@
     (handler-case
         (prepare-pgsql-database copy
                                 catalog
-                                :truncate (and truncate (not create-tables))
-                                :create-tables (and create-tables
-                                                    (or schema-only
-                                                        (not data-only)))
-                                :create-schemas (and create-schemas
-                                                     (or schema-only
-                                                         (not data-only)))
+                                :truncate truncate
+                                :create-tables create-tables
+                                :create-schemas create-schemas
+                                :drop-indexes drop-indexes
                                 :include-drop include-drop
-                                :foreign-keys (and foreign-keys
-                                                   (or schema-only
-                                                       (not data-only)))
+                                :foreign-keys foreign-keys
                                 :set-table-oids set-table-oids
                                 :materialize-views materialize-views)
       ;;
@@ -323,19 +311,19 @@
 
        :do (let ((table-source (instanciate-table-copy-object copy table)))
              ;; first COPY the data from source to PostgreSQL, using copy-kernel
-             (if schema-only
+             (if (not copy-data)
                  ;; start indexing straight away then
-                 (alexandria:appendf
-                  pkeys
-                  (create-indexes copy table idx-kernel idx-channel
-                                  :data-only data-only
-                                  :create-tables create-tables
-                                  :create-indexes create-indexes
-                                  :index-names index-names))
+                 (when create-indexes
+                   (alexandria:appendf
+                    pkeys
+                    (create-indexes-in-kernel (target-db copy)
+                                              table
+                                              idx-kernel
+                                              idx-channel)))
 
                  ;; prepare the writers-count hash-table, as we start
                  ;; copy-from, we have concurrency tasks writing.
-                 (progn
+                 (progn                 ; when copy-data
                    (setf (gethash table writers-count) concurrency)
                    (copy-from table-source
                               :concurrency concurrency
@@ -346,7 +334,7 @@
 
     ;; now end the kernels
     ;; and each time a table is done, launch its indexing
-    (unless schema-only
+    (when copy-data
       (let ((lp:*kernel* copy-kernel))
         (with-stats-collection ("COPY Threads Completion" :section :post
                                                           :use-result-as-read t
@@ -373,14 +361,14 @@
                                     (format-table-name table)
                                     (gethash table writers-count))
 
-                       (when (zerop (gethash table writers-count))
+                       (when (and create-indexes
+                                  (zerop (gethash table writers-count)))
                          (alexandria:appendf
                           pkeys
-                          (create-indexes copy table idx-kernel idx-channel
-                                          :data-only data-only
-                                          :create-tables create-tables
-                                          :create-indexes create-indexes
-                                          :index-names index-names))))))
+                          (create-indexes-in-kernel (target-db copy)
+                                                    table
+                                                    idx-kernel
+                                                    idx-channel))))))
             (prog1
                 worker-count
               (lp:end-kernel :wait nil))))))
@@ -403,8 +391,8 @@
     (complete-pgsql-database copy
                              catalog
                              pkeys
-                             :data-only data-only
                              :foreign-keys foreign-keys
+                             :create-indexes create-indexes
                              ;; only create triggers (for default values)
                              ;; when we've been responsible for creating the
                              ;; tables -- otherwise assume the schema is
