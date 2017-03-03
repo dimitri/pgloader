@@ -268,6 +268,10 @@
   "Add COLUMN to TABLE and return the TABLE."
   (push-to-end column (table-column-list table)))
 
+(defmethod add-column ((index index) column &key)
+  "Add COLUMN name to INDEX and return the INDEX."
+  (push-to-end (apply-identifier-case column) (index-columns index)))
+
 (defmethod cast ((table table))
   "Cast all fields in table into columns."
   (setf (table-column-list table) (mapcar #'cast (table-field-list table))))

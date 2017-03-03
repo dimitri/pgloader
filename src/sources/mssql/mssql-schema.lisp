@@ -157,7 +157,7 @@ order by c.table_schema, c.table_name, c.ordinal_position"
 (defun list-all-indexes (catalog &key including excluding)
   "Get the list of MSSQL index definitions per table."
   (loop
-     :for (schema-name table-name index-name col unique pkey filter)
+     :for (schema-name table-name index-name colname unique pkey filter)
      :in  (mssql-query (format nil "
     select schema_name(schema_id) as SchemaName,
            o.name as TableName,
@@ -207,7 +207,7 @@ order by SchemaName,
                                     :filter filter))
             (index
              (maybe-add-index table index-name pg-index :key #'index-name)))
-       (push-to-end col (index-columns index)))
+       (add-column index colname))
      :finally (return catalog)))
 
 (defun list-all-fkeys (catalog &key including excluding)
