@@ -107,8 +107,7 @@
 			  ;; we expect the name of a COLUMN to be the same
 			  ;; as the name of its derived FIELD when we
 			  ;; don't have any transformation function
-			    (or fn `(funcall ,(process-field name)
-					     ,(field-name-as-symbol name))))))
+                            (or fn (field-name-as-symbol name)))))
 		 `(lambda (row)
 		    (declare (optimize speed) (type list row))
 		    (destructuring-bind (&optional ,@args &rest extra) row

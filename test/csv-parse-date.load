@@ -2,7 +2,7 @@ LOAD CSV
      FROM inline
           (
             "row num",
-            ts [date format 'YYYY-MM-DD HH24-MI-SS.US'],
+            ts [date format 'MM-DD-YYYY HH24-MI-SS.US'],
             hr [date format 'HH24:MI.SS']
           )
      INTO postgresql:///pgloader?dateformat ("row num", ts, hr)
@@ -25,6 +25,6 @@ LOAD CSV
        );
     $$;
 
-1,1999-10-02 00-33-12.123456,"00:05.02"
-2,2014-10-02 00-33-13.123,"18:25.52"
-3,2014-10-02 00-33-14.1234,13:14.15
+1,10-02-1999 00-33-12.123456,"00:05.02"
+2,10-02-2014 00-33-13.123,"18:25.52"
+3,10-02-2014 00-33-14.1234,13:14.15
