@@ -123,6 +123,7 @@
                       (*client-min-messages* . ,*client-min-messages*)
                       (*monitoring-queue*    . ,*monitoring-queue*)
                       (*error-output*        . ,*error-output*)
+                      (*root-dir*            . ,*root-dir*)
                       (*standard-output*     . ,*standard-output*)
                       (*summary-pathname*    . ,*summary-pathname*)
                       (*sections*            . ',*sections*)))
