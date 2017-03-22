@@ -15,6 +15,11 @@
     (:source (:type "int" :auto-increment t)
              :target (:type "bigserial" :drop-default t))
 
+    (:source (:type "tinyint") :target (:type "smallint"))
+
+    (:source (:type "tinyint" :auto-increment t)
+             :target (:type "serial"))
+
     (:source (:type "bit") :target (:type "boolean")
              :using pgloader.transforms::sql-server-bit-to-boolean)
 
@@ -26,8 +31,6 @@
 
     (:source (:type "geography") :target (:type "bytea")
          :using pgloader.transforms::byte-vector-to-bytea)
-
-    (:source (:type "tinyint") :target (:type "smallint"))
 
     (:source (:type "float") :target (:type "float")
              :using pgloader.transforms::float-to-string)
