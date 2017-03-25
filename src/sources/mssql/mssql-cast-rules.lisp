@@ -10,7 +10,7 @@
     (:source (:type "varchar")   :target (:type "text" :drop-typemod t))
     (:source (:type "nvarchar")  :target (:type "text" :drop-typemod t))
     (:source (:type "ntext")     :target (:type "text" :drop-typemod t))
-    (:source (:type "xml")       :target (:type "text" :drop-typemod t))
+    (:source (:type "xml")       :target (:type "xml" :drop-typemod t))
 
     (:source (:type "int" :auto-increment t)
              :target (:type "bigserial" :drop-default t))

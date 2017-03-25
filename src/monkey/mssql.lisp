@@ -81,7 +81,7 @@
   (let ((syb-type (foreign-enum-keyword '%syb-value-type type)))
     (case syb-type
       ;; we accept emtpy string (len is 0)
-      ((:syb-char :syb-varchar :syb-text)
+      ((:syb-char :syb-varchar :syb-text :syb-msxml)
        (foreign-string-to-lisp data :count len))
 
       (otherwise
