@@ -265,11 +265,13 @@ order by n.nspname, r.relname"
         pg_catalog.pg_get_constraintdef(r.oid, true) as condef,
         (select string_agg(attname, ',')
            from pg_attribute
-          where attrelid = r.conrelid and array[attnum] <@ conkey
+          where attrelid = r.conrelid
+            and array[attnum::integer] <@ conkey::integer[]
         ) as conkey,
         (select string_agg(attname, ',')
            from pg_attribute
-          where attrelid = r.confrelid and array[attnum] <@ confkey
+          where attrelid = r.confrelid
+            and array[attnum::integer] <@ confkey::integer[]
         ) as confkey,
         confupdtype, confdeltype, confmatchtype,
         condeferrable, condeferred
