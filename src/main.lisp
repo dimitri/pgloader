@@ -165,7 +165,7 @@
 (defvar *--load-list-file-extension-whitelist* '("lisp" "lsp" "cl" "asd")
   "White list of file extensions allowed with the --load option.")
 
-(defun load-extra-transformation-functions (filename)
+(defun load-extra-transformation-functions (filename &optional verbose)
   "Load an extra filename to tweak pgloader's behavior."
   (let ((pathname (uiop:parse-native-namestring filename)))
     (unless (member (pathname-type pathname)
@@ -173,8 +173,8 @@
                     :test #'string=)
       (error "Unknown lisp file extension: ~s" (pathname-type pathname)))
 
-    (log-message :info "Loading code from ~s" pathname)
-    (load (compile-file pathname :verbose nil :print nil))))
+    (format t "Loading code from ~s~%" pathname)
+    (load (compile-file pathname :verbose verbose :print verbose))))
 
 (defun main (argv)
   "Entry point when building an executable image with buildapp"
@@ -266,6 +266,17 @@
         ;; Should we stop at first error?
         (setf *on-error-stop* on-error-stop)
 
+        ;; load extra lisp code provided for by the user
+        (when load
+          (loop :for filename :in load :do
+             (handler-case
+                 (load-extra-transformation-functions filename debug)
+               ((or simple-condition serious-condition) (e)
+                 (format *error-output*
+                         "Failed to load lisp source file ~s~%" filename)
+                 (format *error-output* "~a~%~%" e)
+                 (uiop:quit +os-code-error+)))))
+
 	;; Now process the arguments
 	(when arguments
 	  ;; Start the logs system
@@ -284,18 +295,6 @@
                   (log-message :log "Main logs in '~a'"
                                (uiop:native-namestring *log-filename*))
                   (log-message :log "Data errors in '~a'~%" *root-dir*)
-
-                  ;; load extra lisp code provided for by the user
-                  (when load
-                    (loop for filename in load do
-                         (handler-case
-                             (load-extra-transformation-functions filename)
-                           (condition (e)
-                             (log-message :fatal
-                                          "Failed to load lisp source file ~s~%"
-                                          filename)
-                             (log-message :error "~a" e)
-                             (uiop:quit +os-code-error+)))))
 
                   (handler-bind
                       ((condition
