@@ -84,7 +84,7 @@
 (defparameter *root-dir*
   #+unix (uiop:parse-native-namestring "/tmp/pgloader/")
   #-unix (uiop:merge-pathnames*
-          (uiop:make-pathname* :direction '(:relative "pgloader"))
+          (uiop:make-pathname* :directory '(:relative "pgloader"))
           (uiop:ensure-directory-pathname (getenv-default "Temp")))
   "Top directory where to store all data logs and reject files.")
 
