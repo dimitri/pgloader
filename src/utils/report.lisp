@@ -22,6 +22,16 @@
      (:header              "~&"
       :footer              "~%"
       :end-of-line-format  "~%"
+      :header-line "~&~v@{~A~:*~}  ---------  ---------  ---------  --------------"
+      :header-tname-format "~&~v@a"
+      :header-stats-format "  ~9@a  ~9@a  ~9@a  ~14@a ~*~*"
+      :header-cols-format  "~&~v@a  ~9@a  ~9@a  ~9@a  ~14@a"
+      :header-cols-names  ("table name" "read" "imported" "errors" "total time")))
+
+    (:human-readable-verbose
+     (:header              "~&"
+      :footer              "~%"
+      :end-of-line-format  "~%"
       :header-line "~&~v@{~A~:*~}  ---------  ---------  ---------  --------------  ---------  ---------"
 
       :header-tname-format "~&~v@a"
@@ -191,8 +201,12 @@
          (pre   (getf sections :pre))
          (post  (getf sections :post))
 
-         (stype                 (or (parse-summary-type *summary-pathname*)
-                                    :human-readable))
+         (stype (or (parse-summary-type *summary-pathname*)
+                    (if (member *client-min-messages*
+                                '(:notice :sql :info :debug :data))
+                        :human-readable-verbose
+                        :human-readable)))
+
          (*header*              (get-format-for stype :header))
          (*footer*              (get-format-for stype :footer))
          (*end-of-line-format*  (get-format-for stype :end-of-line-format))

@@ -85,6 +85,9 @@
         ;; maintain the ordering
         (push label (pgstate-tabnames pgstate))
 
+        (when (typep label 'table)
+          (pgtable-initialize-reject-files pgtable (table-name label)))
+
 	pgtable)))
 
 (defun pgstate-setf (pgstate name &key read rows errs secs rs ws)
