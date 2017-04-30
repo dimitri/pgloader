@@ -31,7 +31,7 @@
 (defstruct noop)
 (defstruct log-message category description arguments)
 (defstruct new-label section label dbname)
-(defstruct update-stats section label read rows errs secs rs ws)
+(defstruct update-stats section label read rows errs secs rs ws start stop)
 (defstruct bad-row section label condition data)
 
 (defun log-message (category description &rest arguments)
@@ -45,7 +45,7 @@
    SECTION."
   (send-event (make-new-label :section section :label label :dbname dbname)))
 
-(defun update-stats (section label &key read rows errs secs rs ws)
+(defun update-stats (section label &key read rows errs secs rs ws start stop)
   "Send an event to update stats for given SECTION and LABEL."
   (send-event (make-update-stats :section section
                                  :label label
@@ -54,7 +54,9 @@
                                  :errs errs
                                  :secs secs
                                  :rs rs
-                                 :ws ws)))
+                                 :ws ws
+                                 :start start
+                                 :stop stop)))
 
 (defun process-bad-row (table condition data)
   "Send an event to log the bad row DATA in the reject and log files for given
@@ -215,18 +217,39 @@
                                                  (new-label-dbname event)))))
 
            (update-stats
-            ;; it only costs an extra hash table lookup...
-            (pgstate-new-label (getf *sections* (update-stats-section event))
-                               (update-stats-label event))
+            (let* ((pgstate (getf *sections* (update-stats-section event)))
+                   (label   (update-stats-label event))
+                   (table   (pgstate-new-label pgstate label)))
 
-            (pgstate-incf (getf *sections* (update-stats-section event))
-                          (update-stats-label event)
-                          :read (update-stats-read event)
-                          :rows (update-stats-rows event)
-                          :secs (update-stats-secs event)
-                          :errs (update-stats-errs event)
-                          :rs   (update-stats-rs event)
-                          :ws   (update-stats-ws event)))
+              (pgstate-incf pgstate label
+                            :read (update-stats-read event)
+                            :rows (update-stats-rows event)
+                            :secs (update-stats-secs event)
+                            :errs (update-stats-errs event)
+                            :rs   (update-stats-rs event)
+                            :ws   (update-stats-ws event))
+
+              (when (update-stats-start event)
+                (log-message :debug "start ~a ~30t ~a"
+                             (pgloader.catalog:format-table-name label)
+                             (update-stats-start event))
+                (setf (pgtable-start table) (update-stats-start event)))
+
+              ;; each PostgreSQL writer thread will send a stop even, here
+              ;; we only keep the latest one.
+              (when (and (update-stats-stop event)
+                         (or (null (pgtable-stop table))
+                             (< (pgtable-stop table) (update-stats-stop event))))
+                (setf (pgtable-stop table) (update-stats-stop event))
+                (let ((secs (elapsed-time-since (pgtable-start table)
+                                                (pgtable-stop table))))
+                  (setf (pgtable-secs table) secs)
+
+                  (log-message :debug " stop ~a ~30t | ~a .. ~a = ~a"
+                               (pgloader.catalog:format-table-name label)
+                               (pgtable-start table)
+                               (pgtable-stop table)
+                               secs)))))
 
            (bad-row
             (%process-bad-row (bad-row-label event)

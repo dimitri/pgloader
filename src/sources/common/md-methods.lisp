@@ -165,9 +165,7 @@
                            (lp:receive-result channel)
                          (log-message :debug
                                       "Finished processing ~a for ~s ~50T~6$s"
-                                      task (format-table-name table) seconds)
-                         (when (eq :writer task)
-                           (update-stats :data table :secs seconds)))
+                                      task (format-table-name table) seconds))
                      (condition (e)
                        (log-message :fatal "~a" e))))
             (prog1

@@ -348,8 +348,6 @@
                                   "Finished processing ~a for ~s ~50T~6$s"
                                   task (format-table-name table) seconds)
                      (when (eq :writer task)
-                       (update-stats :data table :secs seconds)
-
                        ;;
                        ;; Start the CREATE INDEX parallel tasks only when
                        ;; the data has been fully copied over to the

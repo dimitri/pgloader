@@ -27,6 +27,9 @@
               (setf bclist (cdr bclist)
                     qclist (cdr qclist))))))
 
+    ;; signal we are starting
+    (update-stats :data (target copy) :start start-time)
+
     ;; call the source-specific method for reading input data
     (map-rows copy :process-row-fn process-row)
 
@@ -150,48 +153,47 @@
          (fmtqs       (loop :repeat concurrency :collect
                          (lq:make-queue :fixed-capacity *concurrent-batches*))))
 
-    (with-stats-collection ((target copy) :dbname (db-name (target-db copy)))
-        (lp:task-handler-bind
-            ((error #'(lambda (condition)
-                        (log-message :error "A thread failed with error: ~a"
-                                     condition)
-                        #-pgloader-image
-                        (if (member *client-min-messages* (list :debug :data))
-                            (lp::invoke-debugger condition)
-                            (lp::invoke-transfer-error condition))
-                        #+pgloader-image
-                        (if (member *client-min-messages* (list :debug :data))
-                            (log-message :fatal "Backtrace: ~a"
-                                         (trivial-backtrace:print-backtrace
-                                          condition
-                                          :output nil
-                                          :verbose t))
-                            (lp::invoke-transfer-error condition)))))
-          (log-message :notice "COPY ~s" table-name)
+    (lp:task-handler-bind
+        ((error #'(lambda (condition)
+                    (log-message :error "A thread failed with error: ~a"
+                                 condition)
+                    #-pgloader-image
+                    (if (member *client-min-messages* (list :debug :data))
+                        (lp::invoke-debugger condition)
+                        (lp::invoke-transfer-error condition))
+                    #+pgloader-image
+                    (if (member *client-min-messages* (list :debug :data))
+                        (log-message :fatal "Backtrace: ~a"
+                                     (trivial-backtrace:print-backtrace
+                                      condition
+                                      :output nil
+                                      :verbose t))
+                        (lp::invoke-transfer-error condition)))))
+      (log-message :notice "COPY ~s" table-name)
 
-          ;; start a task to read data from the source into the queue
-          (lp:submit-task channel #'queue-raw-data copy rawqs)
+      ;; start a task to read data from the source into the queue
+      (lp:submit-task channel #'queue-raw-data copy rawqs)
 
-          ;; now start transformer threads to process raw vectors from our
-          ;; source into preprocessed batches to send down to PostgreSQL
-          (loop :for rawq :in rawqs
-             :for fmtq :in fmtqs
-             :do (lp:submit-task channel #'format-data-to-copy copy rawq fmtq))
+      ;; now start transformer threads to process raw vectors from our
+      ;; source into preprocessed batches to send down to PostgreSQL
+      (loop :for rawq :in rawqs
+         :for fmtq :in fmtqs
+         :do (lp:submit-task channel #'format-data-to-copy copy rawq fmtq))
 
-          (loop :for fmtq :in fmtqs
-             :do (lp:submit-task channel
-                                 #'pgloader.pgsql:copy-from-queue
-                                 (clone-connection (target-db copy))
-                                 (target copy)
-                                 fmtq
-                                 :columns (copy-column-list copy)
-                                 :on-error-stop on-error-stop
-                                 :disable-triggers disable-triggers))
+      (loop :for fmtq :in fmtqs
+         :do (lp:submit-task channel
+                             #'pgloader.pgsql:copy-from-queue
+                             (clone-connection (target-db copy))
+                             (target copy)
+                             fmtq
+                             :columns (copy-column-list copy)
+                             :on-error-stop on-error-stop
+                             :disable-triggers disable-triggers))
 
-          ;; now wait until both the tasks are over, and kill the kernel
-          (unless c-s-p
-            (log-message :debug "waiting for ~d tasks" (task-count concurrency))
-            (loop :repeat (task-count concurrency)
-               :do (lp:receive-result channel))
-            (log-message :notice "COPY ~s done." table-name)
-            (unless k-s-p (lp:end-kernel :wait t)))))))
+      ;; now wait until both the tasks are over, and kill the kernel
+      (unless c-s-p
+        (log-message :debug "waiting for ~d tasks" (task-count concurrency))
+        (loop :repeat (task-count concurrency)
+           :do (lp:receive-result channel))
+        (log-message :notice "COPY ~s done." table-name)
+        (unless k-s-p (lp:end-kernel :wait t))))))

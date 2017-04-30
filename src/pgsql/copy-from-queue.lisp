@@ -139,7 +139,9 @@
                    (update-stats :data table :rows rows)
                    (incf seconds batch-seconds))))))
 
-    (update-stats :data table :ws seconds)
+    ;; each writer thread sends its own stop timestamp and the monitor keeps
+    ;; only the latest entry
+    (update-stats :data table :ws seconds :stop (get-internal-real-time))
     (log-message :debug "Writer[~a] for ~a is done in ~6$s"
                  (lp:kernel-worker-index)
                  (format-table-name table) seconds)

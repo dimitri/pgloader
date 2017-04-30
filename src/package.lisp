@@ -201,6 +201,9 @@
            #:pgstate-decf
 
            #:pgtable-initialize-reject-files
+           #:pgtable-secs
+           #:pgtable-start
+           #:pgtable-stop
            #:pgtable-reject-data
            #:pgtable-reject-logs
            #:report-pgtable-stats

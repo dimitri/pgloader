@@ -16,6 +16,8 @@
   (secs 0.0 :type float)		; how many seconds did it take
   (rs   0.0 :type float)                ;   seconds spent reading
   (ws   0.0 :type float)                ;   seconds spent writing
+  (start 0  :type integer)              ; internal real time when we started
+  (stop  0  :type integer)              ; internal real time when we finished
   reject-data reject-logs)		; files where to find reject data
 
 (defstruct pgstate
@@ -80,7 +82,8 @@
   "Instanciate a new pgtable structure to hold our stats, and return it."
   (or (pgstate-get-label pgstate label)
       (let* ((pgtable (setf (gethash label (pgstate-tables pgstate))
-                            (make-pgtable :name label))))
+                            (make-pgtable :name label
+                                          :start (get-internal-real-time)))))
 
         ;; maintain the ordering
         (push label (pgstate-tabnames pgstate))
