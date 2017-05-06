@@ -89,7 +89,10 @@
                           (format-default-value
                            (ixf:ixf-column-default col)))
                :transform (transform-function col)
-               :comment (ixf:ixf-column-desc col)))
+               :comment (let ((comment (ixf:ixf-column-desc col)))
+                          (unless (or (null comment)
+                                      (string= comment ""))
+                            comment))))
 
 (defun list-all-columns (ixf-stream table)
   "Return the list of columns for the given IXF-FILE-NAME."
