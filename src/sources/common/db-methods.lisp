@@ -236,8 +236,8 @@
          (create-tables  (and create-tables create-ddl))
          (create-schemas (and create-schemas create-ddl))
          (foreign-keys   (and foreign-keys create-ddl))
-         (drop-indexes   (or create-ddl include-drop))
-         (create-indexes (or drop-indexes (and create-indexes create-ddl)))
+         (drop-indexes   (and include-drop create-ddl))
+         (create-indexes (and create-indexes drop-indexes create-ddl))
 
          (*preserve-index-names*
           (or (eq :preserve index-names)
