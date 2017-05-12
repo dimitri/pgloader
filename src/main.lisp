@@ -398,19 +398,15 @@
     (log-message :info "SOURCE: ~s" source)
     (log-message :info "TARGET: ~s" target)
 
-    (cond ((and (null source-uri)
-                (null target-uri)
-                ;; (probe-file (uiop:parse-unix-namestring source))
-                ;; (probe-file (uiop:parse-unix-namestring target))
-                )
+    (cond ((and (null source-uri) (null target-uri))
            (process-command-file (list source target)))
 
-          ((null source)
+          ((or (null source) (null source-uri))
            (log-message :fatal
                         "Failed to parse ~s as a source URI." source)
            (log-message :log "You might need to use --type."))
 
-          ((null target)
+          ((or (null target) (null target-uri))
            (log-message :fatal
                         "Failed to parse ~s as a PostgreSQL database URI."
                         target)))
