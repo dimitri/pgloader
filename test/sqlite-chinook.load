@@ -8,4 +8,11 @@ load database
       concurrency = 2,
       include drop, create tables, create indexes, reset sequences, foreign keys
 
-  set work_mem to '16MB', maintenance_work_mem to '512 MB';
+  -- alter table names matching ~/./ set schema 'chinook'
+  alter table names matching 'Employee' rename to 'staff'
+
+  set work_mem to '16MB', maintenance_work_mem to '512 MB',
+      search_path to 'chinook'
+
+  before load do
+  $$ create schema if not exists chinook; $$;

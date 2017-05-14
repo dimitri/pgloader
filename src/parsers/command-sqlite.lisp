@@ -74,6 +74,8 @@ load database
 (defrule load-sqlite-optional-clauses (* (or sqlite-options
                                              gucs
                                              casts
+                                             alter-table
+                                             alter-schema
                                              including-like
                                              excluding-like
                                              before-load
@@ -96,6 +98,7 @@ load database
 (defun lisp-code-for-loading-from-sqlite (sqlite-db-conn pg-db-conn
                                           &key
                                             gucs casts before after options
+                                            alter-table alter-schema
                                             ((:including incl))
                                             ((:excluding excl)))
   `(lambda ()
@@ -113,6 +116,8 @@ load database
        ,(sql-code-block pg-db-conn :pre before "before load")
 
        (pgloader.sqlite:copy-database source
+                                      :alter-table ',alter-table
+                                      :alter-schema ',alter-schema
                                       :set-table-oids t
                                       :including ',incl
                                       :excluding ',excl
@@ -125,7 +130,9 @@ load database
     (destructuring-bind (sqlite-uri
                          pg-db-uri
                          &key
-                         gucs casts before after options including excluding)
+                         gucs casts before after options
+                         alter-table alter-schema
+                         including excluding)
         source
       (cond (*dry-run*
              (lisp-code-for-sqlite-dry-run sqlite-uri pg-db-uri))
@@ -136,6 +143,8 @@ load database
                                                 :before before
                                                 :after after
                                                 :options options
+                                                :alter-table alter-table
+                                                :alter-schema alter-schema
                                                 :including including
                                                 :excluding excluding))))))
 
