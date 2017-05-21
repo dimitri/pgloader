@@ -15,6 +15,8 @@
     (:source (:type "nchar")     :target (:type "text" :drop-typemod t))
     (:source (:type "clob")      :target (:type "text" :drop-typemod t))
 
+    (:source (:type "integer" :auto-increment t) :target (:type "bigserial"))
+
     (:source (:type "tinyint") :target (:type "smallint")
              :using pgloader.transforms::integer-to-string)
 
@@ -50,7 +52,7 @@
 	     (:constructor make-coldef (table-name
                                         seq name dtype ctype
                                         nullable default pk-id)))
-  table-name seq name dtype ctype nullable default pk-id)
+  table-name seq name dtype ctype nullable default pk-id extra)
 
 (defun normalize (sqlite-type-name)
   "SQLite only has a notion of what MySQL calls column_type, or ctype in the
@@ -80,10 +82,10 @@
 
 (defmethod cast ((col coldef))
   "Return the PostgreSQL type definition from given SQLite column definition."
-  (with-slots (table-name name dtype ctype default nullable)
+  (with-slots (table-name name dtype ctype default nullable extra)
       col
     (let ((pgcol
-           (apply-casting-rules table-name name dtype ctype default nullable nil)))
+           (apply-casting-rules table-name name dtype ctype default nullable extra)))
       ;; the SQLite driver smartly maps data to the proper CL type, but the
       ;; pgloader API only wants to see text representations to send down
       ;; the COPY protocol.

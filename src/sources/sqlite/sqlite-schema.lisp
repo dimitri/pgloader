@@ -70,16 +70,28 @@
   "Return the list of columns found in TABLE-NAME."
   (let* ((table-name (table-source-name table))
          (sql        (format nil "PRAGMA table_info(~a)" table-name)))
-    (loop :for (seq name type nullable default pk-id) :in
+    (loop :for (ctid name type nullable default pk-id) :in
        (sqlite:execute-to-list db sql)
        :do (let ((field (make-coldef table-name
-                                     seq
+                                     ctid
                                      name
                                      (ctype-to-dtype (normalize type))
                                      (normalize type)
                                      (= 1 nullable)
                                      (unquote default)
                                      pk-id)))
+             (when (and (not (zerop pk-id))
+                        (string-equal (coldef-ctype field) "integer"))
+               ;; then it might be an auto_increment, which we know by
+               ;; looking at the sqlite_sequence catalog
+               (let* ((sql (format nil "select seq from sqlite_sequence
+                                         where name = '~a';" table-name))
+                      (seq (sqlite:execute-single db sql)))
+                 (when (and seq (not (zerop seq)))
+                   ;; magic marker for `apply-casting-rules'
+                   (log-message :notice "Auto Increment found at ~a.~a"
+                                table-name name)
+                   (setf (coldef-extra field)  "auto_increment"))))
              (add-field table field)))))
 
 (defun list-all-columns (schema
