@@ -81,14 +81,41 @@ pgloader is now a Common Lisp program, tested using the
 [Clozure CL](http://ccl.clozure.com/) implementations with
 [Quicklisp](http://www.quicklisp.org/beta/).
 
+When building from sources, you should always build from the current git
+`HEAD` as it's basically the only source that is managed in a way to ensure
+it builds aginst current set of dependencies versions.
+
+### Building from sources on debian
+
     $ apt-get install sbcl unzip libsqlite3-dev make curl gawk freetds-dev libzip-dev
     $ cd /path/to/pgloader
 	$ make pgloader
 	$ ./build/bin/pgloader --help
 
-When building from sources, you should always build from the current git
-HEAD as it's basically the only source that is managed in a way to ensure it
-builds aginst current set of dependencies versions.
+### Building from sources on MacOSX
+
+When using [brew](https://brew.sh), it should be a simple `brew install
+--head pgloader`.
+
+When using [macports](https://www.macports.org), then we have a situation to
+deal with with shared objects pgloader depends on, as reported in issue #161
+at <https://github.com/dimitri/pgloader/issues/161#issuecomment-201162647>:
+
+> I was able to get a clean build without having to disable compression after
+> symlinking /usr/local/lib to /opt/local/lib. Note that I did not have
+> anything installed to /usr/local/lib so I didn't lose anything here.
+
+### Building from sources on Windows
+
+Building pgloader on Windows is supported, thanks to Common Lisp
+implementations being available on that platform, and to the Common Lisp
+Standard for making it easy to write actually portable code.
+
+It is recommended to have a look at the issues labelled with *Windows
+support* if you run into trouble when building
+pgloader:
+
+<https://github.com/dimitri/pgloader/issues?utf8=✓&q=label%3A%22Windows%20support%22%20>
 
 ## More options when building from source
 
