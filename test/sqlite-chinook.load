@@ -6,6 +6,7 @@ load database
 
  with workers = 4,
       concurrency = 2,
+      on error stop,
       include drop, create tables, create indexes, reset sequences, foreign keys
 
   -- alter table names matching ~/./ set schema 'chinook'

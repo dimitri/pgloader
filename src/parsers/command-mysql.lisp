@@ -7,7 +7,8 @@
 ;;;
 ;;; MySQL options
 ;;;
-(defrule mysql-option (or option-workers
+(defrule mysql-option (or option-on-error-stop
+                          option-workers
                           option-concurrency
                           option-batch-rows
                           option-batch-size

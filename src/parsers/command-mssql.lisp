@@ -14,7 +14,8 @@
 ;;;
 (make-option-rule create-schemas (and kw-create (? kw-no) kw-schemas))
 
-(defrule mssql-option (or option-workers
+(defrule mssql-option (or option-on-error-stop
+                          option-workers
                           option-concurrency
                           option-batch-rows
                           option-batch-size

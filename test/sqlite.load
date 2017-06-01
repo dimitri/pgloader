@@ -11,7 +11,9 @@ load database
     $$ create schema if not exists sqlite; $$
 
   cast column character.f1 to text drop typemod,
-       column appointments.time to timestamptz drop default,
+       column appointments.time
+           to timestamptz drop default
+                         using sqlite-timestamp-to-timestamp,
        type intege to integer
 
   set work_mem to '16MB', maintenance_work_mem to '512 MB', search_path to 'sqlite';

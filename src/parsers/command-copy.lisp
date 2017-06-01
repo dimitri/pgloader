@@ -33,7 +33,8 @@
 (defrule option-null (and kw-null quoted-string)
   (:destructure (kw null) (declare (ignore kw)) (cons :null-as null)))
 
-(defrule copy-option (or option-workers
+(defrule copy-option (or option-on-error-stop
+                         option-workers
                          option-concurrency
                          option-batch-rows
                          option-batch-size
@@ -120,7 +121,8 @@
        (progn
          ,(sql-code-block pg-db-conn :pre before "before load")
 
-         (let ((truncate ,(getf options :truncate))
+         (let ((on-error-stop             (getf ',options :on-error-stop))
+               (truncate                  (getf ',options :truncate))
                (disable-triggers          (getf ',options :disable-triggers))
                (drop-indexes              (getf ',options :drop-indexes))
                (max-parallel-create-index (getf ',options :max-parallel-create-index))
@@ -134,7 +136,8 @@
                                :fields   ',fields
                                :columns  ',columns
                                ,@(remove-batch-control-option
-                                  options :extras '(:worker-count
+                                  options :extras '(:on-error-stop
+                                                    :worker-count
                                                     :concurrency
                                                     :truncate
                                                     :drop-indexes
@@ -145,6 +148,7 @@
                                                 (list :worker-count worker-count))
                                            ,@ (when concurrency
                                                 (list :concurrency concurrency))
+                                           :on-error-stop on-error-stop
                                            :truncate truncate
                                            :drop-indexes drop-indexes
                                            :disable-triggers disable-triggers

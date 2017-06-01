@@ -7,7 +7,7 @@ load database
 
  -- WITH batch rows = 10000
 
- WITH concurrency = 1, workers = 6,
+ WITH on error stop, concurrency = 1, workers = 6,
       max parallel create index = 4-- ,
       -- quote identifiers
 

@@ -18,7 +18,8 @@
   (:lambda (tzopt)
     (bind (((_ tz) tzopt)) (cons :timezone tz))))
 
-(defrule ixf-option (or option-workers
+(defrule ixf-option (or option-on-error-stop
+                        option-workers
                         option-concurrency
                         option-batch-rows
                         option-batch-size

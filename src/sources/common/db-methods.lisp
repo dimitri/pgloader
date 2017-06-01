@@ -231,7 +231,8 @@
                             alter-schema
 			    materialize-views)
   "Export database source data and Import it into PostgreSQL"
-  (let* ((copy-data      (or data-only (not schema-only)))
+  (let* ((*on-error-stop* on-error-stop)
+         (copy-data      (or data-only (not schema-only)))
          (create-ddl     (or schema-only (not data-only)))
          (create-tables  (and create-tables create-ddl))
          (create-schemas (and create-schemas create-ddl))

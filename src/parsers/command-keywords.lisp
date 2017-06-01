@@ -48,6 +48,9 @@
   (def-keyword-rule "typemod")
   (def-keyword-rule "using")
   (def-keyword-rule "getenv")
+  (def-keyword-rule "on")
+  (def-keyword-rule "error")
+  (def-keyword-rule "stop")
   ;; option for loading from a file
   (def-keyword-rule "workers")
   (def-keyword-rule "batch")

@@ -18,7 +18,8 @@
     (bind (((_ _ _ table-name) tn))
       (cons :table-name (text table-name)))))
 
-(defrule dbf-option (or option-workers
+(defrule dbf-option (or option-on-error-stop
+                        option-workers
                         option-concurrency
                         option-batch-rows
                         option-batch-size

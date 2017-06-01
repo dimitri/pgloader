@@ -578,6 +578,7 @@ Some clauses are common to all commands:
 
     All data sources specific commands support the following options:
 
+      - *on error stop*
       - *batch rows = R*
       - *batch size = ... MB*
       - *batch concurrency = ...*

@@ -100,7 +100,8 @@
                    create-indexes reset-sequences materialize-views
                    set-table-oids including excluding))
 
-  (let* ((pgconn (target-db copy))
+  (let* ((*on-error-stop* on-error-stop)
+         (pgconn (target-db copy))
          pgsql-catalog)
 
     (handler-case
