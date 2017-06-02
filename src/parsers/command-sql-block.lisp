@@ -66,6 +66,7 @@
                              :section ,section
                              :use-result-as-read t
                              :use-result-as-rows t)
+       (log-message :notice "Executing SQL block for ~a" ,label)
        (with-pgsql-transaction (:pgconn ,pgconn)
 	 (loop for command in ',commands
 	    do
