@@ -9,16 +9,24 @@
 ;;;
 ;;; Integration with the pgloader Source API
 ;;;
-(defclass sqlite-connection (fd-connection) ())
+(defclass sqlite-connection (fd-connection)
+  ((has-sequences :accessor has-sequences)))
 
 (defmethod initialize-instance :after ((slconn sqlite-connection) &key)
   "Assign the type slot to sqlite."
   (setf (slot-value slconn 'type) "sqlite"))
 
-(defmethod open-connection ((slconn sqlite-connection) &key)
+(defmethod open-connection ((slconn sqlite-connection) &key check-has-sequences)
   (setf (conn-handle slconn)
         (sqlite:connect (fd-path slconn)))
   (log-message :debug "CONNECTED TO ~a" (fd-path slconn))
+  (when check-has-sequences
+    (let ((sql (format nil "SELECT tbl_name
+                            FROM sqlite_master
+                           WHERE tbl_name = 'sqlite_sequence'")))
+      (log-message :info "SQLite: ~a" sql)
+      (when (sqlite:execute-single (conn-handle slconn) sql)
+        (setf (has-sequences slconn) t))))
   slconn)
 
 (defmethod close-connection ((slconn sqlite-connection))
@@ -66,7 +74,7 @@
     (loop for (name) in (sqlite:execute-to-list db sql)
        collect name)))
 
-(defun list-columns (table &optional (db *sqlite-db*))
+(defun list-columns (table &key db-has-sequences (db *sqlite-db*) )
   "Return the list of columns found in TABLE-NAME."
   (let* ((table-name (table-source-name table))
          (sql        (format nil "PRAGMA table_info(~a)" table-name)))
@@ -80,7 +88,8 @@
                                      (= 1 nullable)
                                      (unquote default)
                                      pk-id)))
-             (when (and (not (zerop pk-id))
+             (when (and db-has-sequences
+                        (not (zerop pk-id))
                         (string-equal (coldef-ctype field) "integer"))
                ;; then it might be an auto_increment, which we know by
                ;; looking at the sqlite_sequence catalog
@@ -96,6 +105,7 @@
 
 (defun list-all-columns (schema
                          &key
+                           db-has-sequences
                            (db *sqlite-db*)
                            including
                            excluding)
@@ -104,7 +114,7 @@
                                          :including including
                                          :excluding excluding)
      :do (let ((table (add-table schema table-name)))
-           (list-columns table db))))
+           (list-columns table :db db :db-has-sequences db-has-sequences))))
 
 
 ;;;

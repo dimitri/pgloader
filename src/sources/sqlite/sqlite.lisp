@@ -111,7 +111,7 @@
                             :use-result-as-rows t
                             :use-result-as-read t
                             :section :pre)
-        (with-connection (conn (source-db sqlite))
+        (with-connection (conn (source-db sqlite) :check-has-sequences t)
           (let ((*sqlite-db* (conn-handle conn)))
             (list-all-columns schema
                               :db *sqlite-db*
