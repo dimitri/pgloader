@@ -51,7 +51,7 @@
     (:source (:type "mediumint") :target (:type "integer"  :drop-typemod t))
     (:source (:type "integer")   :target (:type "integer"  :drop-typemod t))
     (:source (:type "float")     :target (:type "float"    :drop-typemod t))
-    (:source (:type "bigint")    :target (:type "bigint"   :drop-typemod t))
+    (:source (:type "bigint")    :target (:type "numeric(20)"   :drop-typemod t))
 
     (:source (:type "double")
 	     :target (:type "double precision" :drop-typemod t))
