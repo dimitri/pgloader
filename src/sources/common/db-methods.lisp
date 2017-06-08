@@ -147,28 +147,25 @@
       ;; and indexes are imported before doing that.
       ;;
       (when foreign-keys
-        (with-stats-collection ("Create Foreign Keys" :section :post
-                                                      :use-result-as-read t
-                                                      :use-result-as-rows t)
-          (create-pgsql-fkeys catalog)))
+        (create-pgsql-fkeys catalog
+                            :section :post
+                            :label "Create Foreign Keys"))
 
       ;;
       ;; Triggers and stored procedures -- includes special default values
       ;;
       (when create-triggers
-        (with-stats-collection ("Create Triggers" :section :post
-                                                  :use-result-as-read t
-                                                  :use-result-as-rows t)
-          (with-pgsql-transaction (:pgconn (target-db copy))
-            (create-triggers catalog)))))
+        (with-pgsql-transaction (:pgconn (target-db copy))
+          (create-triggers catalog
+                           :section :post
+                           :label "Create Triggers"))))
 
     ;;
     ;; And now, comments on tables and columns.
     ;;
-    (with-stats-collection ("Install Comments" :section :post
-                                               :use-result-as-read t
-                                               :use-result-as-rows t)
-      (comment-on-tables-and-columns catalog))))
+    (comment-on-tables-and-columns catalog
+                                   :section :post
+                                   :label "Install Comments")))
 
 (defmethod instanciate-table-copy-object ((copy db-copy) (table table))
   "Create an new instance for copying TABLE data."

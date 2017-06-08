@@ -104,7 +104,11 @@
                      :include-drop include-drop
                      :client-min-messages client-min-messages))
 
-(defun create-triggers (catalog &key (client-min-messages :notice))
+(defun create-triggers (catalog
+                        &key
+                          label
+                          (section :post)
+                          (client-min-messages :notice))
   "Create the catalog objects that come after the data has been loaded."
   (let ((sql-list
          (loop :for table :in (table-list catalog)
@@ -113,9 +117,9 @@
             :append (loop :for trigger :in (table-trigger-list table)
                        :collect (format-create-sql (trigger-procedure trigger))
                        :collect (format-create-sql trigger)))))
-    (loop :for sql :in sql-list
-       :do (pgsql-execute sql :client-min-messages client-min-messages)
-       :count t)))
+    (pgsql-execute-with-timing section label sql-list
+                               :count (length sql-list)
+                               :client-min-messages client-min-messages)))
 
 
 ;;;
@@ -183,20 +187,22 @@
                            (pgsql-execute sql))
                      :count t))))
 
-(defun create-pgsql-fkeys (catalog)
+(defun create-pgsql-fkeys (catalog &key (section :post) label)
   "Actually create the Foreign Key References that where declared in the
    MySQL database"
-  (loop :for table :in (table-list catalog)
-     :sum (loop :for fkey :in (table-fkey-list table)
-             :for sql := (format-create-sql fkey)
-             :do (pgsql-execute sql)
-             :count t)
-     :sum (loop :for index :in (table-index-list table)
-             :sum (loop :for fkey :in (index-fk-deps index)
-                     :for sql := (format-create-sql fkey)
-                     :do (log-message :debug "EXTRA FK DEPS!")
-                     :do (pgsql-execute sql)
-                     :count t))))
+  (let ((fk-sql-list
+         (loop :for table :in (table-list catalog)
+            :append (loop :for fkey :in (table-fkey-list table)
+                       :for sql := (format-create-sql fkey)
+                       :collect sql)
+            :append (loop :for index :in (table-index-list table)
+                       :do (loop :for fkey :in (index-fk-deps index)
+                              :for sql := (format-create-sql fkey)
+                              :do (log-message :debug "EXTRA FK DEPS! ~a" sql)
+                              :collect sql)))))
+    ;; and now execute our list
+    (pgsql-execute-with-timing section label fk-sql-list
+                               :count (length fk-sql-list))))
 
 
 
@@ -384,7 +390,7 @@ $$; " tables)))
 ;;;
 ;;; Comments
 ;;;
-(defun comment-on-tables-and-columns (catalog)
+(defun comment-on-tables-and-columns (catalog &key label (section :post))
   "Install comments on tables and columns from CATALOG."
   (let* ((quote
           ;; just something improbably found in a table comment, to use as
@@ -400,20 +406,24 @@ $$; " tables)))
                        "_"
                        (map 'string #'code-char
                             (loop :repeat 5
-                               :collect (+ (random 26) (char-code #\A)))))))
-    (loop :for table :in (table-list catalog)
-       :for sql := (when (table-comment table)
-                     (format nil "comment on table ~a is $~a$~a$~a$"
-                             (table-name table)
-                             quote (table-comment table) quote))
-       :count (when sql
-                (pgsql-execute-with-timing :post "Comments" sql))
+                               :collect (+ (random 26) (char-code #\A))))))
 
-       :sum (loop :for column :in (table-column-list table)
-               :for sql := (when (column-comment column)
-                             (format nil "comment on column ~a.~a is $~a$~a$~a$"
-                                     (table-name table)
-                                     (column-name column)
-                                     quote (column-comment column) quote))
-               :count (when sql
-                        (pgsql-execute-with-timing :post "Comments" sql))))))
+         (sql-list
+          ;; table level comments
+          (loop :for table :in (table-list catalog)
+             :when (table-comment table)
+             :collect (format nil "comment on table ~a is $~a$~a$~a$"
+                              (table-name table)
+                              quote (table-comment table) quote)
+
+             ;; for each table, append column level comments
+             :append
+             (loop :for column :in (table-column-list table)
+                :when (column-comment column)
+                :collect (format nil
+                                 "comment on column ~a.~a is $~a$~a$~a$"
+                                 (table-name table)
+                                 (column-name column)
+                                 quote (column-comment column) quote)))))
+    (pgsql-execute-with-timing section label sql-list
+                               :count (length sql-list))))

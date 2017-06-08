@@ -239,12 +239,15 @@
     (pomo:with-transaction ()
       (pgsql-execute-with-timing section label sql :count count))))
 
-(defun pgsql-execute-with-timing (section label sql &key (count 1))
+(defun pgsql-execute-with-timing (section label sql
+                                  &key
+                                    client-min-messages
+                                    (count 1))
   "Execute given SQL and resgister its timing into STATE."
   (multiple-value-bind (res secs)
       (timing
         (handler-case
-            (pgsql-execute sql)
+            (pgsql-execute sql :client-min-messages client-min-messages)
          (cl-postgres:database-error (e)
            (log-message :error "~a" e)
            (update-stats section label :errs 1 :rows (- count)))))

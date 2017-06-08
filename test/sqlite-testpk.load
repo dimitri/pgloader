@@ -1,0 +1,9 @@
+load database
+     from 'sqlite/test_pk.db'
+     into postgresql:///pgloader
+
+  before load do
+    $$ drop schema if exists sqlite cascade; $$,
+    $$ create schema if not exists sqlite; $$
+
+  set search_path to 'sqlite';
