@@ -147,6 +147,6 @@
                             (string= "newsequentialid()" default)))
                    :generate-uuid)
 
-                  (t default)))
+                  (t (column-default pgcol))))
       pgcol)))
 

@@ -100,7 +100,7 @@
                         (or (uiop:string-prefix-p "CURRENT_TIMESTAMP" default)
                             (string= "CURRENT TIMESTAMP" default)))
                    :current-timestamp)
-                  (t default)))
+                  (t (column-default pgcol))))
 
       pgcol)))
 

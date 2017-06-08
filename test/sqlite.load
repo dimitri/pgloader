@@ -4,16 +4,15 @@ load database
 
  -- with include drop, create tables, create indexes, reset sequences
 
-  -- excluding table names like 'appointments'
-
   before load do
     $$ drop schema if exists sqlite cascade; $$,
     $$ create schema if not exists sqlite; $$
 
   cast column character.f1 to text drop typemod,
-       column appointments.time
-           to timestamptz drop default
-                         using sqlite-timestamp-to-timestamp,
-       type intege to integer
+       column appointments.time to timestamptz drop default,
+       type intege to integer,
+       type character to varchar keep typemod
 
-  set work_mem to '16MB', maintenance_work_mem to '512 MB', search_path to 'sqlite';
+  set work_mem to '16MB',
+      maintenance_work_mem to '512 MB',
+      search_path to 'sqlite';
