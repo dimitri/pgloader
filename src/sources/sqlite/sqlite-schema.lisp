@@ -120,6 +120,27 @@
 ;;;
 ;;; Index support
 ;;;
+(defun add-unlisted-primary-key-index (table)
+  "Add to TABLE any unlisted primary key index..."
+  (unless (remove-if-not #'index-primary (table-index-list table))
+    (let ((pk-fields (loop :for field :in (table-field-list table)
+                        :when (< 0 (coldef-pk-id field))
+                        :collect field)))
+      (when (and pk-fields
+                 ;; we don't know if that holds true for non-integer fields,
+                 ;; as it appears to be tied to the rowid magic column
+                 (every (lambda (field)
+                          (string-equal "integer" (coldef-dtype field)))
+                        pk-fields))
+        (let ((pk-name (format nil "~a_pkey" (format-table-name table)))
+              (clist   (mapcar #'coldef-name pk-fields)))
+          ;; now forge the index and get it a name
+          (add-index table (make-index :name pk-name
+                                       :table table
+                                       :primary t
+                                       :unique t
+                                       :columns clist)))))))
+
 (defun is-index-pk (table index-col-name-list)
   "The only way to know with SQLite pragma introspection if a particular
    UNIQUE index is actually PRIMARY KEY is by comparing the list of column
@@ -148,7 +169,14 @@
                                      :primary (is-index-pk table cols)
                                      :unique (= unique 1)
                                      :columns cols)))
-             (add-index table index)))))
+             (add-index table index))))
+
+  ;; ok that's not the whole story. Integer columns marked pk=1 are actually
+  ;; primary keys but the supporting index isn't listed in index_list()
+  ;;
+  ;; we add unlisted pkeys only after having read the catalogs, otherwise we
+  ;; might create double primary key indexes here
+  (add-unlisted-primary-key-index table))
 
 (defun list-all-indexes (schema &key (db *sqlite-db*))
   "Get the list of SQLite index definitions per table."
