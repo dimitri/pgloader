@@ -122,7 +122,7 @@
 ;;;
 (defun add-unlisted-primary-key-index (table)
   "Add to TABLE any unlisted primary key index..."
-  (unless (remove-if-not #'index-primary (table-index-list table))
+  (when (notany #'index-primary (table-index-list table))
     (let ((pk-fields (loop :for field :in (table-field-list table)
                         :when (< 0 (coldef-pk-id field))
                         :collect field)))
