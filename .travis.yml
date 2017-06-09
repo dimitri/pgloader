@@ -1,5 +1,7 @@
 language: common-lisp
 install:
+  - sudo service postgresql stop
+  - sudo apt-get -y --purge remove libpq-dev libpq5 postgresql postgresql-client-common postgresql-common
   - sudo apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net --recv-keys ACCC4CF8
   - echo "deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
   - sudo apt-get update
