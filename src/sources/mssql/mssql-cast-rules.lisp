@@ -106,11 +106,16 @@
                           type
                           (mssql-column-numeric-precision col)
                           (or (mssql-column-numeric-scale col) 0)))))
-          ((member type '("char" "nchar" "varchar" "nvarchar" "binary") :test #'string=)
+
+          ((member type '("char" "nchar" "varchar" "nvarchar" "binary")
+                   :test #'string=)
            ;; the user might have a CAST rule with keep typemod, so we need
            ;; to deal with character-maximum-length for now
-           (format nil "~a(~a)"
-                   type (mssql-column-character-maximum-length col)))
+
+           (if (= -1 (mssql-column-character-maximum-length col))
+               type
+               (format nil "~a(~a)"
+                       type (mssql-column-character-maximum-length col))))
 
           (t type))))
 
