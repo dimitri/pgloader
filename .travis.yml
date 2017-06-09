@@ -7,12 +7,15 @@ install:
   - sudo apt-get update
   - sudo apt-get install -y cl-asdf sbcl unzip libsqlite3-dev gawk freetds-dev
   - sudo apt-get install -y postgresql-9.1-ip4r
+  - echo "local all all              trust" | sudo tee    /etc/postgresql/9.1/main/pg_hba.conf
+  - echo "host  all all 127.0.0.1/32 trust" | sudo tee -a /etc/postgresql/9.1/main/pg_hba.conf
+  - sudo service postgresql restart
 before_script:
-  - sudo -u postgres createuser -S -R -D -E -l pgloader
-  - sudo -u postgres createdb -E UTF8 -O pgloader -hlocalhost pgloader
-  - sudo -u postgres psql -h localhost -d pgloader -c "create extension ip4r;"
-  - PGUSER=pgloader psql -h localhost -d pgloader -c "create schema expected;"
-  - PGUSER=pgloader psql -h localhost -d pgloader -c "create schema err;"
+  - PGUSER=postgres createuser -S -R -D -E -l pgloader
+  - PGUSER=postgres createdb -E UTF8 -O pgloader pgloader
+  - PGUSER=postgres psql -d pgloader -c "create extension ip4r;"
+  - PGUSER=pgloader psql -d pgloader -c "create schema expected;"
+  - PGUSER=pgloader psql -d pgloader -c "create schema err;"
   - make --version
   - make
 script:
