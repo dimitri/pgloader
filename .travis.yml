@@ -1,20 +1,24 @@
 language: common-lisp
+
 install:
-  - sudo apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net --recv-keys ACCC4CF8
-  - echo "deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
-  - sudo apt-get update
-  - sudo apt-get install -y cl-asdf sbcl unzip libsqlite3-dev gawk freetds-dev
-  - sudo apt-get install -y postgresql-9.1-ip4r
+  - ./.travis.sh postgresql_uninstall
+  - ./.travis.sh pgdg_repository
+  - sudo apt-get install -y postgresql-9.1-ip4r unzip libsqlite3-dev gawk freetds-dev
+  - ./.travis.sh postgresql_configure
+  - ./.travis.sh sbcl_install
+
 before_script:
-  - sudo -u postgres createuser -S -R -D -E -l pgloader
-  - sudo -u postgres createdb -E UTF8 -O pgloader -hlocalhost pgloader
-  - sudo -u postgres psql -h localhost -d pgloader -c "create extension ip4r;"
-  - PGUSER=pgloader psql -h localhost -d pgloader -c "create schema expected;"
-  - PGUSER=pgloader psql -h localhost -d pgloader -c "create schema err;"
+  - PGUSER=postgres createuser -S -R -D -E -l pgloader
+  - PGUSER=postgres createdb -E UTF8 -O pgloader pgloader
+  - PGUSER=postgres psql -d pgloader -c "create extension ip4r;"
+  - PGUSER=pgloader psql -d pgloader -c "create schema expected;"
+  - PGUSER=pgloader psql -d pgloader -c "create schema err;"
   - make --version
   - make
+
 script:
   - PGUSER=pgloader make check
+
 notifications:
   email:
     - dim@tapoueh.org
