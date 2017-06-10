@@ -30,4 +30,21 @@ postgresql_uninstall() {
 	packages
 }
 
+remote_file() {
+	local target="$1" origin="$2" sum="$3"
+	local check="shasum --algorithm $(( 4 * ${#sum} )) --check"
+	local filesum="$sum  $target"
+
+	curl --location --output "$target" "$origin" && $check <<< "$filesum"
+}
+
+sbcl_install() {
+	sbcl_checksum='eb44d9efb4389f71c05af0327bab7cd18f8bb221fb13a6e458477a9194853958'
+	sbcl_version='1.3.18'
+
+	remote_file "/tmp/sbcl-${sbcl_version}.tgz" "http://prdownloads.sourceforge.net/sbcl/sbcl-${sbcl_version}-x86-64-linux-binary.tar.bz2" "$sbcl_checksum"
+	tar --file  "/tmp/sbcl-${sbcl_version}.tgz" --extract --directory '/tmp'
+	( cd "/tmp/sbcl-${sbcl_version}-x86-64-linux" && sudo ./install.sh )
+}
+
 $1

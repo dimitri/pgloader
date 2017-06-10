@@ -3,8 +3,9 @@ language: common-lisp
 install:
   - ./.travis.sh postgresql_uninstall
   - ./.travis.sh pgdg_repository
-  - sudo apt-get install -y cl-asdf sbcl postgresql-9.1-ip4r unzip libsqlite3-dev gawk freetds-dev
+  - sudo apt-get install -y postgresql-9.1-ip4r unzip libsqlite3-dev gawk freetds-dev
   - ./.travis.sh postgresql_configure
+  - ./.travis.sh sbcl_install
 
 before_script:
   - PGUSER=postgres createuser -S -R -D -E -l pgloader
@@ -14,8 +15,10 @@ before_script:
   - PGUSER=pgloader psql -d pgloader -c "create schema err;"
   - make --version
   - make
+
 script:
   - PGUSER=pgloader make check
+
 notifications:
   email:
     - dim@tapoueh.org
