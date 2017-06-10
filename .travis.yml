@@ -1,15 +1,11 @@
 language: common-lisp
+
 install:
-  - sudo service postgresql stop
-  - sudo apt-get -y --purge remove libpq-dev libpq5 postgresql postgresql-client-common postgresql-common
-  - sudo apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net --recv-keys ACCC4CF8
-  - echo "deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
-  - sudo apt-get update
-  - sudo apt-get install -y cl-asdf sbcl unzip libsqlite3-dev gawk freetds-dev
-  - sudo apt-get install -y postgresql-9.1-ip4r
-  - echo "local all all              trust" | sudo tee    /etc/postgresql/9.1/main/pg_hba.conf
-  - echo "host  all all 127.0.0.1/32 trust" | sudo tee -a /etc/postgresql/9.1/main/pg_hba.conf
-  - sudo service postgresql restart
+  - ./.travis.sh postgresql_uninstall
+  - ./.travis.sh pgdg_repository
+  - sudo apt-get install -y cl-asdf sbcl postgresql-9.1-ip4r unzip libsqlite3-dev gawk freetds-dev
+  - ./.travis.sh postgresql_configure
+
 before_script:
   - PGUSER=postgres createuser -S -R -D -E -l pgloader
   - PGUSER=postgres createdb -E UTF8 -O pgloader pgloader
