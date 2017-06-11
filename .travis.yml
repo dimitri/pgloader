@@ -1,11 +1,18 @@
 language: common-lisp
+sudo: required
+
+env:
+  matrix:
+    - LISP=ccl
+    - LISP=ccl  PGVERSION=9.6
+    - LISP=sbcl
+    - LISP=sbcl PGVERSION=9.6
 
 install:
-  - ./.travis.sh postgresql_uninstall
-  - ./.travis.sh pgdg_repository
-  - sudo apt-get install -y postgresql-9.1-ip4r unzip libsqlite3-dev gawk freetds-dev
-  - ./.travis.sh postgresql_configure
-  - ./.travis.sh sbcl_install
+  - ./.travis.sh lisp_install
+  - ./.travis.sh pgdg_repositories
+  - ./.travis.sh postgresql_install
+  - sudo apt-get install -y unzip libsqlite3-dev gawk freetds-dev
 
 before_script:
   - PGUSER=postgres createuser -S -R -D -E -l pgloader
@@ -14,10 +21,10 @@ before_script:
   - PGUSER=pgloader psql -d pgloader -c "create schema expected;"
   - PGUSER=pgloader psql -d pgloader -c "create schema err;"
   - make --version
-  - make
+  - make "CL=$LISP"
 
 script:
-  - PGUSER=pgloader make check
+  - PGUSER=pgloader make "CL=$LISP" check
 
 notifications:
   email:
