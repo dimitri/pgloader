@@ -4,7 +4,7 @@ Priority: extra
 Maintainer: Dimitri Fontaine <dim@tapoueh.org>
 Uploaders: Christoph Berg <myon@debian.org>
 Build-Depends: debhelper (>= 8.0.0), sbcl (>= 1.1.13), ruby-ronn, buildapp (>= 1.5), cl-asdf (>= 3.0.3), cl-log, cl-postmodern, cl-simple-date, cl-qmynd, cl-split-sequence, cl-unicode, cl-interpol, cl-csv, cl-fad, cl-lparallel, cl-esrap, cl-alexandria, cl-drakma, cl-flexi-streams, cl-usocket, cl-local-time, cl-command-line-arguments, cl-abnf, cl-db3, cl-py-configparser, cl-sqlite, cl-trivial-backtrace, cl-markdown, cl-md5, cl-asdf-finalizers, cl-asdf-system-connections, cl-cffi (>= 1:0.12.0), cl-ixf, gawk, cl-bordeaux-threads (>= 0.8.3), cl-metabang-bind, cl-mssql, cl-uuid, cl-trivial-utf-8, cl-quri, cl-utilities, cl-ppcre, tzdata
-Standards-Version: 3.9.6
+Standards-Version: 3.9.8
 Homepage: https://github.com/dimitri/pgloader
 Vcs-Git: https://github.com/dimitri/pgloader.git
 Vcs-Browser: https://github.com/dimitri/pgloader
