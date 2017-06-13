@@ -213,7 +213,7 @@ order by SchemaName,
 (defun list-all-fkeys (catalog &key including excluding)
   "Get the list of MSSQL index definitions per table."
   (loop
-     :for (fkey-name schema-name table-name col fschema-name ftable-name fcol)
+     :for (fkey-name schema-name table-name col fschema-name ftable-name fcol fk-update-rule fk-delete-rule)
      :in  (mssql-query (format nil "
    SELECT
            REPLACE(KCU1.CONSTRAINT_NAME, '.', '_') AS 'CONSTRAINT_NAME'
@@ -223,6 +223,8 @@ order by SchemaName,
          , KCU2.TABLE_SCHEMA AS 'UNIQUE_TABLE_SCHEMA'
          , KCU2.TABLE_NAME AS 'UNIQUE_TABLE_NAME'
          , KCU2.COLUMN_NAME AS 'UNIQUE_COLUMN_NAME'
+         , RC.UPDATE_RULE AS 'UPDATE_RULE'
+         , RC.DELETE_RULE AS 'DELETE_RULE'
 
     FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS RC
          JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE KCU1
@@ -266,7 +268,9 @@ ORDER BY KCU1.CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
                         :table table
                         :columns nil
                         :foreign-table ftable
-                        :foreign-columns nil))
+                        :foreign-columns nil
+                        :update-rule fk-update-rule
+                        :delete-rule fk-delete-rule))
             (fkey
              (maybe-add-fkey table fkey-name pg-fkey :key #'fkey-name)))
        (push-to-end col  (fkey-columns fkey))
