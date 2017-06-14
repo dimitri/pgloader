@@ -94,7 +94,7 @@
              (:syb-int4 (unsigned-to-signed (mem-ref data :unsigned-int) 4))
              (:syb-int8 (mem-ref data :int8))
              (:syb-flt8 (mem-ref data :double))
-             ((:syb-datetime :syb-datetime4)
+             ((:syb-datetime :syb-datetime4 :syb-msdate)
               (with-foreign-pointer (%buf +numeric-buf-sz+)
                 (let ((count
                        (%dbconvert %dbproc

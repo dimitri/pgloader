@@ -288,6 +288,7 @@ ORDER BY KCU1.CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
   (case (intern (string-upcase type) "KEYWORD")
     (:datetime       (format nil "convert(varchar, [~a], 126)" name))
     (:smalldatetime  (format nil "convert(varchar, [~a], 126)" name))
+    (:date           (format nil "convert(varchar, [~a], 126)" name))
     (:bigint         (format nil "cast([~a] as numeric)" name))
     (t               (format nil "[~a]" name))))
 
