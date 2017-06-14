@@ -101,5 +101,5 @@ csv-districts-stdin.out: csv-districts-stdin.load
 # Regression tests
 regress/out/%.out: %.load
 	#./regress.sh $(PGLOADER) $<
-	$(PGLOADER) --regress $<
+	$(PGLOADER) $(EXTRA_OPTS) --regress $<
 	touch $@
