@@ -35,6 +35,11 @@ REGRESS= allcols.load 		    \
 
 PGLOADER ?= ../build/bin/pgloader
 
+EXTRA_OPTS =
+ifneq (,$(findstring ccl,$(CL)))
+EXTRA_OPTS = --batch --heap-reserve 150g
+endif
+
 regress: clean-out $(addprefix regress/out/, $(REGRESS:.load=.out)) ;
 
 clean-out:
