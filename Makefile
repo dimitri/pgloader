@@ -160,7 +160,7 @@ pgloader-standalone:
                        $(COMPRESS_CORE_OPT)                    \
                        --output $(PGLOADER)
 test: $(PGLOADER)
-	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) -C test regress
+	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) CL=$(CL) -C test regress
 
 clean-bundle:
 	rm -rf $(BUNDLEDIR)
