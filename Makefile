@@ -45,7 +45,7 @@ BUILDAPP_OPTS = --require sb-posix                      \
 CL_OPTS    = --noinform --no-sysinit --no-userinit
 else
 BUILDAPP   = $(BUILDAPP_CCL)
-CL_OPTS    = --no-init
+CL_OPTS    = --no-init --batch
 endif
 
 ifeq ($(CL),sbcl)
