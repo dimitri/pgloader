@@ -95,7 +95,7 @@ it builds aginst current set of dependencies versions.
 ### Building from sources on MacOSX
 
 When using [brew](https://brew.sh), it should be a simple `brew install
---head pgloader`.
+--HEAD pgloader`.
 
 When using [macports](https://www.macports.org), then we have a situation to
 deal with with shared objects pgloader depends on, as reported in issue #161
