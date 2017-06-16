@@ -213,7 +213,7 @@
 			    (disable-triggers nil)
 			    (data-only        nil)
 			    (schema-only      nil)
-                            (create-schemas   nil)
+                            (create-schemas   t)
 			    (create-tables    t)
 			    (include-drop     t)
 			    (create-indexes   t)
