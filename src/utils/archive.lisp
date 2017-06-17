@@ -5,6 +5,8 @@
 (in-package #:pgloader.archive)
 
 (defparameter *supported-archive-types* '(:tar :tgz :gz :zip))
+(defparameter *http-buffer-size* 4096
+  "4k ought to be enough for everyone")
 
 (defun archivep (archive-file)
   "Return non-nil when the ARCHIVE-FILE is something we know how to expand."
@@ -29,25 +31,23 @@
 			  should-close
 			  status)
 	(drakma:http-request url :force-binary t :want-stream t)
-      (declare (ignore uri stream))
+      (declare (ignore headers uri stream))
 
       (when (not (= 200 status-code))
         (log-message :fatal "HTTP Error ~a: ~a" status-code status)
         (error status))
 
-      (let* ((source-stream   (flexi-streams:flexi-stream-stream http-stream))
-	     (content-length
-	      (parse-integer (cdr (assoc :content-length headers)))))
+      (let* ((source-stream (flexi-streams:flexi-stream-stream http-stream))
+             (buffer        (make-array *http-buffer-size*
+                                        :element-type '(unsigned-byte 8))))
 	(with-open-file (archive-stream archive-filename
 					:direction :output
 					:element-type '(unsigned-byte 8)
 					:if-exists :supersede
 					:if-does-not-exist :create)
-	  (let ((seq (make-array content-length
-				 :element-type '(unsigned-byte 8)
-				 :fill-pointer t)))
-	    (setf (fill-pointer seq) (read-sequence seq source-stream))
-	    (write-sequence seq archive-stream)))
+          (loop :for bytes := (read-sequence buffer source-stream)
+             :do (write-sequence buffer archive-stream :end bytes)
+             :until (< bytes *http-buffer-size*)))
 	(when should-close (close source-stream))))
     ;; return the pathname where we just downloaded the file
     archive-filename))

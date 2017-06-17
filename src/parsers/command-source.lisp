@@ -32,7 +32,8 @@
 (defrule maybe-quoted-filename (or quoted-filename filename)
   (:identity t))
 
-(defrule http-uri (and "http://" (* (filename-character-p character)))
+(defrule http-uri (and (or "http://" "https://")
+                       (* (filename-character-p character)))
   (:destructure (prefix url)
     (list :http (concatenate 'string prefix url))))
 
