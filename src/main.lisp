@@ -299,6 +299,7 @@
                   (handler-bind
                       ((condition
                         #'(lambda (condition)
+                            (log-message :fatal "KABOOM!")
                             (log-message :fatal "~a"
                                          (print-backtrace condition debug)))))
 
@@ -349,6 +350,7 @@
 
               (condition (c)
                 (declare (ignore c))    ; handler-bind printed it out
+                (log-message :log "What I am doing here?")
                 (sleep 0.3)             ; wait until monitor stops...
                 (uiop:quit +os-code-error+)))))
 

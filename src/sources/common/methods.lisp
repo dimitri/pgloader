@@ -154,22 +154,21 @@
                          (lq:make-queue :fixed-capacity *concurrent-batches*))))
 
     (lp:task-handler-bind
-        ((error #'(lambda (condition)
-                    (log-message :error "A thread failed with error: ~a"
-                                 condition)
-                    #-pgloader-image
-                    (if (member *client-min-messages* (list :debug :data))
-                        (lp::invoke-debugger condition)
-                        (lp::invoke-transfer-error condition))
-                    #+pgloader-image
-                    (if (member *client-min-messages* (list :debug :data))
-                        (log-message :fatal "Backtrace: ~a"
-                                     (trivial-backtrace:print-backtrace
-                                      condition
-                                      :output nil
-                                      :verbose t))
-                        (lp::invoke-transfer-error condition)))))
-      (log-message :notice "COPY ~s" table-name)
+        ((on-error-stop
+          #'(lambda (condition)
+              ;; everything has been handled already
+              (lp:invoke-transfer-error condition)))
+         (error
+          #'(lambda (condition)
+              (log-message :error "A thread failed with error: ~a" condition)
+              (if (member *client-min-messages* (list :debug :data))
+                  #-pgloader-image
+                  (log-message :error "~a"
+                               (trivial-backtrace:print-backtrace condition
+                                                                  :output nil))
+                  #+pgloader-image
+                  (lp::invoke-debugger condition))
+              (lp::invoke-transfer-error condition))))
       (log-message :notice "COPY ~a" table-name)
 
       ;; start a task to read data from the source into the queue

@@ -8,6 +8,7 @@
   (:export #:*version-string*
            #:*dry-run*
            #:*on-error-stop*
+           #:on-error-stop
            #:*self-upgrade-immutable-systems*
 	   #:*fd-path-root*
 	   #:*root-dir*
@@ -77,6 +78,14 @@
 
 (defparameter *on-error-stop* nil
   "Set to non-nil to for pgloader to refrain from handling errors, quitting instead.")
+
+(define-condition on-error-stop ()
+  ((on-condition :initarg :on-condition :reader on-error-condition
+                 :documentation "Condition that triggered on-error-stop"))
+  (:report (lambda (condition stream)
+             (format stream
+                     "On Error Stop: ~a"
+                     (on-error-condition condition)))))
 
 (defparameter *fd-path-root* nil
   "Where to load files from, when loading from an archive or expanding regexps.")

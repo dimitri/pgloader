@@ -78,9 +78,8 @@
           (if on-error-stop
               ;; re-signal the condition to upper level
               (progn
-                (log-message :fatal "~a" condition)
-                (error "Stop loading data for table ~s on first error."
-                       (format-table-name table)))
+                (log-message :error "~a" condition)
+                (signal 'on-error-stop :on-condition condition))
 
               ;; normal behavior, on-error-stop being nil
               ;; clean the current transaction before retrying new ones
