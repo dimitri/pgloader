@@ -170,6 +170,7 @@
                                       :verbose t))
                         (lp::invoke-transfer-error condition)))))
       (log-message :notice "COPY ~s" table-name)
+      (log-message :notice "COPY ~a" table-name)
 
       ;; start a task to read data from the source into the queue
       (lp:submit-task channel #'queue-raw-data copy rawqs)
