@@ -36,9 +36,10 @@
 
 (defun log-message (category description &rest arguments)
   "Send given message into our monitoring queue for processing."
-  (send-event (make-log-message :category category
-                                :description description
-                                :arguments arguments)))
+  (when (cl-log::category-messengers category)
+    (send-event (make-log-message :category category
+                                  :description description
+                                  :arguments arguments))))
 
 (defun new-label (section label &optional dbname)
   "Send an event to create a new LABEL for registering a shared state under
