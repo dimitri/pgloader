@@ -31,7 +31,9 @@
       (with-stats-collection ("Create Schemas" :section :pre
                                                :use-result-as-read t
                                                :use-result-as-rows t)
-        (create-schemas catalog :include-drop include-drop)))
+        (create-schemas catalog
+                        :include-drop include-drop
+                        :client-min-messages :error)))
 
     (if create-tables
         (progn
@@ -100,7 +102,9 @@
       (with-stats-collection ("Create MatViews Tables" :section :pre
                                                        :use-result-as-read t
                                                        :use-result-as-rows t)
-        (create-views catalog :include-drop include-drop))))
+        (create-views catalog
+                      :include-drop include-drop
+                      :client-min-messages :error))))
 
   ;; log the catalog we just fetched and (maybe) merged
   (log-message :data "CATALOG: ~s" catalog))
