@@ -1,4 +1,4 @@
-# Migrating from MySQL with pgloader
+# Migrating from MySQL to PostgreSQL
 
 If you want to migrate your data over to
 [PostgreSQL](http://www.postgresql.org) from MySQL then pgloader is the tool
@@ -7,6 +7,71 @@ of choice!
 Most tools around are skipping the main problem with migrating from MySQL,
 which is to do with the type casting and data sanitizing that needs to be
 done. pgloader will not leave you alone on those topics.
+
+## In a Single Command Line
+
+As an example, we will use the f1db database from <http://ergast.com/mrd/>
+which which provides a historical record of motor racing data for
+non-commercial purposes. You can either use their API or download the whole
+database at <http://ergast.com/downloads/f1db.sql.gz>. Once you've done that
+load the database in MySQL:
+
+    $ mysql -u root
+    > create database f1db;
+    > source f1db.sql
+
+Now let's migrate this database into PostgreSQL in a single command line:
+
+    $ createdb f1db
+    $ pgloader mysql://root@localhost/f1db pgsql://f1db
+
+Done! All with schema, table definitions, constraints, indexes, primary
+keys, *auto_increment* columns turned into *bigserial* , foreign keys,
+comments, and if you had some MySQL default values such as *ON UPDATE
+CURRENT_TIMESTAMP* they would have been translated to
+a
+[PostgreSQL before update trigger](https://www.postgresql.org/docs/current/static/plpgsql-trigger.html) automatically.
+
+    $ pgloader mysql://root@localhost/f1db pgsql:///f1db
+    2017-06-16T08:56:14.064000+02:00 LOG Main logs in '/private/tmp/pgloader/pgloader.log'
+    2017-06-16T08:56:14.068000+02:00 LOG Data errors in '/private/tmp/pgloader/'
+    2017-06-16T08:56:19.542000+02:00 LOG report summary reset
+                   table name       read   imported     errors      total time
+    -------------------------  ---------  ---------  ---------  --------------
+              fetch meta data         33         33          0          0.365s 
+               Create Schemas          0          0          0          0.007s 
+             Create SQL Types          0          0          0          0.006s 
+                Create tables         26         26          0          0.068s 
+               Set Table OIDs         13         13          0          0.012s 
+    -------------------------  ---------  ---------  ---------  --------------
+      f1db.constructorresults      11011      11011          0          0.205s 
+                f1db.circuits         73         73          0          0.150s 
+            f1db.constructors        208        208          0          0.059s 
+    f1db.constructorstandings      11766      11766          0          0.365s 
+                 f1db.drivers        841        841          0          0.268s 
+                f1db.laptimes     413578     413578          0          2.892s 
+         f1db.driverstandings      31420      31420          0          0.583s 
+                f1db.pitstops       5796       5796          0          2.154s 
+                   f1db.races        976        976          0          0.227s 
+              f1db.qualifying       7257       7257          0          0.228s 
+                 f1db.seasons         68         68          0          0.527s 
+                 f1db.results      23514      23514          0          0.658s 
+                  f1db.status        133        133          0          0.130s 
+    -------------------------  ---------  ---------  ---------  --------------
+      COPY Threads Completion         39         39          0          4.303s 
+               Create Indexes         20         20          0          1.497s 
+       Index Build Completion         20         20          0          0.214s 
+              Reset Sequences          0         10          0          0.058s 
+                 Primary Keys         13         13          0          0.012s 
+          Create Foreign Keys          0          0          0          0.000s 
+              Create Triggers          0          0          0          0.001s 
+             Install Comments          0          0          0          0.000s 
+    -------------------------  ---------  ---------  ---------  --------------
+            Total import time     506641     506641          0          5.547s 
+
+You may need to have special cases to take care of tho, or views that you
+want to materialize while doing the migration. In advanced case you can use
+the pgloader command.
 
 ## The Command
 

@@ -82,7 +82,43 @@
       <div class="row">
         <div class="col-md-2"> </div>
         <div class="col-md-8">
-<h1>Loading SQLite files with pgloader</h1><p>The SQLite database is a respected solution to manage your data with. Its embeded nature makes it a source of migrations when a projects now needs to handle more concurrency, which <a href="http://www.postgresql.org/">PostgreSQL</a> is very good at. pgloader can help you there. </p><h2>The Command</h2><p>To load data with <a href="http://pgloader.io/">pgloader</a> you need to define in a <em>command</em> the operations in some details. Here's our command: </p><pre><code>load database  
+<h1>Loading SQLite files with pgloader</h1><p>The SQLite database is a respected solution to manage your data with. Its embeded nature makes it a source of migrations when a projects now needs to handle more concurrency, which <a href="http://www.postgresql.org/">PostgreSQL</a> is very good at. pgloader can help you there. </p><h2>In a Single Command Line</h2><p>You can </p><pre><code>$ createdb chinook  
+$ pgloader https://github.com/lerocha/chinook-database/raw/master/ChinookDatabase/DataSources/Chinook_Sqlite_AutoIncrementPKs.sqlite pgsql:///chinook </code></pre><p>Done! All with the schema, data, constraints, primary keys and foreign keys, etc. We also see an error with the Chinook schema that contains several primary key definitions against the same table, which is not accepted by PostgreSQL: </p><pre><code>2017-06-20T16:18:59.019000+02:00 LOG Data errors in '/private/tmp/pgloader/'  
+2017-06-20T16:18:59.236000+02:00 LOG Fetching 'https://github.com/lerocha/chinook-database/raw/master/ChinookDatabase/DataSources/Chinook_Sqlite_AutoIncrementPKs.sqlite'  
+2017-06-20T16:19:00.664000+02:00 ERROR Database error 42P16: multiple primary keys for table "playlisttrack" are not allowed  
+QUERY: ALTER TABLE playlisttrack ADD PRIMARY KEY USING INDEX idx_66873_sqlite_autoindex_playlisttrack_1;  
+2017-06-20T16:19:00.665000+02:00 LOG report summary reset  
+             table name       read   imported     errors      total time  
+-----------------------  ---------  ---------  ---------  --------------  
+                  fetch          0          0          0          0.877s  
+        fetch meta data         33         33          0          0.033s  
+         Create Schemas          0          0          0          0.003s  
+       Create SQL Types          0          0          0          0.006s  
+          Create tables         22         22          0          0.043s  
+         Set Table OIDs         11         11          0          0.012s  
+-----------------------  ---------  ---------  ---------  --------------  
+                  album        347        347          0          0.023s  
+                 artist        275        275          0          0.023s  
+               customer         59         59          0          0.021s  
+               employee          8          8          0          0.018s  
+                invoice        412        412          0          0.031s  
+                  genre         25         25          0          0.021s  
+            invoiceline       2240       2240          0          0.034s  
+              mediatype          5          5          0          0.025s  
+          playlisttrack       8715       8715          0          0.040s  
+               playlist         18         18          0          0.016s  
+                  track       3503       3503          0          0.111s  
+-----------------------  ---------  ---------  ---------  --------------  
+COPY Threads Completion         33         33          0          0.313s  
+         Create Indexes         22         22          0          0.160s  
+ Index Build Completion         22         22          0          0.027s  
+        Reset Sequences          0          0          0          0.017s  
+           Primary Keys         12          0          1          0.013s  
+    Create Foreign Keys         11         11          0          0.040s  
+        Create Triggers          0          0          0          0.000s  
+       Install Comments          0          0          0          0.000s  
+-----------------------  ---------  ---------  ---------  --------------  
+      Total import time      15607      15607          0          1.669s </code></pre><p>You may need to have special cases to take care of tho. In advanced case you can use the pgloader command. </p><h2>The Command</h2><p>To load data with <a href="http://pgloader.io/">pgloader</a> you need to define in a <em>command</em> the operations in some details. Here's our command: </p><pre><code>load database  
      from 'sqlite/Chinook_Sqlite_AutoIncrementPKs.sqlite'  
      into postgresql:///pgloader  
  
