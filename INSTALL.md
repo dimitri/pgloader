@@ -2,7 +2,7 @@
 
 pgloader version 3.x is written in Common Lisp.
 
-## The lisp parts
+## Dependencies
 
 The steps depend on the OS you are currently using.
 
@@ -24,6 +24,17 @@ We need a recent enough [SBCL](http://sbcl.org/) version and that means
 backporting the one found in `sid` rather than using the very old one found
 in current *stable* debian release. See `bootstrap-debian.sh` for details
 about how to backport a recent enough SBCL here (1.2.5 or newer).
+
+### Redhat / CentOS
+
+You will need to install the Steel Bank Common Lisp package (sbcl) from EPEL, as 
+well as the freetds-devel package for some shared libraries. With RHEL/CentOS 6, 
+if the packaged version isn't >=1.3.6, you'll need to build it from source. With 
+v7, after installing freetds, you also need to create a softlink from the versioned
+shared library `libsybdb.so.5` to `libsybdb.so`. 
+
+The above steps are prepared for you with `boostrap-centos.sh` and `bootstrap-centos7.sh` respectively. 
+Please report to us if your standard RHEL/CentOS installation required additional steps.
 
 ### Mac OS X
 
