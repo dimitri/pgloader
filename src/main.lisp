@@ -354,6 +354,8 @@
                 (declare (ignore c))    ; handler-bind printed it out
                 (format *error-output* "~%What I am doing here?~%~%")
                 ;; wait until monitor stops...
+                (format *error-output*
+                        "~%Waiting for the monitor thread to complete.~%~%")
                 (let ((lp:*kernel* *monitoring-kernel*))
                   (lp:end-kernel :wait t))
                 (uiop:quit +os-code-error+)))))
