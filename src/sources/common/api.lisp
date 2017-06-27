@@ -45,11 +45,10 @@
     CSV user-defined field projections to PostgreSQL columns. This function
     returns the pre-processing function, which must be a funcallable object."))
 
-(defgeneric queue-raw-data (source queue)
+(defgeneric queue-raw-data (source queue concurrency)
   (:documentation "Send raw data from the reader to the worker queue."))
 
-(defgeneric format-data-to-copy (source raw-queue formatted-queue
-                                 &optional pre-formatted)
+(defgeneric data-is-preformatted-p (source)
   (:documentation
    "Process raw data from RAW-QUEUE and prepare batches of formatted text to
     send down to PostgreSQL with the COPY protocol in FORMATTED-QUEUE."))

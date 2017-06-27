@@ -93,55 +93,108 @@
           (pomo:execute "ROLLBACK"))))))
 
 ;;;
-;;; We receive fully prepared batch from an lparallel queue, push their
-;;; content down to PostgreSQL, handling any data related errors in the way.
+;;; We receive raw input rows from an lparallel queue, push their content
+;;; down to PostgreSQL, handling any data related errors in the way.
 ;;;
-(defun copy-from-queue (pgconn table queue
-			&key
-                          columns
-                          disable-triggers
-                          on-error-stop)
-  "Fetch from the QUEUE messages containing how many rows are in the
-   *writer-batch* for us to send down to PostgreSQL, and when that's done
-   update stats."
-  (let ((seconds 0))
-    (with-pgsql-connection (pgconn)
-      (with-schema (unqualified-table-name table)
-        (with-disabled-triggers (unqualified-table-name
-                                 :disable-triggers disable-triggers)
-          (log-message :info "pgsql:copy-from-queue[~a]: ~a ~a"
-                       (lp:kernel-worker-index)
-                       (format-table-name table)
-                       columns)
+(defun copy-rows-from-queue (copy queue
+                             &key
+                               disable-triggers
+                               on-error-stop
+                               (columns
+                                (pgloader.sources:copy-column-list copy))
+                             &aux
+                               (pgconn  (clone-connection
+                                         (pgloader.sources:target-db copy)))
+                               (table   (pgloader.sources:target copy)))
+  "Fetch rows from the QUEUE, prepare them in batches and send them down to
+   PostgreSQL, and when that's done update stats."
+  (let ((preprocessor  (pgloader.sources::preprocess-row copy))
+        (pre-formatted (pgloader.sources:data-is-preformatted-p copy))
+        (current-batch (make-batch))
+        (seconds 0))
 
-          (loop
-             :for (mesg batch read oversized?) := (lq:pop-queue queue)
-             :until (eq :end-of-data mesg)
-             :for (rows batch-seconds) :=
-             (let ((start-time (get-internal-real-time)))
-               (list (copy-batch table columns batch read
-                                 :on-error-stop on-error-stop)
-                     (elapsed-time-since start-time)))
-             :do (progn
-                   ;; The SBCL implementation needs some Garbage Collection
-                   ;; decision making help... and now is a pretty good time.
-                   #+sbcl (when oversized?
-                            (log-message :debug "Forcing a full GC.")
-                            (sb-ext:gc :full t))
-                   (log-message :debug
-                                "copy-batch[~a] ~a ~d row~:p in ~6$s~@[ [oversized]~]"
-                                (lp:kernel-worker-index)
-                                unqualified-table-name
-                                rows
-                                batch-seconds
-                                oversized?)
-                   (update-stats :data table :rows rows)
-                   (incf seconds batch-seconds))))))
+    (flet ((send-current-batch (unqualified-table-name)
+             ;; we close over the whole lexical environment or almost...
+             (let ((batch-start-time (get-internal-real-time)))
+               (copy-batch table
+                           columns
+                           (batch-data current-batch)
+                           (batch-count current-batch)
+                           :on-error-stop on-error-stop)
+
+               (let ((batch-seconds (elapsed-time-since batch-start-time)))
+                 (log-message :debug
+                              "copy-batch[~a] ~a ~d row~:p [~a] in ~6$s~@[ [oversized]~]"
+                              (lp:kernel-worker-index)
+                              unqualified-table-name
+                              (batch-count current-batch)
+                              (pretty-print-bytes (batch-bytes current-batch))
+                              batch-seconds
+                              (batch-oversized-p current-batch))
+                 (update-stats :data table :rows (batch-count current-batch))
+
+                 ;; return batch-seconds
+                 batch-seconds))))
+      (declare (inline send-current-batch))
+
+      (with-pgsql-connection (pgconn)
+        (with-schema (unqualified-table-name table)
+          (with-disabled-triggers (unqualified-table-name
+                                   :disable-triggers disable-triggers)
+            (log-message :info "pgsql:copy-rows-from-queue[~a]: ~a ~a"
+                         (lp:kernel-worker-index)
+                         (format-table-name table)
+                         columns)
+
+            (loop
+               :for row := (lq:pop-queue queue)
+               :until (eq :end-of-data row)
+               :do
+               (progn
+                 ;; if current-batch is full, send data to PostgreSQL
+                 ;; and prepare a new batch
+                 (when (batch-full-p current-batch)
+                   (let ((batch-seconds
+                          (send-current-batch unqualified-table-name)))
+                     (incf seconds batch-seconds))
+                   (setf current-batch (make-batch)))
+
+                 (format-row-in-batch copy row current-batch
+                                      preprocessor pre-formatted)))
+
+            ;; the last batch might not be empty
+            (unless (= 0 (batch-count current-batch))
+              (send-current-batch unqualified-table-name))))))
 
     ;; each writer thread sends its own stop timestamp and the monitor keeps
     ;; only the latest entry
     (update-stats :data table :ws seconds :stop (get-internal-real-time))
     (log-message :debug "Writer[~a] for ~a is done in ~6$s"
                  (lp:kernel-worker-index)
-                 (format-table-name table) seconds)
+                 (format-table-name table)
+                 seconds)
     (list :writer table seconds)))
+
+
+(declaim (inline send-current-batch))
+(defun format-row-in-batch (copy row current-batch preprocessor pre-formatted)
+  "Given a row from the queue, prepare it for the next batch."
+  (metabang.bind:bind
+      ((row           (if preprocessor (funcall preprocessor row) row))
+
+       ((:values copy-data bytes)
+        (handler-case
+            (format-vector-row row
+                               (pgloader.sources::transforms copy)
+                               pre-formatted)
+          (condition (e)
+            (log-message :error "~a" e)
+            (update-stats :data (pgloader.sources:target copy) :errs 1)
+            (values nil 0)))))
+    ;; we might have to debug
+    (when copy-data
+      (log-message :data "> ~s"
+                   (map 'string #'code-char copy-data)))
+
+    ;; now add copy-data to current-batch
+    (push-row current-batch copy-data bytes)))

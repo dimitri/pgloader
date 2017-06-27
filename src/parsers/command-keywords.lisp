@@ -56,6 +56,7 @@
   (def-keyword-rule "workers")
   (def-keyword-rule "batch")
   (def-keyword-rule "rows")
+  (def-keyword-rule "prefetch")
   (def-keyword-rule "size")
   (def-keyword-rule "concurrency")
   (def-keyword-rule "max")

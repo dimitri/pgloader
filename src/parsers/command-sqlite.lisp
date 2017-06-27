@@ -18,7 +18,7 @@ load database
                            option-concurrency
                            option-batch-rows
                            option-batch-size
-                           option-batch-concurrency
+                           option-prefetch-rows
                            option-max-parallel-create-index
                            option-truncate
                            option-disable-triggers

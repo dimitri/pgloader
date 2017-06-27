@@ -373,6 +373,8 @@
                 worker-count
               (lp:end-kernel :wait nil))))))
 
+    (log-message :info "Done with COPYing data, waiting for indexes")
+
     (when create-indexes
       (let ((lp:*kernel* idx-kernel))
         ;; wait until the indexes are done being built...

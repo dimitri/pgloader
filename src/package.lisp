@@ -234,9 +234,27 @@
            #:elapsed-time-since
            #:timing))
 
+(defpackage #:pgloader.batch
+  (:use #:cl #:pgloader.params #:pgloader.monitor)
+  (:export #:make-batch
+           #:batch-p
+           #:batch-start
+           #:batch-data
+           #:batch-count
+           #:batch-max-count
+           #:batch-max-count
+           #:batch-bytes
+           #:push-row
+           #:batch-oversized-p
+           #:batch-full-p))
+
 (defpackage #:pgloader.utils
   (:use #:cl
-        #:pgloader.params #:pgloader.catalog #:pgloader.monitor #:pgloader.state)
+        #:pgloader.params
+        #:pgloader.catalog
+        #:pgloader.monitor
+        #:pgloader.state
+        #:pgloader.batch)
   (:import-from #:alexandria
                 #:appendf
                 #:read-file-into-string)
@@ -250,6 +268,7 @@
 	   #:camelCase-to-colname
            #:unquote
            #:expand-user-homedir-pathname
+           #:pretty-print-bytes
 
            ;; threads
            #:make-kernel
@@ -265,13 +284,7 @@
 (cl-user::export-inherited-symbols "pgloader.catalog" "pgloader.utils")
 (cl-user::export-inherited-symbols "pgloader.monitor" "pgloader.utils")
 (cl-user::export-inherited-symbols "pgloader.state"   "pgloader.utils")
-
-(defpackage #:pgloader.batch
-  (:use #:cl #:pgloader.params #:pgloader.monitor)
-  (:export #:make-batch
-           #:batch-row
-           #:finish-batch
-           #:push-end-of-data-message))
+(cl-user::export-inherited-symbols "pgloader.batch"   "pgloader.utils")
 
 
 ;;
@@ -352,6 +365,7 @@
 	   #:truncate-tables
 	   #:copy-from-file
 	   #:copy-from-queue
+	   #:copy-from-batch
            #:set-table-oids
 
            #:create-sqltypes
@@ -429,7 +443,7 @@
 	   #:map-rows
            #:copy-column-list
            #:queue-raw-data
-           #:format-data-to-copy
+           #:data-is-preformatted-p
 	   #:copy-from
 	   #:copy-to
 	   #:copy-database

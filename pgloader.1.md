@@ -406,26 +406,12 @@ using the same protocol as pgloader uses.
 
 pgloader uses several concurrent tasks to process the data being loaded:
 
-  - a reader task reads the data in,
-
-  - at least one transformer task is responsible for applying the needed
-    transformations to given data so that it fits PostgreSQL expectations,
-    those transformations include CSV like user-defined *projections*,
-    database *casting* (default and user given), and PostgreSQL specific
-    *formatting* of the data for the COPY protocol and in unicode,
-
-  - at least one writer task is responsible for sending the data down to
-    PostgreSQL using the COPY protocol.
-
-The idea behind having the transformer task do the *formatting* is so that
-in the event of bad rows being rejected by PostgreSQL the retry process
-doesn't have to do that step again.
-
-At the moment, the number of transformer and writer tasks are forced into
-being the same, which allows for a very simple *queueing* model to be
-implemented: the reader task fills in one queue per transformer task,
-which then pops from that queue and pushes to a writer queue per COPY
-task.
+  - a reader task reads the data in and pushes it to a queue,
+  
+  - at last one write task feeds from the queue and formats the raw into the
+    PostgreSQL COPY format in batches (so that it's possible to then retry a
+    failed batch without reading the data from source again), and then sends
+    the data to PostgreSQL using the COPY protocol.
 
 The parameter *workers* allows to control how many worker threads are
 allowed to be active at any time (that's the parallelism level); and the
@@ -438,21 +424,12 @@ context of a single table. A single unit of work consist of several kinds of
 workers:
 
   - a reader getting raw data from the source,
-  - N transformers preparing raw data for PostgreSQL COPY protocol,
-  - N writers sending the data down to PostgreSQL.
+  - N writers preparing and sending the data down to PostgreSQL.
 
 The N here is setup to the *concurrency* parameter: with a *CONCURRENCY* of
-2, we start (+ 1 2 2) = 5 concurrent tasks, with a *concurrency* of 4 we
-start (+ 1 4 4) = 9 concurrent tasks, of which only *workers* may be active
+2, we start (+ 1 2) = 3 concurrent tasks, with a *concurrency* of 4 we start
+(+ 1 4) = 9 concurrent tasks, of which only *workers* may be active
 simultaneously.
-
-So with `workers = 4, concurrency = 2`, the parallel scheduler will
-maintain active only 4 of the 5 tasks that are started.
-
-With `workers = 8, concurrency = 1`, we then are able to work on several
-units of work at the same time. In the database sources, a unit of work is a
-table, so those settings allow pgloader to be active on as many as 3 tables
-at any time in the load process.
 
 The defaults are `workers = 4, concurrency = 1` when loading from a database
 source, and `workers = 8, concurrency = 2` when loading from something else
@@ -581,7 +558,7 @@ Some clauses are common to all commands:
       - *on error stop*
       - *batch rows = R*
       - *batch size = ... MB*
-      - *batch concurrency = ...*
+      - *prefetch rows = ...*
 
     See the section BATCH BEHAVIOUR OPTIONS for more details.
 
@@ -777,13 +754,12 @@ The global batch behaviour options are:
     important so as not to be confused about bits versus bytes, we're only
     talking bytes here.
 
-  - *batch concurrency*
+  - *prefetch rows*
 
-    Takes a numeric value as argument, defaults to `10`. That's the number
-    of batches that pgloader is allows to build in memory in each reader
+    Takes a numeric value as argument, defaults to `100000`. That's the
+    number of rows that pgloader is allowed to read in memory in each reader
     thread. See the *workers* setting for how many reader threads are
-    allowed to run at the same time: each of them is allowed as many as
-    *batch concurrency* batches.
+    allowed to run at the same time.
 
 Other options are specific to each input source, please refer to specific
 parts of the documentation for their listing and covering.

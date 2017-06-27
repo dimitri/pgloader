@@ -23,7 +23,7 @@
                         option-concurrency
                         option-batch-rows
                         option-batch-size
-                        option-batch-concurrency
+                        option-prefetch-rows
                         option-truncate
                         option-disable-triggers
                         option-identifiers-case

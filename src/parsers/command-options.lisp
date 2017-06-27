@@ -73,17 +73,20 @@
     (bind (((_ _ _ val) batch-size))
       (cons :batch-size val))))
 
-(defrule option-batch-concurrency (and kw-batch kw-concurrency equal-sign
-                                       (+ (digit-char-p character)))
-  (:lambda (batch-concurrency)
-    (bind (((_ _ _ nb) batch-concurrency))
-      (cons :batch-concurrency (parse-integer (text nb))))))
+;;; deprecated, but still accept it in the parsing
+(defrule option-prefetch-rows (and (or (and kw-batch kw-concurrency)
+                                       (and kw-prefetch kw-rows))
+                                   equal-sign
+                                   (+ (digit-char-p character)))
+  (:lambda (prefetch-rows)
+    (bind (((_ _ nb) prefetch-rows))
+      (cons :prefetch-rows (parse-integer (text nb))))))
 
 (defun batch-control-bindings (options)
   "Generate the code needed to add batch-control"
   `((*copy-batch-rows*    (or ,(getf options :batch-rows) *copy-batch-rows*))
     (*copy-batch-size*    (or ,(getf options :batch-size) *copy-batch-size*))
-    (*concurrent-batches* (or ,(getf options :batch-concurrency) *concurrent-batches*))))
+    (*prefetch-rows*      (or ,(getf options :prefetch-rows) *prefetch-rows*))))
 
 (defun identifier-case-binding (options)
   "Generate the code needed to bind *identifer-case* to the proper value."
@@ -93,7 +96,7 @@
                                     &key
                                       (option-list '(:batch-rows
                                                      :batch-size
-                                                     :batch-concurrency
+                                                     :prefetch-rows
                                                      :identifier-case))
                                       extras)
   "Given a list of options, remove the generic ones that should already have

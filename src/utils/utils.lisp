@@ -62,3 +62,17 @@
 
            (t
             (uiop:parse-unix-namestring namestring))))))
+
+;;;
+;;; For log messages
+;;;
+(defun pretty-print-bytes (bytes &key (unit "B"))
+  "Return a string to reprensent bytes in human readable format, with units"
+  (let ((bytes (or bytes 0)))
+    (loop
+       :for multiple :in '("T" "G" "M" "k")
+       :for power :in '(40 30 20 10 1)
+       :for limit := (expt 2 power)
+       :until (<= limit bytes)
+       :finally (return
+                  (format nil "~5,1f ~a~a" (/ bytes limit) multiple unit)))))

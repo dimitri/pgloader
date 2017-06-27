@@ -22,7 +22,7 @@
            #:*preserve-index-names*
 	   #:*copy-batch-rows*
            #:*copy-batch-size*
-           #:*concurrent-batches*
+           #:*prefetch-rows*
 	   #:*pg-settings*
            #:*mysql-settings*
 	   #:*default-tmpdir*
@@ -133,8 +133,8 @@
 (defparameter *copy-batch-size* (* 20 1024 1024)
   "Maximum memory size allowed for a single batch.")
 
-(defparameter *concurrent-batches* 10
-  "How many batches do we stack in the queue in advance.")
+(defparameter *prefetch-rows* 100000
+  "How many rows do read in advance in the reader queue.")
 
 (defparameter *pg-settings* nil "An alist of GUC names and values.")
 (defparameter *mysql-settings* nil "An alist of GUC names and values.")
