@@ -208,7 +208,9 @@
       ;; here we want an alist
       (list* opt1 opts))))
 
-(defrule gucs (and kw-set generic-option-list)
+(defrule gucs (and kw-set
+                   (? (and kw-postgresql kw-parameters))
+                   generic-option-list)
   (:lambda (source)
-    (bind (((_ gucs) source))
+    (bind (((_ _ gucs) source))
       (cons :gucs gucs))))

@@ -63,9 +63,17 @@
 
 
 ;;;
+;;; MySQL SET parameters, because sometimes we need that
+;;;
+(defrule mysql-gucs (and kw-set kw-mysql kw-parameters generic-option-list)
+  (:lambda (mygucs) (cons :mysql-gucs (fourth mygucs))))
+
+
+;;;
 ;;; Allow clauses to appear in any order
 ;;;
 (defrule load-mysql-optional-clauses (* (or mysql-options
+                                            mysql-gucs
                                             gucs
                                             casts
                                             alter-table
@@ -140,7 +148,8 @@
 
 (defun lisp-code-for-loading-from-mysql (my-db-conn pg-db-conn
                                          &key
-                                           gucs casts views before after options
+                                           gucs mysql-gucs
+                                           casts views before after options
                                            alter-table alter-schema
                                            ((:including incl))
                                            ((:excluding excl))
@@ -149,6 +158,7 @@
      (let* ((*default-cast-rules* ',*mysql-default-cast-rules*)
             (*cast-rules*         ',casts)
             (*decoding-as*        ',decoding-as)
+            (*mysql-settings*     ',mysql-gucs)
             ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
@@ -175,7 +185,7 @@
     (destructuring-bind (my-db-uri
                          pg-db-uri
                          &key
-                         gucs casts views before after options
+                         gucs mysql-gucs casts views before after options
                          alter-table alter-schema
                          including excluding decoding)
         source
@@ -184,6 +194,7 @@
             (t
              (lisp-code-for-loading-from-mysql my-db-uri pg-db-uri
                                                :gucs gucs
+                                               :mysql-gucs mysql-gucs
                                                :casts casts
                                                :views views
                                                :before before

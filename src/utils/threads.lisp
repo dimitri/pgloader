@@ -12,6 +12,7 @@
                             (*copy-batch-size*    . ,*copy-batch-size*)
                             (*concurrent-batches* . ,*concurrent-batches*)
 			    (*pg-settings*        . ',*pg-settings*)
+			    (*mysql-settings*     . ',*mysql-settings*)
                             (*root-dir*           . ,*root-dir*)
                             (*fd-path-root*       . ,*fd-path-root*)
                             (*client-min-messages* . ,*client-min-messages*)

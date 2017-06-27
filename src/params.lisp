@@ -24,6 +24,7 @@
            #:*copy-batch-size*
            #:*concurrent-batches*
 	   #:*pg-settings*
+           #:*mysql-settings*
 	   #:*default-tmpdir*
 	   #:init-params-from-environment
 	   #:getenv-default
@@ -136,6 +137,7 @@
   "How many batches do we stack in the queue in advance.")
 
 (defparameter *pg-settings* nil "An alist of GUC names and values.")
+(defparameter *mysql-settings* nil "An alist of GUC names and values.")
 
 ;;;
 ;;; Archive processing: downloads and unzip.

@@ -29,6 +29,11 @@
                                  :password (db-pass myconn)
                                  :database (db-name myconn))))
   (log-message :debug "CONNECTED TO ~a" myconn)
+
+  ;; apply mysql-settings, if any
+  (loop :for (name . value) :in *mysql-settings*
+     :for sql := (format nil "set ~a = ~a;" name value)
+     :do (query myconn sql))
   ;; return the connection object
   myconn)
 
@@ -47,7 +52,7 @@
                     (as-text t)
                     (result-type 'list))
   "Run SQL query against MySQL connection MYCONN."
-  (log-message :debug "MySQL: sending query: ~a" sql)
+  (log-message :sql "MySQL: sending query: ~a" sql)
   (qmynd:mysql-query (conn-handle myconn)
                      sql
                      :row-fn row-fn
@@ -57,14 +62,14 @@
 ;;;
 ;;; The generic API query is recent, used to look like this:
 ;;;
+(declaim (inline mysql-query))
 (defun mysql-query (query &key row-fn (as-text t) (result-type 'list))
   "Execute given QUERY within the current *connection*, and set proper
    defaults for pgloader."
-  (log-message :sql "MySQL: sending query: ~a" query)
-  (qmynd:mysql-query (conn-handle *connection*) query
-                     :row-fn row-fn
-                     :as-text as-text
-                     :result-type result-type))
+  (query *connection* query
+         :row-fn row-fn
+         :as-text as-text
+         :result-type result-type))
 
 ;;;
 ;;; Function for accessing the MySQL catalogs, implementing auto-discovery.

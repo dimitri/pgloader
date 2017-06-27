@@ -1541,9 +1541,14 @@ Here's an example:
      WITH include drop, create tables, create indexes, reset sequences,
           workers = 8, concurrency = 1
 
-      SET maintenance_work_mem to '128MB',
+      SET PostgreSQL PARAMETERS
+          maintenance_work_mem to '128MB',
           work_mem to '12MB',
-          search_path to 'sakila'
+          search_path to 'sakila, public, "$user"'
+    
+      SET MySQL PARAMETERS
+          net_read_timeout  = '120',
+          net_write_timeout = '120'
 
      CAST type datetime to timestamptz drop default drop not null using zero-dates-to-null,
           type date drop not null drop default using zero-dates-to-null,
@@ -1742,6 +1747,11 @@ The `database` command accepts the following clauses and options:
 	    When this option is listed pgloader only issues the `COPY`
 	    statements, without doing any other processing.
 
+  - *SET MySQL PARAMETERS*
+  
+    The *SET MySQL PARAMETERS* allows setting MySQL parameters using the
+    MySQL `SET` command each time pgloader connects to it.
+  
   - *CAST*
 
 	The cast clause allows to specify custom casting rules, either to

@@ -11,9 +11,14 @@ load database
       max parallel create index = 4-- ,
       -- quote identifiers
 
-  SET maintenance_work_mem to '128MB',
+  SET PostgreSQL PARAMETERS
+      maintenance_work_mem to '128MB',
       work_mem to '12MB',
       search_path to 'sakila, public, "$user"'
+
+  SET MySQL PARAMETERS
+      net_read_timeout  = '120',
+      net_write_timeout = '120'
 
  CAST type date drop not null drop default using zero-dates-to-null,
       type datetime to timestamp drop default drop not null using zero-dates-to-null

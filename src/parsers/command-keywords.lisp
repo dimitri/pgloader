@@ -51,6 +51,7 @@
   (def-keyword-rule "on")
   (def-keyword-rule "error")
   (def-keyword-rule "stop")
+  (def-keyword-rule "parameters")
   ;; option for loading from a file
   (def-keyword-rule "workers")
   (def-keyword-rule "batch")
@@ -145,3 +146,5 @@
 (defrule kw-auto-increment (and "auto_increment" (* (or #\Tab #\Space)))
   (:constant :auto-increment))
 
+(defrule kw-postgresql (or (~ "pgsql") (~ "postgresql")))
+(defrule kw-mysql (~ "mysql"))
