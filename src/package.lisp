@@ -220,6 +220,7 @@
 (defpackage #:pgloader.monitor
   (:use #:cl #:pgloader.params #:pgloader.state)
   (:export #:with-monitor
+           #:*monitoring-kernel*
            #:*monitoring-queue*
            #:log-message
            #:new-label

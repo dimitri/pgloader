@@ -345,13 +345,17 @@
 
               (source-definition-error (c)
                 (declare (ignore c))    ; handler-bind printed it out
-                (sleep 0.3)             ; wait until monitor stops...
+                ;; wait until monitor stops...
+                (let ((lp:*kernel* *monitoring-kernel*))
+                  (lp:end-kernel :wait t))
                 (uiop:quit +os-code-error-bad-source+))
 
               (condition (c)
                 (declare (ignore c))    ; handler-bind printed it out
-                (log-message :log "What I am doing here?")
-                (sleep 0.3)             ; wait until monitor stops...
+                (format *error-output* "~%What I am doing here?~%~%")
+                ;; wait until monitor stops...
+                (let ((lp:*kernel* *monitoring-kernel*))
+                  (lp:end-kernel :wait t))
                 (uiop:quit +os-code-error+)))))
 
         ;; done.

@@ -12,6 +12,9 @@
 ;;;
 (in-package :pgloader.monitor)
 
+(defvar *monitoring-kernel* nil
+  "Internal lparallel kernel to manage the separate monitor thread.")
+
 (defvar *monitoring-queue* nil
   "Internal lparallel queue where to send and receive messages from.")
 
@@ -130,8 +133,12 @@
                       (*standard-output*     . ,*standard-output*)
                       (*summary-pathname*    . ,*summary-pathname*)
                       (*sections*            . ',*sections*)))
-         (lparallel:*kernel*   (lp:make-kernel 1 :bindings bindings))
-         (*monitoring-channel* (lp:make-channel)))
+         (kernel      (lp:make-kernel 1 :bindings bindings))
+         (lparallel:*kernel* kernel))
+
+    ;; make our kernel and channel visible from the outside
+    (setf *monitoring-kernel* kernel
+          *monitoring-channel* (lp:make-channel))
 
     (lp:submit-task *monitoring-channel* #'monitor *monitoring-queue*)
     (send-event (make-start :start-logger start-logger))
