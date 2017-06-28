@@ -76,3 +76,21 @@
        :until (<= limit bytes)
        :finally (return
                   (format nil "~5,1f ~a~a" (/ bytes limit) multiple unit)))))
+
+;;;
+;;; Defining ranges and partitions.
+;;;
+(defun split-range (min max &optional (count *rows-per-range*))
+  "Split the range from MIN to MAX into sub-ranges of COUNT elements."
+  (loop :for i := min :then j
+     :for j := (+ i count)
+     :while (< i max)
+     :collect (list i (min j max))))
+
+(defun distribute (list-of-ranges count)
+  "Split a list of ranges into COUNT sublists."
+  (let ((result (make-array count :element-type 'list :initial-element nil)))
+    (loop :for i :from 0
+       :for range :in list-of-ranges
+       :do (push range (aref result (mod i count))))
+    (map 'list #'reverse result )))

@@ -64,58 +64,96 @@
                     (format-vector-row text-file row (transforms copy)))))
       (map-rows copy :process-row-fn row-fn))))
 
-(defun task-count (concurrency)
-  "Return how many threads we are going to start given a number of WORKERS."
-  ;; (+ 1 concurrency concurrency)
-  (+ 1 concurrency))
-
 (defmethod copy-from ((copy copy)
                       &key
                         (kernel nil k-s-p)
                         (channel nil c-s-p)
                         (worker-count 8)
                         (concurrency 2)
+                        (multiple-readers nil)
                         (on-error-stop *on-error-stop*)
                         disable-triggers)
   "Copy data from COPY source into PostgreSQL."
   (let* ((table-name   (format-table-name (target copy)))
          (lp:*kernel*  (or kernel (make-kernel worker-count)))
          (channel      (or channel (lp:make-channel)))
-         (rawq        (lq:make-queue :fixed-capacity *concurrent-batches*)))
+         (readers      nil)
+         (task-count   0))
 
-    (lp:task-handler-bind
-        ((on-error-stop
-          #'(lambda (condition)
-              ;; everything has been handled already
-              (lp:invoke-transfer-error condition)))
-         (error
-          #'(lambda (condition)
-              (log-message :error "A thread failed with error: ~a" condition)
-              (if (member *client-min-messages* (list :debug :data))
-                  #-pgloader-image
-                  (log-message :error "~a"
-                               (trivial-backtrace:print-backtrace condition
-                                                                  :output nil))
-                  #+pgloader-image
-                  (lp::invoke-debugger condition))
-              (lp::invoke-transfer-error condition))))
-      (log-message :notice "COPY ~a" table-name)
+    (flet ((submit-task (channel function &rest args)
+             (apply #'lp:submit-task channel function args)
+             (incf task-count)))
 
-      ;; start a task to read data from the source into the queue
-      (lp:submit-task channel #'queue-raw-data copy rawq concurrency)
+      (lp:task-handler-bind
+          ((on-error-stop
+            #'(lambda (condition)
+                ;; everything has been handled already
+                (lp:invoke-transfer-error condition)))
+           (error
+            #'(lambda (condition)
+                (log-message :error "A thread failed with error: ~a" condition)
+                (if (member *client-min-messages* (list :debug :data))
+                    #-pgloader-image
+                    (log-message :error "~a"
+                                 (trivial-backtrace:print-backtrace condition
+                                                                    :output nil))
+                    #+pgloader-image
+                    (lp::invoke-debugger condition))
+                (lp::invoke-transfer-error condition))))
+        (log-message :notice "COPY ~a" table-name)
 
-      ;; start a task to transform the raw data in the copy format
-      ;; and send that data down to PostgreSQL
-      (loop :repeat concurrency
-         :do (lp:submit-task channel #'pgloader.pgsql::copy-rows-from-queue
-                             copy rawq
-                             :on-error-stop on-error-stop
-                             :disable-triggers disable-triggers))
+        ;; Check for Read Concurrency Support from our source
+        (when (and multiple-readers (< 1 concurrency))
+          (let ((label "Check Concurrency Support"))
+            (with-stats-collection (label :section :pre)
+              (setf readers (concurrency-support copy concurrency))
+              (update-stats :pre label :read 1 :rows (if readers 1 0))
+              (when readers
+                (log-message :notice "Multiple Readers Enabled for ~a"
+                             (format-table-name (target copy)))))))
 
-      ;; now wait until both the tasks are over, and kill the kernel
-      (unless c-s-p
-        (log-message :debug "waiting for ~d tasks" (task-count concurrency))
-        (loop :repeat (task-count concurrency)
-           :do (lp:receive-result channel))
-        (log-message :notice "COPY ~s done." table-name)
-        (unless k-s-p (lp:end-kernel :wait t))))))
+        ;; when reader is non-nil, we have reader concurrency support!
+        (if readers
+            ;; here we have detected Concurrency Support: we create as many
+            ;; readers as writers and create associated couples, each couple
+            ;; shares its own queue
+            (let ((rawqs
+                   (loop :repeat concurrency :collect
+                      (lq:make-queue :fixed-capacity *prefetch-rows*))))
+              (log-message :info "Read Concurrency Enabled for ~s"
+                           (format-table-name (target copy)))
+
+              (loop :for rawq :in rawqs :for reader :in readers :do
+                 ;; each reader pretends to be alone, pass 1 as concurrency
+                 (submit-task channel #'queue-raw-data reader rawq 1)
+
+                 (submit-task channel #'pgloader.pgsql::copy-rows-from-queue
+                              copy rawq
+                              :on-error-stop on-error-stop
+                              :disable-triggers disable-triggers)))
+
+            ;; no Read Concurrency Support detected, start a single reader
+            ;; task, using a single data queue that is read by multiple
+            ;; writers.
+            (let ((rawq
+                   (lq:make-queue :fixed-capacity *prefetch-rows*)))
+              (submit-task channel #'queue-raw-data copy rawq concurrency)
+
+              ;; start a task to transform the raw data in the copy format
+              ;; and send that data down to PostgreSQL
+              (loop :repeat concurrency :do
+                 (submit-task channel #'pgloader.pgsql::copy-rows-from-queue
+                              copy rawq
+                              :on-error-stop on-error-stop
+                              :disable-triggers disable-triggers))))
+
+        ;; now wait until both the tasks are over, and kill the kernel
+        (unless c-s-p
+          (log-message :debug "waiting for ~d tasks" task-count)
+          (loop :repeat task-count :do (lp:receive-result channel))
+          (log-message :notice "COPY ~s done." table-name)
+          (unless k-s-p (lp:end-kernel :wait t)))
+
+        ;; return task-count, which is how many tasks we submitted to our
+        ;; lparallel kernel.
+        task-count))))

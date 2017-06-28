@@ -130,6 +130,13 @@
   (def-keyword-rule "including")
   (def-keyword-rule "excluding")
   (def-keyword-rule "like")
+  (def-keyword-rule "multiple")
+  (def-keyword-rule "single")
+  (def-keyword-rule "reader")
+  (def-keyword-rule "readers")
+  (def-keyword-rule "per")
+  (def-keyword-rule "thread")
+  (def-keyword-rule "range")
   ;; option for loading from an archive
   (def-keyword-rule "archive")
   (def-keyword-rule "before")

@@ -22,6 +22,7 @@
            #:*preserve-index-names*
 	   #:*copy-batch-rows*
            #:*copy-batch-size*
+           #:*rows-per-range*
            #:*prefetch-rows*
 	   #:*pg-settings*
            #:*mysql-settings*
@@ -135,6 +136,9 @@
 
 (defparameter *prefetch-rows* 100000
   "How many rows do read in advance in the reader queue.")
+
+(defparameter *rows-per-range* 10000
+  "How many rows to read in each reader's thread, per SQL query.")
 
 (defparameter *pg-settings* nil "An alist of GUC names and values.")
 (defparameter *mysql-settings* nil "An alist of GUC names and values.")

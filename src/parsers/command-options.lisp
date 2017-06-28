@@ -82,11 +82,18 @@
     (bind (((_ _ nb) prefetch-rows))
       (cons :prefetch-rows (parse-integer (text nb))))))
 
+(defrule option-rows-per-range (and kw-rows kw-per kw-range
+                                    equal-sign
+                                    (+ (digit-char-p character)))
+  (:lambda (rows-per-range)
+    (cons :rows-per-range (parse-integer (text (fifth rows-per-range))))))
+
 (defun batch-control-bindings (options)
   "Generate the code needed to add batch-control"
-  `((*copy-batch-rows*    (or ,(getf options :batch-rows) *copy-batch-rows*))
-    (*copy-batch-size*    (or ,(getf options :batch-size) *copy-batch-size*))
-    (*prefetch-rows*      (or ,(getf options :prefetch-rows) *prefetch-rows*))))
+  `((*copy-batch-rows* (or ,(getf options :batch-rows) *copy-batch-rows*))
+    (*copy-batch-size* (or ,(getf options :batch-size) *copy-batch-size*))
+    (*prefetch-rows*   (or ,(getf options :prefetch-rows) *prefetch-rows*))
+    (*rows-per-range*  (or ,(getf options :rows-per-range) *rows-per-range*))))
 
 (defun identifier-case-binding (options)
   "Generate the code needed to bind *identifer-case* to the proper value."
@@ -97,6 +104,7 @@
                                       (option-list '(:batch-rows
                                                      :batch-size
                                                      :prefetch-rows
+                                                     :rows-per-range
                                                      :identifier-case))
                                       extras)
   "Given a list of options, remove the generic ones that should already have
@@ -128,6 +136,14 @@
 (make-option-rule create-indexes   (and kw-create (? kw-no) kw-indexes))
 (make-option-rule reset-sequences  (and kw-reset  (? kw-no) kw-sequences))
 (make-option-rule foreign-keys     (and (? kw-no) kw-foreign kw-keys))
+
+(defrule option-single-reader (and kw-single kw-reader kw-per kw-thread)
+  (:constant (cons :multiple-readers nil)))
+
+(defrule option-multiple-readers (and kw-multiple
+                                      (or kw-readers kw-reader)
+                                      kw-per kw-thread)
+  (:constant (cons :multiple-readers t)))
 
 (defrule option-schema-only (and kw-schema kw-only)
   (:constant (cons :schema-only t)))

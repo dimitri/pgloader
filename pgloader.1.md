@@ -1508,14 +1508,17 @@ building.
 A default set of casting rules are provided and might be overloaded and
 appended to by the command.
 
-Here's an example:
+Here's an example using as many options as possible, some of them even being
+defaults. Chances are you don't need that complex a setup, don't copy and
+paste it, use it only as a reference!
 
     LOAD DATABASE
          FROM      mysql://root@localhost/sakila
          INTO postgresql://localhost:54393/sakila
 
      WITH include drop, create tables, create indexes, reset sequences,
-          workers = 8, concurrency = 1
+          workers = 8, concurrency = 1,
+          multiple readers per thread, rows per range = 50000
 
       SET PostgreSQL PARAMETERS
           maintenance_work_mem to '128MB',
@@ -1526,7 +1529,7 @@ Here's an example:
           net_read_timeout  = '120',
           net_write_timeout = '120'
 
-     CAST type datetime to timestamptz drop default drop not null using zero-dates-to-null,
+     CAST type bigint when (= precision 20) to bigserial drop typemod,
           type date drop not null drop default using zero-dates-to-null,
           -- type tinyint to boolean using tinyint-to-boolean,
           type year to integer
@@ -1722,6 +1725,39 @@ The `database` command accepts the following clauses and options:
 
 	    When this option is listed pgloader only issues the `COPY`
 	    statements, without doing any other processing.
+
+      - *single reader per thread*, *multiple readers per thread*
+      
+        The default is *single reader per thread* and it means that each
+        MySQL table is read by a single thread as a whole, with a single
+        `SELECT` statement using no `WHERE` clause.
+        
+        When using *multiple readers per thread* pgloader may be able to
+        divide the reading work into several threads, as many as the
+        *concurrency* setting, which needs to be greater than 1 for this
+        option to kick be activated.
+        
+        For each source table, pgloader searches for a primary key over a
+        single numeric column, or a multiple-column primary key index for
+        which the first column is of a numeric data type (one of `integer`
+        or `bigint`). When such an index exists, pgloader runs a query to
+        find the *min* and *max* values on this column, and then split that
+        range into many ranges containing a maximum of *rows per range*.
+        
+        When the range list we then obtain contains at least as many ranges
+        than our concurrency setting, then we distribute those ranges to
+        each reader thread.
+        
+        So when all the conditions are met, pgloader then starts as many
+        reader thread as the *concurrency* setting, and each reader thread
+        issues several queries with a `WHERE id >= x AND id < y`, where `y -
+        x = rows per range` or less (for the last range, depending on the
+        max value just obtained.
+      
+      - *rows per range*
+      
+        How many rows are fetched per `SELECT` query when using *multiple
+        readers per thread*, see above for details.
 
   - *SET MySQL PARAMETERS*
   

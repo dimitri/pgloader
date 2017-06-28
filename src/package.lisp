@@ -269,6 +269,8 @@
            #:unquote
            #:expand-user-homedir-pathname
            #:pretty-print-bytes
+           #:split-range
+           #:distribute
 
            ;; threads
            #:make-kernel
@@ -440,6 +442,7 @@
            #:header
 
            ;; main protocol/api
+           #:concurrency-support
 	   #:map-rows
            #:copy-column-list
            #:queue-raw-data

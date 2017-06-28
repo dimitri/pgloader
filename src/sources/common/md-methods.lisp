@@ -140,38 +140,38 @@
     ;; files actually.
     (let* ((lp:*kernel* (make-kernel worker-count))
            (channel     (lp:make-channel))
-           (path-list   (expand-spec (source copy))))
+           (path-list   (expand-spec (source copy)))
+           (task-count  0))
       (with-stats-collection ("Files Processed" :section :post
                                                 :use-result-as-read t
                                                 :use-result-as-rows t)
         (loop :for path-spec :in path-list
            :count t
            :do (let ((table-source (clone-copy-for copy path-spec)))
-                 (copy-from table-source
-                            :concurrency concurrency
-                            :kernel lp:*kernel*
-                            :channel channel
-                            :on-error-stop on-error-stop
-                            :disable-triggers disable-triggers))))
+                 (incf task-count
+                       (copy-from table-source
+                                  :concurrency concurrency
+                                  :kernel lp:*kernel*
+                                  :channel channel
+                                  :on-error-stop on-error-stop
+                                  :disable-triggers disable-triggers)))))
 
       ;; end kernel
       (with-stats-collection ("COPY Threads Completion" :section :post
                                                         :use-result-as-read t
                                                         :use-result-as-rows t)
-          (let ((worker-count (* (length path-list)
-                                 (task-count concurrency))))
-            (loop :for tasks :below worker-count
-               :do (handler-case
-                       (destructuring-bind (task table seconds)
-                           (lp:receive-result channel)
-                         (log-message :debug
-                                      "Finished processing ~a for ~s ~50T~6$s"
-                                      task (format-table-name table) seconds))
-                     (condition (e)
-                       (log-message :fatal "~a" e))))
-            (prog1
-                worker-count
-              (lp:end-kernel :wait nil))))
+        (loop :repeat task-count
+           :do (handler-case
+                   (destructuring-bind (task table seconds)
+                       (lp:receive-result channel)
+                     (log-message :debug
+                                  "Finished processing ~a for ~s ~50T~6$s"
+                                  task (format-table-name table) seconds))
+                 (condition (e)
+                   (log-message :fatal "~a" e)))
+           :finally (progn
+                      (lp:end-kernel :wait nil)
+                      (return task-count))))
       (lp:end-kernel :wait t))
 
     ;; re-create the indexes from the target table entry

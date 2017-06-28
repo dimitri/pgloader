@@ -212,6 +212,7 @@
                             (on-error-stop    *on-error-stop*)
                             (worker-count     4)
                             (concurrency      1)
+                            (multiple-readers nil)
                             max-parallel-create-index
 			    (truncate         nil)
 			    (disable-triggers nil)
@@ -271,7 +272,9 @@
                                            max-indexes))))
          (idx-channel   (when idx-kernel
                           (let ((lp:*kernel* idx-kernel))
-                            (lp:make-channel)))))
+                            (lp:make-channel))))
+
+         (task-count    0))
 
     ;; apply catalog level transformations to support the database migration
     ;; that's CAST rules, index WHERE clause rewriting and ALTER commands
@@ -327,12 +330,15 @@
                  ;; copy-from, we have concurrency tasks writing.
                  (progn                 ; when copy-data
                    (setf (gethash table writers-count) concurrency)
-                   (copy-from table-source
-                              :concurrency concurrency
-                              :kernel copy-kernel
-                              :channel copy-channel
-                              :on-error-stop on-error-stop
-                              :disable-triggers disable-triggers)))))
+
+                   (incf task-count
+                         (copy-from table-source
+                                    :concurrency concurrency
+                                    :multiple-readers multiple-readers
+                                    :kernel copy-kernel
+                                    :channel copy-channel
+                                    :on-error-stop on-error-stop
+                                    :disable-triggers disable-triggers))))))
 
     ;; now end the kernels
     ;; and each time a table is done, launch its indexing
@@ -341,37 +347,35 @@
         (with-stats-collection ("COPY Threads Completion" :section :post
                                                           :use-result-as-read t
                                                           :use-result-as-rows t)
-          (let ((worker-count (* (hash-table-count writers-count)
-                                 (task-count concurrency))))
-            (loop :for tasks :below worker-count
-               :do (destructuring-bind (task table seconds)
-                       (lp:receive-result copy-channel)
-                     (log-message :debug
-                                  "Finished processing ~a for ~s ~50T~6$s"
-                                  task (format-table-name table) seconds)
-                     (when (eq :writer task)
-                       ;;
-                       ;; Start the CREATE INDEX parallel tasks only when
-                       ;; the data has been fully copied over to the
-                       ;; corresponding table, that's when the writers
-                       ;; count is down to zero.
-                       ;;
-                       (decf (gethash table writers-count))
-                       (log-message :debug "writers-counts[~a] = ~a"
-                                    (format-table-name table)
-                                    (gethash table writers-count))
+          (loop :repeat task-count
+             :do (destructuring-bind (task table seconds)
+                     (lp:receive-result copy-channel)
+                   (log-message :debug
+                                "Finished processing ~a for ~s ~50T~6$s"
+                                task (format-table-name table) seconds)
+                   (when (eq :writer task)
+                     ;;
+                     ;; Start the CREATE INDEX parallel tasks only when
+                     ;; the data has been fully copied over to the
+                     ;; corresponding table, that's when the writers
+                     ;; count is down to zero.
+                     ;;
+                     (decf (gethash table writers-count))
+                     (log-message :debug "writers-counts[~a] = ~a"
+                                  (format-table-name table)
+                                  (gethash table writers-count))
 
-                       (when (and create-indexes
-                                  (zerop (gethash table writers-count)))
-                         (alexandria:appendf
-                          pkeys
-                          (create-indexes-in-kernel (target-db copy)
-                                                    table
-                                                    idx-kernel
-                                                    idx-channel))))))
-            (prog1
-                worker-count
-              (lp:end-kernel :wait nil))))))
+                     (when (and create-indexes
+                                (zerop (gethash table writers-count)))
+                       (alexandria:appendf
+                        pkeys
+                        (create-indexes-in-kernel (target-db copy)
+                                                  table
+                                                  idx-kernel
+                                                  idx-channel)))))
+             :finally (progn
+                        (lp:end-kernel :wait nil)
+                        (return worker-count))))))
 
     (log-message :info "Done with COPYing data, waiting for indexes")
 

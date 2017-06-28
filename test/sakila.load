@@ -7,7 +7,9 @@ load database
 
  -- WITH batch rows = 10000
 
- WITH on error stop, concurrency = 1, workers = 6,
+ WITH on error stop, concurrency = 2, workers = 6,
+      prefetch rows = 25000,
+      -- multiple readers per thread, rows per range = 50000,
       max parallel create index = 4-- ,
       -- quote identifiers
 

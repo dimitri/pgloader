@@ -10,6 +10,7 @@
 			  `((*monitoring-queue*   . ,*monitoring-queue*)
                             (*copy-batch-rows*    . ,*copy-batch-rows*)
                             (*copy-batch-size*    . ,*copy-batch-size*)
+                            (*rows-per-range*     . ,*rows-per-range*)
                             (*prefetch-rows*      . ,*prefetch-rows*)
 			    (*pg-settings*        . ',*pg-settings*)
 			    (*mysql-settings*     . ',*mysql-settings*)

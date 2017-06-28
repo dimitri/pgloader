@@ -34,6 +34,11 @@
 	(setf (slot-value source 'transforms)
               (make-list (length (slot-value source 'columns))))))))
 
+(defgeneric concurrency-support (copy concurrency)
+  (:documentation
+   "Returns nil when no concurrency is supported, or a list of copy ojbects
+    prepared to run concurrently."))
+
 (defgeneric map-rows (source &key process-row-fn)
   (:documentation
    "Load data from SOURCE and funcall PROCESS-ROW-FUN for each row found in
