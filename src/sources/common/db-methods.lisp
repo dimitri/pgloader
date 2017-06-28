@@ -24,7 +24,7 @@
    tables for materialized views.
 
    That function mutates index definitions in ALL-INDEXES."
-  (log-message :info "~:[~;DROP then ~]CREATE TABLES" include-drop)
+  (log-message :notice "Prepare PostgreSQL database.")
 
   (with-pgsql-transaction (:pgconn (target-db copy))
     (when create-schemas
@@ -131,45 +131,80 @@
   ;; able to benefit from the indexes. In particular avoid doing that step
   ;; while CREATE INDEX statements are in flight (avoid locking).
   ;;
+  (log-message :notice "Complete PostgreSQL database.")
+
   (when reset-sequences
     (reset-sequences (clone-connection (target-db copy)) catalog))
 
-  (with-pgsql-connection ((clone-connection (target-db copy)))
-    ;;
-    ;; Turn UNIQUE indexes into PRIMARY KEYS now
-    ;;
-    (when create-indexes
-      (pgsql-execute-with-timing :post "Primary Keys"
-                                 pkeys
-                                 :count (length pkeys))
+  (handler-case
+      (with-pgsql-transaction (:pgconn (clone-connection (target-db copy)))
+        ;;
+        ;; Turn UNIQUE indexes into PRIMARY KEYS now
+        ;;
+        (when create-indexes
+          (pgsql-execute-with-timing :post "Primary Keys"
+                                     pkeys
+                                     :count (length pkeys))
 
-      ;;
-      ;; Foreign Key Constraints
-      ;;
-      ;; We need to have finished loading both the reference and the refering
-      ;; tables to be able to build the foreign keys, so wait until all tables
-      ;; and indexes are imported before doing that.
-      ;;
-      (when foreign-keys
-        (create-pgsql-fkeys catalog
-                            :section :post
-                            :label "Create Foreign Keys"))
+          ;;
+          ;; Foreign Key Constraints
+          ;;
+          ;; We need to have finished loading both the reference and the
+          ;; refering tables to be able to build the foreign keys, so wait
+          ;; until all tables and indexes are imported before doing that.
+          ;;
+          (when foreign-keys
+            (create-pgsql-fkeys catalog
+                                :section :post
+                                :label "Create Foreign Keys"))
 
-      ;;
-      ;; Triggers and stored procedures -- includes special default values
-      ;;
-      (when create-triggers
-        (with-pgsql-transaction (:pgconn (target-db copy))
-          (create-triggers catalog
-                           :section :post
-                           :label "Create Triggers"))))
+          ;;
+          ;; Triggers and stored procedures -- includes special default values
+          ;;
+          (when create-triggers
+            (create-triggers catalog
+                             :section :post
+                             :label "Create Triggers")))
 
-    ;;
-    ;; And now, comments on tables and columns.
-    ;;
-    (comment-on-tables-and-columns catalog
-                                   :section :post
-                                   :label "Install Comments")))
+        ;;
+        ;; And now, comments on tables and columns.
+        ;;
+        (comment-on-tables-and-columns catalog
+                                       :section :post
+                                       :label "Install Comments"))
+
+    ((or
+      cl-postgres-error::server-shutdown
+      cl-postgres-error::admin-shutdown
+      cl-postgres-error::crash-shutdown
+      cl-postgres-error::operator-intervention
+      cl-postgres-error::cannot-connect-now
+      cl-postgres-error::database-connection-error
+      cl-postgres-error::database-connection-lost
+      cl-postgres-error::database-socket-error)
+        (condition)
+
+      (log-message :error "~a" condition)
+      (log-message :error
+                   "Complete PostgreSQL database reconnecting to PostgreSQL.")
+
+     ;; in order to avoid Socket error in "connect": ECONNREFUSED if we
+     ;; try just too soon, wait a little
+      (sleep 2)
+
+
+     ;;
+     ;; Reset Sequence can be done several times safely, and the rest of the
+     ;; operations run in a single transaction, so if the connection was lost,
+     ;; nothing has been done. Retry.
+     ;;
+      (complete-pgsql-database copy
+                               catalog
+                               pkeys
+                               :foreign-keys foreign-keys
+                               :create-indexes create-indexes
+                               :create-triggers create-triggers
+                               :reset-sequences reset-sequences))))
 
 (defmethod instanciate-table-copy-object ((copy db-copy) (table table))
   "Create an new instance for copying TABLE data."

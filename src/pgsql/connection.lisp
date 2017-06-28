@@ -140,9 +140,18 @@
    been applied. PostgreSQL warnings and errors are logged at the
    appropriate log level."
   `(handler-bind
-       ((cl-postgres:database-error
-	 #'(lambda (e)
-	     (log-message :error "~a" e)))
+       (((and cl-postgres:database-error
+              (not (or
+                    cl-postgres-error::server-shutdown
+                    cl-postgres-error::admin-shutdown
+                    cl-postgres-error::crash-shutdown
+                    cl-postgres-error::operator-intervention
+                    cl-postgres-error::cannot-connect-now
+                    cl-postgres-error::database-connection-error
+                    cl-postgres-error::database-connection-lost
+                    cl-postgres-error::database-socket-error)))
+          #'(lambda (e)
+              (log-message :error "~a" e)))
 	(cl-postgres:postgresql-warning
 	 #'(lambda (w)
 	     (log-message :warning "~a" w)
@@ -235,9 +244,31 @@
 (defun pgsql-connect-and-execute-with-timing (pgconn section label sql
                                               &key (count 1))
   "Run pgsql-execute-with-timing within a newly establised connection."
-  (with-pgsql-connection (pgconn)
-    (pomo:with-transaction ()
-      (pgsql-execute-with-timing section label sql :count count))))
+  (handler-case
+      (with-pgsql-connection (pgconn)
+        (pomo:with-transaction ()
+          (pgsql-execute-with-timing section label sql :count count)))
+
+    ((or
+      cl-postgres-error::server-shutdown
+      cl-postgres-error::admin-shutdown
+      cl-postgres-error::crash-shutdown
+      cl-postgres-error::operator-intervention
+      cl-postgres-error::cannot-connect-now
+      cl-postgres-error::database-connection-error
+      cl-postgres-error::database-connection-lost
+      cl-postgres-error::database-socket-error)
+        (condition)
+
+      (log-message :error "~a" condition)
+      (log-message :error "Reconnecting to PostgreSQL")
+
+     ;; in order to avoid Socket error in "connect": ECONNREFUSED if we
+     ;; try just too soon, wait a little
+      (sleep 2)
+
+     (pgsql-connect-and-execute-with-timing
+      pgconn section label sql :count count))))
 
 (defun pgsql-execute-with-timing (section label sql
                                   &key

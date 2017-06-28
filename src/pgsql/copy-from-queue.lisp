@@ -33,13 +33,13 @@
   ;; protocol to PostgreSQL to be able to process them again in case
   ;; of a data error being signaled, that's the BATCH here.
   (let ((pomo:*database* db))
-    (handling-pgsql-notices
-      ;; We can't use with-pgsql-transaction here because of the specifics
-      ;; of error handling in case of cl-postgres:open-db-writer errors: the
-      ;; transaction is dead already when we get a signal, and the COMMIT or
-      ;; ABORT steps then trigger a protocol error on a #\Z message.
-      (pomo:execute "BEGIN")
-      (handler-case
+    ;; We can't use with-pgsql-transaction here because of the specifics
+    ;; of error handling in case of cl-postgres:open-db-writer errors: the
+    ;; transaction is dead already when we get a signal, and the COMMIT or
+    ;; ABORT steps then trigger a protocol error on a #\Z message.
+    (handler-case
+        (progn
+          (pomo:execute "BEGIN")
           (let* ((table-name (format-table-name table))
                  (copier
                   (handler-case
@@ -62,35 +62,58 @@
                           (db-write-row copier data))
                     :finally (return batch-rows))
               (cl-postgres:close-db-writer copier)
-              (pomo:execute "COMMIT")))
+              (pomo:execute "COMMIT"))))
 
-        ;; If PostgreSQL signals a data error, process the batch by isolating
-        ;; erroneous data away and retrying the rest.
-        ((or
-          cl-postgres-error::data-exception
-          cl-postgres-error::integrity-violation
-          cl-postgres-error::internal-error
-          cl-postgres-error::insufficient-resources
-          cl-postgres-error::program-limit-exceeded) (condition)
+      ;; If PostgreSQL signals a data error, process the batch by isolating
+      ;; erroneous data away and retrying the rest.
+      ((or
+        cl-postgres-error::data-exception
+        cl-postgres-error::integrity-violation
+        cl-postgres-error::internal-error
+        cl-postgres-error::insufficient-resources
+        cl-postgres-error::program-limit-exceeded) (condition)
 
-          (pomo:execute "ROLLBACK")
+        (pomo:execute "ROLLBACK")
 
-          (if on-error-stop
-              ;; re-signal the condition to upper level
-              (progn
-                (log-message :error "~a" condition)
-                (signal 'on-error-stop :on-condition condition))
+        (if on-error-stop
+            ;; re-signal the condition to upper level
+            (progn
+              (log-message :error "~a" condition)
+              (signal 'on-error-stop :on-condition condition))
 
-              ;; normal behavior, on-error-stop being nil
-              ;; clean the current transaction before retrying new ones
-              (progn
-                (log-message :error "~a" condition)
-                (retry-batch table columns batch batch-rows condition))))
+            ;; normal behavior, on-error-stop being nil
+            ;; clean the current transaction before retrying new ones
+            (progn
+              (log-message :error "~a" condition)
+              (retry-batch table columns batch batch-rows condition))))
 
-        (condition (c)
-          ;; non retryable failures
-          (log-message :error "Non-retryable error ~a" c)
-          (pomo:execute "ROLLBACK"))))))
+      ((or
+        cl-postgres-error::server-shutdown
+        cl-postgres-error::admin-shutdown
+        cl-postgres-error::crash-shutdown
+        cl-postgres-error::operator-intervention
+        cl-postgres-error::cannot-connect-now
+        cl-postgres-error::database-connection-error
+        cl-postgres-error::database-connection-lost
+        cl-postgres-error::database-socket-error)
+          (condition)
+
+        (log-message :error "~a" condition)
+        (log-message :error "Copy Batch reconnecting to PostgreSQL")
+
+       ;; in order to avoid Socket error in "connect": ECONNREFUSED if we
+       ;; try just too soon, wait a little
+       (sleep 2)
+
+        (cl-postgres:reopen-database db)
+        (copy-batch table columns batch batch-rows
+                    :db db
+                    :on-error-stop on-error-stop))
+
+      (condition (c)
+        ;; non retryable failures
+        (log-message :error "Non-retryable error ~a" c)
+        (pomo:execute "ROLLBACK")))))
 
 ;;;
 ;;; We receive raw input rows from an lparallel queue, push their content
