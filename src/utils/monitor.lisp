@@ -162,7 +162,7 @@
          (let* ((*monitoring-queue*   (lq:make-queue))
                 (*monitoring-channel* (start-monitor :start-logger ,start-logger)))
            (unwind-protect
-                ,@body
+                (progn ,@body)
              (stop-monitor :channel *monitoring-channel*
                            :stop-logger ,start-logger)))
 

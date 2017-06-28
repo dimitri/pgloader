@@ -228,7 +228,7 @@
 (defun parse-cli-type (type)
   "Parse the --type option"
   (when type
-   (intern (string-upcase (parse 'cli-type type)) (find-package "KEYWORD"))))
+    (intern (string-upcase (parse 'cli-type type)) (find-package "KEYWORD"))))
 
 (defun parse-cli-encoding (encoding)
   "Parse the --encoding option"

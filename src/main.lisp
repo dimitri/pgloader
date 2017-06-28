@@ -290,18 +290,20 @@
                 ;; The handler-bind below is to be able to offer a
                 ;; meaningful backtrace to the user in case of unexpected
                 ;; conditions being signaled.
-                (with-monitor ()
-                  ;; tell the user where to look for interesting things
-                  (log-message :log "Main logs in '~a'"
-                               (uiop:native-namestring *log-filename*))
-                  (log-message :log "Data errors in '~a'~%" *root-dir*)
+                (handler-bind
+                    (((and condition (not (or cli-parsing-error
+                                              source-definition-error)))
+                      #'(lambda (condition)
+                          (format *error-output* "KABOOM!~%")
+                          (format *error-output* "FATAL error: ~a~%~a~%~%"
+                                  condition
+                                  (print-backtrace condition debug)))))
 
-                  (handler-bind
-                      ((condition
-                        #'(lambda (condition)
-                            (log-message :fatal "KABOOM!")
-                            (log-message :fatal "~a"
-                                         (print-backtrace condition debug)))))
+                  (with-monitor ()
+                    ;; tell the user where to look for interesting things
+                    (log-message :log "Main logs in '~a'"
+                                 (uiop:native-namestring *log-filename*))
+                    (log-message :log "Data errors in '~a'~%" *root-dir*)
 
                     (cond
                       ((and regress (= 1 (length arguments)))
@@ -343,16 +345,15 @@
                          (unless (remove-if #'null (mapcar #'second cli-options))
                            (process-command-file arguments)))))))
 
-              (source-definition-error (c)
-                (declare (ignore c))    ; handler-bind printed it out
-                ;; wait until monitor stops...
+              ((or cli-parsing-error source-definition-error) (c)
+                (format *error-output* "~%~a~%~%" c)
                 (let ((lp:*kernel* *monitoring-kernel*))
                   (lp:end-kernel :wait t))
                 (uiop:quit +os-code-error-bad-source+))
 
               (condition (c)
-                (declare (ignore c))    ; handler-bind printed it out
                 (format *error-output* "~%What I am doing here?~%~%")
+                (format *error-output* "~a~%~%" c)
                 ;; wait until monitor stops...
                 (format *error-output*
                         "~%Waiting for the monitor thread to complete.~%~%")
@@ -389,49 +390,104 @@
      :finally (when not-found-list
                 (error 'load-files-not-found-error :filename-list not-found-list))))
 
-(defun process-source-and-target (source target
+(define-condition cli-parsing-error (error) ()
+  (:report (lambda (err stream)
+             (declare (ignore err))
+             (format stream "Could not parse the command line: see above."))))
+
+(defun process-source-and-target (source-string target-string
                                   type encoding set with field cast
                                   before after)
-  "Given exactly 2 CLI arguments, process them as source and target URIs."
-  (let* ((type       (parse-cli-type type))
-         (source-uri (if type
-                         (parse-source-string-for-type type source)
-                         (parse-source-string source)))
-         (type       (when (and source
+  "Given exactly 2 CLI arguments, process them as source and target URIs.
+Parameters here are meant to be already parsed, see parse-cli-optargs."
+  (let* ((type       (handler-case
+                         (parse-cli-type type)
+                       (condition (e)
+                         (log-message :warning
+                                      "Could not parse --type ~s: ~a"
+                                      type e))))
+         (source-uri (handler-case
+                         (if type
+                             (parse-source-string-for-type type source-string)
+                             (parse-source-string source-string))
+                       (condition (e)
+                         (log-message :warning
+                                      "Could not parse source string ~s: ~a"
+                                      source-string e))))
+         (type       (when (and source-string
                                 (typep source-uri 'connection))
                        (parse-cli-type (conn-type source-uri))))
-         (target-uri (ignore-errors (parse-target-string target))))
+         (target-uri (handler-case
+                         (parse-target-string target-string)
+                       (condition (e)
+                         (log-message :error
+                                      "Could not parse target string ~s: ~a"
+                                      target-string e)))))
 
     ;; some verbosity about the parsing "magic"
-    (log-message :info "SOURCE: ~s" source)
-    (log-message :info "TARGET: ~s" target)
+    (log-message :info "    SOURCE: ~s" source-string)
+    (log-message :info "SOURCE URI: ~s" source-uri)
+    (log-message :info "    TARGET: ~s" target-string)
+    (log-message :info "TARGET URI: ~s" target-uri)
 
     (cond ((and (null source-uri) (null target-uri))
-           (process-command-file (list source target)))
+           (process-command-file (list source-string target-string)))
 
-          ((or (null source) (null source-uri))
+          ((or (null source-string) (null source-uri))
            (log-message :fatal
-                        "Failed to parse ~s as a source URI." source)
+                        "Failed to parse ~s as a source URI." source-string)
            (log-message :log "You might need to use --type."))
 
-          ((or (null target) (null target-uri))
+          ((or (null target-string) (null target-uri))
            (log-message :fatal
                         "Failed to parse ~s as a PostgreSQL database URI."
-                        target)))
+                        target-string)))
 
-    ;; so, we actually have all the specs for the
-    ;; job on the command line now.
-    (when (and source-uri target-uri)
-      (load-data :from source-uri
-                 :into target-uri
-                 :encoding (parse-cli-encoding encoding)
-                 :options  (parse-cli-options type with)
-                 :gucs     (parse-cli-gucs set)
-                 :fields   (parse-cli-fields type field)
-                 :casts    (parse-cli-casts cast)
-                 :before   (parse-sql-file before)
-                 :after    (parse-sql-file after)
-                 :start-logger nil))))
+    (let* ((nb-errors 0)
+           (options (handler-case
+                        (parse-cli-options type with)
+                      (condition (e)
+                        (incf nb-errors)
+                        (log-message :error "Could not parse --with ~s:" with)
+                        (log-message :error "~a" e))))
+           (fields  (handler-case
+                        (parse-cli-fields type field)
+                      (condition (e)
+                        (incf nb-errors)
+                        (log-message :error "Could not parse --fields ~s:" field)
+                        (log-message :error "~a" e)))))
+
+      (destructuring-bind (&key encoding gucs casts before after)
+          (loop :for (keyword option user-string parse-fn)
+             :in `((:encoding  "--encoding" ,encoding ,#'parse-cli-encoding)
+                   (:gucs      "--set"      ,set      ,#'parse-cli-gucs)
+                   (:casts     "--cast"     ,cast     ,#'parse-cli-casts)
+                   (:before    "--before"   ,before   ,#'parse-sql-file)
+                   (:after     "--after"    ,after    ,#'parse-sql-file))
+             :append (list keyword
+                           (handler-case
+                               (funcall parse-fn user-string)
+                             (condition (e)
+                               (incf nb-errors)
+                               (log-message :error "Could not parse ~a ~s: ~a"
+                                            option user-string e)))))
+
+        (unless (= 0 nb-errors)
+          (error 'cli-parsing-error))
+
+        ;; so, we actually have all the specs for the
+        ;; job on the command line now.
+        (when (and source-uri target-uri (= 0 nb-errors))
+          (load-data :from source-uri
+                     :into target-uri
+                     :encoding encoding
+                     :options  options
+                     :gucs     gucs
+                     :fields   fields
+                     :casts    casts
+                     :before   before
+                     :after    after
+                     :start-logger nil))))))
 
 
 ;;;
