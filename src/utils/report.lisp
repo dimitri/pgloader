@@ -192,7 +192,8 @@
                           (append (pgstate-tabnames data)
                                   (pgstate-tabnames pre)
                                   (pgstate-tabnames post)
-                                  (list legend))))))
+                                  (list legend))))
+          :initial-value 0))
 
 (defun report-full-summary (legend sections total-secs)
   "Report the full story when given three different sections of reporting."

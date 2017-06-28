@@ -375,7 +375,8 @@
 
 (defmethod max-indexes-per-table ((catalog catalog) &key)
   "Count how many indexes maximum per table are listed in SCHEMA."
-  (reduce #'max (mapcar #'max-indexes-per-table (catalog-schema-list catalog))))
+  (reduce #'max (mapcar #'max-indexes-per-table (catalog-schema-list catalog))
+          :initial-value 0))
 
 ;;;
 ;;; Not a generic/method because only used for the table object, and we want

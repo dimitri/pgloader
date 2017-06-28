@@ -49,7 +49,8 @@
             (let ((max (reduce #'max
                                (mapcar #'length
                                        (mapcar #'column-name
-                                               (table-column-list table))))))
+                                               (table-column-list table)))
+                               :initial-value 0)))
               (loop
                  :for (col . last?) :on (table-column-list table)
                  :do (progn
