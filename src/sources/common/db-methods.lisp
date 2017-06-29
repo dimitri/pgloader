@@ -173,16 +173,7 @@
                                        :section :post
                                        :label "Install Comments"))
 
-    ((or
-      cl-postgres-error::server-shutdown
-      cl-postgres-error::admin-shutdown
-      cl-postgres-error::crash-shutdown
-      cl-postgres-error::operator-intervention
-      cl-postgres-error::cannot-connect-now
-      cl-postgres-error::database-connection-error
-      cl-postgres-error::database-connection-lost
-      cl-postgres-error::database-socket-error)
-        (condition)
+    (postgresql-unavailable (condition)
 
       (log-message :error "~a" condition)
       (log-message :error

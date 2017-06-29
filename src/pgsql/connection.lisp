@@ -49,6 +49,22 @@
   "File where to read the PostgreSQL Client Side SSL Private Key.")
 
 ;;;
+;;;
+;;;
+(deftype postgresql-unavailable ()
+    "It might happen that PostgreSQL becomes unavailable in the middle of
+     our processing: it being restarted is an example."
+  `(or
+    cl-postgres-error::server-shutdown
+    cl-postgres-error::admin-shutdown
+    cl-postgres-error::crash-shutdown
+    cl-postgres-error::operator-intervention
+    cl-postgres-error::cannot-connect-now
+    cl-postgres-error::database-connection-error
+    cl-postgres-error::database-connection-lost
+    cl-postgres-error::database-socket-error))
+
+;;;
 ;;; We need to distinguish some special cases of PostgreSQL errors within
 ;;; Class 53 — Insufficient Resources: in case of "too many connections" we
 ;;; typically want to leave room for another worker to finish and free one
@@ -141,15 +157,7 @@
    appropriate log level."
   `(handler-bind
        (((and cl-postgres:database-error
-              (not (or
-                    cl-postgres-error::server-shutdown
-                    cl-postgres-error::admin-shutdown
-                    cl-postgres-error::crash-shutdown
-                    cl-postgres-error::operator-intervention
-                    cl-postgres-error::cannot-connect-now
-                    cl-postgres-error::database-connection-error
-                    cl-postgres-error::database-connection-lost
-                    cl-postgres-error::database-socket-error)))
+              (not postgresql-unavailable))
           #'(lambda (e)
               (log-message :error "~a" e)))
 	(cl-postgres:postgresql-warning
@@ -249,16 +257,7 @@
         (pomo:with-transaction ()
           (pgsql-execute-with-timing section label sql :count count)))
 
-    ((or
-      cl-postgres-error::server-shutdown
-      cl-postgres-error::admin-shutdown
-      cl-postgres-error::crash-shutdown
-      cl-postgres-error::operator-intervention
-      cl-postgres-error::cannot-connect-now
-      cl-postgres-error::database-connection-error
-      cl-postgres-error::database-connection-lost
-      cl-postgres-error::database-socket-error)
-        (condition)
+    (postgresql-unavailable (condition)
 
       (log-message :error "~a" condition)
       (log-message :error "Reconnecting to PostgreSQL")

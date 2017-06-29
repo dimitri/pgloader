@@ -362,6 +362,7 @@
 	   #:pgsql-execute
 	   #:pgsql-execute-with-timing
 	   #:pgsql-connect-and-execute-with-timing
+           #:postgresql-unavailable
 
            ;; postgresql schema facilities
 	   #:truncate-tables
