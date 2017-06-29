@@ -11,7 +11,8 @@
   "Run a regression test for given LOAD-FILE."
   (unless (probe-file load-file)
     (format t "Regression testing ~s: file does not exists." load-file)
-    (uiop:quit +os-code-error-regress+))
+    #-pgloader-image (values nil +os-code-error-regress+)
+    #+pgloader-image (uiop:quit +os-code-error-regress+))
 
   ;; now do our work
   (with-monitor (:start-logger start-logger)

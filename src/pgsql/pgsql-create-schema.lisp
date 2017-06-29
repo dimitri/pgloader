@@ -339,6 +339,7 @@
   "Reset all sequences created during this MySQL migration."
   (log-message :notice "Reset sequences")
   (with-stats-collection ("Reset Sequences"
+                          :use-result-as-read t
                           :use-result-as-rows t
                           :section section)
       (let ((tables  (table-list catalog)))
