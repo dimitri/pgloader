@@ -78,8 +78,10 @@
 
 (defun db3-date-to-pgsql-date (value)
   "Convert a DB3 date to a PostgreSQL date."
-  (let ((year  (subseq value 0 4))
-	(month (subseq value 4 6))
-	(day   (subseq value 6 8)))
-    (format nil "~a-~a-~a" year month day)))
+  (when (and value (string/= "" value) (= 8 (length value)))
+    (let ((year  (parse-integer (subseq value 0 4) :junk-allowed t))
+          (month (parse-integer (subseq value 4 6) :junk-allowed t))
+          (day   (parse-integer (subseq value 6 8) :junk-allowed t)))
+      (when (and year month day)
+        (format nil "~4,'0d-~2,'0d-~2,'0d" year month day)))))
 
