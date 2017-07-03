@@ -137,6 +137,9 @@
 (make-option-rule reset-sequences  (and kw-reset  (? kw-no) kw-sequences))
 (make-option-rule foreign-keys     (and (? kw-no) kw-foreign kw-keys))
 
+(defrule option-reindex (and kw-drop kw-indexes)
+  (:constant (cons :reindex t)))
+
 (defrule option-single-reader (and kw-single kw-reader kw-per kw-thread)
   (:constant (cons :multiple-readers nil)))
 

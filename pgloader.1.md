@@ -1578,9 +1578,10 @@ The `database` command accepts the following clauses and options:
   - *WITH*
 
     When loading from a `MySQL` database, the following options are
-    supported, and the efault *WITH* clause is: *no truncate*, *create
-    tables*, *include drop*, *create indexes*, *reset sequences*, *foreign
-    keys*, *downcase identifiers*.
+    supported, and the default *WITH* clause is: *no truncate*, *create
+    schema*, *create tables*, *include drop*, *create indexes*, *reset
+    sequences*, *foreign keys*, *downcase identifiers*, *uniquify index
+    names*.
 
     *WITH* options:
 
@@ -1652,6 +1653,12 @@ The `database` command accepts the following clauses and options:
       - *create no indexes*
 
 	    When this option is listed, pgloader skips the creating indexes.
+        
+      - *drop indexes*
+      
+        When this option is listed, pgloader drops the indexes in the target
+        database before loading the data, and creates them again at the end
+        of the data copy.
 
       - *uniquify index names*, *preserve index names*
 
@@ -2163,6 +2170,12 @@ The `sqlite` command accepts the following clauses and options:
       - *create no indexes*
 
 	    When this option is listed, pgloader skips the creating indexes.
+
+      - *drop indexes*
+      
+        When this option is listed, pgloader drops the indexes in the target
+        database before loading the data, and creates them again at the end
+        of the data copy.
 
 	  - *reset sequences*
 

@@ -251,6 +251,7 @@
                             (index-names      :uniquify)
 			    (reset-sequences  t)
 			    (foreign-keys     t)
+                            (reindex          nil)
 			    only-tables
 			    including
 			    excluding
@@ -265,8 +266,10 @@
          (create-tables  (and create-tables create-ddl))
          (create-schemas (and create-schemas create-ddl))
          (foreign-keys   (and foreign-keys create-ddl))
-         (drop-indexes   (and include-drop create-ddl))
-         (create-indexes (and create-indexes drop-indexes create-ddl))
+         (drop-indexes   (or reindex
+                             (and include-drop create-ddl)))
+         (create-indexes (or reindex
+                             (and create-indexes drop-indexes create-ddl)))
 
          (*preserve-index-names*
           (or (eq :preserve index-names)

@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "June 2017" "ff" ""
+.TH "PGLOADER" "1" "July 2017" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -1846,7 +1846,7 @@ See the \fBSOURCE CONNECTION STRING\fR section above for details on how to write
 \fIWITH\fR
 .
 .IP
-When loading from a \fBMySQL\fR database, the following options are supported, and the efault \fIWITH\fR clause is: \fIno truncate\fR, \fIcreate tables\fR, \fIinclude drop\fR, \fIcreate indexes\fR, \fIreset sequences\fR, \fIforeign keys\fR, \fIdowncase identifiers\fR\.
+When loading from a \fBMySQL\fR database, the following options are supported, and the default \fIWITH\fR clause is: \fIno truncate\fR, \fIcreate schema\fR, \fIcreate tables\fR, \fIinclude drop\fR, \fIcreate indexes\fR, \fIreset sequences\fR, \fIforeign keys\fR, \fIdowncase identifiers\fR, \fIuniquify index names\fR\.
 .
 .IP
 \fIWITH\fR options:
@@ -1913,6 +1913,12 @@ When this option is listed, pgloader gets the definitions of all the indexes fou
 .
 .IP
 When this option is listed, pgloader skips the creating indexes\.
+.
+.IP "\(bu" 4
+\fIdrop indexes\fR
+.
+.IP
+When this option is listed, pgloader drops the indexes in the target database before loading the data, and creates them again at the end of the data copy\.
 .
 .IP "\(bu" 4
 \fIuniquify index names\fR, \fIpreserve index names\fR
@@ -2554,6 +2560,12 @@ When this option is listed, pgloader gets the definitions of all the indexes fou
 .
 .IP
 When this option is listed, pgloader skips the creating indexes\.
+.
+.IP "\(bu" 4
+\fIdrop indexes\fR
+.
+.IP
+When this option is listed, pgloader drops the indexes in the target database before loading the data, and creates them again at the end of the data copy\.
 .
 .IP "\(bu" 4
 \fIreset sequences\fR
