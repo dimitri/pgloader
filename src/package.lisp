@@ -354,6 +354,8 @@
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.catalog)
+  (:import-from #:cl-postgres
+                #:database-error-context)
   (:export #:pgsql-connection
            #:pgconn-use-ssl
            #:pgconn-table-name

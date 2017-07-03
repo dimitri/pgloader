@@ -49,8 +49,17 @@
   "File where to read the PostgreSQL Client Side SSL Private Key.")
 
 ;;;
+;;; PostgreSQL errors types  for pgloader.
 ;;;
-;;;
+(deftype postgresql-retryable ()
+  "PostgreSQL errors that we know how to retry in a batch."
+  `(or
+    cl-postgres-error::data-exception
+    cl-postgres-error::integrity-violation
+    cl-postgres-error:internal-error
+    cl-postgres-error::insufficient-resources
+    cl-postgres-error::program-limit-exceeded))
+
 (deftype postgresql-unavailable ()
     "It might happen that PostgreSQL becomes unavailable in the middle of
      our processing: it being restarted is an example."

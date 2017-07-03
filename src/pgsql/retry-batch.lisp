@@ -63,16 +63,18 @@
   (log-message :info "Entering error recovery.")
 
   (loop
-     :with next-error = (parse-copy-error-context
-                         (cl-postgres::database-error-context condition))
+     :with table-name := (format-table-name table)
+     :with next-error := (parse-copy-error-context
+                          (database-error-context condition))
 
      :while (< current-batch-pos batch-rows)
 
      :do
-     (progn                             ; indenting helper
+     (progn                           ; indenting helper
+       (log-message :debug "pos: ~s ; err: ~a" current-batch-pos next-error)
        (when (= current-batch-pos next-error)
          (log-message :info "error recovery at ~d/~d, processing bad row"
-                      (+ 1 next-error) batch-rows)
+                      current-batch-pos batch-rows)
          (process-bad-row table condition (aref batch current-batch-pos))
          (incf current-batch-pos)
          (incf nb-errors))
@@ -80,46 +82,61 @@
        (let* ((current-batch-rows
                (next-batch-rows batch-rows current-batch-pos next-error)))
          (when (< 0 current-batch-rows)
-          (handler-case
-              (with-pgsql-transaction (:database pomo:*database*)
-                (let* ((table-name (format-table-name table))
-                       (stream
-                        (cl-postgres:open-db-writer pomo:*database*
-                                                    table-name columns)))
+           (if (< current-batch-pos next-error)
+               (log-message :info
+                            "error recovery at ~d/~d, next error at ~d, ~
+                             loading ~d row~:p"
+                            current-batch-pos
+                            batch-rows
+                            next-error
+                            current-batch-rows)
+               (log-message :info
+                            "error recovery at ~d/~d, trying ~d row~:p"
+                            current-batch-pos batch-rows current-batch-rows))
 
-                  (if (< current-batch-pos next-error)
-                      (log-message :info
-                                   "error recovery at ~d/~d, next error at ~d, loading ~d row~:p"
-                                   current-batch-pos batch-rows (+ 1 next-error) current-batch-rows)
-                      (log-message :info
-                                   "error recovery at ~d/~d, trying ~d row~:p"
-                                   current-batch-pos batch-rows current-batch-rows))
+           (handler-case
+               (incf current-batch-pos
+                     (copy-partial-batch table-name
+                                         columns
+                                         batch
+                                         current-batch-rows
+                                         current-batch-pos))
 
-                  (unwind-protect
-                       (loop :repeat current-batch-rows
-                          :for pos :from current-batch-pos
-                          :do (db-write-row stream (aref batch pos)))
+             ;; the batch didn't make it, prepare error handling for next turn
+             (postgresql-retryable (next-error-in-batch)
+               (pomo:execute "ROLLBACK")
+               (log-message :error "PostgreSQL [~s] ~a"
+                            table-name
+                            next-error-in-batch)
+               (let ((next-error-relative
+                      (parse-copy-error-context
+                       (database-error-context next-error-in-batch))))
 
-                    ;; close-db-writer is the one signaling cl-postgres-errors
-                    (cl-postgres:close-db-writer stream)
-                    (incf current-batch-pos current-batch-rows))))
+                 (setf condition  next-error-in-batch
+                       next-error (+ current-batch-pos next-error-relative)))))))))
 
-            ;; the batch didn't make it, prepare error handling for next turn
-            ((or
-              cl-postgres-error::data-exception
-              cl-postgres-error::integrity-violation
-              cl-postgres-error:internal-error
-              cl-postgres-error::insufficient-resources
-              cl-postgres-error::program-limit-exceeded) (next-error-in-batch)
+  (log-message :info "Recovery found ~d errors in ~d row~:p"
+               nb-errors batch-rows)
 
-              (setf condition next-error-in-batch
+  ;; Return how many rows where erroneous, for statistics purposes
+  nb-errors)
 
-                    next-error
-                    (+ current-batch-pos
-                       (parse-copy-error-context
-                        (cl-postgres::database-error-context condition))))))))))
+(defun copy-partial-batch (table-name columns
+                           batch current-batch-rows current-batch-pos)
+  "Copy some rows of the batch, not all of them."
+  (pomo:execute "BEGIN;")
+  (let ((stream
+         (cl-postgres:open-db-writer pomo:*database* table-name columns)))
 
-  (log-message :info "Recovery found ~d errors in ~d row~:p" nb-errors batch-rows)
+    (unwind-protect
+         (loop :repeat current-batch-rows
+            :for pos :from current-batch-pos
+            :do (db-write-row stream (aref batch pos)))
 
-  ;; Return how many rows we did load, for statistics purposes
-  (- batch-rows nb-errors))
+      ;; close-db-writer is the one signaling cl-postgres-errors
+      (progn
+        (cl-postgres:close-db-writer stream)
+        (pomo:execute "COMMIT;")))
+
+    ;; return how many rows we loaded, which is current-batch-rows
+    current-batch-rows))

@@ -32,7 +32,8 @@
   ;; We need to keep a copy of the rows we send through the COPY
   ;; protocol to PostgreSQL to be able to process them again in case
   ;; of a data error being signaled, that's the BATCH here.
-  (let ((pomo:*database* db))
+  (let ((table-name (format-table-name table))
+        (pomo:*database* db))
     ;; We can't use with-pgsql-transaction here because of the specifics
     ;; of error handling in case of cl-postgres:open-db-writer errors: the
     ;; transaction is dead already when we get a signal, and the COMMIT or
@@ -40,8 +41,7 @@
     (handler-case
         (progn
           (pomo:execute "BEGIN")
-          (let* ((table-name (format-table-name table))
-                 (copier
+          (let* ((copier
                   (handler-case
                       (cl-postgres:open-db-writer db table-name columns)
                     (condition (c)
@@ -66,30 +66,24 @@
 
       ;; If PostgreSQL signals a data error, process the batch by isolating
       ;; erroneous data away and retrying the rest.
-      ((or
-        cl-postgres-error::data-exception
-        cl-postgres-error::integrity-violation
-        cl-postgres-error::internal-error
-        cl-postgres-error::insufficient-resources
-        cl-postgres-error::program-limit-exceeded) (condition)
-
+      (postgresql-retryable (condition)
         (pomo:execute "ROLLBACK")
 
+        (log-message :error "PostgreSQL [~s] ~a" table-name condition)
         (if on-error-stop
             ;; re-signal the condition to upper level
-            (progn
-              (log-message :error "~a" condition)
-              (signal 'on-error-stop :on-condition condition))
+            (signal 'on-error-stop :on-condition condition)
 
             ;; normal behavior, on-error-stop being nil
             ;; clean the current transaction before retrying new ones
-            (progn
-              (log-message :error "~a" condition)
-              (retry-batch table columns batch batch-rows condition))))
+            (let ((errors
+                   (retry-batch table columns batch batch-rows condition)))
+              (log-message :debug "retry-batch found ~d errors" errors)
+              (update-stats :data table :rows (- errors)))))
 
       (postgresql-unavailable (condition)
 
-        (log-message :error "~a" condition)
+        (log-message :error "[PostgreSQL ~s] ~a" table-name condition)
         (log-message :error "Copy Batch reconnecting to PostgreSQL")
 
        ;; in order to avoid Socket error in "connect": ECONNREFUSED if we
@@ -202,6 +196,8 @@
                                (pgloader.sources::transforms copy)
                                pre-formatted)
           (condition (e)
+            (log-message :error "Error while formating a row from ~s:"
+                         (format-table-name (pgloader.sources:target copy)))
             (log-message :error "~a" e)
             (update-stats :data (pgloader.sources:target copy) :errs 1)
             (values nil 0)))))
