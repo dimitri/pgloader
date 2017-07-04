@@ -54,15 +54,17 @@
 
 (defmethod cast ((field db3-field))
   "Return the PostgreSQL type definition given the DB3 one."
-  (let ((type (db3-field-type field)))
+  (let* ((type (db3-field-type field))
+         (transform
+          (cond ((string= type "C") #'db3-trim-string)
+                ((string= type "N") #'db3-numeric-to-pgsql-numeric)
+                ((string= type "L") #'logical-to-boolean)
+                ((string= type "D") #'db3-date-to-pgsql-date)
+                (t                  nil))))
     (make-column :name (apply-identifier-case (db3-field-name field))
-                 :type-name (cdr (assoc type
-                                        *db3-pgsql-type-mapping*
+                 :type-name (cdr (assoc type *db3-pgsql-type-mapping*
                                         :test #'string=))
-                 :transform (cond ((string= type "L") #'logical-to-boolean)
-                                  ((string= type "C") #'db3-trim-string)
-                                  ((string= type "D") #'db3-date-to-pgsql-date)
-                                  (t                  nil)))))
+                 :transform transform)))
 
 (declaim (inline logical-to-boolean
 		 db3-trim-string
@@ -75,6 +77,12 @@
 (defun db3-trim-string (value)
   "DB3 Strings a right padded with spaces, fix that."
   (string-right-trim '(#\Space) value))
+
+(defun db3-numeric-to-pgsql-numeric (value)
+  "DB3 numerics should be good to go, but might contain spaces."
+  (let ((trimmed-string (string-right-trim '(#\Space) value)))
+    (unless (string= "" trimmed-string)
+      trimmed-string)))
 
 (defun db3-date-to-pgsql-date (value)
   "Convert a DB3 date to a PostgreSQL date."
