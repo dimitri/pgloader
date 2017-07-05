@@ -42,7 +42,7 @@
 ;;; Column structures details depend on the specific source type and are
 ;;; implemented in each source separately.
 ;;;
-(defstruct catalog name schema-list)
+(defstruct catalog name schema-list types-without-btree)
 (defstruct schema source-name name catalog table-list view-list)
 (defstruct table source-name name schema oid comment storage-parameter-list
            ;; field is for SOURCE

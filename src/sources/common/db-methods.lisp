@@ -27,6 +27,9 @@
   (log-message :notice "Prepare PostgreSQL database.")
 
   (with-pgsql-transaction (:pgconn (target-db copy))
+    (setf (catalog-types-without-btree catalog)
+          (list-typenames-without-btree-support))
+
     (when create-schemas
       (with-stats-collection ("Create Schemas" :section :pre
                                                :use-result-as-read t

@@ -71,6 +71,7 @@
 
            #:catalog-name
            #:catalog-schema-list
+           #:catalog-types-without-btree
 
            #:schema-name
            #:schema-catalog
@@ -410,6 +411,7 @@
 
            ;; postgresql identifiers
 	   #:list-reserved-keywords
+           #:list-typenames-without-btree-support
 
            ;; postgresql user provided gucs
            #:sanitize-user-gucs

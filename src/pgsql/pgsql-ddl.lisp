@@ -153,7 +153,8 @@
                          (build-identifier "_"
                                            "idx"
                                            (table-oid (index-table index))
-                                           (index-name index)))))
+                                           (index-name index))))
+         (access-method (index-access-method index)))
     (cond
       ((or (index-primary index)
            (and (index-condef index) (index-unique index)))
@@ -185,10 +186,11 @@
       (t
        (or (index-sql index)
            (format stream
-                   "CREATE~:[~; UNIQUE~] INDEX ~a ON ~a (~{~a~^, ~})~@[ WHERE ~a~];"
+                   "CREATE~:[~; UNIQUE~] INDEX ~a ON ~a ~@[USING ~a~](~{~a~^, ~})~@[ WHERE ~a~];"
                    (index-unique index)
                    index-name
                    (format-table-name table)
+                   access-method
                    (index-columns index)
                    (index-filter index)))))))
 
@@ -213,6 +215,28 @@
           (t
            (format stream "DROP INDEX~:[~; IF EXISTS~] ~@[~s.~]~s~@[ CASCADE~];"
                    if-exists schema-name index-name cascade)))))
+
+(defun index-access-method (index)
+  "Compute PostgreSQL access method for index. If defaults to btree, but
+  some types such as POINTS or BOX have no support for btree. If a MySQL
+  point column has an index in MySQL, then create a GiST index for it in
+  PostgreSQL."
+  (when (= 1 (length (index-columns index)))
+    ;; we only process single-index columns at the moment, which is a simpler
+    ;; problem space and usefull enough to get started.
+    (let* ((idx-cols   (index-columns index))
+           (tbl-cols   (table-column-list (index-table index)))
+           (idx-types  (loop :for idx-col :in idx-cols
+                          :collect (column-type-name
+                                    (find idx-col tbl-cols
+                                          :test #'string-equal
+                                          :key #'column-name))))
+           (nobtree (catalog-types-without-btree
+                     (schema-catalog (table-schema (index-table index))))))
+      (let* ((idx-type (first idx-types))
+             (method   (cdr (assoc idx-type nobtree :test #'string=))))
+        (when method
+          (aref method 0))))))
 
 
 ;;;
