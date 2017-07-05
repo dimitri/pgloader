@@ -120,7 +120,6 @@
                        :collect (format-create-sql (trigger-procedure trigger))
                        :collect (format-create-sql trigger)))))
     (pgsql-execute-with-timing section label sql-list
-                               :count (length sql-list)
                                :client-min-messages client-min-messages)))
 
 
@@ -203,8 +202,7 @@
                               :do (log-message :debug "EXTRA FK DEPS! ~a" sql)
                               :collect sql)))))
     ;; and now execute our list
-    (pgsql-execute-with-timing section label fk-sql-list
-                               :count (length fk-sql-list))))
+    (pgsql-execute-with-timing section label fk-sql-list)))
 
 
 
@@ -428,5 +426,4 @@ $$; " tables)))
                                  (table-name table)
                                  (column-name column)
                                  quote (column-comment column) quote)))))
-    (pgsql-execute-with-timing section label sql-list
-                               :count (length sql-list))))
+    (pgsql-execute-with-timing section label sql-list)))

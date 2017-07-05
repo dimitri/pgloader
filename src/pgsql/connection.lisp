@@ -258,13 +258,12 @@
 ;;;
 ;;; DDL support with stats (timing, object count)
 ;;;
-(defun pgsql-connect-and-execute-with-timing (pgconn section label sql
-                                              &key (count 1))
+(defun pgsql-connect-and-execute-with-timing (pgconn section label sql)
   "Run pgsql-execute-with-timing within a newly establised connection."
   (handler-case
       (with-pgsql-connection (pgconn)
         (pomo:with-transaction ()
-          (pgsql-execute-with-timing section label sql :count count)))
+          (pgsql-execute-with-timing section label sql)))
 
     (postgresql-unavailable (condition)
 
@@ -275,38 +274,65 @@
      ;; try just too soon, wait a little
       (sleep 2)
 
-     (pgsql-connect-and-execute-with-timing
-      pgconn section label sql :count count))))
+      (pgsql-connect-and-execute-with-timing pgconn section label sql))))
 
-(defun pgsql-execute-with-timing (section label sql
+(defun pgsql-execute-with-timing (section label sql-list
                                   &key
-                                    client-min-messages
-                                    (count 1))
+                                    on-error-stop
+                                    client-min-messages)
   "Execute given SQL and resgister its timing into STATE."
-  (multiple-value-bind (res secs)
-      (timing
-        (handler-case
-            (pgsql-execute sql :client-min-messages client-min-messages)
-         (cl-postgres:database-error (e)
-           (log-message :error "~a" e)
-           (update-stats section label :errs 1 :rows (- count)))))
-    (declare (ignore res))
-    (update-stats section label :read count :rows count :secs secs)))
+  (let ((sql-list (alexandria:ensure-list sql-list)))
+    (multiple-value-bind (res secs)
+        (timing
+          (multiple-value-bind (nb-ok nb-errors)
+              (pgsql-execute sql-list
+                             :on-error-stop on-error-stop
+                             :client-min-messages client-min-messages)
+            (update-stats section label :rows nb-ok :errs nb-errors)))
+      (declare (ignore res))
+      (update-stats section label :read (length sql-list) :secs secs))))
 
-(defun pgsql-execute (sql &key client-min-messages)
-  "Execute given SQL in current transaction"
-  (when client-min-messages
-    (pomo:execute
-     (format nil "SET LOCAL client_min_messages TO ~a;"
-             (symbol-name client-min-messages))))
+(defun pgsql-execute (sql &key client-min-messages (on-error-stop t))
+  "Execute given SQL list of statements in current transaction.
 
-  (loop :for sql :in (alexandria::ensure-list sql)
-     :do (progn
-           (log-message :notice "~a" sql)
-           (pomo:execute sql)))
+   When ON-ERROR-STOP is non-nil (the default), we stop at the first sql
+   statement that fails. That's because this facility is meant for DDL. With
+   ON_ERROR_STOP nil, log the problem and continue thanks to PostgreSQL
+   savepoints."
+  (let ((nb-ok     0)
+        (nb-errors 0))
+    (when client-min-messages
+      (pomo:execute
+       (format nil "SET LOCAL client_min_messages TO ~a;"
+               (symbol-name client-min-messages))))
 
-  (when client-min-messages
-    (pomo:execute (format nil "RESET client_min_messages;"))))
+    (if on-error-stop
+        (loop :for sql :in (alexandria::ensure-list sql)
+           :do (progn
+                 (log-message :notice "~a" sql)
+                 (pomo:execute sql))
+           ;; never executed in case of error, which signals out of here
+           :finally (incf nb-ok (length sql)))
+
+        ;; handle failures and just continue
+        (loop :for sql :in (alexandria::ensure-list sql)
+           :do (progn
+                 (pomo:execute "savepoint pgloader;")
+                 (handler-case
+                     (progn
+                       (log-message :notice "~a" sql)
+                       (pomo:execute sql)
+                       (pomo:execute "release savepoint pgloader;")
+                       (incf nb-ok))
+                   (cl-postgres:database-error (e)
+                     (incf nb-errors)
+                     (log-message :error "PostgreSQL ~a" e)
+                     (pomo:execute "rollback to savepoint pgloader;"))))))
+
+    (when client-min-messages
+      (pomo:execute (format nil "RESET client_min_messages;")))
+
+    (values nb-ok nb-errors)))
 
 
 ;;;
