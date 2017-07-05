@@ -32,7 +32,10 @@
 
 (defpackage #:pgloader.quoting
   (:use #:cl #:pgloader.params)
-  (:export #:apply-identifier-case))
+  (:export #:apply-identifier-case
+           #:build-identifier
+           #:quoted-p
+           #:ensure-unquoted))
 
 (defpackage #:pgloader.catalog
   (:use #:cl #:pgloader.params #:pgloader.quoting)
@@ -251,6 +254,7 @@
 (defpackage #:pgloader.utils
   (:use #:cl
         #:pgloader.params
+        #:pgloader.quoting
         #:pgloader.catalog
         #:pgloader.monitor
         #:pgloader.state
@@ -278,11 +282,9 @@
            ;; charsets
            #:list-encodings-and-aliases
            #:show-encodings
-           #:make-external-format
+           #:make-external-format))
 
-           ;; quoting
-           #:apply-identifier-case))
-
+(cl-user::export-inherited-symbols "pgloader.quoting" "pgloader.utils")
 (cl-user::export-inherited-symbols "pgloader.catalog" "pgloader.utils")
 (cl-user::export-inherited-symbols "pgloader.monitor" "pgloader.utils")
 (cl-user::export-inherited-symbols "pgloader.state"   "pgloader.utils")

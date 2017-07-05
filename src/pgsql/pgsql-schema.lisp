@@ -98,16 +98,6 @@
   (let ((table-name (table-name table)))
     (format nil "^~a$" (ensure-unquoted table-name))))
 
-(defun ensure-unquoted (identifier)
-  (cond ((pgloader.quoting::quoted-p identifier)
-         ;; when the table name comes from the user (e.g. in the
-         ;; load file) then we might have to unquote it: the
-         ;; PostgreSQL catalogs does not store object names in
-         ;; their quoted form.
-         (subseq identifier 1 (1- (length identifier))))
-
-        (t identifier)))
-
 (defun query-table-schema (table)
   "Get PostgreSQL schema name where to locate TABLE-NAME by following the
   current search_path rules. A PostgreSQL connection must be opened."

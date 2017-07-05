@@ -150,10 +150,10 @@
                          (index-name index)
 
                          ;; in the general case, we build our own index name.
-                         (format nil "idx_~a_~a"
-                                 (table-oid (index-table index))
-                                 (index-name index))))
-	 (index-name (apply-identifier-case index-name)))
+                         (build-identifier "_"
+                                           "idx"
+                                           (table-oid (index-table index))
+                                           (index-name index)))))
     (cond
       ((or (index-primary index)
            (and (index-condef index) (index-unique index)))

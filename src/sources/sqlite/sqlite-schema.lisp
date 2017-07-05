@@ -132,7 +132,7 @@
                  (every (lambda (field)
                           (string-equal "integer" (coldef-dtype field)))
                         pk-fields))
-        (let ((pk-name (format nil "~a_pkey" (format-table-name table)))
+        (let ((pk-name (build-identifier "_" (format-table-name table) "pkey"))
               (clist   (mapcar #'coldef-name pk-fields)))
           ;; now forge the index and get it a name
           (add-index table (make-index :name pk-name

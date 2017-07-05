@@ -46,3 +46,25 @@
       (:quote    (format nil "~s"
                          (cl-ppcre:regex-replace-all "\"" identifier "\"\"")))
       (:none     identifier))))
+
+(defun ensure-unquoted (identifier)
+  (cond ((quoted-p identifier)
+         ;; when the table name comes from the user (e.g. in the
+         ;; load file) then we might have to unquote it: the
+         ;; PostgreSQL catalogs does not store object names in
+         ;; their quoted form.
+         (subseq identifier 1 (1- (length identifier))))
+
+        (t identifier)))
+
+(defun build-identifier (sep &rest parts)
+  "Concatenante PARTS into a PostgreSQL identifier, with SEP in between
+   parts. That's useful for creating an index name from a table's oid and name."
+  (apply-identifier-case
+   (apply #'concatenate
+          'string
+          (loop :for (part . more?) :on parts
+             :collect (ensure-unquoted (typecase part
+                                         (string part)
+                                         (t      (princ-to-string part))))
+             :when more? :collect sep))))
