@@ -234,7 +234,8 @@
            (nobtree (catalog-types-without-btree
                      (schema-catalog (table-schema (index-table index))))))
       (let* ((idx-type (first idx-types))
-             (method   (cdr (assoc idx-type nobtree :test #'string=))))
+             (method   (when (stringp idx-type)
+                         (cdr (assoc idx-type nobtree :test #'string=)))))
         (when method
           (aref method 0))))))
 
