@@ -541,13 +541,6 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
   (declare (type connection source)
            (type pgsql-connection target))
 
-  ;; some preliminary checks
-  (when (and (typep source 'csv-connection)
-             (not (typep source 'copy-connection))
-             (null fields))
-    (error 'source-definition-error
-           :mesg "This data source requires fields definitions."))
-
   (when (and (typep source 'csv-connection) (null (pgconn-table-name target)))
     (error 'source-definition-error
            :mesg "This data source require a table name target."))
