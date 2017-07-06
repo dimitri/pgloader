@@ -8,7 +8,7 @@
                             &key table source-catalog including excluding)
   "Fetch PostgreSQL catalogs for the target database. A PostgreSQL
    connection must be opened."
-  (let* ((*identifier-case* :none)
+  (let* ((*identifier-case* :quote)
          (catalog   (make-catalog :name dbname))
          (including (cond ((and table (not including))
                            (make-including-expr-from-table table))
