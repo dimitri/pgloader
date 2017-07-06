@@ -1,6 +1,6 @@
 # pgloader build tool
 APP_NAME   = pgloader
-VERSION    = 3.3.2
+VERSION    = 3.4.1
 
 # use either sbcl or ccl
 CL	   = sbcl
@@ -167,9 +167,9 @@ clean-bundle:
 
 $(BUNDLEDIR):
 	mkdir -p $@
-	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp                \
-             --eval '(ql:bundle-systems (list "pgloader" "buildapp") :to "$@")' \
-             --eval '(quit)'
+	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp   \
+             --eval '(defvar *bundle-dir* "$@")'      \
+             --load bundle/ql.lisp
 
 $(BUNDLE): $(BUNDLEDIR)
 	cp bundle/README.md $(BUNDLEDIR)
