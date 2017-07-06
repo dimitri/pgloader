@@ -131,7 +131,7 @@
           (when truncate
             (truncate-tables pgsql-catalog)))
 
-      (condition (e)
+      (cl-postgres:database-error (e)
         (log-message :fatal "Failed to prepare target PostgreSQL table.")
         (log-message :fatal "~a" e)
         (return-from copy-database)))
