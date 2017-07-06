@@ -30,16 +30,16 @@
     (setf (catalog-types-without-btree catalog)
           (list-typenames-without-btree-support))
 
-    (when create-schemas
-      (with-stats-collection ("Create Schemas" :section :pre
-                                               :use-result-as-read t
-                                               :use-result-as-rows t)
-        (create-schemas catalog
-                        :include-drop include-drop
-                        :client-min-messages :error)))
-
     (if create-tables
         (progn
+          (when create-schemas
+            (with-stats-collection ("Create Schemas" :section :pre
+                                                     :use-result-as-read t
+                                                     :use-result-as-rows t)
+              (create-schemas catalog
+                              :include-drop include-drop
+                              :client-min-messages :error)))
+
           ;; create new SQL types (ENUMs, SETs) if needed and before we
           ;; get to the table definitions that will use them
           (with-stats-collection ("Create SQL Types" :section :pre
