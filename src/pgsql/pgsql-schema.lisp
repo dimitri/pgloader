@@ -102,12 +102,10 @@
   "Get PostgreSQL schema name where to locate TABLE-NAME by following the
   current search_path rules. A PostgreSQL connection must be opened."
   (make-schema :name
-               (pomo:query (format nil "
-  select nspname
-    from pg_namespace n
-    join pg_class c on n.oid = c.relnamespace
-   where c.oid = '~a'::regclass;"
-                                   (table-name table)) :single)))
+               (pomo:query (format nil
+                                   (sql "/pgsql/query-table-schema.sql")
+                                   (table-name table))
+                           :single)))
 
 
 (defvar *table-type* '((:table    . "r")
@@ -141,25 +139,8 @@
   (loop :for (schema-name table-name table-oid name type typmod notnull default)
      :in
      (query nil
-            (format nil "
-    select nspname, relname, c.oid, attname,
-           t.oid::regtype as type,
-           case when atttypmod > 0 then atttypmod - 4 else null end as typmod,
-           attnotnull,
-           case when atthasdef then def.adsrc end as default
-      from pg_class c
-           join pg_namespace n on n.oid = c.relnamespace
-           left join pg_attribute a on c.oid = a.attrelid
-           join pg_type t on t.oid = a.atttypid and attnum > 0
-           left join pg_attrdef def on a.attrelid = def.adrelid
-                                   and a.attnum = def.adnum
-
-     where nspname !~~ '^pg_' and n.nspname <> 'information_schema'
-           and relkind = '~a'
-           ~:[~*~;and (~{~a~^~&~10t or ~})~]
-           ~:[~*~;and (~{~a~^~&~10t and ~})~]
-
-  order by nspname, relname, attnum"
+            (format nil
+                    (sql "/pgsql/list-all-columns.sql")
                     table-type-name
                     including           ; do we print the clause?
                     (filter-list-to-where-clause including
@@ -189,30 +170,8 @@
                        table-schema table-name
                        primary unique sql conname condef)
      :in (query nil
-                (format nil "
-  select n.nspname,
-         i.relname,
-         i.oid,
-         rn.nspname,
-         r.relname,
-         indisprimary,
-         indisunique,
-         pg_get_indexdef(indexrelid),
-         c.conname,
-         pg_get_constraintdef(c.oid)
-    from pg_index x
-         join pg_class i ON i.oid = x.indexrelid
-         join pg_class r ON r.oid = x.indrelid
-         join pg_namespace n ON n.oid = i.relnamespace
-         join pg_namespace rn ON rn.oid = r.relnamespace
-         left join pg_constraint c ON c.conindid = i.oid
-                                  and c.conrelid = r.oid
-                                  -- filter out self-fkeys
-                                  and c.confrelid <> r.oid
-   where n.nspname !~~ '^pg_' and n.nspname <> 'information_schema'
-         ~:[~*~;and (~{~a~^~&~10t or ~})~]
-         ~:[~*~;and (~{~a~^~&~10t and ~})~]
-order by n.nspname, r.relname"
+                (format nil
+                        (sql "/pgsql/list-all-indexes.sql")
                         including       ; do we print the clause?
                         (filter-list-to-where-clause including
                                                      nil
@@ -247,57 +206,29 @@ order by n.nspname, r.relname"
                        conoid conname condef
                        cols fcols
                        updrule delrule mrule deferrable deferred)
-     :in
-     (query nil
-            (format nil "
- select n.nspname, c.relname, nf.nspname, cf.relname as frelname,
-        r.oid, conname,
-        pg_catalog.pg_get_constraintdef(r.oid, true) as condef,
-        (select string_agg(attname, ',')
-           from pg_attribute
-          where attrelid = r.conrelid
-            and array[attnum::integer] <@ conkey::integer[]
-        ) as conkey,
-        (select string_agg(attname, ',')
-           from pg_attribute
-          where attrelid = r.confrelid
-            and array[attnum::integer] <@ confkey::integer[]
-        ) as confkey,
-        confupdtype, confdeltype, confmatchtype,
-        condeferrable, condeferred
-   from pg_catalog.pg_constraint r
-        JOIN pg_class c on r.conrelid = c.oid
-        JOIN pg_namespace n on c.relnamespace = n.oid
-        JOIN pg_class cf on r.confrelid = cf.oid
-        JOIN pg_namespace nf on cf.relnamespace = nf.oid
-   where r.contype = 'f'
-         AND c.relkind = 'r' and cf.relkind = 'r'
-         AND n.nspname !~~ '^pg_' and n.nspname <> 'information_schema'
-         AND nf.nspname !~~ '^pg_' and nf.nspname <> 'information_schema'
-         ~:[~*~;and (~{~a~^~&~10t or ~})~]
-         ~:[~*~;and (~{~a~^~&~10t and ~})~]
-         ~:[~*~;and (~{~a~^~&~10t or ~})~]
-         ~:[~*~;and (~{~a~^~&~10t and ~})~]"
-                    including           ; do we print the clause (table)?
-                    (filter-list-to-where-clause including
-                                                 nil
-                                                 "n.nspname"
-                                                 "c.relname")
-                    excluding           ; do we print the clause (table)?
-                    (filter-list-to-where-clause excluding
-                                                 nil
-                                                 "n.nspname"
-                                                 "c.relname")
-                    including           ; do we print the clause (ftable)?
-                    (filter-list-to-where-clause including
-                                                 nil
-                                                 "nf.nspname"
-                                                 "cf.relname")
-                    excluding           ; do we print the clause (ftable)?
-                    (filter-list-to-where-clause excluding
-                                                 nil
-                                                 "nf.nspname"
-                                                 "cf.relname")))
+     :in (query nil
+                (format nil
+                        (sql "/pgsql/list-all-fkeys.sql")
+                        including       ; do we print the clause (table)?
+                        (filter-list-to-where-clause including
+                                                     nil
+                                                     "n.nspname"
+                                                     "c.relname")
+                        excluding       ; do we print the clause (table)?
+                        (filter-list-to-where-clause excluding
+                                                     nil
+                                                     "n.nspname"
+                                                     "c.relname")
+                        including       ; do we print the clause (ftable)?
+                        (filter-list-to-where-clause including
+                                                     nil
+                                                     "nf.nspname"
+                                                     "cf.relname")
+                        excluding       ; do we print the clause (ftable)?
+                        (filter-list-to-where-clause excluding
+                                                     nil
+                                                     "nf.nspname"
+                                                     "cf.relname")))
      :do (flet ((pg-fk-rule-to-action (rule)
                   (case rule
                     (#\a "NO ACTION")
@@ -350,31 +281,8 @@ order by n.nspname, r.relname"
       (loop :for (schema-name table-name fschema-name ftable-name
                               conoid conname condef index-oid)
          :in (query nil
-                    (format nil "
-with pkeys(oid) as (
-  values~{(~d)~^,~}
-),
-     knownfkeys(oid) as (
-  values~{(~d)~^,~}
-),
-  pkdeps as (
-  select pkeys.oid, pg_depend.objid
-    from pg_depend
-         join pkeys on pg_depend.refobjid = pkeys.oid
-   where     classid = 'pg_catalog.pg_constraint'::regclass
-         and refclassid = 'pg_catalog.pg_class'::regclass
-)
- select n.nspname, c.relname, nf.nspname, cf.relname as frelname,
-        r.oid as conoid, conname,
-        pg_catalog.pg_get_constraintdef(r.oid, true) as condef,
-        pkdeps.oid as index_oid
-   from pg_catalog.pg_constraint r
-        JOIN pkdeps on r.oid = pkdeps.objid
-        JOIN pg_class c on r.conrelid = c.oid
-        JOIN pg_namespace n on c.relnamespace = n.oid
-        JOIN pg_class cf on r.confrelid = cf.oid
-        JOIN pg_namespace nf on cf.relnamespace = nf.oid
-  where NOT EXISTS (select 1 from knownfkeys where oid = r.oid)"
+                    (format nil
+                            (sql "/pgsql/list-missing-fk-deps.sql")
                             pkey-oid-list
                             (or fkey-oid-list (list -1))))
          ;;
@@ -407,14 +315,10 @@ with pkeys(oid) as (
 (defun list-table-oids (table-names)
   "Return an hash table mapping TABLE-NAME to its OID for all table in the
    TABLE-NAMES list. A PostgreSQL connection must be established already."
-  (let ((oidmap (make-hash-table :size (length table-names) :test #'equal)))
+  (let ((oidmap (make-hash-table :size (length table-names) :test #'equal))
+        (sql    (format nil (sql "/pgsql/list-table-oids.sql") table-names)))
     (when table-names
       (loop :for (name oid)
-         :in (query nil
-                    (format nil
-                            "
-select n, n::regclass::oid
-  from (values ~{('~a')~^,~}) as t(n)"
-                            table-names))
+         :in (query nil sql)
          :do (setf (gethash name oidmap) oid)))
     oidmap))

@@ -83,51 +83,8 @@
                        datetime-precision
                        character-set-name collation-name)
      :in
-     (mssql-query (format nil "
-  select c.table_schema,
-         c.table_name,
-         c.column_name,
-         c.data_type,
-         CASE
-         WHEN c.column_default LIKE '((%' AND c.column_default LIKE '%))' THEN
-             CASE
-                 WHEN SUBSTRING(c.column_default,3,len(c.column_default)-4) = 'newid()' THEN 'generate_uuid_v4()'
-                 WHEN SUBSTRING(c.column_default,3,len(c.column_default)-4) LIKE 'convert(%varchar%,getdate(),%)' THEN 'today'
-                 WHEN SUBSTRING(c.column_default,3,len(c.column_default)-4) = 'getdate()' THEN 'CURRENT_TIMESTAMP'
-                 WHEN SUBSTRING(c.column_default,3,len(c.column_default)-4) LIKE '''%''' THEN SUBSTRING(c.column_default,4,len(c.column_default)-6)
-                 ELSE SUBSTRING(c.column_default,3,len(c.column_default)-4)
-             END
-         WHEN c.column_default LIKE '(%' AND c.column_default LIKE '%)' THEN
-             CASE
-                 WHEN SUBSTRING(c.column_default,2,len(c.column_default)-2) = 'newid()' THEN 'generate_uuid_v4()'
-                 WHEN SUBSTRING(c.column_default,2,len(c.column_default)-2) LIKE 'convert(%varchar%,getdate(),%)' THEN 'today'
-                 WHEN SUBSTRING(c.column_default,2,len(c.column_default)-2) = 'getdate()' THEN 'CURRENT_TIMESTAMP'
-                 WHEN SUBSTRING(c.column_default,2,len(c.column_default)-2) LIKE '''%''' THEN SUBSTRING(c.column_default,3,len(c.column_default)-4)
-                 ELSE SUBSTRING(c.column_default,2,len(c.column_default)-2)
-             END
-         ELSE c.column_default
-         END,
-         c.is_nullable,
-         COLUMNPROPERTY(object_id(c.table_name), c.column_name, 'IsIdentity'),
-         c.CHARACTER_MAXIMUM_LENGTH,
-         c.NUMERIC_PRECISION,
-         c.NUMERIC_PRECISION_RADIX,
-         c.NUMERIC_SCALE,
-         c.DATETIME_PRECISION,
-         c.CHARACTER_SET_NAME,
-         c.COLLATION_NAME
-
-    from information_schema.columns c
-         join information_schema.tables t
-              on c.table_schema = t.table_schema
-             and c.table_name = t.table_name
-
-   where     c.table_catalog = '~a'
-         and t.table_type = '~a'
-         ~:[~*~;and (~{~a~^~&~10t or ~})~]
-         ~:[~*~;and (~{~a~^~&~10t and ~})~]
-
-order by c.table_schema, c.table_name, c.ordinal_position"
+     (mssql-query (format nil
+                          (sql "/mssql/list-all-columns.sql")
                           (db-name *mssql-db*)
                           table-type-name
                           including     ; do we print the clause?
@@ -158,31 +115,8 @@ order by c.table_schema, c.table_name, c.ordinal_position"
   "Get the list of MSSQL index definitions per table."
   (loop
      :for (schema-name table-name index-name colname unique pkey filter)
-     :in  (mssql-query (format nil "
-    select schema_name(schema_id) as SchemaName,
-           o.name as TableName,
-           REPLACE(i.name, '.', '_') as IndexName,
-           co.[name] as ColumnName,
-           i.is_unique,
-           i.is_primary_key,
-           i.filter_definition
-
-    from sys.indexes i
-         join sys.objects o on i.object_id = o.object_id
-         join sys.index_columns ic on ic.object_id = i.object_id
-             and ic.index_id = i.index_id
-         join sys.columns co on co.object_id = i.object_id
-             and co.column_id = ic.column_id
-
-   where schema_name(schema_id) not in ('dto', 'sys')
-         ~:[~*~;and (~{~a~^ or ~})~]
-         ~:[~*~;and (~{~a~^ and ~})~]
-
-order by SchemaName,
-         o.[name],
-         i.[name],
-         ic.is_included_column,
-         ic.key_ordinal"
+     :in  (mssql-query (format nil
+                               (sql "/mssql/list-all-indexes.sql")
                                including ; do we print the clause?
                                (filter-list-to-where-clause including
                                                             nil
@@ -213,40 +147,11 @@ order by SchemaName,
 (defun list-all-fkeys (catalog &key including excluding)
   "Get the list of MSSQL index definitions per table."
   (loop
-     :for (fkey-name schema-name table-name col fschema-name ftable-name fcol fk-update-rule fk-delete-rule)
-     :in  (mssql-query (format nil "
-   SELECT
-           REPLACE(KCU1.CONSTRAINT_NAME, '.', '_') AS 'CONSTRAINT_NAME'
-         , KCU1.TABLE_SCHEMA AS 'TABLE_SCHEMA'
-         , KCU1.TABLE_NAME AS 'TABLE_NAME'
-         , KCU1.COLUMN_NAME AS 'COLUMN_NAME'
-         , KCU2.TABLE_SCHEMA AS 'UNIQUE_TABLE_SCHEMA'
-         , KCU2.TABLE_NAME AS 'UNIQUE_TABLE_NAME'
-         , KCU2.COLUMN_NAME AS 'UNIQUE_COLUMN_NAME'
-         , RC.UPDATE_RULE AS 'UPDATE_RULE'
-         , RC.DELETE_RULE AS 'DELETE_RULE'
-
-    FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS RC
-         JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE KCU1
-              ON KCU1.CONSTRAINT_CATALOG = RC.CONSTRAINT_CATALOG
-                 AND KCU1.CONSTRAINT_SCHEMA = RC.CONSTRAINT_SCHEMA
-                 AND KCU1.CONSTRAINT_NAME = RC.CONSTRAINT_NAME
-         JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE KCU2
-              ON KCU2.CONSTRAINT_CATALOG = RC.UNIQUE_CONSTRAINT_CATALOG
-                 AND KCU2.CONSTRAINT_SCHEMA = RC.UNIQUE_CONSTRAINT_SCHEMA
-                 AND KCU2.CONSTRAINT_NAME = RC.UNIQUE_CONSTRAINT_NAME
-
-   WHERE KCU1.ORDINAL_POSITION = KCU2.ORDINAL_POSITION
-         AND KCU1.TABLE_CATALOG = '~a'
-         AND KCU1.CONSTRAINT_CATALOG = '~a'
-         AND KCU1.CONSTRAINT_SCHEMA NOT IN ('dto', 'sys')
-         AND KCU1.TABLE_SCHEMA NOT IN ('dto', 'sys')
-         AND KCU2.TABLE_SCHEMA NOT IN ('dto', 'sys')
-
-         ~:[~*~;and (~{~a~^ or ~})~]
-         ~:[~*~;and (~{~a~^ and ~})~]
-
-ORDER BY KCU1.CONSTRAINT_NAME, KCU1.ORDINAL_POSITION"
+     :for (fkey-name schema-name table-name col
+                     fschema-name ftable-name fcol
+                     fk-update-rule fk-delete-rule)
+     :in  (mssql-query (format nil
+                               (sql "/mssql/list-all-fkeys.sql")
                                (db-name *mssql-db*) (db-name *mssql-db*)
                                including ; do we print the clause?
                                (filter-list-to-where-clause including

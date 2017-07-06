@@ -252,9 +252,15 @@
            #:batch-oversized-p
            #:batch-full-p))
 
+(defpackage #:pgloader.queries
+  (:use #:cl #:pgloader.params)
+  (:export #:*queries*
+           #:sql))
+
 (defpackage #:pgloader.utils
   (:use #:cl
         #:pgloader.params
+        #:pgloader.queries
         #:pgloader.quoting
         #:pgloader.catalog
         #:pgloader.monitor
@@ -285,6 +291,7 @@
            #:show-encodings
            #:make-external-format))
 
+(cl-user::export-inherited-symbols "pgloader.queries" "pgloader.utils")
 (cl-user::export-inherited-symbols "pgloader.quoting" "pgloader.utils")
 (cl-user::export-inherited-symbols "pgloader.catalog" "pgloader.utils")
 (cl-user::export-inherited-symbols "pgloader.monitor" "pgloader.utils")

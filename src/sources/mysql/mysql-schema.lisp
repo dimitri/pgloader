@@ -181,18 +181,8 @@
   (loop
      :for (tname tcomment cname ccomment dtype ctype default nullable extra)
      :in
-     (mysql-query (format nil "
-  select c.table_name, t.table_comment,
-         c.column_name, c.column_comment,
-         c.data_type, c.column_type, c.column_default,
-         c.is_nullable, c.extra
-    from information_schema.columns c
-         join information_schema.tables t using(table_schema, table_name)
-   where c.table_schema = '~a' and t.table_type = '~a'
-         ~:[~*~;and table_name in (~{'~a'~^,~})~]
-         ~:[~*~;and (~{table_name ~a~^ or ~})~]
-         ~:[~*~;and (~{table_name ~a~^ and ~})~]
-order by table_name, ordinal_position"
+     (mysql-query (format nil
+                          (sql "/mysql/list-all-columns.sql")
                           (db-name *connection*)
                           table-type-name
                           only-tables   ; do we print the clause?
@@ -224,15 +214,8 @@ order by table_name, ordinal_position"
   "Get the list of MySQL index definitions per table."
   (loop
      :for (table-name name non-unique cols)
-     :in (mysql-query (format nil "
-  SELECT table_name, index_name, sum(non_unique),
-         cast(GROUP_CONCAT(column_name order by seq_in_index) as char)
-    FROM information_schema.statistics
-   WHERE table_schema = '~a'
-         ~:[~*~;and table_name in (~{'~a'~^,~})~]
-         ~:[~*~;and (~{table_name ~a~^ or ~})~]
-         ~:[~*~;and (~{table_name ~a~^ and ~})~]
-GROUP BY table_name, index_name;"
+     :in (mysql-query (format nil
+                              (sql "/mysql/list-all-indexes.sql")
                               (db-name *connection*)
                               only-tables ; do we print the clause?
                               only-tables
@@ -265,41 +248,8 @@ GROUP BY table_name, index_name;"
   "Get the list of MySQL Foreign Keys definitions per table."
   (loop
      :for (table-name name ftable-name cols fcols update-rule delete-rule)
-     :in (mysql-query (format nil "
-SELECT s.table_name, s.constraint_name, s.ft, s.cols, s.fcols,
-       rc.update_rule, rc.delete_rule
-
-FROM
- (
-  SELECT tc.table_schema, tc.table_name,
-         tc.constraint_name, k.referenced_table_name ft,
-
-             group_concat(         k.column_name
-                          order by k.ordinal_position) as cols,
-
-             group_concat(         k.referenced_column_name
-                          order by k.position_in_unique_constraint) as fcols
-
-        FROM information_schema.table_constraints tc
-
-        LEFT JOIN information_schema.key_column_usage k
-               ON k.table_schema = tc.table_schema
-              AND k.table_name = tc.table_name
-              AND k.constraint_name = tc.constraint_name
-
-      WHERE     tc.table_schema = '~a'
-            AND k.referenced_table_schema = '~a'
-            AND tc.constraint_type = 'FOREIGN KEY'
-           ~:[~*~;and tc.table_name in (~{'~a'~^,~})~]
-           ~:[~*~;and (~{tc.table_name ~a~^ or ~})~]
-           ~:[~*~;and (~{tc.table_name ~a~^ and ~})~]
-
-   GROUP BY tc.table_schema, tc.table_name, tc.constraint_name, ft
- ) s
-             JOIN information_schema.referential_constraints rc
-               ON rc.constraint_schema = s.table_schema
-              AND rc.constraint_name = s.constraint_name
-              AND rc.table_name = s.table_name"
+     :in (mysql-query (format nil
+                              (sql "/mysql/list-all-fkeys.sql")
                               (db-name *connection*) (db-name *connection*)
                               only-tables ; do we print the clause?
                               only-tables
@@ -347,14 +297,8 @@ FROM
   "Return comments on MySQL tables."
   (loop
      :for (table-name comment)
-     :in (mysql-query (format nil "
-    SELECT table_name, table_comment
-      FROM information_schema.tables
-    WHERE     table_schema = '~a'
-          and table_type = 'BASE TABLE'
-         ~:[~*~;and table_name in (~{'~a'~^,~})~]
-         ~:[~*~;and (~{table_name ~a~^ or ~})~]
-         ~:[~*~;and (~{table_name ~a~^ and ~})~]"
+     :in (mysql-query (format nil
+                              (sql "/mysql/list-table-comments.sql")
                               (db-name *connection*)
                               only-tables ; do we print the clause?
                               only-tables
@@ -372,16 +316,8 @@ FROM
   "Return comments on MySQL tables."
   (loop
      :for (table-name column-name comment)
-     :in (mysql-query (format nil "
-  select c.table_name, c.column_name, c.column_comment
-    from information_schema.columns c
-         join information_schema.tables t using(table_schema, table_name)
-   where     c.table_schema = '~a'
-         and t.table_type = 'BASE TABLE'
-         ~:[~*~;and table_name in (~{'~a'~^,~})~]
-         ~:[~*~;and (~{table_name ~a~^ or ~})~]
-         ~:[~*~;and (~{table_name ~a~^ and ~})~]
-order by table_name, ordinal_position"
+     :in (mysql-query (format nil
+                              (sql "/mysql/list-columns-comments.sql")
                               (db-name *connection*)
                               only-tables ; do we print the clause?
                               only-tables
@@ -413,13 +349,10 @@ order by table_name, ordinal_position"
 
    This function assumes a valid connection to the MySQL server has been
    established already."
-  (loop
-     for (name type) in (mysql-query (format nil "
-  select column_name, data_type
-    from information_schema.columns
-   where table_schema = '~a' and table_name = '~a'
-order by ordinal_position" dbname table-name)
-					   :result-type 'list)
+  (loop with sql = (format nil
+                           (sql "/mysql/get-column-list.sql")
+                           dbname table-name)
+     for (name type) in (mysql-query sql :result-type 'list)
      collect (get-column-sql-expression name type)))
 
 (declaim (inline fix-nulls))
