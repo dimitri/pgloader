@@ -50,7 +50,7 @@
     (:source (:type "smallint")  :target (:type "smallint" :drop-typemod t))
     (:source (:type "mediumint") :target (:type "integer"  :drop-typemod t))
     (:source (:type "integer")   :target (:type "integer"  :drop-typemod t))
-    (:source (:type "float")     :target (:type "float"    :drop-typemod t))
+    (:source (:type "float")     :target (:type "real"    :drop-typemod t))
     (:source (:type "bigint")    :target (:type "bigint"   :drop-typemod t))
 
     (:source (:type "double")
