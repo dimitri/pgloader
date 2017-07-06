@@ -198,22 +198,15 @@
   (let* ((schema-name (schema-name (index-schema index)))
          (index-name  (index-name index)))
     (cond ((index-conname index)
-           ;; here always quote the constraint name, currently the name
-           ;; comes from one source only, the PostgreSQL database catalogs,
-           ;; so don't question it, quote it.
-           ;;
-           ;; The constraint name could begin with numbers of follow other
-           ;; force-quoting PostgreSQL rules, so we really quote it (using
-           ;; ~s here).
            (format stream
-                   "ALTER TABLE ~a DROP CONSTRAINT~:[~; IF EXISTS~] ~s~@[ CASCADE~];"
+                   "ALTER TABLE ~a DROP CONSTRAINT~:[~; IF EXISTS~] ~a~@[ CASCADE~];"
                    (format-table-name (index-table index))
                    if-exists
                    (index-conname index)
                    cascade))
 
           (t
-           (format stream "DROP INDEX~:[~; IF EXISTS~] ~@[~s.~]~s~@[ CASCADE~];"
+           (format stream "DROP INDEX~:[~; IF EXISTS~] ~@[~a.~]~a~@[ CASCADE~];"
                    if-exists schema-name index-name cascade)))))
 
 (defun index-access-method (index)
