@@ -21,6 +21,7 @@
                           option-batch-size
                           option-prefetch-rows
                           option-max-parallel-create-index
+                          option-reindex
                           option-truncate
                           option-disable-triggers
                           option-data-only

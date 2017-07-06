@@ -17,7 +17,8 @@
                           option-single-reader
                           option-multiple-readers
                           option-rows-per-range
-			  option-truncate
+			  option-reindex
+                          option-truncate
                           option-disable-triggers
 			  option-data-only
 			  option-schema-only
