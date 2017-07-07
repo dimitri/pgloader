@@ -86,7 +86,14 @@
             (guess-csv-params stream nb-columns)
           (setf separator sep
                 quote     q
-                escape    esc))))
+                escape    esc)
+
+          (log-message :notice "Guessed following CSV parameters:~%  ~a"
+                       (format nil "~
+  fields terminated by '~a',
+  fields optionally enclosed by '~a',
+  fields escaped by '~a'"
+                               sep q esc)))))
 
     (handler-case
         (handler-bind ((cl-csv:csv-parse-error
