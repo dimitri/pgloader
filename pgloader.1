@@ -247,7 +247,20 @@ pgloader \-\-verbose \./test/csv\-districts\.load
 .IP "" 0
 .
 .SS "CSV"
-Load data from a CSV file into a pre\-existing table in your database:
+Load data from a CSV file into a pre\-existing table in your database, having pgloader guess the CSV properties (separator, quote and escape character):
+.
+.IP "" 4
+.
+.nf
+
+pgloader \./test/data/matching\-1\.csv pgsql:///pgloader?tablename=matching
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Load data from a CSV file into a pre\-existing table in your database, with expanded options:
 .
 .IP "" 4
 .

@@ -103,9 +103,10 @@
     (destructuring-bind (source encoding fields target columns clauses) command
       `(,source ,encoding ,fields ,target ,columns ,@clauses))))
 
-(defun lisp-code-for-loading-from-copy (copy-conn fields pg-db-conn
+(defun lisp-code-for-loading-from-copy (copy-conn pg-db-conn
                                         &key
                                           (encoding :utf-8)
+                                          fields
                                           columns
                                           gucs before after options
                                         &aux
@@ -163,8 +164,9 @@
       (cond (*dry-run*
              (lisp-code-for-csv-dry-run pg-db-uri))
             (t
-             (lisp-code-for-loading-from-copy source fields pg-db-uri
+             (lisp-code-for-loading-from-copy source pg-db-uri
                                               :encoding encoding
+                                              :fields fields
                                               :columns columns
                                               :gucs gucs
                                               :before before

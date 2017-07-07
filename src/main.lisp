@@ -541,13 +541,20 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
   (declare (type connection source)
            (type pgsql-connection target))
 
-  (when (and (typep source 'csv-connection) (null (pgconn-table-name target)))
+  (when (and (typep source 'csv-connection)
+             (null (pgconn-table-name target)))
     (error 'source-definition-error
-           :mesg "This data source require a table name target."))
+           :mesg "CSV data source require a table name target."))
 
-  (when (and (typep source 'fixed-connection) (null (pgconn-table-name target)))
+  (when (and (typep source 'fixed-connection)
+             (null (pgconn-table-name target)))
     (error 'source-definition-error
            :mesg "Fixed-width data source require a table name target."))
+
+  (when (and (typep source 'fixed-connection)
+             (null fields))
+    (error 'source-definition-error
+           :mesg "Fixed-width data source require fields specs."))  
 
   (with-monitor (:start-logger start-logger)
     (when (and casts (not (member (type-of source)
@@ -558,70 +565,72 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
 
     ;; now generates the code for the command
     (log-message :debug "LOAD DATA FROM ~s" source)
-    (run-commands
-     (process-relative-pathnames
-      (uiop:getcwd)
-      (typecase source
-        (copy-connection
-         (lisp-code-for-loading-from-copy source fields target
-                                          :encoding (or encoding :default)
-                                          :gucs gucs
-                                          :options options
-                                          :before before
-                                          :after after))
+    (let ((code
+           (etypecase source
+             (copy-connection
+              (lisp-code-for-loading-from-copy source target
+                                               :fields fields
+                                               :encoding (or encoding :default)
+                                               :gucs gucs
+                                               :options options
+                                               :before before
+                                               :after after))
 
-        (fixed-connection
-         (lisp-code-for-loading-from-fixed source fields target
-                                           :encoding encoding
-                                           :gucs gucs
-                                           :options options
-                                           :before before
-                                           :after after))
+             (fixed-connection
+              (lisp-code-for-loading-from-fixed source target
+                                                :fields fields
+                                                :encoding encoding
+                                                :gucs gucs
+                                                :options options
+                                                :before before
+                                                :after after))
 
-        (csv-connection
-         (lisp-code-for-loading-from-csv source fields target
-                                         :encoding encoding
-                                         :gucs gucs
-                                         :options options
-                                         :before before
-                                         :after after))
+             (csv-connection
+              (lisp-code-for-loading-from-csv source target
+                                              :fields fields
+                                              :encoding encoding
+                                              :gucs gucs
+                                              :options options
+                                              :before before
+                                              :after after))
 
-        (dbf-connection
-         (lisp-code-for-loading-from-dbf source target
-                                         :gucs gucs
-                                         :options options
-                                         :before before
-                                         :after after))
+             (dbf-connection
+              (lisp-code-for-loading-from-dbf source target
+                                              :gucs gucs
+                                              :options options
+                                              :before before
+                                              :after after))
 
-        (ixf-connection
-         (lisp-code-for-loading-from-ixf source target
-                                         :gucs gucs
-                                         :options options
-                                         :before before
-                                         :after after))
+             (ixf-connection
+              (lisp-code-for-loading-from-ixf source target
+                                              :gucs gucs
+                                              :options options
+                                              :before before
+                                              :after after))
 
-        (sqlite-connection
-         (lisp-code-for-loading-from-sqlite source target
-                                            :gucs gucs
-                                            :casts casts
-                                            :options options
-                                            :before before
-                                            :after after))
+             (sqlite-connection
+              (lisp-code-for-loading-from-sqlite source target
+                                                 :gucs gucs
+                                                 :casts casts
+                                                 :options options
+                                                 :before before
+                                                 :after after))
 
-        (mysql-connection
-         (lisp-code-for-loading-from-mysql source target
-                                           :gucs gucs
-                                           :casts casts
-                                           :options options
-                                           :before before
-                                           :after after))
+             (mysql-connection
+              (lisp-code-for-loading-from-mysql source target
+                                                :gucs gucs
+                                                :casts casts
+                                                :options options
+                                                :before before
+                                                :after after))
 
-        (mssql-connection
-         (lisp-code-for-loading-from-mssql source target
-                                           :gucs gucs
-                                           :casts casts
-                                           :options options
-                                           :before before
-                                           :after after))))
-     :start-logger nil
-     :flush-summary flush-summary)))
+             (mssql-connection
+              (lisp-code-for-loading-from-mssql source target
+                                                :gucs gucs
+                                                :casts casts
+                                                :options options
+                                                :before before
+                                                :after after)))))
+      (run-commands (process-relative-pathnames (uiop:getcwd) code)
+                    :start-logger nil
+                    :flush-summary flush-summary))))

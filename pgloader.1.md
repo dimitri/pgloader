@@ -219,7 +219,13 @@ that file and execute the commands found in it:
 
 ### CSV
 
-Load data from a CSV file into a pre-existing table in your database:
+Load data from a CSV file into a pre-existing table in your database, having
+pgloader guess the CSV properties (separator, quote and escape character):
+
+    pgloader ./test/data/matching-1.csv pgsql:///pgloader?tablename=matching
+
+Load data from a CSV file into a pre-existing table in your database, with
+expanded options:
 
     pgloader --type csv                                   \
              --field id --field field                     \

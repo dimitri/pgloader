@@ -18,7 +18,7 @@
 		:initarg :source-type)	  ;  or :filename
    (separator   :accessor csv-separator	  ; CSV separator
 	        :initarg :separator	  ;
-	        :initform #\Tab)	  ;
+	        :initform nil)            ;
    (newline     :accessor csv-newline     ; CSV line ending
                 :initarg :newline         ;
                 :initform #\Newline)
@@ -73,24 +73,39 @@
 
 (defmethod process-rows ((csv copy-csv) stream process-fn)
   "Process rows from STREAM according to COPY specifications and PROCESS-FN."
-  (handler-case
-      (handler-bind ((cl-csv:csv-parse-error
-                      #'(lambda (c)
-                          (log-message :error "~a" c)
-                          (update-stats :data (target csv) :errs 1)
-                          (cl-csv::continue))))
-        (cl-csv:read-csv stream
-                         :row-fn process-fn
-                         :separator (csv-separator csv)
-                         :quote (csv-quote csv)
-                         :escape (csv-escape csv)
-                         :escape-mode (csv-escape-mode csv)
-                         :unquoted-empty-string-is-nil t
-                         :quoted-empty-string-is-nil nil
-                         :trim-outer-whitespace (csv-trim-blanks csv)
-                         :newline (csv-newline csv)))
-    (condition (e)
-      (progn
-        (log-message :fatal "~a" e)
-        (update-stats :data (target csv) :errs 1)))))
+  (let ((separator (csv-separator csv))
+        (quote     (csv-quote csv))
+        (escape    (csv-escape csv)))
+    (unless separator
+      ;; try to guess the CSV format
+      (let ((nb-columns (length (columns csv))))
+        (destructuring-bind (&key
+                             ((:separator sep) #\Tab)
+                             ((:quote q)       cl-csv:*quote*)
+                             ((:escape esc)    cl-csv:*quote-escape*))
+            (guess-csv-params stream nb-columns)
+          (setf separator sep
+                quote     q
+                escape    esc))))
+
+    (handler-case
+        (handler-bind ((cl-csv:csv-parse-error
+                        #'(lambda (c)
+                            (log-message :error "~a" c)
+                            (update-stats :data (target csv) :errs 1)
+                            (cl-csv::continue))))
+          (cl-csv:read-csv stream
+                           :row-fn process-fn
+                           :separator separator
+                           :quote quote
+                           :escape escape
+                           :escape-mode (csv-escape-mode csv)
+                           :unquoted-empty-string-is-nil t
+                           :quoted-empty-string-is-nil nil
+                           :trim-outer-whitespace (csv-trim-blanks csv)
+                           :newline (csv-newline csv)))
+      (condition (e)
+        (progn
+          (log-message :fatal "~a" e)
+          (update-stats :data (target csv) :errs 1))))))
 

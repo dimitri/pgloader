@@ -397,9 +397,10 @@
      (log-message :log "DRY RUN, only checking PostgreSQL connection.")
      (check-connection ,pg-db-conn)))
 
-(defun lisp-code-for-loading-from-csv (csv-conn fields pg-db-conn
+(defun lisp-code-for-loading-from-csv (csv-conn pg-db-conn
                                        &key
                                          (encoding :utf-8)
+                                         fields
                                          columns
                                          gucs before after options
                                        &aux
@@ -457,8 +458,9 @@
       (cond (*dry-run*
              (lisp-code-for-csv-dry-run pg-db-uri))
             (t
-             (lisp-code-for-loading-from-csv source fields pg-db-uri
+             (lisp-code-for-loading-from-csv source pg-db-uri
                                              :encoding encoding
+                                             :fields fields
                                              :columns columns
                                              :gucs gucs
                                              :before before
