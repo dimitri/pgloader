@@ -28,7 +28,8 @@ load database
 			   option-include-drop
 			   option-create-tables
 			   option-create-indexes
-			   option-reset-sequences
+			   option-index-names
+                           option-reset-sequences
                            option-foreign-keys
                            option-encoding))
 
