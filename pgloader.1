@@ -1949,6 +1949,12 @@ The default is to \fIuniquify index names\fR\.
 Even when using the option \fIpreserve index names\fR, MySQL primary key indexes named "PRIMARY" will get their names uniquified\. Failing to do so would prevent the primary keys to be created again in PostgreSQL where the index names must be unique per schema\.
 .
 .IP "\(bu" 4
+\fIdrop schema\fR
+.
+.IP
+When this option is listed, pgloader drops the target schema in the target PostgreSQL database before creating it again and all the objects it contains\. The default behavior doesn\'t drop the target schemas\.
+.
+.IP "\(bu" 4
 \fIforeign keys\fR
 .
 .IP

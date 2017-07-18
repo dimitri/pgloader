@@ -1685,6 +1685,13 @@ The `database` command accepts the following clauses and options:
         do so would prevent the primary keys to be created again in
         PostgreSQL where the index names must be unique per schema.
 
+      - *drop schema*
+      
+        When this option is listed, pgloader drops the target schema in the
+        target PostgreSQL database before creating it again and all the
+        objects it contains. The default behavior doesn't drop the target
+        schemas.
+
       - *foreign keys*
 
 	    When this option is listed, pgloader gets the definitions of all the

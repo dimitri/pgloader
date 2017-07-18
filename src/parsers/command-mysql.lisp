@@ -23,6 +23,7 @@
 			  option-data-only
 			  option-schema-only
 			  option-include-drop
+                          option-drop-schema
 			  option-create-tables
 			  option-create-indexes
 			  option-index-names

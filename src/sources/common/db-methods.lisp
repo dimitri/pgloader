@@ -14,6 +14,7 @@
                                      truncate
                                      create-tables
                                      create-schemas
+                                     drop-schema
                                      drop-indexes
                                      set-table-oids
                                      materialize-views
@@ -37,7 +38,7 @@
                                                      :use-result-as-read t
                                                      :use-result-as-rows t)
               (create-schemas catalog
-                              :include-drop include-drop
+                              :include-drop drop-schema
                               :client-min-messages :error)))
 
           ;; create new SQL types (ENUMs, SETs) if needed and before we
@@ -248,6 +249,7 @@
                             (create-schemas   t)
 			    (create-tables    t)
 			    (include-drop     t)
+                            (drop-schema      nil)
 			    (create-indexes   t)
                             (index-names      :uniquify)
 			    (reset-sequences  t)
@@ -320,6 +322,7 @@
                                 :create-tables create-tables
                                 :create-schemas create-schemas
                                 :drop-indexes drop-indexes
+                                :drop-schema drop-schema
                                 :include-drop include-drop
                                 :foreign-keys foreign-keys
                                 :set-table-oids set-table-oids
