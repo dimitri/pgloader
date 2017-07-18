@@ -58,25 +58,31 @@
                  (sql (format nil "select min(`~a`), max(`~a`) from `~a`"
                               col col (table-source-name (source mysql)))))
             (destructuring-bind (min max)
-                (mapcar #'parse-integer (first (mysql-query sql)))
+                (let ((result (first (mysql-query sql))))
+                  ;; result is (min max), or (nil nil) if table is empty
+                  (if (or (null (first result))
+                          (null (second result)))
+                      result
+                      (mapcar #'parse-integer result)))
               ;; generate a list of ranges from min to max
-              (let ((range-list (split-range min max *rows-per-range*)))
-                (unless (< (length range-list) concurrency)
-                  ;; affect those ranges to each reader, we have CONCURRENCY
-                  ;; of them
-                  (let ((partitions (distribute range-list concurrency)))
-                    (loop :for part :in partitions :collect
-                       (make-instance 'copy-mysql
-                                      :source-db  (clone-connection
-                                                   (source-db mysql))
-                                      :target-db  (target-db mysql)
-                                      :source     (source mysql)
-                                      :target     (target mysql)
-                                      :fields     (fields mysql)
-                                      :columns    (columns mysql)
-                                      :transforms (transforms mysql)
-                                      :encoding   (encoding mysql)
-                                      :range-list (cons col part)))))))))))))
+              (when (and min max)
+                (let ((range-list (split-range min max *rows-per-range*)))
+                  (unless (< (length range-list) concurrency)
+                    ;; affect those ranges to each reader, we have CONCURRENCY
+                    ;; of them
+                    (let ((partitions (distribute range-list concurrency)))
+                      (loop :for part :in partitions :collect
+                         (make-instance 'copy-mysql
+                                        :source-db  (clone-connection
+                                                     (source-db mysql))
+                                        :target-db  (target-db mysql)
+                                        :source     (source mysql)
+                                        :target     (target mysql)
+                                        :fields     (fields mysql)
+                                        :columns    (columns mysql)
+                                        :transforms (transforms mysql)
+                                        :encoding   (encoding mysql)
+                                        :range-list (cons col part))))))))))))))
 
 (defmacro with-encoding-handler (&body forms)
   `(handler-bind
