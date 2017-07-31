@@ -77,7 +77,7 @@
 (defun list-columns (table &key db-has-sequences (db *sqlite-db*) )
   "Return the list of columns found in TABLE-NAME."
   (let* ((table-name (table-source-name table))
-         (sql        (format nil "PRAGMA table_info(~a)" table-name)))
+         (sql        (format nil "PRAGMA table_info(`~a`)" table-name)))
     (loop :for (ctid name type nullable default pk-id) :in
        (sqlite:execute-to-list db sql)
        :do (let ((field (make-coldef table-name
@@ -153,14 +153,14 @@
 
 (defun list-index-cols (index-name &optional (db *sqlite-db*))
   "Return the list of columns in INDEX-NAME."
-  (let ((sql (format nil "PRAGMA index_info(~a)" index-name)))
+  (let ((sql (format nil "PRAGMA index_info(`~a`)" index-name)))
     (loop :for (index-pos table-pos col-name) :in (sqlite:execute-to-list db sql)
        :collect col-name)))
 
 (defun list-indexes (table &optional (db *sqlite-db*))
   "Return the list of indexes attached to TABLE."
   (let* ((table-name (table-source-name table))
-         (sql        (format nil "PRAGMA index_list(~a)" table-name)))
+         (sql        (format nil "PRAGMA index_list(`~a`)" table-name)))
     (loop
        :for (seq index-name unique origin partial) :in (sqlite:execute-to-list db sql)
        :do (let* ((cols  (list-index-cols index-name db))
@@ -190,7 +190,7 @@
 (defun list-fkeys (table &optional (db *sqlite-db*))
   "Return the list of indexes attached to TABLE."
   (let* ((table-name (table-source-name table))
-         (sql        (format nil "PRAGMA foreign_key_list(~a)" table-name)))
+         (sql        (format nil "PRAGMA foreign_key_list(`~a`)" table-name)))
     (loop
        :with fkey-table := (make-hash-table)
        :for (id seq ftable-name from to on-update on-delete match)
