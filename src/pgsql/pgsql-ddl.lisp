@@ -26,7 +26,9 @@
     ((:enum :set)
      (format stream "CREATE TYPE ~a AS ENUM (~{'~a'~^, ~});"
              (sqltype-name sqltype)
-             (sqltype-extra sqltype)))))
+             (mapcar (lambda (value)
+                       (cl-ppcre:regex-replace-all "'" value "''"))
+                     (sqltype-extra sqltype))))))
 
 (defmethod format-drop-sql ((sqltype sqltype) &key (stream nil) cascade if-exists)
   (format stream "DROP TYPE~:[~; IF EXISTS~] ~a~@[ CASCADE~];"

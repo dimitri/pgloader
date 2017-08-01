@@ -157,7 +157,7 @@
   "Convert MySQL ENUM expression into a list of labels."
   (cl-ppcre:register-groups-bind (list)
       ("(?i)(?:ENUM|SET)\\s*\\((.*)\\)" ctype)
-    (first (cl-csv:read-csv list :separator #\, :quote #\' :escape "\\"))))
+    (first (cl-csv:read-csv list :separator #\, :quote #\' :escape "''"))))
 
 (defmethod cast ((col mysql-column))
   "Return the PostgreSQL type definition from given MySQL column definition."
