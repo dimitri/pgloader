@@ -21,9 +21,12 @@ LIBS       = $(BUILDDIR)/libs.stamp
 QLDIR      = $(BUILDDIR)/quicklisp
 MANIFEST   = $(BUILDDIR)/manifest.ql
 LATEST     = $(BUILDDIR)/pgloader-latest.tgz
+
+BUNDLEDIST = 2017-04-03
 BUNDLENAME = pgloader-bundle-$(VERSION)
 BUNDLEDIR  = $(BUILDDIR)/bundle/$(BUNDLENAME)
 BUNDLE     = $(BUILDDIR)/$(BUNDLENAME).tgz
+BUNDLETESTD= $(BUILDDIR)/bundle/test
 
 ifeq ($(OS),Windows_NT)
 EXE           = .exe
@@ -164,12 +167,16 @@ test: $(PGLOADER)
 
 clean-bundle:
 	rm -rf $(BUNDLEDIR)
+	rm -rf $(BUNDLETESTD)/$(BUNDLENAME)/*
+
+$(BUNDLETESTD):
+	mkdir -p $@
 
 $(BUNDLEDIR):
 	mkdir -p $@
 	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp   \
              --eval '(defvar *bundle-dir* "$@")'      \
-             --eval '(defvar *ql-dist* "2017-04-03")' \
+             --eval '(defvar *ql-dist* "$(BUNDLEDIST)")' \
              --load bundle/ql.lisp
 
 $(BUNDLE): $(BUNDLEDIR)
@@ -181,9 +188,12 @@ $(BUNDLE): $(BUNDLEDIR)
 	tar -C build/bundle 		    \
             --exclude bin   		    \
             --exclude test/sqlite           \
-            -czf $@ pgloader-bundle-$(VERSION)
+            -czf $@ $(BUNDLENAME)
 
-bundle: $(BUNDLE)
+bundle: clean-bundle $(BUNDLE) $(BUNDLETESTD)
+	tar -C $(BUNDLETESTD) -xf $(BUNDLE)
+	make -C $(BUNDLETESTD)/$(BUNDLENAME)
+	$(BUNDLETESTD)/$(BUNDLENAME)/bin/pgloader --version
 
 test-bundle:
 	$(MAKE) -C $(BUNDLEDIR) test
@@ -231,4 +241,4 @@ latest:
 
 check: test ;
 
-.PHONY: test pgloader-standalone docs
+.PHONY: test pgloader-standalone docs bundle
