@@ -169,6 +169,7 @@ $(BUNDLEDIR):
 	mkdir -p $@
 	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp   \
              --eval '(defvar *bundle-dir* "$@")'      \
+             --eval '(defvar *ql-dist* "2017-04-03")' \
              --load bundle/ql.lisp
 
 $(BUNDLE): $(BUNDLEDIR)
