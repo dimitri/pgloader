@@ -337,5 +337,6 @@
          (or qmynd::*mysql-encoding*
              babel::*default-character-encoding*)))
     (etypecase string
+      (null nil)
       (string string)
       (vector (babel:octets-to-string string)))))
