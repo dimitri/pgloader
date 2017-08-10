@@ -31,7 +31,6 @@
 (defstruct start start-logger)
 (defstruct stop  stop-logger)
 (defstruct report-summary reset)
-(defstruct noop)
 (defstruct log-message category description arguments)
 (defstruct new-label section label dbname)
 (defstruct update-stats section label read rows errs secs rs ws start stop)
@@ -140,8 +139,15 @@
     (setf *monitoring-kernel* kernel
           *monitoring-channel* (lp:make-channel))
 
+    ;; warm up the channel to ensure we don't loose any event
+    (lp:submit-task *monitoring-channel* '+ 1 2 3)
+    (lp:receive-result *monitoring-channel*)
+
+    ;; now that we know the channel is ready, start our long-running monitor
     (lp:submit-task *monitoring-channel* #'monitor *monitoring-queue*)
     (send-event (make-start :start-logger start-logger))
+
+    (sleep 0.2)
 
     *monitoring-channel*))
 
@@ -175,9 +181,7 @@
   ;; process messages from the queue
   (loop :with start-time := (get-internal-real-time)
 
-     :for event := (multiple-value-bind (event available)
-                       (lq:try-pop-queue queue)
-                     (if available event (make-noop)))
+     :for event := (lq:pop-queue queue)
      :do (typecase event
            (start
             (when (start-start-logger event)
@@ -200,9 +204,6 @@
               (setf *sections* (list :pre  (make-pgstate)
                                      :data (make-pgstate)
                                      :post (make-pgstate)))))
-
-           (noop
-            (sleep 0.2))                ; avoid buzy looping
 
            (log-message
             ;; cl-log:log-message is a macro, we can't use apply
