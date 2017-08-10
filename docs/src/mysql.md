@@ -13,8 +13,10 @@ done. pgloader will not leave you alone on those topics.
 As an example, we will use the f1db database from <http://ergast.com/mrd/>
 which which provides a historical record of motor racing data for
 non-commercial purposes. You can either use their API or download the whole
-database at <http://ergast.com/downloads/f1db.sql.gz>. Once you've done that
-load the database in MySQL:
+database
+at
+[http://ergast.com/downloads/f1db.sql.gz](http://ergast.com/downloads/f1db.sql.gz).
+Once you've done that load the database in MySQL:
 
     $ mysql -u root
     > create database f1db;
