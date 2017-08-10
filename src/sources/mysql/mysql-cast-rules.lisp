@@ -190,12 +190,22 @@
                                               dtype
                                               ctype
                                               nil)))
-          (setf (column-type-name pgcol)
-                (make-sqltype :name sqltype-name
-                              :type (intern (string-upcase dtype)
-                                            (find-package "KEYWORD"))
-                              :source-def ctype
-                              :extra (explode-mysql-enum ctype)))))
+          ;;
+          ;; We might have user-defined cast rules e.g. converting an ENUM
+          ;; to text, in which case we have nothing to do here. We set a
+          ;; PostgreSQL enum only when the casting rules already generated
+          ;; the target type name.
+          ;;
+          ;; FIXME: why call enum-or-set-name twice, once from
+          ;; *mysql-default-cast-rules* and once here explicitely?
+          ;;
+          (when (string= sqltype-name (column-type-name pgcol))
+            (setf (column-type-name pgcol)
+                  (make-sqltype :name sqltype-name
+                                :type (intern (string-upcase dtype)
+                                              (find-package "KEYWORD"))
+                                :source-def ctype
+                                :extra (explode-mysql-enum ctype))))))
 
       ;; extra triggers
       ;;
