@@ -92,6 +92,7 @@
            #:table-trigger-list
 
            #:sqltype-name
+           #:sqltype-schema
            #:sqltype-type
            #:sqltype-source-def
            #:sqltype-extra

@@ -159,7 +159,7 @@
       ("(?i)(?:ENUM|SET)\\s*\\((.*)\\)" ctype)
     (first (cl-csv:read-csv list :separator #\, :quote #\' :escape "''"))))
 
-(defmethod cast ((col mysql-column))
+(defmethod cast ((col mysql-column) &key table)
   "Return the PostgreSQL type definition from given MySQL column definition."
   (with-slots (table-name name dtype ctype default nullable extra comment)
       col
@@ -202,6 +202,7 @@
           (when (string= sqltype-name (column-type-name pgcol))
             (setf (column-type-name pgcol)
                   (make-sqltype :name sqltype-name
+                                :schema (table-schema table)
                                 :type (intern (string-upcase dtype)
                                               (find-package "KEYWORD"))
                                 :source-def ctype

@@ -119,7 +119,7 @@
 
           (t type))))
 
-(defmethod cast ((field mssql-column))
+(defmethod cast ((field mssql-column) &key &allow-other-keys)
   "Return the PostgreSQL type definition from given MS SQL column definition."
   (with-slots (schema table-name name type default nullable)
       field

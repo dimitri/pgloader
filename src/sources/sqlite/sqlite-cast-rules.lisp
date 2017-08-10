@@ -80,7 +80,7 @@
          (paren-pos (position #\( ctype)))
     (if paren-pos (subseq ctype 0 paren-pos) ctype)))
 
-(defmethod cast ((col coldef))
+(defmethod cast ((col coldef) &key &allow-other-keys)
   "Return the PostgreSQL type definition from given SQLite column definition."
   (with-slots (table-name name dtype ctype default nullable extra)
       col

@@ -54,7 +54,7 @@
 ;;; need to be tranformed dynamically into User Defined Types: ENUMs, SET,
 ;;; etc.
 ;;;
-(defstruct sqltype name type source-def extra)
+(defstruct sqltype name schema type source-def extra)
 
 ;;;
 ;;; The generic PostgreSQL column that the CAST generic function is asked to
@@ -157,7 +157,7 @@
 (defgeneric max-indexes-per-table (schema &key)
   (:documentation "Count how many indexes we have maximum per table in SCHEMA."))
 
-(defgeneric cast (object)
+(defgeneric cast (object &key)
   (:documentation
    "Cast a FIELD definition from a source database into a PostgreSQL COLUMN
     definition."))
@@ -272,11 +272,13 @@
   "Add COLUMN name to INDEX and return the INDEX."
   (push-to-end (apply-identifier-case column) (index-columns index)))
 
-(defmethod cast ((table table))
+(defmethod cast ((table table) &key)
   "Cast all fields in table into columns."
-  (setf (table-column-list table) (mapcar #'cast (table-field-list table))))
+  (setf (table-column-list table)
+        (loop :for field :in (table-field-list table)
+         :collect (cast field :table table))))
 
-(defmethod cast ((schema schema))
+(defmethod cast ((schema schema) &key)
   "Cast all fields of all tables in SCHEMA into columns."
   (loop :for table :in (schema-table-list schema)
      :do (cast table))
@@ -284,7 +286,7 @@
   (loop :for view :in (schema-view-list schema)
      :do (cast view)))
 
-(defmethod cast ((catalog catalog))
+(defmethod cast ((catalog catalog) &key)
   "Cast all fields of all tables in all schemas in CATALOG into columns."
   (loop :for schema :in (catalog-schema-list catalog)
      :do (cast schema)))

@@ -52,7 +52,7 @@
                                           (db3::field-type field)
                                           (db3::field-length field)))))
 
-(defmethod cast ((field db3-field))
+(defmethod cast ((field db3-field) &key &allow-other-keys)
   "Return the PostgreSQL type definition given the DB3 one."
   (let* ((type (db3-field-type field))
          (transform

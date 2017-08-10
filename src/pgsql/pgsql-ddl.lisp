@@ -24,7 +24,8 @@
   (declare (ignore if-not-exists))
   (ecase (sqltype-type sqltype)
     ((:enum :set)
-     (format stream "CREATE TYPE ~a AS ENUM (~{'~a'~^, ~});"
+     (format stream "CREATE TYPE ~@[~a.~]~a AS ENUM (~{'~a'~^, ~});"
+             (schema-name (sqltype-schema sqltype))
              (sqltype-name sqltype)
              (mapcar (lambda (value)
                        (cl-ppcre:regex-replace-all "'" value "''"))
@@ -88,8 +89,12 @@
   (let ((type-name (column-type-name column)))
     (typecase type-name
       (sqltype (ecase (sqltype-type type-name)
-                 (:enum (sqltype-name type-name))
-                 (:set  (format nil "~a[]" (sqltype-name type-name)))))
+                 (:enum (format nil "~@[~a~].~a"
+                                (schema-name (sqltype-schema type-name))
+                                (sqltype-name type-name)))
+                 (:set  (format nil "~@[~a~].~a[]"
+                                (schema-name (sqltype-schema type-name))
+                                (sqltype-name type-name)))))
       (string  type-name))))
 
 (defmethod format-create-sql ((column column)

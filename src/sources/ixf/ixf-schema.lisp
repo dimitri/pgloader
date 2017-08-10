@@ -80,7 +80,7 @@
              (when c
                (princ-to-string c)))))))
 
-(defmethod cast ((col ixf:ixf-column))
+(defmethod cast ((col ixf:ixf-column) &key &allow-other-keys)
   "Return the PostgreSQL type definition from given IXF column definition."
   (make-column :name (apply-identifier-case (ixf:ixf-column-name col))
                :type-name (cast-ixf-type (ixf:ixf-column-type col))
