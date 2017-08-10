@@ -396,8 +396,9 @@
              (format stream "Could not parse the command line: see above."))))
 
 (defun process-source-and-target (source-string target-string
-                                  type encoding set with field cast
-                                  before after)
+                                  &optional
+                                    type encoding set with field cast
+                                    before after)
   "Given exactly 2 CLI arguments, process them as source and target URIs.
 Parameters here are meant to be already parsed, see parse-cli-optargs."
   (let* ((type       (handler-case
