@@ -25,7 +25,7 @@ Once you've done that load the database in MySQL:
 Now let's migrate this database into PostgreSQL in a single command line:
 
     $ createdb f1db
-    $ pgloader mysql://root@localhost/f1db pgsql://f1db
+    $ pgloader mysql://root@localhost/f1db pgsql:///f1db
 
 Done! All with schema, table definitions, constraints, indexes, primary
 keys, *auto_increment* columns turned into *bigserial* , foreign keys,
