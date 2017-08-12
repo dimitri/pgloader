@@ -156,3 +156,4 @@
 
 (defrule kw-postgresql (or (~ "pgsql") (~ "postgresql")))
 (defrule kw-mysql (~ "mysql"))
+(defrule kw-mssql (~ "mssql"))

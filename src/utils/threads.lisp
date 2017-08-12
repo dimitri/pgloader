@@ -14,6 +14,7 @@
                             (*prefetch-rows*      . ,*prefetch-rows*)
 			    (*pg-settings*        . ',*pg-settings*)
 			    (*mysql-settings*     . ',*mysql-settings*)
+			    (*mssql-settings*     . ',*mssql-settings*)
                             (*root-dir*           . ,*root-dir*)
                             (*fd-path-root*       . ,*fd-path-root*)
                             (*client-min-messages* . ,*client-min-messages*)

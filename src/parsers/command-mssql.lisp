@@ -67,9 +67,17 @@
 
 
 ;;;
+;;; MSSQL SET parameters, because sometimes we need that
+;;;
+(defrule mssql-gucs (and kw-set kw-mssql kw-parameters generic-option-list)
+  (:lambda (mygucs) (cons :mssql-gucs (fourth mygucs))))
+
+
+;;;
 ;;; Allow clauses to appear in any order
 ;;;
 (defrule load-mssql-optional-clauses (* (or mssql-options
+                                            mssql-gucs
                                             gucs
                                             casts
                                             alter-schema
@@ -139,7 +147,8 @@
 
 (defun lisp-code-for-loading-from-mssql (ms-db-conn pg-db-conn
                                          &key
-                                           gucs casts before after options
+                                           gucs mssql-gucs
+                                           casts before after options
                                            alter-schema alter-table
                                            including excluding)
   `(lambda ()
@@ -149,6 +158,7 @@
 
      (let* ((*default-cast-rules* ',*mssql-default-cast-rules*)
             (*cast-rules*         ',casts)
+            (*mssql-settings*     ',mssql-gucs)
             ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
@@ -173,7 +183,8 @@
   (:lambda (source)
     (bind (((ms-db-uri pg-db-uri
                        &key
-                       gucs casts before after alter-schema alter-table
+                       gucs mssql-gucs casts before after
+                       alter-schema alter-table
                        including excluding options)
             source))
       (cond (*dry-run*
@@ -181,6 +192,7 @@
             (t
              (lisp-code-for-loading-from-mssql ms-db-uri pg-db-uri
                                                :gucs gucs
+                                               :mssql-gucs mssql-gucs
                                                :casts casts
                                                :before before
                                                :after after

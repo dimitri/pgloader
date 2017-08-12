@@ -26,6 +26,7 @@
            #:*prefetch-rows*
 	   #:*pg-settings*
            #:*mysql-settings*
+           #:*mssql-settings*
 	   #:*default-tmpdir*
 	   #:init-params-from-environment
 	   #:getenv-default
@@ -142,6 +143,7 @@
 
 (defparameter *pg-settings* nil "An alist of GUC names and values.")
 (defparameter *mysql-settings* nil "An alist of GUC names and values.")
+(defparameter *mssql-settings* nil "An alist of GUC names and values.")
 
 ;;;
 ;;; Archive processing: downloads and unzip.

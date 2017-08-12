@@ -21,6 +21,11 @@
                                             (db-user msconn)
                                             (db-pass msconn)
                                             (db-host msconn)))
+  ;; apply mysql-settings, if any
+  (loop :for (name . value) :in *mssql-settings*
+     :for sql := (format nil "set ~a ~a;" name value)
+     :do (query msconn sql))
+
   ;; return the connection object
   msconn)
 
@@ -40,8 +45,7 @@
 (defun mssql-query (query)
   "Execute given QUERY within the current *connection*, and set proper
    defaults for pgloader."
-  (log-message :sql "MSSQL: sending query: ~a" query)
-  (mssql:query query :connection (conn-handle *mssql-db*)))
+  (query *mssql-db* query))
 
 
 ;;;
