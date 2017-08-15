@@ -141,7 +141,11 @@
 
     (:source (:type "point")
      :target (:type "point")
-     :using pgloader.transforms::convert-mysql-point))
+     :using pgloader.transforms::convert-mysql-point)
+
+    (:source (:type "linestring")
+     :target (:type "path")
+     :using pgloader.transforms::convert-mysql-linestring))
   "Data Type Casting rules to migrate from MySQL to PostgreSQL")
 
 

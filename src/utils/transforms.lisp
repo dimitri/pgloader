@@ -187,6 +187,24 @@
       (setf (aref point (position #\Space point)) #\,)
       point)))
 
+(defun convert-mysql-linestring (mysql-linestring-as-string)
+  "Transform the MYSQL-POINT-AS-STRING into a suitable representation for
+   PostgreSQL.
+
+  Input:   \"LINESTRING(-87.87342467651445 45.79684462673078,-87.87170806274479 45.802110434248966)\" ; that's using astext(column)
+  Output:  [(-87.87342467651445,45.79684462673078),(-87.87170806274479,45.802110434248966)]"
+  (when mysql-linestring-as-string
+    (let* ((data (subseq mysql-linestring-as-string
+                         11
+                         (- (length mysql-linestring-as-string) 1))))
+      (with-output-to-string (s)
+        (write-string "[" s)
+        (loop :for first := t :then nil
+           :for point :in (split-sequence:split-sequence #\, data)
+           :for (x y) := (split-sequence:split-sequence #\Space point)
+           :do (format s "~:[,~;~](~a,~a)" first x y))
+        (write-string "]" s)))))
+
 (defun integer-to-string (integer-string)
   "Transform INTEGER-STRING parameter into a proper string representation of
    it. In particular be careful of quoted-integers, thanks to SQLite default
