@@ -51,6 +51,8 @@
     ("on-error-stop" :type boolean
                      :documentation "Refrain from handling errors properly.")
 
+    (("context" #\C) :type string :documentation "Command Context Variables")
+
     (("with") :type string :list t :optional t
      :documentation "Load options")
 
@@ -190,7 +192,7 @@
 
       (destructuring-bind (&key help version quiet verbose debug logfile
 				list-encodings upgrade-config
-                                dry-run on-error-stop
+                                dry-run on-error-stop context
                                 ((:load-lisp-file load))
 				client-min-messages log-min-messages summary
 				root-dir self-upgrade
@@ -226,6 +228,13 @@
 
 	;; Set parameters that come from the environement
 	(init-params-from-environment)
+
+        ;; Read the context file (if given) and the environment
+        (handler-case
+            (initialize-context context)
+          (condition (e)
+            (format t "Couldn't read ini file ~s: ~a~%" context e)
+            (usage argv)))
 
 	;; Then process options
 	(when debug

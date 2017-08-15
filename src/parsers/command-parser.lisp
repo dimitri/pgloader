@@ -28,9 +28,16 @@
 
 (defrule commands (+ command))
 
-(defun parse-commands (commands)
+(defun parse-commands (commands-template &key (start 0) end junk-allowed)
   "Parse a command and return a LAMBDA form that takes no parameter."
-  (parse 'commands commands))
+  (let ((commands (apply-template (subseq commands-template start end))))
+    (unless junk-allowed
+      (log-message :info "Parsed command:~%~a~%" commands))
+    (parse 'commands
+           commands
+           :start start
+           :end end
+           :junk-allowed junk-allowed)))
 
 (defun inject-inline-data-position (command position)
   "We have '(:inline nil) somewhere in command, have '(:inline position) instead."
@@ -100,14 +107,14 @@
          (*data-expected-inline* nil)
 	 (content (read-file-into-string filename)))
      (multiple-value-bind (commands end-commands-position)
-	 (parse 'commands content :junk-allowed t)
+	 (parse-commands content :junk-allowed t)
 
        ;; INLINE is only allowed where we have a single command in the file
        (if *data-expected-inline*
 	   (progn
 	     (when (= 0 end-commands-position)
 	       ;; didn't find any command, leave error reporting to esrap
-	       (parse 'commands content))
+	       (parse-commands content))
 
 	     (when (and *data-expected-inline*
 			(null end-commands-position))
@@ -122,13 +129,16 @@
 	     ;; now we should have a single command and inline data after that
 	     ;; replace the (:inline nil) found in the first (and only) command
 	     ;; with a (:inline position) instead
-	     (list
-	      (inject-inline-data-position
-	       (first commands) (cons filename end-commands-position))))
+             (let ((command
+                    (parse-commands content :end end-commands-position)))
+               (list
+	      (inject-inline-data-position (first command)
+                                           (cons filename
+                                                 end-commands-position)))))
 
 	   ;; There was no INLINE magic found in the file, reparse it so that
 	   ;; normal error processing happen
-	   (parse 'commands content))))))
+	   (parse-commands content))))))
 
 
 ;;;

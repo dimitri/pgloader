@@ -81,17 +81,7 @@
             (:regex    (make-instance 'fixed-connection :spec src))
             (:http     (make-instance 'fixed-connection :uri (first specs))))))))
 
-(defrule get-fixed-file-source-from-environment-variable (and kw-getenv name)
-  (:lambda (p-e-v)
-    (bind (((_ varname) p-e-v)
-           (connstring (getenv-default varname)))
-      (unless connstring
-          (error "Environment variable ~s is unset." varname))
-        (parse 'fixed-file-source connstring))))
-
-(defrule fixed-source (and kw-load kw-fixed kw-from
-                           (or get-fixed-file-source-from-environment-variable
-                               fixed-file-source))
+(defrule fixed-source (and kw-load kw-fixed kw-from fixed-file-source)
   (:lambda (src)
     (bind (((_ _ _ source) src)) source)))
 

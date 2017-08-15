@@ -124,17 +124,7 @@
                                          (getenv-default "MYSQL_TCP_PORT" "3306")))
                      :name dbname))))
 
-(defrule get-mysql-uri-from-environment-variable (and kw-getenv name)
-  (:lambda (p-e-v)
-    (bind (((_ varname) p-e-v))
-      (let ((connstring (getenv-default varname)))
-        (unless connstring
-          (error "Environment variable ~s is unset." varname))
-        (parse 'mysql-uri connstring)))))
-
-(defrule mysql-source (and kw-load kw-database kw-from
-                           (or mysql-uri
-                               get-mysql-uri-from-environment-variable))
+(defrule mysql-source (and kw-load kw-database kw-from mysql-uri)
   (:lambda (source) (bind (((_ _ _ uri) source)) uri)))
 
 (defrule load-mysql-command (and mysql-source target

@@ -60,17 +60,7 @@ load database
         (:http     (make-instance 'sqlite-connection :uri url))
         (:filename (make-instance 'sqlite-connection :path url))))))
 
-(defrule get-sqlite-uri-from-environment-variable (and kw-getenv name)
-  (:lambda (p-e-v)
-    (bind (((_ varname) p-e-v)
-           (connstring  (getenv-default varname)))
-      (unless connstring
-          (error "Environment variable ~s is unset." varname))
-        (parse 'sqlite-uri connstring))))
-
-(defrule sqlite-source (and kw-load kw-database kw-from
-                            (or get-sqlite-uri-from-environment-variable
-                                sqlite-uri))
+(defrule sqlite-source (and kw-load kw-database kw-from sqlite-uri)
   (:lambda (source)
     (bind (((_ _ _ uri) source)) uri)))
 

@@ -35,6 +35,7 @@
                  #:uuid             ; Transforming MS SQL unique identifiers
                  #:quri                 ; decode URI parameters
                  #:cl-ppcre             ; Perl Compatible Regular Expressions
+                 #:cl-mustache          ; Logic-less templates
 		 )
     :components
     ((:module "src"
@@ -108,6 +109,7 @@
                         :serial t
                         :components
                         ((:file "parse-ini")
+                         (:file "template")
                          (:file "command-utils")
                          (:file "command-keywords")
                          (:file "command-regexp")

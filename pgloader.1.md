@@ -509,6 +509,43 @@ The main clauses are the `LOAD`, `FROM`, `INTO` and `WITH` clauses that each
 command implements. Some command then implement the `SET` command, or some
 specific clauses such as the `CAST` clause.
 
+## TEMPLATING WITH MUSTACHE
+
+pgloader implements the https://mustache.github.io/ templating system so
+that you may have dynamic parts of your commands. See the documentation for
+this template system online.
+
+A specific feature of pgloader is the ability to fetch a variable from the
+OS environment of the pgloader process, making it possible to run pgloader
+as in the following example:
+
+    $ DBPATH=sqlite/sqlite.db pgloader ./test/sqlite-env.load
+    
+or in several steps:
+
+    $ export DBPATH=sqlite/sqlite.db
+    $ pgloader ./test/sqlite-env.load
+
+The variable can then be used in a typical mustache fashion:
+
+    load database
+         from '{{DBPATH}}'
+         into postgresql:///pgloader;
+
+It's also possible to prepare a INI file such as the following:
+
+    [pgloader]
+    
+    DBPATH = sqlite/sqlite.db
+
+And run the following command, feeding the INI values as a *context* for
+pgloader templating system:
+
+    $ pgloader --context ./test/sqlite.ini ./test/sqlite-ini.load
+
+The mustache templates implementation with OS environment support replaces
+former `GETENV` implementation, which didn't work anyway.
+
 ## COMMON CLAUSES
 
 Some clauses are common to all commands:
@@ -521,17 +558,11 @@ Some clauses are common to all commands:
     *FILENAME MATCHING* clause (see above); whereas the *MySQL* source only
     supports a MySQL database URI specification.
 
-    In all cases, the *FROM* clause is able to read its value from an
-    environment variable when using the form `GETENV 'varname'`.
-
   - *INTO*
 
 	The PostgreSQL connection URI must contains the name of the target table
 	where to load the data into. That table must have already been created
 	in PostgreSQL, and the name might be schema qualified.
-
-    The *INTO* target database connection URI can be parsed from the value
-    of an environment variable when using the form `GETENV 'varname'`.
 
 	Then *INTO* option also supports an optional comma separated list of
 	target columns, which are either the name of an input *field* or the

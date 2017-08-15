@@ -114,17 +114,7 @@
                                      (getenv-default "TDSPORT" "1433")))
                      :name    dbname))))
 
-(defrule get-mssql-uri-from-environment-variable (and kw-getenv name)
-  (:lambda (p-e-v)
-    (bind (((_ varname) p-e-v))
-      (let ((connstring (getenv-default varname)))
-        (unless connstring
-          (error "Environment variable ~s is unset." varname))
-        (parse 'mssql-uri connstring)))))
-
-(defrule mssql-source (and kw-load kw-database kw-from
-                           (or mssql-uri
-                               get-mssql-uri-from-environment-variable))
+(defrule mssql-source (and kw-load kw-database kw-from mssql-uri)
   (:lambda (source) (bind (((_ _ _ uri) source)) uri)))
 
 (defrule load-mssql-command (and mssql-source target

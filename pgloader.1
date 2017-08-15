@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "July 2017" "ff" ""
+.TH "PGLOADER" "1" "August 2017" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -571,6 +571,82 @@ LOAD <source\-type>
 .P
 The main clauses are the \fBLOAD\fR, \fBFROM\fR, \fBINTO\fR and \fBWITH\fR clauses that each command implements\. Some command then implement the \fBSET\fR command, or some specific clauses such as the \fBCAST\fR clause\.
 .
+.SH "TEMPLATING WITH MUSTACHE"
+pgloader implements the https://mustache\.github\.io/ templating system so that you may have dynamic parts of your commands\. See the documentation for this template system online\.
+.
+.P
+A specific feature of pgloader is the ability to fetch a variable from the OS environment of the pgloader process, making it possible to run pgloader as in the following example:
+.
+.IP "" 4
+.
+.nf
+
+$ DBPATH=sqlite/sqlite\.db pgloader \./test/sqlite\-env\.load
+.
+.fi
+.
+.IP "" 0
+.
+.P
+or in several steps:
+.
+.IP "" 4
+.
+.nf
+
+$ export DBPATH=sqlite/sqlite\.db
+$ pgloader \./test/sqlite\-env\.load
+.
+.fi
+.
+.IP "" 0
+.
+.P
+The variable can then be used in a typical mustache fashion:
+.
+.IP "" 4
+.
+.nf
+
+load database
+     from \'{{DBPATH}}\'
+     into postgresql:///pgloader;
+.
+.fi
+.
+.IP "" 0
+.
+.P
+It\'s also possible to prepare a INI file such as the following:
+.
+.IP "" 4
+.
+.nf
+
+[pgloader]
+
+DBPATH = sqlite/sqlite\.db
+.
+.fi
+.
+.IP "" 0
+.
+.P
+And run the following command, feeding the INI values as a \fIcontext\fR for pgloader templating system:
+.
+.IP "" 4
+.
+.nf
+
+$ pgloader \-\-context \./test/sqlite\.ini \./test/sqlite\-ini\.load
+.
+.fi
+.
+.IP "" 0
+.
+.P
+The mustache templates implementation with OS environment support replaces former \fBGETENV\fR implementation, which didn\'t work anyway\.
+.
 .SH "COMMON CLAUSES"
 Some clauses are common to all commands:
 .
@@ -580,17 +656,11 @@ Some clauses are common to all commands:
 .IP
 The \fIFROM\fR clause specifies where to read the data from, and each command introduces its own variant of sources\. For instance, the \fICSV\fR source supports \fBinline\fR, \fBstdin\fR, a filename, a quoted filename, and a \fIFILENAME MATCHING\fR clause (see above); whereas the \fIMySQL\fR source only supports a MySQL database URI specification\.
 .
-.IP
-In all cases, the \fIFROM\fR clause is able to read its value from an environment variable when using the form \fBGETENV \'varname\'\fR\.
-.
 .IP "\(bu" 4
 \fIINTO\fR
 .
 .IP
 The PostgreSQL connection URI must contains the name of the target table where to load the data into\. That table must have already been created in PostgreSQL, and the name might be schema qualified\.
-.
-.IP
-The \fIINTO\fR target database connection URI can be parsed from the value of an environment variable when using the form \fBGETENV \'varname\'\fR\.
 .
 .IP
 Then \fIINTO\fR option also supports an optional comma separated list of target columns, which are either the name of an input \fIfield\fR or the white space separated list of the target column name, its PostgreSQL data type and a \fIUSING\fR expression\.

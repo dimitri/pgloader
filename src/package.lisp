@@ -739,6 +739,7 @@
   (:import-from #:pgloader.ixf #:ixf-connection)
   (:export #:parse-commands
            #:parse-commands-from-file
+           #:initialize-context
 
            ;; tools to enable complete cli parsing in main.lisp
            #:process-relative-pathnames

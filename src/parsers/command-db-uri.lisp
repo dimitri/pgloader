@@ -214,16 +214,7 @@
                      :use-ssl use-ssl
                      :table-name table-name))))
 
-(defrule get-pgsql-uri-from-environment-variable (and kw-getenv name)
-  (:lambda (p-e-v)
-    (bind (((_ varname) p-e-v))
-      (let ((connstring (getenv-default varname)))
-        (unless connstring
-          (error "Environment variable ~s is unset." varname))
-        (parse 'pgsql-uri connstring)))))
-
-(defrule target (and kw-into (or pgsql-uri
-                                 get-pgsql-uri-from-environment-variable))
+(defrule target (and kw-into pgsql-uri)
   (:destructure (into target)
     (declare (ignore into))
     target))

@@ -30,6 +30,7 @@
 	   #:*default-tmpdir*
 	   #:init-params-from-environment
 	   #:getenv-default
+           #:*context*
 
            #:+os-code-success+
            #:+os-code-error+
@@ -169,6 +170,14 @@
   (setf *default-tmpdir*
 	(fad:pathname-as-directory
 	 (getenv-default "TMPDIR" *default-tmpdir*))))
+
+;;;
+;;; Run time context to fill-in variable parts of the commands.
+;;;
+(defvar *context* nil
+  "Alist of (names . values) intialized from the environment at run-time,
+  and from a --context command line argument, then used in the commands when
+  they are using the Mustache templating feature.")
 
 ;;;
 ;;; Some command line constants for OS errors codes

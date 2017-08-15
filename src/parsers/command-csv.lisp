@@ -350,17 +350,7 @@
             (:regex    (make-instance 'csv-connection :spec src))
             (:http     (make-instance 'csv-connection :uri (first specs))))))))
 
-(defrule get-csv-file-source-from-environment-variable (and kw-getenv name)
-  (:lambda (p-e-v)
-    (bind (((_ varname) p-e-v)
-           (connstring  (getenv-default varname)))
-      (unless connstring
-        (error "Environment variable ~s is unset." varname))
-      (parse 'csv-file-source connstring))))
-
-(defrule csv-source (and kw-load kw-csv kw-from
-                         (or get-csv-file-source-from-environment-variable
-                             csv-file-source))
+(defrule csv-source (and kw-load kw-csv kw-from csv-file-source)
   (:lambda (src)
     (bind (((_ _ _ source) src)) source)))
 

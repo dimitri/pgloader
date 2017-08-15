@@ -73,17 +73,7 @@
             (:regex    (make-instance 'copy-connection :spec src))
             (:http     (make-instance 'copy-connection :uri (first specs))))))))
 
-(defrule get-copy-file-source-from-environment-variable (and kw-getenv name)
-  (:lambda (p-e-v)
-    (bind (((_ varname) p-e-v)
-           (connstring (getenv-default varname)))
-      (unless connstring
-          (error "Environment variable ~s is unset." varname))
-        (parse 'copy-file-source connstring))))
-
-(defrule copy-source (and kw-load kw-copy kw-from
-                          (or get-copy-file-source-from-environment-variable
-                              copy-file-source))
+(defrule copy-source (and kw-load kw-copy kw-from copy-file-source)
   (:lambda (src)
     (bind (((_ _ _ source) src)) source)))
 
