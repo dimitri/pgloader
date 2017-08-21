@@ -184,7 +184,6 @@
     (list :writer table seconds)))
 
 
-(declaim (inline send-current-batch))
 (defun format-row-in-batch (copy row current-batch preprocessor pre-formatted)
   "Given a row from the queue, prepare it for the next batch."
   (metabang.bind:bind
