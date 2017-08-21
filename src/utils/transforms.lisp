@@ -71,7 +71,8 @@
                  sqlite-timestamp-to-timestamp
                  sql-server-uniqueidentifier-to-uuid
                  sql-server-bit-to-boolean
-                 varbinary-to-string))
+                 varbinary-to-string
+                 base64-decode))
 
 
 ;;;
@@ -358,3 +359,8 @@
       (null nil)
       (string string)
       (vector (babel:octets-to-string string)))))
+
+(defun base64-decode (string)
+  (etypecase string
+    (null    nil)
+    (string (base64:base64-string-to-string string))))
