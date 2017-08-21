@@ -188,7 +188,7 @@
                            (pgsql-execute sql))
                      :count t))))
 
-(defun create-pgsql-fkeys (catalog &key (section :post) label)
+(defun create-pgsql-fkeys (catalog &key (section :post) label log-level)
   "Actually create the Foreign Key References that where declared in the
    MySQL database"
   (let ((fk-sql-list
@@ -202,7 +202,7 @@
                               :do (log-message :debug "EXTRA FK DEPS! ~a" sql)
                               :collect sql)))))
     ;; and now execute our list
-    (pgsql-execute-with-timing section label fk-sql-list)))
+    (pgsql-execute-with-timing section label fk-sql-list :log-level log-level)))
 
 
 

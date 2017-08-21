@@ -263,7 +263,7 @@
   (handler-case
       (with-pgsql-connection (pgconn)
         (pomo:with-transaction ()
-          (pgsql-execute-with-timing section label sql)))
+          (pgsql-execute-with-timing section label sql :log-level :notice)))
 
     (postgresql-unavailable (condition)
 
@@ -278,6 +278,7 @@
 
 (defun pgsql-execute-with-timing (section label sql-list
                                   &key
+                                    (log-level :sql)
                                     on-error-stop
                                     client-min-messages)
   "Execute given SQL and resgister its timing into STATE."
@@ -286,13 +287,18 @@
         (timing
           (multiple-value-bind (nb-ok nb-errors)
               (pgsql-execute sql-list
+                             :log-level log-level
                              :on-error-stop on-error-stop
                              :client-min-messages client-min-messages)
             (update-stats section label :rows nb-ok :errs nb-errors)))
       (declare (ignore res))
       (update-stats section label :read (length sql-list) :secs secs))))
 
-(defun pgsql-execute (sql &key client-min-messages (on-error-stop t))
+(defun pgsql-execute (sql
+                      &key
+                        (log-level :sql)
+                        client-min-messages
+                        (on-error-stop t))
   "Execute given SQL list of statements in current transaction.
 
    When ON-ERROR-STOP is non-nil (the default), we stop at the first sql
@@ -309,7 +315,7 @@
     (if on-error-stop
         (loop :for sql :in (alexandria::ensure-list sql)
            :do (progn
-                 (log-message :notice "~a" sql)
+                 (log-message log-level "~a" sql)
                  (pomo:execute sql))
            ;; never executed in case of error, which signals out of here
            :finally (incf nb-ok (length sql)))
@@ -320,7 +326,7 @@
                  (pomo:execute "savepoint pgloader;")
                  (handler-case
                      (progn
-                       (log-message :notice "~a" sql)
+                       (log-message log-level "~a" sql)
                        (pomo:execute sql)
                        (pomo:execute "release savepoint pgloader;")
                        (incf nb-ok))

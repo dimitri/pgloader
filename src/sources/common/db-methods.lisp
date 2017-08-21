@@ -146,7 +146,8 @@
         ;; Turn UNIQUE indexes into PRIMARY KEYS now
         ;;
         (when create-indexes
-          (pgsql-execute-with-timing :post "Primary Keys" pkeys)
+          (pgsql-execute-with-timing :post "Primary Keys" pkeys
+                                     :log-level :notice)
 
           ;;
           ;; Foreign Key Constraints
@@ -158,7 +159,8 @@
           (when foreign-keys
             (create-pgsql-fkeys catalog
                                 :section :post
-                                :label "Create Foreign Keys"))
+                                :label "Create Foreign Keys"
+                                :log-level :notice))
 
           ;;
           ;; Triggers and stored procedures -- includes special default values
@@ -400,6 +402,8 @@
 
                      (when (and create-indexes
                                 (zerop (gethash table writers-count)))
+                       (log-message :notice "DONE copying ~a"
+                                    (format-table-name table))
                        (alexandria:appendf
                         pkeys
                         (create-indexes-in-kernel (target-db copy)
@@ -422,6 +426,7 @@
           (loop :for count :below (count-indexes catalog)
              :do (lp:receive-result idx-channel))
           (lp:end-kernel :wait t)
+          (log-message :info "Done waiting for indexes")
           (count-indexes catalog))))
 
     ;;
