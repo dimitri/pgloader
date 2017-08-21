@@ -238,6 +238,21 @@
                             :rs   (update-stats-rs event)
                             :ws   (update-stats-ws event))
 
+              ;; log some kind of a “keep alive” message to the user, for
+              ;; the sake of showing progress.
+              ;;
+              ;; something like one message every 20 batches should only
+              ;; target big tables where we have to wait for a pretty long
+              ;; time.
+              (when (and (update-stats-rows event)
+                         (typep label 'pgloader.catalog:table)
+                         (< (* 19 *copy-batch-rows*)
+                            (mod (pgtable-rows table)
+                                 (* 20 *copy-batch-rows*))))
+                (log-message :notice "copy ~a: ~d rows done"
+                             (pgloader.catalog:format-table-name label)
+                             (pgtable-rows table)))
+
               (when (update-stats-start event)
                 (log-message :debug "start ~a ~30t ~a"
                              (pgloader.catalog:format-table-name label)

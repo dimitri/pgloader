@@ -135,7 +135,7 @@
   ;; able to benefit from the indexes. In particular avoid doing that step
   ;; while CREATE INDEX statements are in flight (avoid locking).
   ;;
-  (log-message :notice "Complete PostgreSQL database.")
+  (log-message :notice "Completing PostgreSQL database.")
 
   (when reset-sequences
     (reset-sequences (clone-connection (target-db copy)) catalog))
