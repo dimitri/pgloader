@@ -167,7 +167,11 @@
                    (let ((batch-seconds
                           (send-current-batch unqualified-table-name)))
                      (incf seconds batch-seconds))
-                   (setf current-batch (make-batch)))
+                   (setf current-batch (make-batch))
+
+                   ;; give a little help to our friend, now is a good time
+                   ;; to garbage collect
+                   #+sbcl (sb-ext:gc :full t))
 
                  (format-row-in-batch copy row current-batch
                                       preprocessor pre-formatted)))
