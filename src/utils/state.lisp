@@ -32,6 +32,23 @@
   (ws   0.0 :type float)
   (bytes 0  :type fixnum))
 
+(defstruct state
+  (preload  nil :type (or null pgstate))
+  (data     nil :type (or null pgstate))
+  (postload nil :type (or null pgstate))
+  (secs     0.0 :type float))
+
+(defun create-state ()
+  (make-state :preload  (make-pgstate)
+              :data     (make-pgstate)
+              :postload (make-pgstate)))
+
+(defun get-state-section (state section)
+  (ecase section
+    (:pre   (state-preload  state))
+    (:data  (state-data     state))
+    (:post  (state-postload state))))
+
 (defun relative-pathname (filename type &optional dbname)
   "Return the pathname of a file of type TYPE (dat or log) under *ROOT-DIR*"
   (let ((dir (if dbname

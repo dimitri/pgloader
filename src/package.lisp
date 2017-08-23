@@ -191,7 +191,15 @@
 
 (defpackage #:pgloader.state
   (:use #:cl #:pgloader.params #:pgloader.catalog)
-  (:export #:make-pgstate
+  (:export #:create-state
+           #:make-state
+           #:state-preload
+           #:state-data
+           #:state-postload
+           #:state-secs
+           #:get-state-section
+
+           #:make-pgstate
            #:pgstate-tabnames
            #:pgstate-tables
            #:pgstate-read

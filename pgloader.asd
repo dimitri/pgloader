@@ -36,6 +36,8 @@
                  #:quri                 ; decode URI parameters
                  #:cl-ppcre             ; Perl Compatible Regular Expressions
                  #:cl-mustache          ; Logic-less templates
+                 #:yason                ; JSON routines
+                 #:closer-mop           ; introspection
 		 )
     :components
     ((:module "src"
@@ -71,7 +73,9 @@
 
                          ;; State, monitoring, reporting
                          (:file "reject"  :depends-on ("state"))
+                         (:file "pretty-print-state" :depends-on ("state"))
                          (:file "report"  :depends-on ("state"
+                                                       "pretty-print-state"
                                                        "utils"
                                                        "catalog"))
                          (:file "monitor" :depends-on ("logs"

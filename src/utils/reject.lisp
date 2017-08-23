@@ -12,7 +12,7 @@
 (defun %process-bad-row (table-name condition row)
   "Add the row to the reject file, in PostgreSQL COPY TEXT format"
   ;; first, update the stats.
-  (let ((state (getf *sections* :data)))
+  (let ((state (get-state-section *sections* :data)))
     (pgstate-incf state table-name :errs 1)
 
     ;; now, the bad row processing

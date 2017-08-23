@@ -21,8 +21,8 @@
 (defvar *monitoring-channel* nil
   "Internal lparallel channel.")
 
-(defvar *sections* '(:pre nil :data nil :post nil)
-  "plist of load sections: :pre, :data and :post.")
+(defvar *sections* (create-state)
+  "Global pgloader state, maintained by the dedicated monitor thread.")
 
 
 ;;;
@@ -163,9 +163,7 @@
 (defmacro with-monitor ((&key (start-logger t)) &body body)
   "Start and stop the monitor around BODY code. The monitor is responsible
   for processing logs into a central logfile"
-  `(let ((*sections* (list :pre  (make-pgstate)
-                           :data (make-pgstate)
-                           :post (make-pgstate))))
+  `(let ((*sections* (create-state)))
      (if ,start-logger
          (let* ((*monitoring-queue*   (lq:make-queue))
                 (*monitoring-channel* (start-monitor :start-logger ,start-logger)))
@@ -203,9 +201,7 @@
             (report-current-summary start-time)
 
             (when (report-summary-reset event)
-              (setf *sections* (list :pre  (make-pgstate)
-                                     :data (make-pgstate)
-                                     :post (make-pgstate)))))
+              (setf *sections* (create-state))))
 
            (log-message
             ;; cl-log:log-message is a macro, we can't use apply
@@ -219,16 +215,20 @@
               (cl-log:log-message (log-message-category event) "~a" mesg)))
 
            (new-label
-            (let ((label
-                   (pgstate-new-label (getf *sections* (new-label-section event))
-                                      (new-label-label event))))
+            (let* ((section
+                    (get-state-section *sections*
+                                       (new-label-section event)))
+                   (label
+                    (pgstate-new-label section
+                                       (new-label-label event))))
 
               (when (eq :data (new-label-section event))
                 (pgtable-initialize-reject-files label
                                                  (new-label-dbname event)))))
 
            (update-stats
-            (let* ((pgstate (getf *sections* (update-stats-section event)))
+            (let* ((pgstate (get-state-section *sections*
+                                               (update-stats-section event)))
                    (label   (update-stats-label event))
                    (table   (pgstate-new-label pgstate label)))
 
@@ -300,8 +300,8 @@
                                  :if-exists :rename
                                  :if-does-not-exist :create)))
          (*report-stream* (or summary-stream *standard-output*)))
-    (report-full-summary "Total import time"
-                         *sections*
+    (report-full-summary *sections*
+                         "Total import time"
                          (elapsed-time-since start-time))
     (when summary-stream (close summary-stream))))
 
