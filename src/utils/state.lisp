@@ -16,6 +16,7 @@
   (secs 0.0 :type float)		; how many seconds did it take
   (rs   0.0 :type float)                ;   seconds spent reading
   (ws   0.0 :type float)                ;   seconds spent writing
+  (bytes 0  :type fixnum)               ; how many bytes we sent
   (start 0  :type integer)              ; internal real time when we started
   (stop  0  :type integer)              ; internal real time when we finished
   reject-data reject-logs)		; files where to find reject data
@@ -28,7 +29,8 @@
   (errs 0   :type fixnum)
   (secs 0.0 :type float)
   (rs   0.0 :type float)
-  (ws   0.0 :type float))
+  (ws   0.0 :type float)
+  (bytes 0  :type fixnum))
 
 (defun relative-pathname (filename type &optional dbname)
   "Return the pathname of a file of type TYPE (dat or log) under *ROOT-DIR*"
@@ -93,7 +95,7 @@
 
 	pgtable)))
 
-(defun pgstate-setf (pgstate name &key read rows errs secs rs ws)
+(defun pgstate-setf (pgstate name &key read rows errs secs rs ws bytes)
   (let ((pgtable (pgstate-get-label pgstate name)))
     (when read
       (setf (pgtable-read pgtable) read)
@@ -113,9 +115,12 @@
     (when ws
       (setf (pgtable-ws pgtable) ws)
       (incf (pgstate-ws pgstate) ws))
+    (when bytes
+      (setf (pgtable-bytes pgtable) bytes)
+      (incf (pgstate-bytes pgstate) bytes))
     pgtable))
 
-(defun pgstate-incf (pgstate name &key read rows errs secs rs ws)
+(defun pgstate-incf (pgstate name &key read rows errs secs rs ws bytes)
   (let ((pgtable (pgstate-get-label pgstate name)))
     (when read
       (incf (pgtable-read pgtable) read)
@@ -135,9 +140,12 @@
     (when ws
       (incf (pgtable-ws pgtable) ws)
       (incf (pgstate-ws pgstate) ws))
+    (when bytes
+      (incf (pgtable-bytes pgtable) bytes)
+      (incf (pgstate-bytes pgstate) bytes))
     pgtable))
 
-(defun pgstate-decf (pgstate name &key read rows errs secs rs ws)
+(defun pgstate-decf (pgstate name &key read rows errs secs rs ws bytes)
   (let ((pgtable (pgstate-get-label pgstate name)))
     (when read
       (decf (pgtable-read pgtable) read)
@@ -157,4 +165,7 @@
     (when secs
       (decf (pgtable-secs pgtable) secs)
       (decf (pgstate-secs pgstate) secs))
+    (when bytes
+      (decf (pgtable-bytes pgtable) secs)
+      (decf (pgstate-bytes pgstate) secs))
     pgtable))

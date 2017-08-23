@@ -139,7 +139,9 @@
                               (pretty-print-bytes (batch-bytes current-batch))
                               batch-seconds
                               (batch-oversized-p current-batch))
-                 (update-stats :data table :rows (batch-count current-batch))
+                 (update-stats :data table
+                               :rows (batch-count current-batch)
+                               :bytes (batch-bytes current-batch))
 
                  ;; return batch-seconds
                  batch-seconds))))

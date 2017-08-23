@@ -33,7 +33,7 @@
 (defstruct report-summary reset)
 (defstruct log-message category description arguments)
 (defstruct new-label section label dbname)
-(defstruct update-stats section label read rows errs secs rs ws start stop)
+(defstruct update-stats section label read rows errs secs rs ws bytes start stop)
 (defstruct bad-row section label condition data)
 
 (defun log-message (category description &rest arguments)
@@ -48,7 +48,8 @@
    SECTION."
   (send-event (make-new-label :section section :label label :dbname dbname)))
 
-(defun update-stats (section label &key read rows errs secs rs ws start stop)
+(defun update-stats (section label
+                     &key read rows errs secs rs ws bytes start stop)
   "Send an event to update stats for given SECTION and LABEL."
   (send-event (make-update-stats :section section
                                  :label label
@@ -58,6 +59,7 @@
                                  :secs secs
                                  :rs rs
                                  :ws ws
+                                 :bytes bytes
                                  :start start
                                  :stop stop)))
 
@@ -233,25 +235,33 @@
               (pgstate-incf pgstate label
                             :read (update-stats-read event)
                             :rows (update-stats-rows event)
-                            :secs (update-stats-secs event)
                             :errs (update-stats-errs event)
+                            :secs (update-stats-secs event)
                             :rs   (update-stats-rs event)
-                            :ws   (update-stats-ws event))
+                            :ws   (update-stats-ws event)
+                            :bytes (update-stats-bytes event))
 
               ;; log some kind of a “keep alive” message to the user, for
               ;; the sake of showing progress.
               ;;
-              ;; something like one message every 20 batches should only
+              ;; something like one message every 10 batches should only
               ;; target big tables where we have to wait for a pretty long
               ;; time.
               (when (and (update-stats-rows event)
                          (typep label 'pgloader.catalog:table)
-                         (< (* 19 *copy-batch-rows*)
+                         (< (* 9 *copy-batch-rows*)
                             (mod (pgtable-rows table)
-                                 (* 20 *copy-batch-rows*))))
-                (log-message :notice "copy ~a: ~d rows done"
+                                 (* 10 *copy-batch-rows*))))
+                (log-message :notice "copy ~a: ~d rows done, ~7<~a~>, ~9<~a~>"
                              (pgloader.catalog:format-table-name label)
-                             (pgtable-rows table)))
+                             (pgtable-rows table)
+                             (pgloader.utils:pretty-print-bytes
+                              (pgtable-bytes table))
+                             (pgloader.utils:pretty-print-bytes
+                              (truncate (pgtable-bytes table)
+                                        (elapsed-time-since
+                                         (pgtable-start table)))
+                              :unit "Bps")))
 
               (when (update-stats-start event)
                 (log-message :debug "start ~a ~30t ~a"

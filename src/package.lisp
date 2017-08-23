@@ -208,6 +208,7 @@
            #:pgtable-initialize-reject-files
            #:pgtable-secs
            #:pgtable-rows
+           #:pgtable-bytes
            #:pgtable-start
            #:pgtable-stop
            #:pgtable-reject-data
