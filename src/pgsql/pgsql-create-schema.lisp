@@ -414,7 +414,7 @@ $$; " tables)))
           (loop :for table :in (table-list catalog)
              :when (table-comment table)
              :collect (format nil "comment on table ~a is $~a$~a$~a$"
-                              (table-name table)
+                              (format-table-name table)
                               quote (table-comment table) quote)
 
              ;; for each table, append column level comments
@@ -423,7 +423,7 @@ $$; " tables)))
                 :when (column-comment column)
                 :collect (format nil
                                  "comment on column ~a.~a is $~a$~a$~a$"
-                                 (table-name table)
+                                 (format-table-name table)
                                  (column-name column)
                                  quote (column-comment column) quote)))))
     (pgsql-execute-with-timing section label sql-list)))
