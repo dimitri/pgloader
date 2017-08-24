@@ -69,18 +69,22 @@
     (when include-drop
       ;; if asked, first DROP the schema CASCADE.
       (loop :for schema :in (catalog-schema-list catalog)
-         :for schema-name := (ensure-unquoted (schema-name schema))
+         :for schema-name := (schema-name schema)
          :when (and schema-name
-                    (member schema-name schema-list :test #'string=))
+                    (member (ensure-unquoted schema-name)
+                            schema-list
+                            :test #'string=))
          :do (let ((sql (format nil "DROP SCHEMA ~a CASCADE;" schema-name)))
                (pgsql-execute sql :client-min-messages client-min-messages))))
 
     ;; now create the schemas (again?)
     (loop :for schema :in (catalog-schema-list catalog)
-       :for schema-name := (ensure-unquoted (schema-name schema))
+       :for schema-name := (schema-name schema)
        :when (and schema-name
                   (or include-drop
-                      (not (member schema-name schema-list :test #'string=))))
+                      (not (member (ensure-unquoted schema-name)
+                                   schema-list
+                                   :test #'string=))))
        :do (let ((sql (format nil "CREATE SCHEMA ~a;" (schema-name schema))))
              (pgsql-execute sql :client-min-messages client-min-messages)))))
 
