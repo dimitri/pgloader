@@ -39,11 +39,11 @@
 				punct)))
   (:text t))
 
-(defrule double-quoted-namestring (and #\" namestring #\")
-  (:destructure (open name close) (declare (ignore open close)) name))
+(defrule double-quoted-namestring (and #\" (* (not #\")) #\")
+  (:lambda (dqn) (text (second dqn))))
 
-(defrule quoted-namestring (and #\' namestring #\')
-  (:destructure (open name close) (declare (ignore open close)) name))
+(defrule quoted-namestring (and #\' (+ (not #\')) #\')
+  (:lambda (dqn) (text (second dqn))))
 
 (defrule name (or namestring quoted-namestring)
   (:text t))
@@ -52,3 +52,8 @@
   (:destructure (whitespace name) (declare (ignore whitespace)) name))
 
 (defrule namestring-or-regex (or quoted-namestring quoted-regex))
+
+(defrule maybe-quoted-namestring (or double-quoted-namestring
+                                     quoted-namestring
+                                     namestring))
+

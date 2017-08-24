@@ -86,7 +86,7 @@
       (append (list :host (when host (process-hostname host)))
               port))))
 
-(defrule dsn-dbname (and "/" (? namestring))
+(defrule dsn-dbname (and "/" (? maybe-quoted-namestring))
   (:destructure (slash dbname)
 		(declare (ignore slash))
 		(list :dbname dbname)))
@@ -104,10 +104,6 @@
     (destructuring-bind (key e val) ssl
       (declare (ignore key e))
       (cons :use-ssl val))))
-
-(defrule maybe-quoted-namestring (or double-quoted-namestring
-                                     quoted-namestring
-                                     namestring))
 
 (defrule qualified-table-name (and maybe-quoted-namestring
                                    "."
