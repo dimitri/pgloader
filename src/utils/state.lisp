@@ -36,6 +36,7 @@
   (preload  nil :type (or null pgstate))
   (data     nil :type (or null pgstate))
   (postload nil :type (or null pgstate))
+  (bytes      0 :type fixnum)
   (secs     0.0 :type float))
 
 (defun create-state ()

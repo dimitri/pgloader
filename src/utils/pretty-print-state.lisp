@@ -99,7 +99,7 @@
       (format stream
               "~&~v@a  ~9@a  ~9@a  ~9@a  ~14@a~%"
               max-len
-              "table name" "read" "imported" "errors" "total time")
+              "table name" "errors" "rows" "bytes" "total time")
       (format stream sep-line))
 
     (loop
@@ -116,27 +116,31 @@
            (format stream sep-line))
 
           (footer
-           (with-slots (tabnames read rows errs secs) pgstate
+           (with-slots (tabnames errs rows bytes secs) pgstate
              (when tabnames
                (format stream sep-line)
                (format stream
                        "~&~v@a  ~9@a  ~9@a  ~9@a  ~14@a~%"
-                       max-len
-                       footer read rows errs
+                       max-len footer
+                       (if (zerop errs) "✓" errs)
+                       rows
+                       (if (zerop bytes) ""
+                           (pgloader.utils::pretty-print-bytes bytes))
                        (format-interval secs nil))))))))
 
 (defmethod pretty-print ((stream stream)
                          (pgtable pgtable)
                          (format print-format-text)
                          &key legend max-label-length)
-  (with-slots (read rows errs secs rs ws) pgtable
+  (with-slots (errs rows bytes secs rs ws) pgtable
     (format stream
             "~&~v@a  ~9@a  ~9@a  ~9@a  ~14@a~%"
             max-label-length
             legend
-            read
-            rows
             errs
+            rows
+            (if (zerop bytes) ""
+                (pgloader.utils::pretty-print-bytes bytes))
             (format-interval-guess secs rs ws))))
 
 
@@ -154,16 +158,17 @@
          (col-label    (make-string max-len :initial-element #\-))
          (col-sep      (make-string 9 :initial-element #\-))
          (col-long-sep (make-string 14 :initial-element #\-))
-         (sep-line     (format nil
-                               "~&~v@a  ~9@a  ~9@a  ~9@a  ~14@a  ~9@a  ~9@a~%"
-                               max-len col-label
-                               col-sep col-sep col-sep
-                               col-long-sep col-sep col-sep)))
+         (sep-line
+          (format nil
+                  "~&~v@a  ~9@a  ~9@a  ~9@a  ~9@a  ~14@a  ~9@a  ~9@a~%"
+                  max-len col-label
+                  col-sep col-sep col-sep col-sep
+                  col-long-sep col-sep col-sep)))
     (when header
       (format stream
-              "~&~v@a  ~9@a  ~9@a  ~9@a  ~14@a  ~9@a  ~9@a~%"
+              "~&~v@a  ~9@a  ~9@a  ~9@a  ~9@a  ~14@a  ~9@a  ~9@a~%"
               max-len
-              "table name" "read" "imported" "errors" "total time" "read" "write")
+              "table name" "errors" "read" "imported" "bytes" "total time" "read" "write")
       (format stream sep-line))
 
     (loop
@@ -180,13 +185,18 @@
            (format stream sep-line))
 
           (footer
-           (with-slots (tabnames read rows errs secs rs ws) pgstate
+           (with-slots (tabnames read rows errs bytes secs rs ws) pgstate
              (when tabnames
                (format stream sep-line)
                (format stream
-                       "~&~v@a  ~9@a  ~9@a  ~9@a  ~14@a  ~@[~9@a~]  ~@[~9@a~]~%"
+                       "~&~v@a  ~9@a  ~9@a  ~9@a  ~9@a  ~14@a  ~@[~9@a~]  ~@[~9@a~]~%"
                        max-len
-                       footer read rows errs
+                       footer
+                       (if (zerop errs) "✓" errs)
+                       read
+                       rows
+                       (if (zerop bytes) ""
+                           (pgloader.utils::pretty-print-bytes bytes))
                        (format-interval secs nil)
                        (when (and rs (/= rs 0.0))
                          (format-interval rs nil))
@@ -197,14 +207,16 @@
                          (pgtable pgtable)
                          (format print-format-verbose)
                          &key legend max-label-length)
-  (with-slots (read rows errs secs rs ws) pgtable
+  (with-slots (read rows errs bytes secs rs ws) pgtable
     (format stream
-            "~&~v@a  ~9@a  ~9@a  ~9@a  ~14@a  ~@[~9@a~]  ~@[~9@a~]~%"
+            "~&~v@a  ~9@a  ~9@a  ~9@a  ~9@a  ~14@a  ~@[~9@a~]  ~@[~9@a~]~%"
             max-label-length
             legend
+            errs
             read
             rows
-            errs
+            (if (zerop bytes) ""
+                (pgloader.utils::pretty-print-bytes bytes))
             (format-interval-guess secs rs ws)
             (when (and rs (/= rs 0.0)) (format-interval rs nil))
             (when (and ws (/= ws 0.0)) (format-interval ws nil)))))
@@ -229,13 +241,14 @@
                          (pgtable pgtable)
                          (format print-format-csv)
                          &key legend)
-  (with-slots (read rows errs secs rs ws) pgtable
+  (with-slots (read rows errs bytes secs rs ws) pgtable
     (format stream
-            "~&~s;~s;~s;~s;~s"
+            "~&~s;~s;~s;~s;~s;~s"
             legend
             read
             rows
             errs
+            bytes
             (format-interval-guess secs rs ws))))
 
 
@@ -258,13 +271,14 @@
                          (pgtable pgtable)
                          (format print-format-copy)
                          &key legend)
-  (with-slots (read rows errs secs rs ws) pgtable
+  (with-slots (read rows errs bytes secs rs ws) pgtable
     (format stream
-            "~&~a	~s	~s	~s	~s"
+            "~&~a	~s	~s	~s	~s	~s"
             legend
             read
             rows
             errs
+            bytes
             (format-interval-guess secs rs ws))))
 
 

@@ -65,5 +65,14 @@
     (setf (state-secs state) total-secs)
     (setf (pgstate-secs (state-data state)) total-secs)
 
+    ;; compute total amount of bytes sent
+    (let* ((data        (state-data state))
+           (table-list  (mapcar (lambda (table)
+                                  (gethash table (pgstate-tables data)))
+                                (pgstate-tabnames data)))
+           (total-bytes (reduce #'+ table-list :key #'pgtable-bytes)))
+      (setf (state-bytes state) total-bytes)
+      (setf (pgstate-bytes (state-postload state)) total-bytes))
+
     (pretty-print *report-stream* state format)))
 
