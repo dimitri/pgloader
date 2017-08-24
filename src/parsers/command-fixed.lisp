@@ -95,18 +95,28 @@
 (defrule load-fixed-cols-file-command (and fixed-source (? file-encoding)
                                            fixed-source-field-list
                                            target
+                                           (? csv-target-table)
                                            (? csv-target-column-list)
                                            load-fixed-cols-file-optional-clauses)
   (:lambda (command)
-    (destructuring-bind (source encoding fields target columns clauses) command
-      `(,source ,encoding ,fields ,target ,columns ,@clauses))))
+    (destructuring-bind (source encoding fields pguri table-name columns clauses)
+        command
+      (list* source
+             encoding
+             fields
+             pguri
+             (create-table (or table-name (pgconn-table-name pguri)))
+             columns
+             clauses))))
 
 (defun lisp-code-for-loading-from-fixed (fixed-conn pg-db-conn
                                          &key
                                            (encoding :utf-8)
                                            fields
+                                           target-table
                                            columns
                                            gucs before after options
+                                         &allow-other-keys
                                          &aux
                                            (worker-count (getf options :worker-count))
                                            (concurrency  (getf options :concurrency)))
@@ -115,7 +125,7 @@
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
               (source-db (with-stats-collection ("fetch" :section :pre)
-                             (expand (fetch-file ,fixed-conn)))))
+                           (expand (fetch-file ,fixed-conn)))))
 
        (progn
          ,(sql-code-block pg-db-conn :pre before "before load")
@@ -129,8 +139,7 @@
                 (make-instance 'pgloader.fixed:copy-fixed
                                :target-db ,pg-db-conn
                                :source source-db
-                               :target (create-table
-                                        ',(pgconn-table-name pg-db-conn))
+                               :target ,target-table
                                :encoding ,encoding
                                :fields ',fields
                                :columns ',columns
@@ -151,7 +160,7 @@
 
 (defrule load-fixed-cols-file load-fixed-cols-file-command
   (:lambda (command)
-    (bind (((source encoding fields pg-db-uri columns
+    (bind (((source encoding fields pg-db-uri table columns
                     &key options gucs before after) command))
       (cond (*dry-run*
              (lisp-code-for-csv-dry-run pg-db-uri))
@@ -159,6 +168,7 @@
              (lisp-code-for-loading-from-fixed source pg-db-uri
                                                :encoding encoding
                                                :fields fields
+                                               :target-table table
                                                :columns columns
                                                :gucs gucs
                                                :before before

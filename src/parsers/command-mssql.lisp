@@ -140,7 +140,8 @@
                                            gucs mssql-gucs
                                            casts before after options
                                            alter-schema alter-table
-                                           including excluding)
+                                           including excluding
+                                         &allow-other-keys)
   `(lambda ()
      ;; now is the time to load the CFFI lib we need (freetds)
      (let (#+sbcl(sb-ext:*muffled-warnings* 'style-warning))

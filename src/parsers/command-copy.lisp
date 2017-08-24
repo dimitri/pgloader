@@ -87,16 +87,25 @@
 (defrule load-copy-file-command (and copy-source (? file-encoding)
                                      (? copy-source-field-list)
                                      target
+                                     (? csv-target-table)
                                      (? csv-target-column-list)
                                      load-copy-file-optional-clauses)
   (:lambda (command)
-    (destructuring-bind (source encoding fields target columns clauses) command
-      `(,source ,encoding ,fields ,target ,columns ,@clauses))))
+    (destructuring-bind (source encoding fields pguri table-name columns clauses)
+        command
+      (list* source
+             encoding
+             fields
+             pguri
+             (create-table (or table-name (pgconn-table-name pguri)))
+             columns
+             clauses))))
 
 (defun lisp-code-for-loading-from-copy (copy-conn pg-db-conn
                                         &key
                                           (encoding :utf-8)
                                           fields
+                                          target-table
                                           columns
                                           gucs before after options
                                         &aux
@@ -107,7 +116,7 @@
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)              
               (source-db (with-stats-collection ("fetch" :section :pre)
-                             (expand (fetch-file ,copy-conn)))))
+                           (expand (fetch-file ,copy-conn)))))
 
        (progn
          ,(sql-code-block pg-db-conn :pre before "before load")
@@ -121,8 +130,7 @@
                 (make-instance 'pgloader.copy:copy-copy
                                :target-db ,pg-db-conn
                                :source    source-db
-                               :target    (create-table
-                                           ',(pgconn-table-name pg-db-conn))
+                               :target    ,target-table
                                :encoding  ,encoding
                                :fields   ',fields
                                :columns  ',columns
@@ -149,7 +157,7 @@
 
 (defrule load-copy-file load-copy-file-command
   (:lambda (command)
-    (bind (((source encoding fields pg-db-uri columns
+    (bind (((source encoding fields pg-db-uri table columns
                     &key options gucs before after) command))
       (cond (*dry-run*
              (lisp-code-for-csv-dry-run pg-db-uri))
@@ -157,6 +165,7 @@
              (lisp-code-for-loading-from-copy source pg-db-uri
                                               :encoding encoding
                                               :fields fields
+                                              :target-table table
                                               :columns columns
                                               :gucs gucs
                                               :before before

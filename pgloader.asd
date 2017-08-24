@@ -226,11 +226,18 @@
 
 	       ;; the main entry file, used when building a stand-alone
 	       ;; executable image
+               (:file "api"  :depends-on ("params"
+                                          "package"
+                                          "utils"
+                                          "parsers"
+                                          "sources"))
+
 	       (:file "main" :depends-on ("params"
                                           "package"
                                           "utils"
                                           "parsers"
                                           "sources"
+                                          "api"
                                           "regress"))))
 
      ;; to produce the website

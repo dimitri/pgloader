@@ -147,7 +147,8 @@
                                            alter-table alter-schema
                                            ((:including incl))
                                            ((:excluding excl))
-                                           ((:decoding decoding-as)))
+                                           ((:decoding decoding-as))
+                                         &allow-other-keys)
   `(lambda ()
      (let* ((*default-cast-rules* ',*mysql-default-cast-rules*)
             (*cast-rules*         ',casts)

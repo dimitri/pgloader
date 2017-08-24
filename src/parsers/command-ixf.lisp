@@ -62,27 +62,33 @@
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
 
-(defrule load-ixf-command (and ixf-source target load-ixf-optional-clauses)
+(defrule load-ixf-command (and ixf-source
+                               target
+                               (? csv-target-table)
+                               load-ixf-optional-clauses)
   (:lambda (command)
-    (destructuring-bind (source target clauses) command
-      `(,source ,target ,@clauses))))
+    (destructuring-bind (source pguri table-name clauses) command
+      (list* source
+             pguri
+             (create-table (or table-name (pgconn-table-name pguri)))
+             clauses))))
 
 (defun lisp-code-for-loading-from-ixf (ixf-db-conn pg-db-conn
                                        &key
-                                         gucs before after options)
+                                         target-table gucs before after options
+                                       &allow-other-keys)
   `(lambda ()
      (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
             (timezone     (getf ',options :timezone))
-            (table-name   (create-table ',(pgconn-table-name pg-db-conn)))
             (source-db    (with-stats-collection ("fetch" :section :pre)
                               (expand (fetch-file ,ixf-db-conn))))
             (source
              (make-instance 'pgloader.ixf:copy-ixf
                             :target-db ,pg-db-conn
                             :source-db source-db
-                            :target table-name
+                            :target ,target-table
                             :timezone timezone)))
 
        ,(sql-code-block pg-db-conn :pre before "before load")
@@ -98,12 +104,13 @@
 
 (defrule load-ixf-file load-ixf-command
   (:lambda (command)
-    (bind (((source pg-db-uri
+    (bind (((source pg-db-uri table
                     &key options gucs before after) command))
       (cond (*dry-run*
              (lisp-code-for-csv-dry-run pg-db-uri))
             (t
              (lisp-code-for-loading-from-ixf source pg-db-uri
+                                             :target-table table
                                              :gucs gucs
                                              :before before
                                              :after after

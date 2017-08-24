@@ -268,6 +268,12 @@
                                      open-paren csv-target-columns close-paren)
   (:lambda (source)
     (bind (((_ _ columns _) source)) columns)))
+
+(defrule csv-target-table (and kw-target kw-table dsn-table-name)
+  (:lambda (c-t-t)
+    ;; dsn-table-name: (:table-name "schema" . "table")
+    (cdr (third c-t-t))))
+
 ;;
 ;; The main command parsing
 ;;
@@ -373,11 +379,20 @@
 
 (defrule load-csv-file-command (and csv-source
                                     (? file-encoding) (? csv-source-field-list)
-                                    target (? csv-target-column-list)
+                                    target
+                                    (? csv-target-table)
+                                    (? csv-target-column-list)
                                     load-csv-file-optional-clauses)
   (:lambda (command)
-    (destructuring-bind (source encoding fields target columns clauses) command
-      `(,source ,encoding ,fields ,target ,columns ,@clauses))))
+    (destructuring-bind (source encoding fields pguri table-name columns clauses)
+        command
+      (list* source
+             encoding
+             fields
+             pguri
+             (create-table (or table-name (pgconn-table-name pguri)))
+             columns
+             clauses))))
 
 (defun lisp-code-for-csv-dry-run (pg-db-conn)
   `(lambda ()
@@ -391,8 +406,10 @@
                                        &key
                                          (encoding :utf-8)
                                          fields
+                                         target-table
                                          columns
                                          gucs before after options
+                                       &allow-other-keys
                                        &aux
                                          (worker-count (getf options :worker-count))
                                          (concurrency  (getf options :concurrency)))
@@ -401,7 +418,7 @@
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
               (source-db (with-stats-collection ("fetch" :section :pre)
-                             (expand (fetch-file ,csv-conn)))))
+                           (expand (fetch-file ,csv-conn)))))
 
        (progn
          ,(sql-code-block pg-db-conn :pre before "before load")
@@ -415,8 +432,7 @@
                 (make-instance 'pgloader.csv:copy-csv
                                :target-db  ,pg-db-conn
                                :source     source-db
-                               :target     (create-table
-                                           ',(pgconn-table-name pg-db-conn))
+                               :target     ,target-table
                                :encoding   ,encoding
                                :fields    ',fields
                                :columns   ',columns
@@ -443,7 +459,7 @@
 
 (defrule load-csv-file load-csv-file-command
   (:lambda (command)
-    (bind (((source encoding fields pg-db-uri columns
+    (bind (((source encoding fields pg-db-uri table columns
                     &key options gucs before after) command))
       (cond (*dry-run*
              (lisp-code-for-csv-dry-run pg-db-uri))
@@ -451,6 +467,7 @@
              (lisp-code-for-loading-from-csv source pg-db-uri
                                              :encoding encoding
                                              :fields fields
+                                             :target-table table
                                              :columns columns
                                              :gucs gucs
                                              :before before

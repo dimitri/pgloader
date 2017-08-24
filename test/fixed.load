@@ -19,7 +19,8 @@ LOAD FIXED
            c from 18 for  8,
            d from 26 for 17 [null if blanks, trim right whitespace]
           )
-     INTO postgresql:///pgloader?fixed
+     INTO postgresql:///pgloader
+   TARGET TABLE fixed
           (
              a, b,
              c time using (time-with-no-separator c),

@@ -494,8 +494,11 @@ might support only a subset of the general options and provide specific
 options.
 
     LOAD <source-type>
-	     FROM <source-url>     [ HAVING FIELDS <source-level-options> ]
-		 INTO <postgresql-url> [ TARGET COLUMNS <columns-and-options> ]
+	     FROM <source-url>
+           [ HAVING FIELDS <source-level-options> ]
+		 INTO <postgresql-url>
+           [ TARGET TABLE [ "<schema>" ]."<table name>" ]
+           [ TARGET COLUMNS <columns-and-options> ]
 
 	[ WITH <load-options> ]
 
@@ -817,7 +820,8 @@ example:
             (
                startIpNum, endIpNum, locId
             )
-       INTO postgresql://user@localhost:54393/dbname?geolite.blocks
+       INTO postgresql://user@localhost:54393/dbname
+            TARGET TABLE geolite.blocks
             TARGET COLUMNS
             (
                iprange ip4r using (ip-range startIpNum endIpNum),
@@ -1050,7 +1054,8 @@ columns arranged in a *fixed size* manner. Here's an example:
                c from 18 for  8,
                d from 26 for 17 [null if blanks, trim right whitespace]
               )
-         INTO postgresql:///pgloader?fixed
+         INTO postgresql:///pgloader
+       TARGET TABLE fixed
               (
                  a, b,
                  c time using (time-with-no-separator c),
@@ -1224,7 +1229,8 @@ data as described in the PostgreSQL documentation. Here's an example:
                 trackid, track, album, media, genre, composer,
                 milliseconds, bytes, unitprice
               )
-         INTO postgresql:///pgloader?track_full
+         INTO postgresql:///pgloader
+       TARGET TABLE track_full
 
          WITH truncate
 
@@ -1384,7 +1390,8 @@ an example:
 
     LOAD IXF
         FROM data/nsitra.test1.ixf
-        INTO postgresql:///pgloader?nsitra.test1
+        INTO postgresql:///pgloader
+      TARGET TABLE nsitra.test1
         WITH truncate, create table, timezone UTC
 
       BEFORE LOAD DO

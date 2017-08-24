@@ -1,6 +1,7 @@
 LOAD CSV
      FROM data/track.csv
-     INTO postgresql:///pgloader?csv.track
+     INTO postgresql:///pgloader
+     TARGET TABLE csv.track
 
      WITH truncate
 

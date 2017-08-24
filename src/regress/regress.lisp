@@ -27,10 +27,9 @@
            (expected-data-file     (make-pathname :defaults load-file
                                                   :type "out"
                                                   :directory expected-subdir))
-           ((target-conn gucs) (parse-target-pg-db-uri load-file))
+           ((target-conn target-table gucs) (parse-target-pg-db-uri load-file))
            (*pg-settings* (pgloader.pgsql:sanitize-user-gucs gucs))
            (*pgsql-reserved-keywords* (list-reserved-keywords target-conn))
-           (target-table (create-table (pgconn-table-name target-conn)))
 
            (expected-data-source
             (parse-source-string-for-type
@@ -47,7 +46,9 @@
                     ;; src/parsers/command-db-uri.lisp
                     ;;
                     (cons "expected" (table-name target-table)))
-              e-d-t)))
+              e-d-t))
+           (expected-target-table
+            (create-table (cons "expected" (table-name target-table)))))
 
       (log-message :log "Comparing loaded data against ~s" expected-data-file)
 
@@ -67,6 +68,7 @@
       ;; load expected data
       (load-data :from expected-data-source
                  :into expected-data-target
+                 :target-table expected-target-table
                  :options '(:truncate t)
                  :start-logger nil
                  :flush-summary t)

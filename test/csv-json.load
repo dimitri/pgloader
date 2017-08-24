@@ -1,6 +1,7 @@
 LOAD CSV
      FROM INLINE
-     INTO postgresql:///pgloader?json
+     INTO postgresql:///pgloader
+     TARGET TABLE json
 
      WITH truncate,
           fields not enclosed,

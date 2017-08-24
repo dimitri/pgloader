@@ -553,8 +553,11 @@ The pgloader commands follow the same global grammar rules\. Each of them might 
 .nf
 
 LOAD <source\-type>
-     FROM <source\-url>     [ HAVING FIELDS <source\-level\-options> ]
-     INTO <postgresql\-url> [ TARGET COLUMNS <columns\-and\-options> ]
+     FROM <source\-url>
+       [ HAVING FIELDS <source\-level\-options> ]
+     INTO <postgresql\-url>
+       [ TARGET TABLE [ "<schema>" ]\."<table name>" ]
+       [ TARGET COLUMNS <columns\-and\-options> ]
 
 [ WITH <load\-options> ]
 
@@ -954,7 +957,8 @@ LOAD CSV
         (
            startIpNum, endIpNum, locId
         )
-   INTO postgresql://user@localhost:54393/dbname?geolite\.blocks
+   INTO postgresql://user@localhost:54393/dbname
+        TARGET TABLE geolite\.blocks
         TARGET COLUMNS
         (
            iprange ip4r using (ip\-range startIpNum endIpNum),
@@ -1235,7 +1239,8 @@ LOAD FIXED
            c from 18 for  8,
            d from 26 for 17 [null if blanks, trim right whitespace]
           )
-     INTO postgresql:///pgloader?fixed
+     INTO postgresql:///pgloader
+   TARGET TABLE fixed
           (
              a, b,
              c time using (time\-with\-no\-separator c),
@@ -1473,7 +1478,8 @@ LOAD COPY
             trackid, track, album, media, genre, composer,
             milliseconds, bytes, unitprice
           )
-     INTO postgresql:///pgloader?track_full
+     INTO postgresql:///pgloader
+   TARGET TABLE track_full
 
      WITH truncate
 
@@ -1669,7 +1675,8 @@ This command instructs pgloader to load data from an IBM \fBIXF\fR file\. Here\'
 
 LOAD IXF
     FROM data/nsitra\.test1\.ixf
-    INTO postgresql:///pgloader?nsitra\.test1
+    INTO postgresql:///pgloader
+  TARGET TABLE nsitra\.test1
     WITH truncate, create table, timezone UTC
 
   BEFORE LOAD DO

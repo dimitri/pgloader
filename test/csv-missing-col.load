@@ -1,6 +1,7 @@
 LOAD CSV
      FROM inline (a, b, c, d, e, f, g)
-     INTO postgresql:///pgloader?missingcol (a, b, c, d, e, f, g)
+     INTO postgresql:///pgloader
+   TARGET TABLE missingcol (a, b, c, d, e, f, g)
 
      WITH truncate,
           fields optionally enclosed by '"',

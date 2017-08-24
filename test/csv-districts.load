@@ -21,7 +21,8 @@ LOAD CSV
          intptlong      -- Longitude (decimal degrees)
       )
 
-     INTO postgresql:///pgloader?districts
+       INTO postgresql:///pgloader
+     TARGET TABLE districts
      TARGET COLUMNS
       (
          usps, geoid, aland, awater, aland_sqmi, awater_sqmi,

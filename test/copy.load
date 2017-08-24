@@ -4,7 +4,8 @@ LOAD COPY
             trackid, track, album, media, genre, composer,
             milliseconds, bytes, unitprice
           )
-     INTO postgresql:///pgloader?track_full
+     INTO postgresql:///pgloader
+     TARGET TABLE track_full
 
      WITH truncate, drop indexes
 

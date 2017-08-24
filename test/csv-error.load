@@ -1,6 +1,7 @@
 LOAD CSV
      FROM INLINE with encoding 'ascii'
-     INTO postgresql:///pgloader?jordane
+     INTO postgresql:///pgloader
+     TARGET TABLE jordane
 
      WITH truncate,
           fields terminated by '|',

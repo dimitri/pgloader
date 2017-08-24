@@ -93,7 +93,8 @@ load database
                                             gucs casts before after options
                                             alter-table alter-schema
                                             ((:including incl))
-                                            ((:excluding excl)))
+                                            ((:excluding excl))
+                                            &allow-other-keys)
   `(lambda ()
      (let* ((*default-cast-rules* ',*sqlite-default-cast-rules*)
             (*cast-rules*         ',casts)
