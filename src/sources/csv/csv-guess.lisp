@@ -49,11 +49,11 @@
                                          :separator separator
                                          :escape escape)
                       ((or cl-csv:csv-parse-error type-error) ()
-                        nil)))))
+                        (return-from try-csv-params nil))))))
     (and rows
 	 (every (lambda (row) (= cols (length row))) rows))))
 
-(defun guess-csv-params (filename-or-stream nb-cols &key (sample-size 10))
+(defun guess-csv-params (filename-or-stream nb-cols &key (sample-size 1000))
   "Try a bunch of field separators with LINES and return the first one that
    returns COLS number of columns"
   (let ((sample

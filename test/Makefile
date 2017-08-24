@@ -11,6 +11,7 @@ REGRESS= allcols.load 		    \
          csv-error.load 	    \
          csv-escape-mode.load 	    \
          csv-filename-pattern.load  \
+         csv-guess.load             \
          csv-header.load            \
          csv-json.load              \
          csv-keep-extra-blanks.load \

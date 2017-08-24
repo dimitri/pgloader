@@ -1,0 +1,21 @@
+LOAD CSV
+     FROM data/track.csv
+     INTO postgresql:///pgloader?csv.track
+
+     WITH truncate
+
+   BEFORE LOAD DO
+    $$ create schema if not exists csv; $$,
+    $$ drop table if exists csv.track; $$,
+    $$ create table csv.track (
+          trackid      bigserial primary key,
+          track        text,
+          album        text,
+          media        text,
+          genre        text,
+          composer     text,
+          milliseconds bigint,
+          bytes        bigint,
+          unitprice    numeric
+       );
+    $$;
