@@ -1,5 +1,5 @@
 load database
-     from      mysql://root@localhost/sakila
+     from      mysql://root@localhost/sakila?sslmode=disable
      into postgresql:///sakila
 
  -- WITH include drop, create tables, no truncate,

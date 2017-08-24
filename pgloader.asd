@@ -210,8 +210,10 @@
                                   :depends-on ("common")
                                   :components
                                   ((:file "mysql-cast-rules")
+                                   (:file "mysql-connection")
                                    (:file "mysql-schema"
-                                          :depends-on ("mysql-cast-rules"))
+                                          :depends-on ("mysql-connection"
+                                                       "mysql-cast-rules"))
                                    ;; (:file "mysql-csv"
                                    ;;        :depends-on ("mysql-schema"))
                                    (:file "mysql"

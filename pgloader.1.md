@@ -1603,9 +1603,13 @@ The `database` command accepts the following clauses and options:
   	migrated from MySQL to PostgreSQL.
 
     See the `SOURCE CONNECTION STRING` section above for details on how to
-    write the connection string. Environment variables described in
-    <http://dev.mysql.com/doc/refman/5.0/en/environment-variables.html> can
-    be used as default values too. If the user is not provided, then it
+    write the connection string. The MySQL connection string accepts the
+    same parameter *sslmode* as the PostgreSQL connection string, but the
+    *verify* mode is not implemented (yet).
+    
+    Environment variables described
+    in <http://dev.mysql.com/doc/refman/5.0/en/environment-variables.html>
+    can be used as default values too. If the user is not provided, then it
     defaults to `USER` environment variable value. The password can be
     provided with the environment variable `MYSQL_PWD`. The host can be
     provided with the environment variable `MYSQL_HOST` and otherwise

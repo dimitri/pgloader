@@ -104,14 +104,16 @@
 (defrule mysql-uri (and mysql-prefix
                         (? dsn-user-password)
                         (? dsn-hostname)
-                        mysql-dsn-dbname)
+                        mysql-dsn-dbname
+                        (? dsn-options))
   (:lambda (uri)
     (destructuring-bind (&key type
                               user
 			      password
 			      host
 			      port
-			      dbname)
+			      dbname
+                              (use-ssl :no))
         (apply #'append uri)
       ;; Default to environment variables as described in
       ;;  http://dev.mysql.com/doc/refman/5.0/en/environment-variables.html
@@ -122,7 +124,8 @@
                      :host (or host     (getenv-default "MYSQL_HOST" "localhost"))
                      :port (or port     (parse-integer
                                          (getenv-default "MYSQL_TCP_PORT" "3306")))
-                     :name dbname))))
+                     :name dbname
+                     :use-ssl use-ssl))))
 
 (defrule mysql-source (and kw-load kw-database kw-from mysql-uri)
   (:lambda (source) (bind (((_ _ _ uri) source)) uri)))
