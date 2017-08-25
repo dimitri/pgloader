@@ -372,7 +372,7 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
 (defvar *get-code-for-source*
   (list (cons 'copy-connection    #'lisp-code-for-loading-from-copy)
         (cons 'fixed-connection   #'lisp-code-for-loading-from-fixed)
-        (cons 'csv-connectio      #'lisp-code-for-loading-from-csv)
+        (cons 'csv-connection     #'lisp-code-for-loading-from-csv)
         (cons 'dbf-connection     #'lisp-code-for-loading-from-dbf)
         (cons 'ixf-connection     #'lisp-code-for-loading-from-ixf)
         (cons 'sqlite-connection  #'lisp-code-for-loading-from-sqlite)
