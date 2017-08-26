@@ -8,7 +8,7 @@
 ;; define a tree of print format so that we can generalize some methods on
 ;; any “data” type format or any “human readable” print format.
 ;;
-(defstruct print-format ())
+(defstruct print-format)
 
 (defstruct (print-format-human-readable (:include print-format)
                                         (:conc-name pf-))
