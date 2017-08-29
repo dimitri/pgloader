@@ -117,6 +117,7 @@
                          (:file "command-utils")
                          (:file "command-keywords")
                          (:file "command-regexp")
+                         (:file "parse-pgpass")
                          (:file "command-db-uri")
                          (:file "command-source")
                          (:file "command-options")

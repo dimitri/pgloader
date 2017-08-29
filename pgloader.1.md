@@ -677,6 +677,15 @@ Where:
     When omitted, the *password* defaults to the value of the `PGPASSWORD`
     environment variable if it is set, otherwise the password is left
     unset.
+    
+    When no *password* is found either in the connection URI nor in the
+    environment, then pgloader looks for a `.pgpass` file as documented at
+    https://www.postgresql.org/docs/current/static/libpq-pgpass.html. The
+    implementation is not that of `libpq` though. As with `libpq` you can
+    set the environment variable `PGPASSFILE` to point to a `.pgpass` file,
+    and pgloader defaults to `~/.pgpass` on unix like systems and
+    `%APPDATA%\postgresql\pgpass.conf` on windows. Matching rules and syntax
+    are the same as with `libpq`, refer to its documentation.
 
   - *netloc*
 

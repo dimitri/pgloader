@@ -194,21 +194,33 @@
       ;; Default to environment variables as described in
       ;;  http://www.postgresql.org/docs/9.3/static/app-psql.html
       (declare (ignore type))
-      (make-instance 'pgsql-connection
-                     :user (or user
-                               (getenv-default "PGUSER"
-                                               #+unix (getenv-default "USER")
-                                               #-unix (getenv-default "UserName")))
-                     :pass (or password (getenv-default "PGPASSWORD"))
-                     :host (or host     (getenv-default "PGHOST"
-                                                        #+unix :unix
-                                                        #-unix "localhost"))
-                     :port (or port     (parse-integer
-                                         (getenv-default "PGPORT" "5432")))
-                     :name (or dbname   (getenv-default "PGDATABASE" user))
+      (let ((pgconn
+             (make-instance 'pgsql-connection
+                            :user (or user
+                                      (getenv-default "PGUSER"
+                                                      #+unix
+                                                      (getenv-default "USER")
+                                                      #-unix
+                                                      (getenv-default "UserName")))
+                            :host (or host     (getenv-default "PGHOST"
+                                                               #+unix :unix
+                                                               #-unix "localhost"))
+                            :port (or port     (parse-integer
+                                                (getenv-default "PGPORT" "5432")))
+                            :name (or dbname   (getenv-default "PGDATABASE" user))
 
-                     :use-ssl use-ssl
-                     :table-name table-name))))
+                            :use-ssl use-ssl
+                            :table-name table-name)))
+        ;; Now set the password, maybe from ~/.pgpass
+        (setf (db-pass pgconn)
+              (or password
+                  (getenv-default "PGPASSWORD")
+                  (match-pgpass-file (db-host pgconn)
+                                     (princ-to-string (db-port pgconn))
+                                     (db-name pgconn)
+                                     (db-user pgconn))))
+        ;; And return our pgconn instance
+        pgconn))))
 
 (defrule target (and kw-into pgsql-uri)
   (:destructure (into target)

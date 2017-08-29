@@ -806,6 +806,9 @@ Can contain any character, including the at sign (\fB@\fR) which must then be do
 .IP
 When omitted, the \fIpassword\fR defaults to the value of the \fBPGPASSWORD\fR environment variable if it is set, otherwise the password is left unset\.
 .
+.IP
+When no \fIpassword\fR is found either in the connection URI nor in the environment, then pgloader looks for a \fB\.pgpass\fR file as documented at https://www\.postgresql\.org/docs/current/static/libpq\-pgpass\.html\. The implementation is not that of \fBlibpq\fR though\. As with \fBlibpq\fR you can set the environment variable \fBPGPASSFILE\fR to point to a \fB\.pgpass\fR file, and pgloader defaults to \fB~/\.pgpass\fR on unix like systems and \fB%APPDATA%\epostgresql\epgpass\.conf\fR on windows\. Matching rules and syntax are the same as with \fBlibpq\fR, refer to its documentation\.
+.
 .IP "\(bu" 4
 \fInetloc\fR
 .
