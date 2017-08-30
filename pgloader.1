@@ -831,6 +831,20 @@ postgresql://unix:/tmp:54321/dbname
 .IP
 The \fInetloc\fR defaults to the value of the \fBPGHOST\fR environment variable, and if it is unset, to either the default \fBunix\fR socket path when running on a Unix system, and \fBlocalhost\fR otherwise\.
 .
+.IP
+Socket path containing colons are supported by doubling the colons within the path, as in the following example:
+.
+.IP "" 4
+.
+.nf
+
+postgresql://unix:/tmp/project::region::instance:5432/dbname
+.
+.fi
+.
+.IP "" 0
+
+.
 .IP "\(bu" 4
 \fIdbname\fR
 .

@@ -704,6 +704,11 @@ Where:
     variable, and if it is unset, to either the default `unix` socket path
     when running on a Unix system, and `localhost` otherwise.
 
+    Socket path containing colons are supported by doubling the colons
+    within the path, as in the following example:
+    
+        postgresql://unix:/tmp/project::region::instance:5432/dbname
+
   - *dbname*
 
 	Should be a proper identifier (letter followed by a mix of letters,

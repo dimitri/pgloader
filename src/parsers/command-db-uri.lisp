@@ -60,7 +60,8 @@
   (or (member char #.(quote (coerce "/.-_" 'list)))
       (alphanumericp char)))
 
-(defrule socket-directory (and "unix:" (* (socket-directory-character-p character)))
+(defrule socket-directory (and "unix:"
+                               (* (or (not ":") doubled-colon)))
   (:destructure (unix socket-directory)
 		(declare (ignore unix))
     (list :unix (when socket-directory (text socket-directory)))))
