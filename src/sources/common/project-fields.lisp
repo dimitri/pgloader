@@ -102,12 +102,19 @@
                                    `(funcall ,(process-field field-name)
                                              ,field-name))))
 		      (newrow
-		       (loop for (name type fn) in columns
+		       (loop for (name type sexp) in columns
 			  collect
 			  ;; we expect the name of a COLUMN to be the same
 			  ;; as the name of its derived FIELD when we
 			  ;; don't have any transformation function
-                            (or fn (field-name-as-symbol name)))))
+                            (typecase sexp
+                              (null   (field-name-as-symbol name))
+                              (string (if (assoc sexp fields :test #'string=)
+                                          ;; col text using "Field-Name"
+                                          (field-name-as-symbol sexp)
+                                          ;; col text using "Constant String"
+                                          sexp))
+                              (t      sexp)))))
 		 `(lambda (row)
 		    (declare (optimize speed) (type list row))
 		    (destructuring-bind (&optional ,@args &rest extra) row

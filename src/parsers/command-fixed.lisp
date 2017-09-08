@@ -105,7 +105,7 @@
              encoding
              fields
              pguri
-             (create-table (or table-name (pgconn-table-name pguri)))
+             (or table-name (pgconn-table-name pguri))
              columns
              clauses))))
 
@@ -113,7 +113,7 @@
                                          &key
                                            (encoding :utf-8)
                                            fields
-                                           target-table
+                                           target-table-name
                                            columns
                                            gucs before after options
                                          &allow-other-keys
@@ -139,7 +139,7 @@
                 (make-instance 'pgloader.fixed:copy-fixed
                                :target-db ,pg-db-conn
                                :source source-db
-                               :target ,target-table
+                               :target (create-table ',target-table-name)
                                :encoding ,encoding
                                :fields ',fields
                                :columns ',columns
@@ -160,7 +160,7 @@
 
 (defrule load-fixed-cols-file load-fixed-cols-file-command
   (:lambda (command)
-    (bind (((source encoding fields pg-db-uri table columns
+    (bind (((source encoding fields pg-db-uri table-name columns
                     &key options gucs before after) command))
       (cond (*dry-run*
              (lisp-code-for-csv-dry-run pg-db-uri))
@@ -168,7 +168,7 @@
              (lisp-code-for-loading-from-fixed source pg-db-uri
                                                :encoding encoding
                                                :fields fields
-                                               :target-table table
+                                               :target-table-name table-name
                                                :columns columns
                                                :gucs gucs
                                                :before before

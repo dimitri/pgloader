@@ -176,7 +176,8 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
 ;;; Main API to use from outside of pgloader.
 ;;;
 (defun load-data (&key ((:from source)) ((:into target))
-                    encoding fields target-table options gucs casts before after
+                    encoding fields target-table-name
+                    options gucs casts before after
                     (start-logger t) (flush-summary t))
   "Load data from SOURCE into TARGET."
   (declare (type connection source)
@@ -185,7 +186,7 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
   (when (and (typep source (or 'csv-connection
                                'copy-connection
                                'fixed-connection))
-             (null target-table)
+             (null target-table-name)
              (null (pgconn-table-name target)))
     (error 'source-definition-error
            :mesg (format nil
@@ -201,18 +202,13 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
 
     ;; now generates the code for the command
     (log-message :debug "LOAD DATA FROM ~s" source)
-    (let* ((target-table (or target-table
-                             (let ((table (pgconn-table-name target)))
-                               (etypecase (pgconn-table-name target)
-                                 (string (create-table table))
-                                 (cons   (create-table table))
-                                 (table  table)
-                                 (null   nil)))))
+    (let* ((target-table-name (or target-table-name
+                                  (pgconn-table-name target)))
            (code (lisp-code-for-loading :from source
                                         :into target
                                         :encoding encoding
                                         :fields fields
-                                        :target-table target-table
+                                        :target-table-name target-table-name
                                         :options options
                                         :gucs gucs
                                         :casts casts
@@ -235,7 +231,7 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
 
 (defun lisp-code-for-loading (&key
                                 ((:from source)) ((:into target))
-                                encoding fields target-table
+                                encoding fields target-table-name
                                 options gucs casts before after)
   (let ((func (cdr (assoc (type-of source) *get-code-for-source*))))
     ;; not all functions support the same set of &key parameters,
@@ -245,7 +241,7 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
         (funcall func
                  source
                  target
-                 :target-table target-table
+                 :target-table-name target-table-name
                  :fields fields
                  :encoding (or encoding :default)
                  :gucs gucs

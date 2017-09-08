@@ -294,11 +294,11 @@
                                   load-copy-file-command
                                   load-fixed-cols-file-command)
   (:lambda (command)
-    (destructuring-bind (source encoding fields pg-db-uri table columns
+    (destructuring-bind (source encoding fields pg-db-uri table-name columns
                                 &key gucs &allow-other-keys)
         command
       (declare (ignore source encoding fields columns))
-      (list pg-db-uri table gucs))))
+      (list pg-db-uri table-name gucs))))
 
 (defrule pg-db-uri-from-source-target (or load-sqlite-command
                                           load-mysql-command
@@ -311,18 +311,18 @@
 
 (defrule pg-db-uri-from-source-table-target (or load-ixf-command)
   (:lambda (command)
-    (destructuring-bind (source pg-db-uri table &key gucs &allow-other-keys)
+    (destructuring-bind (source pg-db-uri table-name &key gucs &allow-other-keys)
         command
       (declare (ignore source))
-      (list pg-db-uri table gucs))))
+      (list pg-db-uri table-name gucs))))
 
 (defrule pg-db-uri-from-source-and-encoding (or load-dbf-command)
   (:lambda (command)
-    (destructuring-bind (source encoding pg-db-uri table
+    (destructuring-bind (source encoding pg-db-uri table-name
                                 &key gucs &allow-other-keys)
         command
       (declare (ignore source encoding))
-      (list pg-db-uri table gucs))))
+      (list pg-db-uri table-name gucs))))
 
 (defun parse-target-pg-db-uri (command-file)
   "Partially parse COMMAND-FILE and return its target connection string."

@@ -34,7 +34,8 @@
            (expected-data-file     (make-pathname :defaults load-file
                                                   :type "out"
                                                   :directory expected-subdir))
-           ((target-conn target-table gucs) (parse-target-pg-db-uri load-file))
+           ((target-conn target-table-name gucs) (parse-target-pg-db-uri load-file))
+           (target-table (create-table target-table-name))
            (*pg-settings* (pgloader.pgsql:sanitize-user-gucs gucs))
            (*pgsql-reserved-keywords* (list-reserved-keywords target-conn))
 
@@ -75,7 +76,7 @@
       ;; load expected data
       (load-data :from expected-data-source
                  :into expected-data-target
-                 :target-table expected-target-table
+                 :target-table-name expected-target-table
                  :options '(:truncate t)
                  :start-logger nil
                  :flush-summary t)

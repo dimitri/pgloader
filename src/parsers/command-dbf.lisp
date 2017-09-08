@@ -79,7 +79,7 @@
       (list* source
              encoding
              pguri
-             (create-table (or table-name (pgconn-table-name pguri)))
+             (or table-name (pgconn-table-name pguri))
              clauses))))
 
 (defun lisp-code-for-dbf-dry-run (dbf-db-conn pg-db-conn)
@@ -90,7 +90,7 @@
 
 (defun lisp-code-for-loading-from-dbf (dbf-db-conn pg-db-conn
                                        &key
-                                         target-table
+                                         target-table-name
                                          (encoding :ascii)
                                          gucs before after options
                                        &allow-other-keys)
@@ -105,7 +105,7 @@
                             :target-db ,pg-db-conn
                             :encoding ,encoding
                             :source-db source-db
-                            :target ,target-table)))
+                            :target (create-table ',target-table-name))))
 
        ,(sql-code-block pg-db-conn :pre before "before load")
 
@@ -119,13 +119,13 @@
 
 (defrule load-dbf-file load-dbf-command
   (:lambda (command)
-    (bind (((source encoding pg-db-uri table
+    (bind (((source encoding pg-db-uri table-name
                     &key options gucs before after) command))
       (cond (*dry-run*
              (lisp-code-for-dbf-dry-run source pg-db-uri))
             (t
              (lisp-code-for-loading-from-dbf source pg-db-uri
-                                             :target-table table
+                                             :target-table-name table-name
                                              :encoding encoding
                                              :gucs gucs
                                              :before before

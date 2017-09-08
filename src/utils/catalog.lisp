@@ -185,7 +185,7 @@
 (defun create-table (maybe-qualified-name)
   "Create a table instance from the db-uri component, either a string or a
    cons of two strings: (schema . table)."
-  (typecase maybe-qualified-name
+  (etypecase maybe-qualified-name
     (string (make-table :source-name maybe-qualified-name
                         :name (apply-identifier-case maybe-qualified-name)))
 
@@ -196,7 +196,11 @@
                         (let ((sname (car maybe-qualified-name)))
                           (make-schema :catalog nil
                                        :source-name sname
-                                       :name (apply-identifier-case sname)))))))
+                                       :name (apply-identifier-case sname)))))
+
+    ;; some code path using pgloader as an API might end-up here with an
+    ;; already cooked table structure, try it and see...
+    (table maybe-qualified-name)))
 
 (defmethod add-schema ((catalog catalog) schema-name &key)
   "Add SCHEMA-NAME to CATALOG and return the new schema instance."

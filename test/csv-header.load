@@ -20,6 +20,6 @@ LOAD CSV
     $$;
 
 
-somefields,reklpcode,repl$grpid,repl$id,another,fields
+somefields,rekplcode,repl$grpid,repl$id,another,fields
 a,b,c,d,e,f
 foo,bar,baz,quux,foobar,fizzbuzz

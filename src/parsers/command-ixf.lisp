@@ -70,12 +70,13 @@
     (destructuring-bind (source pguri table-name clauses) command
       (list* source
              pguri
-             (create-table (or table-name (pgconn-table-name pguri)))
+             (or table-name (pgconn-table-name pguri))
              clauses))))
 
 (defun lisp-code-for-loading-from-ixf (ixf-db-conn pg-db-conn
                                        &key
-                                         target-table gucs before after options
+                                         target-table-name
+                                         gucs before after options
                                        &allow-other-keys)
   `(lambda ()
      (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
@@ -88,7 +89,7 @@
              (make-instance 'pgloader.ixf:copy-ixf
                             :target-db ,pg-db-conn
                             :source-db source-db
-                            :target ,target-table
+                            :target (create-table ',target-table-name)
                             :timezone timezone)))
 
        ,(sql-code-block pg-db-conn :pre before "before load")
@@ -104,13 +105,13 @@
 
 (defrule load-ixf-file load-ixf-command
   (:lambda (command)
-    (bind (((source pg-db-uri table
+    (bind (((source pg-db-uri table-name
                     &key options gucs before after) command))
       (cond (*dry-run*
              (lisp-code-for-csv-dry-run pg-db-uri))
             (t
              (lisp-code-for-loading-from-ixf source pg-db-uri
-                                             :target-table table
+                                             :target-table-name table-name
                                              :gucs gucs
                                              :before before
                                              :after after

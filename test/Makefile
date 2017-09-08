@@ -94,6 +94,15 @@ sakila.out: sakila sakila.load
 csv-districts-stdin.out: csv-districts-stdin.load
 	cat  data/2013_Gaz_113CDs_national.txt | $(PGLOADER) $^
 
+ifneq (,$(findstring ccl,$(CL)))
+regress/out/dbf.out: dbf.load
+	@echo "Skipping $@, CCL doesn't have CP850 encoding"
+	touch $@
+else
+	$(PGLOADER) $(EXTRA_OPTS) --regress $<
+	touch $@
+endif
+
 # General case where we do NOT expect any error
 %.out: %.load
 	$(PGLOADER) $<
@@ -101,6 +110,5 @@ csv-districts-stdin.out: csv-districts-stdin.load
 
 # Regression tests
 regress/out/%.out: %.load
-	#./regress.sh $(PGLOADER) $<
 	$(PGLOADER) $(EXTRA_OPTS) --regress $<
 	touch $@
