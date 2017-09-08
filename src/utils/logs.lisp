@@ -41,7 +41,7 @@
   (push (cl-log:start-messenger 'text-stream-messenger
 				:name "stdout"
 				:filter *client-min-messages*
-				:stream *standard-output*)
+				:stream (make-broadcast-stream *standard-output*))
 	*log-messengers*)
 
   (cl-log:log-message :notice "Starting pgloader, log system is ready."))

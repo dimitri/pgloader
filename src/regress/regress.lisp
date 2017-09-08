@@ -7,6 +7,13 @@
 
 (in-package #:pgloader)
 
+(define-condition regression-test-error (error)
+  ((filename :initarg :filename :reader regression-test-filename))
+  (:report (lambda (err stream)
+             (format stream
+                     "Regression test failed: ~s"
+                     (regression-test-filename err)))))
+
 (defun process-regression-test (load-file &key start-logger)
   "Run a regression test for given LOAD-FILE."
   (unless (probe-file load-file)
@@ -99,15 +106,13 @@
                  (diff-count (pomo:query sql :single)))
             (log-message :notice "~a" sql)
             (log-message :notice "Got a diff of ~a rows" diff-count)
-            (if (= 0 diff-count)
-                (progn
-                  (log-message :log "Regress pass.")
-                  #-pgloader-image (values diff-count +os-code-success+)
-                  #+pgloader-image (uiop:quit +os-code-success+))
-                (progn
-                  (log-message :log "Regress fail.")
-                  #-pgloader-image (values diff-count +os-code-error-regress+)
-                  #+pgloader-image (uiop:quit +os-code-error-regress+)))))))))
+
+            ;; signal a regression test error when diff isn't 0
+            (unless (zerop diff-count)
+              (error 'regression-test-error :filename load-file))
+
+            (log-message :log "Regress pass.")
+            (values diff-count +os-code-success+)))))))
 
 
 ;;;

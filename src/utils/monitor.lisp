@@ -139,7 +139,8 @@
 
     ;; make our kernel and channel visible from the outside
     (setf *monitoring-kernel* kernel
-          *monitoring-channel* (lp:make-channel))
+          *monitoring-channel* (lp:make-channel)
+          *monitoring-queue*   (lq:make-queue))
 
     ;; warm up the channel to ensure we don't loose any event
     (lp:submit-task *monitoring-channel* '+ 1 2 3)
@@ -149,31 +150,37 @@
     (lp:submit-task *monitoring-channel* #'monitor *monitoring-queue*)
     (send-event (make-start :start-logger start-logger))
 
-    (sleep 0.2)
-
-    *monitoring-channel*))
+    (values *monitoring-kernel* *monitoring-queue* *monitoring-channel*)))
 
 (defun stop-monitor (&key
+                       (kernel  *monitoring-kernel*)
                        (channel *monitoring-channel*)
                        (stop-logger t))
   "Stop the current monitor task."
   (send-event (make-stop :stop-logger stop-logger))
-  (lp:receive-result channel))
+  (lp:receive-result channel)
+
+  (let ((lp:*kernel* kernel))
+    (lp:end-kernel :wait t)))
+
+(defun call-with-monitor (thunk)
+  "Call THUNK in a context where a monitor thread is active."
+  (multiple-value-bind (*monitoring-kernel*
+                        *monitoring-queue*
+                        *monitoring-channel*)
+      (start-monitor)
+    (unwind-protect
+         (funcall thunk)
+      (stop-monitor))))
 
 (defmacro with-monitor ((&key (start-logger t)) &body body)
   "Start and stop the monitor around BODY code. The monitor is responsible
   for processing logs into a central logfile"
-  `(let ((*sections* (create-state)))
-     (if ,start-logger
-         (let* ((*monitoring-queue*   (lq:make-queue))
-                (*monitoring-channel* (start-monitor :start-logger ,start-logger)))
-           (unwind-protect
-                (progn ,@body)
-             (stop-monitor :channel *monitoring-channel*
-                           :stop-logger ,start-logger)))
-
-         ;; logger has already been started
-         (progn ,@body))))
+  `(if ,start-logger
+       (let ((*sections* (create-state)))
+         (call-with-monitor #'(lambda () ,@body)))
+       (let ((*sections* (create-state)))
+         ,@body)))
 
 (defun monitor (queue)
   "Receives and process messages from *monitoring-queue*."
@@ -241,49 +248,13 @@
                             :ws   (update-stats-ws event)
                             :bytes (update-stats-bytes event))
 
-              ;; log some kind of a “keep alive” message to the user, for
-              ;; the sake of showing progress.
-              ;;
-              ;; something like one message every 10 batches should only
-              ;; target big tables where we have to wait for a pretty long
-              ;; time.
-              (when (and (update-stats-rows event)
-                         (typep label 'pgloader.catalog:table)
-                         (< (* 9 *copy-batch-rows*)
-                            (mod (pgtable-rows table)
-                                 (* 10 *copy-batch-rows*))))
-                (log-message :notice "copy ~a: ~d rows done, ~7<~a~>, ~9<~a~>"
-                             (pgloader.catalog:format-table-name label)
-                             (pgtable-rows table)
-                             (pgloader.utils:pretty-print-bytes
-                              (pgtable-bytes table))
-                             (pgloader.utils:pretty-print-bytes
-                              (truncate (pgtable-bytes table)
-                                        (elapsed-time-since
-                                         (pgtable-start table)))
-                              :unit "Bps")))
+              (maybe-log-progress-message event label table)
 
               (when (update-stats-start event)
-                (log-message :debug "start ~a ~30t ~a"
-                             (pgloader.catalog:format-table-name label)
-                             (update-stats-start event))
-                (setf (pgtable-start table) (update-stats-start event)))
+                (process-update-stats-start-event event label table))
 
-              ;; each PostgreSQL writer thread will send a stop even, here
-              ;; we only keep the latest one.
-              (when (and (update-stats-stop event)
-                         (or (null (pgtable-stop table))
-                             (< (pgtable-stop table) (update-stats-stop event))))
-                (setf (pgtable-stop table) (update-stats-stop event))
-                (let ((secs (elapsed-time-since (pgtable-start table)
-                                                (pgtable-stop table))))
-                  (setf (pgtable-secs table) secs)
-
-                  (log-message :debug " stop ~a ~30t | ~a .. ~a = ~a"
-                               (pgloader.catalog:format-table-name label)
-                               (pgtable-start table)
-                               (pgtable-stop table)
-                               secs)))))
+              (when (update-stats-stop event)
+                (process-update-stats-stop-event event label table))))
 
            (bad-row
             (let* ((pgstate (get-state-section *sections* :data))
@@ -295,6 +266,52 @@
                                 (bad-row-data event)))))
 
      :until (typep event 'stop)))
+
+(defun process-update-stats-start-event (event label table)
+  (declare (type update-stats event))
+  (cl-log:log-message :debug "start ~a ~30t ~a"
+                      (pgloader.catalog:format-table-name label)
+                      (update-stats-start event))
+  (setf (pgtable-start table) (update-stats-start event)))
+
+(defun process-update-stats-stop-event (event label table)
+  (declare (type update-stats event))
+  ;; each PostgreSQL writer thread will send a stop even, here
+  ;; we only keep the latest one.
+  (when (or (null (pgtable-stop table))
+            (< (pgtable-stop table) (update-stats-stop event)))
+    (setf (pgtable-stop table) (update-stats-stop event))
+    (let ((secs (elapsed-time-since (pgtable-start table)
+                                    (pgtable-stop table))))
+      (setf (pgtable-secs table) secs)
+
+      (cl-log:log-message :debug " stop ~a ~30t | ~a .. ~a = ~a"
+                          (pgloader.catalog:format-table-name label)
+                          (pgtable-start table)
+                          (pgtable-stop table)
+                          secs))))
+
+(defun maybe-log-progress-message (event label table)
+  "Log some kind of a “keep alive” message to the user, for the sake of
+   showing progress.
+
+   Something like one message every 10 batches should only target big tables
+  where we have to wait for a pretty long time."
+  (when (and (update-stats-rows event)
+             (typep label 'pgloader.catalog:table)
+             (< (* 9 *copy-batch-rows*)
+                (mod (pgtable-rows table)
+                     (* 10 *copy-batch-rows*))))
+    (cl-log:log-message :notice "copy ~a: ~d rows done, ~7<~a~>, ~9<~a~>"
+                        (pgloader.catalog:format-table-name label)
+                        (pgtable-rows table)
+                        (pgloader.utils:pretty-print-bytes
+                         (pgtable-bytes table))
+                        (pgloader.utils:pretty-print-bytes
+                         (truncate (pgtable-bytes table)
+                                   (elapsed-time-since
+                                    (pgtable-start table)))
+                         :unit "Bps"))))
 
 (defun report-current-summary (start-time)
   "Print out the current summary."

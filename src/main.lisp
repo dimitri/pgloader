@@ -301,7 +301,8 @@
                 ;; conditions being signaled.
                 (handler-bind
                     (((and condition (not (or cli-parsing-error
-                                              source-definition-error)))
+                                              source-definition-error
+                                              regression-test-error)))
                       #'(lambda (condition)
                           (format *error-output* "KABOOM!~%")
                           (format *error-output* "FATAL error: ~a~%~a~%~%"
@@ -316,7 +317,6 @@
 
                     (cond
                       ((and regress (= 1 (length arguments)))
-                       ;; run a regression test
                        (process-regression-test (first arguments)))
 
                       (regress
@@ -356,18 +356,15 @@
 
               ((or cli-parsing-error source-definition-error) (c)
                 (format *error-output* "~%~a~%~%" c)
-                (let ((lp:*kernel* *monitoring-kernel*))
-                  (lp:end-kernel :wait t))
                 (uiop:quit +os-code-error-bad-source+))
+
+              (regression-test-error (c)
+                (format *error-output* "~%~a~%~%" c)
+                (uiop:quit +os-code-error-regress+))
 
               (condition (c)
                 (format *error-output* "~%What I am doing here?~%~%")
                 (format *error-output* "~a~%~%" c)
-                ;; wait until monitor stops...
-                (format *error-output*
-                        "~%Waiting for the monitor thread to complete.~%~%")
-                (let ((lp:*kernel* *monitoring-kernel*))
-                  (lp:end-kernel :wait t))
                 (uiop:quit +os-code-error+)))))
 
         ;; done.
