@@ -302,12 +302,13 @@
            #:show-encodings
            #:make-external-format))
 
-(cl-user::export-inherited-symbols "pgloader.queries" "pgloader.utils")
-(cl-user::export-inherited-symbols "pgloader.quoting" "pgloader.utils")
-(cl-user::export-inherited-symbols "pgloader.catalog" "pgloader.utils")
-(cl-user::export-inherited-symbols "pgloader.monitor" "pgloader.utils")
-(cl-user::export-inherited-symbols "pgloader.state"   "pgloader.utils")
-(cl-user::export-inherited-symbols "pgloader.batch"   "pgloader.utils")
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (cl-user::export-inherited-symbols "pgloader.queries" "pgloader.utils")
+  (cl-user::export-inherited-symbols "pgloader.quoting" "pgloader.utils")
+  (cl-user::export-inherited-symbols "pgloader.catalog" "pgloader.utils")
+  (cl-user::export-inherited-symbols "pgloader.monitor" "pgloader.utils")
+  (cl-user::export-inherited-symbols "pgloader.state"   "pgloader.utils")
+  (cl-user::export-inherited-symbols "pgloader.batch"   "pgloader.utils"))
 
 
 ;;
