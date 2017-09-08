@@ -286,9 +286,13 @@
                                secs)))))
 
            (bad-row
-            (%process-bad-row (bad-row-label event)
-                              (bad-row-condition event)
-                              (bad-row-data event))))
+            (let* ((pgstate (get-state-section *sections* :data))
+                   (label   (bad-row-label event))
+                   (table   (pgstate-get-label pgstate label)))
+              (pgstate-incf pgstate label :errs 1)
+              (%process-bad-row table
+                                (bad-row-condition event)
+                                (bad-row-data event)))))
 
      :until (typep event 'stop)))
 

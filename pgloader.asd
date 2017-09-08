@@ -55,7 +55,6 @@
                         :components
                         ((:file "charsets")
                          (:file "batch")
-                         (:file "threads")
                          (:file "logs")
                          (:file "utils")
                          (:file "state")
@@ -82,6 +81,7 @@
                                                        "state"
                                                        "reject"
                                                        "report"))
+                         (:file "threads" :depends-on ("monitor"))
                          (:file "archive" :depends-on ("logs"))
 
                          ;; generic connection api
@@ -108,45 +108,13 @@
                                              "pgsql-create-schema"
                                              "pgsql-schema"))))
 
-               (:module "parsers"
-                        :depends-on ("params" "package" "utils" "pgsql" "monkey")
-                        :serial t
-                        :components
-                        ((:file "parse-ini")
-                         (:file "template")
-                         (:file "command-utils")
-                         (:file "command-keywords")
-                         (:file "command-regexp")
-                         (:file "parse-pgpass")
-                         (:file "command-db-uri")
-                         (:file "command-source")
-                         (:file "command-options")
-                         (:file "command-sql-block")
-                         (:file "command-sexp")
-                         (:file "command-csv")
-                         (:file "command-ixf")
-                         (:file "command-fixed")
-                         (:file "command-copy")
-                         (:file "command-dbf")
-                         (:file "command-cast-rules")
-                         (:file "command-materialize-views")
-                         (:file "command-alter-table")
-                         (:file "command-mysql")
-                         (:file "command-including-like")
-                         (:file "command-mssql")
-                         (:file "command-sqlite")
-                         (:file "command-archive")
-                         (:file "command-parser")
-                         (:file "date-format")))
-
-	       ;; Source format specific implementations
+               ;; Source format specific implementations
 	       (:module sources
 			:depends-on ("monkey"  ; mssql driver patches
                                      "params"
                                      "package"
                                      "pgsql"
-                                     "utils"
-                                     "parsers")
+                                     "utils")
 			:components
                         ((:module "common"
                                   :components
@@ -220,6 +188,42 @@
                                    (:file "mysql"
                                           :depends-on ("mysql-cast-rules"
                                                        "mysql-schema"))))))
+
+               (:module "parsers"
+                        :depends-on ("params"
+                                     "package"
+                                     "utils"
+                                     "pgsql"
+                                     "sources"
+                                     "monkey")
+                        :serial t
+                        :components
+                        ((:file "parse-ini")
+                         (:file "template")
+                         (:file "command-utils")
+                         (:file "command-keywords")
+                         (:file "command-regexp")
+                         (:file "parse-pgpass")
+                         (:file "command-db-uri")
+                         (:file "command-source")
+                         (:file "command-options")
+                         (:file "command-sql-block")
+                         (:file "command-sexp")
+                         (:file "command-csv")
+                         (:file "command-ixf")
+                         (:file "command-fixed")
+                         (:file "command-copy")
+                         (:file "command-dbf")
+                         (:file "command-cast-rules")
+                         (:file "command-materialize-views")
+                         (:file "command-alter-table")
+                         (:file "command-mysql")
+                         (:file "command-including-like")
+                         (:file "command-mssql")
+                         (:file "command-sqlite")
+                         (:file "command-archive")
+                         (:file "command-parser")
+                         (:file "date-format")))
 
                (:module "regress"
                         :depends-on ("params" "package" "utils" "pgsql")
