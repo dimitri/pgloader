@@ -6,7 +6,6 @@ LOAD CSV
      WITH truncate
 
    BEFORE LOAD DO
-    $$ create schema if not exists csv; $$,
     $$ drop table if exists csv.track; $$,
     $$ create table csv.track (
           trackid      bigserial primary key,
