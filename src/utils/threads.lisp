@@ -23,6 +23,7 @@
                             ;; needed in create index specific kernels
                             (*pgsql-reserved-keywords* . ',*pgsql-reserved-keywords*)
                             (*preserve-index-names* . ,*preserve-index-names*)
+                            (*identifier-case*      . ,*identifier-case*)
 
                             ;; bindings updates for libs
                             ;; CFFI is used by the SQLite lib

@@ -66,7 +66,7 @@
                        ;; PostgreSQL related utils
                        (:file "read-sql-files")
                        (:file "queries")
-                       (:file "quoting")
+                       (:file "quoting"     :depends-on ("utils"))
                        (:file "catalog"     :depends-on ("quoting"))
                        (:file "alter-table" :depends-on ("catalog"))
 

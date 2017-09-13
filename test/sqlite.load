@@ -3,6 +3,7 @@ load database
      into postgresql:///pgloader
 
  -- with include drop, create tables, create indexes, reset sequences
+ with snake_case identifiers
 
   before load do
     $$ drop schema if exists sqlite cascade; $$,

@@ -35,7 +35,8 @@
   (:export #:apply-identifier-case
            #:build-identifier
            #:quoted-p
-           #:ensure-unquoted))
+           #:ensure-unquoted
+           #:camelCase-to-colname))
 
 (defpackage #:pgloader.catalog
   (:use #:cl #:pgloader.params #:pgloader.quoting)

@@ -160,7 +160,10 @@
 (defrule option-on-error-stop (and kw-on kw-error kw-stop)
   (:constant (cons :on-error-stop t)))
 
-(defrule option-identifiers-case (and (or kw-downcase kw-quote) kw-identifiers)
+(defrule option-identifiers-case (and (or kw-snake_case
+                                          kw-downcase
+                                          kw-quote)
+                                      kw-identifiers)
   (:lambda (id-case)
     (bind (((action _) id-case))
       (cons :identifier-case action))))

@@ -125,6 +125,7 @@
   (def-keyword-rule "keys")
   (def-keyword-rule "downcase")
   (def-keyword-rule "quote")
+  (def-keyword-rule "snake_case")
   (def-keyword-rule "identifiers")
   (def-keyword-rule "including")
   (def-keyword-rule "excluding")

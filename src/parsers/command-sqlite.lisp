@@ -31,7 +31,8 @@ load database
 			   option-index-names
                            option-reset-sequences
                            option-foreign-keys
-                           option-encoding))
+                           option-encoding
+                           option-identifiers-case))
 
 (defrule sqlite-options (and kw-with
                              (and sqlite-option (* (and comma sqlite-option))))
@@ -100,6 +101,7 @@ load database
             (*cast-rules*         ',casts)
             ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
+            ,@(identifier-case-binding options)
             (source-db      (with-stats-collection ("fetch" :section :pre)
                                 (expand (fetch-file ,sqlite-db-conn))))
             (source

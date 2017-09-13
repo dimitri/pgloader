@@ -40,12 +40,12 @@
 
                 ;; in other cases follow user directive
                 (t *identifier-case*))))
-
     (ecase *identifier-case*
-      (:downcase lowercase-identifier)
-      (:quote    (format nil "~s"
-                         (cl-ppcre:regex-replace-all "\"" identifier "\"\"")))
-      (:none     identifier))))
+      (:snake_case (camelCase-to-colname identifier))
+      (:downcase   lowercase-identifier)
+      (:quote      (format nil "~s"
+                           (cl-ppcre:regex-replace-all "\"" identifier "\"\"")))
+      (:none       identifier))))
 
 (defun ensure-unquoted (identifier)
   (cond ((quoted-p identifier)
@@ -68,3 +68,23 @@
                                          (string part)
                                          (t      (princ-to-string part))))
              :when more? :collect sep))))
+
+;;;
+;;; Camel Case converter
+;;;
+(defun camelCase-to-colname (string)
+  "Transform input STRING into a suitable column name.
+    lahmanID        lahman_id
+    playerID        player_id
+    birthYear       birth_year"
+  (coerce
+   (loop
+      :for first := t :then nil
+      :for char :across string
+      :for previous-upper-p := nil :then char-upper-p
+      :for char-upper-p := (and (alpha-char-p char)
+                                (eq char (char-upcase char)))
+      :for new-word := (and (not first) char-upper-p (not previous-upper-p))
+      :when (and new-word (not (char= char #\_))) :collect #\_
+      :collect (char-downcase char))
+   'string))
