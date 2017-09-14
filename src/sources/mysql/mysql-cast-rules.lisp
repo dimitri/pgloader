@@ -217,14 +217,10 @@
       ;;
       ;; See src/pgsql/pgsql-trigger.lisp
       ;;
-      (when (string= extra "on update CURRENT_TIMESTAMP")
-        (let* ((pro-name (format nil
-                                 "on_update_current_timestamp_~a"
-                                 (unquote (column-name pgcol) #\"))))
-          (setf (column-extra pgcol)
-                (make-trigger :name :on-update-current-timestamp
-                              :action "BEFORE UPDATE"
-                              :procedure-name pro-name))))
+      (when (or (string= extra "on update CURRENT_TIMESTAMP")
+                (string= extra "on update current_timestamp()"))
+        (setf (column-extra pgcol)
+              (make-trigger :name :on-update-current-timestamp)))
       pgcol)))
 
 

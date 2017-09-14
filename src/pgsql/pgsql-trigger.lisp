@@ -6,60 +6,70 @@
 (in-package #:pgloader.pgsql)
 
 (defvar *pgsql-triggers-procedures*
-  `((:on-update-current-timestamp .
-     ,(lambda (trigger column table)
-              (let ((body (format nil
-                                  "BEGIN~%  NEW.~a = now();~%  RETURN NEW;~%END;"
-                                  (column-name column))))
-                (make-procedure :name (trigger-procedure-name trigger)
-                                :returns "trigger"
-                                :language "plpgsql"
-                                :body body)))))
+  `((:on-update-current-timestamp
+     .
+     ,(lambda (schema proc-name column-list)
+        (let ((body (format nil
+                            "~
+BEGIN
+   ~{NEW.~a = now();~^~%   ~}
+   RETURN NEW;
+END;"
+                            (mapcar #'column-name column-list))))
+          (make-procedure :schema schema
+                          :name proc-name
+                          :returns "trigger"
+                          :language "plpgsql"
+                          :body body)))))
   "List of lambdas to generate procedure definitions from pgloader internal
    trigger names as positioned in the internal catalogs at CAST time.")
 
-(defun rename-trigger (trigger)
-  "Turn a common lisp symbol into a proper PostgreSQL trigger name."
-  (setf (trigger-name trigger)
-        (string-downcase
-         (cl-ppcre:regex-replace-all "-"
-                                     (symbol-name (trigger-name trigger))
-                                     "_"))))
+(defun build-trigger (trigger-symbol-name table column-list action)
+  "Take a synthetic TRIGGER as generated from per-source cast methods and
+   complete it into a proper trigger, attached on TABLE, firing on ACTION,
+   impacting COLUMN-LIST."
+  (let* ((tg-name   (string-downcase
+                     (cl-ppcre:regex-replace-all
+                      "-" (symbol-name trigger-symbol-name) "_")))
+         (proc-name (build-identifier "_" tg-name (table-name table)))
+         (gen-proc  (cdr
+                     (assoc trigger-symbol-name *pgsql-triggers-procedures*)))
+         (schema    (schema-name (table-schema table)))
+         (proc      (funcall gen-proc schema proc-name column-list)))
+
+    ;;
+    ;; Build our trigger definition now: real name, action, and procedure
+    ;;
+    (make-trigger :name tg-name
+                  :table table
+                  :action action
+                  :procedure proc)))
 
 (defun process-triggers (table)
   "Return the list of PostgreSQL statements to create a catalog trigger."
-  (loop :for column :in (table-column-list table)
-     :when (column-extra column)
-     :do (etypecase (column-extra column)
-           (trigger
-            ;; finish the trigger CAST and attach it to the table now
-            (let* ((trigger (column-extra column))
-                   (proc    (or (trigger-procedure trigger)
-                                ;;
-                                ;; We have a trigger with no attached
-                                ;; procedure, so we search for the trigger
-                                ;; procedure-name in
-                                ;; *pgsql-triggers-procedures* to find a
-                                ;; lambda form to call to produce our PLpgSQL
-                                ;; procedure
-                                ;;
-                                (let ((generate-proc
-                                       (cdr
-                                        (assoc (trigger-name trigger)
-                                               *pgsql-triggers-procedures*))))
-                                  (assert (functionp generate-proc))
-                                  (funcall generate-proc
-                                           trigger column table)))))
-              ;;
-              ;; Properly attach the procedure to the trigger and the
-              ;; trigger to the table.
-              ;;
-              (unless (trigger-procedure trigger)
-                (setf (trigger-procedure trigger) proc))
+  (let ((triggers-by-name (make-hash-table)))
+    ;;
+    ;; trigger names at this stage are normalized to
+    ;; *pgsql-triggers-procedures* keys, like :on-update-current-timestamp
+    ;; our job is to transform them into proper trigger definitions
+    ;;
+    ;; note that we might have several on update column definitions on the
+    ;; same table, we want a single trigger that takes care of them all.
+    ;;
+    (loop :for column :in (table-column-list table)
+       :do (when (trigger-p (column-extra column))
+             (let* ((trigger (column-extra column))
+                    (tg-name (trigger-name trigger)))
+               (push column (gethash tg-name triggers-by-name)))))
 
-              (rename-trigger trigger)
-
-              (setf (column-extra column) nil)
-
-              (setf (trigger-table trigger) table)
-              (push-to-end trigger (table-trigger-list table)))))))
+    ;;
+    ;; Now that we have a hash-table of column-list per trigger-name, build
+    ;; the real triggers and attach them to our table.
+    ;;
+    (loop :for tg-name :being :the :hash-keys :of triggers-by-name
+       :using (hash-value column-list)
+       :do (ecase tg-name
+             (:on-update-current-timestamp
+              (let ((trigger
+                     (build-trigger tg-name table column-list "BEFORE UPDATE")))
+                (push-to-end trigger (table-trigger-list table))))))))

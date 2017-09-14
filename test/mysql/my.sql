@@ -32,7 +32,7 @@ insert into `base64`(id, data)
      values('65de699d-b5cc-4e13-b507-c71adea31e53',
             'eyJrZXkiOiAidmFsdWUifQ==');
 
-CREATE TABLE `mytable` (
+CREATE TABLE `onupdate` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `patient_id` varchar(50) NOT NULL,
   `calc_date` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

@@ -87,9 +87,9 @@
 ;;;
 ;;; Triggers and trigger procedures, no args support (yet?)
 ;;;
-(defstruct trigger name table action procedure-name procedure)
+(defstruct trigger name table action procedure)
 
-(defstruct procedure name returns language body)
+(defstruct procedure schema name returns language body)
 
 ;;;
 ;;; Main data collection API

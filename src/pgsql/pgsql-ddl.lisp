@@ -289,11 +289,12 @@
 (defmethod format-create-sql ((trigger trigger) &key (stream nil) if-not-exists)
   (declare (ignore if-not-exists))
   (format stream
-          "CREATE TRIGGER ~a ~a ON ~a FOR EACH ROW EXECUTE PROCEDURE ~a()"
+          "CREATE TRIGGER ~a ~a ON ~a FOR EACH ROW EXECUTE PROCEDURE ~a.~a()"
           (trigger-name trigger)
           (trigger-action trigger)
           (format-table-name (trigger-table trigger))
-          (trigger-procedure-name trigger)))
+          (procedure-schema (trigger-procedure trigger))
+          (procedure-name (trigger-procedure trigger))))
 
 (defmethod format-drop-sql ((trigger trigger) &key (stream nil) cascade if-exists)
   (format stream
@@ -310,7 +311,14 @@
 (defmethod format-create-sql ((procedure procedure) &key (stream nil) if-not-exists)
   (declare (ignore if-not-exists))
   (format stream
-          "CREATE OR REPLACE FUNCTION ~a() RETURNS ~a LANGUAGE ~a AS $$~%~a~%$$;"
+          "CREATE OR REPLACE FUNCTION ~a.~a()
+  RETURNS ~a
+  LANGUAGE ~a
+  AS
+$$
+~a
+$$;"
+          (procedure-schema procedure)
           (procedure-name procedure)
           (procedure-returns procedure)
           (procedure-language procedure)
@@ -318,8 +326,11 @@
 
 (defmethod format-drop-sql ((procedure procedure) &key (stream nil) cascade if-exists)
   (format stream
-          "DROP FUNCTION~:[~; IF EXISTS~] ~a()~@[ CASCADE~];"
-          if-exists (procedure-name procedure) cascade))
+          "DROP FUNCTION~:[~; IF EXISTS~] ~a.~a()~@[ CASCADE~];"
+          if-exists
+          (procedure-schema procedure)
+          (procedure-name procedure)
+          cascade))
 
 
 ;;;

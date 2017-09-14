@@ -135,12 +135,13 @@
            #:fkey-deferrable
            #:fkey-initially-deferred
 
+           #:trigger-p
            #:trigger-name
            #:trigger-table
            #:trigger-action
-           #:trigger-procedure-name
            #:trigger-procedure
 
+           #:procedure-schema
            #:procedure-name
            #:procedure-returns
            #:procedure-language
