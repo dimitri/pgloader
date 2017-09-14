@@ -177,7 +177,8 @@
                   ((and (stringp default)
                         ;; address CURRENT_TIMESTAMP(6) and other spellings
                         (or (uiop:string-prefix-p "CURRENT_TIMESTAMP" default)
-                            (string= "CURRENT TIMESTAMP" default)))
+                            (string= "CURRENT TIMESTAMP" default)
+                            (string= "current_timestamp()" default)))
                    :current-timestamp)
                   (t (column-default pgcol))))
 
