@@ -1,5 +1,5 @@
 select typname,
-       array_agg(amname order by amname <> 'gist', amname <> 'gin')
+       (array_agg(amname order by amname <> 'gist', amname <> 'gin'))[1]
   from pg_type
        join pg_opclass on pg_opclass.opcintype = pg_type.oid
        join pg_am on pg_am.oid = pg_opclass.opcmethod

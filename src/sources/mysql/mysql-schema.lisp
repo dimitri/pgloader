@@ -116,7 +116,7 @@
                            excluding)
   "Get the list of MySQL index definitions per table."
   (loop
-     :for (table-name name non-unique cols)
+     :for (table-name name index-type non-unique cols)
      :in (mysql-query (format nil
                               (sql "/mysql/list-all-indexes.sql")
                               (db-name *connection*)
@@ -131,6 +131,7 @@
                  (make-index :name name ; further processing is needed
                              :schema schema
                              :table table
+                             :type index-type
                              :primary (string= name "PRIMARY")
                              :unique (string= "0" non-unique)
                              :columns (mapcar

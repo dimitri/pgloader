@@ -109,6 +109,7 @@
            #:column-extra
 
            #:index-name
+           #:index-type
            #:index-oid
            #:index-schema
            #:index-table

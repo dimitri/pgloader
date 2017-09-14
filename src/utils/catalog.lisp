@@ -81,7 +81,8 @@
 ;;; install them again at proper times.
 ;;;
 (defstruct index
-  name oid schema table primary unique columns sql conname condef filter fk-deps)
+  name oid schema table type primary unique
+  columns sql conname condef filter fk-deps)
 
 ;;;
 ;;; Triggers and trigger procedures, no args support (yet?)

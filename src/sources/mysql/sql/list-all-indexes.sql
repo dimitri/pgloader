@@ -6,7 +6,8 @@
 --         filter-list-to-where-clause incuding
 --         excluding
 --         filter-list-to-where-clause excluding
-  SELECT table_name, index_name, sum(non_unique),
+  SELECT table_name, index_name, index_type,
+         sum(non_unique),
          cast(GROUP_CONCAT(column_name order by seq_in_index) as char)
     FROM information_schema.statistics
    WHERE table_schema = '~a'
