@@ -152,12 +152,5 @@
          :do (when (and (null target) using (null first-match-using))
                (setf first-match-using using))
          :until target
-         :finally (let ((coldef (make-pgsql-type source target using)))
-                    (log-message :info "CAST ~a.~a ~a [~s, ~:[NULL~;NOT NULL~]~:[~*~;, ~a~]] TO ~a~@[ USING ~a~]"
-                                 table-name column-name ctype default
-                                 (string= "NO" nullable)
-                                 (string/= "" extra) extra
-                                 (format-create-sql coldef)
-                                 using)
-                    (return coldef))))))
+         :finally (return (make-pgsql-type source target using))))))
 
