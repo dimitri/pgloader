@@ -247,17 +247,12 @@
     (:linestring (format nil "astext(`~a`) as `~a`" name name))
     (t           (format nil "`~a`" name))))
 
-(defun get-column-list (dbname table-name)
+(defun get-column-list (copy)
   "Some MySQL datatypes have a meaningless default output representation, we
-   need to process them on the SQL side (geometric data types).
-
-   This function assumes a valid connection to the MySQL server has been
-   established already."
-  (loop with sql = (format nil
-                           (sql "/mysql/get-column-list.sql")
-                           dbname table-name)
-     for (name type) in (mysql-query sql :result-type 'list)
-     collect (get-column-sql-expression name type)))
+   need to process them on the SQL side (geometric data types)."
+  (loop :for field :in (fields copy)
+     :collect (get-column-sql-expression (mysql-column-name field)
+                                         (mysql-column-dtype field))))
 
 (declaim (inline fix-nulls))
 

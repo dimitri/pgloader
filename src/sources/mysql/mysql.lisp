@@ -119,7 +119,7 @@
       (when qmynd:*mysql-encoding*
         (log-message :notice "Force encoding to ~a for ~a"
                      qmynd:*mysql-encoding* table-name))
-      (let* ((cols (get-column-list (db-name (source-db mysql)) table-name))
+      (let* ((cols (get-column-list mysql))
              (sql  (format nil "SELECT ~{~a~^, ~} FROM `~a`" cols table-name)))
 
         (if (range-list mysql)
