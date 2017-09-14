@@ -1,0 +1,19 @@
+load database
+     -- from   mysql://root@localhost/pgloader
+     from      mysql://root@unix:/tmp/mysql.sock:3306/pgloader
+     into postgresql:///pgloader
+
+ WITH concurrency = 2,
+      multiple readers per thread,
+      rows per range = 50000
+
+ ALTER SCHEMA 'pgloader' RENAME TO 'mysql'
+
+ CAST column utilisateurs__Yvelines2013-06-28.sexe
+          to text drop not null using empty-string-to-null,
+
+      column base64.id to uuid drop typemod,
+      column base64.data to jsonb using base64-decode
+
+ BEFORE LOAD DO $$ create schema if not exists mysql; $$;
+
