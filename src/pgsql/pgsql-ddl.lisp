@@ -144,7 +144,7 @@
                     (make-column :default transformed-default)))
               (format-default-value transformed-column))
             (if default
-                (format stream "'~a'" default)
+                (ensure-quoted default #\')
                 (format stream "NULL"))))))
 
 

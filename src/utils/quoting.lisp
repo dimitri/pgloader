@@ -7,11 +7,6 @@
 
 (in-package :pgloader.quoting)
 
-(defun quoted-p (s)
-  "Return true if s is a double-quoted string"
-  (and (eq (char s 0) #\")
-       (eq (char s (- (length s) 1)) #\")))
-
 (defun apply-identifier-case (identifier)
   "Return given IDENTIFIER with CASE handled to be PostgreSQL compatible."
   (let* ((lowercase-identifier (cl-ppcre:regex-replace-all
@@ -47,6 +42,11 @@
                            (cl-ppcre:regex-replace-all "\"" identifier "\"\"")))
       (:none       identifier))))
 
+(defun quoted-p (s &optional (quote-char #\"))
+  "Return true if s is a double-quoted string"
+  (and (eq (char s 0) quote-char)
+       (eq (char s (- (length s) 1)) quote-char)))
+
 (defun ensure-unquoted (identifier)
   (cond ((quoted-p identifier)
          ;; when the table name comes from the user (e.g. in the
@@ -56,6 +56,11 @@
          (subseq identifier 1 (1- (length identifier))))
 
         (t identifier)))
+
+(defun ensure-quoted (value &optional (quote-char #\"))
+  (if (quoted-p value quote-char)
+      value
+      (format nil "~c~a~c" quote-char value quote-char)))
 
 (defun build-identifier (sep &rest parts)
   "Concatenante PARTS into a PostgreSQL identifier, with SEP in between

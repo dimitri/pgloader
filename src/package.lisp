@@ -35,6 +35,7 @@
   (:export #:apply-identifier-case
            #:build-identifier
            #:quoted-p
+           #:ensure-quoted
            #:ensure-unquoted
            #:camelCase-to-colname))
 
