@@ -14,4 +14,4 @@
          ~:[~*~;and table_name in (~{'~a'~^,~})~]
          ~:[~*~;and (~{table_name ~a~^ or ~})~]
          ~:[~*~;and (~{table_name ~a~^ and ~})~]
-GROUP BY table_name, index_name;
+GROUP BY table_name, index_name, index_type;
