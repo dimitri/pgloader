@@ -44,11 +44,15 @@
 
 (defun quoted-p (s &optional (quote-char #\"))
   "Return true if s is a double-quoted string"
-  (and (eq (char s 0) quote-char)
-       (eq (char s (- (length s) 1)) quote-char)))
+  (or (null s)
+      (when (< 1 (length s))
+        (and (eq (char s 0) quote-char)
+             (eq (char s (- (length s) 1)) quote-char)))))
 
-(defun ensure-unquoted (identifier)
-  (cond ((quoted-p identifier)
+(defun ensure-unquoted (identifier &optional (quote-char #\"))
+  (cond ((null identifier) nil)
+        ((< (length identifier) 2) identifier)
+        ((quoted-p identifier quote-char)
          ;; when the table name comes from the user (e.g. in the
          ;; load file) then we might have to unquote it: the
          ;; PostgreSQL catalogs does not store object names in

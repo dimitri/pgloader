@@ -70,7 +70,7 @@
          (when default
            (babel:string-to-octets default)))
 
-        (t default)))
+        (t (ensure-unquoted default #\'))))
 
 (defun list-all-columns (schema
                          &key

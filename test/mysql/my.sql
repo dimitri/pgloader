@@ -1,5 +1,18 @@
 create table `empty`(id integer auto_increment primary key);
 
+CREATE TABLE `races` (
+  `raceId` int(11) NOT NULL AUTO_INCREMENT,
+  `year` int(11) NOT NULL DEFAULT 0,
+  `round` int(11) NOT NULL DEFAULT 0,
+  `circuitId` int(11) NOT NULL DEFAULT 0,
+  `name` varchar(255) NOT NULL DEFAULT '',
+  `date` date NOT NULL DEFAULT '0000-00-00',
+  `time` time DEFAULT NULL,
+  `url` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`raceId`),
+  UNIQUE KEY `url` (`url`)
+) ENGINE=MyISAM AUTO_INCREMENT=989 DEFAULT CHARSET=utf8;
+
 CREATE TABLE `utilisateurs__Yvelines2013-06-28` (
   `statut` enum('administrateur','odis','pilote','bureau','relais','stagiaire','membre','participant','contact') COLLATE utf8_unicode_ci NOT NULL,
   `anciennete` year(4) DEFAULT NULL,
