@@ -70,9 +70,16 @@
            (table-list  (mapcar (lambda (table)
                                   (gethash table (pgstate-tables data)))
                                 (pgstate-tabnames data)))
-           (total-bytes (reduce #'+ table-list :key #'pgtable-bytes)))
+           (total-bytes (reduce #'+ table-list :key #'pgtable-bytes))
+           (total-read  (reduce #'+ table-list :key #'pgtable-read))
+           (total-rows  (reduce #'+ table-list :key #'pgtable-rows))
+           (total-errs  (reduce #'+ table-list :key #'pgtable-errs)))
       (setf (state-bytes state) total-bytes)
-      (setf (pgstate-bytes (state-postload state)) total-bytes))
+      (setf (pgstate-bytes (state-postload state)) total-bytes)
+
+      (setf (pgstate-read (state-postload state)) total-read)
+      (setf (pgstate-rows (state-postload state)) total-rows)
+      (setf (pgstate-errs (state-postload state)) total-errs))
 
     (pretty-print *report-stream* state format)))
 
