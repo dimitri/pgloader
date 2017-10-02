@@ -36,6 +36,12 @@
 (defstruct update-stats section label read rows errs secs rs ws bytes start stop)
 (defstruct bad-row section label condition data)
 
+(define-condition monitor-error (error)
+  ((root-cause :initarg :root-cause :reader monitor-real-error))
+  (:report (lambda (err stream)
+             (format stream "FATAL: Failed to start the monitor thread.~%")
+             (format stream "~%~a~%" (monitor-real-error err)))))
+
 (defun log-message (category description &rest arguments)
   "Send given message into our monitoring queue for processing."
   (when (cl-log::category-messengers category)
@@ -142,13 +148,20 @@
           *monitoring-channel* (lp:make-channel)
           *monitoring-queue*   (lq:make-queue))
 
-    ;; warm up the channel to ensure we don't loose any event
-    (lp:submit-task *monitoring-channel* '+ 1 2 3)
-    (lp:receive-result *monitoring-channel*)
+    (lp:task-handler-bind
+        ((error
+          #'(lambda (c)
+              ;; we can't log-message a monitor thread error
+              (lp:invoke-transfer-error
+               (make-instance 'monitor-error :root-cause c)))))
 
-    ;; now that we know the channel is ready, start our long-running monitor
-    (lp:submit-task *monitoring-channel* #'monitor *monitoring-queue*)
-    (send-event (make-start :start-logger start-logger))
+      ;; warm up the channel to ensure we don't loose any event
+      (lp:submit-task *monitoring-channel* '+ 1 2 3)
+      (lp:receive-result *monitoring-channel*)
+
+      ;; now that we know the channel is ready, start our long-running monitor
+      (lp:submit-task *monitoring-channel* #'monitor *monitoring-queue*)
+      (send-event (make-start :start-logger start-logger)))
 
     (values *monitoring-kernel* *monitoring-queue* *monitoring-channel*)))
 

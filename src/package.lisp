@@ -250,6 +250,7 @@
            #:send-event
            #:start-monitor
            #:stop-monitor
+           #:monitor-error
            #:elapsed-time-since
            #:timing))
 

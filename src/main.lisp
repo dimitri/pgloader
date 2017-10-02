@@ -300,7 +300,8 @@
                 ;; meaningful backtrace to the user in case of unexpected
                 ;; conditions being signaled.
                 (handler-bind
-                    (((and condition (not (or cli-parsing-error
+                    (((and condition (not (or monitor-error
+                                              cli-parsing-error
                                               source-definition-error
                                               regression-test-error)))
                       #'(lambda (condition)
@@ -361,6 +362,10 @@
               (regression-test-error (c)
                 (format *error-output* "~%~a~%~%" c)
                 (uiop:quit +os-code-error-regress+))
+
+              (monitor-error (c)
+                (format *error-output* "~a~%" c)
+                (uiop:quit +os-code-error+))
 
               (condition (c)
                 (format *error-output* "~%What I am doing here?~%~%")
