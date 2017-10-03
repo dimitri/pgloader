@@ -101,9 +101,9 @@ clones: $(QLDIR)/local-projects/cl-ixf \
         $(QLDIR)/local-projects/qmynd ;
 
 $(LIBS): $(QLDIR)/setup.lisp clones
-	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp                 \
-             --eval '(push "$(PWD)/" asdf:*central-registry*)'      \
-             --eval '(ql:quickload "pgloader")'                     \
+	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp                   \
+             --eval '(push "$(PWD)/" ql:*local-project-directories*)' \
+             --eval '(ql:quickload "pgloader")'                       \
              --eval '(quit)'
 	touch $@
 
