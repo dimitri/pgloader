@@ -42,7 +42,13 @@
              (format stream "FATAL: Failed to start the monitor thread.~%")
              (format stream "~%~a~%" (monitor-real-error err)))))
 
-(defun log-message (category description &rest arguments)
+(defmacro log-message (category description &rest arguments)
+  "Protect against evaluating ARGUMENTS in cases where we don't log at the
+   given CATEGORY log-level."
+  `(when (cl-log::category-messengers ,category)
+     (send-log-message ,category ,description ,@arguments)))
+
+(defun send-log-message (category description &rest arguments)
   "Send given message into our monitoring queue for processing."
   (when (cl-log::category-messengers category)
     (send-event (make-log-message :category category
