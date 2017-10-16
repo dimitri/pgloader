@@ -48,3 +48,11 @@
 
 (setf pgloader::*self-upgrade-immutable-systems*
       (remove "pgloader" (asdf:already-loaded-systems) :test #'string=))
+
+(defun list-files-to-load-for-system (system-name)
+  (loop for (o . c) in (asdf/plan:plan-actions
+                        (asdf/plan:make-plan 'asdf/plan:sequential-plan
+                                             'asdf:load-source-op
+                                             (asdf:find-system system-name)))
+     when (typep o 'asdf:load-source-op)
+     append (asdf:input-files o c)))
