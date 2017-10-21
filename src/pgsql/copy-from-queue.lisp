@@ -164,21 +164,22 @@
                  ;; if current-batch is full, send data to PostgreSQL
                  ;; and prepare a new batch
                  (when (batch-full-p current-batch)
-                   (let ((batch-seconds
-                          (send-current-batch unqualified-table-name)))
-                     (incf seconds batch-seconds))
+                   (incf seconds (send-current-batch unqualified-table-name))
                    (setf current-batch (make-batch))
 
                    ;; give a little help to our friend, now is a good time
                    ;; to garbage collect
                    #+sbcl (sb-ext:gc :full t))
 
-                 (format-row-in-batch copy row current-batch
-                                      preprocessor pre-formatted)))
+                 ;; also add up the time it takes to format the rows
+                 (let ((start-time (get-internal-real-time)))
+                   (format-row-in-batch copy row current-batch
+                                        preprocessor pre-formatted)
+                   (incf seconds (elapsed-time-since start-time)))))
 
             ;; the last batch might not be empty
             (unless (= 0 (batch-count current-batch))
-              (send-current-batch unqualified-table-name))))))
+              (incf seconds (send-current-batch unqualified-table-name)))))))
 
     ;; each writer thread sends its own stop timestamp and the monitor keeps
     ;; only the latest entry
