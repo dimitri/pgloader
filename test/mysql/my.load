@@ -13,7 +13,11 @@ load database
           to text drop not null using empty-string-to-null,
 
       column base64.id to uuid drop typemod,
-      column base64.data to jsonb using base64-decode
+      column base64.data to jsonb using base64-decode,
+
+      type decimal
+      when (and (= 18 precision) (= 6 scale))
+        to "double precision" drop typemod
 
  BEFORE LOAD DO $$ create schema if not exists mysql; $$;
 

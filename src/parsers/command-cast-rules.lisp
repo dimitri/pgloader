@@ -47,9 +47,10 @@
 		,@(when d-s-p (list :default default))
 		,@(when ai-s-p (list :auto-increment auto-increment))))))
 
-(defrule cast-type-name (and (alpha-char-p character)
-			     (* (or (alpha-char-p character)
-				    (digit-char-p character))))
+(defrule cast-type-name (or double-quoted-namestring
+                            (and (alpha-char-p character)
+                                 (* (or (alpha-char-p character)
+                                        (digit-char-p character)))))
   (:text t))
 
 (defrule cast-to-type (and kw-to cast-type-name ignore-whitespace)
