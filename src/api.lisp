@@ -152,7 +152,8 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
    then run, or a commands string that is then parsed and each command run."
 
   (with-monitor (:start-logger start-logger)
-    (let* ((funcs
+    (let* ((*print-circle* nil)
+           (funcs
             (typecase source
               (function (list source))
 
