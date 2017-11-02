@@ -112,7 +112,12 @@
 (defmethod print-object ((c db-connection) stream)
   (print-unreadable-object (c stream :type t :identity t)
     (with-slots (type name host port user) c
-      (format stream "~a://~a@~a:~a/~a" type user host port name))))
+      (let ((host (typecase host
+                    (cons (format nil "~a:~a"
+                                  (string-downcase (car host))
+                                  (cdr host)))
+                    (t    host))))
+       (format stream "~a://~a@~a:~a/~a" type user host port name)))))
 
 (define-condition db-connection-error (connection-error)
   ((host :initarg :host :reader connection-error-host)

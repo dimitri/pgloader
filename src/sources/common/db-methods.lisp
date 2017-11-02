@@ -265,6 +265,8 @@
                             alter-schema
 			    materialize-views)
   "Export database source data and Import it into PostgreSQL"
+  (log-message :log "Migrating from ~a" (source-db copy))
+  (log-message :log "Migrating into ~a" (target-db copy))
   (let* ((*on-error-stop* on-error-stop)
          (copy-data      (or data-only (not schema-only)))
          (create-ddl     (or schema-only (not data-only)))
