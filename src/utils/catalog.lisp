@@ -43,7 +43,7 @@
 ;;; implemented in each source separately.
 ;;;
 (defstruct catalog name schema-list types-without-btree)
-(defstruct schema source-name name catalog table-list view-list)
+(defstruct schema source-name name catalog table-list view-list in-search-path)
 (defstruct table source-name name schema oid comment storage-parameter-list
            ;; field is for SOURCE
            ;; column is for TARGET
@@ -203,12 +203,13 @@
     ;; already cooked table structure, try it and see...
     (table maybe-qualified-name)))
 
-(defmethod add-schema ((catalog catalog) schema-name &key)
+(defmethod add-schema ((catalog catalog) schema-name &key in-search-path)
   "Add SCHEMA-NAME to CATALOG and return the new schema instance."
   (let ((schema (make-schema :catalog catalog
                              :source-name schema-name
                              :name (when schema-name
-                                     (apply-identifier-case schema-name)))))
+                                     (apply-identifier-case schema-name))
+                             :in-search-path in-search-path)))
     (push-to-end schema (catalog-schema-list catalog))))
 
 (defmethod add-table ((schema schema) table-name &key comment oid)

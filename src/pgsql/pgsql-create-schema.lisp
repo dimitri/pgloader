@@ -88,6 +88,32 @@
        :do (let ((sql (format nil "CREATE SCHEMA ~a;" (schema-name schema))))
              (pgsql-execute sql :client-min-messages client-min-messages)))))
 
+(defun add-to-search-path (catalog
+                           &key
+                             label
+                             (section :post)
+                             (log-level :notice)
+                             (client-min-messages :notice))
+  "Add catalog schemas in the database search_path."
+  (let* ((dbname      (get-current-database))
+         (search-path (list-search-path))
+         (missing-schemas
+          (loop :for schema :in (catalog-schema-list catalog)
+             :for schema-name := (schema-name schema)
+             :when (and (schema-in-search-path schema)
+                        (not (member schema-name search-path :test #'string=)))
+             :collect schema-name)))
+    (when missing-schemas
+      (let ((sql (format nil
+                         "ALTER DATABASE ~a SET search_path TO ~{~a~^, ~};"
+                         dbname
+                         (append search-path missing-schemas))))
+        (pgsql-execute-with-timing section
+                                   label
+                                   sql
+                                   :log-level log-level
+                                   :client-min-messages client-min-messages)))))
+
 (defun create-tables (catalog
                       &key
 			if-not-exists

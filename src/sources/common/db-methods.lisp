@@ -171,6 +171,14 @@
                              :label "Create Triggers")))
 
         ;;
+        ;; Add schemas that needs to be in the search_path to the database
+        ;; search_path
+        ;;
+        (add-to-search-path catalog
+                            :section :post
+                            :label "Set Search Path")
+
+        ;;
         ;; And now, comments on tables and columns.
         ;;
         (comment-on-tables-and-columns catalog

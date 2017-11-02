@@ -80,6 +80,7 @@
            #:schema-source-name
            #:schema-table-list
            #:schema-view-list
+           #:schema-in-search-path
 
            #:table-name
            #:table-source-name
@@ -402,6 +403,7 @@
 
            #:create-sqltypes
 	   #:create-schemas
+           #:add-to-search-path
 	   #:create-tables
 	   #:create-views
            #:drop-pgsql-fkeys

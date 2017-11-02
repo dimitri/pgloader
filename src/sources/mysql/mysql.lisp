@@ -156,7 +156,8 @@
                              including
                              excluding)
   "MySQL introspection to prepare the migration."
-  (let ((schema        (add-schema catalog (catalog-name catalog)))
+  (let ((schema        (add-schema catalog (catalog-name catalog)
+                                   :in-search-path t))
         (view-names    (unless (eq :all materialize-views)
                          (mapcar #'car materialize-views))))
     (with-stats-collection ("fetch meta data"

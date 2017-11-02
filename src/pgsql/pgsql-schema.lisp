@@ -312,6 +312,17 @@
    PostgreSQL connection."
   (pomo:query "SELECT nspname FROM pg_catalog.pg_namespace;" :column))
 
+(defun list-search-path ()
+  "Return the current list of schemas in the Search Path"
+  (pomo:query
+   "SELECT name FROM unnest(pg_catalog.current_schemas(false)) as t(name);"
+   :column))
+
+(defun get-current-database ()
+  "Get the current database name. The catalog name and the connection string
+   name may be different, so just ask PostgreSQL here."
+  (pomo:query "select current_database();" :single))
+
 (defun list-table-oids (table-names)
   "Return an hash table mapping TABLE-NAME to its OID for all table in the
    TABLE-NAMES list. A PostgreSQL connection must be established already."
