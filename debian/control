@@ -1,6 +1,6 @@
 Source: pgloader
 Section: database
-Priority: extra
+Priority: optional
 Maintainer: Dimitri Fontaine <dim@tapoueh.org>
 Uploaders: Christoph Berg <myon@debian.org>
 Build-Depends:
@@ -49,7 +49,7 @@ Build-Depends:
  ruby-ronn,
  sbcl (>= 1.1.13),
  tzdata,
-Standards-Version: 3.9.8
+Standards-Version: 4.1.1
 Homepage: https://github.com/dimitri/pgloader
 Vcs-Git: https://github.com/dimitri/pgloader.git
 Vcs-Browser: https://github.com/dimitri/pgloader
@@ -72,6 +72,7 @@ Description: extract, transform and load data into PostgreSQL
  the pgloader command directly.
 
 Package: cl-pgloader
+Section: lisp
 Architecture: all
 Depends:
  cl-abnf,
@@ -89,12 +90,15 @@ Depends:
  cl-fad,
  cl-flexi-streams,
  cl-interpol,
+ cl-ixf,
  cl-local-time,
  cl-log,
  cl-lparallel,
  cl-markdown,
  cl-md5,
  cl-metabang-bind,
+ cl-mssql,
+ cl-mustache,
  cl-postmodern,
  cl-ppcre,
  cl-py-configparser,
@@ -109,6 +113,7 @@ Depends:
  cl-usocket,
  cl-utilities,
  cl-uuid,
+ cl-yason,
  ${misc:Depends},
 Description: extract, transform and load data into PostgreSQL
  pgloader imports data from different kind of sources and COPY it into
