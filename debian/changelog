@@ -1,6 +1,7 @@
 pgloader (3.4.1+dfsg-2) UNRELEASED; urgency=medium
 
   * Run wrap-and-sort -st.
+  * Add new B-D cl-mustache and cl-yason.
 
  -- Christoph Berg <myon@debian.org>  Sat, 11 Nov 2017 16:39:08 +0100
 
