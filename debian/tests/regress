@@ -1,0 +1,10 @@
+#!/bin/sh
+
+set -ex
+
+cd test
+pg_virtualenv << EOF
+	set -ex
+	make -j1 prepare PGLOADER=/usr/bin/pgloader PGUSER=$(whoami)
+	make -j1 regress PGLOADER=/usr/bin/pgloader PGUSER=$(whoami)
+EOF
