@@ -84,27 +84,31 @@
                                         :encoding   (encoding mysql)
                                         :range-list (cons col part))))))))))))))
 
-(defmacro with-encoding-handler (&body forms)
-  `(handler-bind
-       ;; avoid trying to fetch the character at end-of-input position...
-       ((babel-encodings:end-of-input-in-character
-         #'(lambda (c)
-             (update-stats :data (target mysql) :errs 1)
-             (log-message :error "~a" c)
-             (invoke-restart 'qmynd-impl::use-nil)))
-        (babel-encodings:character-decoding-error
-         #'(lambda (c)
-             (update-stats :data (target mysql) :errs 1)
-             (let ((encoding (babel-encodings:character-coding-error-encoding c))
+(defun call-with-encoding-handler (copy-mysql table-name func)
+  (handler-bind
+      ;; avoid trying to fetch the character at end-of-input position...
+      ((babel-encodings:end-of-input-in-character
+        #'(lambda (c)
+            (update-stats :data (target copy-mysql) :errs 1)
+            (log-message :error "~a" c)
+            (invoke-restart 'qmynd-impl::use-nil)))
+       (babel-encodings:character-decoding-error
+        #'(lambda (c)
+            (update-stats :data (target copy-mysql) :errs 1)
+            (let* ((encoding (babel-encodings:character-coding-error-encoding c))
                    (position (babel-encodings:character-coding-error-position c))
+                   (buffer   (babel-encodings:character-coding-error-buffer c))
                    (character
-                    (aref (babel-encodings:character-coding-error-buffer c)
-                          (babel-encodings:character-coding-error-position c))))
-               (log-message :error
-                            "~a: Illegal ~a character starting at position ~a: ~a."
-                            table-name encoding position character))
-             (invoke-restart 'qmynd-impl::use-nil))))
-     (progn ,@forms)))
+                    (when (and position (< position (length buffer)))
+                      (aref buffer position))))
+              (log-message :error
+                           "~a: Illegal ~a character starting at position ~a~@[: ~a~]."
+                           table-name encoding position character))
+            (invoke-restart 'qmynd-impl::use-nil))))
+    (funcall func)))
+
+(defmacro with-encoding-handler ((copy-mysql table-name) &body forms)
+  `(call-with-encoding-handler ,copy-mysql ,table-name (lambda () ,@forms)))
 
 (defmethod map-rows ((mysql copy-mysql) &key process-row-fn)
   "Extract MySQL data and call PROCESS-ROW-FN function with a single
@@ -128,13 +132,13 @@
               (loop :for (min max) :in ranges :do
                  (let ((sql (format nil "~a WHERE `~a` >= ~a AND `~a` < ~a"
                                     sql colname min colname max)))
-                   (with-encoding-handler
+                   (with-encoding-handler (mysql table-name)
                      (mysql-query sql
                                   :row-fn process-row-fn
                                   :result-type 'vector)))))
 
             ;; read it all, no WHERE clause
-            (with-encoding-handler
+            (with-encoding-handler (mysql table-name)
               (mysql-query sql
                            :row-fn process-row-fn
                            :result-type 'vector)))))))

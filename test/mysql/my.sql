@@ -62,6 +62,9 @@ CREATE TABLE `onupdate` (
   UNIQUE KEY `patient_id` (`patient_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8;
 
+/* https://github.com/dimitri/pgloader/issues/661 */
+CREATE TABLE funny_string AS select char(41856 using 'gbk') AS s;
+
 CREATE TABLE `fcm_batches` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `raw_payload` mediumtext COLLATE utf8_unicode_ci,
