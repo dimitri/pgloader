@@ -71,7 +71,7 @@
     (loop :for table :in (append (table-list catalog)
                                  (view-list catalog))
        :do (let* ((schema-name
-                   (or (schema-name (table-schema table))
+                   (or (ensure-unquoted (schema-name (table-schema table)))
                        current-schema
                        (setf current-schema
                              (pomo:query "select current_schema()" :single))))

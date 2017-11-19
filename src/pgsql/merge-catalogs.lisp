@@ -26,7 +26,7 @@
                    ;; MySQL schema map to PostgreSQL databases, so we might
                    ;; have NIL as a schema name here. Find the current
                    ;; PostgreSQL schema instead of NIL.
-                   (or (schema-name source-schema)
+                   (or (ensure-unquoted (schema-name source-schema))
                        (pomo:query "select current_schema()" :single)))
                   (target-schema
                    (find-schema target-catalog schema-name)))
