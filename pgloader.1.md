@@ -2081,12 +2081,18 @@ Numbers:
 
   - type tinyint to boolean when (= 1 precision) using tinyint-to-boolean
 
+  - type tinyint when unsigned to smallint   drop typemod
+  - type smallint when unsigned to integer  drop typemod
+  - type mediumint when unsigned to integer  drop typemod
+  - type integer when unsigned to bigint    drop typemod
+  
   - type tinyint to smallint   drop typemod
   - type smallint to smallint  drop typemod
   - type mediumint to integer  drop typemod
   - type integer to integer    drop typemod
-  - type float to float        drop typemod
   - type bigint to bigint      drop typemod
+
+  - type float to float        drop typemod
   - type double to double precision drop typemod
 
   - type numeric to numeric keep typemod

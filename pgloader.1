@@ -2474,6 +2474,18 @@ type bigint with extra auto_increment to bigserial
 type tinyint to boolean when (= 1 precision) using tinyint\-to\-boolean
 .
 .IP "\(bu" 4
+type tinyint when unsigned to smallint drop typemod
+.
+.IP "\(bu" 4
+type smallint when unsigned to integer drop typemod
+.
+.IP "\(bu" 4
+type mediumint when unsigned to integer drop typemod
+.
+.IP "\(bu" 4
+type integer when unsigned to bigint drop typemod
+.
+.IP "\(bu" 4
 type tinyint to smallint drop typemod
 .
 .IP "\(bu" 4
@@ -2486,10 +2498,10 @@ type mediumint to integer drop typemod
 type integer to integer drop typemod
 .
 .IP "\(bu" 4
-type float to float drop typemod
+type bigint to bigint drop typemod
 .
 .IP "\(bu" 4
-type bigint to bigint drop typemod
+type float to float drop typemod
 .
 .IP "\(bu" 4
 type double to double precision drop typemod

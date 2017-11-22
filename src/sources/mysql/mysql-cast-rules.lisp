@@ -45,6 +45,16 @@
     (:source (:type "bigint" :typemod (< 19 precision))
      :target (:type "numeric" :drop-typemod t))
 
+    ;; now unsigned types
+    (:source (:type "tinyint" :unsigned t)
+             :target (:type "smallint" :drop-typemod t))
+    (:source (:type "smallint" :unsigned t)
+             :target (:type "integer" :drop-typemod t))
+    (:source (:type "mediumint" :unsigned t)
+             :target (:type "integer"  :drop-typemod t))
+    (:source (:type "integer" :unsigned t)
+             :target (:type "bigint"  :drop-typemod t))
+
     ;; we need the following to benefit from :drop-typemod
     (:source (:type "tinyint")   :target (:type "smallint" :drop-typemod t))
     (:source (:type "smallint")  :target (:type "smallint" :drop-typemod t))
