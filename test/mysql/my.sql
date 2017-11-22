@@ -65,6 +65,30 @@ CREATE TABLE `onupdate` (
 /* https://github.com/dimitri/pgloader/issues/661 */
 CREATE TABLE funny_string AS select char(41856 using 'gbk') AS s;
 
+/* https://github.com/dimitri/pgloader/issues/664 */
+
+/*
+CREATE TABLE `table_name` (
+  `field1` double NOT NULL AUTO_INCREMENT,
+  `field2` varchar(50) DEFAULT NULL,
+  `field3` int(11) DEFAULT NULL,
+  `field4` tinyint(3) DEFAULT NULL,
+  PRIMARY KEY (`field1`),
+  KEY `idx_field3` (`field3`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPACT;
+*/
+
+/*
+ * https://github.com/dimitri/pgloader/issues/678
+ */
+CREATE TABLE pgloader_test_unsigned
+(
+  id SMALLINT UNSIGNED,
+  sm smallint,
+  tu TINYINT UNSIGNED
+);
+INSERT INTO pgloader_test_unsigned(id) VALUES (65535);
+
 CREATE TABLE `fcm_batches` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `raw_payload` mediumtext COLLATE utf8_unicode_ci,

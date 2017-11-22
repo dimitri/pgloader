@@ -1862,6 +1862,15 @@ The `database` command accepts the following clauses and options:
 
     The supported guards are:
 
+	  - *when unsigned*
+
+	    The casting rule is only applied against MySQL columns of the source
+	    type that have the keyword *unsigned* in their data type definition.
+
+        Example of a casting rule using a *unsigned* guard:
+        
+            type smallint when unsigned to integer drop typemod
+
 	  - *when default 'value'*
 
 	    The casting rule is only applied against MySQL columns of the source

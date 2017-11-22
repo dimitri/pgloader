@@ -137,6 +137,7 @@
   (def-keyword-rule "per")
   (def-keyword-rule "thread")
   (def-keyword-rule "range")
+  (def-keyword-rule "unsigned")
   ;; option for loading from an archive
   (def-keyword-rule "archive")
   (def-keyword-rule "before")

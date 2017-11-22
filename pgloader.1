@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "PGLOADER" "1" "August 2017" "ff" ""
+.TH "PGLOADER" "1" "November 2017" "ff" ""
 .
 .SH "NAME"
 \fBpgloader\fR \- PostgreSQL data loader
@@ -2169,6 +2169,26 @@ The \fIcasting rules\fR are applied in order, the first match prevents following
 .
 .IP
 The supported guards are:
+.
+.IP "\(bu" 4
+\fIwhen unsigned\fR
+.
+.IP
+The casting rule is only applied against MySQL columns of the source type that have the keyword \fIunsigned\fR in their data type definition\.
+.
+.IP
+Example of a casting rule using a \fIunsigned\fR guard:
+.
+.IP "" 4
+.
+.nf
+
+type smallint when unsigned to integer drop typemod
+.
+.fi
+.
+.IP "" 0
+
 .
 .IP "\(bu" 4
 \fIwhen default \'value\'\fR

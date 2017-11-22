@@ -10,7 +10,11 @@
 (defrule cast-default-guard (and kw-when kw-default quoted-string)
   (:destructure (w d value) (declare (ignore w d)) (cons :default value)))
 
-(defrule cast-source-guards (* (or cast-default-guard
+(defrule cast-unsigned-guard (and kw-when kw-unsigned)
+  (:constant (cons :unsigned t)))
+
+(defrule cast-source-guards (* (or cast-unsigned-guard
+                                   cast-default-guard
 				   cast-typemod-guard))
   (:lambda (guards)
     (alexandria:alist-plist guards)))
@@ -39,12 +43,14 @@
     (bind (((name-and-type opts guards _)       source)
            ((&key (default nil d-s-p)
                   (typemod nil t-s-p)
+                  (unsigned nil u-s-p)
                   &allow-other-keys)            guards)
            ((&key (auto-increment nil ai-s-p)
                   &allow-other-keys)            opts))
       `(,@name-and-type
 		,@(when t-s-p (list :typemod typemod))
 		,@(when d-s-p (list :default default))
+		,@(when u-s-p (list :unsigned unsigned))
 		,@(when ai-s-p (list :auto-increment auto-increment))))))
 
 (defrule cast-type-name (or double-quoted-namestring
