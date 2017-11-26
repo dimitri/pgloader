@@ -198,18 +198,33 @@
 
        :do (let* ((ftable (find-table (table-schema table) ftable-name))
                   (fkey   (or (gethash id fkey-table)
-                              (let ((pg-fkey
-                                     (make-fkey :table table
-                                                :columns nil
-                                                :foreign-table ftable
-                                                :foreign-columns nil
-                                                :update-rule on-update
-                                                :delete-rule on-delete)))
-                                (setf (gethash id fkey-table) pg-fkey)
-                                (add-fkey table pg-fkey)
-                                pg-fkey))))
-             (push-to-end from (fkey-columns fkey))
-             (push-to-end to   (fkey-foreign-columns fkey))))))
+                              (when ftable
+                                (let ((pg-fkey
+                                       (make-fkey :table table
+                                                  :columns nil
+                                                  :foreign-table ftable
+                                                  :foreign-columns nil
+                                                  :update-rule on-update
+                                                  :delete-rule on-delete)))
+                                  (setf (gethash id fkey-table) pg-fkey)
+                                  (add-fkey table pg-fkey)
+                                  pg-fkey)))))
+             (if (and fkey from to)
+                 (progn
+                   (push-to-end from (fkey-columns fkey))
+                   (push-to-end to   (fkey-foreign-columns fkey)))
+
+                 ;; it might be INCLUDING/EXCLUDING clauses that make it we
+                 ;; don't have to care about the fkey definition, or it
+                 ;; might be that the SQLite fkey definition is missing
+                 ;; information, such as the `to` column, as seen in the
+                 ;; field (bug report #681)
+                 (log-message :info
+                              "Incomplete Foreign Key definition on table ~a(~a) referencing table ~a(~a)"
+                              (when table (format-table-name table))
+                              from
+                              (when ftable (format-table-name ftable))
+                              to))))))
 
 (defun list-all-fkeys (schema &key (db *sqlite-db*))
   "Get the list of SQLite foreign keys definitions per table."
