@@ -78,16 +78,18 @@
   "Return the list of columns found in TABLE-NAME."
   (let* ((table-name (table-source-name table))
          (sql        (format nil "PRAGMA table_info(`~a`)" table-name)))
-    (loop :for (ctid name type nullable default pk-id) :in
-       (sqlite:execute-to-list db sql)
-       :do (let ((field (make-coldef table-name
-                                     ctid
-                                     name
-                                     (ctype-to-dtype (normalize type))
-                                     (normalize type)
-                                     (= 1 nullable)
-                                     (unquote default)
-                                     pk-id)))
+    (loop :for (ctid name type nullable default pk-id)
+       :in (sqlite:execute-to-list db sql)
+       :do (let* ((ctype (normalize type))
+                  (dtype (ctype-to-dtype type))
+                  (field (make-coldef table-name
+                                      ctid
+                                      name
+                                      dtype
+                                      ctype
+                                      (= 1 nullable)
+                                      (unquote default)
+                                      pk-id)))
              (when (and db-has-sequences
                         (not (zerop pk-id))
                         (string-equal (coldef-ctype field) "integer"))

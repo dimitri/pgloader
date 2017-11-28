@@ -772,6 +772,7 @@
            #:parse-cli-casts
            #:parse-sql-file
            #:parse-target-pg-db-uri
+           #:parse-sqlite-type-name
 
            ;; connection types / classes symbols for use in main
            #:connection

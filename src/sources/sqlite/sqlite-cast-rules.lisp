@@ -32,7 +32,7 @@
     (:source (:type "double") :target (:type "double precision")
              :using pgloader.transforms::float-to-string)
 
-    (:source (:type "numeric") :target (:type "numeric")
+    (:source (:type "numeric") :target (:type "numeric" :drop-typemod nil)
              :using pgloader.transforms::float-to-string)
 
     (:source (:type "blob") :target (:type "bytea")
@@ -57,28 +57,19 @@
 (defun normalize (sqlite-type-name)
   "SQLite only has a notion of what MySQL calls column_type, or ctype in the
    CAST machinery. Transform it to the data_type, or dtype."
-  (if (string= sqlite-type-name "")
-      ;; yes SQLite allows for empty type names
-      "text"
-      (let* ((sqlite-type-name (string-downcase sqlite-type-name))
-             (tokens (remove-if (lambda (token)
-                                  (or (member token '("unsigned" "short"
-                                                      "varying" "native"
-                                                      "nocase"
-                                                      "auto_increment")
-                                              :test #'string-equal)
-                                      ;; remove typemod too, as in "integer (8)"
-                                      (char= #\( (aref token 0))))
-                                (sq:split-sequence #\Space sqlite-type-name))))
-        (assert (= 1 (length tokens)))
-        (first tokens))))
+  (multiple-value-bind (type-name typmod extra-noise-words)
+      (pgloader.parser:parse-sqlite-type-name sqlite-type-name)
+    (declare (ignore extra-noise-words))
+    (if typmod
+        (format nil "~a(~a~@[,~a~])" type-name (car typmod) (cdr typmod))
+        type-name)))
 
 (defun ctype-to-dtype (sqlite-type-name)
   "In SQLite we only get the ctype, e.g. int(7), but here we want the base
    data type behind it, e.g. int."
-  (let* ((ctype     (normalize sqlite-type-name))
-         (paren-pos (position #\( ctype)))
-    (if paren-pos (subseq ctype 0 paren-pos) ctype)))
+  ;; parse-sqlite-type-name returns multiple values, here we only need the
+  ;; first one: (type-name typmod extra-noise-words)
+  (pgloader.parser:parse-sqlite-type-name sqlite-type-name))
 
 (defmethod cast ((col coldef) &key &allow-other-keys)
   "Return the PostgreSQL type definition from given SQLite column definition."

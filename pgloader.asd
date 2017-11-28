@@ -224,6 +224,7 @@
                        (:file "command-sqlite")
                        (:file "command-archive")
                        (:file "command-parser")
+                       (:file "parse-sqlite-type-name")
                        (:file "date-format")))
 
              ;; the main entry file, used when building a stand-alone
