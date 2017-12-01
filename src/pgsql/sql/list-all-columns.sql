@@ -16,7 +16,7 @@
                                    and a.attnum = def.adnum
 
      where nspname !~~ '^pg_' and n.nspname <> 'information_schema'
-           and relkind = '~a'
+           and relkind in (~{'~a'~^, ~})
            ~:[~*~;and (~{~a~^~&~10t or ~})~]
            ~:[~*~;and (~{~a~^~&~10t and ~})~]
 

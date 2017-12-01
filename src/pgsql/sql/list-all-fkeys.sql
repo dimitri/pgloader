@@ -27,7 +27,8 @@
         JOIN pg_class cf on r.confrelid = cf.oid
         JOIN pg_namespace nf on cf.relnamespace = nf.oid
    where r.contype = 'f'
-         AND c.relkind = 'r' and cf.relkind = 'r'
+         AND c.relkind in ('r', 'f', 'p')
+         AND cf.relkind in ('r', 'f', 'p')
          AND n.nspname !~~ '^pg_' and n.nspname <> 'information_schema'
          AND nf.nspname !~~ '^pg_' and nf.nspname <> 'information_schema'
          ~:[~*~;and (~{~a~^~&~10t or ~})~]

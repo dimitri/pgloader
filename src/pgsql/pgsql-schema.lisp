@@ -108,10 +108,11 @@
                            :single)))
 
 
-(defvar *table-type* '((:table    . "r")
-		       (:view     . "v")
-                       (:index    . "i")
-                       (:sequence . "S"))
+(defvar *table-type*
+  '((:table    . ("r" "f" "p"))   ; ordinary, foreign and partitioned
+    (:view     . ("v"))
+    (:index    . ("i"))
+    (:sequence . ("S")))
   "Associate internal table type symbol with what's found in PostgreSQL
   pg_class.relkind column.")
 
