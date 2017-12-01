@@ -12,4 +12,5 @@ select typname,
                 join pg_type t on c.opcintype = t.oid
           where amname = 'btree' and t.oid = pg_type.oid
        )
+       and typname not in ('varchar', 'cidr')
 group by typname;
