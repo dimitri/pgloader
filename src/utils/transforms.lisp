@@ -145,7 +145,13 @@
   "When using MySQL, strange things will happen, like encoding booleans into
    bit(1). Of course PostgreSQL wants 'f' and 't'."
   (when (and bit-vector (= 1 (length bit-vector)))
-    (if (= 0 (aref bit-vector 0)) "f" "t")))
+    (let ((bit (aref bit-vector 0)))
+      ;; we might have either a char or a number here, see issue #684.
+      ;; current guess when writing the code is that it depends on MySQL
+      ;; version, but this has not been checked.
+      (etypecase bit
+        (fixnum    (if (= 0 bit) "f" "t"))
+        (character (if (= 0 (char-code bit)) "f" "t"))))))
 
 (defun int-to-ip (int)
   "Transform an IP as integer into its dotted notation, optimised code from

@@ -89,6 +89,17 @@ CREATE TABLE pgloader_test_unsigned
 );
 INSERT INTO pgloader_test_unsigned(id) VALUES (65535);
 
+/*
+ * https://github.com/dimitri/pgloader/issues/684
+ */
+create table bits
+ (
+  id   integer not null AUTO_INCREMENT primary key,
+  bool bit(1)
+ );
+
+insert into bits(bool) values(0b00), (0b01);
+
 CREATE TABLE `fcm_batches` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `raw_payload` mediumtext COLLATE utf8_unicode_ci,
