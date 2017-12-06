@@ -31,7 +31,8 @@
   (if pathname
       (cond ((string= "csv"  (pathname-type pathname)) 'print-format-csv)
             ((string= "json" (pathname-type pathname)) 'print-format-json)
-            ((string= "copy" (pathname-type pathname)) 'print-format-copy))
+            ((string= "copy" (pathname-type pathname)) 'print-format-copy)
+            (t 'print-format-text))
       (if (member *client-min-messages*
                   '(:notice :sql :info :debug :data))
           'print-format-verbose
