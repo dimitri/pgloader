@@ -1,0 +1,237 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Pgloader Usage Examples &#8212; pgloader 3.4.1 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '3.4.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="pgloader-usage-examples">
+<h1>Pgloader Usage Examples<a class="headerlink" href="#pgloader-usage-examples" title="Permalink to this headline">¶</a></h1>
+<p>Currently not included, because redundant with the tutorial.</p>
+<div class="section" id="usage-examples">
+<h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Permalink to this headline">¶</a></h2>
+<p>Review the command line options and pgloader’s version:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">pgloader</span> <span class="o">--</span><span class="n">help</span>
+<span class="n">pgloader</span> <span class="o">--</span><span class="n">version</span>
+</pre></div>
+</div>
+<div class="section" id="loading-from-a-complex-command">
+<h3>Loading from a complex command<a class="headerlink" href="#loading-from-a-complex-command" title="Permalink to this headline">¶</a></h3>
+<p>Use the command file as the pgloader command argument, pgloader will parse
+that file and execute the commands found in it:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">pgloader</span> <span class="o">--</span><span class="n">verbose</span> <span class="o">./</span><span class="n">test</span><span class="o">/</span><span class="n">csv</span><span class="o">-</span><span class="n">districts</span><span class="o">.</span><span class="n">load</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="csv">
+<h3>CSV<a class="headerlink" href="#csv" title="Permalink to this headline">¶</a></h3>
+<p>Load data from a CSV file into a pre-existing table in your database, having
+pgloader guess the CSV properties (separator, quote and escape character):</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>pgloader ./test/data/matching-1.csv pgsql:///pgloader?tablename=matching
+</pre></div>
+</div>
+<p>Load data from a CSV file into a pre-existing table in your database, with
+expanded options:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>pgloader --type csv                                   \
+         --field id --field field                     \
+         --with truncate                              \
+         --with &quot;fields terminated by &#39;,&#39;&quot;            \
+         ./test/data/matching-1.csv                   \
+         postgres:///pgloader?tablename=matching
+</pre></div>
+</div>
+<p>In that example the whole loading is driven from the command line, bypassing
+the need for writing a command in the pgloader command syntax entirely. As
+there’s no command though, the extra inforamtion needed must be provided on
+the command line using the <cite>–type</cite> and <cite>–field</cite> and <cite>–with</cite> switches.</p>
+<p>For documentation about the available syntaxes for the <cite>–field</cite> and
+<cite>–with</cite> switches, please refer to the CSV section later in the man page.</p>
+<p>Note also that the PostgreSQL URI includes the target <em>tablename</em>.</p>
+</div>
+<div class="section" id="reading-from-stdin">
+<h3>Reading from STDIN<a class="headerlink" href="#reading-from-stdin" title="Permalink to this headline">¶</a></h3>
+<p>File based pgloader sources can be loaded from the standard input, as in the
+following example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>pgloader --type csv                                         \
+         --field &quot;usps,geoid,aland,awater,aland_sqmi,awater_sqmi,intptlat,intptlong&quot; \
+         --with &quot;skip header = 1&quot;                          \
+         --with &quot;fields terminated by &#39;\t&#39;&quot;                \
+         -                                                 \
+         postgresql:///pgloader?districts_longlat          \
+         &lt; test/data/2013_Gaz_113CDs_national.txt
+</pre></div>
+</div>
+<p>The dash (<cite>-</cite>) character as a source is used to mean <em>standard input</em>, as
+usual in Unix command lines. It’s possible to stream compressed content to
+pgloader with this technique, using the Unix pipe:</p>
+<blockquote>
+<div>gunzip -c source.gz | pgloader –type csv … - pgsql:///target?foo</div></blockquote>
+</div>
+<div class="section" id="loading-from-csv-available-through-http">
+<h3>Loading from CSV available through HTTP<a class="headerlink" href="#loading-from-csv-available-through-http" title="Permalink to this headline">¶</a></h3>
+<p>The same command as just above can also be run if the CSV file happens to be
+found on a remote HTTP location:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>pgloader --type csv                                                     \
+         --field &quot;usps,geoid,aland,awater,aland_sqmi,awater_sqmi,intptlat,intptlong&quot; \
+         --with &quot;skip header = 1&quot;                                       \
+         --with &quot;fields terminated by &#39;\t&#39;&quot;                             \
+         http://pgsql.tapoueh.org/temp/2013_Gaz_113CDs_national.txt     \
+         postgresql:///pgloader?districts_longlat
+</pre></div>
+</div>
+<p>Some more options have to be used in that case, as the file contains a
+one-line header (most commonly that’s column names, could be a copyright
+notice). Also, in that case, we specify all the fields right into a single
+<cite>–field</cite> option argument.</p>
+<p>Again, the PostgreSQL target connection string must contain the <em>tablename</em>
+option and you have to ensure that the target table exists and may fit the
+data. Here’s the SQL command used in that example in case you want to try it
+yourself:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">create</span> <span class="n">table</span> <span class="n">districts_longlat</span>
+<span class="p">(</span>
+         <span class="n">usps</span>        <span class="n">text</span><span class="p">,</span>
+         <span class="n">geoid</span>       <span class="n">text</span><span class="p">,</span>
+         <span class="n">aland</span>       <span class="n">bigint</span><span class="p">,</span>
+         <span class="n">awater</span>      <span class="n">bigint</span><span class="p">,</span>
+         <span class="n">aland_sqmi</span>  <span class="n">double</span> <span class="n">precision</span><span class="p">,</span>
+         <span class="n">awater_sqmi</span> <span class="n">double</span> <span class="n">precision</span><span class="p">,</span>
+         <span class="n">intptlat</span>    <span class="n">double</span> <span class="n">precision</span><span class="p">,</span>
+         <span class="n">intptlong</span>   <span class="n">double</span> <span class="n">precision</span>
+<span class="p">);</span>
+</pre></div>
+</div>
+<p>Also notice that the same command will work against an archived version of
+the same data, e.g.
+<a class="reference external" href="http://pgsql.tapoueh.org/temp/2013_Gaz_113CDs_national.txt.gz">http://pgsql.tapoueh.org/temp/2013_Gaz_113CDs_national.txt.gz</a>.</p>
+<p>Finally, it’s important to note that pgloader first fetches the content from
+the HTTP URL it to a local file, then expand the archive when it’s
+recognized to be one, and only then processes the locally expanded file.</p>
+<p>In some cases, either because pgloader has no direct support for your
+archive format or maybe because expanding the archive is not feasible in
+your environment, you might want to <em>stream</em> the content straight from its
+remote location into PostgreSQL. Here’s how to do that, using the old battle
+tested Unix Pipes trick:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>curl http://pgsql.tapoueh.org/temp/2013_Gaz_113CDs_national.txt.gz \
+| gunzip -c                                                        \
+| pgloader --type csv                                              \
+           --field &quot;usps,geoid,aland,awater,aland_sqmi,awater_sqmi,intptlat,intptlong&quot;
+           --with &quot;skip header = 1&quot;                                \
+           --with &quot;fields terminated by &#39;\t&#39;&quot;                      \
+           -                                                       \
+           postgresql:///pgloader?districts_longlat
+</pre></div>
+</div>
+<p>Now the OS will take care of the streaming and buffering between the network
+and the commands and pgloader will take care of streaming the data down to
+PostgreSQL.</p>
+</div>
+<div class="section" id="migrating-from-sqlite">
+<h3>Migrating from SQLite<a class="headerlink" href="#migrating-from-sqlite" title="Permalink to this headline">¶</a></h3>
+<p>The following command will open the SQLite database, discover its tables
+definitions including indexes and foreign keys, migrate those definitions
+while <em>casting</em> the data type specifications to their PostgreSQL equivalent
+and then migrate the data over:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">createdb</span> <span class="n">newdb</span>
+<span class="n">pgloader</span> <span class="o">./</span><span class="n">test</span><span class="o">/</span><span class="n">sqlite</span><span class="o">/</span><span class="n">sqlite</span><span class="o">.</span><span class="n">db</span> <span class="n">postgresql</span><span class="p">:</span><span class="o">///</span><span class="n">newdb</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="migrating-from-mysql">
+<h3>Migrating from MySQL<a class="headerlink" href="#migrating-from-mysql" title="Permalink to this headline">¶</a></h3>
+<p>Just create a database where to host the MySQL data and definitions and have
+pgloader do the migration for you in a single command line:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">createdb</span> <span class="n">pagila</span>
+<span class="n">pgloader</span> <span class="n">mysql</span><span class="p">:</span><span class="o">//</span><span class="n">user</span><span class="nd">@localhost</span><span class="o">/</span><span class="n">sakila</span> <span class="n">postgresql</span><span class="p">:</span><span class="o">///</span><span class="n">pagila</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="fetching-an-archived-dbf-file-from-a-http-remote-location">
+<h3>Fetching an archived DBF file from a HTTP remote location<a class="headerlink" href="#fetching-an-archived-dbf-file-from-a-http-remote-location" title="Permalink to this headline">¶</a></h3>
+<p>It’s possible for pgloader to download a file from HTTP, unarchive it, and
+only then open it to discover the schema then load the data:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">createdb</span> <span class="n">foo</span>
+<span class="n">pgloader</span> <span class="o">--</span><span class="nb">type</span> <span class="n">dbf</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">www</span><span class="o">.</span><span class="n">insee</span><span class="o">.</span><span class="n">fr</span><span class="o">/</span><span class="n">fr</span><span class="o">/</span><span class="n">methodes</span><span class="o">/</span><span class="n">nomenclatures</span><span class="o">/</span><span class="n">cog</span><span class="o">/</span><span class="n">telechargement</span><span class="o">/</span><span class="mi">2013</span><span class="o">/</span><span class="n">dbf</span><span class="o">/</span><span class="n">historiq2013</span><span class="o">.</span><span class="n">zip</span> <span class="n">postgresql</span><span class="p">:</span><span class="o">///</span><span class="n">foo</span>
+</pre></div>
+</div>
+<p>Here it’s not possible for pgloader to guess the kind of data source it’s
+being given, so it’s necessary to use the <cite>–type</cite> command line switch.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017, Dimitri Fontaine.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/pgloader-usage-examples.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,214 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Transformation Functions &#8212; pgloader 3.4.1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '3.4.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Reporting Bugs" href="../bugreport.html" />
+    <link rel="prev" title="Migrating a MS SQL Database to PostgreSQL" href="mssql.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="transformation-functions">
+<h1>Transformation Functions<a class="headerlink" href="#transformation-functions" title="Permalink to this headline">¶</a></h1>
+<p>Some data types are implemented in a different enough way that a
+transformation function is necessary. This function must be written in
+<cite>Common lisp</cite> and is searched in the <cite>pgloader.transforms</cite> package.</p>
+<p>Some default transformation function are provided with pgloader, and you can
+use the <cite>–load</cite> command line option to load and compile your own lisp file
+into pgloader at runtime. For your functions to be found, remember to begin
+your lisp file with the following form:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">(</span><span class="ow">in</span><span class="o">-</span><span class="n">package</span> <span class="c1">#:pgloader.transforms)</span>
+</pre></div>
+</div>
+<p>The provided transformation functions are:</p>
+<blockquote>
+<div><ul>
+<li><p class="first"><em>zero-dates-to-null</em></p>
+<p>When the input date is all zeroes, return <cite>nil</cite>, which gets loaded as a
+PostgreSQL <cite>NULL</cite> value.</p>
+</li>
+<li><p class="first"><em>date-with-no-separator</em></p>
+<p>Applies <em>zero-dates-to-null</em> then transform the given date into a format
+that PostgreSQL will actually process:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">In</span><span class="p">:</span>  <span class="s2">&quot;20041002152952&quot;</span>
+<span class="n">Out</span><span class="p">:</span> <span class="s2">&quot;2004-10-02 15:29:52&quot;</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first"><em>time-with-no-separator</em></p>
+<p>Transform the given time into a format that PostgreSQL will actually
+process:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">In</span><span class="p">:</span>  <span class="s2">&quot;08231560&quot;</span>
+<span class="n">Out</span><span class="p">:</span> <span class="s2">&quot;08:23:15.60&quot;</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first"><em>tinyint-to-boolean</em></p>
+<p>As MySQL lacks a proper boolean type, <em>tinyint</em> is often used to
+implement that. This function transforms <cite>0</cite> to <cite>‘false’</cite> and anything
+else to <cite>‘true</cite>’.</p>
+</li>
+<li><p class="first"><em>bits-to-boolean</em></p>
+<p>As MySQL lacks a proper boolean type, <em>BIT</em> is often used to implement
+that. This function transforms 1-bit bit vectors from <cite>0</cite> to <cite>f</cite> and any
+other value to <cite>t</cite>..</p>
+</li>
+<li><p class="first"><em>int-to-ip</em></p>
+<p>Convert an integer into a dotted representation of an ip4.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">In</span><span class="p">:</span>  <span class="mi">18435761</span>
+<span class="n">Out</span><span class="p">:</span> <span class="s2">&quot;1.25.78.177&quot;</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first"><em>ip-range</em></p>
+<p>Converts a couple of integers given as strings into a range of ip4.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">In</span><span class="p">:</span>  <span class="s2">&quot;16825344&quot;</span> <span class="s2">&quot;16825599&quot;</span>
+<span class="n">Out</span><span class="p">:</span> <span class="s2">&quot;1.0.188.0-1.0.188.255&quot;</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first"><em>convert-mysql-point</em></p>
+<p>Converts from the <cite>astext</cite> representation of points in MySQL to the
+PostgreSQL representation.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">In</span><span class="p">:</span>  <span class="s2">&quot;POINT(48.5513589 7.6926827)&quot;</span>
+<span class="n">Out</span><span class="p">:</span> <span class="s2">&quot;(48.5513589,7.6926827)&quot;</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first"><em>integer-to-string</em></p>
+<p>Converts a integer string or a Common Lisp integer into a string
+suitable for a PostgreSQL integer. Takes care of quoted integers.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">In</span><span class="p">:</span>  <span class="s2">&quot;</span><span class="se">\&quot;</span><span class="s2">0</span><span class="se">\&quot;</span><span class="s2">&quot;</span>
+<span class="n">Out</span><span class="p">:</span> <span class="s2">&quot;0&quot;</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first"><em>float-to-string</em></p>
+<p>Converts a Common Lisp float into a string suitable for a PostgreSQL float:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">In</span><span class="p">:</span>  <span class="mf">100.0</span><span class="n">d0</span>
+<span class="n">Out</span><span class="p">:</span> <span class="s2">&quot;100.0&quot;</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first"><em>set-to-enum-array</em></p>
+<p>Converts a string representing a MySQL SET into a PostgreSQL Array of
+Enum values from the set.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">In</span><span class="p">:</span> <span class="s2">&quot;foo,bar&quot;</span>
+<span class="n">Out</span><span class="p">:</span> <span class="s2">&quot;{foo,bar}&quot;</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first"><em>empty-string-to-null</em></p>
+<p>Convert an empty string to a null.</p>
+</li>
+<li><p class="first"><em>right-trim</em></p>
+<p>Remove whitespace at end of string.</p>
+</li>
+<li><p class="first"><em>remove-null-characters</em></p>
+<p>Remove <cite>NUL</cite> characters (<cite>0x0</cite>) from given strings.</p>
+</li>
+<li><p class="first"><em>byte-vector-to-bytea</em></p>
+<p>Transform a simple array of unsigned bytes to the PostgreSQL bytea Hex
+Format representation as documented at
+<a class="reference external" href="http://www.postgresql.org/docs/9.3/interactive/datatype-binary.html">http://www.postgresql.org/docs/9.3/interactive/datatype-binary.html</a></p>
+</li>
+<li><p class="first"><em>sqlite-timestamp-to-timestamp</em></p>
+<p>SQLite type system is quite interesting, so cope with it here to produce
+timestamp literals as expected by PostgreSQL. That covers year only on 4
+digits, 0 dates to null, and proper date strings.</p>
+</li>
+<li><p class="first"><em>sql-server-uniqueidentifier-to-uuid</em></p>
+<p>The SQL Server driver receives data fo type uniqueidentifier as byte
+vector that we then need to convert to an UUID string for PostgreSQL
+COPY input format to process.</p>
+</li>
+<li><p class="first"><em>unix-timestamp-to-timestamptz</em></p>
+<p>Converts a unix timestamp (number of seconds elapsed since beginning of
+1970) into a proper PostgreSQL timestamp format.</p>
+</li>
+<li><p class="first"><em>varbinary-to-string</em></p>
+<p>Converts binary encoded string (such as a MySQL <cite>varbinary</cite> entry) to a
+decoded text, using the table’s encoding that may be overloaded with the
+<em>DECODING TABLE NAMES MATCHING</em> clause.</p>
+</li>
+</ul>
+</div></blockquote>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="mssql.html" title="previous chapter">Migrating a MS SQL Database to PostgreSQL</a></li>
+      <li>Next: <a href="../bugreport.html" title="next chapter">Reporting Bugs</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017, Dimitri Fontaine.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="../_sources/ref/transforms.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

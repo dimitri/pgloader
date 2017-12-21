@@ -1,0 +1,176 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Loading Fixed Width Data File with pgloader &#8212; pgloader 3.4.1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '3.4.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="loading-fixed-width-data-file-with-pgloader">
+<h1>Loading Fixed Width Data File with pgloader<a class="headerlink" href="#loading-fixed-width-data-file-with-pgloader" title="Permalink to this headline">¶</a></h1>
+<p>Some data providers still use a format where each column is specified with a
+starting index position and a given length. Usually the columns are
+blank-padded when the data is shorter than the full reserved range.</p>
+<div class="section" id="the-command">
+<h2>The Command<a class="headerlink" href="#the-command" title="Permalink to this headline">¶</a></h2>
+<p>To load data with [pgloader](<a class="reference external" href="http://pgloader.io/">http://pgloader.io/</a>) you need to define in a
+<em>command</em> the operations in some details. Here’s our example for loading
+Fixed Width Data, using a file provided by the US census.</p>
+<p>You can find more files from them at the
+[Census 2000 Gazetteer Files](<a class="reference external" href="http://www.census.gov/geo/maps-data/data/gazetteer2000.html">http://www.census.gov/geo/maps-data/data/gazetteer2000.html</a>).</p>
+<p>Here’s our command:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>LOAD ARCHIVE
+   FROM http://www.census.gov/geo/maps-data/data/docs/gazetteer/places2k.zip
+   INTO postgresql:///pgloader
+
+   BEFORE LOAD DO
+     $$ drop table if exists places; $$,
+     $$ create table places
+       (
+          usps      char(2)  not null,
+          fips      char(2)  not null,
+          fips_code char(5),
+          loc_name  varchar(64)
+       );
+     $$
+
+   LOAD FIXED
+        FROM FILENAME MATCHING ~/places2k.txt/
+             WITH ENCODING latin1
+             (
+                usps           from   0 for  2,
+                fips           from   2 for  2,
+                fips_code      from   4 for  5,
+                &quot;LocationName&quot; from   9 for 64 [trim right whitespace],
+                p              from  73 for  9,
+                h              from  82 for  9,
+                land           from  91 for 14,
+                water          from 105 for 14,
+                ldm            from 119 for 14,
+                wtm            from 131 for 14,
+                lat            from 143 for 10,
+                long           from 153 for 11
+             )
+        INTO postgresql:///pgloader?places
+             (
+            usps, fips, fips_code, &quot;LocationName&quot;
+             );
+</pre></div>
+</div>
+</div>
+<div class="section" id="the-data">
+<h2>The Data<a class="headerlink" href="#the-data" title="Permalink to this headline">¶</a></h2>
+<p>This command allows loading the following file content, where we are only
+showing the first couple of lines:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">AL0100124Abbeville</span> <span class="n">city</span>                                                       <span class="mi">2987</span>     <span class="mi">1353</span>      <span class="mi">40301945</span>        <span class="mi">120383</span>   <span class="mf">15.560669</span>    <span class="mf">0.046480</span> <span class="mf">31.566367</span> <span class="o">-</span><span class="mf">85.251300</span>
+<span class="n">AL0100460Adamsville</span> <span class="n">city</span>                                                      <span class="mi">4965</span>     <span class="mi">2042</span>      <span class="mi">50779330</span>         <span class="mi">14126</span>   <span class="mf">19.606010</span>    <span class="mf">0.005454</span> <span class="mf">33.590411</span> <span class="o">-</span><span class="mf">86.949166</span>
+<span class="n">AL0100484Addison</span> <span class="n">town</span>                                                          <span class="mi">723</span>      <span class="mi">339</span>       <span class="mi">9101325</span>             <span class="mi">0</span>    <span class="mf">3.514041</span>    <span class="mf">0.000000</span> <span class="mf">34.200042</span> <span class="o">-</span><span class="mf">87.177851</span>
+<span class="n">AL0100676Akron</span> <span class="n">town</span>                                                            <span class="mi">521</span>      <span class="mi">239</span>       <span class="mi">1436797</span>             <span class="mi">0</span>    <span class="mf">0.554750</span>    <span class="mf">0.000000</span> <span class="mf">32.876425</span> <span class="o">-</span><span class="mf">87.740978</span>
+<span class="n">AL0100820Alabaster</span> <span class="n">city</span>                                                      <span class="mi">22619</span>     <span class="mi">8594</span>      <span class="mi">53023800</span>        <span class="mi">141711</span>   <span class="mf">20.472605</span>    <span class="mf">0.054715</span> <span class="mf">33.231162</span> <span class="o">-</span><span class="mf">86.823829</span>
+<span class="n">AL0100988Albertville</span> <span class="n">city</span>                                                    <span class="mi">17247</span>     <span class="mi">7090</span>      <span class="mi">67212867</span>        <span class="mi">258738</span>   <span class="mf">25.951034</span>    <span class="mf">0.099899</span> <span class="mf">34.265362</span> <span class="o">-</span><span class="mf">86.211261</span>
+<span class="n">AL0101132Alexander</span> <span class="n">City</span> <span class="n">city</span>                                                 <span class="mi">15008</span>     <span class="mi">6855</span>     <span class="mi">100534344</span>        <span class="mi">433413</span>   <span class="mf">38.816529</span>    <span class="mf">0.167342</span> <span class="mf">32.933157</span> <span class="o">-</span><span class="mf">85.936008</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="loading-the-data">
+<h2>Loading the data<a class="headerlink" href="#loading-the-data" title="Permalink to this headline">¶</a></h2>
+<p>Let’s start the <cite>pgloader</cite> command with our <cite>census-places.load</cite> command file:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ pgloader census-places.load
+... LOG Starting pgloader, log system is ready.
+... LOG Parsing commands from file &quot;/Users/dim/dev/pgloader/test/census-places.load&quot;
+... LOG Fetching &#39;http://www.census.gov/geo/maps-data/data/docs/gazetteer/places2k.zip&#39;
+... LOG Extracting files from archive &#39;//private/var/folders/w7/9n8v8pw54t1gngfff0lj16040000gn/T/pgloader//places2k.zip&#39;
+
+       table name       read   imported     errors            time
+-----------------  ---------  ---------  ---------  --------------
+         download          0          0          0          1.494s
+          extract          0          0          0          1.013s
+      before load          2          2          0          0.013s
+-----------------  ---------  ---------  ---------  --------------
+           places      25375      25375          0          0.499s
+-----------------  ---------  ---------  ---------  --------------
+Total import time      25375      25375          0          3.019s
+</pre></div>
+</div>
+<p>We can see that pgloader did download the file from its HTTP URL location
+then <em>unziped</em> it before the loading itself.</p>
+<p>Note that the output of the command has been edited to facilitate its
+browsing online.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017, Dimitri Fontaine.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="../_sources/tutorial/fixed.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

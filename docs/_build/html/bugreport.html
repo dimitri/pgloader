@@ -1,0 +1,136 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Reporting Bugs &#8212; pgloader 3.4.1 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '3.4.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Transformation Functions" href="ref/transforms.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="reporting-bugs">
+<h1>Reporting Bugs<a class="headerlink" href="#reporting-bugs" title="Permalink to this headline">¶</a></h1>
+<p>pgloader is a software and as such contains bugs. Most bugs are easy to
+solve and taken care of in a short delay. For this to be possible though,
+bug reports need to follow those recommandations:</p>
+<blockquote>
+<div><ul class="simple">
+<li>include pgloader version,</li>
+<li>include problematic input and output,</li>
+<li>include a description of the output you expected,</li>
+<li>explain the difference between the ouput you have and the one you expected,</li>
+<li>include a self-reproducing test-case</li>
+</ul>
+</div></blockquote>
+<div class="section" id="test-cases-to-reproduce-bugs">
+<h2>Test Cases to Reproduce Bugs<a class="headerlink" href="#test-cases-to-reproduce-bugs" title="Permalink to this headline">¶</a></h2>
+<p>Use the <em>inline</em> source type to help reproduce a bug, as in the pgloader tests:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>LOAD CSV
+   FROM INLINE
+   INTO postgresql://dim@localhost/pgloader?public.&quot;HS&quot;
+
+   WITH truncate,
+        fields terminated by &#39;\t&#39;,
+        fields not enclosed,
+        fields escaped by backslash-quote,
+        quote identifiers
+
+    SET work_mem to &#39;128MB&#39;,
+        standard_conforming_strings to &#39;on&#39;,
+        application_name to &#39;my app name&#39;
+
+ BEFORE LOAD DO
+  $$ create extension if not exists hstore; $$,
+  $$ drop table if exists &quot;HS&quot;; $$,
+  $$ CREATE TABLE &quot;HS&quot;
+     (
+        id     serial primary key,
+        kv     hstore
+     )
+  $$;
+
+
+1     email=&gt;foo@example.com,a=&gt;b
+2     test=&gt;value
+3     a=&gt;b,c=&gt;&quot;quoted hstore value&quot;,d=&gt;other
+4     baddata
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="ref/transforms.html" title="previous chapter">Transformation Functions</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017, Dimitri Fontaine.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/bugreport.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

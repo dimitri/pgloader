@@ -1,0 +1,196 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Loading COPY Formatted Files &#8212; pgloader 3.4.1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '3.4.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Loading DBF data" href="dbf.html" />
+    <link rel="prev" title="Loading Fixed Cols File Formats" href="fixed.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="loading-copy-formatted-files">
+<h1>Loading COPY Formatted Files<a class="headerlink" href="#loading-copy-formatted-files" title="Permalink to this headline">¶</a></h1>
+<p>This commands instructs pgloader to load from a file containing COPY TEXT
+data as described in the PostgreSQL documentation. Here’s an example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>LOAD COPY
+     FROM copy://./data/track.copy
+          (
+            trackid, track, album, media, genre, composer,
+            milliseconds, bytes, unitprice
+          )
+     INTO postgresql:///pgloader
+   TARGET TABLE track_full
+
+     WITH truncate
+
+      SET work_mem to &#39;14MB&#39;,
+          standard_conforming_strings to &#39;on&#39;
+
+BEFORE LOAD DO
+     $$ drop table if exists track_full; $$,
+     $$ create table track_full (
+          trackid      bigserial,
+          track        text,
+          album        text,
+          media        text,
+          genre        text,
+          composer     text,
+          milliseconds bigint,
+          bytes        bigint,
+          unitprice    numeric
+        );
+     $$;
+</pre></div>
+</div>
+<p>The <cite>COPY</cite> format command accepts the following clauses and options.</p>
+<div class="section" id="copy-formatted-files-source-specification-from">
+<h2>COPY Formatted Files Source Specification: FROM<a class="headerlink" href="#copy-formatted-files-source-specification-from" title="Permalink to this headline">¶</a></h2>
+<p>Filename where to load the data from. This support local files, HTTP URLs
+and zip files containing a single dbf file of the same name. Fetch such a
+zip file from an HTTP address is of course supported.</p>
+<blockquote>
+<div><ul>
+<li><p class="first"><em>inline</em></p>
+<p>The data is found after the end of the parsed commands. Any number of
+empty lines between the end of the commands and the beginning of the
+data is accepted.</p>
+</li>
+<li><p class="first"><em>stdin</em></p>
+<p>Reads the data from the standard input stream.</p>
+</li>
+<li><p class="first"><em>FILENAMES MATCHING</em></p>
+<p>The whole <em>matching</em> clause must follow the following rule:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">[</span> <span class="n">ALL</span> <span class="n">FILENAMES</span> <span class="o">|</span> <span class="p">[</span> <span class="n">FIRST</span> <span class="p">]</span> <span class="n">FILENAME</span> <span class="p">]</span>
+<span class="n">MATCHING</span> <span class="n">regexp</span>
+<span class="p">[</span> <span class="n">IN</span> <span class="n">DIRECTORY</span> <span class="s1">&#39;...&#39;</span> <span class="p">]</span>
+</pre></div>
+</div>
+<p>The <em>matching</em> clause applies given <em>regular expression</em> (see above for
+exact syntax, several options can be used here) to filenames. It’s then
+possible to load data from only the first match of all of them.</p>
+<p>The optional <em>IN DIRECTORY</em> clause allows specifying which directory to
+walk for finding the data files, and can be either relative to where the
+command file is read from, or absolute. The given directory must exists.</p>
+</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="copy-formatted-file-options-with">
+<h2>COPY Formatted File Options: WITH<a class="headerlink" href="#copy-formatted-file-options-with" title="Permalink to this headline">¶</a></h2>
+<p>When loading from a <cite>COPY</cite> file, the following options are supported:</p>
+<blockquote>
+<div><ul>
+<li><p class="first"><em>delimiter</em></p>
+<p>Takes a single character as argument, which must be found inside single
+quotes, and might be given as the printable character itself, the
+special value t to denote a tabulation character, or <cite>0x</cite> then an
+hexadecimal value read as the ASCII code for the character.</p>
+<p>This character is used as the <em>delimiter</em> when reading the data, in a
+similar way to the PostgreSQL <cite>COPY</cite> option.</p>
+</li>
+<li><p class="first"><em>null</em></p>
+<p>Takes a quoted string as an argument (quotes can be either double quotes
+or single quotes) and uses that string as the <cite>NULL</cite> representation in
+the data.</p>
+<p>This is similar to the <em>null</em> <cite>COPY</cite> option in PostgreSQL.</p>
+</li>
+<li><p class="first"><em>truncate</em></p>
+<p>When this option is listed, pgloader issues a <cite>TRUNCATE</cite> command against
+the PostgreSQL target table before reading the data file.</p>
+</li>
+<li><p class="first"><em>disable triggers</em></p>
+<p>When this option is listed, pgloader issues an <cite>ALTER TABLE … DISABLE
+TRIGGER ALL</cite> command against the PostgreSQL target table before copying
+the data, then the command <cite>ALTER TABLE … ENABLE TRIGGER ALL</cite> once the
+<cite>COPY</cite> is done.</p>
+<p>This option allows loading data into a pre-existing table ignoring the
+<em>foreign key constraints</em> and user defined triggers and may result in
+invalid <em>foreign key constraints</em> once the data is loaded. Use with
+care.</p>
+</li>
+<li><p class="first"><em>skip header</em></p>
+<p>Takes a numeric value as argument. Instruct pgloader to skip that many
+lines at the beginning of the input file.</p>
+</li>
+</ul>
+</div></blockquote>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="fixed.html" title="previous chapter">Loading Fixed Cols File Formats</a></li>
+      <li>Next: <a href="dbf.html" title="next chapter">Loading DBF data</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017, Dimitri Fontaine.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="../_sources/ref/copy.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

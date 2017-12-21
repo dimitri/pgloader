@@ -1,0 +1,639 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Migrating a MySQL Database to PostgreSQL &#8212; pgloader 3.4.1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '3.4.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Migrating a SQLite database to PostgreSQL" href="sqlite.html" />
+    <link rel="prev" title="Loading From an Archive" href="archive.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="migrating-a-mysql-database-to-postgresql">
+<h1>Migrating a MySQL Database to PostgreSQL<a class="headerlink" href="#migrating-a-mysql-database-to-postgresql" title="Permalink to this headline">¶</a></h1>
+<p>This command instructs pgloader to load data from a database connection. The
+only supported database source is currently <em>MySQL</em>, and pgloader supports
+dynamically converting the schema of the source database and the indexes
+building.</p>
+<p>A default set of casting rules are provided and might be overloaded and
+appended to by the command.</p>
+<p>Here’s an example using as many options as possible, some of them even being
+defaults. Chances are you don’t need that complex a setup, don’t copy and
+paste it, use it only as a reference!</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>LOAD DATABASE
+     FROM      mysql://root@localhost/sakila
+     INTO postgresql://localhost:54393/sakila
+
+ WITH include drop, create tables, create indexes, reset sequences,
+      workers = 8, concurrency = 1,
+      multiple readers per thread, rows per range = 50000
+
+  SET PostgreSQL PARAMETERS
+      maintenance_work_mem to &#39;128MB&#39;,
+      work_mem to &#39;12MB&#39;,
+      search_path to &#39;sakila, public, &quot;$user&quot;&#39;
+
+  SET MySQL PARAMETERS
+      net_read_timeout  = &#39;120&#39;,
+      net_write_timeout = &#39;120&#39;
+
+ CAST type bigint when (= precision 20) to bigserial drop typemod,
+      type date drop not null drop default using zero-dates-to-null,
+      -- type tinyint to boolean using tinyint-to-boolean,
+      type year to integer
+
+ MATERIALIZE VIEWS film_list, staff_list
+
+ -- INCLUDING ONLY TABLE NAMES MATCHING ~/film/, &#39;actor&#39;
+ -- EXCLUDING TABLE NAMES MATCHING ~&lt;ory&gt;
+ -- DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf8
+ -- ALTER TABLE NAMES MATCHING &#39;film&#39; RENAME TO &#39;films&#39;
+ -- ALTER TABLE NAMES MATCHING ~/_list$/ SET SCHEMA &#39;mv&#39;
+
+ ALTER TABLE NAMES MATCHING ~/_list$/, &#39;sales_by_store&#39;, ~/sales_by/
+  SET SCHEMA &#39;mv&#39;
+
+ ALTER TABLE NAMES MATCHING &#39;film&#39; RENAME TO &#39;films&#39;
+ ALTER TABLE NAMES MATCHING ~/./ SET (fillfactor=&#39;40&#39;)
+
+ ALTER SCHEMA &#39;sakila&#39; RENAME TO &#39;pagila&#39;
+
+ BEFORE LOAD DO
+   $$ create schema if not exists pagila; $$,
+   $$ create schema if not exists mv;     $$,
+   $$ alter database sakila set search_path to pagila, mv, public; $$;
+</pre></div>
+</div>
+<p>The <cite>database</cite> command accepts the following clauses and options.</p>
+<div class="section" id="mysql-database-source-specification-from">
+<h2>MySQL Database Source Specification: FROM<a class="headerlink" href="#mysql-database-source-specification-from" title="Permalink to this headline">¶</a></h2>
+<p>Must be a connection URL pointing to a MySQL database.</p>
+<p>If the connection URI contains a table name, then only this table is
+migrated from MySQL to PostgreSQL.</p>
+<p>See the <cite>SOURCE CONNECTION STRING</cite> section above for details on how to write
+the connection string. The MySQL connection string accepts the same
+parameter <em>sslmode</em> as the PostgreSQL connection string, but the <em>verify</em>
+mode is not implemented (yet).</p>
+<p>Environment variables described in
+&lt;<a class="reference external" href="http://dev.mysql.com/doc/refman/5.0/en/environment-variables.html">http://dev.mysql.com/doc/refman/5.0/en/environment-variables.html</a>&gt; can be
+used as default values too. If the user is not provided, then it defaults to
+<cite>USER</cite> environment variable value. The password can be provided with the
+environment variable <cite>MYSQL_PWD</cite>. The host can be provided with the
+environment variable <cite>MYSQL_HOST</cite> and otherwise defaults to <cite>localhost</cite>. The
+port can be provided with the environment variable <cite>MYSQL_TCP_PORT</cite> and
+otherwise defaults to <cite>3306</cite>.</p>
+</div>
+<div class="section" id="mysql-database-migration-options-with">
+<h2>MySQL Database Migration Options: WITH<a class="headerlink" href="#mysql-database-migration-options-with" title="Permalink to this headline">¶</a></h2>
+<p>When loading from a <cite>MySQL</cite> database, the following options are supported,
+and the default <em>WITH</em> clause is: <em>no truncate</em>, <em>create schema</em>, <em>create
+tables</em>, <em>include drop</em>, <em>create indexes</em>, <em>reset sequences</em>, <em>foreign
+keys</em>, <em>downcase identifiers</em>, <em>uniquify index names</em>.</p>
+<blockquote>
+<div><ul>
+<li><p class="first"><em>include drop</em></p>
+<p>When this option is listed, pgloader drops all the tables in the target
+PostgreSQL database whose names appear in the MySQL database. This
+option allows for using the same command several times in a row until
+you figure out all the options, starting automatically from a clean
+environment. Please note that <cite>CASCADE</cite> is used to ensure that tables
+are dropped even if there are foreign keys pointing to them. This is
+precisely what <cite>include drop</cite> is intended to do: drop all target tables
+and recreate them.</p>
+<p>Great care needs to be taken when using <cite>include drop</cite>, as it will
+cascade to <em>all</em> objects referencing the target tables, possibly
+including other tables that are not being loaded from the source DB.</p>
+</li>
+<li><p class="first"><em>include no drop</em></p>
+<p>When this option is listed, pgloader will not include any <cite>DROP</cite>
+statement when loading the data.</p>
+</li>
+<li><p class="first"><em>truncate</em></p>
+<p>When this option is listed, pgloader issue the <cite>TRUNCATE</cite> command
+against each PostgreSQL table just before loading data into it.</p>
+</li>
+<li><p class="first"><em>no truncate</em></p>
+<p>When this option is listed, pgloader issues no <cite>TRUNCATE</cite> command.</p>
+</li>
+<li><p class="first"><em>disable triggers</em></p>
+<p>When this option is listed, pgloader issues an <cite>ALTER TABLE … DISABLE
+TRIGGER ALL</cite> command against the PostgreSQL target table before copying
+the data, then the command <cite>ALTER TABLE … ENABLE TRIGGER ALL</cite> once the
+<cite>COPY</cite> is done.</p>
+<p>This option allows loading data into a pre-existing table ignoring the
+<em>foreign key constraints</em> and user defined triggers and may result in
+invalid <em>foreign key constraints</em> once the data is loaded. Use with
+care.</p>
+</li>
+<li><p class="first"><em>create tables</em></p>
+<p>When this option is listed, pgloader creates the table using the meta
+data found in the <cite>MySQL</cite> file, which must contain a list of fields with
+their data type. A standard data type conversion from DBF to PostgreSQL
+is done.</p>
+</li>
+<li><p class="first"><em>create no tables</em></p>
+<p>When this option is listed, pgloader skips the creation of table before
+loading data, target tables must then already exist.</p>
+<p>Also, when using <em>create no tables</em> pgloader fetches the metadata from
+the current target database and checks type casting, then will remove
+constraints and indexes prior to loading the data and install them back
+again once the loading is done.</p>
+</li>
+<li><p class="first"><em>create indexes</em></p>
+<p>When this option is listed, pgloader gets the definitions of all the
+indexes found in the MySQL database and create the same set of index
+definitions against the PostgreSQL database.</p>
+</li>
+<li><p class="first"><em>create no indexes</em></p>
+<p>When this option is listed, pgloader skips the creating indexes.</p>
+</li>
+<li><p class="first"><em>drop indexes</em></p>
+<p>When this option is listed, pgloader drops the indexes in the target
+database before loading the data, and creates them again at the end
+of the data copy.</p>
+</li>
+<li><p class="first"><em>uniquify index names</em>, <em>preserve index names</em></p>
+<p>MySQL index names are unique per-table whereas in PostgreSQL index names
+have to be unique per-schema. The default for pgloader is to change the
+index name by prefixing it with <cite>idx_OID</cite> where <cite>OID</cite> is the internal
+numeric identifier of the table the index is built against.</p>
+<p>In somes cases like when the DDL are entirely left to a framework it
+might be sensible for pgloader to refrain from handling index unique
+names, that is achieved by using the <em>preserve index names</em> option.</p>
+<p>The default is to <em>uniquify index names</em>.</p>
+<p>Even when using the option <em>preserve index names</em>, MySQL primary key
+indexes named “PRIMARY” will get their names uniquified. Failing to do
+so would prevent the primary keys to be created again in PostgreSQL
+where the index names must be unique per schema.</p>
+</li>
+<li><p class="first"><em>drop schema</em></p>
+<p>When this option is listed, pgloader drops the target schema in the
+target PostgreSQL database before creating it again and all the objects
+it contains. The default behavior doesn’t drop the target schemas.</p>
+</li>
+<li><p class="first"><em>foreign keys</em></p>
+<p>When this option is listed, pgloader gets the definitions of all the
+foreign keys found in the MySQL database and create the same set of
+foreign key definitions against the PostgreSQL database.</p>
+</li>
+<li><p class="first"><em>no foreign keys</em></p>
+<p>When this option is listed, pgloader skips creating foreign keys.</p>
+</li>
+<li><p class="first"><em>reset sequences</em></p>
+<p>When this option is listed, at the end of the data loading and after the
+indexes have all been created, pgloader resets all the PostgreSQL
+sequences created to the current maximum value of the column they are
+attached to.</p>
+<p>The options <em>schema only</em> and <em>data only</em> have no effects on this
+option.</p>
+</li>
+<li><p class="first"><em>reset no sequences</em></p>
+<p>When this option is listed, pgloader skips resetting sequences after the
+load.</p>
+<p>The options <em>schema only</em> and <em>data only</em> have no effects on this
+option.</p>
+</li>
+<li><p class="first"><em>downcase identifiers</em></p>
+<p>When this option is listed, pgloader converts all MySQL identifiers
+(table names, index names, column names) to <em>downcase</em>, except for
+PostgreSQL <em>reserved</em> keywords.</p>
+<p>The PostgreSQL <em>reserved</em> keywords are determined dynamically by using
+the system function <cite>pg_get_keywords()</cite>.</p>
+</li>
+<li><p class="first"><em>quote identifiers</em></p>
+<p>When this option is listed, pgloader quotes all MySQL identifiers so
+that their case is respected. Note that you will then have to do the
+same thing in your application code queries.</p>
+</li>
+<li><p class="first"><em>schema only</em></p>
+<p>When this option is listed pgloader refrains from migrating the data
+over. Note that the schema in this context includes the indexes when the
+option <em>create indexes</em> has been listed.</p>
+</li>
+<li><p class="first"><em>data only</em></p>
+<p>When this option is listed pgloader only issues the <cite>COPY</cite> statements,
+without doing any other processing.</p>
+</li>
+<li><p class="first"><em>single reader per thread</em>, <em>multiple readers per thread</em></p>
+<p>The default is <em>single reader per thread</em> and it means that each
+MySQL table is read by a single thread as a whole, with a single
+<cite>SELECT</cite> statement using no <cite>WHERE</cite> clause.</p>
+<p>When using <em>multiple readers per thread</em> pgloader may be able to
+divide the reading work into several threads, as many as the
+<em>concurrency</em> setting, which needs to be greater than 1 for this
+option to kick be activated.</p>
+<p>For each source table, pgloader searches for a primary key over a
+single numeric column, or a multiple-column primary key index for
+which the first column is of a numeric data type (one of <cite>integer</cite>
+or <cite>bigint</cite>). When such an index exists, pgloader runs a query to
+find the <em>min</em> and <em>max</em> values on this column, and then split that
+range into many ranges containing a maximum of <em>rows per range</em>.</p>
+<p>When the range list we then obtain contains at least as many ranges
+than our concurrency setting, then we distribute those ranges to
+each reader thread.</p>
+<p>So when all the conditions are met, pgloader then starts as many
+reader thread as the <em>concurrency</em> setting, and each reader thread
+issues several queries with a <cite>WHERE id &gt;= x AND id &lt; y</cite>, where <cite>y -
+x = rows per range</cite> or less (for the last range, depending on the
+max value just obtained.</p>
+</li>
+<li><p class="first"><em>rows per range</em></p>
+<p>How many rows are fetched per <cite>SELECT</cite> query when using <em>multiple
+readers per thread</em>, see above for details.</p>
+</li>
+<li><p class="first"><em>SET MySQL PARAMETERS</em></p>
+<p>The <em>SET MySQL PARAMETERS</em> allows setting MySQL parameters using the
+MySQL <cite>SET</cite> command each time pgloader connects to it.</p>
+</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="mysql-database-casting-rules">
+<h2>MySQL Database Casting Rules<a class="headerlink" href="#mysql-database-casting-rules" title="Permalink to this headline">¶</a></h2>
+<p>The command <em>CAST</em> introduces user-defined casting rules.</p>
+<p>The cast clause allows to specify custom casting rules, either to overload
+the default casting rules or to amend them with special cases.</p>
+<p>A casting rule is expected to follow one of the forms:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">type</span> <span class="o">&lt;</span><span class="n">mysql</span><span class="o">-</span><span class="nb">type</span><span class="o">-</span><span class="n">name</span><span class="o">&gt;</span> <span class="p">[</span> <span class="o">&lt;</span><span class="n">guard</span><span class="o">&gt;</span> <span class="o">...</span> <span class="p">]</span> <span class="n">to</span> <span class="o">&lt;</span><span class="n">pgsql</span><span class="o">-</span><span class="nb">type</span><span class="o">-</span><span class="n">name</span><span class="o">&gt;</span> <span class="p">[</span> <span class="o">&lt;</span><span class="n">option</span><span class="o">&gt;</span> <span class="o">...</span> <span class="p">]</span>
+<span class="n">column</span> <span class="o">&lt;</span><span class="n">table</span><span class="o">-</span><span class="n">name</span><span class="o">&gt;.&lt;</span><span class="n">column</span><span class="o">-</span><span class="n">name</span><span class="o">&gt;</span> <span class="p">[</span> <span class="o">&lt;</span><span class="n">guards</span><span class="o">&gt;</span> <span class="p">]</span> <span class="n">to</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p>It’s possible for a <em>casting rule</em> to either match against a MySQL data type
+or against a given <em>column name</em> in a given <em>table name</em>. That flexibility
+allows to cope with cases where the type <cite>tinyint</cite> might have been used as a
+<cite>boolean</cite> in some cases but as a <cite>smallint</cite> in others.</p>
+<p>The <em>casting rules</em> are applied in order, the first match prevents following
+rules to be applied, and user defined rules are evaluated first.</p>
+<p>The supported guards are:</p>
+<blockquote>
+<div><ul>
+<li><p class="first"><em>when unsigned</em></p>
+<p>The casting rule is only applied against MySQL columns of the source
+type that have the keyword <em>unsigned</em> in their data type definition.</p>
+<p>Example of a casting rule using a <em>unsigned</em> guard:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">type</span> <span class="n">smallint</span> <span class="n">when</span> <span class="n">unsigned</span> <span class="n">to</span> <span class="n">integer</span> <span class="n">drop</span> <span class="n">typemod</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first"><em>when default ‘value’</em></p>
+<p>The casting rule is only applied against MySQL columns of the source
+type that have given <em>value</em>, which must be a single-quoted or a
+double-quoted string.</p>
+</li>
+<li><p class="first"><em>when typemod expression</em></p>
+<p>The casting rule is only applied against MySQL columns of the source
+type that have a <em>typemod</em> value matching the given <em>typemod
+expression</em>. The <em>typemod</em> is separated into its <em>precision</em> and <em>scale</em>
+components.</p>
+<p>Example of a cast rule using a <em>typemod</em> guard:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">type</span> <span class="n">char</span> <span class="n">when</span> <span class="p">(</span><span class="o">=</span> <span class="n">precision</span> <span class="mi">1</span><span class="p">)</span> <span class="n">to</span> <span class="n">char</span> <span class="n">keep</span> <span class="n">typemod</span>
+</pre></div>
+</div>
+<p>This expression casts MySQL <cite>char(1)</cite> column to a PostgreSQL column of
+type <cite>char(1)</cite> while allowing for the general case <cite>char(N)</cite> will be
+converted by the default cast rule into a PostgreSQL type <cite>varchar(N)</cite>.</p>
+</li>
+<li><p class="first"><em>with extra auto_increment</em></p>
+<p>The casting rule is only applied against MySQL columns having the
+<em>extra</em> column <cite>auto_increment</cite> option set, so that it’s possible to
+target e.g. <cite>serial</cite> rather than <cite>integer</cite>.</p>
+<p>The default matching behavior, when this option isn’t set, is to match
+both columns with the extra definition and without.</p>
+<p>This means that if you want to implement a casting rule that target
+either <cite>serial</cite> or <cite>integer</cite> from a <cite>smallint</cite> definition depending on
+the <em>auto_increment</em> extra bit of information from MySQL, then you need
+to spell out two casting rules as following:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">type</span> <span class="n">smallint</span>  <span class="k">with</span> <span class="n">extra</span> <span class="n">auto_increment</span>
+  <span class="n">to</span> <span class="n">serial</span> <span class="n">drop</span> <span class="n">typemod</span> <span class="n">keep</span> <span class="n">default</span> <span class="n">keep</span> <span class="ow">not</span> <span class="n">null</span><span class="p">,</span>
+
+<span class="nb">type</span> <span class="n">smallint</span>
+  <span class="n">to</span> <span class="n">integer</span> <span class="n">drop</span> <span class="n">typemod</span> <span class="n">keep</span> <span class="n">default</span> <span class="n">keep</span> <span class="ow">not</span> <span class="n">null</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div></blockquote>
+<p>The supported casting options are:</p>
+<blockquote>
+<div><ul>
+<li><p class="first"><em>drop default</em>, <em>keep default</em></p>
+<p>When the option <em>drop default</em> is listed, pgloader drops any
+existing default expression in the MySQL database for columns of the
+source type from the <cite>CREATE TABLE</cite> statement it generates.</p>
+<p>The spelling <em>keep default</em> explicitly prevents that behaviour and
+can be used to overload the default casting rules.</p>
+</li>
+<li><p class="first"><em>drop not null</em>, <em>keep not null</em>, <em>set not null</em></p>
+<p>When the option <em>drop not null</em> is listed, pgloader drops any
+existing <cite>NOT NULL</cite> constraint associated with the given source
+MySQL datatype when it creates the tables in the PostgreSQL
+database.</p>
+<p>The spelling <em>keep not null</em> explicitly prevents that behaviour and
+can be used to overload the default casting rules.</p>
+<p>When the option <em>set not null</em> is listed, pgloader sets a <cite>NOT NULL</cite>
+constraint on the target column regardless whether it has been set
+in the source MySQL column.</p>
+</li>
+<li><p class="first"><em>drop typemod</em>, <em>keep typemod</em></p>
+<p>When the option <em>drop typemod</em> is listed, pgloader drops any
+existing <em>typemod</em> definition (e.g. <em>precision</em> and <em>scale</em>) from
+the datatype definition found in the MySQL columns of the source
+type when it created the tables in the PostgreSQL database.</p>
+<p>The spelling <em>keep typemod</em> explicitly prevents that behaviour and
+can be used to overload the default casting rules.</p>
+</li>
+<li><p class="first"><em>using</em></p>
+<p>This option takes as its single argument the name of a function to
+be found in the <cite>pgloader.transforms</cite> Common Lisp package. See above
+for details.</p>
+<p>It’s possible to augment a default cast rule (such as one that
+applies against <cite>ENUM</cite> data type for example) with a <em>transformation
+function</em> by omitting entirely the <cite>type</cite> parts of the casting rule,
+as in the following example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">column</span> <span class="nb">enumerate</span><span class="o">.</span><span class="n">foo</span> <span class="n">using</span> <span class="n">empty</span><span class="o">-</span><span class="n">string</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">null</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="mysql-views-support">
+<h2>MySQL Views Support<a class="headerlink" href="#mysql-views-support" title="Permalink to this headline">¶</a></h2>
+<p>MySQL views support allows pgloader to migrate view as if they were base
+tables. This feature then allows for on-the-fly transformation from MySQL to
+PostgreSQL, as the view definition is used rather than the base data.</p>
+<div class="section" id="materialize-views">
+<h3>MATERIALIZE VIEWS<a class="headerlink" href="#materialize-views" title="Permalink to this headline">¶</a></h3>
+<p>This clause allows you to implement custom data processing at the data
+source by providing a <em>view definition</em> against which pgloader will query
+the data. It’s not possible to just allow for plain <cite>SQL</cite> because we want to
+know a lot about the exact data types of each column involved in the query
+output.</p>
+<p>This clause expect a comma separated list of view definitions, each one
+being either the name of an existing view in your database or the following
+expression:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>*name* `AS` `$$` *sql query* `$$`
+</pre></div>
+</div>
+<p>The <em>name</em> and the <em>sql query</em> will be used in a <cite>CREATE VIEW</cite> statement at
+the beginning of the data loading, and the resulting view will then be
+dropped at the end of the data loading.</p>
+</div>
+<div class="section" id="materialize-all-views">
+<h3>MATERIALIZE ALL VIEWS<a class="headerlink" href="#materialize-all-views" title="Permalink to this headline">¶</a></h3>
+<p>Same behaviour as <em>MATERIALIZE VIEWS</em> using the dynamic list of views as
+returned by MySQL rather than asking the user to specify the list.</p>
+</div>
+</div>
+<div class="section" id="mysql-partial-migration">
+<h2>MySQL Partial Migration<a class="headerlink" href="#mysql-partial-migration" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="including-only-table-names-matching">
+<h3>INCLUDING ONLY TABLE NAMES MATCHING<a class="headerlink" href="#including-only-table-names-matching" title="Permalink to this headline">¶</a></h3>
+<p>Introduce a comma separated list of table names or <em>regular expression</em> used
+to limit the tables to migrate to a sublist.</p>
+<p>Example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">including</span> <span class="n">only</span> <span class="n">table</span> <span class="n">names</span> <span class="n">matching</span> <span class="o">~/</span><span class="n">film</span><span class="o">/</span><span class="p">,</span> <span class="s1">&#39;actor&#39;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="excluding-table-names-matching">
+<h3>EXCLUDING TABLE NAMES MATCHING<a class="headerlink" href="#excluding-table-names-matching" title="Permalink to this headline">¶</a></h3>
+<p>Introduce a comma separated list of table names or <em>regular expression</em> used
+to exclude table names from the migration. This filter only applies to the
+result of the <em>INCLUDING</em> filter.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">excluding</span> <span class="n">table</span> <span class="n">names</span> <span class="n">matching</span> <span class="o">~&lt;</span><span class="n">ory</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="mysql-encoding-support">
+<h2>MySQL Encoding Support<a class="headerlink" href="#mysql-encoding-support" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="decoding-table-names-matching">
+<h3>DECODING TABLE NAMES MATCHING<a class="headerlink" href="#decoding-table-names-matching" title="Permalink to this headline">¶</a></h3>
+<p>Introduce a comma separated list of table names or <em>regular expressions</em>
+used to force the encoding to use when processing data from MySQL. If the
+data encoding known to you is different from MySQL’s idea about it, this is
+the option to use.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">decoding</span> <span class="n">table</span> <span class="n">names</span> <span class="n">matching</span> <span class="o">~/</span><span class="n">messed</span><span class="o">/</span><span class="p">,</span> <span class="o">~/</span><span class="n">encoding</span><span class="o">/</span> <span class="n">AS</span> <span class="n">utf8</span>
+</pre></div>
+</div>
+<p>You can use as many such rules as you need, all with possibly different
+encodings.</p>
+</div>
+</div>
+<div class="section" id="mysql-schema-transformations">
+<h2>MySQL Schema Transformations<a class="headerlink" href="#mysql-schema-transformations" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="alter-table-names-matching">
+<h3>ALTER TABLE NAMES MATCHING<a class="headerlink" href="#alter-table-names-matching" title="Permalink to this headline">¶</a></h3>
+<p>Introduce a comma separated list of table names or <em>regular expressions</em>
+that you want to target in the pgloader <em>ALTER TABLE</em> command. The only two
+available actions are <em>SET SCHEMA</em> and <em>RENAME TO</em>, both take a quoted
+string as parameter:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>ALTER TABLE NAMES MATCHING ~/_list$/, &#39;sales_by_store&#39;, ~/sales_by/
+ SET SCHEMA &#39;mv&#39;
+
+ALTER TABLE NAMES MATCHING &#39;film&#39; RENAME TO &#39;films&#39;
+
+ALTER TABLE NAMES MATCHING ~/./ SET (fillfactor=&#39;40&#39;)
+</pre></div>
+</div>
+<p>You can use as many such rules as you need. The list of tables to be
+migrated is searched in pgloader memory against the <em>ALTER TABLE</em> matching
+rules, and for each command pgloader stops at the first matching criteria
+(regexp or string).</p>
+<p>No <em>ALTER TABLE</em> command is sent to PostgreSQL, the modification happens at
+the level of the pgloader in-memory representation of your source database
+schema. In case of a name change, the mapping is kept and reused in the
+<em>foreign key</em> and <em>index</em> support.</p>
+<p>The <em>SET ()</em> action takes effect as a <em>WITH</em> clause for the <cite>CREATE TABLE</cite>
+command that pgloader will run when it has to create a table.</p>
+</div>
+</div>
+<div class="section" id="mysql-migration-limitations">
+<h2>MySQL Migration: limitations<a class="headerlink" href="#mysql-migration-limitations" title="Permalink to this headline">¶</a></h2>
+<p>The <cite>database</cite> command currently only supports MySQL source database and has
+the following limitations:</p>
+<blockquote>
+<div><ul>
+<li><p class="first">Views are not migrated,</p>
+<p>Supporting views might require implementing a full SQL parser for the
+MySQL dialect with a porting engine to rewrite the SQL against
+PostgreSQL, including renaming functions and changing some constructs.</p>
+<p>While it’s not theoretically impossible, don’t hold your breath.</p>
+</li>
+<li><p class="first">Triggers are not migrated</p>
+<p>The difficulty of doing so is not yet assessed.</p>
+</li>
+<li><p class="first">Of the geometric datatypes, only the <cite>POINT</cite> database has been covered.
+The other ones should be easy enough to implement now, it’s just not
+done yet.</p>
+</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="default-mysql-casting-rules">
+<h2>Default MySQL Casting Rules<a class="headerlink" href="#default-mysql-casting-rules" title="Permalink to this headline">¶</a></h2>
+<p>When migrating from MySQL the following Casting Rules are provided:</p>
+<p>Numbers:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">type</span> <span class="nb">int</span> <span class="k">with</span> <span class="n">extra</span> <span class="n">auto_increment</span> <span class="n">to</span> <span class="n">serial</span> <span class="n">when</span> <span class="p">(</span><span class="o">&lt;</span> <span class="n">precision</span> <span class="mi">10</span><span class="p">)</span>
+<span class="nb">type</span> <span class="nb">int</span> <span class="k">with</span> <span class="n">extra</span> <span class="n">auto_increment</span> <span class="n">to</span> <span class="n">bigserial</span> <span class="n">when</span> <span class="p">(</span><span class="o">&lt;=</span> <span class="mi">10</span> <span class="n">precision</span><span class="p">)</span>
+<span class="nb">type</span> <span class="nb">int</span> <span class="n">to</span> <span class="nb">int</span>       <span class="n">when</span>  <span class="p">(</span><span class="o">&lt;</span> <span class="n">precision</span> <span class="mi">10</span><span class="p">)</span>
+<span class="nb">type</span> <span class="nb">int</span> <span class="n">to</span> <span class="n">bigint</span>    <span class="n">when</span>  <span class="p">(</span><span class="o">&lt;=</span> <span class="mi">10</span> <span class="n">precision</span><span class="p">)</span>
+<span class="nb">type</span> <span class="n">tinyint</span>   <span class="k">with</span> <span class="n">extra</span> <span class="n">auto_increment</span> <span class="n">to</span> <span class="n">serial</span>
+<span class="nb">type</span> <span class="n">smallint</span>  <span class="k">with</span> <span class="n">extra</span> <span class="n">auto_increment</span> <span class="n">to</span> <span class="n">serial</span>
+<span class="nb">type</span> <span class="n">mediumint</span> <span class="k">with</span> <span class="n">extra</span> <span class="n">auto_increment</span> <span class="n">to</span> <span class="n">serial</span>
+<span class="nb">type</span> <span class="n">bigint</span>    <span class="k">with</span> <span class="n">extra</span> <span class="n">auto_increment</span> <span class="n">to</span> <span class="n">bigserial</span>
+
+<span class="nb">type</span> <span class="n">tinyint</span> <span class="n">to</span> <span class="n">boolean</span> <span class="n">when</span> <span class="p">(</span><span class="o">=</span> <span class="mi">1</span> <span class="n">precision</span><span class="p">)</span> <span class="n">using</span> <span class="n">tinyint</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">boolean</span>
+
+<span class="nb">type</span> <span class="n">tinyint</span> <span class="n">when</span> <span class="n">unsigned</span> <span class="n">to</span> <span class="n">smallint</span>   <span class="n">drop</span> <span class="n">typemod</span>
+<span class="nb">type</span> <span class="n">smallint</span> <span class="n">when</span> <span class="n">unsigned</span> <span class="n">to</span> <span class="n">integer</span>  <span class="n">drop</span> <span class="n">typemod</span>
+<span class="nb">type</span> <span class="n">mediumint</span> <span class="n">when</span> <span class="n">unsigned</span> <span class="n">to</span> <span class="n">integer</span>  <span class="n">drop</span> <span class="n">typemod</span>
+<span class="nb">type</span> <span class="n">integer</span> <span class="n">when</span> <span class="n">unsigned</span> <span class="n">to</span> <span class="n">bigint</span>    <span class="n">drop</span> <span class="n">typemod</span>
+
+<span class="nb">type</span> <span class="n">tinyint</span> <span class="n">to</span> <span class="n">smallint</span>   <span class="n">drop</span> <span class="n">typemod</span>
+<span class="nb">type</span> <span class="n">smallint</span> <span class="n">to</span> <span class="n">smallint</span>  <span class="n">drop</span> <span class="n">typemod</span>
+<span class="nb">type</span> <span class="n">mediumint</span> <span class="n">to</span> <span class="n">integer</span>  <span class="n">drop</span> <span class="n">typemod</span>
+<span class="nb">type</span> <span class="n">integer</span> <span class="n">to</span> <span class="n">integer</span>    <span class="n">drop</span> <span class="n">typemod</span>
+<span class="nb">type</span> <span class="n">bigint</span> <span class="n">to</span> <span class="n">bigint</span>      <span class="n">drop</span> <span class="n">typemod</span>
+
+<span class="nb">type</span> <span class="nb">float</span> <span class="n">to</span> <span class="nb">float</span>        <span class="n">drop</span> <span class="n">typemod</span>
+<span class="nb">type</span> <span class="n">double</span> <span class="n">to</span> <span class="n">double</span> <span class="n">precision</span> <span class="n">drop</span> <span class="n">typemod</span>
+
+<span class="nb">type</span> <span class="n">numeric</span> <span class="n">to</span> <span class="n">numeric</span> <span class="n">keep</span> <span class="n">typemod</span>
+<span class="nb">type</span> <span class="n">decimal</span> <span class="n">to</span> <span class="n">decimal</span> <span class="n">keep</span> <span class="n">typemod</span>
+</pre></div>
+</div>
+<p>Texts:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">type</span> <span class="n">char</span>       <span class="n">to</span> <span class="n">char</span> <span class="n">keep</span> <span class="n">typemod</span> <span class="n">using</span> <span class="n">remove</span><span class="o">-</span><span class="n">null</span><span class="o">-</span><span class="n">characters</span>
+<span class="nb">type</span> <span class="n">varchar</span>    <span class="n">to</span> <span class="n">varchar</span> <span class="n">keep</span> <span class="n">typemod</span> <span class="n">using</span> <span class="n">remove</span><span class="o">-</span><span class="n">null</span><span class="o">-</span><span class="n">characters</span>
+<span class="nb">type</span> <span class="n">tinytext</span>   <span class="n">to</span> <span class="n">text</span> <span class="n">using</span> <span class="n">remove</span><span class="o">-</span><span class="n">null</span><span class="o">-</span><span class="n">characters</span>
+<span class="nb">type</span> <span class="n">text</span>       <span class="n">to</span> <span class="n">text</span> <span class="n">using</span> <span class="n">remove</span><span class="o">-</span><span class="n">null</span><span class="o">-</span><span class="n">characters</span>
+<span class="nb">type</span> <span class="n">mediumtext</span> <span class="n">to</span> <span class="n">text</span> <span class="n">using</span> <span class="n">remove</span><span class="o">-</span><span class="n">null</span><span class="o">-</span><span class="n">characters</span>
+<span class="nb">type</span> <span class="n">longtext</span>   <span class="n">to</span> <span class="n">text</span> <span class="n">using</span> <span class="n">remove</span><span class="o">-</span><span class="n">null</span><span class="o">-</span><span class="n">characters</span>
+</pre></div>
+</div>
+<p>Binary:</p>
+<blockquote>
+<div>type binary     to bytea
+type varbinary  to bytea
+type tinyblob   to bytea
+type blob       to bytea
+type mediumblob to bytea
+type longblob   to bytea</div></blockquote>
+<p>Date:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">type</span> <span class="n">datetime</span> <span class="n">when</span> <span class="n">default</span> <span class="s2">&quot;0000-00-00 00:00:00&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">null</span>
+  <span class="n">to</span> <span class="n">timestamptz</span> <span class="n">drop</span> <span class="ow">not</span> <span class="n">null</span> <span class="n">drop</span> <span class="n">default</span>
+      <span class="n">using</span> <span class="n">zero</span><span class="o">-</span><span class="n">dates</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">null</span>
+
+<span class="nb">type</span> <span class="n">datetime</span> <span class="n">when</span> <span class="n">default</span> <span class="s2">&quot;0000-00-00 00:00:00&quot;</span>
+  <span class="n">to</span> <span class="n">timestamptz</span> <span class="n">drop</span> <span class="n">default</span>
+      <span class="n">using</span> <span class="n">zero</span><span class="o">-</span><span class="n">dates</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">null</span>
+
+<span class="nb">type</span> <span class="n">timestamp</span> <span class="n">when</span> <span class="n">default</span> <span class="s2">&quot;0000-00-00 00:00:00&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">null</span>
+  <span class="n">to</span> <span class="n">timestamptz</span> <span class="n">drop</span> <span class="ow">not</span> <span class="n">null</span> <span class="n">drop</span> <span class="n">default</span>
+      <span class="n">using</span> <span class="n">zero</span><span class="o">-</span><span class="n">dates</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">null</span>
+
+<span class="nb">type</span> <span class="n">timestamp</span> <span class="n">when</span> <span class="n">default</span> <span class="s2">&quot;0000-00-00 00:00:00&quot;</span>
+  <span class="n">to</span> <span class="n">timestamptz</span> <span class="n">drop</span> <span class="n">default</span>
+      <span class="n">using</span> <span class="n">zero</span><span class="o">-</span><span class="n">dates</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">null</span>
+
+<span class="nb">type</span> <span class="n">date</span> <span class="n">when</span> <span class="n">default</span> <span class="s2">&quot;0000-00-00&quot;</span> <span class="n">to</span> <span class="n">date</span> <span class="n">drop</span> <span class="n">default</span>
+      <span class="n">using</span> <span class="n">zero</span><span class="o">-</span><span class="n">dates</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">null</span>
+
+<span class="nb">type</span> <span class="n">date</span> <span class="n">to</span> <span class="n">date</span>
+<span class="nb">type</span> <span class="n">datetime</span> <span class="n">to</span> <span class="n">timestamptz</span>
+<span class="nb">type</span> <span class="n">timestamp</span> <span class="n">to</span> <span class="n">timestamptz</span>
+<span class="nb">type</span> <span class="n">year</span> <span class="n">to</span> <span class="n">integer</span> <span class="n">drop</span> <span class="n">typemod</span>
+</pre></div>
+</div>
+<p>Geometric:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">type</span> <span class="n">point</span> <span class="n">to</span> <span class="n">point</span> <span class="n">using</span> <span class="n">pgloader</span><span class="o">.</span><span class="n">transforms</span><span class="p">::</span><span class="n">convert</span><span class="o">-</span><span class="n">mysql</span><span class="o">-</span><span class="n">point</span>
+</pre></div>
+</div>
+<p>Enum types are declared inline in MySQL and separately with a <cite>CREATE TYPE</cite>
+command in PostgreSQL, so each column of Enum Type is converted to a type
+named after the table and column names defined with the same labels in the
+same order.</p>
+<p>When the source type definition is not matched in the default casting rules
+nor in the casting rules provided in the command, then the type name with
+the typemod is used.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="archive.html" title="previous chapter">Loading From an Archive</a></li>
+      <li>Next: <a href="sqlite.html" title="next chapter">Migrating a SQLite database to PostgreSQL</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017, Dimitri Fontaine.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="../_sources/ref/mysql.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

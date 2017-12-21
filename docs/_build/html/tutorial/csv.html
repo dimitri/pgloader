@@ -1,0 +1,169 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Loading CSV Data with pgloader &#8212; pgloader 3.4.1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '3.4.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="loading-csv-data-with-pgloader">
+<h1>Loading CSV Data with pgloader<a class="headerlink" href="#loading-csv-data-with-pgloader" title="Permalink to this headline">¶</a></h1>
+<p>CSV means <em>comma separated values</em> and is often found with quite varying
+specifications. pgloader allows you to describe those specs in its command.</p>
+<div class="section" id="the-command">
+<h2>The Command<a class="headerlink" href="#the-command" title="Permalink to this headline">¶</a></h2>
+<p>To load data with [pgloader](<a class="reference external" href="http://pgloader.io/">http://pgloader.io/</a>) you need to define in a
+<em>command</em> the operations in some details. Here’s our example for loading CSV
+data:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>LOAD CSV
+     FROM &#39;path/to/file.csv&#39; (x, y, a, b, c, d)
+     INTO postgresql:///pgloader?csv (a, b, d, c)
+
+     WITH truncate,
+          skip header = 1,
+          fields optionally enclosed by &#39;&quot;&#39;,
+          fields escaped by double-quote,
+          fields terminated by &#39;,&#39;
+
+      SET client_encoding to &#39;latin1&#39;,
+          work_mem to &#39;12MB&#39;,
+          standard_conforming_strings to &#39;on&#39;
+
+   BEFORE LOAD DO
+    $$ drop table if exists csv; $$,
+    $$ create table csv (
+        a bigint,
+        b bigint,
+        c char(2),
+        d text
+       );
+  $$;
+</pre></div>
+</div>
+</div>
+<div class="section" id="the-data">
+<h2>The Data<a class="headerlink" href="#the-data" title="Permalink to this headline">¶</a></h2>
+<p>This command allows loading the following CSV file content:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>Header, with a © sign
+&quot;2.6.190.56&quot;,&quot;2.6.190.63&quot;,&quot;33996344&quot;,&quot;33996351&quot;,&quot;GB&quot;,&quot;United Kingdom&quot;
+&quot;3.0.0.0&quot;,&quot;4.17.135.31&quot;,&quot;50331648&quot;,&quot;68257567&quot;,&quot;US&quot;,&quot;United States&quot;
+&quot;4.17.135.32&quot;,&quot;4.17.135.63&quot;,&quot;68257568&quot;,&quot;68257599&quot;,&quot;CA&quot;,&quot;Canada&quot;
+&quot;4.17.135.64&quot;,&quot;4.17.142.255&quot;,&quot;68257600&quot;,&quot;68259583&quot;,&quot;US&quot;,&quot;United States&quot;
+&quot;4.17.143.0&quot;,&quot;4.17.143.15&quot;,&quot;68259584&quot;,&quot;68259599&quot;,&quot;CA&quot;,&quot;Canada&quot;
+&quot;4.17.143.16&quot;,&quot;4.18.32.71&quot;,&quot;68259600&quot;,&quot;68296775&quot;,&quot;US&quot;,&quot;United States&quot;
+</pre></div>
+</div>
+</div>
+<div class="section" id="loading-the-data">
+<h2>Loading the data<a class="headerlink" href="#loading-the-data" title="Permalink to this headline">¶</a></h2>
+<p>Here’s how to start loading the data. Note that the ouput here has been
+edited so as to facilitate its browsing online:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ pgloader csv.load
+... LOG Starting pgloader, log system is ready.
+... LOG Parsing commands from file &quot;/Users/dim/dev/pgloader/test/csv.load&quot;
+
+       table name       read   imported     errors            time
+-----------------  ---------  ---------  ---------  --------------
+      before load          2          2          0          0.039s
+-----------------  ---------  ---------  ---------  --------------
+              csv          6          6          0          0.019s
+-----------------  ---------  ---------  ---------  --------------
+Total import time          6          6          0          0.058s
+</pre></div>
+</div>
+</div>
+<div class="section" id="the-result">
+<h2>The result<a class="headerlink" href="#the-result" title="Permalink to this headline">¶</a></h2>
+<p>As you can see, the command described above is filtering the input and only
+importing some of the columns from the example data file. Here’s what gets
+loaded in the PostgreSQL database:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">pgloader</span><span class="c1"># table csv;</span>
+    <span class="n">a</span>     <span class="o">|</span>    <span class="n">b</span>     <span class="o">|</span> <span class="n">c</span>  <span class="o">|</span>       <span class="n">d</span>
+<span class="o">----------+----------+----+----------------</span>
+ <span class="mi">33996344</span> <span class="o">|</span> <span class="mi">33996351</span> <span class="o">|</span> <span class="n">GB</span> <span class="o">|</span> <span class="n">United</span> <span class="n">Kingdom</span>
+ <span class="mi">50331648</span> <span class="o">|</span> <span class="mi">68257567</span> <span class="o">|</span> <span class="n">US</span> <span class="o">|</span> <span class="n">United</span> <span class="n">States</span>
+ <span class="mi">68257568</span> <span class="o">|</span> <span class="mi">68257599</span> <span class="o">|</span> <span class="n">CA</span> <span class="o">|</span> <span class="n">Canada</span>
+ <span class="mi">68257600</span> <span class="o">|</span> <span class="mi">68259583</span> <span class="o">|</span> <span class="n">US</span> <span class="o">|</span> <span class="n">United</span> <span class="n">States</span>
+ <span class="mi">68259584</span> <span class="o">|</span> <span class="mi">68259599</span> <span class="o">|</span> <span class="n">CA</span> <span class="o">|</span> <span class="n">Canada</span>
+ <span class="mi">68259600</span> <span class="o">|</span> <span class="mi">68296775</span> <span class="o">|</span> <span class="n">US</span> <span class="o">|</span> <span class="n">United</span> <span class="n">States</span>
+<span class="p">(</span><span class="mi">6</span> <span class="n">rows</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017, Dimitri Fontaine.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="../_sources/tutorial/csv.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

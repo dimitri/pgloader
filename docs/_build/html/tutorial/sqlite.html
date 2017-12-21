@@ -1,0 +1,208 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Loading SQLite files with pgloader &#8212; pgloader 3.4.1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '3.4.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="loading-sqlite-files-with-pgloader">
+<h1>Loading SQLite files with pgloader<a class="headerlink" href="#loading-sqlite-files-with-pgloader" title="Permalink to this headline">¶</a></h1>
+<p>The SQLite database is a respected solution to manage your data with. Its
+embeded nature makes it a source of migrations when a projects now needs to
+handle more concurrency, which [PostgreSQL](<a class="reference external" href="http://www.postgresql.org/">http://www.postgresql.org/</a>) is
+very good at. pgloader can help you there.</p>
+<div class="section" id="in-a-single-command-line">
+<h2>In a Single Command Line<a class="headerlink" href="#in-a-single-command-line" title="Permalink to this headline">¶</a></h2>
+<p>You can</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ createdb chinook
+$ pgloader https://github.com/lerocha/chinook-database/raw/master/ChinookDatabase/DataSources/Chinook_Sqlite_AutoIncrementPKs.sqlite pgsql:///chinook
+</pre></div>
+</div>
+<p>Done! All with the schema, data, constraints, primary keys and foreign keys,
+etc. We also see an error with the Chinook schema that contains several
+primary key definitions against the same table, which is not accepted by
+PostgreSQL:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="mi">2017</span><span class="o">-</span><span class="mi">06</span><span class="o">-</span><span class="mi">20</span><span class="n">T16</span><span class="p">:</span><span class="mi">18</span><span class="p">:</span><span class="mf">59.019000</span><span class="o">+</span><span class="mi">02</span><span class="p">:</span><span class="mi">00</span> <span class="n">LOG</span> <span class="n">Data</span> <span class="n">errors</span> <span class="ow">in</span> <span class="s1">&#39;/private/tmp/pgloader/&#39;</span>
+<span class="mi">2017</span><span class="o">-</span><span class="mi">06</span><span class="o">-</span><span class="mi">20</span><span class="n">T16</span><span class="p">:</span><span class="mi">18</span><span class="p">:</span><span class="mf">59.236000</span><span class="o">+</span><span class="mi">02</span><span class="p">:</span><span class="mi">00</span> <span class="n">LOG</span> <span class="n">Fetching</span> <span class="s1">&#39;https://github.com/lerocha/chinook-database/raw/master/ChinookDatabase/DataSources/Chinook_Sqlite_AutoIncrementPKs.sqlite&#39;</span>
+<span class="mi">2017</span><span class="o">-</span><span class="mi">06</span><span class="o">-</span><span class="mi">20</span><span class="n">T16</span><span class="p">:</span><span class="mi">19</span><span class="p">:</span><span class="mf">00.664000</span><span class="o">+</span><span class="mi">02</span><span class="p">:</span><span class="mi">00</span> <span class="n">ERROR</span> <span class="n">Database</span> <span class="n">error</span> <span class="mi">42</span><span class="n">P16</span><span class="p">:</span> <span class="n">multiple</span> <span class="n">primary</span> <span class="n">keys</span> <span class="k">for</span> <span class="n">table</span> <span class="s2">&quot;playlisttrack&quot;</span> <span class="n">are</span> <span class="ow">not</span> <span class="n">allowed</span>
+<span class="n">QUERY</span><span class="p">:</span> <span class="n">ALTER</span> <span class="n">TABLE</span> <span class="n">playlisttrack</span> <span class="n">ADD</span> <span class="n">PRIMARY</span> <span class="n">KEY</span> <span class="n">USING</span> <span class="n">INDEX</span> <span class="n">idx_66873_sqlite_autoindex_playlisttrack_1</span><span class="p">;</span>
+<span class="mi">2017</span><span class="o">-</span><span class="mi">06</span><span class="o">-</span><span class="mi">20</span><span class="n">T16</span><span class="p">:</span><span class="mi">19</span><span class="p">:</span><span class="mf">00.665000</span><span class="o">+</span><span class="mi">02</span><span class="p">:</span><span class="mi">00</span> <span class="n">LOG</span> <span class="n">report</span> <span class="n">summary</span> <span class="n">reset</span>
+             <span class="n">table</span> <span class="n">name</span>       <span class="n">read</span>   <span class="n">imported</span>     <span class="n">errors</span>      <span class="n">total</span> <span class="n">time</span>
+<span class="o">-----------------------</span>  <span class="o">---------</span>  <span class="o">---------</span>  <span class="o">---------</span>  <span class="o">--------------</span>
+                  <span class="n">fetch</span>          <span class="mi">0</span>          <span class="mi">0</span>          <span class="mi">0</span>          <span class="mf">0.877</span><span class="n">s</span>
+        <span class="n">fetch</span> <span class="n">meta</span> <span class="n">data</span>         <span class="mi">33</span>         <span class="mi">33</span>          <span class="mi">0</span>          <span class="mf">0.033</span><span class="n">s</span>
+         <span class="n">Create</span> <span class="n">Schemas</span>          <span class="mi">0</span>          <span class="mi">0</span>          <span class="mi">0</span>          <span class="mf">0.003</span><span class="n">s</span>
+       <span class="n">Create</span> <span class="n">SQL</span> <span class="n">Types</span>          <span class="mi">0</span>          <span class="mi">0</span>          <span class="mi">0</span>          <span class="mf">0.006</span><span class="n">s</span>
+          <span class="n">Create</span> <span class="n">tables</span>         <span class="mi">22</span>         <span class="mi">22</span>          <span class="mi">0</span>          <span class="mf">0.043</span><span class="n">s</span>
+         <span class="n">Set</span> <span class="n">Table</span> <span class="n">OIDs</span>         <span class="mi">11</span>         <span class="mi">11</span>          <span class="mi">0</span>          <span class="mf">0.012</span><span class="n">s</span>
+<span class="o">-----------------------</span>  <span class="o">---------</span>  <span class="o">---------</span>  <span class="o">---------</span>  <span class="o">--------------</span>
+                  <span class="n">album</span>        <span class="mi">347</span>        <span class="mi">347</span>          <span class="mi">0</span>          <span class="mf">0.023</span><span class="n">s</span>
+                 <span class="n">artist</span>        <span class="mi">275</span>        <span class="mi">275</span>          <span class="mi">0</span>          <span class="mf">0.023</span><span class="n">s</span>
+               <span class="n">customer</span>         <span class="mi">59</span>         <span class="mi">59</span>          <span class="mi">0</span>          <span class="mf">0.021</span><span class="n">s</span>
+               <span class="n">employee</span>          <span class="mi">8</span>          <span class="mi">8</span>          <span class="mi">0</span>          <span class="mf">0.018</span><span class="n">s</span>
+                <span class="n">invoice</span>        <span class="mi">412</span>        <span class="mi">412</span>          <span class="mi">0</span>          <span class="mf">0.031</span><span class="n">s</span>
+                  <span class="n">genre</span>         <span class="mi">25</span>         <span class="mi">25</span>          <span class="mi">0</span>          <span class="mf">0.021</span><span class="n">s</span>
+            <span class="n">invoiceline</span>       <span class="mi">2240</span>       <span class="mi">2240</span>          <span class="mi">0</span>          <span class="mf">0.034</span><span class="n">s</span>
+              <span class="n">mediatype</span>          <span class="mi">5</span>          <span class="mi">5</span>          <span class="mi">0</span>          <span class="mf">0.025</span><span class="n">s</span>
+          <span class="n">playlisttrack</span>       <span class="mi">8715</span>       <span class="mi">8715</span>          <span class="mi">0</span>          <span class="mf">0.040</span><span class="n">s</span>
+               <span class="n">playlist</span>         <span class="mi">18</span>         <span class="mi">18</span>          <span class="mi">0</span>          <span class="mf">0.016</span><span class="n">s</span>
+                  <span class="n">track</span>       <span class="mi">3503</span>       <span class="mi">3503</span>          <span class="mi">0</span>          <span class="mf">0.111</span><span class="n">s</span>
+<span class="o">-----------------------</span>  <span class="o">---------</span>  <span class="o">---------</span>  <span class="o">---------</span>  <span class="o">--------------</span>
+<span class="n">COPY</span> <span class="n">Threads</span> <span class="n">Completion</span>         <span class="mi">33</span>         <span class="mi">33</span>          <span class="mi">0</span>          <span class="mf">0.313</span><span class="n">s</span>
+         <span class="n">Create</span> <span class="n">Indexes</span>         <span class="mi">22</span>         <span class="mi">22</span>          <span class="mi">0</span>          <span class="mf">0.160</span><span class="n">s</span>
+ <span class="n">Index</span> <span class="n">Build</span> <span class="n">Completion</span>         <span class="mi">22</span>         <span class="mi">22</span>          <span class="mi">0</span>          <span class="mf">0.027</span><span class="n">s</span>
+        <span class="n">Reset</span> <span class="n">Sequences</span>          <span class="mi">0</span>          <span class="mi">0</span>          <span class="mi">0</span>          <span class="mf">0.017</span><span class="n">s</span>
+           <span class="n">Primary</span> <span class="n">Keys</span>         <span class="mi">12</span>          <span class="mi">0</span>          <span class="mi">1</span>          <span class="mf">0.013</span><span class="n">s</span>
+    <span class="n">Create</span> <span class="n">Foreign</span> <span class="n">Keys</span>         <span class="mi">11</span>         <span class="mi">11</span>          <span class="mi">0</span>          <span class="mf">0.040</span><span class="n">s</span>
+        <span class="n">Create</span> <span class="n">Triggers</span>          <span class="mi">0</span>          <span class="mi">0</span>          <span class="mi">0</span>          <span class="mf">0.000</span><span class="n">s</span>
+       <span class="n">Install</span> <span class="n">Comments</span>          <span class="mi">0</span>          <span class="mi">0</span>          <span class="mi">0</span>          <span class="mf">0.000</span><span class="n">s</span>
+<span class="o">-----------------------</span>  <span class="o">---------</span>  <span class="o">---------</span>  <span class="o">---------</span>  <span class="o">--------------</span>
+      <span class="n">Total</span> <span class="kn">import</span> <span class="nn">time</span>      <span class="mi">15607</span>      <span class="mi">15607</span>          <span class="mi">0</span>          <span class="mf">1.669</span><span class="n">s</span>
+</pre></div>
+</div>
+<p>You may need to have special cases to take care of tho. In advanced case you
+can use the pgloader command.</p>
+</div>
+<div class="section" id="the-command">
+<h2>The Command<a class="headerlink" href="#the-command" title="Permalink to this headline">¶</a></h2>
+<p>To load data with [pgloader](<a class="reference external" href="http://pgloader.io/">http://pgloader.io/</a>) you need to define in a
+<em>command</em> the operations in some details. Here’s our command:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">load</span> <span class="n">database</span>
+     <span class="kn">from</span> <span class="s1">&#39;sqlite/Chinook_Sqlite_AutoIncrementPKs.sqlite&#39;</span>
+     <span class="n">into</span> <span class="n">postgresql</span><span class="p">:</span><span class="o">///</span><span class="n">pgloader</span>
+
+ <span class="k">with</span> <span class="n">include</span> <span class="n">drop</span><span class="p">,</span> <span class="n">create</span> <span class="n">tables</span><span class="p">,</span> <span class="n">create</span> <span class="n">indexes</span><span class="p">,</span> <span class="n">reset</span> <span class="n">sequences</span>
+
+  <span class="nb">set</span> <span class="n">work_mem</span> <span class="n">to</span> <span class="s1">&#39;16MB&#39;</span><span class="p">,</span> <span class="n">maintenance_work_mem</span> <span class="n">to</span> <span class="s1">&#39;512 MB&#39;</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>Note that here pgloader will benefit from the meta-data information found in
+the SQLite file to create a PostgreSQL database capable of hosting the data
+as described, then load the data.</p>
+</div>
+<div class="section" id="loading-the-data">
+<h2>Loading the data<a class="headerlink" href="#loading-the-data" title="Permalink to this headline">¶</a></h2>
+<p>Let’s start the <cite>pgloader</cite> command with our <cite>sqlite.load</cite> command file:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ pgloader sqlite.load
+... LOG Starting pgloader, log system is ready.
+... LOG Parsing commands from file &quot;/Users/dim/dev/pgloader/test/sqlite.load&quot;
+... WARNING Postgres warning: table &quot;album&quot; does not exist, skipping
+... WARNING Postgres warning: table &quot;artist&quot; does not exist, skipping
+... WARNING Postgres warning: table &quot;customer&quot; does not exist, skipping
+... WARNING Postgres warning: table &quot;employee&quot; does not exist, skipping
+... WARNING Postgres warning: table &quot;genre&quot; does not exist, skipping
+... WARNING Postgres warning: table &quot;invoice&quot; does not exist, skipping
+... WARNING Postgres warning: table &quot;invoiceline&quot; does not exist, skipping
+... WARNING Postgres warning: table &quot;mediatype&quot; does not exist, skipping
+... WARNING Postgres warning: table &quot;playlist&quot; does not exist, skipping
+... WARNING Postgres warning: table &quot;playlisttrack&quot; does not exist, skipping
+... WARNING Postgres warning: table &quot;track&quot; does not exist, skipping
+            table name       read   imported     errors            time
+----------------------  ---------  ---------  ---------  --------------
+      create, truncate          0          0          0          0.052s
+                 Album        347        347          0          0.070s
+                Artist        275        275          0          0.014s
+              Customer         59         59          0          0.014s
+              Employee          8          8          0          0.012s
+                 Genre         25         25          0          0.018s
+               Invoice        412        412          0          0.032s
+           InvoiceLine       2240       2240          0          0.077s
+             MediaType          5          5          0          0.012s
+              Playlist         18         18          0          0.008s
+         PlaylistTrack       8715       8715          0          0.071s
+                 Track       3503       3503          0          0.105s
+index build completion          0          0          0          0.000s
+----------------------  ---------  ---------  ---------  --------------
+        Create Indexes         20         20          0          0.279s
+       reset sequences          0          0          0          0.043s
+----------------------  ---------  ---------  ---------  --------------
+  Total streaming time      15607      15607          0          0.476s
+</pre></div>
+</div>
+<p>We can see that <a class="reference external" href="http://pgloader.io">pgloader</a> did download the file from
+its HTTP URL location then <em>unziped</em> it before loading it.</p>
+<p>Also, the <em>WARNING</em> messages we see here are expected as the PostgreSQL
+database is empty when running the command, and pgloader is using the SQL
+commands <cite>DROP TABLE IF EXISTS</cite> when the given command uses the <cite>include
+drop</cite> option.</p>
+<p>Note that the output of the command has been edited to facilitate its
+browsing online.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017, Dimitri Fontaine.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="../_sources/tutorial/sqlite.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

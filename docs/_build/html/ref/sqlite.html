@@ -1,0 +1,268 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Migrating a SQLite database to PostgreSQL &#8212; pgloader 3.4.1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '3.4.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Migrating a MS SQL Database to PostgreSQL" href="mssql.html" />
+    <link rel="prev" title="Migrating a MySQL Database to PostgreSQL" href="mysql.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="migrating-a-sqlite-database-to-postgresql">
+<h1>Migrating a SQLite database to PostgreSQL<a class="headerlink" href="#migrating-a-sqlite-database-to-postgresql" title="Permalink to this headline">¶</a></h1>
+<p>This command instructs pgloader to load data from a SQLite file. Automatic
+discovery of the schema is supported, including build of the indexes.</p>
+<p>Here’s an example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">load</span> <span class="n">database</span>
+     <span class="kn">from</span> <span class="nn">sqlite</span><span class="p">:</span><span class="o">///</span><span class="n">Users</span><span class="o">/</span><span class="n">dim</span><span class="o">/</span><span class="n">Downloads</span><span class="o">/</span><span class="n">lastfm_tags</span><span class="o">.</span><span class="n">db</span>
+     <span class="n">into</span> <span class="n">postgresql</span><span class="p">:</span><span class="o">///</span><span class="n">tags</span>
+
+ <span class="k">with</span> <span class="n">include</span> <span class="n">drop</span><span class="p">,</span> <span class="n">create</span> <span class="n">tables</span><span class="p">,</span> <span class="n">create</span> <span class="n">indexes</span><span class="p">,</span> <span class="n">reset</span> <span class="n">sequences</span>
+
+  <span class="nb">set</span> <span class="n">work_mem</span> <span class="n">to</span> <span class="s1">&#39;16MB&#39;</span><span class="p">,</span> <span class="n">maintenance_work_mem</span> <span class="n">to</span> <span class="s1">&#39;512 MB&#39;</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>The <cite>sqlite</cite> command accepts the following clauses and options.</p>
+<div class="section" id="sqlite-database-source-specification-from">
+<h2>SQLite Database Source Specification: FROM<a class="headerlink" href="#sqlite-database-source-specification-from" title="Permalink to this headline">¶</a></h2>
+<p>Path or HTTP URL to a SQLite file, might be a <cite>.zip</cite> file.</p>
+</div>
+<div class="section" id="sqlite-database-migration-options-with">
+<h2>SQLite Database Migration Options: WITH<a class="headerlink" href="#sqlite-database-migration-options-with" title="Permalink to this headline">¶</a></h2>
+<p>When loading from a <cite>SQLite</cite> database, the following options are
+supported:</p>
+<p>When loading from a <cite>SQLite</cite> database, the following options are
+supported, and the default <em>WITH</em> clause is: <em>no truncate</em>, <em>create
+tables</em>, <em>include drop</em>, <em>create indexes</em>, <em>reset sequences</em>, <em>downcase
+identifiers</em>, <em>encoding ‘utf-8’</em>.</p>
+<blockquote>
+<div><ul>
+<li><p class="first"><em>include drop</em></p>
+<p>When this option is listed, pgloader drops all the tables in the target
+PostgreSQL database whose names appear in the SQLite database. This
+option allows for using the same command several times in a row until
+you figure out all the options, starting automatically from a clean
+environment. Please note that <cite>CASCADE</cite> is used to ensure that tables
+are dropped even if there are foreign keys pointing to them. This is
+precisely what <cite>include drop</cite> is intended to do: drop all target tables
+and recreate them.</p>
+<p>Great care needs to be taken when using <cite>include drop</cite>, as it will
+cascade to <em>all</em> objects referencing the target tables, possibly
+including other tables that are not being loaded from the source DB.</p>
+</li>
+<li><p class="first"><em>include no drop</em></p>
+<p>When this option is listed, pgloader will not include any <cite>DROP</cite>
+statement when loading the data.</p>
+</li>
+<li><p class="first"><em>truncate</em></p>
+<p>When this option is listed, pgloader issue the <cite>TRUNCATE</cite> command
+against each PostgreSQL table just before loading data into it.</p>
+</li>
+<li><p class="first"><em>no truncate</em></p>
+<p>When this option is listed, pgloader issues no <cite>TRUNCATE</cite> command.</p>
+</li>
+<li><p class="first"><em>disable triggers</em></p>
+<p>When this option is listed, pgloader issues an <cite>ALTER TABLE … DISABLE
+TRIGGER ALL</cite> command against the PostgreSQL target table before copying
+the data, then the command <cite>ALTER TABLE … ENABLE TRIGGER ALL</cite> once the
+<cite>COPY</cite> is done.</p>
+<p>This option allows loading data into a pre-existing table ignoring
+the <em>foreign key constraints</em> and user defined triggers and may
+result in invalid <em>foreign key constraints</em> once the data is loaded.
+Use with care.</p>
+</li>
+<li><p class="first"><em>create tables</em></p>
+<p>When this option is listed, pgloader creates the table using the meta
+data found in the <cite>SQLite</cite> file, which must contain a list of fields
+with their data type. A standard data type conversion from SQLite to
+PostgreSQL is done.</p>
+</li>
+<li><p class="first"><em>create no tables</em></p>
+<p>When this option is listed, pgloader skips the creation of table before
+loading data, target tables must then already exist.</p>
+<p>Also, when using <em>create no tables</em> pgloader fetches the metadata
+from the current target database and checks type casting, then will
+remove constraints and indexes prior to loading the data and install
+them back again once the loading is done.</p>
+</li>
+<li><p class="first"><em>create indexes</em></p>
+<p>When this option is listed, pgloader gets the definitions of all the
+indexes found in the SQLite database and create the same set of index
+definitions against the PostgreSQL database.</p>
+</li>
+<li><p class="first"><em>create no indexes</em></p>
+<p>When this option is listed, pgloader skips the creating indexes.</p>
+</li>
+<li><p class="first"><em>drop indexes</em></p>
+<p>When this option is listed, pgloader drops the indexes in the target
+database before loading the data, and creates them again at the end
+of the data copy.</p>
+</li>
+<li><p class="first"><em>reset sequences</em></p>
+<p>When this option is listed, at the end of the data loading and after
+the indexes have all been created, pgloader resets all the
+PostgreSQL sequences created to the current maximum value of the
+column they are attached to.</p>
+</li>
+<li><p class="first"><em>reset no sequences</em></p>
+<p>When this option is listed, pgloader skips resetting sequences after the
+load.</p>
+<p>The options <em>schema only</em> and <em>data only</em> have no effects on this
+option.</p>
+</li>
+<li><p class="first"><em>schema only</em></p>
+<p>When this option is listed pgloader will refrain from migrating the data
+over. Note that the schema in this context includes the indexes when the
+option <em>create indexes</em> has been listed.</p>
+</li>
+<li><p class="first"><em>data only</em></p>
+<p>When this option is listed pgloader only issues the <cite>COPY</cite> statements,
+without doing any other processing.</p>
+</li>
+<li><p class="first"><em>encoding</em></p>
+<p>This option allows to control which encoding to parse the SQLite text
+data with. Defaults to UTF-8.</p>
+</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="sqlite-database-casting-rules">
+<h2>SQLite Database Casting Rules<a class="headerlink" href="#sqlite-database-casting-rules" title="Permalink to this headline">¶</a></h2>
+<p>The command <em>CAST</em> introduces user-defined casting rules.</p>
+<p>The cast clause allows to specify custom casting rules, either to overload
+the default casting rules or to amend them with special cases.</p>
+</div>
+<div class="section" id="sqlite-database-partial-migrations">
+<h2>SQlite Database Partial Migrations<a class="headerlink" href="#sqlite-database-partial-migrations" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="including-only-table-names-like">
+<h3>INCLUDING ONLY TABLE NAMES LIKE<a class="headerlink" href="#including-only-table-names-like" title="Permalink to this headline">¶</a></h3>
+<p>Introduce a comma separated list of table name patterns used to limit the
+tables to migrate to a sublist.</p>
+<p>Example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">including</span> <span class="n">only</span> <span class="n">table</span> <span class="n">names</span> <span class="n">like</span> <span class="s1">&#39;Invoice%&#39;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="excluding-table-names-like">
+<h3>EXCLUDING TABLE NAMES LIKE<a class="headerlink" href="#excluding-table-names-like" title="Permalink to this headline">¶</a></h3>
+<p>Introduce a comma separated list of table name patterns used to exclude
+table names from the migration. This filter only applies to the result of
+the <em>INCLUDING</em> filter.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">excluding</span> <span class="n">table</span> <span class="n">names</span> <span class="n">like</span> <span class="s1">&#39;appointments&#39;</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="default-sqlite-casting-rules">
+<h2>Default SQLite Casting Rules<a class="headerlink" href="#default-sqlite-casting-rules" title="Permalink to this headline">¶</a></h2>
+<p>When migrating from SQLite the following Casting Rules are provided:</p>
+<p>Numbers:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">type</span> <span class="n">tinyint</span> <span class="n">to</span> <span class="n">smallint</span> <span class="n">using</span> <span class="n">integer</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">string</span>
+<span class="nb">type</span> <span class="n">integer</span> <span class="n">to</span> <span class="n">bigint</span>   <span class="n">using</span> <span class="n">integer</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">string</span>
+
+<span class="nb">type</span> <span class="nb">float</span> <span class="n">to</span> <span class="nb">float</span>   <span class="n">using</span> <span class="nb">float</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">string</span>
+<span class="nb">type</span> <span class="n">real</span> <span class="n">to</span> <span class="n">real</span>     <span class="n">using</span> <span class="nb">float</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">string</span>
+<span class="nb">type</span> <span class="n">double</span> <span class="n">to</span> <span class="n">double</span> <span class="n">precision</span>     <span class="n">using</span> <span class="nb">float</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">string</span>
+<span class="nb">type</span> <span class="n">numeric</span> <span class="n">to</span> <span class="n">numeric</span>     <span class="n">using</span> <span class="nb">float</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">string</span>
+</pre></div>
+</div>
+<p>Texts:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">type</span> <span class="n">character</span>  <span class="n">to</span> <span class="n">text</span> <span class="n">drop</span> <span class="n">typemod</span>
+<span class="nb">type</span> <span class="n">varchar</span>    <span class="n">to</span> <span class="n">text</span> <span class="n">drop</span> <span class="n">typemod</span>
+<span class="nb">type</span> <span class="n">nvarchar</span>   <span class="n">to</span> <span class="n">text</span> <span class="n">drop</span> <span class="n">typemod</span>
+<span class="nb">type</span> <span class="n">char</span>       <span class="n">to</span> <span class="n">text</span> <span class="n">drop</span> <span class="n">typemod</span>
+<span class="nb">type</span> <span class="n">nchar</span>      <span class="n">to</span> <span class="n">text</span> <span class="n">drop</span> <span class="n">typemod</span>
+<span class="nb">type</span> <span class="n">nvarchar</span>   <span class="n">to</span> <span class="n">text</span> <span class="n">drop</span> <span class="n">typemod</span>
+<span class="nb">type</span> <span class="n">clob</span>       <span class="n">to</span> <span class="n">text</span> <span class="n">drop</span> <span class="n">typemod</span>
+</pre></div>
+</div>
+<p>Binary:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">type</span> <span class="n">blob</span>       <span class="n">to</span> <span class="n">bytea</span>
+</pre></div>
+</div>
+<p>Date:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">type</span> <span class="n">datetime</span>    <span class="n">to</span> <span class="n">timestamptz</span> <span class="n">using</span> <span class="n">sqlite</span><span class="o">-</span><span class="n">timestamp</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">timestamp</span>
+<span class="nb">type</span> <span class="n">timestamp</span>   <span class="n">to</span> <span class="n">timestamptz</span> <span class="n">using</span> <span class="n">sqlite</span><span class="o">-</span><span class="n">timestamp</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">timestamp</span>
+<span class="nb">type</span> <span class="n">timestamptz</span> <span class="n">to</span> <span class="n">timestamptz</span> <span class="n">using</span> <span class="n">sqlite</span><span class="o">-</span><span class="n">timestamp</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">timestamp</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="mysql.html" title="previous chapter">Migrating a MySQL Database to PostgreSQL</a></li>
+      <li>Next: <a href="mssql.html" title="next chapter">Migrating a MS SQL Database to PostgreSQL</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017, Dimitri Fontaine.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="../_sources/ref/sqlite.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

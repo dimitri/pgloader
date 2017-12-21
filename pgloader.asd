@@ -3,7 +3,7 @@
 (asdf:defsystem #:pgloader
   :serial t
   :description "Load data into PostgreSQL"
-  :author "Dimitri Fontaine <dimitri@2ndQuadrant.fr>"
+  :author "Dimitri Fontaine <dim@tapoueh.org>"
   :license "The PostgreSQL Licence"
   :depends-on (#:uiop			; host system integration
                #:cl-log                 ; logging
@@ -246,12 +246,5 @@
                                         "parsers"
                                         "sources"
                                         "api"
-                                        "regress"))))
-
-   ;; to produce the website
-   (:module "docs"
-            :components
-            ((:module src
-                      :components
-                      ((:file "docs")))))))
+                                        "regress"))))))
 
