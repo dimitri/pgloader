@@ -54,7 +54,9 @@
         ;; the table has a primary key over a integer data type we are able
         ;; to generate WHERE clause and range index scans.
         (with-connection (*connection* (source-db mysql))
-          (let* ((col pcol)
+          (let* ((col (mysql-column-name
+                       (nth (position coldef (table-column-list (target mysql)))
+                            (fields mysql))))
                  (sql (format nil "select min(`~a`), max(`~a`) from `~a`"
                               col col (table-source-name (source mysql)))))
             (destructuring-bind (min max)

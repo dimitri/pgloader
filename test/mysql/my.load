@@ -5,7 +5,8 @@ load database
 
  WITH concurrency = 2,
       multiple readers per thread,
-      rows per range = 50000
+      rows per range = 50000,
+      quote identifiers
 
  ALTER SCHEMA 'pgloader' RENAME TO 'mysql'
 

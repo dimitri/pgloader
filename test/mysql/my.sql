@@ -100,6 +100,13 @@ create table bits
 
 insert into bits(bool) values(0b00), (0b01);
 
+/*
+ * https://github.com/dimitri/pgloader/issues/703
+ */
+create table `CamelCase` (
+ `validSizes` varchar(12)
+);
+
 CREATE TABLE `fcm_batches` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `raw_payload` mediumtext COLLATE utf8_unicode_ci,
