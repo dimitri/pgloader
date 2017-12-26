@@ -36,7 +36,9 @@
 
 (defrule tab (and #\\ #\t) (:constant #\Tab))
 
-(defrule separator (and #\' (or hex-char-code tab character ) #\')
+(defrule single-quote (and #\\ #\') (:constant #\'))
+
+(defrule separator (and #\' (or hex-char-code tab single-quote character) #\')
   (:lambda (sep)
     (bind (((_ char _) sep)) char)))
 

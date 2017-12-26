@@ -215,10 +215,16 @@ default.</p>
 between the separator and the value.</p>
 </li>
 <li><p class="first"><em>fields optionally enclosed by</em></p>
-<p>Takes a single character as argument, which must be found inside
-single quotes, and might be given as the printable character itself,
-the special value t to denote a tabulation character, or <cite>0x</cite> then
-an hexadecimal value read as the ASCII code for the character.</p>
+<p>Takes a single character as argument, which must be found inside single
+quotes, and might be given as the printable character itself, the
+special value t to denote a tabulation character, the special value ‘
+to denote a single-quote, or <cite>0x</cite> then an hexadecimal value read as the
+ASCII code for the character.</p>
+<p>The following options specify the same enclosing character, a single quote:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">fields</span> <span class="n">optionally</span> <span class="n">enclosed</span> <span class="n">by</span> <span class="s1">&#39;</span><span class="se">\&#39;</span><span class="s1">&#39;</span>
+<span class="n">fields</span> <span class="n">optionally</span> <span class="n">enclosed</span> <span class="n">by</span> <span class="s1">&#39;0x27&#39;</span>
+</pre></div>
+</div>
 <p>This character is used as the quoting character in the <cite>CSV</cite> file,
 and defaults to double-quote.</p>
 </li>

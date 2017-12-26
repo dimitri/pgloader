@@ -184,10 +184,16 @@ When loading from a `CSV` file, the following options are supported:
 
   - *fields optionally enclosed by*
 
-    Takes a single character as argument, which must be found inside
-    single quotes, and might be given as the printable character itself,
-    the special value \t to denote a tabulation character, or `0x` then
-    an hexadecimal value read as the ASCII code for the character.
+    Takes a single character as argument, which must be found inside single
+    quotes, and might be given as the printable character itself, the
+    special value \t to denote a tabulation character, the special value \'
+    to denote a single-quote, or `0x` then an hexadecimal value read as the
+    ASCII code for the character.
+
+    The following options specify the same enclosing character, a single quote::
+
+      fields optionally enclosed by '\''
+      fields optionally enclosed by '0x27'
 
     This character is used as the quoting character in the `CSV` file,
     and defaults to double-quote.
