@@ -152,8 +152,8 @@ file for you to use.
 
 You can either give a command file to pgloader or run it all from the
 command line, see the
-[pgloader quick start](http://pgloader.io/howto/quickstart.html) on
-<http://pgloader.io> for more details.
+[pgloader quick start](https://pgloader.readthedocs.io/en/latest/tutorial/tutorial.html#pgloader-quick-start) on
+<https://pgloader.readthedocs.io> for more details.
 
     $ ./build/bin/pgloader --help
     $ ./build/bin/pgloader <file.load>
