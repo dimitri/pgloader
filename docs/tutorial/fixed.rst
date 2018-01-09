@@ -8,9 +8,9 @@ blank-padded when the data is shorter than the full reserved range.
 The Command
 ^^^^^^^^^^^
 
-To load data with [pgloader](http://pgloader.io/) you need to define in a
-*command* the operations in some details. Here's our example for loading
-Fixed Width Data, using a file provided by the US census.
+To load data with pgloader you need to define in a *command* the operations in
+some details. Here's our example for loading Fixed Width Data, using a file
+provided by the US census.
 
 You can find more files from them at the
 [Census 2000 Gazetteer Files](http://www.census.gov/geo/maps-data/data/gazetteer2000.html).
