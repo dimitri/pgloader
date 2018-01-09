@@ -3,8 +3,10 @@ Loading SQLite files with pgloader
 
 The SQLite database is a respected solution to manage your data with. Its
 embeded nature makes it a source of migrations when a projects now needs to
-handle more concurrency, which [PostgreSQL](http://www.postgresql.org/) is
-very good at. pgloader can help you there.
+handle more concurrency, which PostgreSQL_ is very good at. pgloader can help
+you there.
+
+.. _PostgreSQL: http://www.postgresql.org/
 
 In a Single Command Line
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -62,8 +64,8 @@ can use the pgloader command.
 The Command
 ^^^^^^^^^^^
 
-To load data with [pgloader](http://pgloader.io/) you need to define in a
-*command* the operations in some details. Here's our command::
+To load data with pgloader you need to define in a *command* the operations in
+some details. Here's our command::
 
     load database
          from 'sqlite/Chinook_Sqlite_AutoIncrementPKs.sqlite'
