@@ -34,13 +34,21 @@
     (bind (((_ digits) hex))
       (code-char (parse-integer (text digits) :radix 16)))))
 
-(defrule tab (and #\\ #\t) (:constant #\Tab))
+(defrule tab-separator          (and #\' #\\ #\t #\') (:constant #\Tab))
+(defrule backslash-separator    (and #\' #\\ #\')     (:constant #\\))
 
-(defrule single-quote (and #\\ #\') (:constant #\'))
+(defrule single-quote-separator (or (and #\' #\' #\' #\')
+                                    (and #\' #\\ #\' #\'))
+  (:constant #\'))
 
-(defrule separator (and #\' (or hex-char-code tab single-quote character) #\')
+(defrule other-char-separator (and #\' (or hex-char-code character) #\')
   (:lambda (sep)
     (bind (((_ char _) sep)) char)))
+
+(defrule separator (or single-quote-separator
+                       backslash-separator
+                       tab-separator
+                       other-char-separator))
 
 ;;
 ;; Main CSV options (WITH ... in the command grammar)
