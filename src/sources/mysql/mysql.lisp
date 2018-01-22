@@ -88,12 +88,21 @@
 
 (defun call-with-encoding-handler (copy-mysql table-name func)
   (handler-bind
-      ;; avoid trying to fetch the character at end-of-input position...
-      ((babel-encodings:end-of-input-in-character
+      ;; Newer versions of qmynd handle the babel error and signal this one
+      ;; with more details and an improved reporting:
+      ((qmynd-impl::decoding-error
         #'(lambda (c)
             (update-stats :data (target copy-mysql) :errs 1)
             (log-message :error "~a" c)
             (invoke-restart 'qmynd-impl::use-nil)))
+
+       ;; Older versions of qmynd reported babel errors directly
+       (babel-encodings:end-of-input-in-character
+        #'(lambda (c)
+            (update-stats :data (target copy-mysql) :errs 1)
+            (log-message :error "~a" c)
+            (invoke-restart 'qmynd-impl::use-nil)))
+
        (babel-encodings:character-decoding-error
         #'(lambda (c)
             (update-stats :data (target copy-mysql) :errs 1)
@@ -104,7 +113,8 @@
                     (when (and position (< position (length buffer)))
                       (aref buffer position))))
               (log-message :error
-                           "~a: Illegal ~a character starting at position ~a~@[: ~a~]."
+                           "While decoding text data from MySQL table ~s: ~%~
+Illegal ~a character starting at position ~a~@[: ~a~].~%"
                            table-name encoding position character))
             (invoke-restart 'qmynd-impl::use-nil))))
     (funcall func)))
