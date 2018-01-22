@@ -118,6 +118,12 @@
    PostgreSQL, and when that's done update stats."
   (let ((preprocessor  (pgloader.sources::preprocess-row copy))
         (pre-formatted (pgloader.sources:data-is-preformatted-p copy))
+        (esc-safe-arr  (pg-escape-safe-array copy))
+        (nbcols        (length
+                        (table-column-list (pgloader.sources::target copy))))
+        (transform-fns (let ((funs (pgloader.sources::transforms copy)))
+                         (unless (every #'null funs)
+                           funs)))
         (current-batch (make-batch))
         (seconds 0))
 
@@ -173,8 +179,9 @@
 
                  ;; also add up the time it takes to format the rows
                  (let ((start-time (get-internal-real-time)))
-                   (format-row-in-batch copy row current-batch
-                                        preprocessor pre-formatted)
+                   (format-row-in-batch copy nbcols row current-batch
+                                        preprocessor pre-formatted
+                                        esc-safe-arr transform-fns)
                    (incf seconds (elapsed-time-since start-time)))))
 
             ;; the last batch might not be empty
@@ -191,22 +198,36 @@
     (list :writer table seconds)))
 
 
-(defun format-row-in-batch (copy row current-batch preprocessor pre-formatted)
+(defun format-row-in-batch (copy nbcols row current-batch
+                            preprocessor
+                            pre-formatted
+                            escape-safe-array
+                            transform-fns)
   "Given a row from the queue, prepare it for the next batch."
+  (declare (ignore copy))
   (metabang.bind:bind
-      ((row           (if preprocessor (funcall preprocessor row) row))
+      ((row               (if preprocessor (funcall preprocessor row) row))
+       (transformed-row   (or (when (and (not pre-formatted)
+                                         transform-fns)
+                                (apply-transforms nbcols
+                                                  row
+                                                  transform-fns))
+                              row))
 
        ((:values copy-data bytes)
-        (handler-case
-            (format-vector-row row
-                               (pgloader.sources::transforms copy)
-                               pre-formatted)
-          (condition (e)
-            (log-message :error "Error while formating a row from ~s:"
-                         (format-table-name (pgloader.sources:target copy)))
-            (log-message :error "~a" e)
-            (update-stats :data (pgloader.sources:target copy) :errs 1)
-            (values nil 0)))))
+        (format-vector-row nbcols transformed-row pre-formatted escape-safe-array)
+        ;; (handler-case
+        ;;     (format-vector-row row
+        ;;                        pre-formatted
+        ;;                        transform-fns
+        ;;                        ascii-types)
+        ;;   (condition (e)
+        ;;     (log-message :error "Error while formating a row from ~s:"
+        ;;                  (format-table-name (pgloader.sources:target copy)))
+        ;;     (log-message :error "~a" e)
+        ;;     (update-stats :data (pgloader.sources:target copy) :errs 1)
+        ;;     (values nil 0)))
+        ))
     ;; we might have to debug
     (when copy-data
       (log-message :data "> ~s"

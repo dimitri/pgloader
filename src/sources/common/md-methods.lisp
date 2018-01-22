@@ -136,6 +136,18 @@
         (log-message :fatal "~a" e)
         (return-from copy-database)))
 
+    ;; Keep the PostgreSQL table target around in the copy instance,
+    ;; with the following subtleties to deal with:
+    ;;   1. the catalog fetching did fill-in PostgreSQL columns as fields
+    ;;   2. we might target fewer pg columns than the table actually has
+    (let ((table (first (table-list pgsql-catalog))))
+      (setf (table-column-list table)
+            (loop :for column-name :in (mapcar #'first (columns copy))
+               :collect (find column-name (table-field-list table)
+                              :key #'column-name
+                              :test #'string=)))
+      (setf (target copy) table))
+
     ;; expand the specs of our source, we might have to care about several
     ;; files actually.
     (let* ((lp:*kernel* (make-kernel worker-count))
