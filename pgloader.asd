@@ -54,7 +54,6 @@
                       :depends-on ("package" "params")
                       :components
                       ((:file "charsets")
-                       (:file "batch")
                        (:file "logs")
                        (:file "utils")
                        (:file "state")
@@ -93,21 +92,14 @@
                       :depends-on ("package" "params" "utils")
                       :serial t
                       :components
-                      ((:file "copy-format")
-                       (:file "connection")
+                      ((:file "connection")
                        (:file "pgsql-ddl")
                        (:file "pgsql-schema")
                        (:file "merge-catalogs" :depends-on ("pgsql-schema"))
                        (:file "pgsql-trigger")
                        (:file "pgsql-index-filter")
-                       (:file "pgsql-create-schema" :depends-on ("pgsql-trigger"))
-                       (:file "retry-batch")
-                       (:file "copy-from-queue"
-                              :depends-on ("copy-format"
-                                           "connection"
-                                           "retry-batch"
-                                           "pgsql-create-schema"
-                                           "pgsql-schema"))))
+                       (:file "pgsql-create-schema"
+                              :depends-on ("pgsql-trigger"))))
 
              ;; Source format specific implementations
              (:module sources
@@ -189,6 +181,21 @@
                                  (:file "mysql"
                                         :depends-on ("mysql-cast-rules"
                                                      "mysql-schema"))))))
+
+             ;; package pgloader.copy
+             (:module "pg-copy"
+                      :depends-on ("params"
+                                   "package"
+                                   "utils"
+                                   "pgsql"
+                                   "sources")
+                      :serial t
+                      :components
+                      ((:file "copy-batch")
+                       (:file "copy-format")
+                       (:file "copy-write-row")
+                       (:file "copy-from-queue")
+                       (:file "copy-retry-batch")))
 
              (:module "parsers"
                       :depends-on ("params"

@@ -139,7 +139,7 @@
               ;; start a task to transform the raw data in the copy format
               ;; and send that data down to PostgreSQL
               (loop :repeat concurrency :do
-                 (submit-task channel #'pgloader.pgsql::copy-rows-from-queue
+                 (submit-task channel #'pgloader.copy::copy-rows-from-queue
                               copy rawq
                               :on-error-stop on-error-stop
                               :disable-triggers disable-triggers))))

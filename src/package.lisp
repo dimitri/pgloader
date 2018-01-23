@@ -255,20 +255,6 @@
            #:elapsed-time-since
            #:timing))
 
-(defpackage #:pgloader.batch
-  (:use #:cl #:pgloader.params #:pgloader.monitor)
-  (:export #:make-batch
-           #:batch-p
-           #:batch-start
-           #:batch-data
-           #:batch-count
-           #:batch-max-count
-           #:batch-max-count
-           #:batch-bytes
-           #:push-row
-           #:batch-oversized-p
-           #:batch-full-p))
-
 (defpackage #:pgloader.queries
   (:use #:cl #:pgloader.params)
   (:export #:*queries*
@@ -281,8 +267,7 @@
         #:pgloader.quoting
         #:pgloader.catalog
         #:pgloader.monitor
-        #:pgloader.state
-        #:pgloader.batch)
+        #:pgloader.state)
   (:import-from #:alexandria
                 #:appendf
                 #:read-file-into-string)
@@ -313,8 +298,7 @@
   (cl-user::export-inherited-symbols "pgloader.quoting" "pgloader.utils")
   (cl-user::export-inherited-symbols "pgloader.catalog" "pgloader.utils")
   (cl-user::export-inherited-symbols "pgloader.monitor" "pgloader.utils")
-  (cl-user::export-inherited-symbols "pgloader.state"   "pgloader.utils")
-  (cl-user::export-inherited-symbols "pgloader.batch"   "pgloader.utils"))
+  (cl-user::export-inherited-symbols "pgloader.state"   "pgloader.utils"))
 
 
 ;;
@@ -393,12 +377,11 @@
 	   #:pgsql-execute-with-timing
 	   #:pgsql-connect-and-execute-with-timing
            #:postgresql-unavailable
+           #:postgresql-retryable
+           #:with-disabled-triggers
 
            ;; postgresql schema facilities
 	   #:truncate-tables
-	   #:copy-from-file
-	   #:copy-from-queue
-	   #:copy-from-batch
            #:set-table-oids
 
            #:create-sqltypes
@@ -449,7 +432,7 @@
 (defpackage #:pgloader.sources
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
-        #:pgloader.pgsql #:pgloader.batch)
+        #:pgloader.pgsql)
   (:import-from #:pgloader.transforms
                 #:precision
                 #:scale
@@ -470,6 +453,9 @@
 	   #:fields
 	   #:columns
 	   #:transforms
+           #:preprocessor
+           #:copy-format
+           #:columns-escape-mode
            #:encoding
            #:skip-lines
            #:header
@@ -514,6 +500,25 @@
            #:*cast-rules*
            #:apply-casting-rules
            #:format-pgsql-type))
+
+
+;;;
+;;; COPY protocol related facilities
+;;;
+(defpackage #:pgloader.copy
+  (:use #:cl #:pgloader.params #:pgloader.utils
+        #:pgloader.pgsql #:pgloader.sources)
+  (:import-from #:pgloader.pgsql
+                #:with-pgsql-connection
+                #:with-schema
+                #:with-disabled-triggers
+                #:postgresql-unavailable
+                #:postgresql-retryable)
+  (:import-from #:cl-postgres
+                #:database-error-context)
+  (:export #:copy-rows-from-queue
+           #:format-vector-row))
+
 
 
 ;;;
@@ -803,11 +808,10 @@
 (defpackage #:pgloader
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.parser
-        #:pgloader.connection #:metabang.bind)
+        #:pgloader.connection #:pgloader.copy #:metabang.bind)
   (:import-from #:pgloader.pgsql
                 #:pgconn-table-name
-                #:pgsql-connection
-		#:copy-from-file)
+                #:pgsql-connection)
   (:import-from #:pgloader.pgsql
                 #:with-pgsql-connection
                 #:with-schema
