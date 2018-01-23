@@ -27,12 +27,7 @@
                :initarg :process-fn)    ;
    (format     :accessor copy-format    ; format can be :COPY
                :initarg :format         ; in which case no escaping
-               :initform :raw)          ; has to be done
-   ;; and this one is an array of magic numbers for per-column escaping
-   ;; rules, which depend on the PostgreSQL data type we are targetting, and
-   ;; allow to reduce the work to be done at COPY time.
-   (columns-escape-mode :accessor columns-escape-mode
-                        :initarg :columns-escape-mode))
+               :initform :raw))         ; has to be done
   (:documentation "pgloader Generic Data Source"))
 
 (defmethod initialize-instance :after ((source copy) &key)

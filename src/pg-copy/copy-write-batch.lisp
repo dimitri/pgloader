@@ -10,6 +10,13 @@
 ;;; COPY protocol, and retry the batch avoiding known bad rows (from parsing
 ;;; COPY error messages) in case some data related conditions are signaled.
 ;;;
+(defun db-write-batch (copier batch)
+  (loop :for count :below (batch-count batch)
+     :for data :across (batch-data batch)
+     :do (when data
+           (db-write-row copier data))
+     :finally (return (batch-count batch))))
+
 (defun db-write-row (copier data)
   "Copy cl-postgres:db-write-row guts to avoid computing utf-8 bytes all
    over again, as we reproduced the data formating in pgloader code. The
@@ -25,5 +32,4 @@
           (loop :for byte :across data
              :do (write-byte byte cl-postgres::socket))))))
   (incf (cl-postgres::copier-count copier)))
-
 

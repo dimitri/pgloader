@@ -516,6 +516,9 @@
                 #:postgresql-retryable)
   (:import-from #:cl-postgres
                 #:database-error-context)
+  (:import-from #:cl-postgres-trivial-utf-8
+                #:utf-8-byte-length
+                #:string-to-utf-8-bytes)
   (:export #:copy-rows-from-queue
            #:format-vector-row))
 

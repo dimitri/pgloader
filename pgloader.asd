@@ -193,7 +193,7 @@
                       :components
                       ((:file "copy-batch")
                        (:file "copy-format")
-                       (:file "copy-write-row")
+                       (:file "copy-write-batch")
                        (:file "copy-from-queue")
                        (:file "copy-retry-batch")))
 

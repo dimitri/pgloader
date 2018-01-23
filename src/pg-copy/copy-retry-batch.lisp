@@ -54,7 +54,7 @@
 ;;;
 ;;; The main retry batch function.
 ;;;
-(defun retry-batch (table columns batch batch-rows condition
+(defun retry-batch (table columns batch condition
                     &optional (current-batch-pos 0)
                     &aux (nb-errors 0))
   "Batch is a list of rows containing at least one bad row, the first such
@@ -67,32 +67,36 @@
      :with next-error := (parse-copy-error-context
                           (database-error-context condition))
 
-     :while (< current-batch-pos batch-rows)
+     :while (< current-batch-pos (batch-count batch))
 
      :do
      (progn                           ; indenting helper
        (log-message :debug "pos: ~s ; err: ~a" current-batch-pos next-error)
        (when (= current-batch-pos next-error)
          (log-message :info "error recovery at ~d/~d, processing bad row"
-                      current-batch-pos batch-rows)
-         (process-bad-row table condition (aref batch current-batch-pos))
+                      current-batch-pos (batch-count batch))
+         (process-bad-row table
+                          condition
+                          (aref (batch-data batch) current-batch-pos))
          (incf current-batch-pos)
          (incf nb-errors))
 
        (let* ((current-batch-rows
-               (next-batch-rows batch-rows current-batch-pos next-error)))
+               (next-batch-rows (batch-count batch) current-batch-pos next-error)))
          (when (< 0 current-batch-rows)
            (if (< current-batch-pos next-error)
                (log-message :info
                             "error recovery at ~d/~d, next error at ~d, ~
                              loading ~d row~:p"
                             current-batch-pos
-                            batch-rows
+                            (batch-count batch)
                             next-error
                             current-batch-rows)
                (log-message :info
                             "error recovery at ~d/~d, trying ~d row~:p"
-                            current-batch-pos batch-rows current-batch-rows))
+                            current-batch-pos
+                            (batch-count batch)
+                            current-batch-rows))
 
            (handler-case
                (incf current-batch-pos
@@ -116,7 +120,7 @@
                        next-error (+ current-batch-pos next-error-relative)))))))))
 
   (log-message :info "Recovery found ~d errors in ~d row~:p"
-               nb-errors batch-rows)
+               nb-errors (batch-count batch))
 
   ;; Return how many rows where erroneous, for statistics purposes
   nb-errors)
@@ -131,7 +135,7 @@
     (unwind-protect
          (loop :repeat current-batch-rows
             :for pos :from current-batch-pos
-            :do (db-write-row stream (aref batch pos)))
+            :do (db-write-row stream (aref (batch-data batch) pos)))
 
       ;; close-db-writer is the one signaling cl-postgres-errors
       (progn

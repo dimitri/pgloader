@@ -3,7 +3,7 @@
 ;;;
 (in-package :pgloader.copy)
 
-(defun copy-batch (table columns batch batch-rows
+(defun send-batch (table columns batch
                    &key
                      (db pomo:*database*)
                      on-error-stop)
@@ -33,13 +33,9 @@
                                    columns
                                    c)
                       (update-stats :data table :errs 1)
-                      (return-from copy-batch 0)))))
+                      (return-from send-batch 0)))))
             (unwind-protect
-                 (loop :for i :below batch-rows
-                    :for data := (aref batch i)
-                    :do (when data
-                          (db-write-row copier data))
-                    :finally (return batch-rows))
+                 (db-write-batch copier batch)
               (cl-postgres:close-db-writer copier)
               (pomo:execute "COMMIT"))))
 
@@ -56,7 +52,7 @@
             ;; normal behavior, on-error-stop being nil
             ;; clean the current transaction before retrying new ones
             (let ((errors
-                   (retry-batch table columns batch batch-rows condition)))
+                   (retry-batch table columns batch condition)))
               (log-message :debug "retry-batch found ~d errors" errors)
               (update-stats :data table :rows (- errors)))))
 
@@ -65,14 +61,12 @@
         (log-message :error "[PostgreSQL ~s] ~a" table-name condition)
         (log-message :error "Copy Batch reconnecting to PostgreSQL")
 
-       ;; in order to avoid Socket error in "connect": ECONNREFUSED if we
-       ;; try just too soon, wait a little
-       (sleep 2)
+        ;; in order to avoid Socket error in "connect": ECONNREFUSED if we
+        ;; try just too soon, wait a little
+        (sleep 2)
 
         (cl-postgres:reopen-database db)
-        (copy-batch table columns batch batch-rows
-                    :db db
-                    :on-error-stop on-error-stop))
+        (send-batch table columns batch :db db :on-error-stop on-error-stop))
 
       (condition (c)
         ;; non retryable failures
@@ -95,29 +89,38 @@
                                (table   (pgloader.sources:target copy)))
   "Fetch rows from the QUEUE, prepare them in batches and send them down to
    PostgreSQL, and when that's done update stats."
-  (let ((preprocessor  (pgloader.sources::preprocess-row copy))
-        (pre-formatted (pgloader.sources:data-is-preformatted-p copy))
-        (esc-safe-arr  (pg-escape-safe-array copy))
-        (nbcols        (length
-                        (table-column-list (pgloader.sources::target copy))))
-        (transform-fns (let ((funs (pgloader.sources::transforms copy)))
-                         (unless (every #'null funs)
-                           funs)))
-        (current-batch (make-batch))
-        (seconds 0))
+  (let* ((nbcols        (length
+                         (table-column-list (pgloader.sources::target copy))))
+         (current-batch (make-batch))
+         (seconds 0))
+
+    ;; add some COPY activity related bits to our COPY object.
+    (setf (transforms copy)
+          (let ((funs (transforms copy)))
+            (unless (every #'null funs)
+              funs))
+
+          ;; FIXME: we should change the API around preprocess-row, someday.
+          (preprocessor copy)
+          (pgloader.sources::preprocess-row copy)
+
+          ;; FIXME: we could change the API around data-is-preformatted-p,
+          ;; but that's a bigger change than duplicating the information in
+          ;; the object.
+          (copy-format copy)
+          (if (data-is-preformatted-p copy) :escaped :raw))
 
     (flet ((send-current-batch (unqualified-table-name)
              ;; we close over the whole lexical environment or almost...
              (let ((batch-start-time (get-internal-real-time)))
-               (copy-batch table
+               (send-batch table
                            columns
-                           (batch-data current-batch)
-                           (batch-count current-batch)
+                           current-batch
                            :on-error-stop on-error-stop)
 
                (let ((batch-seconds (elapsed-time-since batch-start-time)))
                  (log-message :debug
-                              "copy-batch[~a] ~a ~d row~:p [~a] in ~6$s~@[ [oversized]~]"
+                              "send-batch[~a] ~a ~d row~:p [~a] in ~6$s~@[ [oversized]~]"
                               (lp:kernel-worker-index)
                               unqualified-table-name
                               (batch-count current-batch)
@@ -158,9 +161,7 @@
 
                  ;; also add up the time it takes to format the rows
                  (let ((start-time (get-internal-real-time)))
-                   (format-row-in-batch copy nbcols row current-batch
-                                        preprocessor pre-formatted
-                                        esc-safe-arr transform-fns)
+                   (format-row-in-batch copy nbcols row current-batch)
                    (incf seconds (elapsed-time-since start-time)))))
 
             ;; the last batch might not be empty
@@ -177,40 +178,28 @@
     (list :writer table seconds)))
 
 
-(defun format-row-in-batch (copy nbcols row current-batch
-                            preprocessor
-                            pre-formatted
-                            escape-safe-array
-                            transform-fns)
+(defun format-row-in-batch (copy nbcols row current-batch)
   "Given a row from the queue, prepare it for the next batch."
-  (declare (ignore copy))
-  (metabang.bind:bind
-      ((row               (if preprocessor (funcall preprocessor row) row))
-       (transformed-row   (or (when (and (not pre-formatted)
-                                         transform-fns)
-                                (apply-transforms nbcols
-                                                  row
-                                                  transform-fns))
-                              row))
+  (let* ((row               (if (preprocessor copy)
+                                (funcall (preprocessor copy) row)
+                                row))
+         (transformed-row   (cond ((eq :escaped (copy-format copy)) row)
+                                  ((null (transforms copy))         row)
+                                  (t
+                                   (apply-transforms copy
+                                                     nbcols
+                                                     row
+                                                     (transforms copy))))))
+    (multiple-value-bind (pg-vector-row bytes)
+        (if transformed-row
+            (ecase (copy-format copy)
+              (:raw     (format-vector-row nbcols transformed-row))
+              (:escaped (format-escaped-vector-row nbcols transformed-row)))
+            (values nil 0))
 
-       ((:values copy-data bytes)
-        (format-vector-row nbcols transformed-row pre-formatted escape-safe-array)
-        ;; (handler-case
-        ;;     (format-vector-row row
-        ;;                        pre-formatted
-        ;;                        transform-fns
-        ;;                        ascii-types)
-        ;;   (condition (e)
-        ;;     (log-message :error "Error while formating a row from ~s:"
-        ;;                  (format-table-name (pgloader.sources:target copy)))
-        ;;     (log-message :error "~a" e)
-        ;;     (update-stats :data (pgloader.sources:target copy) :errs 1)
-        ;;     (values nil 0)))
-        ))
-    ;; we might have to debug
-    (when copy-data
-      (log-message :data "> ~s"
-                   (map 'string #'code-char copy-data)))
+      ;; we might have to debug
+      (when pg-vector-row
+        (log-message :data "> ~s" (map 'string #'code-char pg-vector-row))
 
-    ;; now add copy-data to current-batch
-    (push-row current-batch copy-data bytes)))
+        ;; now add copy-data to current-batch
+        (push-row current-batch pg-vector-row bytes)))))

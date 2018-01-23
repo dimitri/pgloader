@@ -43,9 +43,8 @@
   (or (= (batch-count batch) (batch-max-count batch))
       (batch-oversized-p batch)))
 
-(defun push-row (batch row &optional row-bytes)
+(defun push-row (batch row row-bytes)
   (with-slots (data count bytes) batch
     (setf (aref data count) row)
     (incf count)
-    (when row-bytes
-      (incf bytes row-bytes))))
+    (incf bytes row-bytes)))
