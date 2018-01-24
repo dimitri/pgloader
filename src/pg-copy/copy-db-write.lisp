@@ -55,12 +55,7 @@
    over again, as we reproduced the data formating in pgloader code. The
    reason we do that is to be able to lower the cost of retrying batches:
    the formating has then already been done."
-  (declare (optimize
-            (speed 3)
-            #-ecl(safety 0) #+ecl(safety 1)
-            (space 0)
-            (debug 1)
-            (compilation-speed 0)))  
+  (declare (optimize (speed 3) (space 0) (debug 1) (compilation-speed 0)))
   (let* ((col-bytes           (map 'vector
                                    (lambda (col)
                                      (if (col-null-p col) 2
@@ -97,12 +92,7 @@
    over again, as we reproduced the data formating in pgloader code. The
    reason we do that is to be able to lower the cost of retrying batches:
    the formating has then already been done."
-  (declare (optimize
-            (speed 3)
-            #-ecl(safety 0) #+ecl(safety 1)
-            (space 0)
-            (debug 1)
-            (compilation-speed 0)))
+  (declare (optimize (speed 3) (space 0) (debug 1) (compilation-speed 0)))
   (let* ((col-bytes           (map 'vector
                                    (lambda (col)
                                      (if (col-null-p col) 2

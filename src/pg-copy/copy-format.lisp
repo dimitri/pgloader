@@ -41,12 +41,7 @@
            (apply-transforms copy nbcols preprocessed-row (transforms copy))))))
 
 (defun format-vector-row (nb-cols row)
-  (declare (optimize
-            (speed 3)
-            #-ecl(safety 0) #+ecl(safety 1)
-            (space 0)
-            (debug 1)
-            (compilation-speed 0)))
+  (declare (optimize (speed 3) (space 0) (debug 1) (compilation-speed 0)))
   (let* ((lens (map 'vector
                     (lambda (col)
                       (if (col-null-p col) 2 (copy-utf-8-byte-length col)))
@@ -66,12 +61,7 @@
 
 (defun format-escaped-vector-row (nb-cols row)
   "We've read data in the COPY format, so already escaped."
-  (declare (optimize
-            (speed 3)
-            #-ecl(safety 0) #+ecl(safety 1)
-            (space 0)
-            (debug 1)
-            (compilation-speed 0)))
+  (declare (optimize (speed 3) (space 0) (debug 1) (compilation-speed 0)))
   (let* ((lens (map 'vector
                     (lambda (col)
                       (if (col-null-p col) 2 (utf-8-byte-length col)))
@@ -133,12 +123,7 @@
 (defun copy-utf-8-byte-length (string)
   "Calculate the amount of bytes needed to encode a string."
   (declare (type string string)
-           (optimize
-            (speed 3)
-            #-ecl(safety 0) #+ecl(safety 1)
-            (space 0)
-            (debug 1)
-            (compilation-speed 0)))
+           (optimize (speed 3) (space 0) (debug 1) (compilation-speed 0)))
   (let ((length (length string))
         (string (coerce string 'simple-string)))
     (loop :for char :across string
@@ -197,12 +182,7 @@ encoded form of that character."
   "Convert a string into an array of unsigned bytes containing its
 utf-8 representation."
   (declare (type string string)
-           (optimize
-            (speed 3)
-            #-ecl(safety 0) #+ecl(safety 1)
-            (space 0)
-            (debug 1)
-            (compilation-speed 0)))
+           (optimize (speed 3) (space 0) (debug 1) (compilation-speed 0)))
   (let ((string (coerce string 'simple-string)))
     (declare (type (array (unsigned-byte 8)) buffer)
              (type fixnum position))
