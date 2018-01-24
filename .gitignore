@@ -16,3 +16,4 @@ web/howto/quickstart.html
 web/howto/sqlite.html
 .DS_Store
 system-index.txt
+docs/_build
