@@ -13,6 +13,33 @@
 ;;; call here.
 ;;;
 
+(defun prepare-and-format-row (copy nbcols row)
+  "Prepare given ROW in PostgreSQL COPY format"
+  (let* ((row (prepare-row copy nbcols row)))
+    (multiple-value-bind (pg-vector-row bytes)
+        (if row
+            (ecase (copy-format copy)
+              (:raw     (format-vector-row nbcols row))
+              (:escaped (format-escaped-vector-row nbcols row)))
+            (values nil 0))
+
+      ;; we might have to debug
+      (when pg-vector-row
+        (log-message :data "> ~s" (map 'string #'code-char pg-vector-row))
+
+        (values pg-vector-row bytes)))))
+
+(defun prepare-row (copy nbcols row)
+  "Prepare given ROW by applying the pre-processing and transformation
+   functions registered in the COPY context."
+  (let* ((preprocessed-row (if (preprocessor copy)
+                               (funcall (preprocessor copy) row)
+                               row)))
+    (cond ((eq :escaped (copy-format copy)) preprocessed-row)
+          ((null (transforms copy))         preprocessed-row)
+          (t
+           (apply-transforms copy nbcols preprocessed-row (transforms copy))))))
+
 (defun format-vector-row (nb-cols row)
   (declare (optimize
             (speed 3)
@@ -27,9 +54,9 @@
          (len  (+ nb-cols (reduce #'+ lens)))
          (buf  (make-array (the fixnum len) :element-type '(unsigned-byte 8))))
     (loop :for col :across row
-       :for i :from 1
-       :for position := 0 :then (+ position col-len 1)
-       :for col-len :across lens
+       :for i fixnum :from 1
+       :for position fixnum := 0 :then (+ position col-len 1)
+       :for col-len fixnum :across lens
        :do (if (col-null-p col)
                (insert-copy-null buf position)
                (string-to-copy-utf-8-bytes col buf position))

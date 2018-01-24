@@ -193,9 +193,11 @@
                       :components
                       ((:file "copy-batch")
                        (:file "copy-format")
-                       (:file "copy-write-batch")
-                       (:file "copy-from-queue")
-                       (:file "copy-retry-batch")))
+                       (:file "copy-db-write")
+                       (:file "copy-rows-in-stream")
+                       (:file "copy-rows-in-batch")
+                       (:file "copy-retry-batch")
+                       (:file "copy-from-queue")))
 
              (:module "parsers"
                       :depends-on ("params"

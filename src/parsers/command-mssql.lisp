@@ -15,6 +15,7 @@
 (make-option-rule create-schemas (and kw-create (? kw-no) kw-schemas))
 
 (defrule mssql-option (or option-on-error-stop
+                          option-on-error-resume-next
                           option-workers
                           option-concurrency
                           option-batch-rows
@@ -150,6 +151,7 @@
      (let* ((*default-cast-rules* ',*mssql-default-cast-rules*)
             (*cast-rules*         ',casts)
             (*mssql-settings*     ',mssql-gucs)
+            (on-error-stop        (getf ',options :on-error-stop t))
             ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
@@ -166,6 +168,7 @@
                                      :alter-schema ',alter-schema
                                      :alter-table ',alter-table
                                      :set-table-oids t
+                                     :on-error-stop on-error-stop
                                      ,@(remove-batch-control-option options))
 
        ,(sql-code-block pg-db-conn :post after "after load"))))

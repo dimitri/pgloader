@@ -44,6 +44,7 @@
     (bind (((_ field-defs _) source)) field-defs)))
 
 (defrule fixed-option (or option-on-error-stop
+                          option-on-error-resume-next
                           option-workers
                           option-concurrency
                           option-batch-rows

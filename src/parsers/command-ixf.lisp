@@ -19,6 +19,7 @@
     (bind (((_ tz) tzopt)) (cons :timezone tz))))
 
 (defrule ixf-option (or option-on-error-stop
+                        option-on-error-resume-next
                         option-workers
                         option-concurrency
                         option-batch-rows
@@ -83,6 +84,7 @@
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
             (timezone     (getf ',options :timezone))
+            (on-error-stop(getf ',options :on-error-stop))
             (source-db    (with-stats-collection ("fetch" :section :pre)
                               (expand (fetch-file ,ixf-db-conn))))
             (source
@@ -98,6 +100,7 @@
                                        ,@(remove-batch-control-option
                                           options
                                           :extras '(:timezone))
+                                       :on-error-stop on-error-stop
                                        :foreign-keys nil
                                        :reset-sequences nil)
 

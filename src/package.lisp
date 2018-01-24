@@ -518,6 +518,7 @@
                 #:database-error-context)
   (:import-from #:cl-postgres-trivial-utf-8
                 #:utf-8-byte-length
+                #:as-utf-8-bytes
                 #:string-to-utf-8-bytes)
   (:export #:copy-rows-from-queue
            #:format-vector-row))

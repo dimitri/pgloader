@@ -34,6 +34,7 @@
   (:destructure (kw null) (declare (ignore kw)) (cons :null-as null)))
 
 (defrule copy-option (or option-on-error-stop
+                         option-on-error-resume-next
                          option-workers
                          option-concurrency
                          option-batch-rows
@@ -135,8 +136,7 @@
                                :fields   ',fields
                                :columns  ',columns
                                ,@(remove-batch-control-option
-                                  options :extras '(:on-error-stop
-                                                    :worker-count
+                                  options :extras '(:worker-count
                                                     :concurrency
                                                     :truncate
                                                     :drop-indexes

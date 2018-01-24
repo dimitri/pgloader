@@ -19,6 +19,7 @@
       (cons :table-name (text table-name)))))
 
 (defrule dbf-option (or option-on-error-stop
+                        option-on-error-resume-next
                         option-workers
                         option-concurrency
                         option-batch-rows
@@ -98,6 +99,7 @@
      (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
+            (on-error-stop (getf ',options :on-error-stop))
             (source-db     (with-stats-collection ("fetch" :section :pre)
                              (expand (fetch-file ,dbf-db-conn))))
             (source
@@ -111,6 +113,7 @@
 
        (pgloader.sources:copy-database source
                                        ,@(remove-batch-control-option options)
+                                       :on-error-stop on-error-stop
                                        :create-indexes nil
                                        :foreign-keys nil
                                        :reset-sequences nil)

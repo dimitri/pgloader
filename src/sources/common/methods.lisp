@@ -85,7 +85,11 @@
              (incf task-count)))
 
       (lp:task-handler-bind
-          ((on-error-stop
+          ((pgloader.copy::copy-init-error
+            #'(lambda (condition)
+                ;; everything has been handled already
+                (lp:invoke-transfer-error condition)))
+           (on-error-stop
             #'(lambda (condition)
                 ;; everything has been handled already
                 (lp:invoke-transfer-error condition)))
@@ -124,7 +128,7 @@
                  ;; each reader pretends to be alone, pass 1 as concurrency
                  (submit-task channel #'queue-raw-data reader rawq 1)
 
-                 (submit-task channel #'pgloader.pgsql::copy-rows-from-queue
+                 (submit-task channel #'pgloader.copy::copy-rows-from-queue
                               copy rawq
                               :on-error-stop on-error-stop
                               :disable-triggers disable-triggers)))

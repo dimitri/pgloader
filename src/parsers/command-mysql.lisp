@@ -8,6 +8,7 @@
 ;;; MySQL options
 ;;;
 (defrule mysql-option (or option-on-error-stop
+                          option-on-error-resume-next
                           option-workers
                           option-concurrency
                           option-batch-rows
@@ -154,6 +155,7 @@
             (*cast-rules*         ',casts)
             (*decoding-as*        ',decoding-as)
             (*mysql-settings*     ',mysql-gucs)
+            (on-error-stop        (getf ',options :on-error-stop t))
             ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
@@ -171,6 +173,7 @@
                                      :alter-table ',alter-table
                                      :alter-schema ',alter-schema
                                      :set-table-oids t
+                                     :on-error-stop on-error-stop
                                      ,@(remove-batch-control-option options))
 
        ,(sql-code-block pg-db-conn :post after "after load"))))

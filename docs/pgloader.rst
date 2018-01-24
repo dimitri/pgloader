@@ -253,6 +253,27 @@ containing the full PostgreSQL client side logs about the rejected data.
 The `.dat` file is formatted in PostgreSQL the text COPY format as documented
 in `http://www.postgresql.org/docs/9.2/static/sql-copy.html#AEN66609`.
 
+It is possible to use the following WITH options to control pgloader batch
+behavior:
+
+  - *on error stop*, *on error resume next*
+
+    This option controls if pgloader is using building batches of data at
+    all. The batch implementation allows pgloader to recover errors by
+    sending the data that PostgreSQL accepts again, and by keeping away the
+    data that PostgreSQL rejects.
+
+    To enable retrying the data and loading the good parts, use the option
+    *on error resume next*, which is the default to file based data loads
+    (such as CSV, IXF or DBF).
+
+    When migrating from another RDMBS technology, it's best to have a
+    reproducible loading process. In that case it's possible to use *on
+    error stop* and fix either the casting rules, the data transformation
+    functions or in cases the input data until your migration runs through
+    completion. That's why *on error resume next* is the default for SQLite,
+    MySQL and MS SQL source kinds.
+
 A Note About Performance
 ------------------------
 
@@ -472,7 +493,7 @@ See each specific command for details.
 
 All data sources specific commands support the following options:
 
-  - *on error stop*
+  - *on error stop*, *on error resume next*
   - *batch rows = R*
   - *batch size = ... MB*
   - *prefetch rows = ...*

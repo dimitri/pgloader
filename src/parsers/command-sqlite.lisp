@@ -14,6 +14,7 @@ load database
   set work_mem to '16MB', maintenance_work_mem to '512 MB';
 |#
 (defrule sqlite-option (or option-on-error-stop
+                           option-on-error-resume-next
                            option-workers
                            option-concurrency
                            option-batch-rows
@@ -99,6 +100,7 @@ load database
   `(lambda ()
      (let* ((*default-cast-rules* ',*sqlite-default-cast-rules*)
             (*cast-rules*         ',casts)
+            (on-error-stop        (getf ',options :on-error-stop t))
             ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
@@ -117,6 +119,7 @@ load database
                                       :set-table-oids t
                                       :including ',incl
                                       :excluding ',excl
+                                      :on-error-stop on-error-stop
                                       ,@(remove-batch-control-option options))
 
        ,(sql-code-block pg-db-conn :post after "after load"))))

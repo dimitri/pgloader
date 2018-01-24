@@ -105,6 +105,7 @@
                                                      :batch-size
                                                      :prefetch-rows
                                                      :rows-per-range
+                                                     :on-error-stop
                                                      :identifier-case))
                                       extras)
   "Given a list of options, remove the generic ones that should already have
@@ -159,6 +160,9 @@
 
 (defrule option-on-error-stop (and kw-on kw-error kw-stop)
   (:constant (cons :on-error-stop t)))
+
+(defrule option-on-error-resume-next (and kw-on kw-error kw-resume kw-next)
+  (:constant (cons :on-error-stop nil)))
 
 (defrule option-identifiers-case (and (or kw-snake_case
                                           kw-downcase

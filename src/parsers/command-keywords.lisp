@@ -50,6 +50,8 @@
   (def-keyword-rule "on")
   (def-keyword-rule "error")
   (def-keyword-rule "stop")
+  (def-keyword-rule "resume")
+  (def-keyword-rule "next")
   (def-keyword-rule "parameters")
   ;; option for loading from a file
   (def-keyword-rule "workers")
