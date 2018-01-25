@@ -141,4 +141,5 @@
   "Given a row from the queue, prepare it for the next batch."
   (multiple-value-bind (pg-vector-row bytes)
       (prepare-and-format-row copy nbcols row)
-    (push-row current-batch pg-vector-row bytes)))
+    (when pg-vector-row
+      (push-row current-batch pg-vector-row bytes))))
