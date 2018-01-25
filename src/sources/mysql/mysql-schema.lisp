@@ -22,7 +22,20 @@
           for sql = (format nil "CREATE VIEW ~a AS ~a" name def)
           do
             (log-message :info "MySQL: ~a" sql)
-            (mysql-query sql))))))
+            #+pgloader-image
+            (mysql-query sql)
+            #-pgloader-image
+            (restart-case
+                (mysql-query sql)
+              (use-existing-view ()
+                :report "Use the already existing view and continue"
+                nil)
+              (replace-view ()
+                :report "Replace the view with the one from pgloader's command"
+                (let ((drop-sql (format nil "DROP VIEW ~a;" name)))
+                  (log-message :info "MySQL: ~a" drop-sql)
+                  (mysql-query drop-sql)
+                  (mysql-query sql)))))))))
 
 (defun drop-my-views (views-alist)
   "See `create-my-views' for VIEWS-ALIST description. This time we DROP the
