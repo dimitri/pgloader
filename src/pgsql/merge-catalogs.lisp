@@ -32,8 +32,15 @@
                    (find-schema target-catalog schema-name)))
 
              (unless target-schema
-               (error "pgloader failed to find schema ~s in target catalog"
-                      schema-name))
+               ;; it could be that we found nothing in the schema because of
+               ;; including/excluding rules, or that the schema doesn't
+               ;; exists, let's double check
+               (let ((schema-list (list-schemas)))
+                 (if (member schema-name schema-list :test #'string=)
+                     (error "pgloader failed to find anything in schema ~s in target catalog."
+                            schema-name)
+                     (error "pgloader failed to find schema ~s in target catalog."
+                            schema-name))))
 
              (loop :for source-table :in (schema-table-list source-schema)
                 :for target-table := (find-table target-schema
