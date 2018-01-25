@@ -1,0 +1,21 @@
+load database
+  from mysql://root@localhost/f1db
+  into pgsql:///plop
+
+  -- with data only, truncate
+  
+  WITH disable triggers, data only, no truncate,
+       include no drop, create no tables, create indexes,
+       reset sequences, no foreign keys,
+       downcase identifiers, uniquify index names
+
+  excluding table names matching ~/./
+
+  materialize views circuit as
+  $$
+    select circuitid, circuitref, name, location, country,
+           concat('(', lng, ',', lat, ')') as position,
+           alt, url
+     from circuits;
+  $$;
+

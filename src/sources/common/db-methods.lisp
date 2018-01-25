@@ -102,7 +102,7 @@
         (set-table-oids catalog)))
 
     ;; We might have to MATERIALIZE VIEWS
-    (when materialize-views
+    (when (and create-tables materialize-views)
       (with-stats-collection ("Create MatViews Tables" :section :pre
                                                        :use-result-as-read t
                                                        :use-result-as-rows t)
