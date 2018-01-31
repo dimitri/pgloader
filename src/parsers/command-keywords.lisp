@@ -157,6 +157,13 @@
 (defrule kw-auto-increment (and "auto_increment" (* (or #\Tab #\Space)))
   (:constant :auto-increment))
 
+(defrule kw-on-update-current-timestamp (and (~ "on update")
+                                             (* (or #\Tab #\Space))
+                                             (or (~ "CURRENT TIMESTAMP")
+                                                 (~ "CURRENT_TIMESTAMP"))
+                                             (* (or #\Tab #\Space)))
+  (:constant :on-update-current-timestamp))
+
 (defrule kw-postgresql (or (~ "pgsql") (~ "postgresql")))
 (defrule kw-mysql (~ "mysql"))
 (defrule kw-mssql (~ "mssql"))

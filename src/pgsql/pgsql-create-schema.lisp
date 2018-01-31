@@ -150,6 +150,7 @@
                        :collect (format-create-sql (trigger-procedure trigger))
                        :collect (format-create-sql trigger)))))
     (pgsql-execute-with-timing section label sql-list
+                               :log-level :log
                                :client-min-messages client-min-messages)))
 
 

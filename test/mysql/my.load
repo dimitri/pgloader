@@ -20,7 +20,10 @@ load database
       when (and (= 18 precision) (= 6 scale))
         to "double precision" drop typemod,
 
-      type smallint when unsigned to int drop typemod
+      type smallint when unsigned to int drop typemod,
+
+      type timestamp with extra on update current timestamp
+        to "timestamp with time zone" drop extra
 
  BEFORE LOAD DO $$ create schema if not exists mysql; $$;
 

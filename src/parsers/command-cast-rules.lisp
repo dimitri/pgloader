@@ -20,8 +20,11 @@
     (alexandria:alist-plist guards)))
 
 ;; at the moment we only know about extra auto_increment
-(defrule cast-source-extra (and kw-with kw-extra kw-auto-increment)
-  (:constant (list :auto-increment t)))
+(defrule cast-source-extra (and kw-with kw-extra
+                                (or kw-auto-increment
+                                    kw-on-update-current-timestamp))
+  (:lambda (extra)
+    (list (third extra) t)))
 
 (defrule cast-source-type (and kw-type trimmed-name)
   (:destructure (kw name) (declare (ignore kw)) (list :type name)))
@@ -40,18 +43,21 @@
 			  (? cast-source-guards)
 			  ignore-whitespace)
   (:lambda (source)
-    (bind (((name-and-type opts guards _)       source)
+    (bind (((name-and-type extra guards _)       source)
            ((&key (default nil d-s-p)
                   (typemod nil t-s-p)
                   (unsigned nil u-s-p)
                   &allow-other-keys)            guards)
            ((&key (auto-increment nil ai-s-p)
-                  &allow-other-keys)            opts))
+                  (on-update-current-timestamp nil ouct-s-p)
+                  &allow-other-keys)            extra))
       `(,@name-and-type
 		,@(when t-s-p (list :typemod typemod))
 		,@(when d-s-p (list :default default))
 		,@(when u-s-p (list :unsigned unsigned))
-		,@(when ai-s-p (list :auto-increment auto-increment))))))
+		,@(when ai-s-p (list :auto-increment auto-increment))
+                ,@(when ouct-s-p (list :on-update-current-timestamp
+                                       on-update-current-timestamp))))))
 
 (defrule cast-type-name (or double-quoted-namestring
                             (and (alpha-char-p character)
@@ -85,9 +91,17 @@
 (defrule cast-set-not-null (and kw-set kw-not kw-null)
   (:constant (list :set-not-null t)))
 
+(defrule cast-keep-extra (and kw-keep kw-extra)
+  (:constant (list :keep-extra t)))
+
+(defrule cast-drop-extra (and kw-drop kw-extra)
+  (:constant (list :drop-extra t)))
+
 (defrule cast-def (+ (or cast-to-type
 			 cast-keep-default
 			 cast-drop-default
+                         cast-keep-extra
+                         cast-drop-extra
 			 cast-keep-typemod
 			 cast-drop-typemod
 			 cast-keep-not-null
@@ -95,9 +109,11 @@
                          cast-set-not-null))
   (:lambda (source)
     (destructuring-bind
-	  (&key type drop-default drop-typemod drop-not-null set-not-null &allow-other-keys)
+	  (&key type drop-default drop-extra drop-typemod
+                drop-not-null set-not-null &allow-other-keys)
 	(apply #'append source)
       (list :type type
+	    :drop-extra drop-extra
 	    :drop-default drop-default
 	    :drop-typemod drop-typemod
 	    :drop-not-null drop-not-null

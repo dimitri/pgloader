@@ -54,6 +54,7 @@
                 ((:unsigned rule-unsigned) nil u-s-p)
 		((:not-null rule-source-not-null) nil n-s-p)
 		((:auto-increment rule-source-auto-increment))
+		((:on-update-current-timestamp rule-source-updts))
 		&allow-other-keys)
 	rule-source
       (destructuring-bind (&key table-name
@@ -63,10 +64,12 @@
 				typemod
 				default
 				not-null
+                                extra
                                 unsigned
-				auto-increment)
+				auto-increment
+                                on-update-current-timestamp)
 	  source
-	(declare (ignore ctype))
+	(declare (ignore ctype extra))
 	(when
 	    (and
 	     (or (and t-s-p (string= type rule-source-type))
@@ -81,7 +84,13 @@
              ;; current RULE only matches SOURCE when both have an
              ;; auto_increment property, or none have it.
              (or (and auto-increment rule-source-auto-increment)
-                 (and (not auto-increment) (not rule-source-auto-increment))))
+                 (and (not auto-increment) (not rule-source-auto-increment)))
+
+             ;; current RULE only matches SOURCE when both have an
+             ;; on-update-current-timestamp property, or none have it.
+             (or (and on-update-current-timestamp rule-source-updts)
+                 (and (not on-update-current-timestamp)
+                      (not rule-source-updts))))
 	  (list :using using :target rule-target))))))
 
 (defun make-pgsql-type (source target using)
@@ -92,12 +101,14 @@
 			    ((:ctype source-ctype))
 			    ((:typemod source-typemod))
 			    ((:default source-default))
+                            ((:extra source-extra))
 			    ((:not-null source-not-null))
 			    &allow-other-keys)
       source
     (if target
 	(destructuring-bind (&key type
-				  drop-default
+                                  drop-extra
+                                  drop-default
 				  drop-not-null
                                   set-not-null
 				  (drop-typemod t)
@@ -122,6 +133,8 @@
                                             drop-not-null))
                          :default (when (and source-default (not drop-default))
                                     source-default)
+                         :extra (when (and source-extra (not drop-extra))
+                                  source-extra)
                          :transform using)))
 
 	;; NO MATCH
@@ -132,6 +145,7 @@
                      :type-name source-ctype
                      :nullable (not source-not-null)
                      :default source-default
+                     :extra source-extra
                      :transform using))))
 
 (defun apply-casting-rules (table-name column-name
@@ -143,7 +157,8 @@
   (let* ((typemod        (parse-column-typemod dtype ctype))
          (unsigned       (parse-column-unsigned dtype ctype))
 	 (not-null       (string-equal nullable "NO"))
-	 (auto-increment (string= "auto_increment" extra))
+	 (auto-increment (eq :auto-increment extra))
+         (on-upd-cts     (eq :on-update-current-timestamp extra))
 	 (source        `(:table-name ,table-name
                                       :column-name ,column-name
                                       :type ,dtype
@@ -152,7 +167,9 @@
                                       :unsigned ,unsigned
                                       :default ,default
                                       :not-null ,not-null
-                                      :auto-increment ,auto-increment)))
+                                      :extra ,extra
+                                      :auto-increment ,auto-increment
+                                      :on-update-current-timestamp ,on-upd-cts)))
     (let (first-match-using)
       (loop
          :for rule :in rules

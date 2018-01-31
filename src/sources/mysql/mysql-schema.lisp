@@ -117,7 +117,8 @@
                       tname cname (unless (or (null ccomment)
                                               (string= "" ccomment))
                                     ccomment)
-                      dtype ctype def-val nullable extra)))
+                      dtype ctype def-val nullable
+                      (normalize-extra extra))))
        (add-field table field))
      :finally
      (return schema)))

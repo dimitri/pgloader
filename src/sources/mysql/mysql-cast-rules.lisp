@@ -173,6 +173,15 @@
       ("(?i)(?:ENUM|SET)\\s*\\((.*)\\)" ctype)
     (first (cl-csv:read-csv list :separator #\, :quote #\' :escape "''"))))
 
+(defun normalize-extra (extra)
+  "Normalize MySQL strings into pgloader CL keywords for internal processing."
+  (cond ((string= "auto_increment" extra)
+         :auto-increment)
+
+        ((or (string= extra "on update CURRENT_TIMESTAMP")
+             (string= extra "on update current_timestamp()"))
+         :on-update-current-timestamp)))
+
 (defmethod cast ((col mysql-column) &key table)
   "Return the PostgreSQL type definition from given MySQL column definition."
   (with-slots (table-name name dtype ctype default nullable extra comment)
@@ -227,10 +236,10 @@
       ;;
       ;; See src/pgsql/pgsql-trigger.lisp
       ;;
-      (when (or (string= extra "on update CURRENT_TIMESTAMP")
-                (string= extra "on update current_timestamp()"))
+      (when (eq (column-extra pgcol) :on-update-current-timestamp)
         (setf (column-extra pgcol)
               (make-trigger :name :on-update-current-timestamp)))
+
       pgcol)))
 
 
