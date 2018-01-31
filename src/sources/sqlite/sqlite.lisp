@@ -116,7 +116,8 @@
             (list-all-columns schema
                               :db *sqlite-db*
                               :including including
-                              :excluding excluding)
+                              :excluding excluding
+                              :db-has-sequences (has-sequences conn))
 
             (when create-indexes
               (list-all-indexes schema :db *sqlite-db*))

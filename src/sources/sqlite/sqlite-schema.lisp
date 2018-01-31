@@ -100,9 +100,9 @@
                       (seq (sqlite:execute-single db sql)))
                  (when (and seq (not (zerop seq)))
                    ;; magic marker for `apply-casting-rules'
-                   (log-message :notice "Auto Increment found at ~a.~a"
+                   (log-message :notice "SQLite column ~a.~a uses a sequence"
                                 table-name name)
-                   (setf (coldef-extra field)  "auto_increment"))))
+                   (setf (coldef-extra field) :auto-increment))))
              (add-field table field)))))
 
 (defun list-all-columns (schema
