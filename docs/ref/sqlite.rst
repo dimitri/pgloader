@@ -183,6 +183,7 @@ Numbers::
   type real to real     using float-to-string
   type double to double precision     using float-to-string
   type numeric to numeric     using float-to-string
+  type decimal to numeric     using float-to-string
 
 Texts::
 

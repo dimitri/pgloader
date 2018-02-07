@@ -35,6 +35,9 @@
     (:source (:type "numeric") :target (:type "numeric" :drop-typemod nil)
              :using pgloader.transforms::float-to-string)
 
+    (:source (:type "decimal") :target (:type "decimal" :drop-typemod nil)
+             :using pgloader.transforms::float-to-string)
+
     (:source (:type "blob") :target (:type "bytea")
              :using pgloader.transforms::byte-vector-to-bytea)
 
