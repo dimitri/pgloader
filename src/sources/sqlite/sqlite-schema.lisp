@@ -10,7 +10,7 @@
 ;;; Integration with the pgloader Source API
 ;;;
 (defclass sqlite-connection (fd-connection)
-  ((has-sequences :accessor has-sequences)))
+  ((has-sequences :initform nil :accessor has-sequences)))
 
 (defmethod initialize-instance :after ((slconn sqlite-connection) &key)
   "Assign the type slot to sqlite."
@@ -21,10 +21,8 @@
         (sqlite:connect (fd-path slconn)))
   (log-message :debug "CONNECTED TO ~a" (fd-path slconn))
   (when check-has-sequences
-    (let ((sql (format nil "SELECT tbl_name
-                            FROM sqlite_master
-                           WHERE tbl_name = 'sqlite_sequence'")))
-      (log-message :info "SQLite: ~a" sql)
+    (let ((sql (format nil (sql "/sqlite/sqlite-sequence.sql"))))
+      (log-message :sql "SQLite: ~a" sql)
       (when (sqlite:execute-single (conn-handle slconn) sql)
         (setf (has-sequences slconn) t))))
   slconn)
@@ -60,24 +58,19 @@
                       including
                       excluding)
   "Return the list of tables found in SQLITE-DB."
-  (let ((sql (format nil "SELECT tbl_name
-                FROM sqlite_master
-               WHERE type='table'
-                     AND tbl_name <> 'sqlite_sequence'
-                     ~:[~*~;AND (~{~a~^~&~10t or ~})~]
-                     ~:[~*~;AND (~{~a~^~&~10t and ~})~]"
+  (let ((sql (format nil (sql "/sqlite/list-tables.sql")
                      including          ; do we print the clause?
                      (filter-list-to-where-clause including nil)
                      excluding          ; do we print the clause?
                      (filter-list-to-where-clause excluding t))))
-    (log-message :info "~a" sql)
+    (log-message :sql "~a" sql)
     (loop for (name) in (sqlite:execute-to-list db sql)
        collect name)))
 
 (defun list-columns (table &key db-has-sequences (db *sqlite-db*) )
   "Return the list of columns found in TABLE-NAME."
   (let* ((table-name (table-source-name table))
-         (sql        (format nil "PRAGMA table_info(`~a`)" table-name)))
+         (sql        (format nil (sql "/sqlite/list-columns.sql") table-name)))
     (loop :for (ctid name type nullable default pk-id)
        :in (sqlite:execute-to-list db sql)
        :do (let* ((ctype (normalize type))
@@ -95,8 +88,8 @@
                         (string-equal (coldef-ctype field) "integer"))
                ;; then it might be an auto_increment, which we know by
                ;; looking at the sqlite_sequence catalog
-               (let* ((sql (format nil "select seq from sqlite_sequence
-                                         where name = '~a';" table-name))
+               (let* ((sql
+                       (format nil (sql "/sqlite/find-sequence.sql") table-name))
                       (seq (sqlite:execute-single db sql)))
                  (when (and seq (not (zerop seq)))
                    ;; magic marker for `apply-casting-rules'
@@ -155,16 +148,18 @@
 
 (defun list-index-cols (index-name &optional (db *sqlite-db*))
   "Return the list of columns in INDEX-NAME."
-  (let ((sql (format nil "PRAGMA index_info(`~a`)" index-name)))
+  (let ((sql (format nil (sql "/sqlite/list-index-cols.sql") index-name)))
     (loop :for (index-pos table-pos col-name) :in (sqlite:execute-to-list db sql)
        :collect col-name)))
 
 (defun list-indexes (table &optional (db *sqlite-db*))
   "Return the list of indexes attached to TABLE."
   (let* ((table-name (table-source-name table))
-         (sql        (format nil "PRAGMA index_list(`~a`)" table-name)))
+         (sql
+          (format nil (sql "/sqlite/list-table-indexes.sql") table-name)))
     (loop
-       :for (seq index-name unique origin partial) :in (sqlite:execute-to-list db sql)
+       :for (seq index-name unique origin partial)
+       :in (sqlite:execute-to-list db sql)
        :do (let* ((cols  (list-index-cols index-name db))
                   (index (make-index :name index-name
                                      :table table
@@ -192,7 +187,8 @@
 (defun list-fkeys (table &optional (db *sqlite-db*))
   "Return the list of indexes attached to TABLE."
   (let* ((table-name (table-source-name table))
-         (sql        (format nil "PRAGMA foreign_key_list(`~a`)" table-name)))
+         (sql
+          (format nil (sql "/sqlite/list-fkeys.sql") table-name)))
     (loop
        :with fkey-table := (make-hash-table)
        :for (id seq ftable-name from to on-update on-delete match)

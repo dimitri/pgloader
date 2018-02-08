@@ -1,0 +1,10 @@
+load database
+     from 'sqlite/Chinook_Sqlite.sqlite'
+     into postgresql:///pgloader
+
+  set work_mem to '16MB',
+      maintenance_work_mem to '512 MB',
+      search_path to 'chinook'
+
+  before load do
+  $$ create schema if not exists chinook; $$;
