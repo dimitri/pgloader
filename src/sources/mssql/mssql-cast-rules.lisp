@@ -123,7 +123,7 @@
   "Return the PostgreSQL type definition from given MS SQL column definition."
   (with-slots (schema table-name name type default nullable)
       field
-    (declare (ignore schema))   ; FIXME
+    (declare (ignore schema))           ; FIXME
     (let* ((ctype (mssql-column-ctype field))
            (extra (when (mssql-column-identity field) "auto_increment"))
            (pgcol
@@ -136,27 +136,32 @@
               (lambda (val) (if val (format nil "~a" val) :null))))
 
       ;; normalize default values
-      ;; see *pgsql-default-values*
-      (setf (column-default pgcol)
-            (cond ((and (null default) (column-nullable pgcol)) :null)
-                  ((and (stringp default) (string= "NULL" default)) :null)
+      ;; see pgloader.psql:*pgsql-default-values*
+      (let ((default (column-default pgcol)))
+        (setf (column-default pgcol)
+              (cond
+                ((and (null default) (column-nullable pgcol))
+                 :null)
 
-                  ;; fix stupid N'' behavior from MS SQL column default
-                  ((and (stringp default)
-                        (uiop:string-enclosed-p "N'" default "'"))
-                   (subseq default 2 (+ (length default) -1)))
+                ((and (stringp default) (string= "NULL" default))
+                 :null)
 
-                  ((and (stringp default)
-                        ;; address CURRENT_TIMESTAMP(6) and other spellings
-                        (or (uiop:string-prefix-p "CURRENT_TIMESTAMP" default)
-                            (string= "CURRENT TIMESTAMP" default)))
-                   :current-timestamp)
+                ;; fix stupid N'' behavior from MS SQL column default
+                ((and (stringp default)
+                      (uiop:string-enclosed-p "N'" default "'"))
+                 (subseq default 2 (+ (length default) -1)))
 
-                  ((and (stringp default)
-                        (or (string= "newid()" default)
-                            (string= "newsequentialid()" default)))
-                   :generate-uuid)
+                ((and (stringp default)
+                      ;; address CURRENT_TIMESTAMP(6) and other spellings
+                      (or (uiop:string-prefix-p "CURRENT_TIMESTAMP" default)
+                          (string= "CURRENT TIMESTAMP" default)))
+                 :current-timestamp)
 
-                  (t (column-default pgcol))))
+                ((and (stringp default)
+                      (or (string= "newid()" default)
+                          (string= "newsequentialid()" default)))
+                 :generate-uuid)
+
+                (t (column-default pgcol)))))
       pgcol)))
 

@@ -71,26 +71,31 @@
 	  source
 	(declare (ignore ctype extra))
 	(when
-	    (and
-	     (or (and t-s-p (string= type rule-source-type))
-		 (and c-s-p
-		      (string-equal table-name (car rule-source-column))
-		      (string-equal column-name (cdr rule-source-column))))
-	     (or (null tm-s-p) (typemod-expr-matches-p typemod-expr typemod))
-	     (or (null d-s-p)  (string= default rule-source-default))
-             (or (null u-s-p)  (eq unsigned rule-unsigned))
-	     (or (null n-s-p)  (eq not-null rule-source-not-null))
+            (or
+             ;; if we match by column, then table and column is all we
+             ;; need to compare
+             (and c-s-p
+                  (string-equal table-name (car rule-source-column))
+                  (string-equal column-name (cdr rule-source-column)))
 
-             ;; current RULE only matches SOURCE when both have an
-             ;; auto_increment property, or none have it.
-             (or (and auto-increment rule-source-auto-increment)
-                 (and (not auto-increment) (not rule-source-auto-increment)))
+             ;; otherwide, we do the full dance
+             (and
+              (or (and t-s-p (string= type rule-source-type)))
+              (or (null tm-s-p) (typemod-expr-matches-p typemod-expr typemod))
+              (or (null d-s-p)  (string= default rule-source-default))
+              (or (null u-s-p)  (eq unsigned rule-unsigned))
+              (or (null n-s-p)  (eq not-null rule-source-not-null))
 
-             ;; current RULE only matches SOURCE when both have an
-             ;; on-update-current-timestamp property, or none have it.
-             (or (and on-update-current-timestamp rule-source-updts)
-                 (and (not on-update-current-timestamp)
-                      (not rule-source-updts))))
+              ;; current RULE only matches SOURCE when both have an
+              ;; auto_increment property, or none have it.
+              (or (and auto-increment rule-source-auto-increment)
+                  (and (not auto-increment) (not rule-source-auto-increment)))
+
+              ;; current RULE only matches SOURCE when both have an
+              ;; on-update-current-timestamp property, or none have it.
+              (or (and on-update-current-timestamp rule-source-updts)
+                  (and (not on-update-current-timestamp)
+                       (not rule-source-updts)))))
 	  (list :using using :target rule-target))))))
 
 (defun make-pgsql-type (source target using)

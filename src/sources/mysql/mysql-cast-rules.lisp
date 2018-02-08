@@ -190,16 +190,22 @@
             (apply-casting-rules table-name name dtype ctype default nullable extra)))
       (setf (column-comment pgcol) comment)
 
-      ;; normalize default values
-      (setf (column-default pgcol)
-            (cond ((and (stringp default) (string= "NULL" default)) :null)
-                  ((and (stringp default)
-                        ;; address CURRENT_TIMESTAMP(6) and other spellings
-                        (or (uiop:string-prefix-p "CURRENT_TIMESTAMP" default)
-                            (string= "CURRENT TIMESTAMP" default)
-                            (string= "current_timestamp()" default)))
-                   :current-timestamp)
-                  (t (column-default pgcol))))
+      ;; normalize default values that are left after applying user defined
+      ;; casting rules "drop default" and "keep default"
+      (let ((default (column-default pgcol)))
+        (setf (column-default pgcol)
+              (cond
+                ((and (stringp default) (string= "NULL" default))
+                 :null)
+
+                ((and (stringp default)
+                      ;; address CURRENT_TIMESTAMP(6) and other spellings
+                      (or (uiop:string-prefix-p "CURRENT_TIMESTAMP" default)
+                          (string= "CURRENT TIMESTAMP" default)
+                          (string= "current_timestamp()" default)))
+                 :current-timestamp)
+
+                (t (column-default pgcol)))))
 
       ;; extra user-defined data types
       (when (or (string-equal "set" dtype)

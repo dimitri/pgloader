@@ -87,16 +87,28 @@
         (setf (column-transform pgcol)
               (lambda (val) (if val (format nil "~a" val) :null))))
 
-      (setf (column-default pgcol)
-            (cond ((and (stringp default) (string= "NULL" default)) :null)
-                  ((and (stringp default)
-                        ;; address CURRENT_TIMESTAMP(6) and other spellings
-                        (or (uiop:string-prefix-p "CURRENT_TIMESTAMP" default)
-                            (string= "CURRENT TIMESTAMP" default)))
-                   :current-timestamp)
-                  ((and (stringp default) (string-equal "current_date" default))
-                   :current-date)
-                  (t (column-default pgcol))))
+      ;; normalize default values that comes from the casting rules
+      ;; (respecting user cast decision to "drop default" or "keep default")
+      (let ((default (column-default pgcol)))
+        (setf (column-default pgcol)
+              (cond
+                ((and (stringp default) (string= "NULL" default))
+                 :null)
+
+                ((and (stringp default)
+                      ;; address CURRENT_TIMESTAMP(6) and other spellings
+                      (or (uiop:string-prefix-p "CURRENT_TIMESTAMP" default)
+                          (string= "CURRENT TIMESTAMP" default)))
+                 :current-timestamp)
+
+                ((and (stringp default) (string-equal "current_date" default))
+                 :current-date)
+
+                ((stringp default)
+                 ;; at least quote the single quotes in there
+                 (cl-ppcre:regex-replace-all "[']" default "''"))
+
+                (t (column-default pgcol)))))
 
       pgcol)))
 
