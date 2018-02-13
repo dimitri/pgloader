@@ -92,7 +92,7 @@ it builds aginst current set of dependencies versions.
 	$ make pgloader
 	$ ./build/bin/pgloader --help
 
-### Building from sources on MacOSX
+### Building from sources on macOS
 
 When using [brew](https://brew.sh), it should be a simple `brew install
 --HEAD pgloader`.
