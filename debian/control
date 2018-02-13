@@ -46,7 +46,6 @@ Build-Depends:
  cl-yason,
  debhelper (>= 9.0.0),
  gawk,
- ruby-ronn,
  sbcl (>= 1.1.13),
  tzdata,
 Standards-Version: 4.1.1

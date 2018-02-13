@@ -70,9 +70,6 @@ all: $(PGLOADER)
 clean:
 	rm -rf $(LIBS) $(QLDIR) $(MANIFEST) $(BUILDAPP) $(PGLOADER)
 
-docs:
-	ronn -roff pgloader.1.md
-
 $(QLDIR)/local-projects/qmynd:
 	git clone --depth 1 https://github.com/qitab/qmynd.git $@
 

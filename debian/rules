@@ -28,7 +28,6 @@ orig: clean
 	cd .. && tar czf pgloader_$(PKGVERS).orig.tar.gz $(EXCLUDE) pgloader
 
 override_dh_auto_build:
-	make docs
 	mkdir -p build/bin
 	mkdir -p $(HOME)
 	buildapp --require sb-posix                         \
