@@ -14,7 +14,13 @@ reported can be fixed very efficiently as soon as I get to it.
 
 Please provide the following information:
 
+<!-- delete text above this line -->
+
   - [ ] pgloader --version
+  
+    ```
+    <fill pgloader version here>
+    ```
   
   - [ ] did you test a fresh compile from the source tree?
     
@@ -26,19 +32,9 @@ Please provide the following information:
   - [ ] did you search for other similar issues?
     
   - [ ] how can I reproduce the bug?
-  
-    Have a look at the
-    [test](https://github.com/dimitri/pgloader/tree/master/test) files in
-    the pgloader repository, such as the
-    [csv-error.load](https://github.com/dimitri/pgloader/blob/master/test/csv-error.load)
-    file for example.
-    
-    You will notice it's using the FROM INLINE clause. The file contains the
-    sample data set we need to reproduce your bug! Also, notice the BEFORE
-    LOAD DO clause that begins with a DROP TABLE IF EXISTS statement and
-    continues with a CREATE TABLE command. This file is self-contained. All
-    we need to reproduce the behavior is a single pgloader command file!
-    
+
+    Incude a self-contained pgloader command file.
+
     If you're loading from a database, consider attaching a database dump to
     your issue. For MySQL, use `mysqldump`. For SQLite, just send over your
     source file, that's easy. Maybe be the one with your production data, of
@@ -50,3 +46,51 @@ Please provide the following information:
     me access to, and see my email address on my GitHub profile to send me
     the credentials. Still open a public issue for tracking and as
     documentation for other users.
+
+```
+--
+-- EDIT THIS FILE TO MATCH YOUR BUG REPORT
+--
+
+LOAD CSV
+     FROM INLINE with encoding 'ascii'
+     INTO postgresql:///pgloader
+     TARGET TABLE jordane
+
+     WITH truncate,
+          fields terminated by '|',
+          fields not enclosed,
+          fields escaped by backslash-quote
+
+      SET work_mem to '128MB',
+          standard_conforming_strings to 'on'
+
+   BEFORE LOAD DO
+    $$ drop table if exists jordane; $$,
+    $$ CREATE TABLE jordane
+       (
+         "NOM" character(20),
+         "PRENOM" character(20)
+       )
+    $$;
+
+BORDET|Jordane
+BORDET|Audrey
+LASTNAME|"opening quote
+BONNIER|testprenombe~aucouptroplong
+JOURDAIN|héhé¶
+```
+
+  - [ ] pgloader output you obtain
+  
+```
+PASTE HERE THE OUTPUT OF THE PGLOADER COMMAND
+```
+
+  - [ ] data that is being loaded, if relevant
+  
+```
+PASTE HERE THE DATA THAT HAS BEEN LOADED
+```
+
+  - [ ] How the data is different from what you expected, if relevant
