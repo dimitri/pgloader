@@ -11,7 +11,7 @@
          CASE
          WHEN c.COLUMN_DEFAULT LIKE '((%' AND c.COLUMN_DEFAULT LIKE '%))' THEN
              CASE
-                 WHEN SUBSTRING(c.COLUMN_DEFAULT,3,len(c.COLUMN_DEFAULT)-4) = 'newid()' THEN 'generate_uuid_v4()'
+                 WHEN SUBSTRING(c.COLUMN_DEFAULT,3,len(c.COLUMN_DEFAULT)-4) = 'newid()' THEN 'GENERATE_UUID'
                  WHEN SUBSTRING(c.COLUMN_DEFAULT,3,len(c.COLUMN_DEFAULT)-4) LIKE 'convert(%varchar%,getdate(),%)' THEN 'today'
                  WHEN SUBSTRING(c.COLUMN_DEFAULT,3,len(c.COLUMN_DEFAULT)-4) = 'getdate()' THEN 'CURRENT_TIMESTAMP'
                  WHEN SUBSTRING(c.COLUMN_DEFAULT,3,len(c.COLUMN_DEFAULT)-4) LIKE '''%''' THEN SUBSTRING(c.COLUMN_DEFAULT,4,len(c.COLUMN_DEFAULT)-6)
@@ -19,7 +19,7 @@
              END
          WHEN c.COLUMN_DEFAULT LIKE '(%' AND c.COLUMN_DEFAULT LIKE '%)' THEN
              CASE
-                 WHEN SUBSTRING(c.COLUMN_DEFAULT,2,len(c.COLUMN_DEFAULT)-2) = 'newid()' THEN 'generate_uuid_v4()'
+                 WHEN SUBSTRING(c.COLUMN_DEFAULT,2,len(c.COLUMN_DEFAULT)-2) = 'newid()' THEN 'GENERATE_UUID'
                  WHEN SUBSTRING(c.COLUMN_DEFAULT,2,len(c.COLUMN_DEFAULT)-2) LIKE 'convert(%varchar%,getdate(),%)' THEN 'today'
                  WHEN SUBSTRING(c.COLUMN_DEFAULT,2,len(c.COLUMN_DEFAULT)-2) = 'getdate()' THEN 'CURRENT_TIMESTAMP'
                  WHEN SUBSTRING(c.COLUMN_DEFAULT,2,len(c.COLUMN_DEFAULT)-2) LIKE '''%''' THEN SUBSTRING(c.COLUMN_DEFAULT,3,len(c.COLUMN_DEFAULT)-4)

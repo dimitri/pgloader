@@ -159,7 +159,8 @@
 
                 ((and (stringp default)
                       (or (string= "newid()" default)
-                          (string= "newsequentialid()" default)))
+                          (string= "newsequentialid()" default)
+                          (string= "GENERATE_UUID" default)))
                  :generate-uuid)
 
                 (t (column-default pgcol)))))
