@@ -117,14 +117,18 @@
                           (column-name source-column)
                           (column-type-name source-column)
                           (column-type-name target-column)
-                          (schema-name (table-schema target-table))
-                          (table-name target-table)
-                          (column-name target-column))))))
+                          (ensure-unquoted
+                           (schema-name (table-schema target-table)))
+                          (ensure-unquoted
+                           (table-name target-table))
+                          (ensure-unquoted
+                           (column-name target-column)))))))
 
 (defvar *type-name-mapping*
   '(("int"         "integer")
     ("serial"      "integer")
     ("bigserial"   "bigint")
+    ("float"       "double precision")
     ("char"        "character")
     ("varchar"     "character varying")
     ("timestamp"   "timestamp without time zone")
