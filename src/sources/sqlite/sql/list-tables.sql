@@ -3,4 +3,4 @@ SELECT tbl_name
  WHERE type='table'
        AND tbl_name <> 'sqlite_sequence'
        ~:[~*~;AND (~{~a~^~&~10t or ~})~]
-       ~:[~*~;AND (~{~a~^~&~10t and ~})~]"
+       ~:[~*~;AND (~{~a~^~&~10t and ~})~]
