@@ -55,7 +55,9 @@
         ;; stop at any failure here, this function doesn't implement any kind
         ;; of retry behaviour.
         (log-message :error "~a" c)
-        (pomo:execute "ROLLBACK")))
+        (update-stats :data table :errs 1)
+        (pomo:execute "ROLLBACK")
+        (return-from stream-rows-to-copy seconds)))
 
     ;; return seconds spent sending data to PostgreSQL
     (update-stats :data table :rows rcount :bytes bytes)
