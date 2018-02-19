@@ -203,21 +203,22 @@
 ;;;
 ;;; API for Foreign Keys
 ;;;
-(defun drop-pgsql-fkeys (catalog &key (cascade t))
+(defun drop-pgsql-fkeys (catalog &key (cascade t) (log-level :notice))
   "Drop all Foreign Key Definitions given, to prepare for a clean run."
-  (loop :for table :in (table-list catalog)
-     :sum (loop :for fkey :in (table-fkey-list table)
-             :for sql := (format-drop-sql fkey :cascade cascade :if-exists t)
-             :do (pgsql-execute sql)
-             :count t)
-     ;; also DROP the foreign keys that depend on the indexes we want to DROP
-     :sum (loop :for index :in (table-index-list table)
-             :sum (loop :for fkey :in (index-fk-deps index)
-                     :for sql := (format-drop-sql fkey :cascade t :if-exists t)
-                     :do (progn
-                           (log-message :debug "EXTRA FK DEPS!")
-                           (pgsql-execute sql))
-                     :count t))))
+  (let ((fk-sql-list
+         (loop :for table :in (table-list catalog)
+            :append (loop :for fkey :in (table-fkey-list table)
+                       :collect (format-drop-sql fkey
+                                                 :cascade cascade
+                                                 :if-exists t))
+            ;; also DROP the foreign keys that depend on the indexes we
+            ;; want to DROP
+            :append (loop :for index :in (table-index-list table)
+                       :append (loop :for fkey :in (index-fk-deps index)
+                                  :collect (format-drop-sql fkey
+                                                            :cascade t
+                                                            :if-exists t))))))
+    (pgsql-execute fk-sql-list :log-level log-level)))
 
 (defun create-pgsql-fkeys (catalog &key (section :post) label log-level)
   "Actually create the Foreign Key References that where declared in the
@@ -287,7 +288,7 @@
 ;;;
 ;;; Drop indexes before loading
 ;;;
-(defun drop-indexes (table-or-catalog &key cascade)
+(defun drop-indexes (table-or-catalog &key cascade (log-level :notice))
   "Drop indexes in PGSQL-INDEX-LIST. A PostgreSQL connection must already be
    active when calling that function."
   (let ((sql-index-list
@@ -297,7 +298,7 @@
                   (catalog (loop :for table :in (table-list table-or-catalog)
                               :append (table-index-list table))))
             :collect (format-drop-sql index :cascade cascade :if-exists t))))
-    (pgsql-execute sql-index-list)
+    (pgsql-execute sql-index-list :log-level log-level)
     ;; return how many indexes we just DROPed
     (length sql-index-list)))
 

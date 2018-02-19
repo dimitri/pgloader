@@ -76,7 +76,7 @@
             (with-stats-collection ("Drop Foreign Keys" :section :pre
                                                         :use-result-as-read t
                                                         :use-result-as-rows t)
-              (drop-pgsql-fkeys catalog)))
+              (drop-pgsql-fkeys catalog :log-level :notice)))
 
           (when drop-indexes
             (with-stats-collection ("Drop Indexes" :section :pre
@@ -84,7 +84,7 @@
                                                    :use-result-as-rows t)
               ;; we want to error out early in case we can't DROP the
               ;; index, don't CASCADE
-              (drop-indexes catalog :cascade nil)))
+              (drop-indexes catalog :cascade nil :log-level :notice)))
 
           (when truncate
             (with-stats-collection ("Truncate" :section :pre
@@ -147,28 +147,28 @@
         ;;
         (when create-indexes
           (pgsql-execute-with-timing :post "Primary Keys" pkeys
-                                     :log-level :notice)
+                                     :log-level :notice))
 
-          ;;
-          ;; Foreign Key Constraints
-          ;;
-          ;; We need to have finished loading both the reference and the
-          ;; refering tables to be able to build the foreign keys, so wait
-          ;; until all tables and indexes are imported before doing that.
-          ;;
-          (when foreign-keys
-            (create-pgsql-fkeys catalog
-                                :section :post
-                                :label "Create Foreign Keys"
-                                :log-level :notice))
+        ;;
+        ;; Foreign Key Constraints
+        ;;
+        ;; We need to have finished loading both the reference and the
+        ;; refering tables to be able to build the foreign keys, so wait
+        ;; until all tables and indexes are imported before doing that.
+        ;;
+        (when foreign-keys
+          (create-pgsql-fkeys catalog
+                              :section :post
+                              :label "Create Foreign Keys"
+                              :log-level :notice))
 
-          ;;
-          ;; Triggers and stored procedures -- includes special default values
-          ;;
-          (when create-triggers
-            (create-triggers catalog
-                             :section :post
-                             :label "Create Triggers")))
+        ;;
+        ;; Triggers and stored procedures -- includes special default values
+        ;;
+        (when create-triggers
+          (create-triggers catalog
+                           :section :post
+                           :label "Create Triggers"))
 
         ;;
         ;; Add schemas that needs to be in the search_path to the database
@@ -191,16 +191,16 @@
       (log-message :error
                    "Complete PostgreSQL database reconnecting to PostgreSQL.")
 
-     ;; in order to avoid Socket error in "connect": ECONNREFUSED if we
-     ;; try just too soon, wait a little
+      ;; in order to avoid Socket error in "connect": ECONNREFUSED if we
+      ;; try just too soon, wait a little
       (sleep 2)
 
 
-     ;;
-     ;; Reset Sequence can be done several times safely, and the rest of the
-     ;; operations run in a single transaction, so if the connection was lost,
-     ;; nothing has been done. Retry.
-     ;;
+      ;;
+      ;; Reset Sequence can be done several times safely, and the rest of the
+      ;; operations run in a single transaction, so if the connection was lost,
+      ;; nothing has been done. Retry.
+      ;;
       (complete-pgsql-database copy
                                catalog
                                pkeys
@@ -280,7 +280,8 @@
          (create-ddl     (or schema-only (not data-only)))
          (create-tables  (and create-tables create-ddl))
          (create-schemas (and create-schemas create-ddl))
-         (foreign-keys   (and foreign-keys create-ddl))
+         ;; foreign keys has a special meaning in data-only mode
+         (foreign-keys   foreign-keys)
          (drop-indexes   (or reindex
                              (and include-drop create-ddl)))
          (create-indexes (or reindex
