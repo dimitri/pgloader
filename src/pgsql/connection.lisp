@@ -305,7 +305,8 @@
    statement that fails. That's because this facility is meant for DDL. With
    ON_ERROR_STOP nil, log the problem and continue thanks to PostgreSQL
    savepoints."
-  (let ((nb-ok     0)
+  (let ((sql-list  (alexandria::ensure-list sql))
+        (nb-ok     0)
         (nb-errors 0))
     (when client-min-messages
       (pomo:execute
@@ -313,15 +314,15 @@
                (symbol-name client-min-messages))))
 
     (if on-error-stop
-        (loop :for sql :in (alexandria::ensure-list sql)
+        (loop :for sql :in sql-list
            :do (progn
                  (log-message log-level "~a" sql)
                  (pomo:execute sql))
            ;; never executed in case of error, which signals out of here
-           :finally (incf nb-ok (length sql)))
+           :finally (incf nb-ok (length sql-list)))
 
         ;; handle failures and just continue
-        (loop :for sql :in (alexandria::ensure-list sql)
+        (loop :for sql :in sql-list
            :do (progn
                  (pomo:execute "savepoint pgloader;")
                  (handler-case
