@@ -1,0 +1,52 @@
+/*
+ * The data file comes from the US census website:
+ *
+ * http://www.census.gov/geo/maps-data/data/gazetteer2013.html
+ *
+ * We import it directly into pgloader git repository so that we have at
+ * least a CSV test where we read from a local file...
+ */
+
+LOAD CSV
+     -- FROM data/2013_Gaz_113CDs_national.txt
+     FROM {{SOURCEFILE}}
+     HAVING FIELDS
+      (
+         usps,          -- United States Postal Service State Abbreviation
+         geoid,         -- Geographic Identifier
+         aland,         -- Land Area (square meters)
+         awater,        -- Water Area (square meters)
+         aland_sqmi,    -- SQMI	 Land Area (square miles)
+         awater_sqmi,   -- SQMI	 Water Area (square miles)
+         intptlat,      -- Latitude (decimal degrees)
+         intptlong      -- Longitude (decimal degrees)
+      )
+
+       INTO postgresql:///pgloader
+     TARGET TABLE districts
+     TARGET COLUMNS
+      (
+         usps, geoid, aland, awater, aland_sqmi, awater_sqmi,
+         location point using (format nil "(~a,~a)" intptlong intptlat)
+      )
+
+     WITH truncate,
+          disable triggers,
+          skip header = 1,
+          batch rows = 200,
+          batch size = 1024 kB,
+          batch concurrency = 3,
+          fields terminated by '\t'
+
+   BEFORE LOAD DO
+    $$ drop table if exists districts; $$,
+    $$ create table districts (
+         usps        text,
+         geoid       text,
+         aland       bigint,
+         awater      bigint,
+         aland_sqmi  double precision,
+         awater_sqmi double precision,
+         location    point
+       );
+    $$;
