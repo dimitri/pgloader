@@ -1,9 +1,14 @@
-FROM debian:jessie
+FROM debian:stretch
 MAINTAINER Dimitri Fontaine <dim@tapoueh.org>
 
-RUN apt-get update
-RUN apt-get install -y wget curl make git bzip2 time libzip-dev libssl1.0.0 openssl
-RUN apt-get install -y patch unzip libsqlite3-dev gawk freetds-dev sbcl
+RUN apt-get update                                   && \
+    apt-get install -y --no-install-recommends          \
+                    wget curl make git bzip2 time       \
+                    ca-certificates                     \
+                    libzip-dev libssl1.1 openssl        \
+                    patch unzip libsqlite3-dev gawk     \
+                    freetds-dev sbcl                 && \
+    rm -rf /var/lib/apt/lists/*
 
 ADD ./ /opt/src/pgloader
 WORKDIR /opt/src/pgloader
