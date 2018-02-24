@@ -2,7 +2,7 @@
 ;;; Tools to query the MySQL Schema to reproduce in PostgreSQL
 ;;;
 
-(in-package :pgloader.mysql)
+(in-package :pgloader.source.mysql)
 
 ;;;
 ;;; Those functions are to be called from withing an already established

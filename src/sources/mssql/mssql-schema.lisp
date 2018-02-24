@@ -2,7 +2,7 @@
 ;;; Tools to query the MS SQL Schema to reproduce in PostgreSQL
 ;;;
 
-(in-package :pgloader.mssql)
+(in-package :pgloader.source.mssql)
 
 (defvar *mssql-db* nil
   "The MS SQL database connection handler.")

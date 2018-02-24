@@ -2,7 +2,7 @@
 ;;; Tools to handle the MS SQL Database
 ;;;
 
-(in-package :pgloader.mssql)
+(in-package :pgloader.source.mssql)
 
 (defclass copy-mssql (db-copy)
   ((encoding :accessor encoding         ; allows forcing encoding

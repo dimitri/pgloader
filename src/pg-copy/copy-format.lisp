@@ -1,7 +1,7 @@
 ;;;
 ;;; Tools to handle PostgreSQL data format
 ;;;
-(in-package :pgloader.copy)
+(in-package :pgloader.pgcopy)
 
 ;;;
 ;;; Format row to PostgreSQL COPY format, the TEXT variant.

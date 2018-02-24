@@ -149,7 +149,7 @@
                                            ((:including incl))
                                            ((:excluding excl))
                                            ((:decoding decoding-as))
-                                         &allow-other-keys)
+                                           &allow-other-keys)
   `(lambda ()
      (let* ((*default-cast-rules* ',*mysql-default-cast-rules*)
             (*cast-rules*         ',casts)
@@ -160,21 +160,21 @@
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
             (source
-             (make-instance 'pgloader.mysql::copy-mysql
+             (make-instance 'copy-mysql
                             :target-db ,pg-db-conn
                             :source-db ,my-db-conn)))
 
        ,(sql-code-block pg-db-conn :pre before "before load")
 
-       (pgloader.mysql:copy-database source
-                                     :including ',incl
-                                     :excluding ',excl
-                                     :materialize-views ',views
-                                     :alter-table ',alter-table
-                                     :alter-schema ',alter-schema
-                                     :set-table-oids t
-                                     :on-error-stop on-error-stop
-                                     ,@(remove-batch-control-option options))
+       (copy-database source
+                      :including ',incl
+                      :excluding ',excl
+                      :materialize-views ',views
+                      :alter-table ',alter-table
+                      :alter-schema ',alter-schema
+                      :set-table-oids t
+                      :on-error-stop on-error-stop
+                      ,@(remove-batch-control-option options))
 
        ,(sql-code-block pg-db-conn :post after "after load"))))
 

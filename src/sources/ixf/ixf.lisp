@@ -3,7 +3,7 @@
 ;;;
 ;;; http://www-01.ibm.com/support/knowledgecenter/SSEPGG_10.5.0/com.ibm.db2.luw.admin.dm.doc/doc/r0004667.html
 
-(in-package :pgloader.ixf)
+(in-package :pgloader.source.ixf)
 
 ;;;
 ;;; Integration with pgloader

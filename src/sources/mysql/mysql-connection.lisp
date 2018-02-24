@@ -2,7 +2,7 @@
 ;;; Tools to handle MySQL connection and querying
 ;;;
 
-(in-package :pgloader.mysql)
+(in-package :pgloader.source.mysql)
 
 (defvar *connection* nil "Current MySQL connection")
 

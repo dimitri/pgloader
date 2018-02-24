@@ -78,31 +78,31 @@
                                        &key
                                          target-table-name
                                          gucs before after options
-                                       &allow-other-keys)
+                                         &allow-other-keys)
   `(lambda ()
      (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
-            ,@(identifier-case-binding options)
-            (timezone     (getf ',options :timezone))
-            (on-error-stop(getf ',options :on-error-stop))
-            (source-db    (with-stats-collection ("fetch" :section :pre)
+              ,@(identifier-case-binding options)
+              (timezone     (getf ',options :timezone))
+              (on-error-stop(getf ',options :on-error-stop))
+              (source-db    (with-stats-collection ("fetch" :section :pre)
                               (expand (fetch-file ,ixf-db-conn))))
-            (source
-             (make-instance 'pgloader.ixf:copy-ixf
-                            :target-db ,pg-db-conn
-                            :source-db source-db
-                            :target (create-table ',target-table-name)
-                            :timezone timezone)))
+              (source
+               (make-instance 'copy-ixf
+                              :target-db ,pg-db-conn
+                              :source-db source-db
+                              :target (create-table ',target-table-name)
+                              :timezone timezone)))
 
        ,(sql-code-block pg-db-conn :pre before "before load")
 
-       (pgloader.sources:copy-database source
-                                       ,@(remove-batch-control-option
-                                          options
-                                          :extras '(:timezone))
-                                       :on-error-stop on-error-stop
-                                       :foreign-keys nil
-                                       :reset-sequences nil)
+       (copy-database source
+                      ,@(remove-batch-control-option
+                         options
+                         :extras '(:timezone))
+                      :on-error-stop on-error-stop
+                      :foreign-keys nil
+                      :reset-sequences nil)
 
        ,(sql-code-block pg-db-conn :post after "after load"))))
 

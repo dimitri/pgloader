@@ -2,7 +2,7 @@
 ;;; Tools to handle MySQL data fetching
 ;;;
 
-(in-package :pgloader.csv)
+(in-package :pgloader.source.csv)
 
 (defclass csv-connection (md-connection) ())
 

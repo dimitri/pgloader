@@ -1,7 +1,7 @@
 ;;;
 ;;; The PostgreSQL COPY TO implementation, with batches and retries.
 ;;;
-(in-package :pgloader.copy)
+(in-package :pgloader.pgcopy)
 
 ;;;
 ;;; We receive raw input rows from an lparallel queue, push their content

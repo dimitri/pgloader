@@ -3,7 +3,7 @@
 ;;; Methods for database source types (with introspection)
 ;;;
 
-(in-package :pgloader.sources)
+(in-package :pgloader.load)
 
 ;;;
 ;;; Prepare the PostgreSQL database before streaming the data into it.
@@ -113,11 +113,6 @@
   ;; log the catalog we just fetched and (maybe) merged
   (log-message :data "CATALOG: ~s" catalog))
 
-(defmethod cleanup ((copy db-copy) (catalog catalog) &key materialize-views)
-  "In case anything wrong happens at `prepare-pgsql-database' step, this
-  function will be called to clean-up the mess left behind, if any."
-  (declare (ignorable materialize-views))
-  t)
 
 (defmethod complete-pgsql-database ((copy db-copy)
                                     (catalog catalog)
@@ -209,19 +204,6 @@
                                :create-triggers create-triggers
                                :reset-sequences reset-sequences))))
 
-(defmethod instanciate-table-copy-object ((copy db-copy) (table table))
-  "Create an new instance for copying TABLE data."
-  (let* ((fields     (table-field-list table))
-         (columns    (table-column-list table))
-         (transforms (mapcar #'column-transform columns)))
-    (make-instance (class-of copy)
-                   :source-db  (clone-connection (source-db copy))
-                   :target-db  (clone-connection (target-db copy))
-                   :source     table
-                   :target     table
-                   :fields     fields
-                   :columns    columns
-                   :transforms transforms)))
 
 (defun process-catalog (copy catalog &key alter-table alter-schema)
   "Do all the PostgreSQL catalog tweaking here: casts, index WHERE clause

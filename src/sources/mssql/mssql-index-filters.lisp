@@ -4,7 +4,7 @@
 ;;; clauses.
 ;;;
 
-(in-package #:pgloader.mssql.index-filter)
+(in-package #:pgloader.source.mssql.index-filter)
 
 (defmethod translate-index-filter ((table table)
                                    (index index)

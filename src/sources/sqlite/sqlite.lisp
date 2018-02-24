@@ -2,7 +2,7 @@
 ;;; Tools to handle the SQLite Database
 ;;;
 
-(in-package :pgloader.sqlite)
+(in-package :pgloader.source.sqlite)
 
 (defclass copy-sqlite (db-copy)
   ((db :accessor db :initarg :db))

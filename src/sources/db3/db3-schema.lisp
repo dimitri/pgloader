@@ -2,7 +2,7 @@
 ;;; Tools to handle the DBF file format
 ;;;
 
-(in-package :pgloader.db3)
+(in-package :pgloader.source.db3)
 
 (defclass dbf-connection (fd-connection)
   ((db3 :initarg db3 :accessor fd-db3))

@@ -67,67 +67,7 @@
   (:documentation
    "Return the list of column names for the data sent in the queue."))
 
-(defgeneric copy-from (source &key)
-  (:documentation
-   "Load data from SOURCE into its target as defined by the SOURCE object."))
 
-;; That one is more an export than a load. It always export to a single very
-;; well defined format, the importing utility is defined in
-;; src/pgsql-copy-format.lisp
-
-(defgeneric copy-to (source filename)
-  (:documentation
-   "Load data from SOURCE and serialize it into FILENAME, using PostgreSQL
-    COPY TEXT format."))
-
-;; The next generic function is only to get instanciated for sources
-;; actually containing more than a single source item (tables, collections,
-;; etc)
-
-(defgeneric copy-database (source
-			   &key
-                             worker-count
-                             concurrency
-                             max-parallel-create-index
-			     truncate
-			     data-only
-			     schema-only
-			     create-tables
-			     include-drop
-                             foreign-keys
-			     create-indexes
-			     reset-sequences
-                             disable-triggers
-                             materialize-views
-                             set-table-oids
-                             including
-                             excluding)
-  (:documentation
-   "Auto-discover source schema, convert it to PostgreSQL, migrate the data
-    from the source definition to PostgreSQL for all the discovered
-    items (tables, collections, etc), then reset the PostgreSQL sequences
-    created by SERIAL columns in the first step.
-
-    The target tables are automatically discovered, the only-tables
-    parameter allows to filter them out."))
-
-
-;;;
-;;; Common API to introspec a data source, when that's possible. Typically
-;;; when the source is a database system.
-;;;
-
-;; (defgeneric list-all-columns (connection &key)
-;;   (:documentation "Discover all columns in CONNECTION source."))
-
-;; (defgeneric list-all-indexes (connection &key)
-;;   (:documentation "Discover all indexes in CONNECTION source."))
-
-;; (defgeneric list-all-fkeys   (connection &key)
-;;   (:documentation "Discover all foreign keys in CONNECTION source."))
-
-;; (defgeneric fetch-metadata (connection &key)
-;;   (:documentation "Full discovery of the CONNECTION data source."))
 
 
 ;;;
@@ -182,28 +122,8 @@
                               including
                               excluding))
 
-(defgeneric prepare-pgsql-database (db-copy catalog
-                                    &key
-                                      truncate
-                                      create-tables
-                                      create-schemas
-                                      drop-indexes
-                                      set-table-oids
-                                      materialize-views
-                                      foreign-keys
-                                      include-drop)
-  (:documentation "Prepare the target PostgreSQL database."))
-
 (defgeneric cleanup (db-copy catalog &key materialize-views)
   (:documentation "Clean-up after prepare-pgsql-database failure."))
-
-(defgeneric complete-pgsql-database (db-copy catalog pkeys
-                                     &key
-                                       foreign-keys
-                                       create-indexes
-                                       create-triggers
-                                       reset-sequences)
-  (:documentation "Alter load duties for database sources copy support."))
 
 (defgeneric instanciate-table-copy-object (db-copy table)
   (:documentation "Create a new instance for copying TABLE data."))

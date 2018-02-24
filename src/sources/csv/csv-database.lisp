@@ -2,7 +2,7 @@
 ;;; Experimental code, used to be used a long time ago, before this lisp
 ;;; code became pgloader. The idea is to use it again sometimes, someway.
 ;;;
-(in-package #:pgloader.csv)
+(in-package #:pgloader.source.csv)
 
 ;;;
 ;;; When you exported a whole database as a bunch of CSV files to be found

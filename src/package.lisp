@@ -429,10 +429,12 @@
 	   #:get-date-columns
            #:format-vector-row))
 
+
+;;;
+;;; pgloader Sources API and common helpers
+;;;
 (defpackage #:pgloader.sources
-  (:use #:cl
-        #:pgloader.params #:pgloader.utils #:pgloader.connection
-        #:pgloader.pgsql)
+  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.connection)
   (:import-from #:pgloader.transforms
                 #:precision
                 #:scale
@@ -444,6 +446,12 @@
   (:export #:copy
            #:md-copy
            #:db-copy
+
+           ;; main data access api
+	   #:map-rows
+           #:copy-column-list
+           #:data-is-preformatted-p
+           #:preprocess-row
 
            ;; accessors
 	   #:source-db
@@ -460,16 +468,6 @@
            #:skip-lines
            #:header
 
-           ;; main protocol/api
-           #:concurrency-support
-	   #:map-rows
-           #:copy-column-list
-           #:queue-raw-data
-           #:data-is-preformatted-p
-	   #:copy-from
-	   #:copy-to
-	   #:copy-database
-
            ;; md-copy protocol/api
            #:parse-header
            #:process-rows
@@ -481,19 +479,17 @@
            #:expand-spec
            #:clone-copy-for
 
-           ;; the db-methods
-           #:fetch-metadata
-           #:prepare-pgsql-database
-           #:cleanup
-           #:instanciate-table-copy-object
-           #:complete-pgsql-database
-           #:end-kernels
-
            ;; file based utils for csv, fixed etc
            #:with-open-file-or-stream
 	   #:get-pathname
 	   #:project-fields
 	   #:reformat-then-process
+
+           ;; the db-methods
+           #:fetch-metadata
+           #:cleanup
+           #:instanciate-table-copy-object
+           #:concurrency-support
 
            ;; database cast machinery
            #:*default-cast-rules*
@@ -505,15 +501,10 @@
 ;;;
 ;;; COPY protocol related facilities
 ;;;
-(defpackage #:pgloader.copy
-  (:use #:cl #:pgloader.params #:pgloader.utils
+(defpackage #:pgloader.pgcopy
+  (:use #:cl
+        #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.pgsql #:pgloader.sources)
-  (:import-from #:pgloader.pgsql
-                #:with-pgsql-connection
-                #:with-schema
-                #:with-disabled-triggers
-                #:postgresql-unavailable
-                #:postgresql-retryable)
   (:import-from #:cl-postgres
                 #:database-error-context)
   (:import-from #:cl-postgres-trivial-utf-8
@@ -521,8 +512,31 @@
                 #:as-utf-8-bytes
                 #:string-to-utf-8-bytes)
   (:export #:copy-rows-from-queue
-           #:format-vector-row))
+           #:format-vector-row
+           #:copy-init-error))
 
+
+
+;;;
+;;; The pgloader.load package implements data transfert from a pgloader
+;;; source to a PostgreSQL database, using the pgloader.pgcopy COPY
+;;; implementation.
+;;;
+(defpackage #:pgloader.load
+  (:use #:cl #:pgloader.params #:pgloader.utils #:pgloader.connection
+        #:pgloader.pgsql #:pgloader.pgcopy #:pgloader.sources)
+  (:export
+           ;; main protocol/api
+           #:concurrency-support
+           #:queue-raw-data
+	   #:copy-from
+	   #:copy-to
+	   #:copy-database
+
+           ;; the db-methods
+           #:prepare-pgsql-database
+           #:instanciate-table-copy-object
+           #:complete-pgsql-database))
 
 
 ;;;
@@ -548,7 +562,7 @@
 ;;
 ;; specific source handling
 ;;
-(defpackage #:pgloader.csv
+(defpackage #:pgloader.source.csv
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.sources)
@@ -565,11 +579,11 @@
 	   #:guess-csv-params
 	   #:guess-all-csv-params))
 
-(defpackage #:pgloader.fixed
+(defpackage #:pgloader.source.fixed
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.sources)
-  (:import-from #:pgloader.csv
+  (:import-from #:pgloader.source.csv
                 #:csv-connection
                 #:specs
                 #:csv-specs)
@@ -580,11 +594,11 @@
            #:copy-fixed
 	   #:copy-from))
 
-(defpackage #:pgloader.copy
+(defpackage #:pgloader.source.copy
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.sources)
-  (:import-from #:pgloader.csv
+  (:import-from #:pgloader.source.csv
                 #:csv-connection
                 #:specs
                 #:csv-specs)
@@ -595,7 +609,7 @@
            #:copy-copy
 	   #:copy-from))
 
-(defpackage #:pgloader.ixf
+(defpackage #:pgloader.source.ixf
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.sources)
@@ -610,7 +624,7 @@
 	   #:map-rows
 	   #:copy-from))
 
-(defpackage #:pgloader.db3
+(defpackage #:pgloader.source.db3
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.sources)
@@ -626,7 +640,7 @@
 	   #:copy-to
 	   #:copy-from))
 
-(defpackage #:pgloader.mysql
+(defpackage #:pgloader.source.mysql
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.sources)
@@ -650,16 +664,9 @@
            #:copy-mysql
            #:*decoding-as*
 	   #:*mysql-default-cast-rules*
-           #:with-mysql-connection
-	   #:map-rows
-	   #:copy-to
-	   #:copy-from
-	   #:copy-database
-	   #:list-databases
-	   #:export-database
-	   #:export-import-database))
+           #:with-mysql-connection))
 
-(defpackage #:pgloader.sqlite
+(defpackage #:pgloader.source.sqlite
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.sources)
@@ -675,13 +682,9 @@
                 #:comment-on-tables-and-columns)
   (:export #:sqlite-connection
            #:copy-sqlite
-           #:*sqlite-default-cast-rules*
-	   #:map-rows
-	   #:copy-to
-	   #:copy-from
-	   #:copy-database))
+           #:*sqlite-default-cast-rules*))
 
-(defpackage #:pgloader.mssql
+(defpackage #:pgloader.source.mssql
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
         #:pgloader.sources)
@@ -702,14 +705,10 @@
                 #:reset-sequences)
   (:export #:mssql-connection
            #:copy-mssql
-           #:*mssql-default-cast-rules*
-	   #:map-rows
-	   #:copy-to
-	   #:copy-from
-	   #:copy-database))
+           #:*mssql-default-cast-rules*))
 
-(defpackage #:pgloader.mssql.index-filter
-  (:use #:cl #:esrap #:pgloader.utils #:pgloader.mssql)
+(defpackage #:pgloader.source.mssql.index-filter
+  (:use #:cl #:esrap #:pgloader.utils #:pgloader.source.mssql)
   (:import-from #:pgloader.pgsql
                 #:translate-index-filter))
 
@@ -731,9 +730,13 @@
         #:pgloader.params #:pgloader.utils #:pgloader.sql #:pgloader.connection)
   (:shadow #:namestring #:number #:inline)
   (:import-from #:alexandria #:read-file-into-string)
+  (:import-from #:pgloader.load
+                #:copy-database)
   (:import-from #:pgloader.sources
                 #:md-connection
-                #:md-spec)
+                #:md-spec
+                #:*default-cast-rules*
+                #:*cast-rules*)
   (:import-from #:pgloader.pgsql
                 #:pgsql-connection
 		#:with-pgsql-transaction
@@ -741,29 +744,36 @@
                 #:pgconn-use-ssl
                 #:pgconn-table-name
                 #:make-table)
-  (:import-from #:pgloader.csv
+  (:import-from #:pgloader.source.csv
+                #:copy-csv
                 #:csv-connection
                 #:specs
                 #:csv-specs)
-  (:import-from #:pgloader.fixed
+  (:import-from #:pgloader.source.fixed
+                #:copy-fixed
                 #:fixed-connection)
-  (:import-from #:pgloader.copy
+  (:import-from #:pgloader.source.copy
+                #:copy-copy
                 #:copy-connection)
-  (:import-from #:pgloader.sources
-                #:*default-cast-rules*
-                #:*cast-rules*)
-  (:import-from #:pgloader.mysql
+  (:import-from #:pgloader.source.mysql
+                #:copy-mysql
                 #:mysql-connection
                 #:*decoding-as*
                 #:*mysql-default-cast-rules*)
-  (:import-from #:pgloader.mssql
+  (:import-from #:pgloader.source.mssql
+                #:copy-mssql
                 #:mssql-connection
                 #:*mssql-default-cast-rules*)
-  (:import-from #:pgloader.sqlite
+  (:import-from #:pgloader.source.sqlite
+                #:copy-sqlite
                 #:sqlite-connection
                 #:*sqlite-default-cast-rules*)
-  (:import-from #:pgloader.db3 #:dbf-connection)
-  (:import-from #:pgloader.ixf #:ixf-connection)
+  (:import-from #:pgloader.source.db3
+                #:copy-db3
+                #:dbf-connection)
+  (:import-from #:pgloader.source.ixf
+                #:copy-ixf
+                #:ixf-connection)
   (:export #:parse-commands
            #:parse-commands-from-file
            #:initialize-context
@@ -812,7 +822,7 @@
 (defpackage #:pgloader
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.parser
-        #:pgloader.connection #:pgloader.copy #:metabang.bind)
+        #:pgloader.connection #:pgloader.pgcopy #:metabang.bind)
   (:import-from #:pgloader.pgsql
                 #:pgconn-table-name
                 #:pgsql-connection)

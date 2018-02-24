@@ -2,7 +2,7 @@
 ;;; Tools to handle MS SQL data type casting rules
 ;;;
 
-(in-package :pgloader.mssql)
+(in-package :pgloader.source.mssql)
 
 (defparameter *mssql-default-cast-rules*
   `((:source (:type "char")      :target (:type "text" :drop-typemod t))

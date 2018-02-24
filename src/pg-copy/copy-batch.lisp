@@ -1,7 +1,7 @@
 ;;;
 ;;; Tools to handle internal queueing, using lparallel.queue
 ;;;
-(in-package :pgloader.copy)
+(in-package :pgloader.pgcopy)
 
 ;;;
 ;;; The pgloader architectures uses a reader thread and a writer thread. The

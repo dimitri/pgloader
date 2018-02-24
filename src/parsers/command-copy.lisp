@@ -115,7 +115,7 @@
   `(lambda ()
      (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
-            ,@(identifier-case-binding options)              
+              ,@(identifier-case-binding options)
               (source-db (with-stats-collection ("fetch" :section :pre)
                            (expand (fetch-file ,copy-conn)))))
 
@@ -128,7 +128,7 @@
                (drop-indexes              (getf ',options :drop-indexes))
                (max-parallel-create-index (getf ',options :max-parallel-create-index))
                (source
-                (make-instance 'pgloader.copy:copy-copy
+                (make-instance 'copy-copy
                                :target-db ,pg-db-conn
                                :source    source-db
                                :target    (create-table ',target-table-name)
@@ -142,16 +142,16 @@
                                                     :drop-indexes
                                                     :disable-triggers
                                                     :max-parallel-create-index)))))
-           (pgloader.sources:copy-database source
-                                           ,@ (when worker-count
-                                                (list :worker-count worker-count))
-                                           ,@ (when concurrency
-                                                (list :concurrency concurrency))
-                                           :on-error-stop on-error-stop
-                                           :truncate truncate
-                                           :drop-indexes drop-indexes
-                                           :disable-triggers disable-triggers
-                                           :max-parallel-create-index max-parallel-create-index))
+           (copy-database source
+                          ,@ (when worker-count
+                               (list :worker-count worker-count))
+                          ,@ (when concurrency
+                               (list :concurrency concurrency))
+                          :on-error-stop on-error-stop
+                          :truncate truncate
+                          :drop-indexes drop-indexes
+                          :disable-triggers disable-triggers
+                          :max-parallel-create-index max-parallel-create-index))
 
          ,(sql-code-block pg-db-conn :post after "after load")))))
 

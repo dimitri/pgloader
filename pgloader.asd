@@ -110,11 +110,11 @@
                                    "utils")
                       :components
                       ((:module "common"
+                                :serial t
                                 :components
                                 ((:file "api")
-                                 (:file "methods"    :depends-on ("api"))
-                                 (:file "md-methods" :depends-on ("api"))
-                                 (:file "db-methods" :depends-on ("api"))
+                                 (:file "methods")
+                                 (:file "md-methods")
                                  (:file "casting-rules")
                                  (:file "files-and-pathnames")
                                  (:file "project-fields")))
@@ -198,6 +198,19 @@
                        (:file "copy-rows-in-batch")
                        (:file "copy-retry-batch")
                        (:file "copy-from-queue")))
+
+             (:module "load"
+                      :depends-on ("params"
+                                   "package"
+                                   "utils"
+                                   "pgsql"
+                                   "sources")
+                      :serial t
+                      :components
+                      ((:file "api")
+                       (:file "copy-data")
+                       (:file "load-file")
+                       (:file "migrate-database")))
 
              (:module "parsers"
                       :depends-on ("params"

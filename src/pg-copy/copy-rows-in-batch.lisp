@@ -1,7 +1,7 @@
 ;;;
 ;;; The PostgreSQL COPY TO implementation, with batches and retries.
 ;;;
-(in-package :pgloader.copy)
+(in-package :pgloader.pgcopy)
 
 (defun batch-rows-to-copy (table columns copy nbcols queue)
   "Add rows that we pop from QUEUE into a batch, that we then COPY over to

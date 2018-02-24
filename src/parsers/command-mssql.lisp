@@ -142,7 +142,7 @@
                                            casts before after options
                                            alter-schema alter-table
                                            including excluding
-                                         &allow-other-keys)
+                                           &allow-other-keys)
   `(lambda ()
      ;; now is the time to load the CFFI lib we need (freetds)
      (let (#+sbcl(sb-ext:*muffled-warnings* 'style-warning))
@@ -156,20 +156,20 @@
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
             (source
-             (make-instance 'pgloader.mssql::copy-mssql
+             (make-instance 'copy-mssql
                             :target-db ,pg-db-conn
                             :source-db ,ms-db-conn)))
 
        ,(sql-code-block pg-db-conn :pre before "before load")
 
-       (pgloader.mssql:copy-database source
-                                     :including ',including
-                                     :excluding ',excluding
-                                     :alter-schema ',alter-schema
-                                     :alter-table ',alter-table
-                                     :set-table-oids t
-                                     :on-error-stop on-error-stop
-                                     ,@(remove-batch-control-option options))
+       (copy-database source
+                      :including ',including
+                      :excluding ',excluding
+                      :alter-schema ',alter-schema
+                      :alter-table ',alter-table
+                      :set-table-oids t
+                      :on-error-stop on-error-stop
+                      ,@(remove-batch-control-option options))
 
        ,(sql-code-block pg-db-conn :post after "after load"))))
 

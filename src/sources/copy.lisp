@@ -1,7 +1,7 @@
 ;;;
 ;;; Read a file format in PostgreSQL COPY TEXT format.
 ;;;
-(in-package :pgloader.copy)
+(in-package :pgloader.source.copy)
 
 (defclass copy-connection (md-connection) ())
 

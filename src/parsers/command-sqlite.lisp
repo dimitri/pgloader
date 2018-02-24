@@ -105,22 +105,22 @@ load database
             ,@(batch-control-bindings options)
             ,@(identifier-case-binding options)
             (source-db      (with-stats-collection ("fetch" :section :pre)
-                                (expand (fetch-file ,sqlite-db-conn))))
+                              (expand (fetch-file ,sqlite-db-conn))))
             (source
-             (make-instance 'pgloader.sqlite::copy-sqlite
+             (make-instance 'copy-sqlite
                             :target-db ,pg-db-conn
                             :source-db source-db)))
 
        ,(sql-code-block pg-db-conn :pre before "before load")
 
-       (pgloader.sqlite:copy-database source
-                                      :alter-table ',alter-table
-                                      :alter-schema ',alter-schema
-                                      :set-table-oids t
-                                      :including ',incl
-                                      :excluding ',excl
-                                      :on-error-stop on-error-stop
-                                      ,@(remove-batch-control-option options))
+       (copy-database source
+                      :alter-table ',alter-table
+                      :alter-schema ',alter-schema
+                      :set-table-oids t
+                      :including ',incl
+                      :excluding ',excl
+                      :on-error-stop on-error-stop
+                      ,@(remove-batch-control-option options))
 
        ,(sql-code-block pg-db-conn :post after "after load"))))
 

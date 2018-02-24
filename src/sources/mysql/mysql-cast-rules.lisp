@@ -2,7 +2,7 @@
 ;;; Tools to handle MySQL data type casting rules
 ;;;
 
-(in-package :pgloader.mysql)
+(in-package :pgloader.source.mysql)
 
 (defun enum-or-set-name (table-name column-name type ctype typemod)
   (declare (ignore type ctype typemod))

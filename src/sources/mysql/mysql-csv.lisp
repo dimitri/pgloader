@@ -2,7 +2,7 @@
 ;;; Tools to handle MySQL data fetching: old code, untested, kept for reference.
 ;;;
 
-(in-package :pgloader.mysql)
+(in-package :pgloader.source.mysql)
 
 ;;;
 ;;; MySQL bulk export to file, in PostgreSQL COPY TEXT format

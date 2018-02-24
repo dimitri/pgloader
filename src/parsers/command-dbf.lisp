@@ -94,29 +94,29 @@
                                          target-table-name
                                          (encoding :ascii)
                                          gucs before after options
-                                       &allow-other-keys)
+                                         &allow-other-keys)
   `(lambda ()
      (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
-            ,@(identifier-case-binding options)
-            (on-error-stop (getf ',options :on-error-stop))
-            (source-db     (with-stats-collection ("fetch" :section :pre)
-                             (expand (fetch-file ,dbf-db-conn))))
-            (source
-             (make-instance 'pgloader.db3:copy-db3
-                            :target-db ,pg-db-conn
-                            :encoding ,encoding
-                            :source-db source-db
-                            :target (create-table ',target-table-name))))
+              ,@(identifier-case-binding options)
+              (on-error-stop (getf ',options :on-error-stop))
+              (source-db     (with-stats-collection ("fetch" :section :pre)
+                               (expand (fetch-file ,dbf-db-conn))))
+              (source
+               (make-instance 'copy-db3
+                              :target-db ,pg-db-conn
+                              :encoding ,encoding
+                              :source-db source-db
+                              :target (create-table ',target-table-name))))
 
        ,(sql-code-block pg-db-conn :pre before "before load")
 
-       (pgloader.sources:copy-database source
-                                       ,@(remove-batch-control-option options)
-                                       :on-error-stop on-error-stop
-                                       :create-indexes nil
-                                       :foreign-keys nil
-                                       :reset-sequences nil)
+       (copy-database source
+                      ,@(remove-batch-control-option options)
+                      :on-error-stop on-error-stop
+                      :create-indexes nil
+                      :foreign-keys nil
+                      :reset-sequences nil)
 
        ,(sql-code-block pg-db-conn :post after "after load"))))
 

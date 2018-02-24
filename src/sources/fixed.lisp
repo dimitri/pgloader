@@ -2,7 +2,7 @@
 ;;; Tools to handle fixed width files
 ;;;
 
-(in-package :pgloader.fixed)
+(in-package :pgloader.source.fixed)
 
 (defclass fixed-connection (md-connection) ())
 

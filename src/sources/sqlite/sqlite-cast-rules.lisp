@@ -2,7 +2,7 @@
 ;;; Tools to handle the SQLite Database
 ;;;
 
-(in-package :pgloader.sqlite)
+(in-package :pgloader.source.sqlite)
 
 (defvar *sqlite-db* nil
   "The SQLite database connection handler.")

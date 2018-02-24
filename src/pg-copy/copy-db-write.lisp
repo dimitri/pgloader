@@ -3,7 +3,7 @@
 ;;;
 ;;; Here, sending the data in the COPY stream opened in copy-batch.
 ;;;
-(in-package :pgloader.copy)
+(in-package :pgloader.pgcopy)
 
 (define-condition copy-init-error (error)
   ((table     :initarg :table :reader copy-init-error-table)

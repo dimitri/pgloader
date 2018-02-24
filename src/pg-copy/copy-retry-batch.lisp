@@ -1,7 +1,7 @@
 ;;;
 ;;; The PostgreSQL COPY TO implementation, with batches and retries.
 ;;;
-(in-package #:pgloader.copy)
+(in-package #:pgloader.pgcopy)
 
 ;;;
 ;;; Compute how many rows we're going to try loading next, depending on

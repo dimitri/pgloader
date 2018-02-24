@@ -2,7 +2,7 @@
 ;;; Tools to handle MySQL data fetching
 ;;;
 
-(in-package :pgloader.mysql)
+(in-package :pgloader.source.mysql)
 
 (defclass copy-mysql (db-copy)
   ((encoding :accessor encoding         ; allows forcing encoding

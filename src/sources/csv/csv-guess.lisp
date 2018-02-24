@@ -1,7 +1,7 @@
 ;;;
 ;;; Automatic guess the CSV format parameters
 ;;;
-(in-package #:pgloader.csv)
+(in-package #:pgloader.source.csv)
 
 (defparameter *separators* '(#\Tab #\, #\; #\| #\% #\^ #\! #\$)
   "Common CSV separators to try when guessing file parameters.")
