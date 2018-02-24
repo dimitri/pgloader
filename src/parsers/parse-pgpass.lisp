@@ -21,7 +21,7 @@
 
 (defrule pgpass-line (and pgpass-entry #\: pgpass-entry #\:
                           pgpass-entry #\: pgpass-entry #\:
-                          pgpass-entry)
+                          (? pgpass-entry))
   (:lambda (pl)
     (make-pgpass :hostname (first pl)
                  :port (third pl)
@@ -87,6 +87,12 @@
 
 (defun match-pgpass-file (hostname port database username)
   "Return matched password from ~/.pgpass or PGPASSFILE, or nil."
-  (let ((pgpass-entries (parse-pgpass-file)))
-    (when pgpass-entries
-      (match-pgpass-entries pgpass-entries hostname port database username))))
+  (handler-case
+      (let ((pgpass-entries (parse-pgpass-file)))
+        (when pgpass-entries
+          (match-pgpass-entries pgpass-entries hostname port database username)))
+    (condition (e)
+      ;; if we had any problem (parsing error in pgpass or otherwise), just
+      ;; return a NIL password
+      (log-message :warning "Error reading pgass file: ~a" e)
+      nil)))
