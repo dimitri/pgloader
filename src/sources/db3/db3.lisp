@@ -51,7 +51,10 @@
   (declare (ignore materialize-views only-tables create-indexes foreign-keys
                    including excluding))
   (let* ((table  (or (target db3) (source db3)))
-         (schema (add-schema catalog (table-name table))))
+         (schema (or (when (table-schema (target db3))
+                       (push-to-end (table-schema (target db3))
+                                    (catalog-schema-list catalog)))
+                     (add-schema catalog (table-name table)))))
     (push-to-end table (schema-table-list schema))
 
     (with-connection (conn (source-db db3))
