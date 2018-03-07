@@ -102,21 +102,23 @@
   "Apply this function when input date in like '20041002152952'"
   ;; only process non-zero dates
   (declare (type (or null string) date-string))
-  (cond ((null date-string)                nil)
-        ((string= date-string "")          nil)
-        ((not (= 14 (length date-string))) nil)
-        (t
-         (destructuring-bind (&key year month day hour minute seconds
-                                   &allow-other-keys)
-             (loop
-                for (name start end) in format
-                append (list name (subseq date-string start end)))
-           (if (or (string= year  "0000")
-                   (string= month "00")
-                   (string= day   "00"))
-               nil
-               (format nil "~a-~a-~a ~a:~a:~a"
-                       year month day hour minute seconds))))))
+  (let ((str-length      (length date-string))
+        (expected-length (reduce #'max (mapcar #'third format))))
+    (cond ((null date-string)                   nil)
+          ((string= date-string "")             nil)
+          ((not (= expected-length str-length)) nil)
+          (t
+           (destructuring-bind (&key year month day hour minute seconds
+                                     &allow-other-keys)
+               (loop
+                  for (name start end) in format
+                  append (list name (subseq date-string start end)))
+             (if (or (string= year  "0000")
+                     (string= month "00")
+                     (string= day   "00"))
+                 nil
+                 (format nil "~a-~a-~a ~a:~a:~a"
+                         year month day hour minute seconds)))))))
 
 (defun time-with-no-separator
     (time-string
