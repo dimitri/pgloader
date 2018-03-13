@@ -104,7 +104,7 @@ Those options are meant to tweak `pgloader` behavior when loading data.
 
   * `-L`, `--logfile`
     
-    Set the pgloader log file (default to "/tmp/pgloader.log").
+    Set the pgloader log file (default to "/tmp/pgloader/pgloader.log").
 
   * `--log-min-messages`
     
