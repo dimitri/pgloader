@@ -68,7 +68,7 @@ will be accumulated together.
 
 Example::
 
-  including only table names lile 'GlobalAccount' in schema 'dbo'
+  including only table names like 'GlobalAccount' in schema 'dbo'
 
 EXCLUDING TABLE NAMES LIKE
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
