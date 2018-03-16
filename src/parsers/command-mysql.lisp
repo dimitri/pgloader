@@ -98,11 +98,33 @@
 (defrule mysql-dsn-dbname (and "/" maybe-quoted-namestring)
   (:lambda (m-d-d) (list :dbname (text (second m-d-d)))))
 
+(defrule mysql-dsn-option-usessl-true  "true"  (:constant :yes))
+(defrule mysql-dsn-option-usessl-false "false" (:constant :no))
+
+(defrule mysql-dsn-option-usessl (and "useSSL" "="
+                                      (or mysql-dsn-option-usessl-true
+                                          mysql-dsn-option-usessl-false))
+  (:lambda (ssl)
+    (cons :use-ssl (third ssl))))
+
+(defrule mysql-dsn-option (or dsn-option-ssl
+                              mysql-dsn-option-usessl
+                              dsn-option-host
+                              dsn-option-port
+                              dsn-option-dbname
+                              dsn-option-user
+                              dsn-option-pass
+                              dsn-option-table-name))
+
+(defrule mysql-dsn-options (and "?" (and mysql-dsn-option
+                                         (* (and "&" mysql-dsn-option))))
+  (:lambda (opts) (cdr (flatten-option-list opts))))
+
 (defrule mysql-uri (and mysql-prefix
                         (? dsn-user-password)
                         (? dsn-hostname)
                         mysql-dsn-dbname
-                        (? dsn-options))
+                        (? mysql-dsn-options))
   (:lambda (uri)
     (destructuring-bind (&key type
                               user

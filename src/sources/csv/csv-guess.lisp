@@ -6,7 +6,7 @@
 (defparameter *separators* '(#\Tab #\, #\; #\| #\% #\^ #\! #\$)
   "Common CSV separators to try when guessing file parameters.")
 
-(defparameter *escape-quotes* '("\\\"" "\"\"")
+(defparameter *escape-quotes* '("\"\"" "\\\"")
   "Common CSV quotes to try when guessing file parameters.")
 
 (defun get-file-sample (filename &key (sample-size 10))
