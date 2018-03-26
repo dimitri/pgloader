@@ -323,7 +323,7 @@ workers:
 
 The N here is setup to the *concurrency* parameter: with a *CONCURRENCY* of
 2, we start (+ 1 2) = 3 concurrent tasks, with a *concurrency* of 4 we start
-(+ 1 4) = 9 concurrent tasks, of which only *workers* may be active
+(+ 1 4) = 5 concurrent tasks, of which only *workers* may be active
 simultaneously.
 
 The defaults are `workers = 4, concurrency = 1` when loading from a database
