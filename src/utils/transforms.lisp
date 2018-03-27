@@ -72,7 +72,8 @@
                  sql-server-uniqueidentifier-to-uuid
                  sql-server-bit-to-boolean
                  varbinary-to-string
-                 base64-decode))
+                 base64-decode
+		 hex-to-dec))
 
 
 ;;;
@@ -372,3 +373,8 @@
   (etypecase string
     (null    nil)
     (string (base64:base64-string-to-string string))))
+
+(defun hex-to-dec (string)
+  (etypecase hex
+    (null    nil)
+    (string (write-to-string (parse-integer hex :radix 16)))))
