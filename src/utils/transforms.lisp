@@ -374,7 +374,8 @@
     (null    nil)
     (string (base64:base64-string-to-string string))))
 
-(defun hex-to-dec (string)
-  (etypecase hex
+(defun hex-to-dec (hex-string)
+  (etypecase hex-string
     (null    nil)
-    (string (write-to-string (parse-integer hex :radix 16)))))
+    (integer hex-string)
+    (string (write-to-string (parse-integer hex-string :radix 16)))))

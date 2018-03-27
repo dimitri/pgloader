@@ -84,6 +84,14 @@ The provided transformation functions are:
             In:  100.0d0
             Out: "100.0"
 
+  - *hex-to-dec*
+
+    Converts a string containing an hexadecimal representation of a number
+    into its decimal representation::
+
+            In:  "deadbeef"
+            Out: "3735928559"
+            
   - *set-to-enum-array*
 
     Converts a string representing a MySQL SET into a PostgreSQL Array of
