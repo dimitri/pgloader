@@ -56,3 +56,4 @@ id|data|date|
 5|some fifth row text|2006-5-12|
 6|some sixth row text|10/7/6|
 7|some null date to play with||
+8|"with embedded""quote"||
