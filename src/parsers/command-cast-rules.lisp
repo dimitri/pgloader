@@ -13,18 +13,12 @@
 (defrule cast-unsigned-guard (and kw-when kw-unsigned)
   (:constant (cons :unsigned t)))
 
-(defrule cast-source-guards (* (or cast-unsigned-guard
-                                   cast-default-guard
-				   cast-typemod-guard))
-  (:lambda (guards)
-    (alexandria:alist-plist guards)))
-
 ;; at the moment we only know about extra auto_increment
 (defrule cast-source-extra (and kw-with kw-extra
                                 (or kw-auto-increment
                                     kw-on-update-current-timestamp))
   (:lambda (extra)
-    (list (third extra) t)))
+    (cons (third extra) t)))
 
 (defrule cast-source-type (and kw-type trimmed-name)
   (:destructure (kw name) (declare (ignore kw)) (list :type name)))
@@ -38,19 +32,23 @@
   ;; well, we want namestring . namestring
   (:destructure (kw name) (declare (ignore kw)) name))
 
+(defrule cast-source-extra-or-guard (* (or cast-unsigned-guard
+                                           cast-default-guard
+                                           cast-typemod-guard
+                                           cast-source-extra))
+  (:function alexandria:alist-plist))
+
 (defrule cast-source (and (or cast-source-type cast-source-column)
-			  (? cast-source-extra)
-			  (? cast-source-guards)
-			  ignore-whitespace)
+                          cast-source-extra-or-guard)
   (:lambda (source)
-    (bind (((name-and-type extra guards _)       source)
+    (bind (((name-and-type extra-and-guards) source)
            ((&key (default nil d-s-p)
                   (typemod nil t-s-p)
                   (unsigned nil u-s-p)
-                  &allow-other-keys)            guards)
-           ((&key (auto-increment nil ai-s-p)
+                  (auto-increment nil ai-s-p)
                   (on-update-current-timestamp nil ouct-s-p)
-                  &allow-other-keys)            extra))
+                  &allow-other-keys)
+            extra-and-guards))
       `(,@name-and-type
 		,@(when t-s-p (list :typemod typemod))
 		,@(when d-s-p (list :default default))

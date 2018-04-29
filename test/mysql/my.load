@@ -22,8 +22,14 @@ load database
 
       type smallint when unsigned to int drop typemod,
 
+      type timestamp
+              when default "CURRENT_TIMESTAMP"
+              with extra on update current timestamp
+        to "timestamp with time zone"
+              drop default drop not null drop extra
+             using zero-dates-to-null,
+
       type timestamp with extra on update current timestamp
         to "timestamp with time zone" drop extra
 
  BEFORE LOAD DO $$ create schema if not exists mysql; $$;
-
