@@ -171,8 +171,9 @@ $(BUNDLETESTD):
 
 $(BUNDLEDIR):
 	mkdir -p $@
-	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp   \
-             --eval '(defvar *bundle-dir* "$@")'      \
+	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp      \
+             --eval '(defvar *bundle-dir* "$@")'         \
+             --eval '(defvar *pwd* "$(PWD)/")'           \
              --eval '(defvar *ql-dist* "$(BUNDLEDIST)")' \
              --load bundle/ql.lisp
 

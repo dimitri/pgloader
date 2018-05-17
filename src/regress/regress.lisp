@@ -28,20 +28,15 @@
 
     ;; once we are done running the load-file, compare the loaded data with
     ;; our expected data file
-    (bind ((expected-subdir        (directory-namestring
-                                    (asdf:system-relative-pathname
-                                     :pgloader "test/regress/expected/")))
-           (expected-data-file     (make-pathname :defaults load-file
-                                                  :type "out"
-                                                  :directory expected-subdir))
-           ((target-conn target-table-name gucs) (parse-target-pg-db-uri load-file))
+    (bind ((expected-data-source
+            (regression-test-expected-data-source load-file))
+
+           ((target-conn target-table-name gucs)
+            (parse-target-pg-db-uri load-file))
+
            (target-table (create-table target-table-name))
            (*pg-settings* (pgloader.pgsql:sanitize-user-gucs gucs))
            (*pgsql-reserved-keywords* (list-reserved-keywords target-conn))
-
-           (expected-data-source
-            (parse-source-string-for-type
-             :copy (uiop:native-namestring expected-data-file)))
 
            ;; change target table-name schema
            (expected-data-target
@@ -58,7 +53,8 @@
            (expected-target-table
             (create-table (cons "expected" (table-name target-table)))))
 
-      (log-message :log "Comparing loaded data against ~s" expected-data-file)
+      (log-message :log "Comparing loaded data against ~s"
+                   (cdr (pgloader.sources::md-spec expected-data-source)))
 
       ;; prepare expected table in "expected" schema
       (with-pgsql-connection (target-conn)
@@ -130,3 +126,27 @@
            join pg_type t on t.oid = a.atttypid
      where c.oid = '~:[~*~a~;~a.~a~]'::regclass and attnum > 0
   order by attnum" schema schema table-name)))
+
+
+;;;
+;;; Helper functions
+;;;
+(defun regression-test-expected-data-source (load-file)
+  "Returns the source specification where to read the expected result for
+   the given LOAD-FILE."
+
+  (let* ((load-file-dir        (uiop:pathname-directory-pathname
+                                (if (uiop:absolute-pathname-p load-file)
+                                    load-file
+                                    (uiop:merge-pathnames* load-file
+                                                           (uiop:getcwd)))))
+         (expected-subdir      (uiop:native-namestring
+                                (uiop:merge-pathnames* "regress/expected/"
+                                                       load-file-dir)))
+         (expected-data-file   (make-pathname :defaults load-file
+                                              :type "out"
+                                              :directory expected-subdir))
+         (expected-data-source (uiop:native-namestring expected-data-file)))
+
+    (parse-source-string-for-type :copy expected-data-source)))
+
