@@ -1,6 +1,6 @@
 # pgloader build tool
 APP_NAME   = pgloader
-VERSION    = 3.4.2
+VERSION    = 3.5.1
 
 # use either sbcl or ccl
 CL	   = sbcl
@@ -11,7 +11,9 @@ DYNSIZE    = 4096
 LISP_SRC   = $(wildcard src/*lisp)         \
              $(wildcard src/monkey/*lisp)  \
              $(wildcard src/utils/*lisp)   \
+             $(wildcard src/load/*lisp)    \
              $(wildcard src/parsers/*lisp) \
+             $(wildcard src/pg-copy/*lisp) \
              $(wildcard src/pgsql/*lisp)   \
              $(wildcard src/sources/*lisp) \
              pgloader.asd
@@ -22,7 +24,7 @@ QLDIR      = $(BUILDDIR)/quicklisp
 MANIFEST   = $(BUILDDIR)/manifest.ql
 LATEST     = $(BUILDDIR)/pgloader-latest.tgz
 
-BUNDLEDIST = 2017-04-03
+BUNDLEDIST = 2018-04-30
 BUNDLENAME = pgloader-bundle-$(VERSION)
 BUNDLEDIR  = $(BUILDDIR)/bundle/$(BUNDLENAME)
 BUNDLE     = $(BUILDDIR)/$(BUNDLENAME).tgz
