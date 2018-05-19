@@ -3,12 +3,21 @@
 ;;;
 (in-package :pgloader.pgsql)
 
+(defparameter *pgconn-variant* :pgdg
+  "The PostgreSQL version/variant we are talking to. At the moment, this
+  could be either :pgdg for PostgreSQL Global Development Group,
+  or :redshift. The value is parsed from SELECT version(); and set in the
+  pgsql-connection instance at open-connection time.")
+
 ;;;
 ;;; PostgreSQL Tools connecting to a database
 ;;;
 (defclass pgsql-connection (db-connection)
   ((use-ssl :initarg :use-ssl :accessor pgconn-use-ssl)
-   (table-name :initarg :table-name :accessor pgconn-table-name))
+   (table-name :initarg :table-name :accessor pgconn-table-name)
+   (version-string :initarg :pg-version :accessor pgconn-version-string)
+   (major-version :initarg :major-version :accessor pgconn-major-version)
+   (variant :initarg :variant :accessor pgconn-variant))
   (:documentation "PostgreSQL connection for pgloader"))
 
 (defmethod initialize-instance :after ((pgconn pgsql-connection) &key)
@@ -18,8 +27,11 @@
 (defmethod clone-connection ((c pgsql-connection))
   (let ((clone
          (change-class (call-next-method c) 'pgsql-connection)))
-    (setf (pgconn-use-ssl clone)    (pgconn-use-ssl c)
-          (pgconn-table-name clone) (pgconn-table-name c))
+    (setf (pgconn-use-ssl clone)        (pgconn-use-ssl c)
+          (pgconn-table-name clone)     (pgconn-table-name c)
+          (pgconn-version-string clone) (pgconn-version-string c)
+          (pgconn-major-version clone)  (pgconn-major-version c)
+          (pgconn-variant clone)        (pgconn-variant c))
     clone))
 
 (defmethod ssl-enable-p ((pgconn pgsql-connection))
@@ -139,6 +151,7 @@
 
     (log-message :debug "CONNECTED TO ~s" pgconn)
     (set-session-gucs *pg-settings* :database (conn-handle pgconn))
+    (set-postgresql-version pgconn)
 
     pgconn))
 
@@ -195,7 +208,8 @@
    spec from the DBNAME, use `get-connection-spec'."
   (let ((conn (gensym "pgsql-conn")))
     `(with-connection (,conn ,pgconn)
-       (let ((pomo:*database* (conn-handle ,conn)))
+       (let ((pomo:*database*  (conn-handle ,conn))
+             (*pgconn-variant* (pgconn-variant ,conn)))
          (handling-pgsql-notices
            ,@forms)))))
 
@@ -309,9 +323,10 @@
         (nb-ok     0)
         (nb-errors 0))
     (when client-min-messages
-      (pomo:execute
-       (format nil "SET LOCAL client_min_messages TO ~a;"
-               (symbol-name client-min-messages))))
+      (unless (eq :redshift *pgconn-variant*)
+        (pomo:execute
+         (format nil "SET LOCAL client_min_messages TO ~a;"
+                 (symbol-name client-min-messages)))))
 
     (if on-error-stop
         (loop :for sql :in sql-list
@@ -337,7 +352,8 @@
                      (pomo:execute "rollback to savepoint pgloader;"))))))
 
     (when client-min-messages
-      (pomo:execute (format nil "RESET client_min_messages;")))
+      (unless (eq :redshift *pgconn-variant*)
+        (pomo:execute (format nil "RESET client_min_messages;"))))
 
     (values nb-ok nb-errors)))
 
@@ -345,6 +361,49 @@
 ;;;
 ;;; PostgreSQL version specific support, that we get once connected
 ;;;
+
+;;;
+;;; Given that RedShift is a PostgreSQL fork(), we can use PostgreSQL
+;;; protocol to talk to it. That said, it's a strange beast:
+;;;
+;;;  pgloader=> show server_version;
+;;;  ERROR:  must be superuser to examine "server_version"
+;;;
+;;; So we're back to parsing the output of select version();
+;;;
+(defun set-postgresql-version (pgconn)
+  "Get the PostgreSQL version string and parse it."
+  (let* ((database        (conn-handle pgconn))
+         (pomo:*database* (or database pomo:*database*))
+         (version-string  (pomo:query "select version()" :single)))
+    (multiple-value-bind (version major-version variant)
+        (parse-postgresql-version-string version-string)
+      (declare (ignore version))
+      (setf (pgconn-version-string pgconn) version-string)
+      (setf (pgconn-major-version pgconn) major-version)
+      (setf (pgconn-variant pgconn) variant))))
+
+;;; Parse the version string and return the major and complete version
+;;; "numbers" as strings, and the variant as a third value, where variant
+;;; might be "pgsql" or "Redshift".
+;;;
+;;;  PostgreSQL 8.0.2 on i686-pc-linux-gnu, compiled by GCC gcc (GCC) 3.4.2 20041017 (Red Hat 3.4.2-6.fc3), Redshift 1.0.2058
+;;;  PostgreSQL 10.1 on x86_64-apple-darwin14.5.0, compiled by Apple LLVM version 7.0.0 (clang-700.1.76), 64-bit
+(defun parse-postgresql-version-string (version-string)
+  "Parse PostgreSQL select version() output."
+  (cl-ppcre:register-groups-bind (full-version maybe-variant)
+      ("PostgreSQL ([0-9.]+) on .*, [^,]+, (.*)" version-string)
+    (let* ((version-dots  (split-sequence:split-sequence #\. full-version))
+           (major-version (if (= 3 (length version-dots))
+                              (format nil "~a.~a"
+                                      (first version-dots)
+                                      (second version-dots))
+                              (first version-dots)))
+           (variant       (if (cl-ppcre:scan "Redshift" maybe-variant)
+                              :redshift
+                              :pgdg)))
+      (values full-version major-version variant))))
+
 (defun list-typenames-without-btree-support ()
   "Fetch PostgresQL data types without btree support, so that it's possible
    to later CREATE INDEX ... ON ... USING gist(...), or even something else
@@ -353,118 +412,281 @@
      (pomo:query (sql "/pgsql/list-typenames-without-btree-support.sql"))
      :collect (cons typename access-methods)))
 
+(defvar *redshift-reserved-keywords*
+  '("aes128"
+    "aes256"
+    "all"
+    "allowoverwrite"
+    "analyse"
+    "analyze"
+    "and"
+    "any"
+    "array"
+    "as"
+    "asc"
+    "authorization"
+    "backup"
+    "between"
+    "binary"
+    "blanksasnull"
+    "both"
+    "bytedict"
+    "bzip2"
+    "case"
+    "cast"
+    "check"
+    "collate"
+    "column"
+    "constraint"
+    "create"
+    "credentials"
+    "cross"
+    "current_date"
+    "current_time"
+    "current_timestamp"
+    "current_user"
+    "current_user_id"
+    "default"
+    "deferrable"
+    "deflate"
+    "defrag"
+    "delta"
+    "delta32k"
+    "desc"
+    "disable"
+    "distinct"
+    "do"
+    "else"
+    "emptyasnull"
+    "enable"
+    "encode"
+    "encrypt"
+    "encryption"
+    "end"
+    "except"
+    "explicit"
+    "false"
+    "for"
+    "foreign"
+    "freeze"
+    "from"
+    "full"
+    "globaldict256"
+    "globaldict64k"
+    "grant"
+    "group"
+    "gzip"
+    "having"
+    "identity"
+    "ignore"
+    "ilike"
+    "in"
+    "initially"
+    "inner"
+    "intersect"
+    "into"
+    "is"
+    "isnull"
+    "join"
+    "leading"
+    "left"
+    "like"
+    "limit"
+    "localtime"
+    "localtimestamp"
+    "lun"
+    "luns"
+    "lzo"
+    "lzop"
+    "minus"
+    "mostly13"
+    "mostly32"
+    "mostly8"
+    "natural"
+    "new"
+    "not"
+    "notnull"
+    "null"
+    "nulls"
+    "off"
+    "offline"
+    "offset"
+    "oid"
+    "old"
+    "on"
+    "only"
+    "open"
+    "or"
+    "order"
+    "outer"
+    "overlaps"
+    "parallel"
+    "partition"
+    "percent"
+    "permissions"
+    "placing"
+    "primary"
+    "raw"
+    "readratio"
+    "recover"
+    "references"
+    "respect"
+    "rejectlog"
+    "resort"
+    "restore"
+    "right"
+    "select"
+    "session_user"
+    "similar"
+    "snapshot"
+    "some"
+    "sysdate"
+    "system"
+    "table"
+    "tag"
+    "tdes"
+    "text255"
+    "text32k"
+    "then"
+    "timestamp"
+    "to"
+    "top"
+    "trailing"
+    "true"
+    "truncatecolumns"
+    "union"
+    "unique"
+    "user"
+    "using"
+    "verbose"
+    "wallet"
+    "when"
+    "where"
+    "with"
+    "without")
+  "See https://docs.aws.amazon.com/redshift/latest/dg/r_pg_keywords.html")
+
 (defun list-reserved-keywords (pgconn)
   "Connect to PostgreSQL DBNAME and fetch reserved keywords."
-  (handler-case
-      (with-pgsql-connection (pgconn)
+  (with-pgsql-connection (pgconn)
+    (handler-case
         (pomo:query "select word
                    from pg_get_keywords()
-                  where catcode IN ('R', 'T')" :column))
-    ;; support for Amazon Redshift
-    (cl-postgres-error::syntax-error-or-access-violation (e)
-      ;; 42883	undefined_function
-      ;;    Database error 42883: function pg_get_keywords() does not exist
-      ;;
-      ;; the following list comes from a manual query against a local
-      ;; PostgreSQL server (version 9.5devel), it's better to have this list
-      ;; than nothing at all.
-      (declare (ignore e))
-      (list "all"
-            "analyse"
-            "analyze"
-            "and"
-            "any"
-            "array"
-            "as"
-            "asc"
-            "asymmetric"
-            "authorization"
-            "binary"
-            "both"
-            "case"
-            "cast"
-            "check"
-            "collate"
-            "collation"
-            "column"
-            "concurrently"
-            "constraint"
-            "create"
-            "cross"
-            "current_catalog"
-            "current_date"
-            "current_role"
-            "current_schema"
-            "current_time"
-            "current_timestamp"
-            "current_user"
-            "default"
-            "deferrable"
-            "desc"
-            "distinct"
-            "do"
-            "else"
-            "end"
-            "except"
-            "false"
-            "fetch"
-            "for"
-            "foreign"
-            "freeze"
-            "from"
-            "full"
-            "grant"
-            "group"
-            "having"
-            "ilike"
-            "in"
-            "initially"
-            "inner"
-            "intersect"
-            "into"
-            "is"
-            "isnull"
-            "join"
-            "lateral"
-            "leading"
-            "left"
-            "like"
-            "limit"
-            "localtime"
-            "localtimestamp"
-            "natural"
-            "not"
-            "notnull"
-            "null"
-            "offset"
-            "on"
-            "only"
-            "or"
-            "order"
-            "outer"
-            "overlaps"
-            "placing"
-            "primary"
-            "references"
-            "returning"
-            "right"
-            "select"
-            "session_user"
-            "similar"
-            "some"
-            "symmetric"
-            "table"
-            "then"
-            "to"
-            "trailing"
-            "true"
-            "union"
-            "unique"
-            "user"
-            "using"
-            "variadic"
-            "verbose"
-            "when"
-            "where"
-            "window"
-            "with"))))
+                  where catcode IN ('R', 'T')" :column)
+      ;; support for Amazon Redshift
+      (cl-postgres-error::syntax-error-or-access-violation (e)
+        (declare (ignore e))
+        ;; 42883	undefined_function
+        ;;    Database error 42883: function pg_get_keywords() does not exist
+
+        (let ((version-string (pomo:query "select version()" :single)))
+
+          (if (cl-ppcre:scan "Redshift" version-string)
+              *redshift-reserved-keywords*
+
+              ;;
+              ;; In case the pg_get_keywords() function isn't supported but
+              ;; we're not talking to a Redshift database, use the following
+              ;; list of keywords, that comes from a manual query against a
+              ;; local PostgreSQL server (version 9.5devel). It's better to
+              ;; have this list than nothing at all.
+              ;;
+              (list "all"
+                    "analyse"
+                    "analyze"
+                    "and"
+                    "any"
+                    "array"
+                    "as"
+                    "asc"
+                    "asymmetric"
+                    "authorization"
+                    "binary"
+                    "both"
+                    "case"
+                    "cast"
+                    "check"
+                    "collate"
+                    "collation"
+                    "column"
+                    "concurrently"
+                    "constraint"
+                    "create"
+                    "cross"
+                    "current_catalog"
+                    "current_date"
+                    "current_role"
+                    "current_schema"
+                    "current_time"
+                    "current_timestamp"
+                    "current_user"
+                    "default"
+                    "deferrable"
+                    "desc"
+                    "distinct"
+                    "do"
+                    "else"
+                    "end"
+                    "except"
+                    "false"
+                    "fetch"
+                    "for"
+                    "foreign"
+                    "freeze"
+                    "from"
+                    "full"
+                    "grant"
+                    "group"
+                    "having"
+                    "ilike"
+                    "in"
+                    "initially"
+                    "inner"
+                    "intersect"
+                    "into"
+                    "is"
+                    "isnull"
+                    "join"
+                    "lateral"
+                    "leading"
+                    "left"
+                    "like"
+                    "limit"
+                    "localtime"
+                    "localtimestamp"
+                    "natural"
+                    "not"
+                    "notnull"
+                    "null"
+                    "offset"
+                    "on"
+                    "only"
+                    "or"
+                    "order"
+                    "outer"
+                    "overlaps"
+                    "placing"
+                    "primary"
+                    "references"
+                    "returning"
+                    "right"
+                    "select"
+                    "session_user"
+                    "similar"
+                    "some"
+                    "symmetric"
+                    "table"
+                    "then"
+                    "to"
+                    "trailing"
+                    "true"
+                    "union"
+                    "unique"
+                    "user"
+                    "using"
+                    "variadic"
+                    "verbose"
+                    "when"
+                    "where"
+                    "window"
+                    "with")))))))

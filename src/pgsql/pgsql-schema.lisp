@@ -324,13 +324,34 @@
    name may be different, so just ask PostgreSQL here."
   (pomo:query "select current_database();" :single))
 
-(defun list-table-oids (table-names)
+(defun list-table-oids (catalog &key (variant :pgdg))
   "Return an hash table mapping TABLE-NAME to its OID for all table in the
    TABLE-NAMES list. A PostgreSQL connection must be established already."
-  (let ((oidmap (make-hash-table :size (length table-names) :test #'equal))
-        (sql    (format nil (sql "/pgsql/list-table-oids.sql") table-names)))
-    (when table-names
+  (let* ((table-list  (table-list catalog))
+         (oidmap      (make-hash-table :size (length table-list) :test #'equal)))
+    (when table-list
       (loop :for (name oid)
-         :in (query nil sql)
+         :in (ecase variant
+               (:pgdg
+                ;; use the SELECT ... FROM (VALUES ...) variant
+                (query nil (format nil
+                                   (sql "/pgsql/list-table-oids.sql")
+                                   (mapcar #'format-table-name table-list))))
+               (:redshift
+                ;; use the TEMP TABLE variant in Redshift, which doesn't
+                ;; have proper support for VALUES (landed in PostgreSQL 8.2)
+                (query nil
+                       "create temp table pgloader_toids(tnsp text, tnam text)")
+                (query nil
+                       (format
+                        nil
+                        "insert into pgloader_toids values ~{(~a)~^,~};"
+                        (mapcar (lambda (table)
+                                  (format nil "'~a', '~a'"
+                                          (schema-name (table-schema table))
+                                          (table-name table)))
+                                table-list)))
+                (query nil
+                       (sql "/pgsql/list-table-oids-from-temp-table.sql"))))
          :do (setf (gethash name oidmap) oid)))
     oidmap))

@@ -268,15 +268,14 @@
 ;;;
 ;;; Protect from non-unique index names
 ;;;
-(defun set-table-oids (catalog)
+(defun set-table-oids (catalog &key (variant :pgdg))
   "MySQL allows using the same index name against separate tables, which
    PostgreSQL forbids. To get unicity in index names without running out of
    characters (we are allowed only 63), we use the table OID instead.
 
    This function grabs the table OIDs in the PostgreSQL database and update
    the definitions with them."
-  (let* ((table-names (mapcar #'format-table-name (table-list catalog)))
-	 (oid-map     (list-table-oids table-names)))
+  (let ((oid-map (list-table-oids catalog :variant variant)))
     (loop :for table :in (table-list catalog)
        :for table-name := (format-table-name table)
        :for table-oid := (gethash table-name oid-map)

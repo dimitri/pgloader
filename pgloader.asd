@@ -98,6 +98,7 @@
                        (:file "merge-catalogs" :depends-on ("pgsql-schema"))
                        (:file "pgsql-trigger")
                        (:file "pgsql-index-filter")
+                       (:file "pgsql-finalize-catalogs")
                        (:file "pgsql-create-schema"
                               :depends-on ("pgsql-trigger"))))
 

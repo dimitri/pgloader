@@ -28,8 +28,8 @@
   (log-message :notice "Prepare PostgreSQL database.")
 
   (with-pgsql-transaction (:pgconn (target-db copy))
-    (setf (catalog-types-without-btree catalog)
-          (list-typenames-without-btree-support))
+
+    (finalize-catalogs catalog (pgconn-variant (target-db copy)))
 
     (if create-tables
         (progn
@@ -99,7 +99,7 @@
       (with-stats-collection ("Set Table OIDs" :section :pre
                                                :use-result-as-read t
                                                :use-result-as-rows t)
-        (set-table-oids catalog)))
+        (set-table-oids catalog :variant (pgconn-variant (target-db copy)))))
 
     ;; We might have to MATERIALIZE VIEWS
     (when (and create-tables materialize-views)

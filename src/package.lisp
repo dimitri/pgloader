@@ -366,13 +366,16 @@
 
 (defpackage #:pgloader.pgsql
   (:use #:cl
-        #:pgloader.params #:pgloader.utils #:pgloader.connection
-        #:pgloader.catalog)
+        #:pgloader.params #:pgloader.utils #:pgloader.transforms
+        #:pgloader.connection #:pgloader.catalog)
   (:import-from #:cl-postgres
                 #:database-error-context)
   (:export #:pgsql-connection
            #:pgconn-use-ssl
            #:pgconn-table-name
+           #:pgconn-version-string
+           #:pgconn-major-version
+           #:pgconn-variant
            #:with-pgsql-transaction
 	   #:with-pgsql-connection
 	   #:pgsql-execute
@@ -395,9 +398,6 @@
            #:create-pgsql-fkeys
            #:create-triggers
 
-           #:translate-index-filter
-           #:process-index-definitions
-
            #:fetch-pgsql-catalog
            #:merge-catalogs
 
@@ -407,6 +407,10 @@
            #:create-indexes-again
            #:reset-sequences
            #:comment-on-tables-and-columns
+
+           ;; finalizing catalogs support (redshift and other variants)
+           #:finalize-catalogs
+           #:adjust-data-types
 
            ;; index filter rewriting support
            #:translate-index-filter
