@@ -14,6 +14,8 @@
   (:export #:precision
            #:scale
            #:intern-symbol
+           #:parse-column-typemod
+           #:typemod-expr-matches-p
            #:typemod-expr-to-function))
 
 (defpackage #:pgloader.logs
@@ -439,6 +441,8 @@
                 #:precision
                 #:scale
                 #:intern-symbol
+                #:parse-column-typemod
+                #:typemod-expr-matches-p
                 #:typemod-expr-to-function)
   (:import-from #:pgloader.parse-date
                 #:parse-date-string

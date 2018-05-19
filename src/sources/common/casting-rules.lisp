@@ -10,29 +10,6 @@
 (defvar *default-cast-rules* nil "Default casting rules.")
 (defvar *cast-rules* nil "Specific casting rules added in the command.")
 
-;;;
-;;; Handling typmod in the general case, don't apply to ENUM types
-;;;
-(defun parse-column-typemod (data-type column-type)
-  "Given int(7), returns the number 7.
-
-   Beware that some data-type are using a typmod looking definition for
-   things that are not typmods at all: enum."
-  (unless (or (string= "enum" data-type)
-	      (string= "set" data-type))
-    (let ((start-1 (position #\( column-type))	; just before start position
-	  (end     (position #\) column-type)))	; just before end position
-      (when start-1
-	(destructuring-bind (a &optional b)
-	    (mapcar #'parse-integer
-		    (sq:split-sequence #\, column-type
-				       :start (+ 1 start-1) :end end))
-	  (list a b))))))
-
-(defun typemod-expr-matches-p (rule-typemod-expr typemod)
-  "Check if an expression such as (< 10) matches given typemod."
-  (funcall (compile nil (typemod-expr-to-function rule-typemod-expr)) typemod))
-
 (defun parse-column-unsigned (data-type column-type)
   "See if we find the term unsigned in the column-type."
   (declare (ignore data-type))
