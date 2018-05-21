@@ -167,11 +167,13 @@
 
         ;;
         ;; Add schemas that needs to be in the search_path to the database
-        ;; search_path
+        ;; search_path, when using PostgreSQL. Redshift doesn't know how to
+        ;; do that, unfortunately.
         ;;
-        (add-to-search-path catalog
-                            :section :post
-                            :label "Set Search Path")
+        (unless (eq :redshift (pgconn-variant (target-db copy)))
+          (add-to-search-path catalog
+                              :section :post
+                              :label "Set Search Path"))
 
         ;;
         ;; And now, comments on tables and columns.
@@ -263,11 +265,21 @@
          (create-tables  (and create-tables create-ddl))
          (create-schemas (and create-schemas create-ddl))
          ;; foreign keys has a special meaning in data-only mode
-         (foreign-keys   foreign-keys)
-         (drop-indexes   (or reindex
-                             (and include-drop create-ddl)))
-         (create-indexes (or reindex
-                             (and create-indexes drop-indexes create-ddl)))
+         (foreign-keys   (if (eq :redshift (pgconn-variant (target-db copy)))
+                             nil
+                             foreign-keys))
+         (drop-indexes   (if (eq :redshift (pgconn-variant (target-db copy)))
+                             nil
+                             (or reindex
+                                 (and include-drop create-ddl))))
+         (create-indexes (if (eq :redshift (pgconn-variant (target-db copy)))
+                             nil
+                             (or reindex
+                                 (and create-indexes drop-indexes create-ddl))))
+
+         (reset-sequences (if (eq :redshift (pgconn-variant (target-db copy)))
+                              nil
+                              reset-sequences))
 
          (*preserve-index-names*
           (or (eq :preserve index-names)

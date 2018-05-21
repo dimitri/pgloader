@@ -38,6 +38,7 @@
                #:cl-mustache        ; Logic-less templates
                #:yason              ; JSON routines
                #:closer-mop         ; introspection
+               #:zs3                ; integration with AWS S3 for Redshift
                )
   :components
   ((:module "src"
@@ -197,6 +198,7 @@
                        (:file "copy-db-write")
                        (:file "copy-rows-in-stream")
                        (:file "copy-rows-in-batch")
+                       (:file "copy-rows-in-batch-through-s3")
                        (:file "copy-retry-batch")
                        (:file "copy-from-queue")))
 

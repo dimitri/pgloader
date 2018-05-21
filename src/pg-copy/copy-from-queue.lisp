@@ -38,23 +38,42 @@
                        (format-table-name table)
                        columns)
 
-          (if on-error-stop
-              ;;
-              ;; When on-error-stop is true, we don't need to handle batch
-              ;; processing, we can stop as soon as there's a failure.
-              ;;
-              (incf seconds
-                    (stream-rows-to-copy table columns copy nbcols queue))
+          (let ((copy-fun
+                 (cond ((eq :redshift (pgconn-variant pgconn))
+                        ;;
+                        ;; When using Redshift as the target, we lose the
+                        ;; COPY FROM STDIN feature, and we have to use S3 as
+                        ;; an intermediate step. We then upload content a
+                        ;; batch at a time, and don't follow the
+                        ;; on-error-stop setting.
+                        ;;
+                        (log-message :log "copy-rows-from-queue REDSHIFT")
+                        (function batch-rows-to-s3-then-copy))
 
-              ;;
-              ;; When on-error-stop is nil, we actually implement
-              ;; on-error-resume-next behavior, and for that we need to keep
-              ;; a batch of rows around in order to replay COPYing its
-              ;; content around, skipping rows that are rejected by
-              ;; PostgreSQL.
-              ;;
-              (incf seconds
-                    (batch-rows-to-copy table columns copy nbcols queue))))))
+                       (on-error-stop
+                        ;;
+                        ;; When on-error-stop is true, we don't need to
+                        ;; handle batch processing, we can stop as soon as
+                        ;; there's a failure.
+                        ;;
+                        (function stream-rows-to-copy))
+
+                       (t
+                        ;;
+                        ;; When on-error-stop is nil, we actually implement
+                        ;; on-error-resume-next behavior, and for that we
+                        ;; need to keep a batch of rows around in order to
+                        ;; replay COPYing its content around, skipping rows
+                        ;; that are rejected by PostgreSQL.
+                        ;;
+                        (function batch-rows-to-copy)))))
+
+            ;;
+            ;; As all our function have the same API. we can just funcall
+            ;; the selected one here.
+            ;;
+            (incf seconds
+                  (funcall copy-fun table columns copy nbcols queue))))))
 
     ;; each writer thread sends its own stop timestamp and the monitor keeps
     ;; only the latest entry
