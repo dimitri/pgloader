@@ -62,6 +62,7 @@
     "TIMESTAMPTZ"))
 
 (defvar *redshift-decimal-max-precision* 38)
+(defvar *redshift-varchar-max-precision* 65535)
 
 (defmethod adjust-data-types ((catalog catalog) (variant (eql :redshift)))
   (dumb-down-data-types-for-redshift catalog))
@@ -85,18 +86,68 @@
      :do (dumb-down-data-types-for-redshift column)))
 
 (defmethod dumb-down-data-types-for-redshift ((column column))
-  (cond ((and (stringp (column-type-name column))
-              (member (column-type-name column)
-                      *redshift-supported-data-types*
-                      :test #'string-equal))
-         ;; the target data type is supported... but we might have other
-         ;; situations to deal with, such as
-         ;;
-         ;; DECIMAL precision 65 must be between 1 and 38
-         (when (and (member (column-type-name column)
-                            '("decimal" "numeric")
-                            :test #'string-equal)
-                    (column-type-mod column))
+  (let ((target-data-type "varchar")
+        (target-type-mod  "(512)"))
+    (cond (
+           ;;
+           ;; when the source column is an ENUM, we know from its source
+           ;; definition the maximum length of the target column
+           ;;
+           (and (typep (column-type-name column) 'sqltype)
+                (typep (sqltype-extra (column-type-name column)) 'list))
+
+           (let ((enum-value-list
+                  (sqltype-extra (column-type-name column))))
+             (setf target-data-type "varchar")
+             (setf target-type-mod
+                   (format nil
+                           "(~a)"
+                           ;; times 3 because Redshift doesn't know
+                           ;; how to count chars in unicode, it only
+                           ;; knows how to count bytes
+                           (* 3
+                              (reduce #'max
+                                      enum-value-list
+                                      :key #'length
+                                      :initial-value 0))))))
+
+          ;;
+          ;; When using "text" (unbounded varchar) in MySQL, set the
+          ;; precision of the varchar to the max of what Redshift can
+          ;; handle.
+          ;;
+          ((string-equal (column-type-name column) "text")
+           (setf target-data-type "varchar")
+           (setf target-type-mod
+                 (format nil "(~a)" *redshift-varchar-max-precision*)))
+
+          ;;
+          ;; when the source field is e.g. a MySQL varchar(12), we can keep
+          ;; the typemod here, or maybe 3 times the typemod to take into
+          ;; account Redshift encoding "properties".
+          ;;
+          ((string-equal (column-type-name column) "varchar")
+           (destructuring-bind (precision &optional (scale 0))
+               (parse-column-typemod (column-type-name column)
+                                     (column-type-mod column))
+             (declare (ignore scale))
+             ;; Redshift can't count chars, it counts bytes, and we
+             ;; are dealing with utf-8.
+             (setf target-type-mod
+                   (format nil "(~a)"
+                           (min (* 3 precision)
+                                *redshift-varchar-max-precision*)))))
+
+          ;;
+          ;; Redshift has a special limit with decimal and numeric data
+          ;; types, so we must handle that specifically here:
+          ;;
+          ;;   DECIMAL precision 65 must be between 1 and 38
+          ;;
+          ((and (member (column-type-name column)
+                        '("decimal" "numeric")
+                        :test #'string-equal)
+                (column-type-mod column))
            (destructuring-bind (precision &optional (scale 0))
                (parse-column-typemod (column-type-name column)
                                      (column-type-mod column))
@@ -107,30 +158,27 @@
                ;;
                ;; Internal pgloader API want the value as a string.
                ;;
-               (setf (column-type-mod column)
+               (setf target-data-type "numeric")
+               (setf target-type-mod
                      (format nil "(~a,~a)"
-                             *redshift-decimal-max-precision* scale))))))
+                             *redshift-decimal-max-precision* scale)))))
 
-        (t
-         (let ((target-data-type "varchar")
-               (target-type-mod  "(512)"))
-           ;;
-           ;; TODO: we might want to be smarter about the data type conversion
-           ;; here, or at least a tad less dumb. For instance:
-           ;;
-           ;;   - when the source column is an ENUM, we know from its source
-           ;;     definition the maximum length of the target column
-           ;;
-           ;;   - when the source field is e.g. a MySQL varchar(12), it might be
-           ;;   - nice to keep the typemod here, or maybe 4 times the typemod to
-           ;;   - take into account Redshift encoding "properties".
-           ;;
-           (setf (column-type-name column) target-data-type)
-           (setf (column-type-mod column)  target-type-mod)
+          ;;
+          ;; Target data type is suppported, just keep it around.
+          ;;
+          ((and (stringp (column-type-name column))
+                (member (column-type-name column)
+                        *redshift-supported-data-types*
+                        :test #'string-equal))
+           (setf target-data-type (column-type-name column))
+           (setf target-type-mod  (column-type-mod column))))
 
-           (log-message :info
-                        "Redshift support: ~a change type from ~a to ~a~a"
-                        (column-name column)
-                        (column-type-name column)
-                        target-data-type
-                        target-type-mod)))))
+    (setf (column-type-name column) target-data-type)
+    (setf (column-type-mod column)  target-type-mod)
+
+    (log-message :info
+                 "Redshift support: ~a change type from ~a to ~a~a"
+                 (column-name column)
+                 (column-type-name column)
+                 target-data-type
+                 target-type-mod)))
