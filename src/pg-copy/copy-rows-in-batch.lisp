@@ -16,7 +16,8 @@
        :do (multiple-value-bind (maybe-new-batch seconds-in-this-batch)
                (add-row-to-current-batch table columns copy nbcols
                                          current-batch row
-                                         (function send-batch))
+                                         :send-batch-fn (function send-batch)
+                                         :format-row-fn #'prepare-and-format-row)
              (setf current-batch maybe-new-batch)
              (incf seconds seconds-in-this-batch)))
 

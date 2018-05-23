@@ -19,7 +19,8 @@
        :do (multiple-value-bind (maybe-new-batch seconds-in-this-batch)
                (add-row-to-current-batch table columns copy nbcols
                                          current-batch row
-                                         (function send-batch-through-s3))
+                                         :send-batch-fn #'send-batch-through-s3
+                                         :format-row-fn #'prepare-and-format-row-for-s3)
              (setf current-batch maybe-new-batch)
              (incf seconds seconds-in-this-batch)))
 
@@ -28,6 +29,22 @@
       (incf seconds (send-batch-through-s3 table columns current-batch)))
 
     seconds))
+
+
+(defun prepare-and-format-row-for-s3 (copy nbcols row)
+  "Redshift doesn't know how to parse COPY format, we need to upload CSV
+   instead. That said, we don't have to be as careful with the data layout
+   and unicode representation when COPYing from a CSV file as we do when
+   implementing the data streaming outselves."
+  (declare (ignore copy nbcols))
+  (let ((pg-vector-row (cl-csv:write-csv-row (coerce row 'list)
+                                             :separator #\,
+                                             :quote #\"
+                                             :escape #(#\" #\")
+                                             :newline #(#\Newline)
+                                             :always-quote t)))
+    (log-message :data "> ~s" pg-vector-row)
+    (values pg-vector-row (length pg-vector-row))))
 
 
 (defun send-batch-through-s3 (table columns batch &key (db pomo:*database*))
@@ -71,13 +88,7 @@
         ;;
         (handler-case
             (with-pgsql-transaction (:database db)
-              (let ((sql (format nil "~
-             COPY ~a
-             FROM 's3://~a/~a'
-        DELIMITER '\\t'
-       TIMEFORMAT 'auto'
-           REGION '~a'
-    ACCESS_KEY_ID '~a'"
+              (let ((sql (format nil "COPY ~a FROM 's3://~a/~a' FORMAT CSV TIMEFORMAT 'auto' REGION '~a' ACCESS_KEY_ID '~a'"
                                  table-name
                                  aws-s3-bucket
                                  s3-filename
@@ -153,7 +164,7 @@ SECRET_ACCESS_KEY '~a'"
       ;; So now we now how many bytes we need to finalize this batch
       ;;
       (let* ((bytes  (batch-bytes batch))
-             (vector (make-array bytes :element-type '(unsigned-byte 8))))
+             (vector (make-array bytes :element-type 'character)))
         (loop :for count :below (batch-count batch)
            :for pos := 0 :then (+ pos (length row))
            :for row :across (batch-data batch)

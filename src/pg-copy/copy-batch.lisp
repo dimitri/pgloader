@@ -61,7 +61,7 @@
       (push-row current-batch pg-vector-row bytes))))
 
 (defun add-row-to-current-batch (table columns copy nbcols batch row
-                                 send-batch-fn)
+                                 &key send-batch-fn format-row-fn)
   "Add another ROW we just received to CURRENT-BATCH, and prepare a new
    batch if needed. The current-batch (possibly a new one) is returned. When
    the batch is full, the function SEND-BATCH-FN is called with TABLE,
@@ -83,7 +83,10 @@
 
     ;; also add up the time it takes to format the rows
     (let ((start-time (get-internal-real-time)))
-      (format-row-in-batch copy nbcols row current-batch)
+      (multiple-value-bind (pg-vector-row bytes)
+          (funcall format-row-fn copy nbcols row)
+        (when pg-vector-row
+          (push-row current-batch pg-vector-row bytes)))
       (incf seconds (elapsed-time-since start-time)))
 
     (values current-batch seconds)))
