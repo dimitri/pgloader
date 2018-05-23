@@ -104,6 +104,9 @@
     (:source (:type "longblob")   :target (:type "bytea")
 	     :using pgloader.transforms::byte-vector-to-bytea)
 
+    ;;
+    ;; MySQL and dates...
+    ;;
     (:source (:type "datetime" :default "0000-00-00 00:00:00" :not-null t)
      :target (:type "timestamptz" :drop-default t :drop-not-null t)
      :using pgloader.transforms::zero-dates-to-null)
@@ -112,12 +115,20 @@
      :target (:type "timestamptz" :drop-default t)
      :using pgloader.transforms::zero-dates-to-null)
 
+    (:source (:type "datetime" :on-update-current-timestamp t :not-null t)
+     :target (:type "timestamptz" :drop-default t :drop-not-null t)
+     :using pgloader.transforms::zero-dates-to-null)
+
     (:source (:type "timestamp" :default "0000-00-00 00:00:00" :not-null t)
      :target (:type "timestamptz" :drop-default t :drop-not-null t)
      :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "timestamp" :default "0000-00-00 00:00:00")
      :target (:type "timestamptz" :drop-default t)
+     :using pgloader.transforms::zero-dates-to-null)
+
+    (:source (:type "timestamp" :on-update-current-timestamp t :not-null t)
+     :target (:type "timestamptz" :drop-default t :drop-not-null t)
      :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "date" :default "0000-00-00")
