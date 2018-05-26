@@ -590,7 +590,7 @@ Texts::
   type mediumtext to text using remove-null-characters
   type longtext   to text using remove-null-characters
 
-Binary:
+Binary::
 
   type binary     to bytea
   type varbinary  to bytea
