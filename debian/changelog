@@ -1,7 +1,8 @@
-pgloader (3.4.1+dfsg-2) UNRELEASED; urgency=medium
+pgloader (3.5.1+dfsg-1) UNRELEASED; urgency=medium
 
+  * New upstream version.
   * Run wrap-and-sort -st.
-  * Add new B-D cl-mustache and cl-yason, sync Depends to cl-pgloader.
+  * Add new B-D cl-mustache, cl-yason, cl-zs3, sync Depends to cl-pgloader.
   * Priority: optional, move cl-pgloader to Section: lisp.
   * Update S-V.
 
