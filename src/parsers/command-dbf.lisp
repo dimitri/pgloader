@@ -107,7 +107,8 @@
                               :target-db ,pg-db-conn
                               :encoding ,encoding
                               :source-db source-db
-                              :target (create-table ',target-table-name))))
+                              :target ,(when target-table-name
+                                         (create-table target-table-name)))))
 
        ,(sql-code-block pg-db-conn :pre before "before load")
 
