@@ -5,6 +5,7 @@ pgloader (3.5.1+dfsg-1) UNRELEASED; urgency=medium
   * Add new B-D cl-mustache, cl-yason, cl-zs3, sync Depends to cl-pgloader.
   * Priority: optional, move cl-pgloader to Section: lisp.
   * Update S-V.
+  * Add watch file.
 
  -- Christoph Berg <myon@debian.org>  Sat, 11 Nov 2017 16:39:08 +0100
 

@@ -1,0 +1,3 @@
+version=4
+options="dversionmangle=s/\+dfsg//" \
+https://github.com/dimitri/pgloader/releases .*/v(.*).tar.gz
