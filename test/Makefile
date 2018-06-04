@@ -35,6 +35,7 @@ REGRESS= allcols.load 		    \
          xzero.load
 
 PGLOADER ?= ../build/bin/pgloader
+PGSUPERUSER ?= postgres
 
 EXTRA_OPTS =
 ifneq (,$(findstring ccl,$(CL)))
@@ -53,16 +54,16 @@ remote: prepare $(REMOTE:.load=.out)
 all: prepare $(OUT)
 
 prepare: bossa.sql sakila
-	-dropdb -U postgres pgloader
-	-dropdb -U postgres stocks
-	-dropdb -U postgres ip4r
-	-createdb -U postgres -O `whoami` pgloader
-	-createdb -U postgres -O `whoami` stocks
-	-createdb -U postgres -O `whoami` ip4r
-	-psql -d pgloader -c 'create schema expected'
-	-psql -U postgres -d pgloader -c 'create extension ip4r'
-	-psql -U postgres -d ip4r -c 'create extension ip4r'
-	-psql -d stocks -f bossa.sql
+	-dropdb -U $(PGSUPERUSER) pgloader
+	-dropdb -U $(PGSUPERUSER) stocks
+	-dropdb -U $(PGSUPERUSER) ip4r
+	createdb -U $(PGSUPERUSER) -O `whoami` pgloader
+	createdb -U $(PGSUPERUSER) -O `whoami` stocks
+	createdb -U $(PGSUPERUSER) -O `whoami` ip4r
+	psql -d pgloader -c 'create schema expected'
+	psql -U $(PGSUPERUSER) -d pgloader -c 'create extension ip4r'
+	psql -U $(PGSUPERUSER) -d ip4r -c 'create extension ip4r'
+	psql -d stocks -f bossa.sql
 
 errors.out: errors.load
 	-$(PGLOADER) $<
@@ -81,8 +82,8 @@ $(TMPDIR)/sakila-db/sakila-schema.sql: data/sakila-db.zip
 	unzip $< -d $(TMPDIR)
 
 sakila: $(TMPDIR)/sakila-db/sakila-schema.sql
-	-dropdb -U postgres sakila
-	-createdb -U postgres -O `whoami` sakila
+	-dropdb -U $(PGSUPERUSER) sakila
+	-createdb -U $(PGSUPERUSER) -O `whoami` sakila
 	-echo "DROP DATABASE sakila" | mysql -u root
 	echo "SOURCE $(TMPDIR)/sakila-db/sakila-schema.sql" | mysql -u root
 	echo "SOURCE $(TMPDIR)/sakila-db/sakila-data.sql"   | mysql -u root
