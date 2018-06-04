@@ -1,7 +1,3 @@
-Depends: @, make, postgresql-10-ip4r
+Depends: @, make
 Tests: regress
 Restrictions: allow-stderr
-
-Depends: @, make, default-mysql-server
-Tests: local
-Restrictions: allow-stderr, needs-root

@@ -1,10 +1,11 @@
 #!/bin/sh
 
-set -ex
+set -eux
 
 cd test
 pg_virtualenv << EOF
-	set -ex
-	make -j1 prepare PGLOADER=/usr/bin/pgloader PGUSER=$(whoami)
-	make -j1 regress PGLOADER=/usr/bin/pgloader PGUSER=$(whoami)
+	set -eux
+	createdb pgloader
+	psql -d pgloader -c 'create schema expected'
+	make regress REGRESS=allcols.load PGHOST=::1
 EOF
