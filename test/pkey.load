@@ -1,0 +1,23 @@
+load csv
+  from  inline
+  into  postgres:///pgloader?tablename=pkey
+  
+  with fields not enclosed,
+       workers=32,
+       concurrency=8,
+       fields terminated by '\t'
+  set work_mem to '1024 MB',
+      maintenance_work_mem to '2048 MB'
+
+  before load do
+  $$ drop table if exists pkey; $$,
+  $$ create table pkey(id int primary key ,name varchar(100)); $$;
+
+
+1	1
+2	2
+3	3
+3	3
+4	
+5	5
+6	6
