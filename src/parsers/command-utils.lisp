@@ -30,7 +30,7 @@
 (defrule ignore-whitespace (* whitespace)
   (:constant nil))
 
-(defrule punct (or #\, #\- #\_)
+(defrule punct (or #\, #\- #\_ #\$ #\%)
   (:text t))
 
 (defrule namestring (and (or #\_ (alpha-char-p character))
