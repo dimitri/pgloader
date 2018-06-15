@@ -1,0 +1,17 @@
+LOAD DATABASE
+     FROM mysql://root@localhost/db789
+     INTO postgres:///pgloader
+
+  WITH data only, truncate, create no tables
+
+  MATERIALIZE VIEWS proceed
+
+  INCLUDING ONLY TABLE NAMES MATCHING 'proceed'
+
+  BEFORE LOAD DO
+  $$ drop schema if exists matview cascade; $$,
+  $$ drop schema if exists db789 cascade; $$,
+  $$ create schema db789; $$,
+  $$ create table db789.refrain (id char(1) primary key); $$,
+  $$ create table db789.proceed (id char(1) primary key); $$;
+

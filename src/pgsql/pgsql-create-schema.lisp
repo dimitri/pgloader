@@ -167,10 +167,14 @@
                                 (schema  (table-list catalog-or-table))
                                 (table   (list catalog-or-table)))))
          (sql
-          (format nil "TRUNCATE ~{~a~^,~};" target-list)))
-    (pgsql-execute sql)
-    ;; return how many tables we just TRUNCATEd
-    (length target-list)))
+          (when target-list
+            (format nil "TRUNCATE ~{~a~^,~};" target-list))))
+    (if target-list
+        (progn
+          (pgsql-execute sql)
+          ;; return how many tables we just TRUNCATEd
+          (length target-list))
+        0)))
 
 (defun disable-triggers (table-name)
   "Disable triggers on TABLE-NAME. Needs to be called with a PostgreSQL
