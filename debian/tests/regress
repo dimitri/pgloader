@@ -1,11 +1,30 @@
 #!/bin/sh
 
+# test needs root so we have a SSL certificate
+
 set -eux
 
 cd test
-pg_virtualenv << EOF
+pg_virtualenv <<-'EOF'
 	set -eux
+
+	# force SSL connection
+	HBA=$(psql -XAtc 'SHOW hba_file')
+	sed -i -e 's/^host/hostssl/' $HBA
+	psql -XAtc 'SELECT pg_reload_conf()'
+
 	createdb pgloader
-	psql -d pgloader -c 'create schema expected'
-	make regress REGRESS=allcols.load PGHOST=::1
+	export PGDATABASE=pgloader
+	psql -XAtc 'create schema expected'
+
+	# test SSL connection
+	rm -rf /tmp/pgloader
+	#disabled until cl-plus-ssl is fixed:
+	#make regress REGRESS=allcols.load PGHOST=localhost
+
+	# test UNIX socket
+	rm -rf /tmp/pgloader
+	chmod 777 regress/out
+	unset PGHOST
+	su -c 'make regress REGRESS=allcols.load' postgres
 EOF
