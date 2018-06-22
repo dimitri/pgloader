@@ -4,7 +4,6 @@
 
 set -eux
 
-cd test
 pg_virtualenv <<-'EOF'
 	set -eux
 
@@ -17,14 +16,11 @@ pg_virtualenv <<-'EOF'
 	export PGDATABASE=pgloader
 	psql -XAtc 'create schema expected'
 
-	# test SSL connection
-	rm -rf /tmp/pgloader
-	#disabled until cl-plus-ssl is fixed:
-	#make regress REGRESS=allcols.load PGHOST=localhost
-
 	# test UNIX socket
 	rm -rf /tmp/pgloader
-	chmod 777 regress/out
-	unset PGHOST
-	su -c 'make regress REGRESS=allcols.load' postgres
+	PGHOST=/var/run/postgresql su -c 'pgloader --regress test/allcols.load' postgres
+
+	# test SSL connection
+	rm -rf /tmp/pgloader
+	pgloader --regress debian/tests/allcols-ssl.load
 EOF
