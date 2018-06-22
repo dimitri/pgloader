@@ -27,6 +27,10 @@ orig: clean
 	rm -rf $(HOME)
 	cd .. && tar czf pgloader_$(PKGVERS).orig.tar.gz $(EXCLUDE) pgloader
 
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -rf debian/home
+
 override_dh_auto_build:
 	mkdir -p build/bin
 	mkdir -p $(HOME)
