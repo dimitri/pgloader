@@ -22,5 +22,5 @@ pg_virtualenv <<-'EOF'
 
 	# test SSL connection
 	rm -rf /tmp/pgloader
-	pgloader --regress debian/tests/allcols-ssl.load
+	PGSSLMODE=require pgloader --regress test/allcols.load
 EOF
