@@ -86,16 +86,14 @@
                               :direction :output
                               :if-exists :rename
                               :if-does-not-exist nil)
-          ;; avoid a warning about DATA being some unused lexical variable
-          (pathname data)))
+          (declare (ignore data))))
 
       (when (probe-file logs-pathname)
         (with-open-file (logs logs-pathname
                               :direction :output
                               :if-exists :rename
                               :if-does-not-exist nil)
-          ;; avoid a warning about LOGS being some unused lexical variable
-          (pathname logs)))
+          (declare (ignore logs))))
 
       ;; set the properties to the right pathnames
       (setf (pgtable-reject-data table) data-pathname
