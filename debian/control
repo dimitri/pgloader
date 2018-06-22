@@ -56,7 +56,7 @@ Vcs-Browser: https://github.com/dimitri/pgloader
 
 Package: pgloader
 Architecture: any
-Depends: freetds-dev, ${misc:Depends}, ${shlibs:Depends}
+Depends: freetds-dev, ${misc:Depends}, ${shlibs:Depends}, ${ssl:Depends}
 Description: extract, transform and load data into PostgreSQL
  pgloader imports data from different kind of sources and COPY it into
  PostgreSQL.

@@ -1,5 +1,8 @@
 #!/usr/bin/make -f
 
+# make pgloader depend on the libssl package cl-plus-ssl depends on
+LIBSSL := $(shell dpkg-query --showformat='$${Depends}' --show cl-plus-ssl | grep -o 'libssl[^ ]*')
+
 BITS = $(shell dpkg-architecture -qDEB_BUILD_ARCH_BITS)
 ifeq ($(BITS),32)
 SIZE=1024
@@ -38,5 +41,8 @@ override_dh_auto_test:
 override_dh_strip:
 	# do nothing
 
+override_dh_gencontrol:
+	dh_gencontrol -- -V"ssl:Depends=$(LIBSSL)"
+
 %:
-	dh $@ 
+	dh $@

@@ -3,6 +3,7 @@ pgloader (3.5.1+dfsg-1) UNRELEASED; urgency=medium
   * New upstream version.
   * Run wrap-and-sort -st.
   * Add new B-D cl-mustache, cl-yason, cl-zs3, sync Depends to cl-pgloader.
+  * Depend on the libssl version cl-plus-ssl depends on.
   * Priority: optional, move cl-pgloader to Section: lisp.
   * Update S-V.
   * Add watch file.
