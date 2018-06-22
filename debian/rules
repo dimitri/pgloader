@@ -1,16 +1,4 @@
 #!/usr/bin/make -f
-# -*- makefile -*-
-# Sample debian/rules that uses debhelper.
-# This file was originally written by Joey Hess and Craig Small.
-# As a special exception, when this file is copied by dh-make into a
-# dh-make output file, you may use that output file without restriction.
-# This special exception was added by Craig Small in version 0.37 of dh-make.
-
-# Uncomment this to turn on verbose mode.
-#export DH_VERBOSE=1
-
-PKGVERS = $(shell dpkg-parsechangelog | awk -F '[:-]' '/^Version:/ { print substr($$2, 2) }')
-EXCLUDE = --exclude-vcs --exclude=debian --exclude=build --exclude=.vagrant
 
 BITS = $(shell dpkg-architecture -qDEB_BUILD_ARCH_BITS)
 ifeq ($(BITS),32)
@@ -22,10 +10,6 @@ endif
 # buildd provides a build environment where $HOME is not writable, but the
 # CL compilers here will need to fill-in a per-user cache
 export HOME = $(CURDIR)/debian/home
-
-orig: clean
-	rm -rf $(HOME)
-	cd .. && tar czf pgloader_$(PKGVERS).orig.tar.gz $(EXCLUDE) pgloader
 
 override_dh_auto_clean:
 	dh_auto_clean
