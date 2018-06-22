@@ -106,6 +106,12 @@
       (declare (ignore key e))
       (cons :use-ssl val))))
 
+(defun get-pgsslmode (&optional (env-var-name "PGSSLMODE") default)
+  "Get PGSSLMODE from the environment."
+  (let ((pgsslmode (getenv-default env-var-name default)))
+    (when pgsslmode
+      (cdr (parse 'dsn-option-ssl (format nil "sslmode=~a" pgsslmode))))))
+
 (defrule qualified-table-name (and maybe-quoted-namestring
                                    "."
                                    maybe-quoted-namestring)
@@ -210,7 +216,7 @@
                                                 (getenv-default "PGPORT" "5432")))
                             :name (or dbname   (getenv-default "PGDATABASE" user))
 
-                            :use-ssl use-ssl
+                            :use-ssl (or use-ssl (get-pgsslmode "PGSSLMODE"))
                             :table-name table-name)))
         ;; Now set the password, maybe from ~/.pgpass
         (setf (db-pass pgconn)
