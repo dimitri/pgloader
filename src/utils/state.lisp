@@ -69,7 +69,9 @@
 
 (defmethod pgtable-initialize-reject-files ((table pgtable) dbname)
   "Prepare TABLE for being able to deal with rejected rows (log them)."
-  (let* ((table-name    (format-table-name (pgtable-name table)))
+  (let* ((dbname        (pgloader.quoting:ensure-unquoted dbname))
+         (table-name    (pgloader.quoting:ensure-unquoted
+                         (table-name (pgtable-name table))))
          (data-pathname (reject-data-file table-name dbname))
          (logs-pathname (reject-log-file table-name dbname)))
     ;; we also use that facility for things that are not tables
@@ -83,13 +85,17 @@
         (with-open-file (data data-pathname
                               :direction :output
                               :if-exists :rename
-                              :if-does-not-exist nil)))
+                              :if-does-not-exist nil)
+          ;; avoid a warning about DATA being some unused lexical variable
+          (pathname data)))
 
       (when (probe-file logs-pathname)
         (with-open-file (logs logs-pathname
                               :direction :output
                               :if-exists :rename
-                              :if-does-not-exist nil)))
+                              :if-does-not-exist nil)
+          ;; avoid a warning about LOGS being some unused lexical variable
+          (pathname logs)))
 
       ;; set the properties to the right pathnames
       (setf (pgtable-reject-data table) data-pathname
