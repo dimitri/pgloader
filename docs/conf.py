@@ -96,7 +96,7 @@ html_theme_options = {
     'description': 'your migration companion',
     'travis_button': True,
     'show_related': True,
-    'sidebar_collapse': False,
+    #'sidebar_collapse': False,
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
