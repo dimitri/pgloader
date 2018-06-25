@@ -70,7 +70,7 @@ DEBUILD_ROOT = /tmp/pgloader
 all: $(PGLOADER)
 
 clean:
-	rm -rf $(LIBS) $(QLDIR) $(MANIFEST) $(BUILDAPP) $(PGLOADER)
+	rm -rf $(LIBS) $(QLDIR) $(MANIFEST) $(BUILDAPP) $(PGLOADER) docs/_build
 
 $(QLDIR)/local-projects/qmynd:
 	git clone --depth 1 https://github.com/qitab/qmynd.git $@

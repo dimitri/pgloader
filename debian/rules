@@ -34,6 +34,7 @@ override_dh_auto_build:
                  --dynamic-space-size $(SIZE)               \
                  --compress-core                    	    \
                  --output build/bin/pgloader
+	$(MAKE) -C docs html
 
 override_dh_auto_test:
 	# no nothing
