@@ -1,3 +1,2 @@
 README.md
-pgloader.1.md
-web/src/*.md
+docs/_build/html
