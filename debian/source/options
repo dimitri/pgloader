@@ -1,0 +1,2 @@
+# ignore release/non-release status
+extend-diff-ignore=src/params.lisp

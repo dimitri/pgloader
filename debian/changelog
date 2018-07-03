@@ -3,6 +3,8 @@ pgloader (3.5.2-1) unstable; urgency=medium
   * New upstream version.
   * All included test data has been verified as free, stop building a +dfsg
     tarball.
+  * debian/source/options: Ignore changes in src/params.lisp (release vs
+    non-release).
   * Enable SSL in src/hooks.lisp.
   * Run wrap-and-sort -st.
   * Add new B-D cl-mustache, cl-yason, cl-zs3, sync Depends to cl-pgloader.
