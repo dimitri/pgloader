@@ -8,7 +8,7 @@ pgloader (3.5.2-1) unstable; urgency=medium
   * Enable SSL in src/hooks.lisp.
   * Run wrap-and-sort -st.
   * Add new B-D cl-mustache, cl-yason, cl-zs3, sync Depends to cl-pgloader.
-  * Depend on the libssl version cl-plus-ssl depends on.
+  * Depend on the libssl version cl-plus-ssl depends on. (Closes: #864309)
   * Build and install new sphinx docs instead.
   * Build manpage using help2man.
   * Priority: optional, move cl-pgloader to Section: lisp.
