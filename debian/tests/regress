@@ -4,6 +4,8 @@
 
 set -eux
 
+trap "rm -rf /tmp/pgloader" 0 2 3 15
+
 pg_virtualenv <<-'EOF'
 	set -eux
 

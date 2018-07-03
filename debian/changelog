@@ -1,6 +1,7 @@
 pgloader (3.5.2-2) UNRELEASED; urgency=medium
 
   * Install pgloader.asd into correct location. (Closes: #857226)
+  * Test cl-pgloader through sbcl --eval.
   * Skip building and manpage generation in arch-indep builds.
 
  -- Christoph Berg <myon@debian.org>  Tue, 03 Jul 2018 18:47:20 +0200

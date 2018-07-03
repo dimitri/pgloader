@@ -1,3 +1,7 @@
-Depends: @, postgresql
+Depends: pgloader, postgresql
 Tests: regress
 Restrictions: allow-stderr, needs-root
+
+Depends: cl-pgloader, postgresql, sbcl
+Tests: cl-pgloader
+Restrictions: allow-stderr

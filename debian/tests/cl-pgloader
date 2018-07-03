@@ -1,0 +1,16 @@
+#!/bin/sh
+
+set -eux
+
+trap "rm -rf /tmp/pgloader debian/home" 0 2 3 15
+
+pg_virtualenv <<-EOF
+	set -eux
+	HOME=$PWD/debian/home
+	createdb pgloader
+	sbcl --eval '(require :asdf)' \
+	  --eval '(setf *compile-print* nil *compile-verbose* nil *load-verbose* nil *load-print* nil asdf:*asdf-verbose* nil)' \
+	  --eval '(asdf:load-system "pgloader")' \
+	  --eval '(pgloader::main SB-EXT:*POSIX-ARGV*)' \
+	  test/csv.load 2> /dev/null
+EOF
