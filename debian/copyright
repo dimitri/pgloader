@@ -24,6 +24,7 @@ License: PostgreSQL
 
 Files: test/sqlite/Chinook*
 Copyright: Copyright (c) 2008-2017 Luis Rocha
+License: MIT
  Permission is hereby granted, free of charge, to any person obtaining a copy of
  this software and associated documentation files (the "Software"), to deal in
  the Software without restriction, including without limitation the rights to
@@ -42,7 +43,7 @@ Copyright: Copyright (c) 2008-2017 Luis Rocha
 
 Files: test/data/2013_Gaz_113CDs_national.txt
 Copyright: public domain
-License:
+License: us-public-domain
  All U.S. Census Bureau materials, regardless of the media, are entirely in the
  public domain. There are no user fees, site licenses, or any special agreements
  etc for the public or private use, and or reuse of any census title. As tax
@@ -50,7 +51,7 @@ License:
 
 Files: test/data/reg2013.dbf
 Copyright: public comain
-License:
+License: fr-public-domain
  Les publications et données mises à disposition sur le présent site sont
  consultables et téléchargeables gratuitement. Sauf spécification contraire,
  elles peuvent être réutilisées, y compris à des fins commerciales, sans licence
@@ -64,7 +65,7 @@ License:
 
 Files: test/data/sakila-db.zip
 Copyright: Copyright © 2007, 2018, Oracle and/or its affiliates. All rights reserved.
-License:
+License: new-bsd-license
  The contents of the sakila-schema.sql and sakila-data.sql files are licensed
  under the New BSD license.
  .
