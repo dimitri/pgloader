@@ -20,7 +20,10 @@ override_dh_auto_clean:
 	dh_auto_clean
 	rm -rf debian/home
 
-override_dh_auto_build:
+override_dh_auto_build-indep:
+	# do nothing
+
+override_dh_auto_build-arch:
 	mkdir -p build/bin
 	mkdir -p $(HOME)
 	buildapp --require sb-posix                         \
@@ -44,7 +47,7 @@ override_dh_auto_test:
 override_dh_strip:
 	# do nothing
 
-override_dh_installman:
+override_dh_installman-arch:
 	mkdir -p debian/pgloader/usr/share/man/man1/
 	help2man --version-string $(DEB_VERSION_UPSTREAM) \
 		--no-info \
