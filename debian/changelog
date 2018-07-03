@@ -1,4 +1,4 @@
-pgloader (3.5.1-1) UNRELEASED; urgency=medium
+pgloader (3.5.2-1) unstable; urgency=medium
 
   * New upstream version.
   * All included test data has been verified as free, stop building a +dfsg
@@ -8,11 +8,12 @@ pgloader (3.5.1-1) UNRELEASED; urgency=medium
   * Add new B-D cl-mustache, cl-yason, cl-zs3, sync Depends to cl-pgloader.
   * Depend on the libssl version cl-plus-ssl depends on.
   * Build and install new sphinx docs instead.
+  * Build manpage using help2man.
   * Priority: optional, move cl-pgloader to Section: lisp.
   * Update S-V.
   * Add watch file.
 
- -- Christoph Berg <myon@debian.org>  Sat, 11 Nov 2017 16:39:08 +0100
+ -- Christoph Berg <christoph.berg@credativ.de>  Tue, 03 Jul 2018 16:59:07 +0200
 
 pgloader (3.4.1+dfsg-1) unstable; urgency=medium
 

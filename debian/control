@@ -47,6 +47,7 @@ Build-Depends:
  cl-zs3,
  debhelper (>= 9.0.0),
  gawk,
+ help2man,
  python3-sphinx,
  sbcl (>= 1.1.13),
  tzdata,
