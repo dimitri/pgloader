@@ -49,10 +49,11 @@ override_dh_strip:
 
 override_dh_installman-arch:
 	mkdir -p debian/pgloader/usr/share/man/man1/
+	PATH=debian/pgloader/usr/bin:$(PATH) \
 	help2man --version-string $(DEB_VERSION_UPSTREAM) \
 		--no-info \
 		--name "extract, transform and load data into PostgreSQL" \
-		debian/pgloader/usr/bin/pgloader > \
+		pgloader > \
 		debian/pgloader/usr/share/man/man1/pgloader.1
 
 override_dh_gencontrol:
