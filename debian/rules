@@ -26,23 +26,23 @@ override_dh_auto_build-indep:
 override_dh_auto_build-arch:
 	mkdir -p build/bin
 	mkdir -p $(HOME)
-	buildapp --require sb-posix                         \
-                 --require sb-bsd-sockets                   \
-                 --load /usr/share/common-lisp/source/cl-asdf/build/asdf.lisp \
-                 --asdf-path .                              \
-                 --asdf-tree /usr/share/common-lisp/systems \
-                 --load-system asdf-finalizers         	    \
-                 --load-system asdf-system-connections 	    \
-                 --load-system pgloader               	    \
-                 --load src/hooks.lisp                      \
-                 --entry pgloader:main                      \
-                 --dynamic-space-size $(SIZE)               \
-                 --compress-core                    	    \
-                 --output build/bin/pgloader
+	buildapp --require sb-posix						\
+		--require sb-bsd-sockets					\
+		--load /usr/share/common-lisp/source/cl-asdf/build/asdf.lisp	\
+		--asdf-path .							\
+		--asdf-tree /usr/share/common-lisp/systems			\
+		--load-system asdf-finalizers					\
+		--load-system asdf-system-connections				\
+		--load-system pgloader						\
+		--load src/hooks.lisp						\
+		--entry pgloader:main						\
+		--dynamic-space-size $(SIZE)					\
+		--compress-core							\
+		--output build/bin/pgloader
 	$(MAKE) -C docs html
 
 override_dh_auto_test:
-	# no nothing
+	# do nothing
 
 override_dh_strip:
 	# do nothing
