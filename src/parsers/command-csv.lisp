@@ -71,8 +71,8 @@
 (defrule option-fields-not-enclosed (and kw-fields kw-not kw-enclosed)
   (:constant (cons :quote nil)))
 
-(defrule quote-quote     "double-quote"   (:constant "\"\""))
-(defrule backslash-quote "backslash-quote" (:constant "\\\""))
+(defrule quote-quote     "double-quote"    (:constant #(#\" #\")))
+(defrule backslash-quote "backslash-quote" (:constant #(#\\ #\")))
 (defrule escaped-quote-name    (or quote-quote backslash-quote))
 (defrule escaped-quote-literal (or (and #\" #\") (and #\\ #\")) (:text t))
 (defrule escaped-quote         (or escaped-quote-literal
