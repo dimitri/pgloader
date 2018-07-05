@@ -2,6 +2,6 @@ Depends: pgloader, postgresql
 Tests: regress
 Restrictions: allow-stderr, needs-root
 
-Depends: cl-pgloader, postgresql, sbcl
+Depends: cl-pgloader, ca-certificates, postgresql, sbcl
 Tests: cl-pgloader
 Restrictions: allow-stderr
