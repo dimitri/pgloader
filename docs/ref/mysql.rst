@@ -556,7 +556,7 @@ Numbers::
   type int with extra auto_increment to serial when (< precision 10)
   type int with extra auto_increment to bigserial when (<= 10 precision)
   type int to int       when  (< precision 10)
-  type int to bigint    when  (<= 10 precision)
+  type int to bigint    when  (>= 10 precision)
   type tinyint   with extra auto_increment to serial
   type smallint  with extra auto_increment to serial
   type mediumint with extra auto_increment to serial
