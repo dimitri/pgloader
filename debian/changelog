@@ -1,10 +1,10 @@
-pgloader (3.5.2-3) UNRELEASED; urgency=medium
+pgloader (3.5.2-3) unstable; urgency=medium
 
   * Make cl-pgloader test depend on ca-certificates so the snakeoil
     certificate is recognized as a valid CA. (Needs the /etc/ssl/certs/*.0
     file.)
 
- -- Christoph Berg <myon@debian.org>  Thu, 05 Jul 2018 19:04:08 +0200
+ -- Christoph Berg <christoph.berg@credativ.de>  Tue, 31 Jul 2018 16:24:03 +0200
 
 pgloader (3.5.2-2) unstable; urgency=medium
 

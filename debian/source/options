@@ -1,2 +1,4 @@
 # ignore release/non-release status
 extend-diff-ignore=src/params.lisp
+# temporarily ignore file changed before the debian branch was created
+extend-diff-ignore=src/parsers/command-csv.lisp
