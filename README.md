@@ -95,7 +95,7 @@ it builds aginst current set of dependencies versions.
 ### Building from sources on macOS
 
 When using [brew](https://brew.sh), it should be a simple `brew install
---HEAD pgloader`.
+--HEAD pgloader`. To install *without postresql* `brew install --HEAD pgloader --ignore-dependencies coq`.
 
 When using [macports](https://www.macports.org), then we have a situation to
 deal with with shared objects pgloader depends on, as reported in issue #161
