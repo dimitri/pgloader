@@ -1,4 +1,4 @@
-FROM debian:stretch
+FROM debian:stable-slim as builder
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -24,7 +24,22 @@ COPY ./ /opt/src/pgloader
 
 RUN mkdir -p /opt/src/pgloader/build/bin \
     && cd /opt/src/pgloader \
-    && make \
-    && mv /opt/src/pgloader/build/bin/pgloader /usr/local/bin
+    && make
+
+FROM debian:stable-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+      curl \
+      freetds-dev \
+      gawk \
+      libsqlite3-dev \
+      libzip-dev \
+      make \
+      sbcl \
+      unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /opt/src/pgloader/build/bin/pgloader /usr/local/bin
 
 LABEL maintainer="Dimitri Fontaine <dim@tapoueh.org>"
