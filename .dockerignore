@@ -1,3 +1,5 @@
 .git
 .vagrant
 build
+Dockerfile
+Dockerfile.ccl
