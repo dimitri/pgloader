@@ -19,11 +19,11 @@
                                  (pgpass-char-p character))))
   (:lambda (e) (text e)))
 
-(defrule pgpass-line (and pgpass-entry #\: pgpass-entry #\:
+(defrule pgpass-line (and (? pgpass-entry) #\: pgpass-entry #\:
                           pgpass-entry #\: pgpass-entry #\:
                           (? pgpass-entry))
   (:lambda (pl)
-    (make-pgpass :hostname (first pl)
+    (make-pgpass :hostname (or (first pl) "localhost")
                  :port (third pl)
                  :database (fifth pl)
                  :username (seventh pl)
