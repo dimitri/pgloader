@@ -64,27 +64,29 @@
                           :use-result-as-read t
                           :section :pre)
     (with-pgsql-transaction (:pgconn (source-db pgsql))
-      (list-all-sqltypes catalog
+      (let ((variant (pgconn-variant (source-db pgsql))))
+       (when (eq :pgdg variant)
+         (list-all-sqltypes catalog
+                            :including including
+                            :excluding excluding))
+
+       (list-all-columns catalog
                          :including including
                          :excluding excluding)
 
-      (list-all-columns catalog
-                        :including including
-                        :excluding excluding)
+       (when create-indexes
+         (list-all-indexes catalog
+                           :including including
+                           :excluding excluding))
 
-      (when create-indexes
-        (list-all-indexes catalog
-                          :including including
-                          :excluding excluding))
+       (when (and (eq :pgdg variant) foreign-keys)
+         (list-all-fkeys catalog
+                         :including including
+                         :excluding excluding))
 
-      (when foreign-keys
-        (list-all-fkeys catalog
-                        :including including
-                        :excluding excluding))
-
-      ;; return how many objects we're going to deal with in total
-      ;; for stats collection
-      (+ (count-tables catalog) (count-indexes catalog))))
+       ;; return how many objects we're going to deal with in total
+       ;; for stats collection
+       (+ (count-tables catalog) (count-indexes catalog)))))
 
   ;; be sure to return the catalog itself
   catalog)

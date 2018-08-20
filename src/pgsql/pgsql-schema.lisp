@@ -5,7 +5,12 @@
 (in-package :pgloader.pgsql)
 
 (defun fetch-pgsql-catalog (dbname
-                            &key table source-catalog including excluding)
+                            &key
+                              table
+                              source-catalog
+                              including
+                              excluding
+                              (variant :pgdg))
   "Fetch PostgreSQL catalogs for the target database. A PostgreSQL
    connection must be opened."
   (let* ((*identifier-case* :quote)
@@ -18,10 +23,10 @@
 
                           (t
                            including))))
-
-    (list-all-sqltypes catalog
-                       :including including
-                       :excluding excluding)
+    (when (eq :pgdg variant)
+      (list-all-sqltypes catalog
+                         :including including
+                         :excluding excluding))
 
     (list-all-columns catalog
                       :table-type :table
@@ -32,14 +37,15 @@
                       :including including
                       :excluding excluding)
 
-    (list-all-fkeys catalog
-                    :including including
-                    :excluding excluding)
+    (when (eq :pgdg variant)
+      (list-all-fkeys catalog
+                      :including including
+                      :excluding excluding)
 
-    ;; fetch fkey we depend on with UNIQUE indexes but that have been
-    ;; excluded from the target list, we still need to take care of them to
-    ;; be able to DROP then CREATE those indexes again
-    (list-missing-fk-deps catalog)
+      ;; fetch fkey we depend on with UNIQUE indexes but that have been
+      ;; excluded from the target list, we still need to take care of them to
+      ;; be able to DROP then CREATE those indexes again
+      (list-missing-fk-deps catalog))
 
     (log-message :debug "fetch-pgsql-catalog: ~d tables, ~d indexes, ~d+~d fkeys"
                  (count-tables catalog)

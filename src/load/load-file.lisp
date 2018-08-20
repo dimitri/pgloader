@@ -42,7 +42,9 @@
     (handler-case
         (with-pgsql-connection (pgconn)
           (setf pgsql-catalog
-                (fetch-pgsql-catalog (db-name pgconn) :table (target copy)))
+                (fetch-pgsql-catalog (db-name pgconn)
+                                     :table (target copy)
+                                     :variant (pgconn-variant pgconn)))
 
           ;; if the user didn't tell us the column list of the table, now is
           ;; a proper time to set it in the copy object
