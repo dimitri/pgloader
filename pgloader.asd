@@ -149,40 +149,30 @@
                                         ;(:file "syslog") ; experimental...
 
                        (:module "sqlite"
+                                :serial t
                                 :depends-on ("common")
                                 :components
                                 ((:file "sqlite-cast-rules")
-                                 (:file "sqlite-schema"
-                                        :depends-on ("sqlite-cast-rules"))
-                                 (:file "sqlite"
-                                        :depends-on ("sqlite-cast-rules"
-                                                     "sqlite-schema"))))
+                                 (:file "sqlite-schema")
+                                 (:file "sqlite")))
 
                        (:module "mssql"
+                                :serial t
                                 :depends-on ("common")
                                 :components
                                 ((:file "mssql-cast-rules")
-                                 (:file "mssql-schema"
-                                        :depends-on ("mssql-cast-rules"))
-                                 (:file "mssql"
-                                        :depends-on ("mssql-cast-rules"
-                                                     "mssql-schema"))
-                                 (:file "mssql-index-filters"
-                                        :depends-on ("mssql"))))
+                                 (:file "mssql-schema")
+                                 (:file "mssql")
+                                 (:file "mssql-index-filters")))
 
                        (:module "mysql"
+                                :serial t
                                 :depends-on ("common")
                                 :components
                                 ((:file "mysql-cast-rules")
                                  (:file "mysql-connection")
-                                 (:file "mysql-schema"
-                                        :depends-on ("mysql-connection"
-                                                     "mysql-cast-rules"))
-                                 ;; (:file "mysql-csv"
-                                 ;;        :depends-on ("mysql-schema"))
-                                 (:file "mysql"
-                                        :depends-on ("mysql-cast-rules"
-                                                     "mysql-schema"))))
+                                 (:file "mysql-schema")
+                                 (:file "mysql")))
 
                        (:module "pgsql"
                                 :serial t
