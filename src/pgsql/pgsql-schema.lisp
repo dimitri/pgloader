@@ -100,7 +100,7 @@
 (defun format-table-name-as-including-exp (table)
   "Return a table name suitable for a catalog lookup using ~ operator."
   (let ((table-name (table-name table)))
-    (format nil "^~a$" (ensure-unquoted table-name))))
+    (make-string-match-rule :target (ensure-unquoted table-name))))
 
 (defun query-table-schema (table)
   "Get PostgreSQL schema name where to locate TABLE-NAME by following the
