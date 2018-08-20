@@ -19,6 +19,10 @@
                           (t
                            including))))
 
+    (list-all-sqltypes catalog
+                       :including including
+                       :excluding excluding)
+
     (list-all-columns catalog
                       :table-type :table
                       :including including
@@ -116,18 +120,34 @@
   "Associate internal table type symbol with what's found in PostgreSQL
   pg_class.relkind column.")
 
-(defun filter-list-to-where-clause (filter-list
+(defun filter-list-to-where-clause (schema-filter-list
                                     &optional
                                       not
                                       (schema-col "table_schema")
                                       (table-col  "table_name"))
   "Given an INCLUDING or EXCLUDING clause, turn it into a PostgreSQL WHERE
    clause."
-  (loop :for (schema . table-name-list) :in filter-list
-     :append (mapcar (lambda (table-name)
-                       (format nil "(~a = '~a' and ~a ~:[~;NOT ~]~~ '~a')"
-                               schema-col schema table-col not table-name))
-                     table-name-list)))
+  (loop :for (schema . filter-list) :in schema-filter-list
+     :append (mapcar (lambda (filter)
+                       (typecase filter
+                         (string-match-rule
+                          (format nil "(~a = '~a' and ~a ~:[~;!~]= '~a')"
+                                  schema-col
+                                  schema
+                                  table-col
+                                  not
+                                  (string-match-rule-target filter)))
+                         (regex-match-rule
+                          (format nil "(~a = '~a' and ~a ~:[~;NOT ~]~~ '~a')"
+                                  schema-col
+                                  schema
+                                  table-col
+                                  not
+                                  (regex-match-rule-target filter)))))
+                     filter-list)))
+
+(defun normalize-extra (extra)
+  (cond ((string= "auto_increment" extra) :auto-increment)))
 
 (defun list-all-columns (catalog
                          &key
@@ -137,7 +157,8 @@
                          &aux
                            (table-type-name (cdr (assoc table-type *table-type*))))
   "Get the list of PostgreSQL column names per table."
-  (loop :for (schema-name table-name table-oid name type typmod notnull default)
+  (loop :for (schema-name table-name table-oid
+                          name type typmod notnull default extra)
      :in
      (query nil
             (format nil
@@ -160,7 +181,9 @@
                                     :type-name type
                                     :type-mod typmod
                                     :nullable (not notnull)
-                                    :default default)))
+                                    :default default
+                                    :transform-default nil
+                                    :extra (normalize-extra extra))))
        (add-field table field))
      :finally (return catalog)))
 
@@ -187,7 +210,7 @@
                 (tschema  (find-schema catalog table-schema))
                 (table    (find-table tschema table-name))
                 (pg-index
-                 (make-index :name name
+                 (make-index :name (ensure-quoted name)
                              :oid oid
                              :schema schema
                              :table table
@@ -195,8 +218,10 @@
                              :unique unique
                              :columns nil
                              :sql sql
-                             :conname (unless (eq :null conname) conname)
-                             :condef  (unless (eq :null condef)  condef))))
+                             :conname (unless (eq :null conname)
+                                        (ensure-quoted conname))
+                             :condef  (unless (eq :null condef)
+                                        condef))))
            (maybe-add-index table name pg-index :key #'index-name))
      :finally (return catalog)))
 
@@ -247,7 +272,7 @@
                   (fschema  (find-schema catalog fschema-name))
                   (ftable   (find-table fschema ftable-name))
                   (fk
-                   (make-fkey :name conname
+                   (make-fkey :name (ensure-quoted conname)
                               :oid conoid
                               :condef condef
                               :table table
@@ -355,3 +380,44 @@
                        (sql "/pgsql/list-table-oids-from-temp-table.sql"))))
          :do (setf (gethash name oidmap) oid)))
     oidmap))
+
+
+
+;;;
+;;; PostgreSQL specific support for extensions and user defined data types.
+;;;
+(defun list-all-sqltypes (catalog &key including excluding)
+  "Set the catalog's schema extension list and sqltype list"
+  (loop :for (schema-name extension-name type-name enum-values)
+     :in (query nil
+                (format nil
+                        (sql "/pgsql/list-all-sqltypes.sql")
+                        including       ; do we print the clause?
+                        (filter-list-to-where-clause including
+                                                     nil
+                                                     "n.nspname"
+                                                     "c.relname")
+                        excluding       ; do we print the clause?
+                        (filter-list-to-where-clause excluding
+                                                     nil
+                                                     "n.nspname"
+                                                     "c.relname")))
+     :do
+     (let* ((schema    (maybe-add-schema catalog schema-name))
+            (sqltype
+             (make-sqltype :name (ensure-quoted type-name)
+                           :schema schema
+                           :type (when enum-values :enum)
+                           :extra (when (and enum-values
+                                             (not (eq enum-values :null)))
+                                    (coerce enum-values 'list)))))
+
+       (if (and extension-name (not (eq :null extension-name)))
+           ;; then create extension will create the type
+           (maybe-add-extension schema extension-name)
+
+           ;; only create a specific entry for types that we need to create
+           ;; ourselves, when extension is not null "create extension" is
+           ;; going to take care of creating the type.
+           (add-sqltype schema sqltype)))
+     :finally (return catalog)))

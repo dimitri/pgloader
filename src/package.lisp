@@ -49,8 +49,9 @@
 
            #:catalog
            #:schema
-           #:table
+           #:extension
            #:sqltype
+           #:table
            #:column
            #:index
            #:fkey
@@ -82,6 +83,8 @@
            #:schema-source-name
            #:schema-table-list
            #:schema-view-list
+           #:schema-extension-list
+           #:schema-sqltype-list
            #:schema-in-search-path
 
            #:table-name
@@ -96,11 +99,15 @@
            #:table-fkey-list
            #:table-trigger-list
 
+           #:extension-name
+           #:extension-schema
+
            #:sqltype-name
            #:sqltype-schema
            #:sqltype-type
            #:sqltype-source-def
            #:sqltype-extra
+           #:sqltype-extension
 
            #:column-name
            #:column-type-name
@@ -110,6 +117,7 @@
            #:column-comment
            #:column-transform
            #:column-extra
+           #:column-transform-default
 
            #:index-name
            #:index-type
@@ -152,9 +160,15 @@
 
            #:table-list
            #:view-list
+           #:extension-list
+           #:sqltype-list
            #:add-schema
            #:find-schema
            #:maybe-add-schema
+           #:add-extension
+           #:find-extension
+           #:maybe-add-extension
+           #:add-sqltype
            #:add-table
            #:find-table
            #:maybe-add-table
@@ -389,6 +403,7 @@
 	   #:truncate-tables
            #:set-table-oids
 
+           #:create-extensions
            #:create-sqltypes
 	   #:create-schemas
            #:add-to-search-path
@@ -417,6 +432,7 @@
            #:process-index-definitions
 
            ;; postgresql introspection queries
+           #:list-all-sqltypes
 	   #:list-all-columns
 	   #:list-all-indexes
 	   #:list-all-fkeys
@@ -674,6 +690,14 @@
 	   #:*mysql-default-cast-rules*
            #:with-mysql-connection))
 
+(defpackage #:pgloader.source.pgsql
+  (:use #:cl
+        #:pgloader.params #:pgloader.utils #:pgloader.connection
+        #:pgloader.sources #:pgloader.pgsql #:pgloader.catalog)
+  (:import-from #:pgloader.transforms #:precision #:scale)
+  (:export #:copy-pgsql
+           #:*pgsql-default-cast-rules*))
+
 (defpackage #:pgloader.source.sqlite
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
@@ -763,6 +787,9 @@
   (:import-from #:pgloader.source.copy
                 #:copy-copy
                 #:copy-connection)
+  (:import-from #:pgloader.source.pgsql
+                #:copy-pgsql
+                #:*pgsql-default-cast-rules*)
   (:import-from #:pgloader.source.mysql
                 #:copy-mysql
                 #:mysql-connection

@@ -96,7 +96,7 @@
   "Send the data in the SQLite column ordering."
   (mapcar #'apply-identifier-case (mapcar #'coldef-name (fields sqlite))))
 
-(defmethod fetch-metadata (sqlite catalog
+(defmethod fetch-metadata ((sqlite copy-sqlite) (catalog catalog)
                            &key
                              materialize-views
                              only-tables

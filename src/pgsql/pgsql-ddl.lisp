@@ -40,6 +40,25 @@
 
 
 ;;;
+;;; Extensions
+;;;
+(defmethod format-create-sql ((extension extension)
+                              &key (stream nil) if-not-exists)
+  (format stream "CREATE EXTENSION~:[~; IF NOT EXISTS~] ~a WITH SCHEMA ~a;"
+          if-not-exists
+          (extension-name extension)
+          (schema-name (extension-schema extension))))
+
+(defmethod format-drop-sql ((extension extension)
+                            &key (stream nil) cascade if-exists)
+  (format stream "DROP EXTENSION~:[~; IF EXISTS~] ~a~@[ CASCADE~];"
+          if-exists
+          (extension-name extension)
+          cascade))
+
+
+
+;;;
 ;;; Tables
 ;;;
 (defmethod format-create-sql ((table table) &key (stream nil) if-not-exists)
@@ -126,26 +145,30 @@
   "Common normalized default values and their PostgreSQL spelling.")
 
 (defmethod format-default-value ((column column) &key (stream nil))
-  (let* ((default       (column-default column))
-         (clean-default (cdr (assoc default *pgsql-default-values*)))
-         (transform     (column-transform column)))
-    (or clean-default
-        (if transform
-            (let* ((transformed-default
-                    (handler-case
-                        (funcall transform default)
-                      (condition (c)
-                        (log-message :warning
-                                     "Failed to transform default value ~s: ~a"
-                                     default c)
-                        ;; can't transform: return nil
-                        nil)))
-                   (transformed-column
-                    (make-column :default transformed-default)))
-              (format-default-value transformed-column))
-            (if default
-                (ensure-quoted default #\')
-                (format stream "NULL"))))))
+  (if (column-transform-default column)
+      (let* ((default       (column-default column))
+             (clean-default (cdr (assoc default *pgsql-default-values*)))
+             (transform     (column-transform column)))
+        (or clean-default
+            (if transform
+                (let* ((transformed-default
+                        (handler-case
+                            (funcall transform default)
+                          (condition (c)
+                            (log-message :warning
+                                         "Failed to transform default value ~s: ~a"
+                                         default c)
+                            ;; can't transform: return nil
+                            nil)))
+                       (transformed-column
+                        (make-column :default transformed-default)))
+                  (format-default-value transformed-column))
+                (if default
+                    (ensure-quoted default #\')
+                    (format stream "NULL")))))
+
+      ;; else, when column-transform-default is nil:
+      (column-default column)))
 
 
 ;;;

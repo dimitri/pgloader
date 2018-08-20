@@ -17,6 +17,7 @@
                           load-copy-file
 			  load-dbf-file
                           load-ixf-file
+                          load-pgsql-database
 			  load-mysql-database
                           load-mssql-database
 			  load-sqlite-database
@@ -160,12 +161,12 @@
     (declare (ignore abs paths no-path-p))
     (let ((dotted-parts (reverse (sq:split-sequence #\. filename))))
       (when (<= 2 (length dotted-parts))
-        (destructuring-bind (extension name-or-ext &rest parts)
+        (destructuring-bind (ext name-or-ext &rest parts)
             dotted-parts
           (declare (ignore parts))
           (if (string-equal "tar" name-or-ext) :archive
               (loop :for (type . extensions) :in *data-source-filename-extensions*
-                 :when (member extension extensions :test #'string-equal)
+                 :when (member ext extensions :test #'string-equal)
                  :return type)))))))
 
 (defvar *parse-rule-for-source-types*
@@ -266,6 +267,7 @@
                         (:dbf    'dbf-option)
                         (:ixf    'ixf-option)
                         (:sqlite 'sqlite-option)
+                        (:pgsql  'pgsql-option)
                         (:mysql  'mysql-option)
                         (:mssql  'mysql-option))
                       option))))

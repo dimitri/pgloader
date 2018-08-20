@@ -182,7 +182,13 @@
                                  ;;        :depends-on ("mysql-schema"))
                                  (:file "mysql"
                                         :depends-on ("mysql-cast-rules"
-                                                     "mysql-schema"))))))
+                                                     "mysql-schema"))))
+
+                       (:module "pgsql"
+                                :serial t
+                                :depends-on ("common")
+                                :components ((:file "pgsql-cast-rules")
+                                             (:file "pgsql")))))
 
              ;; package pgloader.copy
              (:module "pg-copy"
@@ -247,6 +253,7 @@
                        (:file "command-including-like")
                        (:file "command-mssql")
                        (:file "command-sqlite")
+                       (:file "command-pgsql")
                        (:file "command-archive")
                        (:file "command-parser")
                        (:file "parse-sqlite-type-name")

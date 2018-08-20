@@ -13,17 +13,7 @@
                           include-drop
                           (client-min-messages :notice))
   "Create the needed data types for given CATALOG."
-  (let ((sqltype-list))
-    ;; build the sqltype list
-    (loop :for table :in (append (table-list catalog)
-                                 (view-list catalog))
-       :do (loop :for column :in (table-column-list table)
-              :do (when (typep (column-type-name column) 'sqltype)
-                    (pushnew (column-type-name column) sqltype-list
-                             :test #'string-equal
-                             :key #'sqltype-name))))
-
-    ;; now create the types
+  (let ((sqltype-list (sqltype-list catalog)))
     (loop :for sqltype :in sqltype-list
        :when include-drop
        :count t
@@ -113,6 +103,19 @@
                                    sql
                                    :log-level log-level
                                    :client-min-messages client-min-messages)))))
+
+(defun create-extensions (catalog
+                          &key
+                            if-not-exists
+                            include-drop
+                            (client-min-messages :notice))
+  "Create all extensions from the given database CATALOG."
+  (let ((sql
+         (loop :for extension :in (extension-list catalog)
+            :when include-drop
+            :collect (format-drop-sql extension :if-exists t :cascade t)
+            :collect (format-create-sql extension :if-not-exists if-not-exists))))
+    (pgsql-execute sql :client-min-messages client-min-messages)))
 
 (defun create-tables (catalog
                       &key

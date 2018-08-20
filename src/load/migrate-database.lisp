@@ -46,6 +46,12 @@
           (with-stats-collection ("Create SQL Types" :section :pre
                                                      :use-result-as-read t
                                                      :use-result-as-rows t)
+            ;; some SQL types come from extensions (ip4r, hstore, etc)
+            (create-extensions catalog
+                               :include-drop include-drop
+                               :if-not-exists t
+                               :client-min-messages :error)
+
             (create-sqltypes catalog
                              :include-drop include-drop
                              :client-min-messages :error))
