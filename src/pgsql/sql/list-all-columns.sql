@@ -9,9 +9,9 @@ with seqattr as
           adnum,
           adsrc,
           case when adsrc ~~ 'nextval'
-               then (regexp_match(pg_get_expr(d.adbin, d.adrelid),
-                                  '''([^'']+)''')
-                    )[1]::regclass::oid
+               then substring(pg_get_expr(d.adbin, d.adrelid)
+                              from '''([^'']+)'''
+                    )::regclass::oid
                else null::oid
            end as seqoid
      from pg_attrdef d
