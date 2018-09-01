@@ -204,7 +204,7 @@
 
 (defmethod sqltype-list ((table table) &key)
   "Return the list of sqltypes for SCHEMA."
-  (apply #'append (mapcar #'sqltype-list (table-column-list table))))
+  (mapcar #'sqltype-list (table-column-list table)))
 
 (defmethod sqltype-list ((schema schema) &key)
   "Return the list of sqltypes for SCHEMA."
@@ -215,7 +215,9 @@
 (defmethod sqltype-list ((catalog catalog) &key)
   "Return the list of sqltypes for CATALOG."
   (remove-duplicates
-   (apply #'append (mapcar #'sqltype-list (catalog-schema-list catalog)))
+   (remove-if #'null
+              (apply #'append
+                     (mapcar #'sqltype-list (catalog-schema-list catalog))))
    :test #'string-equal :key #'sqltype-name))
 
 (defmethod table-list ((schema schema) &key)

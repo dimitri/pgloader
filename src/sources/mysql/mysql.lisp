@@ -235,13 +235,7 @@ Illegal ~a character starting at position ~a~@[: ~a~].~%"
 (defun apply-decoding-as-filters (table-name filters)
   "Return a generialized boolean which is non-nil only if TABLE-NAME matches
    one of the FILTERS."
-  (flet ((apply-filter (filter)
-           ;; we close over table-name here.
-           (typecase filter
-             (string (string-equal filter table-name))
-             (list   (destructuring-bind (type val) filter
-                       (ecase type
-                         (:regex (cl-ppcre:scan val table-name))))))))
+  (flet ((apply-filter (filter) (matches filter table-name)))
     (some #'apply-filter filters)))
 
 (defmethod instanciate-table-copy-object ((copy copy-mysql) (table table))
