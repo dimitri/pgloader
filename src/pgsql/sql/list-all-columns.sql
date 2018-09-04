@@ -11,9 +11,9 @@ with seqattr as
           case when adsrc ~~ 'nextval'
                then substring(pg_get_expr(d.adbin, d.adrelid)
                               from '''([^'']+)'''
-                    )::regclass::oid
-               else null::oid
-           end as seqoid
+                    )
+               else null
+           end as seqname
      from pg_attrdef d
  )
     select nspname, relname, c.oid, attname,
@@ -24,7 +24,7 @@ with seqattr as
             end as typmod,
            attnotnull,
            case when atthasdef then def.adsrc end as default,
-           case when s.seqoid is not null then 'auto_increment' end as extra
+           case when s.seqname is not null then 'auto_increment' end as extra
       from pg_class c
            join pg_namespace n on n.oid = c.relnamespace
            left join pg_attribute a on c.oid = a.attrelid

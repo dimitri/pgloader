@@ -9,7 +9,10 @@
      :target (:type "serial" :drop-default t))
 
     (:source (:type "bigint" :auto-increment t)
-     :target (:type "bigserial" :drop-default t)))
+     :target (:type "bigserial" :drop-default t))
+
+    (:source (:type "character varying")
+     :target (:type "text" :drop-typemod t)))
   "Data Type Casting to migrate from PostgtreSQL to PostgreSQL")
 
 (defmethod pgsql-column-ctype ((column column))
@@ -44,5 +47,23 @@
       ;; from PostgreSQL, and we trust it.
       (setf (column-transform-default pgcol)
             (column-transform-default field))
+
+      ;; Redshift may be using DEFAULT getdate() instead of now()
+      (let ((default (column-default pgcol)))
+        (setf (column-default pgcol)
+              (cond
+                ((and (stringp default) (string= "NULL" default))
+                 :null)
+
+                ((and (stringp default)
+                      (or (string= "getdate()" default)))
+                 :current-timestamp)
+
+                (t (column-default pgcol))))
+
+        ;; we usually trust defaults that come from PostgreSQL... but we
+        ;; also have support for Redshift.
+        (when (member (column-default pgcol) '(:null :current-timestamp))
+          (setf (column-transform-default pgcol) t)))
 
       pgcol)))

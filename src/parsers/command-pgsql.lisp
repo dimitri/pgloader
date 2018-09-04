@@ -45,7 +45,8 @@
       (cons schema filter-list))))
 
 (defrule including-matching-in-schema
-    (and including-in-schema (* including-in-schema))
+    (and including-matching-in-schema-filter
+         (* including-matching-in-schema-filter))
   (:lambda (source)
     (destructuring-bind (inc1 incs) source
       (cons :including (list* inc1 incs)))))
@@ -58,7 +59,8 @@
       (cons schema filter-list))))
 
 (defrule excluding-matching-in-schema
-    (and excluding-in-schema (* excluding-in-schema))
+    (and excluding-matching-in-schema-filter
+         (* excluding-matching-in-schema-filter))
   (:lambda (source)
     (destructuring-bind (excl1 excls) source
       (cons :excluding (list* excl1 excls)))))

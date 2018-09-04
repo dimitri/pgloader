@@ -53,7 +53,7 @@
 	      (string= "set" data-type))
     (let ((start-1 (position #\( column-type))	; just before start position
 	  (end     (position #\) column-type)))	; just before end position
-      (when start-1
+      (when (and start-1 (< (+ 1 start-1) end))
 	(destructuring-bind (a &optional b)
 	    (mapcar #'parse-integer
 		    (sq:split-sequence #\, column-type
