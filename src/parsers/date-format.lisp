@@ -38,11 +38,12 @@
                 :for ragged-end := (when end
                                      (cond ((member name '(:msecs :usecs))
                                             ;; take any number of digits up to
-                                            ;; the specified field lenght
+                                            ;; the specified field length
                                             ;; (less digits are allowed)
-                                            (min end (length date-string)))
+                                            (when (<= start (length date-string))
+                                              (min end (length date-string))))
                                            (t end)))
-                :when (and start end)
+                :when (and start ragged-end)
                 :append (list name (subseq date-string start ragged-end)))
            (if (or (string= year  "0000")
                    (string= month "00")
