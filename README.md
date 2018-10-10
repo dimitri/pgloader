@@ -117,6 +117,16 @@ pgloader:
 
 <https://github.com/dimitri/pgloader/issues?utf8=✓&q=label%3A%22Windows%20support%22%20>
 
+### Building Docker image from sources
+
+You can build a Docker image from source using SBCL by default:
+
+  $ docker build .
+
+Or Clozure CL (CCL):
+
+  $ docker build -f Dockerfile.ccl .
+
 ## More options when building from source
 
 The `Makefile` target `pgloader` knows how to produce a Self Contained
