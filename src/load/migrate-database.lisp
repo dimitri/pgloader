@@ -255,6 +255,7 @@
 			    (reset-sequences  t)
 			    (foreign-keys     t)
                             (reindex          nil)
+                            (after-schema     nil)
 			    only-tables
 			    including
 			    excluding
@@ -329,17 +330,26 @@
 
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (handler-case
-        (prepare-pgsql-database copy
-                                catalog
-                                :truncate truncate
-                                :create-tables create-tables
-                                :create-schemas create-schemas
-                                :drop-indexes drop-indexes
-                                :drop-schema drop-schema
-                                :include-drop include-drop
-                                :foreign-keys foreign-keys
-                                :set-table-oids set-table-oids
-                                :materialize-views materialize-views)
+        (progn
+          (prepare-pgsql-database copy
+                                  catalog
+                                  :truncate truncate
+                                  :create-tables create-tables
+                                  :create-schemas create-schemas
+                                  :drop-indexes drop-indexes
+                                  :drop-schema drop-schema
+                                  :include-drop include-drop
+                                  :foreign-keys foreign-keys
+                                  :set-table-oids set-table-oids
+                                  :materialize-views materialize-views)
+
+          ;; if there's an AFTER SCHEMA DO/EXECUTE command, now is the time
+          ;; to run it.
+          (when after-schema
+            (pgloader.parser::execute-sql-code-block (target-db copy)
+                                                     :pre
+                                                     after-schema
+                                                     "after schema")))
       ;;
       ;; In case some error happens in the preparatory transaction, we
       ;; need to stop now and refrain from trying to load the data into

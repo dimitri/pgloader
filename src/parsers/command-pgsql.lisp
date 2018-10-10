@@ -79,6 +79,7 @@
                                             excluding-matching-in-schema
                                             decoding-tables-as
                                             before-load
+                                            after-schema
                                             after-load))
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
@@ -103,11 +104,11 @@
 (defun lisp-code-for-loading-from-pgsql (pg-src-db-conn pg-dst-db-conn
                                          &key
                                            gucs
-                                           casts before after options
+                                           casts options
+                                           before after after-schema
                                            alter-table alter-schema
                                            ((:including incl))
                                            ((:excluding excl))
-                                           ((:decoding decoding-as))
                                            &allow-other-keys)
   `(lambda ()
      (let* ((*default-cast-rules* ',*pgsql-default-cast-rules*)
@@ -131,6 +132,7 @@
                       :index-names :preserve
                       :set-table-oids t
                       :on-error-stop on-error-stop
+                      :after-schema ',after-schema
                       ,@(remove-batch-control-option options))
 
        ,(sql-code-block pg-dst-db-conn :post after "after load"))))
@@ -140,7 +142,7 @@
     (destructuring-bind (pg-src-db-uri
                          pg-dst-db-uri
                          &key
-                         gucs casts before after options
+                         gucs casts before after after-schema options
                          alter-table alter-schema
                          including excluding decoding)
         source
@@ -152,6 +154,7 @@
                                                :casts casts
                                                :before before
                                                :after after
+                                               :after-schema after-schema
                                                :options options
                                                :alter-table alter-table
                                                :alter-schema alter-schema

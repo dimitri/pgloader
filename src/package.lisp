@@ -812,6 +812,7 @@
   (:export #:parse-commands
            #:parse-commands-from-file
            #:initialize-context
+           #:execute-sql-code-block
 
            ;; tools to enable complete cli parsing in main.lisp
            #:process-relative-pathnames
