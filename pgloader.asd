@@ -69,6 +69,7 @@
                        (:file "quoting"     :depends-on ("utils"))
                        (:file "catalog"     :depends-on ("quoting"))
                        (:file "alter-table" :depends-on ("catalog"))
+                       (:file "citus"       :depends-on ("catalog"))
 
                        ;; State, monitoring, reporting
                        (:file "reject"  :depends-on ("state"))
@@ -95,6 +96,7 @@
                       :components
                       ((:file "connection")
                        (:file "pgsql-ddl")
+                       (:file "pgsql-ddl-citus")
                        (:file "pgsql-schema")
                        (:file "merge-catalogs" :depends-on ("pgsql-schema"))
                        (:file "pgsql-trigger")
@@ -239,6 +241,7 @@
                        (:file "command-cast-rules")
                        (:file "command-materialize-views")
                        (:file "command-alter-table")
+                       (:file "command-distribute")
                        (:file "command-mysql")
                        (:file "command-including-like")
                        (:file "command-mssql")

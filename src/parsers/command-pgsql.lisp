@@ -80,7 +80,8 @@
                                             decoding-tables-as
                                             before-load
                                             after-schema
-                                            after-load))
+                                            after-load
+                                            distribute-commands))
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
 
@@ -109,6 +110,7 @@
                                            alter-table alter-schema
                                            ((:including incl))
                                            ((:excluding excl))
+                                           distribute
                                            &allow-other-keys)
   `(lambda ()
      (let* ((*default-cast-rules* ',*pgsql-default-cast-rules*)
@@ -133,6 +135,7 @@
                       :set-table-oids t
                       :on-error-stop on-error-stop
                       :after-schema ',after-schema
+                      :distribute ',distribute
                       ,@(remove-batch-control-option options))
 
        ,(sql-code-block pg-dst-db-conn :post after "after load"))))
@@ -143,7 +146,7 @@
                          pg-dst-db-uri
                          &key
                          gucs casts before after after-schema options
-                         alter-table alter-schema
+                         alter-table alter-schema distribute
                          including excluding decoding)
         source
       (cond (*dry-run*
@@ -158,6 +161,7 @@
                                                :options options
                                                :alter-table alter-table
                                                :alter-schema alter-schema
+                                               :distribute distribute
                                                :including including
                                                :excluding excluding
                                                :decoding decoding))))))

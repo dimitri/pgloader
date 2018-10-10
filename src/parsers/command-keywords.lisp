@@ -103,6 +103,9 @@
   (def-keyword-rule "trim")
   (def-keyword-rule "unquoted")
   (def-keyword-rule "delimiter")
+  ;; option for Citus support
+  (def-keyword-rule "distribute")
+  (def-keyword-rule "reference")
   ;; option for MySQL imports
   (def-keyword-rule "schema")
   (def-keyword-rule "schemas")

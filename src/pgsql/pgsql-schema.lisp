@@ -198,7 +198,7 @@
   (loop
      :for (schema-name name oid
                        table-schema table-name
-                       primary unique sql conname condef)
+                       primary unique cols sql conname condef)
      :in (query nil
                 (format nil
                         (sql "/pgsql/list-all-indexes.sql")
@@ -222,7 +222,7 @@
                              :table table
                              :primary primary
                              :unique unique
-                             :columns nil
+                             :columns (split-sequence:split-sequence #\, cols)
                              :sql sql
                              :conname (unless (eq :null conname)
                                         (ensure-quoted conname))

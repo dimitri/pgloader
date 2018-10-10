@@ -9,6 +9,11 @@
          r.relname,
          indisprimary,
          indisunique,
+         (select string_agg(attname, ',')
+            from pg_attribute
+           where attrelid = r.oid
+             and array[attnum::integer] <@ indkey::integer[]
+         ) as cols,
          pg_get_indexdef(indexrelid),
          c.conname,
          pg_get_constraintdef(c.oid)

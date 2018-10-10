@@ -98,6 +98,7 @@
            #:table-index-list
            #:table-fkey-list
            #:table-trigger-list
+           #:table-citus-rule
 
            #:extension-name
            #:extension-schema
@@ -207,6 +208,15 @@
            #:match-rule-schema
            #:match-rule-action
            #:match-rule-args
+
+           #:citus-reference-table
+           #:citus-distributed-table
+           #:make-citus-reference-table
+           #:make-citus-distributed-table
+           #:citus-reference-table-table
+           #:citus-distributed-table-table
+           #:citus-distributed-table-using
+           #:citus-distributed-table-from
 
            #:format-table-name))
 

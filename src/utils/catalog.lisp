@@ -50,7 +50,8 @@
 (defstruct table source-name name schema oid comment storage-parameter-list
            ;; field is for SOURCE
            ;; column is for TARGET
-           field-list column-list index-list fkey-list trigger-list)
+           ;; citus is an extra slot for citus support
+           field-list column-list index-list fkey-list trigger-list citus-rule)
 
 ;;;
 ;;; When migrating from PostgreSQL to PostgreSQL we might have to install

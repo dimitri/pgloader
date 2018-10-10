@@ -19,7 +19,8 @@
                                      set-table-oids
                                      materialize-views
                                      foreign-keys
-                                     include-drop)
+                                     include-drop
+                                     distribute)
   "Prepare the target PostgreSQL database: create tables casting datatypes
    from the MySQL definitions, prepare index definitions and create target
    tables for materialized views.
@@ -114,7 +115,15 @@
                                                        :use-result-as-rows t)
         (create-views catalog
                       :include-drop include-drop
-                      :client-min-messages :error))))
+                      :client-min-messages :error)))
+
+    ;; Citus Support
+    (when distribute
+      (with-stats-collection ("Citus Distribute Tables" :section :pre)
+        (let ((citus-sql
+               (loop :for rule :in distribute
+                  :collect (format-create-sql rule))))
+          (pgsql-execute citus-sql :client-min-messages :notice)))))
 
   ;; log the catalog we just fetched and (maybe) merged
   (log-message :data "CATALOG: ~s" catalog))
@@ -213,9 +222,10 @@
                                :reset-sequences reset-sequences))))
 
 
-(defun process-catalog (copy catalog &key alter-table alter-schema)
+(defun process-catalog (copy catalog &key alter-table alter-schema distribute)
   "Do all the PostgreSQL catalog tweaking here: casts, index WHERE clause
    rewriting, pgloader level alter schema and alter table commands."
+
   ;; cast the catalog into something PostgreSQL can work on
   (cast catalog)
 
@@ -229,7 +239,11 @@
   ;; if asked, now alter the catalog with given rules: the alter-table
   ;; keyword parameter actually contains a set of alter table rules.
   (when alter-table
-    (alter-table catalog alter-table)))
+    (alter-table catalog alter-table))
+
+  ;; we also support schema changes necessary for Citus distribution
+  (when distribute
+    (pgloader.catalog::citus-distribute-schema catalog distribute)))
 
 
 ;;;
@@ -256,6 +270,7 @@
 			    (foreign-keys     t)
                             (reindex          nil)
                             (after-schema     nil)
+                            distribute
 			    only-tables
 			    including
 			    excluding
@@ -326,7 +341,8 @@
     ;; that's CAST rules, index WHERE clause rewriting and ALTER commands
     (process-catalog copy catalog
                      :alter-table alter-table
-                     :alter-schema alter-schema)
+                     :alter-schema alter-schema
+                     :distribute distribute)
 
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (handler-case
@@ -341,7 +357,8 @@
                                   :include-drop include-drop
                                   :foreign-keys foreign-keys
                                   :set-table-oids set-table-oids
-                                  :materialize-views materialize-views)
+                                  :materialize-views materialize-views
+                                  :distribute distribute)
 
           ;; if there's an AFTER SCHEMA DO/EXECUTE command, now is the time
           ;; to run it.
