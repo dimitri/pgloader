@@ -204,8 +204,9 @@
                 ;; don't use the index schema name here, PostgreSQL doesn't
                 ;; like it, might be implicit from the table's schema
                 ;; itself...
-                "ALTER TABLE ~a ADD ~a USING INDEX ~a;"
+                "ALTER TABLE ~a ADD~@[ CONSTRAINT ~a~] ~a USING INDEX ~a;"
                 (format-table-name table)
+                (index-conname index)
                 (cond ((index-primary index) "PRIMARY KEY")
                       ((index-unique index) "UNIQUE"))
                 index-name)))
