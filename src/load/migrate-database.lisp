@@ -115,15 +115,21 @@
                                                        :use-result-as-rows t)
         (create-views catalog
                       :include-drop include-drop
-                      :client-min-messages :error)))
+                      :client-min-messages :error))))
 
-    ;; Citus Support
-    (when distribute
+  ;; Citus Support
+  ;;
+  ;; We need a separate transaction here in some cases, because of the
+  ;; distributed DDL support from Citus, to avoid the following error:
+  ;;
+  ;; ERROR Database error 25001: cannot establish a new connection for
+  ;; placement 2299, since DDL has been executed on a connection that is in
+  ;; use
+  ;;
+  (when distribute
+    (with-pgsql-transaction (:pgconn (target-db copy))
       (with-stats-collection ("Citus Distribute Tables" :section :pre)
-        (let ((citus-sql
-               (loop :for rule :in distribute
-                  :collect (format-create-sql rule))))
-          (pgsql-execute citus-sql :client-min-messages :notice)))))
+        (create-distributed-table distribute))))
 
   ;; log the catalog we just fetched and (maybe) merged
   (log-message :data "CATALOG: ~s" catalog))

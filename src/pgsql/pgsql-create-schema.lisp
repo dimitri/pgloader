@@ -465,3 +465,14 @@ $$; " tables)))
                                  (column-name column)
                                  quote (column-comment column) quote)))))
     (pgsql-execute-with-timing section label sql-list)))
+
+
+
+;;;
+;;; Citus Disitribution support
+;;;
+(defun create-distributed-table (distribute-rules)
+  (let ((citus-sql
+         (loop :for rule :in distribute-rules
+            :collect (format-create-sql rule))))
+    (pgsql-execute citus-sql)))

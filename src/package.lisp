@@ -217,6 +217,8 @@
            #:citus-distributed-table-table
            #:citus-distributed-table-using
            #:citus-distributed-table-from
+           #:citus-format-sql-select
+           #:citus-backfill-table-p
 
            #:format-table-name))
 
@@ -432,6 +434,8 @@
            #:create-indexes-again
            #:reset-sequences
            #:comment-on-tables-and-columns
+
+           #:create-distributed-table
 
            ;; finalizing catalogs support (redshift and other variants)
            #:finalize-catalogs

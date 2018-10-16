@@ -78,7 +78,7 @@
 ;;; Index and Foreign Keys
 ;;;
 (defstruct fkey
-  name oid table columns foreign-table foreign-columns condef
+  name oid table columns pkey foreign-table foreign-columns condef
   update-rule delete-rule match-rule deferrable initially-deferred)
 
 ;;;

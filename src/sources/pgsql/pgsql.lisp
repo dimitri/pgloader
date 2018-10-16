@@ -41,12 +41,30 @@
                       (funcall process-row-fn row)))))))
 
     (with-pgsql-connection ((source-db pgsql))
-      (let* ((cols   (mapcar #'column-name (fields pgsql)))
-             (sql
-              (format nil "SELECT ~{~s::text~^, ~} FROM ~s.~s" cols
-                      (schema-source-name (table-schema (source pgsql)))
-                      (table-source-name (source pgsql)))))
-        (cl-postgres:exec-query pomo:*database* sql map-reader)))))
+      (if (citus-backfill-table-p (target pgsql))
+          ;;
+          ;; SELECT dist_key, * FROM source JOIN dist ON ...
+          ;;
+          (let ((sql (citus-format-sql-select (source pgsql) (target pgsql))))
+            (log-message :sql "~a" sql)
+            (cl-postgres:exec-query pomo:*database* sql map-reader))
+
+          ;;
+          ;; No JOIN to add to backfill data in the SQL query here.
+          ;;
+          (let* ((cols   (mapcar #'column-name (fields pgsql)))
+                 (sql
+                  (format nil
+                          "SELECT ~{~s::text~^, ~} FROM ~s.~s"
+                          cols
+                          (schema-source-name (table-schema (source pgsql)))
+                          (table-source-name (source pgsql)))))
+            (log-message :sql "~a" sql)
+            (cl-postgres:exec-query pomo:*database* sql map-reader))))))
+
+(defmethod copy-column-list ((pgsql copy-pgsql))
+  "We are sending the data in the MySQL columns ordering here."
+  (mapcar #'column-name (fields pgsql)))
 
 (defmethod fetch-metadata ((pgsql copy-pgsql)
                            (catalog catalog)

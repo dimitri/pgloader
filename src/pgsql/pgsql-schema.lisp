@@ -235,7 +235,7 @@
   "Get the list of PostgreSQL index definitions per table."
   (loop
      :for (schema-name table-name fschema-name ftable-name
-                       conoid conname condef
+                       conoid pkeyoid conname condef
                        cols fcols
                        updrule delrule mrule deferrable deferred)
      :in (query nil
@@ -277,9 +277,13 @@
                   (table    (find-table schema table-name))
                   (fschema  (find-schema catalog fschema-name))
                   (ftable   (find-table fschema ftable-name))
+                  (pkey     (find pkeyoid (table-index-list ftable)
+                                  :test #'=
+                                  :key #'index-oid))
                   (fk
                    (make-fkey :name (ensure-quoted conname)
                               :oid conoid
+                              :pkey pkey
                               :condef condef
                               :table table
                               :columns (split-sequence:split-sequence #\, cols)
@@ -290,6 +294,13 @@
                               :match-rule (pg-fk-match-rule-to-match-clause mrule)
                               :deferrable deferrable
                               :initially-deferred deferred)))
+             ;; add the fkey reference to the pkey index too
+             (unless (find conoid
+                           (index-fk-deps pkey)
+                           :test #'=
+                           :key #'fkey-oid)
+               (push-to-end fk (index-fk-deps pkey)))
+             ;; check that both tables are in pgloader's scope
              (if (and table ftable)
                  (add-fkey table fk)
                  (log-message :notice "Foreign Key ~a is ignored, one of its table is missing from pgloader table selection"
