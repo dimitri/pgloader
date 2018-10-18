@@ -42,7 +42,7 @@
 ;;; Column structures details depend on the specific source type and are
 ;;; implemented in each source separately.
 ;;;
-(defstruct catalog name schema-list types-without-btree)
+(defstruct catalog name schema-list types-without-btree distribution-rules)
 
 (defstruct schema source-name name catalog in-search-path
            table-list view-list extension-list sqltype-list)

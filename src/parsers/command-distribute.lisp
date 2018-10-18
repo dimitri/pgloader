@@ -25,13 +25,13 @@
 (defrule distribute-reference (and kw-distribute dsn-table-name
                                    kw-as kw-reference kw-table)
   (:lambda (d-r)
-    (make-citus-reference-table :table (create-table-from-dsn-table-name d-r))))
+    (make-citus-reference-rule :table (create-table-from-dsn-table-name d-r))))
 
 (defrule distribute-using (and kw-distribute dsn-table-name
                                kw-using maybe-quoted-namestring)
   (:lambda (d-u)
-    (make-citus-distributed-table :table (create-table-from-dsn-table-name d-u)
-                                  :using (make-column :name (fourth d-u)))))
+    (make-citus-distributed-rule :table (create-table-from-dsn-table-name d-u)
+                                 :using (make-column :name (fourth d-u)))))
 
 ;;;
 ;;; The namestring rule allows for commas and we use them as a separator
@@ -62,9 +62,9 @@
                                     kw-using maybe-quoted-namestring
                                     kw-from distribute-from-list)
   (:lambda (d-u-f)
-    (make-citus-distributed-table :table (create-table-from-dsn-table-name d-u-f)
-                                  :using (make-column :name (fourth d-u-f))
-                                  :from (mapcar #'create-table (sixth d-u-f)))))
+    (make-citus-distributed-rule :table (create-table-from-dsn-table-name d-u-f)
+                                 :using (make-column :name (fourth d-u-f))
+                                 :from (mapcar #'create-table (sixth d-u-f)))))
 
 (defrule distribute-commands (+ (or distribute-using-from
                                     distribute-using

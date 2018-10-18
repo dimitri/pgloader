@@ -19,8 +19,7 @@
                                      set-table-oids
                                      materialize-views
                                      foreign-keys
-                                     include-drop
-                                     distribute)
+                                     include-drop)
   "Prepare the target PostgreSQL database: create tables casting datatypes
    from the MySQL definitions, prepare index definitions and create target
    tables for materialized views.
@@ -126,10 +125,10 @@
   ;; placement 2299, since DDL has been executed on a connection that is in
   ;; use
   ;;
-  (when distribute
+  (when (catalog-distribution-rules catalog)
     (with-pgsql-transaction (:pgconn (target-db copy))
       (with-stats-collection ("Citus Distribute Tables" :section :pre)
-        (create-distributed-table distribute))))
+        (create-distributed-table (catalog-distribution-rules catalog)))))
 
   ;; log the catalog we just fetched and (maybe) merged
   (log-message :data "CATALOG: ~s" catalog))
@@ -249,7 +248,8 @@
 
   ;; we also support schema changes necessary for Citus distribution
   (when distribute
-    (pgloader.catalog::citus-distribute-schema catalog distribute)))
+    (setf (catalog-distribution-rules catalog)
+          (citus-distribute-schema catalog distribute))))
 
 
 ;;;
@@ -363,8 +363,7 @@
                                   :include-drop include-drop
                                   :foreign-keys foreign-keys
                                   :set-table-oids set-table-oids
-                                  :materialize-views materialize-views
-                                  :distribute distribute)
+                                  :materialize-views materialize-views)
 
           ;; if there's an AFTER SCHEMA DO/EXECUTE command, now is the time
           ;; to run it.

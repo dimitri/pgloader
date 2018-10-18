@@ -77,6 +77,7 @@
            #:catalog-name
            #:catalog-schema-list
            #:catalog-types-without-btree
+           #:catalog-distribution-rules
 
            #:schema-name
            #:schema-catalog
@@ -209,14 +210,14 @@
            #:match-rule-action
            #:match-rule-args
 
-           #:citus-reference-table
-           #:citus-distributed-table
-           #:make-citus-reference-table
-           #:make-citus-distributed-table
-           #:citus-reference-table-table
-           #:citus-distributed-table-table
-           #:citus-distributed-table-using
-           #:citus-distributed-table-from
+           #:citus-reference-rule
+           #:citus-distributed-rule
+           #:make-citus-reference-rule
+           #:make-citus-distributed-rule
+           #:citus-reference-rule-rule
+           #:citus-distributed-rule-table
+           #:citus-distributed-rule-using
+           #:citus-distributed-rule-from
            #:citus-format-sql-select
            #:citus-backfill-table-p
 
@@ -288,6 +289,16 @@
   (:export #:*queries*
            #:sql))
 
+(defpackage #:pgloader.citus
+  (:use #:cl
+        #:pgloader.params
+        #:pgloader.catalog
+        #:pgloader.quoting
+        #:pgloader.monitor)
+  (:export #:citus-distribute-schema
+           #:citus-format-sql-select
+           #:citus-backfill-table-p))
+
 (defpackage #:pgloader.utils
   (:use #:cl
         #:pgloader.params
@@ -295,7 +306,8 @@
         #:pgloader.quoting
         #:pgloader.catalog
         #:pgloader.monitor
-        #:pgloader.state)
+        #:pgloader.state
+        #:pgloader.citus)
   (:import-from #:alexandria
                 #:appendf
                 #:read-file-into-string)
@@ -326,7 +338,8 @@
   (cl-user::export-inherited-symbols "pgloader.quoting" "pgloader.utils")
   (cl-user::export-inherited-symbols "pgloader.catalog" "pgloader.utils")
   (cl-user::export-inherited-symbols "pgloader.monitor" "pgloader.utils")
-  (cl-user::export-inherited-symbols "pgloader.state"   "pgloader.utils"))
+  (cl-user::export-inherited-symbols "pgloader.state"   "pgloader.utils")
+  (cl-user::export-inherited-symbols "pgloader.citus"   "pgloader.utils"))
 
 
 ;;
