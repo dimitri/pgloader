@@ -18,6 +18,8 @@ FROM debian:stable-slim as builder
         time \
         unzip \
         wget \
+        cl-ironclad \
+        cl-babel \
       && rm -rf /var/lib/apt/lists/*
 
   COPY ./ /opt/src/pgloader

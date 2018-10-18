@@ -18,6 +18,8 @@ FROM debian:stable-slim as builder
         time \
         unzip \
         wget \
+        cl-ironclad \
+        cl-babel \
       && rm -rf /var/lib/apt/lists/*
 
   RUN curl -SL https://github.com/Clozure/ccl/releases/download/v1.11.5/ccl-1.11.5-linuxx86.tar.gz \
