@@ -95,9 +95,6 @@
 
 (defrule mysql-prefix "mysql://" (:constant (list :type :mysql)))
 
-(defrule mysql-dsn-dbname (and "/" maybe-quoted-namestring)
-  (:lambda (m-d-d) (list :dbname (text (second m-d-d)))))
-
 (defrule mysql-dsn-option-usessl-true  "true"  (:constant :yes))
 (defrule mysql-dsn-option-usessl-false "false" (:constant :no))
 
@@ -123,7 +120,7 @@
 (defrule mysql-uri (and mysql-prefix
                         (? dsn-user-password)
                         (? dsn-hostname)
-                        mysql-dsn-dbname
+                        dsn-dbname
                         (? mysql-dsn-options))
   (:lambda (uri)
     (destructuring-bind (&key type
