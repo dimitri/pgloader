@@ -57,3 +57,11 @@
                                      quoted-namestring
                                      namestring))
 
+(defrule open-paren (and ignore-whitespace #\( ignore-whitespace)
+  (:constant :open-paren))
+
+(defrule close-paren (and ignore-whitespace #\) ignore-whitespace)
+  (:constant :close-paren))
+
+(defrule comma-separator (and ignore-whitespace #\, ignore-whitespace)
+  (:constant ","))

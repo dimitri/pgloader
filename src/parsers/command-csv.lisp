@@ -231,11 +231,6 @@
     (destructuring-bind (field1 fields) source
       (list* field1 fields))))
 
-(defrule open-paren (and ignore-whitespace #\( ignore-whitespace)
-  (:constant :open-paren))
-(defrule close-paren (and ignore-whitespace #\) ignore-whitespace)
-  (:constant :close-paren))
-
 (defrule having-fields (and kw-having kw-fields) (:constant nil))
 
 (defrule csv-source-field-list (and (? having-fields)

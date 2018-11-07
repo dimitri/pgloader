@@ -15,14 +15,16 @@
                                (? " "))
   (:lambda (noise) (second noise)))
 
-(defrule sqlite-single-typemod (and #\( (+ (digit-char-p character)) #\))
+(defrule sqlite-single-typemod (and open-paren
+                                    (+ (digit-char-p character))
+                                    close-paren)
   (:lambda (st) (cons (parse-integer (text (second st))) nil)))
 
-(defrule sqlite-double-typemod (and #\(
+(defrule sqlite-double-typemod (and open-paren
                                     (+ (digit-char-p character))
-                                    (* (or #\, #\Space))
+                                    comma-separator
                                     (+ (digit-char-p character))
-                                    #\))
+                                    close-paren)
   (:lambda (dt) (cons (parse-integer (text (second dt)))
                       (parse-integer (text (fourth dt))))))
 
@@ -31,9 +33,9 @@
 (defrule sqlite-type-name (and (* extra-qualifiers)
                                (+ (alpha-char-p character))
                                (* extra-qualifiers)
-                               (* #\Space)
+                               ignore-whitespace
                                (? sqlite-typemod)
-                               (* #\Space)
+                               ignore-whitespace
                                (* extra-qualifiers))
   (:lambda (tn) (list (text (second tn))
                       (fifth tn)
