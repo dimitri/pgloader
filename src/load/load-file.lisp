@@ -44,7 +44,8 @@
           (setf pgsql-catalog
                 (fetch-pgsql-catalog (db-name pgconn)
                                      :table (target copy)
-                                     :variant (pgconn-variant pgconn)))
+                                     :variant (pgconn-variant pgconn)
+                                     :pgversion (pgconn-major-version pgconn)))
 
           ;; if the user didn't tell us the column list of the table, now is
           ;; a proper time to set it in the copy object

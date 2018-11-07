@@ -70,9 +70,11 @@
           ;;
           ;; to be able to do that properly, get the constraints from
           ;; the pre-existing target database catalog
-          (let ((pgsql-catalog
-                 (fetch-pgsql-catalog (db-name (target-db copy))
-                                      :source-catalog catalog)))
+          (let* ((pgversion   (pgconn-major-version (target-db copy)))
+                 (pgsql-catalog
+                  (fetch-pgsql-catalog (db-name (target-db copy))
+                                       :source-catalog catalog
+                                       :pgversion pgversion)))
             (merge-catalogs catalog pgsql-catalog))
 
           ;; now the foreign keys and only then the indexes, because a

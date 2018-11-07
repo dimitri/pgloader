@@ -66,3 +66,22 @@
     (recompute-fs-and-retry ()
       (setf *fs* (walk-sources-and-build-fs))
       (sql url))))
+
+(defun sql-url-for-variant (base filename &optional variant)
+  "Build a SQL URL for given VARIANT"
+  (flet ((sql-base-url (base filename)
+           (format nil "/~a/~a" base filename)))
+    (if variant
+        (let ((sql-variant-url
+               (format nil "/~a/~a/~a"
+                       base
+                       (string-downcase (typecase variant
+                                          (symbol (symbol-name variant))
+                                          (string variant)
+                                          (t      (princ-to-string variant))))
+                       filename)))
+          (if (gethash sql-variant-url *fs*)
+              sql-variant-url
+              (sql-base-url base filename)))
+
+        (sql-base-url base filename))))

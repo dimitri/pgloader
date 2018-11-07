@@ -82,7 +82,8 @@
                           :use-result-as-read t
                           :section :pre)
     (with-pgsql-transaction (:pgconn (source-db pgsql))
-      (let ((variant (pgconn-variant (source-db pgsql))))
+      (let ((variant   (pgconn-variant (source-db pgsql)))
+            (pgversion (pgconn-major-version (source-db pgsql))))
        (when (eq :pgdg variant)
          (list-all-sqltypes catalog
                             :including including
@@ -95,7 +96,8 @@
        (when create-indexes
          (list-all-indexes catalog
                            :including including
-                           :excluding excluding))
+                           :excluding excluding
+                           :pgversion pgversion))
 
        (when (and (eq :pgdg variant) foreign-keys)
          (list-all-fkeys catalog

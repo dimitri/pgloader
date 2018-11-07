@@ -10,7 +10,8 @@
                               source-catalog
                               including
                               excluding
-                              (variant :pgdg))
+                              (variant :pgdg)
+                              pgversion)
   "Fetch PostgreSQL catalogs for the target database. A PostgreSQL
    connection must be opened."
   (let* ((*identifier-case* :quote)
@@ -35,7 +36,8 @@
 
     (list-all-indexes catalog
                       :including including
-                      :excluding excluding)
+                      :excluding excluding
+                      :pgversion pgversion)
 
     (when (eq :pgdg variant)
       (list-all-fkeys catalog
@@ -193,7 +195,7 @@
        (add-field table field))
      :finally (return catalog)))
 
-(defun list-all-indexes (catalog &key including excluding)
+(defun list-all-indexes (catalog &key including excluding pgversion)
   "Get the list of PostgreSQL index definitions per table."
   (loop
      :for (schema-name name oid
@@ -201,7 +203,9 @@
                        primary unique cols sql conname condef)
      :in (query nil
                 (format nil
-                        (sql "/pgsql/list-all-indexes.sql")
+                        (sql (sql-url-for-variant "pgsql"
+                                                  "list-all-indexes.sql"
+                                                  pgversion))
                         including       ; do we print the clause?
                         (filter-list-to-where-clause including
                                                      nil
@@ -215,6 +219,7 @@
      :do (let* ((schema   (find-schema catalog schema-name))
                 (tschema  (find-schema catalog table-schema))
                 (table    (find-table tschema table-name))
+                (columns  (parse-index-column-names cols sql))
                 (pg-index
                  (make-index :name (ensure-quoted name)
                              :oid oid
@@ -222,7 +227,7 @@
                              :table table
                              :primary primary
                              :unique unique
-                             :columns (split-sequence:split-sequence #\, cols)
+                             :columns columns
                              :sql sql
                              :conname (unless (eq :null conname)
                                         (ensure-quoted conname))
@@ -438,3 +443,30 @@
            ;; going to take care of creating the type.
            (add-sqltype schema sqltype)))
      :finally (return catalog)))
+
+
+
+;;;
+;;; Extra utils like parsing a list of column names from an index definition.
+;;;
+(defun parse-index-column-names (columns index-definition)
+  "Return a list of column names for the given index."
+  (if (and columns (not (eq :null columns)))
+      ;; the normal case, no much parsing to do, the data has been prepared
+      ;; for us in the SQL query
+      (split-sequence:split-sequence #\, columns)
+
+      ;; the redshift variant case, where there's no way to string_agg or
+      ;; even array_to_string(array_agg(...)) and so we need to parse the
+      ;; index-definition instead.
+      ;;
+      ;; CREATE UNIQUE INDEX pg_amproc_opc_proc_index ON pg_amproc USING btree (amopclaid, amprocsubtype, amprocnum)
+      (when index-definition
+        (let ((open-paren-pos  (position #\( index-definition))
+              (close-paren-pos (position #\) index-definition)))
+          (when (and open-paren-pos close-paren-pos)
+            (mapcar (lambda (colname) (string-trim " " colname))
+                    (split-sequence:split-sequence #\,
+                                                   index-definition
+                                                   :start (+ 1 open-paren-pos)
+                                                   :end close-paren-pos)))))))

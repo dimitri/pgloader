@@ -287,7 +287,8 @@
 (defpackage #:pgloader.queries
   (:use #:cl #:pgloader.params)
   (:export #:*queries*
-           #:sql))
+           #:sql
+           #:sql-url-for-variant))
 
 (defpackage #:pgloader.citus
   (:use #:cl
