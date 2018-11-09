@@ -36,13 +36,16 @@
                pgloader.catalog::extra)
       field
     (let* ((ctype (pgsql-column-ctype field))
+           (extra (when (and (stringp (column-default field))
+                             (search "identity" (column-default field)))
+                    :auto-increment))
            (pgcol (apply-casting-rules nil
                                        pgloader.catalog::name
                                        pgloader.catalog::type-name
                                        ctype
                                        pgloader.catalog::default
                                        pgloader.catalog::nullable
-                                       pgloader.catalog::extra)))
+                                       extra)))
       ;; re-install our instruction not to transform default value: it comes
       ;; from PostgreSQL, and we trust it.
       (setf (column-transform-default pgcol)
@@ -55,9 +58,15 @@
                 ((and (stringp default) (string= "NULL" default))
                  :null)
 
-                ((and (stringp default)
-                      (or (string= "getdate()" default)))
+                ((and (stringp default) (string= "getdate()" default))
                  :current-timestamp)
+
+                ;; get rid of the identity default value, we already added
+                ;; an hint in the column-extra field.
+                ;;
+                ;; "identity"(347358, 0, ('1,1'::character varying)::text)
+                ((and (stringp default) (search "identity" default))
+                 :null)
 
                 (t (column-default pgcol))))
 

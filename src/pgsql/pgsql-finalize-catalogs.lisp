@@ -15,6 +15,8 @@
 (in-package #:pgloader.pgsql)
 
 (defun finalize-catalogs (catalog variant)
+  "Finalize the target PostgreSQL catalogs, dumbing down datatypes when the
+   target actually is Redshift rather than core PostgreSQL."
   ;;
   ;; For Core PostgreSQL, we also want to find data types names that have
   ;; no Btree support and fetch alternatives. This allows for supporting
@@ -30,7 +32,9 @@
   ;;
   (adjust-data-types catalog variant))
 
-(defgeneric adjust-data-types (catalog variant))
+(defgeneric adjust-data-types (catalog variant)
+  (:documentation
+   "Adjust PostgreSQL data types depending on the variant we target."))
 
 ;;;
 ;;; Nothing needs to be done for PostgreSQL variant :pgdg, of course.
