@@ -20,7 +20,6 @@
 		       nil
 		       col))
 		 (lambda (col)
-		   (declare (optimize speed))
 		   (if (string= null-as col) nil col))))
 
 	   (field-name-as-symbol (field-name-or-list)
@@ -120,7 +119,8 @@
 		    (destructuring-bind (&optional ,@args &rest extra) row
 		      (declare (ignorable ,@args) (ignore extra))
                       (let ,values
-                        (declare (ignorable ,@args))
+                        (declare (ignorable ,@args)
+                                 (type vector ,@args))
                         (vector ,@newrow)))))))))
       ;; allow for some debugging
       (if compile (compile nil projection) projection))))
