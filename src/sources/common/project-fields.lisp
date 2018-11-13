@@ -115,12 +115,11 @@
                                           sexp))
                               (t      sexp)))))
 		 `(lambda (row)
-		    (declare (optimize speed) (type list row))
+		    (declare (type list row))
 		    (destructuring-bind (&optional ,@args &rest extra) row
 		      (declare (ignorable ,@args) (ignore extra))
                       (let ,values
-                        (declare (ignorable ,@args)
-                                 (type vector ,@args))
+                        (declare (ignorable ,@args))
                         (vector ,@newrow)))))))))
       ;; allow for some debugging
       (if compile (compile nil projection) projection))))

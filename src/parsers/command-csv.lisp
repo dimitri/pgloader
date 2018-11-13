@@ -134,7 +134,8 @@
                         option-fields-terminated-by
                         option-trim-unquoted-blanks
                         option-keep-unquoted-blanks
-                        option-csv-escape-mode))
+                        option-csv-escape-mode
+                        option-null-if))
 
 (defrule csv-options (and kw-with
                              (and csv-option (* (and comma csv-option))))
@@ -429,26 +430,35 @@
        (progn
          ,(sql-code-block pg-db-conn :pre before "before load")
 
-         (let ((on-error-stop             (getf ',options :on-error-stop))
-               (truncate                  (getf ',options :truncate))
-               (disable-triggers          (getf ',options :disable-triggers))
-               (drop-indexes              (getf ',options :drop-indexes))
-               (max-parallel-create-index (getf ',options :max-parallel-create-index))
-               (source
-                (make-instance 'copy-csv
-                               :target-db  ,pg-db-conn
-                               :source     source-db
-                               :target     (create-table ',target-table-name)
-                               :encoding   ,encoding
-                               :fields    ',fields
-                               :columns   ',columns
-                               ,@(remove-batch-control-option
-                                  options :extras '(:worker-count
-                                                    :concurrency
-                                                    :truncate
-                                                    :drop-indexes
-                                                    :disable-triggers
-                                                    :max-parallel-create-index)))))
+         (let* ((on-error-stop             (getf ',options :on-error-stop))
+                (truncate                  (getf ',options :truncate))
+                (disable-triggers          (getf ',options :disable-triggers))
+                (drop-indexes              (getf ',options :drop-indexes))
+                (max-parallel-create-index (getf ',options :max-parallel-create-index))
+                (fields
+                 ',(let ((null-as (getf options :null-as)))
+                     (if null-as
+                         (mapcar (lambda (field)
+                                   (if (member :null-as field) field
+                                       (append field (list :null-as null-as))))
+                                 fields)
+                         fields)))
+                (source
+                 (make-instance 'copy-csv
+                                :target-db  ,pg-db-conn
+                                :source     source-db
+                                :target     (create-table ',target-table-name)
+                                :encoding   ,encoding
+                                :fields    fields
+                                :columns   ',columns
+                                ,@(remove-batch-control-option
+                                   options :extras '(:null-as
+                                                     :worker-count
+                                                     :concurrency
+                                                     :truncate
+                                                     :drop-indexes
+                                                     :disable-triggers
+                                                     :max-parallel-create-index)))))
            (copy-database source
                           ,@ (when worker-count
                                (list :worker-count worker-count))

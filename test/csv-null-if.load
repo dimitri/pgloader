@@ -1,0 +1,22 @@
+LOAD CSV
+     FROM INLINE (id, number, data)
+     INTO postgresql:///pgloader?nullif
+
+     BEFORE LOAD DO
+      $$ drop table if exists nullif; $$,
+      $$ CREATE TABLE nullif
+         (
+            id     serial primary key,
+            number integer,
+            data   text
+         );
+      $$
+
+     WITH null if '\N',
+          fields terminated by ',',
+          fields enclosed by '"',
+          fields escaped by backslash-quote;
+
+
+"1",\N,"testing nulls"
+"2","2","another test"
