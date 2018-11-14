@@ -51,6 +51,10 @@
     ("on-error-stop" :type boolean
                      :documentation "Refrain from handling errors properly.")
 
+    ("no-ssl-cert-verification"
+     :type boolean
+     :documentation "Instruct OpenSSL to bypass verifying certificates.")
+
     (("context" #\C) :type string :documentation "Command Context Variables")
 
     (("with") :type string :list t :optional t
@@ -197,6 +201,7 @@
 				client-min-messages log-min-messages summary
 				root-dir self-upgrade
                                 with set field cast type encoding before after
+                                no-ssl-cert-verification
                                 regress)
 	  options
 
@@ -249,10 +254,14 @@
                   (lisp-implementation-type)
                   (lisp-implementation-version)))
 
-	(when help
+	(when (or help)
           (usage argv))
 
 	(when (or help version) (uiop:quit +os-code-success+))
+
+        (when (null arguments)
+          (usage argv)
+          (uiop:quit +os-code-error-usage+))
 
 	(when list-encodings
 	  (show-encodings)
@@ -315,6 +324,9 @@
                     (log-message :log "Main logs in '~a'"
                                  (uiop:native-namestring *log-filename*))
                     (log-message :log "Data errors in '~a'~%" *root-dir*)
+
+                    (when no-ssl-cert-verification
+                      (setf cl+ssl:*make-ssl-client-stream-verify-default* nil))
 
                     (cond
                       ((and regress (= 1 (length arguments)))

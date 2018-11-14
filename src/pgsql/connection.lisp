@@ -118,7 +118,19 @@
                                          (uiop:native-namestring crt-file)))
          (pomo::*ssl-key-file*         (when (and (ssl-enable-p pgconn)
                                                   (probe-file key-file))
-                                         (uiop:native-namestring key-file))))
+                                         (uiop:native-namestring key-file)))
+         ;;
+         ;; It's ok to set :verify-mode to NONE here because
+         ;; cl+ssl:*make-ssl-client-stream-verify-default* defaults to
+         ;; :require and takes precedence.
+         ;;
+         ;; Only when --no-ssl-cert-verification is passed as a command line
+         ;; option do we set cl+ssl:*make-ssl-client-stream-verify-default*
+         ;; to NIL, then allowing the NONE behaviour set here.
+         ;;
+         (ssl-context
+          (CL+SSL:MAKE-CONTEXT :disabled-protocols nil
+                               :verify-mode CL+SSL:+SSL-VERIFY-NONE+)))
     (flet ((connect (pgconn username)
              (handler-case
                  ;; in some cases (client_min_messages set to debug5
@@ -128,20 +140,29 @@
                                  #'(lambda (w)
                                      (log-message :warning "~a" w)
                                      (muffle-warning))))
-                   (pomo:connect (db-name pgconn)
-                                 (or username (db-user pgconn))
-                                 (db-pass pgconn)
-                                 (let ((host (db-host pgconn)))
-                                   (if (and (consp host) (eq :unix (car host)))
-                                       :unix
-                                       host))
-                                 :port (db-port pgconn)
-                                 :use-ssl (or (pgconn-use-ssl pgconn) :no)))
+                   (CL+SSL:WITH-GLOBAL-CONTEXT (ssl-context :auto-free-p t)
+                    (pomo:connect (db-name pgconn)
+                                  (or username (db-user pgconn))
+                                  (db-pass pgconn)
+                                  (let ((host (db-host pgconn)))
+                                    (if (and (consp host) (eq :unix (car host)))
+                                        :unix
+                                        host))
+                                  :port (db-port pgconn)
+                                  :use-ssl (or (pgconn-use-ssl pgconn) :no))))
+
                ((or too-many-connections configuration-limit-exceeded) (e)
                  (log-message :error
                               "Failed to connect to ~a: ~a; will try again in ~fs"
                               pgconn e *retry-connect-delay*)
-                 (sleep *retry-connect-delay*)))))
+                (sleep *retry-connect-delay*))
+
+               (CL+SSL:SSL-ERROR-VERIFY (e)
+                 (log-message :error
+                              "Connecting to PostgreSQL ~a: ~a"
+                              (db-host pgconn) e)
+                 (log-message :log "You may try --no-ssl-cert-verification")
+                 (error e)))))
       (loop :while (null (conn-handle pgconn))
          :repeat *retry-connect-times*
          :do (setf (conn-handle pgconn) (connect pgconn username))))

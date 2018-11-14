@@ -28,6 +28,10 @@
                             ;; bindings updates for libs
                             ;; CFFI is used by the SQLite lib
                             (cffi:*default-foreign-encoding*
-                             . ,cffi:*default-foreign-encoding*))))
+                             . ,cffi:*default-foreign-encoding*)
+
+                            ;; CL+SSL can be picky about verifying certs
+                            (cl+ssl:*make-ssl-client-stream-verify-default*
+                             . ,cl+ssl:*make-ssl-client-stream-verify-default*))))
   "Wrapper around lparallel:make-kernel that sets our usual bindings."
   (lp:make-kernel worker-count :bindings bindings))
