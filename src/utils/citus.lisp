@@ -76,14 +76,16 @@
       (setf (citus-distributed-rule-table rule)
             (citus-find-table catalog table)))))
 
-(defmethod print-object ((table citus-reference-rule) stream)
-  (print-unreadable-object (table stream :type t :identity t)
-    (with-slots (table) table
-      (format stream "distribute ~a as reference" (format-table-name table)))))
+(defmethod print-object ((rule citus-reference-rule) stream)
+  (print-unreadable-object (rule stream :type t :identity t)
+    (with-slots (table) rule
+      (format stream
+              "distribute ~a as reference"
+              (format-table-name table)))))
 
-(defmethod print-object ((table citus-distributed-rule) stream)
-  (print-unreadable-object (table stream :type t :identity t)
-    (with-slots (table using from) table
+(defmethod print-object ((rule citus-distributed-rule) stream)
+  (print-unreadable-object (rule stream :type t :identity t)
+    (with-slots (table using from) rule
       (format stream
               "distribute ~a :using ~a~@[ :from ~{~a~^, ~}~]"
               (format-table-name table)
@@ -231,9 +233,9 @@
 (defun add-column-to-pkey (table column-name)
   "Add COLUMN in the first position of the TABLE's primary key index."
   (let* ((index  (find-if #'index-primary (table-index-list table)))
-         (idxcol (find column-name (index-columns index) :test #'string=)))
-    (assert (not (null index)))
-    (unless idxcol
+         (idxcol (when index
+                   (find column-name (index-columns index) :test #'string=))))
+    (when (and index (null idxcol))
       ;; add a new column
       (push column-name (index-columns index))
       ;; now remove origin schema sql and condef, we need to redo them
