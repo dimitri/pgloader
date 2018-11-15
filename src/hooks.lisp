@@ -30,10 +30,8 @@
     ;; handles some context and things around loading with CFFI.
     (cl+ssl:reload)))
 
-#|
 #+ccl  (push #'open-foreign-libs *lisp-startup-functions*)
 #+sbcl (push #'open-foreign-libs sb-ext:*init-hooks*)
-|#
 
 #+ccl  (push #'close-foreign-libs *save-exit-functions*)
 #+sbcl (push #'close-foreign-libs sb-ext:*save-hooks*)
