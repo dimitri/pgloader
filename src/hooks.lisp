@@ -12,6 +12,13 @@
 ;; So that we can #+pgloader-image some code away, see main.lisp
 (push :pgloader-image *features*)
 
+;;;
+;;; We need to support *print-circle* for the debug traces of the catalogs,
+;;; and while at it let's enforce *print-pretty* too.
+;;;
+(setf *print-circle* t *print-pretty* t)
+
+
 (in-package #:cl-user)
 
 (defun close-foreign-libs ()

@@ -7,7 +7,9 @@
 
 (defun make-kernel (worker-count
 		    &key (bindings
-			  `((*monitoring-queue*   . ,*monitoring-queue*)
+			  `((*print-circle*       . ,*print-circle*)
+                            (*print-pretty*       . ,*print-pretty*)
+                            (*monitoring-queue*   . ,*monitoring-queue*)
                             (*copy-batch-rows*    . ,*copy-batch-rows*)
                             (*copy-batch-size*    . ,*copy-batch-size*)
                             (*rows-per-range*     . ,*rows-per-range*)
