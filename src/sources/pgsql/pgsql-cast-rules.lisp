@@ -36,9 +36,10 @@
                pgloader.catalog::extra)
       field
     (let* ((ctype (pgsql-column-ctype field))
-           (extra (when (and (stringp (column-default field))
-                             (search "identity" (column-default field)))
-                    :auto-increment))
+           (extra (or pgloader.catalog::extra
+                      (when (and (stringp (column-default field))
+                                 (search "identity" (column-default field)))
+                        :auto-increment)))
            (pgcol (apply-casting-rules nil
                                        pgloader.catalog::name
                                        pgloader.catalog::type-name
