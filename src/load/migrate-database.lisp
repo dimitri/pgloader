@@ -347,10 +347,15 @@
 
     ;; apply catalog level transformations to support the database migration
     ;; that's CAST rules, index WHERE clause rewriting and ALTER commands
-    (process-catalog copy catalog
-                     :alter-table alter-table
-                     :alter-schema alter-schema
-                     :distribute distribute)
+    (handler-case
+        (process-catalog copy catalog
+                         :alter-table alter-table
+                         :alter-schema alter-schema
+                         :distribute distribute)
+
+      (citus-rule-is-missing-from-list (e)
+        (log-message :fatal "~a" e)
+        (return-from copy-database)))
 
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (handler-case

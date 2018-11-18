@@ -172,6 +172,18 @@
 ;;; itself to the table-citus-rule slot so that we later know to generate a
 ;;; proper SELECT query that includes the backfilling.
 ;;;
+(define-condition citus-rule-is-missing-from-list (error)
+  ((rule  :initarg :rule :accessor citus-rule))
+  (:report
+   (lambda (err stream)
+     (let ((*print-circle* nil))
+       (format stream
+               "Failed to add column ~s to table ~a for lack of a FROM clause in the distribute rule:~%    distribute ~a using ~a from ?"
+               (column-name (citus-distributed-rule-using (citus-rule err)))
+               (format-table-name (citus-distributed-rule-table (citus-rule err)))
+               (format-table-name (citus-distributed-rule-table (citus-rule err)))
+               (column-name (citus-distributed-rule-using (citus-rule err))))))))
+
 (defgeneric apply-citus-rule (rule)
   (:documentation "Apply a Citus distribution RULE to given TABLE."))
 
@@ -206,28 +218,41 @@
         ;; it up in the last entry of the FROM rule's list.
         (let* ((last-from-rule (car (last (citus-distributed-rule-from rule))))
                (column-definition
-                (find (column-name (citus-distributed-rule-using rule))
-                      (table-field-list last-from-rule)
-                      :test #'string=
-                      :key #'column-name))
+                (when last-from-rule
+                  (find (column-name (citus-distributed-rule-using rule))
+                        (table-field-list last-from-rule)
+                        :test #'string=
+                        :key #'column-name)))
                (new-column
-                (make-column :name (column-name column-definition)
-                             :type-name (column-type-name column-definition)
-                             :nullable (column-nullable column-definition)
-                             :transform (column-transform column-definition))))
-          ;;
-          ;; Here also we need to add the new column to the PKEY definition,
-          ;; in first position.
-          ;;
-          (add-column-to-pkey table (column-name new-column))
+                (when column-definition
+                  (make-column :name (column-name column-definition)
+                               :type-name (column-type-name column-definition)
+                               :nullable (column-nullable column-definition)
+                               :transform (column-transform column-definition)))))
 
-          ;;
-          ;; We need to backfill the distribution key in the data, which
-          ;; we're implementing with a JOIN when we SELECT from the source
-          ;; table. We add the new field here.
-          ;;
-          (push new-column (table-field-list table))
-          (push new-column (table-column-list table))))))
+          (if column-definition
+              (progn
+                ;;
+                ;; Here also we need to add the new column to the PKEY
+                ;; definition, in first position.
+                ;;
+                (add-column-to-pkey table (column-name new-column))
+
+                ;;
+                ;; We need to backfill the distribution key in the data,
+                ;; which we're implementing with a JOIN when we SELECT from
+                ;; the source table. We add the new field here.
+                ;;
+                (push new-column (table-field-list table))
+                (push new-column (table-column-list table)))
+
+              ;;
+              ;; We don't have any table-field-list in the citus rule,
+              ;; meaning that the distribute ... using ... clause is lacking
+              ;; the FROM part, and we need it.
+              ;;
+              (error
+               (make-condition 'citus-rule-is-missing-from-list :rule rule)))))))
 
 
 (defun add-column-to-pkey (table column-name)

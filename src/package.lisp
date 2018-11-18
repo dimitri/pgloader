@@ -298,7 +298,8 @@
         #:pgloader.monitor)
   (:export #:citus-distribute-schema
            #:citus-format-sql-select
-           #:citus-backfill-table-p))
+           #:citus-backfill-table-p
+           #:citus-rule-is-missing-from-list))
 
 (defpackage #:pgloader.utils
   (:use #:cl
