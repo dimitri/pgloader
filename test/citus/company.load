@@ -4,6 +4,8 @@ load database
 
    with include drop, reset no sequences
 
+   cast column impressions.seen_at to "timestamp with time zone"
+
    distribute companies using id
    -- distribute campaigns using company_id
    -- distribute ads using company_id from campaigns

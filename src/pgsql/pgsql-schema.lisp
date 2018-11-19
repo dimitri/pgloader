@@ -185,7 +185,8 @@
      :do
      (let* ((schema    (maybe-add-schema catalog schema-name))
             (table     (maybe-add-table schema table-name :oid table-oid))
-            (field     (make-column :name name
+            (field     (make-column :table table
+                                    :name name
                                     :type-name type
                                     :type-mod typmod
                                     :nullable (not notnull)

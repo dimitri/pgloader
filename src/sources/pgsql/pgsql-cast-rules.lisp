@@ -26,7 +26,8 @@
 (defmethod cast ((field column) &key &allow-other-keys)
   "Return the PostgreSQL type definition from the given PostgreSQL column
    definition"
-  (with-slots (pgloader.catalog::name
+  (with-slots (pgloader.catalog::table
+               pgloader.catalog::name
                pgloader.catalog::type-name
                pgloader.catalog::type-mod
                pgloader.catalog::nullable
@@ -40,7 +41,7 @@
                       (when (and (stringp (column-default field))
                                  (search "identity" (column-default field)))
                         :auto-increment)))
-           (pgcol (apply-casting-rules nil
+           (pgcol (apply-casting-rules (table-source-name pgloader.catalog::table)
                                        pgloader.catalog::name
                                        pgloader.catalog::type-name
                                        ctype

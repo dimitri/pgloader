@@ -71,7 +71,7 @@
 ;;; produce, so that we know how to CREATE TABLEs in PostgreSQL whatever the
 ;;; source is.
 ;;;
-(defstruct column name type-name type-mod nullable default comment
+(defstruct column table name type-name type-mod nullable default comment
            transform extra (transform-default t))
 
 ;;;
