@@ -164,6 +164,9 @@ pgloader-standalone:
 test: $(PGLOADER)
 	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) CL=$(CL) -C test regress
 
+save: ./src/save.lisp $(LISP_SRC)
+	sbcl --no-userinit --load ./src/save.lisp
+
 clean-bundle:
 	rm -rf $(BUNDLEDIR)
 	rm -rf $(BUNDLETESTD)/$(BUNDLENAME)/*
