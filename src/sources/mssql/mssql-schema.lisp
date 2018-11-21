@@ -144,8 +144,14 @@
                                     :columns nil
                                     :filter filter))
             (index
-             (maybe-add-index table index-name pg-index :key #'index-name)))
-       (add-column index colname))
+             (when table
+               (maybe-add-index table index-name pg-index :key #'index-name))))
+       (unless table
+         (log-message :warning
+                      "Failed to find table ~s in schema ~s for index ~s, skipping the index"
+                      table-name schema-name index-name))
+       (when index
+         (add-column index colname)))
      :finally (return catalog)))
 
 (defun list-all-fkeys (catalog &key including excluding)
