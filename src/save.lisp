@@ -27,7 +27,9 @@
   (unless (probe-file qlsetup)
     (format t "File ~a is not found, installing Quicklisp from ~a~%"
             qlsetup *quicklisp.lisp*)
-    (uiop:run-program (format nil "curl -o ~a ~a" ql.lisp *quicklisp.lisp*))
+    (let ((command (format nil "curl -o ~a ~a" ql.lisp *quicklisp.lisp*)))
+      (format t "Running command: ~a~%" command)
+      (uiop:run-program command))
     (load ql.lisp)
     (let* ((quickstart (find-package "QUICKLISP-QUICKSTART"))
            (ql-install (find-symbol "INSTALL" quickstart)))
@@ -57,7 +59,9 @@
               #+ccl ccl:*command-line-argument-list*))
     (pgloader::main argv)))
 
-(let ((image-filename "/Users/dim/dev/pgloader/build/bin/pgloader"))
+(let* ((cwd            (uiop:getcwd))
+       (build-dir      (uiop:merge-pathnames* "build/bin/" cwd))
+       (image-filename (uiop:merge-pathnames* "pgloader" build-dir)))
   #+ccl
   (ccl:save-application image-filename
                         :toplevel-function #'cl-user::pgloader-image-main

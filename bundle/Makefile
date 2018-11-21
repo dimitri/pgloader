@@ -61,4 +61,7 @@ $(PGLOADER): $(BUILDAPP)
 test: $(PGLOADER)
 	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) -C $(SRCDIR)/test regress
 
+save:
+	sbcl --no-userinit --load ./save.lisp
+
 check: test ;

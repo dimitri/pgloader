@@ -1,6 +1,6 @@
 # pgloader build tool
 APP_NAME   = pgloader
-VERSION    = 3.5.2
+VERSION    = 3.6.0
 
 # use either sbcl or ccl
 CL	   = sbcl
@@ -24,7 +24,7 @@ QLDIR      = $(BUILDDIR)/quicklisp
 MANIFEST   = $(BUILDDIR)/manifest.ql
 LATEST     = $(BUILDDIR)/pgloader-latest.tgz
 
-BUNDLEDIST = 2018-04-30
+BUNDLEDIST = 2018-10-18
 BUNDLENAME = pgloader-bundle-$(VERSION)
 BUNDLEDIR  = $(BUILDDIR)/bundle/$(BUNDLENAME)
 BUNDLE     = $(BUILDDIR)/$(BUNDLENAME).tgz
@@ -182,8 +182,12 @@ $(BUNDLEDIR):
              --eval '(defvar *ql-dist* "$(BUNDLEDIST)")' \
              --load bundle/ql.lisp
 
-$(BUNDLE): $(BUNDLEDIR)
+$(BUNDLEDIR)/version.sexp: $(BUNDLEDIR)
+	echo "\"$(VERSION)\"" > $@
+
+$(BUNDLE): $(BUNDLEDIR) $(BUNDLEDIR)/version.sexp
 	cp bundle/README.md $(BUNDLEDIR)
+	cp bundle/save.lisp $(BUNDLEDIR)
 	sed -e s/%VERSION%/$(VERSION)/ < bundle/Makefile > $(BUNDLEDIR)/Makefile
 	git archive --format=tar --prefix=pgloader-$(VERSION)/ master \
 	     | tar -C $(BUNDLEDIR)/local-projects/ -xf -
