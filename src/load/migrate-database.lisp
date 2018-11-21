@@ -319,19 +319,32 @@
 
          (copy-kernel  (make-kernel worker-count))
          (copy-channel (let ((lp:*kernel* copy-kernel)) (lp:make-channel)))
-         (catalog      (fetch-metadata
-                        copy
-                        (make-catalog
-                         :name (typecase (source-db copy)
-                                 (db-connection (db-name (source-db copy)))
-                                 (fd-connection (pathname-name
-                                                 (fd-path (source-db copy))))))
-                        :materialize-views materialize-views
-                        :create-indexes create-indexes
-                        :foreign-keys foreign-keys
-                        :only-tables only-tables
-                        :including including
-                        :excluding excluding))
+         (catalog      (handler-case
+                           (fetch-metadata
+                            copy
+                            (make-catalog
+                             :name (typecase (source-db copy)
+                                     (db-connection
+                                      (db-name (source-db copy)))
+                                     (fd-connection
+                                      (pathname-name
+                                       (fd-path (source-db copy))))))
+                            :materialize-views materialize-views
+                            :create-indexes create-indexes
+                            :foreign-keys foreign-keys
+                            :only-tables only-tables
+                            :including including
+                            :excluding excluding)
+                         (mssql::mssql-error (e)
+                           (log-message :error "MSSQL ERROR: ~a" e)
+                           (log-message :log "You might need to review the FreeTDS protocol version in your freetds.conf file, see http://www.freetds.org/userguide/choosingtdsprotocol.htm")
+                           (return-from copy-database))
+                         (condition (e)
+                           (log-message :error
+                                        "ERROR ~a: ~a"
+                                        (conn-type (source-db copy))
+                                        e)
+                           (return-from copy-database))))
          pkeys
          (writers-count (make-hash-table :size (count-tables catalog)))
          (max-indexes   (when create-indexes
