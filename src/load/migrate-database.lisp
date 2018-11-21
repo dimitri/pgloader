@@ -341,7 +341,7 @@
                            (return-from copy-database))
                          (condition (e)
                            (log-message :error
-                                        "ERROR ~a: ~a"
+                                        "~a: ~a"
                                         (conn-type (source-db copy))
                                         e)
                            (return-from copy-database))))
@@ -368,6 +368,10 @@
 
       (citus-rule-is-missing-from-list (e)
         (log-message :fatal "~a" e)
+        (return-from copy-database))
+
+      (condition (e)
+        (log-message :fatal "Failed to process catalogs: ~a" e)
         (return-from copy-database)))
 
     ;; if asked, first drop/create the tables on the PostgreSQL side
