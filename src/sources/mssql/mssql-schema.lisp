@@ -201,6 +201,7 @@
 
    Mostly we just use the name, and make try to avoid parsing dates."
   (case (intern (string-upcase type) "KEYWORD")
+    (:time           (format nil "convert(varchar, [~a], 114)" name))
     (:datetime       (format nil "convert(varchar, [~a], 126)" name))
     (:smalldatetime  (format nil "convert(varchar, [~a], 126)" name))
     (:date           (format nil "convert(varchar, [~a], 126)" name))
