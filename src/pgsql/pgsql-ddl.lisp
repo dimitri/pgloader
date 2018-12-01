@@ -266,9 +266,7 @@
                                  :collect (column-type-name
                                            (find idx-col tbl-cols
                                                  :test #'string-equal
-                                                 :key (lambda (col)
-                                                        (ensure-unquoted
-                                                         (column-name col)))))))
+                                                 :key #'column-name))))
                   (nobtree (catalog-types-without-btree
                             (schema-catalog (table-schema (index-table index))))))
              (let* ((idx-type (first idx-types))

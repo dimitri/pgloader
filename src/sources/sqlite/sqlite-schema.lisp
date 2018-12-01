@@ -150,7 +150,7 @@
   "Return the list of columns in INDEX-NAME."
   (let ((sql (format nil (sql "/sqlite/list-index-cols.sql") index-name)))
     (loop :for (index-pos table-pos col-name) :in (sqlite:execute-to-list db sql)
-       :collect col-name)))
+       :collect (apply-identifier-case col-name))))
 
 (defun list-indexes (table &optional (db *sqlite-db*))
   "Return the list of indexes attached to TABLE."
