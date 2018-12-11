@@ -1,10 +1,9 @@
 Migrating a MySQL Database to PostgreSQL
 ========================================
 
-This command instructs pgloader to load data from a database connection. The
-only supported database source is currently *MySQL*, and pgloader supports
-dynamically converting the schema of the source database and the indexes
-building.
+This command instructs pgloader to load data from a database connection.
+pgloader supports dynamically converting the schema of the source database
+and the indexes building.
 
 A default set of casting rules are provided and might be overloaded and
 appended to by the command.
@@ -608,6 +607,14 @@ Date::
   type datetime when default "0000-00-00 00:00:00"
     to timestamptz drop default
 	using zero-dates-to-null
+
+  type datetime with extra on update current timestamp when not null
+    to timestamptz drop not null drop default
+       using zero-dates-to-null
+
+  type datetime with extra on update current timestamp
+    to timestamptz drop default
+       using zero-dates-to-null
 
   type timestamp when default "0000-00-00 00:00:00" and not null
     to timestamptz drop not null drop default

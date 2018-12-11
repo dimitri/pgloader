@@ -22,6 +22,10 @@ Welcome to pgloader's documentation!
    ref/mysql
    ref/sqlite
    ref/mssql
+   ref/pgsql
+   ref/pgsql-citus-target
+   ref/pgsql-redshift-source
+   ref/pgsql-redshift-target
    ref/transforms
    bugreport
 

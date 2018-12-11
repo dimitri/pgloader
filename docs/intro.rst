@@ -17,6 +17,14 @@ pgloader knows how to read data from different kind of sources:
     * SQLite
     * MySQL
     * MS SQL Server
+    * PostgreSQL
+    * Redshift
+
+pgloader knows how to target different products using the PostgresQL Protocol:
+
+  * PostgreSQL
+  * `Citus <https://www.citusdata.com>`_
+  * Redshift
 
 The level of automation provided by pgloader depends on the data source
 type. In the case of CSV and Fixed Format files, a full description of the
