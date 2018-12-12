@@ -70,6 +70,125 @@ backfilled from referenced data. pgloader knows how to do that by generating
 a query like the following and importing the result set of such a query
 rather than the raw data from the source table.
 
+Citus Migration Example
+^^^^^^^^^^^^^^^^^^^^^^^
+
+With the migration command as above, pgloader adds the column ``company_id``
+to the tables that have a direct or indirect foreign key reference to the
+``companies`` table.
+
+We run pgloader using the following command, where the file
+`./test/citus/company.load
+<https://github.com/dimitri/pgloader/blob/master/test/citus/company.load>`_
+contains the pgloader command as shown above.
+
+::
+   
+   $ pgloader --client-min-messages sql ./test/citus/company.load
+
+The following SQL statements are all extracted from the log messages that
+the pgloader command outputs. We are going to have a look at the
+`impressions` table. It gets created with a new column `company_id` in the
+first position, as follows:
+
+::
+   
+   CREATE TABLE "public"."impressions" 
+   (
+     company_id                bigint,
+     "id"                      bigserial,
+     "ad_id"                   bigint default NULL,
+     "seen_at"                 timestamp with time zone default NULL,
+     "site_url"                text default NULL,
+     "cost_per_impression_usd" numeric(20,10) default NULL,
+     "user_ip"                 inet default NULL,
+     "user_data"               jsonb default NULL
+   );
+
+The original schema for this table does not have the `company_id` column,
+which means pgloader now needs to change the primary key definition, the
+foreign keys constraints definitions from and to this table, and also to
+*backfill* the `company_id` data to this table when doing the COPY phase of
+the migration.
+
+Then once the tables have been created, pgloader executes the following SQL
+statements::
+
+  SELECT create_distributed_table('"public"."companies"', 'id');
+  SELECT create_distributed_table('"public"."campaigns"', 'company_id');
+  SELECT create_distributed_table('"public"."ads"', 'company_id');
+  SELECT create_distributed_table('"public"."clicks"', 'company_id');
+  SELECT create_distributed_table('"public"."impressions"', 'company_id');
+
+Then when copying the data from the source PostgreSQL database to the new
+Citus tables, the new column (here ``company_id``) needs to be backfilled
+from the source tables. Here's the SQL query that pgloader uses as a data
+source for the ``ads`` table in our example:
+
+::
+
+  SELECT "campaigns".company_id::text, "ads".id::text, "ads".campaign_id::text,
+         "ads".name::text, "ads".image_url::text, "ads".target_url::text,
+         "ads".impressions_count::text, "ads".clicks_count::text,
+         "ads".created_at::text, "ads".updated_at::text
+         
+    FROM       "public"."ads"
+         JOIN "public"."campaigns"
+           ON ads.campaign_id = campaigns.id    
+
+The ``impressions`` table has an indirect foreign key reference to the
+``company`` table, which is the table where the distribution key is
+specified. pgloader will discover that itself from walking the PostgreSQL
+catalogs, and you may also use the following specification in the pgloader
+command to explicitely add the indirect dependency:
+
+::
+   
+   distribute impressions using company_id from ads, campaigns
+
+Given this schema, the SQL query used by pgloader to fetch the data for the
+`impressions` table is the following, implementing online backfilling of the
+data:
+   
+::
+   
+   SELECT "campaigns".company_id::text, "impressions".id::text,
+          "impressions".ad_id::text, "impressions".seen_at::text,
+          "impressions".site_url::text,
+          "impressions".cost_per_impression_usd::text,
+          "impressions".user_ip::text,
+          "impressions".user_data::text
+
+     FROM      "public"."impressions"
+
+          JOIN "public"."ads"
+            ON impressions.ad_id = ads.id
+
+          JOIN "public"."campaigns"
+            ON ads.campaign_id = campaigns.id
+
+When the data copying is done, then pgloader also has to install the indexes
+supporting the primary keys, and add the foreign key definitions to the
+schema. Those definitions are not the same as in the source schema, because
+of the adding of the distribution column to the table: we need to also add
+the column to the primary key and the foreign key constraints.
+
+Here's the commands issued by pgloader for the ``impressions`` table:
+
+::
+   
+   CREATE UNIQUE INDEX "impressions_pkey"
+       ON "public"."impressions" (company_id, id);
+
+   ALTER TABLE "public"."impressions"
+     ADD CONSTRAINT "impressions_ad_id_fkey"
+        FOREIGN KEY(company_id,ad_id)
+         REFERENCES "public"."ads"(company_id,id)
+
+Given a single line of specification ``distribute companies using id`` then
+pgloader implements all the necessary schema changes on the fly when
+migrating to Citus, and also dynamically backfills the data.
+         
 Citus Migration: Limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
