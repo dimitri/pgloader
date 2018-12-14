@@ -10,10 +10,13 @@ the data into the server, and manages errors by filling a pair of
 pgloader knows how to read data from different kind of sources:
 
   * Files
+
     * CSV
     * Fixed Format
     * DBF
+
   * Databases
+
     * SQLite
     * MySQL
     * MS SQL Server
