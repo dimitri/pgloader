@@ -452,6 +452,9 @@
 
            #:create-distributed-table
 
+           #:make-including-expr-from-catalog
+           #:make-including-expr-from-view-names
+
            ;; finalizing catalogs support (redshift and other variants)
            #:finalize-catalogs
            #:adjust-data-types

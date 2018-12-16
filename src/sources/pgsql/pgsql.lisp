@@ -76,7 +76,7 @@
                              including
                              excluding)
   "PostgreSQL introspection to prepare the migration."
-  (declare (ignore materialize-views only-tables))
+  (declare (ignore only-tables))
   (with-stats-collection ("fetch meta data"
                           :use-result-as-rows t
                           :use-result-as-read t
@@ -84,29 +84,59 @@
     (with-pgsql-transaction (:pgconn (source-db pgsql))
       (let ((variant   (pgconn-variant (source-db pgsql)))
             (pgversion (pgconn-major-version (source-db pgsql))))
-       (when (eq :pgdg variant)
-         (list-all-sqltypes catalog
+        ;;
+        ;; First, create the source views that we're going to materialize in
+        ;; the target database.
+        ;;
+        (when (and materialize-views (not (eq :all materialize-views)))
+          (create-pg-views materialize-views))
+
+        (when (eq :pgdg variant)
+          (list-all-sqltypes catalog
+                             :including including
+                             :excluding excluding))
+
+        (list-all-columns catalog
+                          :including including
+                          :excluding excluding)
+
+        (let* ((view-names (unless (eq :all materialize-views)
+                             (mapcar #'car materialize-views)))
+               (including  (make-including-expr-from-view-names view-names)))
+          (cond (view-names
+                 (list-all-columns catalog
+                                   :including including
+                                   :table-type :view))
+
+                ((eq :all materialize-views)
+                 (list-all-columns catalog :table-type :view))))
+
+        (when create-indexes
+          (list-all-indexes catalog
                             :including including
-                            :excluding excluding))
+                            :excluding excluding
+                            :pgversion pgversion))
 
-       (list-all-columns catalog
-                         :including including
-                         :excluding excluding)
+        (when (and (eq :pgdg variant) foreign-keys)
+          (list-all-fkeys catalog
+                          :including including
+                          :excluding excluding))
 
-       (when create-indexes
-         (list-all-indexes catalog
-                           :including including
-                           :excluding excluding
-                           :pgversion pgversion))
-
-       (when (and (eq :pgdg variant) foreign-keys)
-         (list-all-fkeys catalog
-                         :including including
-                         :excluding excluding))
-
-       ;; return how many objects we're going to deal with in total
-       ;; for stats collection
-       (+ (count-tables catalog) (count-indexes catalog)))))
+        ;; return how many objects we're going to deal with in total
+        ;; for stats collection
+        (+ (count-tables catalog)
+           (count-views catalog)
+           (count-indexes catalog)
+           (count-fkeys catalog)))))
 
   ;; be sure to return the catalog itself
   catalog)
+
+
+(defmethod cleanup ((pgsql copy-pgsql) (catalog catalog) &key materialize-views)
+  "When there is a PostgreSQL error at prepare-pgsql-database step, we might
+   need to clean-up any view created in the source PostgreSQL connection for
+   the migration purpose."
+  (when materialize-views
+    (with-pgsql-transaction (:pgconn  (source-db pgsql))
+      (drop-pg-views materialize-views))))

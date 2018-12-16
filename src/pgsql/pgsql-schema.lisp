@@ -119,6 +119,27 @@
                                    (table-name table))
                            :single)))
 
+(defun make-including-expr-from-view-names (view-names)
+  "Turn MATERIALIZING VIEWs list of view names into an INCLUDING parameter."
+  (let (including current-schema)
+    (loop :for (schema-name . view-name) :in view-names
+       :do (let* ((schema-name
+                   (if schema-name
+                       (ensure-unquoted schema-name)
+                       (or
+                        current-schema
+                        (setf current-schema
+                              (pomo:query "select current_schema()" :single)))))
+                  (table-expr
+                   (make-string-match-rule :target (ensure-unquoted view-name)))
+                  (schema-entry
+                   (or (assoc schema-name including :test #'string=)
+                       (progn (push (cons schema-name nil) including)
+                              (assoc schema-name including :test #'string=)))))
+             (push-to-end table-expr (cdr schema-entry))))
+    ;; return the including alist
+    including))
+
 
 (defvar *table-type*
   '((:table    . ("r" "f" "p"))   ; ordinary, foreign and partitioned

@@ -180,6 +180,7 @@
                                 :serial t
                                 :depends-on ("common")
                                 :components ((:file "pgsql-cast-rules")
+                                             (:file "pgsql-schema")
                                              (:file "pgsql")))))
 
              ;; package pgloader.copy

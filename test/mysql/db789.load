@@ -4,7 +4,7 @@ LOAD DATABASE
 
   WITH data only, truncate, create no tables
 
-  MATERIALIZE VIEWS proceed
+  MATERIALIZE VIEWS proceed, foo as $$ select 1 as a; $$
 
   INCLUDING ONLY TABLE NAMES MATCHING 'proceed'
 
@@ -13,5 +13,6 @@ LOAD DATABASE
   $$ drop schema if exists db789 cascade; $$,
   $$ create schema db789; $$,
   $$ create table db789.refrain (id char(1) primary key); $$,
-  $$ create table db789.proceed (id char(1) primary key); $$;
+  $$ create table db789.proceed (id char(1) primary key); $$,
+  $$ create table db789.foo (a integer primary key); $$;
 

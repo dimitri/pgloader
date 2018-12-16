@@ -6,11 +6,8 @@
 ;;;
 (in-package #:pgloader.parser)
 
-(defrule view-name (and (alpha-char-p character)
-			(* (or (alpha-char-p character)
-			       (digit-char-p character)
-			       #\_)))
-  (:text t))
+(defrule view-name (or qualified-table-name maybe-quoted-namestring)
+  (:identity t))
 
 (defrule view-sql (and kw-as dollar-quoted)
   (:destructure (as sql) (declare (ignore as)) sql))
@@ -18,7 +15,7 @@
 (defrule view-definition (and view-name (? view-sql))
   (:destructure (name sql) (cons name sql)))
 
-(defrule another-view-definition (and comma view-definition)
+(defrule another-view-definition (and comma-separator view-definition)
   (:lambda (source)
     (bind (((_ view) source)) view)))
 

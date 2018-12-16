@@ -110,6 +110,7 @@
                                            alter-table alter-schema
                                            ((:including incl))
                                            ((:excluding excl))
+                                           views
                                            distribute
                                            &allow-other-keys)
   `(lambda ()
@@ -129,6 +130,7 @@
        (copy-database source
                       :including ',incl
                       :excluding ',excl
+                      :materialize-views ',views
                       :alter-table ',alter-table
                       :alter-schema ',alter-schema
                       :index-names :preserve
@@ -146,7 +148,7 @@
                          pg-dst-db-uri
                          &key
                          gucs casts before after after-schema options
-                         alter-table alter-schema distribute
+                         alter-table alter-schema views distribute
                          including excluding decoding)
         source
       (cond (*dry-run*
@@ -155,6 +157,7 @@
              (lisp-code-for-loading-from-pgsql pg-src-db-uri pg-dst-db-uri
                                                :gucs gucs
                                                :casts casts
+                                               :views views
                                                :before before
                                                :after after
                                                :after-schema after-schema
