@@ -232,6 +232,7 @@
 (defun process-catalog (copy catalog &key alter-table alter-schema distribute)
   "Do all the PostgreSQL catalog tweaking here: casts, index WHERE clause
    rewriting, pgloader level alter schema and alter table commands."
+  (log-message :info "Processing source catalogs")
 
   ;; cast the catalog into something PostgreSQL can work on
   (cast catalog)
@@ -250,6 +251,7 @@
 
   ;; we also support schema changes necessary for Citus distribution
   (when distribute
+    (log-message :info "Applying distribution rules")
     (setf (catalog-distribution-rules catalog)
           (citus-distribute-schema catalog distribute))))
 
@@ -366,10 +368,12 @@
                          :alter-schema alter-schema
                          :distribute distribute)
 
-      (citus-rule-is-missing-from-list (e)
+      #+pgloader-image
+      ((or citus-rule-table-not-found citus-rule-is-missing-from-list) (e)
         (log-message :fatal "~a" e)
         (return-from copy-database))
 
+      #+pgloader-image
       (condition (e)
         (log-message :fatal "Failed to process catalogs: ~a" e)
         (return-from copy-database)))

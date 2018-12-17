@@ -186,6 +186,9 @@
 			   (table-name name comment dtype ctype default nullable extra)))
   table-name name dtype ctype default nullable extra comment)
 
+(defmethod field-name ((field mysql-column) &key)
+  (mysql-column-name field))
+
 (defun explode-mysql-enum (ctype)
   "Convert MySQL ENUM expression into a list of labels."
   (cl-ppcre:register-groups-bind (list)

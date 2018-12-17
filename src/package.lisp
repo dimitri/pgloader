@@ -190,6 +190,7 @@
            #:count-indexes
            #:count-fkeys
            #:max-indexes-per-table
+           #:field-name
 
            #:push-to-end
            #:with-schema
@@ -299,7 +300,18 @@
   (:export #:citus-distribute-schema
            #:citus-format-sql-select
            #:citus-backfill-table-p
-           #:citus-rule-is-missing-from-list))
+           #:citus-rule-table-not-found
+           #:citus-rule-is-missing-from-list
+
+           #:citus-reference-rule
+           #:citus-reference-rule-p
+           #:citus-reference-rule-table
+
+           #:citus-distributed-rule
+           #:citus-distributed-rule-p
+           #:citus-distributed-rule-table
+           #:citus-distributed-rule-using
+           #:citus-distributed-rule-from))
 
 (defpackage #:pgloader.utils
   (:use #:cl

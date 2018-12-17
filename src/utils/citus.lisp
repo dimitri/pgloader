@@ -40,20 +40,42 @@
     ;;
     ;; ERROR Database error 42P16: table ;; "campaigns" is already distributed
     ;;
+    ;; In the PostgreSQL source case, we have the table OIDs already at this
+    ;; point, but in the general case we don't. Use the names to match what
+    ;; we did up to now.
+    ;;
     (loop :for rule :in (append distribution-rules derived-rules)
-       :unless (member (table-oid (citus-rule-table rule))
+       :unless (member (table-source-name (citus-rule-table rule))
                        processed-rules
                        :key (lambda (rule)
-                              (table-oid (citus-rule-table rule))))
+                              (table-source-name (citus-rule-table rule)))
+                       :test #'equal)
        :collect (progn
                   (push rule processed-rules)
                   (apply-citus-rule rule)
                   rule))))
 
+(define-condition citus-rule-table-not-found (error)
+  ((schema-name :initarg :schema-name
+                :accessor citus-rule-table-not-found-schema-name)
+   (table-name :initarg :table-name
+               :accessor citus-rule-table-not-found-table-name))
+  (:report
+   (lambda (err stream)
+     (let ((*print-circle* nil))
+       (with-slots (schema-name table-name)
+           err
+         (format stream
+                 "Could not find table ~s in schema ~s for distribution rules."
+                 table-name schema-name))))))
+
 (defun citus-find-table (catalog table)
-  (let* ((table-name  (table-name table))
+  (let* ((table-name  (cdr (table-source-name table)))
          (schema-name (schema-name (table-schema table))))
-    (find-table (find-schema catalog schema-name) table-name)))
+    (or (find-table (find-schema catalog schema-name) table-name)
+        (error (make-condition 'citus-rule-table-not-found
+                               :table-name table-name
+                               :schema-name schema-name)))))
 
 (defgeneric citus-rule-table (rule)
   (:documentation "Returns the RULE's table.")
@@ -197,11 +219,11 @@
   ;; it to our model
   (setf (table-citus-rule (citus-distributed-rule-table rule)) rule)
 
-  (let* ((table   (citus-distributed-rule-table rule))
+  (let* ((table  (citus-distributed-rule-table rule))
          (column (find (column-name (citus-distributed-rule-using rule))
                        (table-field-list table)
                        :test #'string=
-                       :key #'column-name)))
+                       :key #'field-name)))
     (if column
 
         ;; add it to the PKEY definition, in first position

@@ -89,7 +89,8 @@
                                             excluding-matching
                                             decoding-tables-as
                                             before-load
-                                            after-load))
+                                            after-load
+                                            distribute-commands))
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
 
@@ -164,7 +165,7 @@
                                          &key
                                            gucs mysql-gucs
                                            casts views before after options
-                                           alter-table alter-schema
+                                           alter-table alter-schema distribute
                                            ((:including incl))
                                            ((:excluding excl))
                                            ((:decoding decoding-as))
@@ -191,6 +192,7 @@
                       :materialize-views ',views
                       :alter-table ',alter-table
                       :alter-schema ',alter-schema
+                      :distribute ',distribute
                       :set-table-oids t
                       :on-error-stop on-error-stop
                       ,@(remove-batch-control-option options))
@@ -203,7 +205,7 @@
                          pg-db-uri
                          &key
                          gucs mysql-gucs casts views before after options
-                         alter-table alter-schema
+                         alter-table alter-schema distribute
                          including excluding decoding)
         source
       (cond (*dry-run*
@@ -219,6 +221,7 @@
                                                :options options
                                                :alter-table alter-table
                                                :alter-schema alter-schema
+                                               :distribute distribute
                                                :including including
                                                :excluding excluding
                                                :decoding decoding))))))

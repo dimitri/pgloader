@@ -186,6 +186,9 @@
    "Cast a FIELD definition from a source database into a PostgreSQL COLUMN
     definition."))
 
+(defgeneric field-name (object &key)
+  (:documentation "Get the source database column name, or field-name."))
+
 
 ;;;
 ;;; Implementation of the methods
@@ -372,6 +375,9 @@
   "Cast all fields of all tables in all schemas in CATALOG into columns."
   (loop :for schema :in (catalog-schema-list catalog)
      :do (cast schema)))
+
+(defmethod field-name ((column column) &key)
+  (column-name column))
 
 ;;;
 ;;; There's no simple equivalent to array_agg() in MS SQL, so the index and

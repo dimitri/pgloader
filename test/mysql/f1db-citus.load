@@ -1,0 +1,19 @@
+load database
+  from mysql://root@localhost/f1db?useSSL=false
+  into pgsql://localhost:9700/dim
+
+  with reset no sequences
+
+  distribute f1db.circuits as reference table
+  distribute f1db.constructorResults using raceId
+  distribute f1db.constructors as reference table
+  distribute f1db.constructorStandings using raceId
+  distribute f1db.drivers as reference table
+  distribute f1db.driverStandings using raceId
+  distribute f1db.lapTimes using raceId
+  distribute f1db.pitStops using raceId
+  distribute f1db.qualifying using raceId
+  distribute f1db.races as reference table
+  distribute f1db.results using raceId
+  distribute f1db.seasons as reference table
+  distribute f1db.status as reference table;
