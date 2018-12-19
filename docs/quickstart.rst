@@ -1,10 +1,10 @@
-PgLoader Quick Start
---------------------
+Pgloader Quick Start
+====================
 
 In simple cases, pgloader is very easy to use.
 
 CSV
-^^^
+---
 
 Load data from a CSV file into a pre-existing table in your database::
 
@@ -26,7 +26,7 @@ For documentation about the available syntaxes for the `--field` and
 Note also that the PostgreSQL URI includes the target *tablename*.
 
 Reading from STDIN
-^^^^^^^^^^^^^^^^^^
+------------------
 
 File based pgloader sources can be loaded from the standard input, as in the
 following example::
@@ -46,7 +46,7 @@ pgloader with this technique, using the Unix pipe::
     gunzip -c source.gz | pgloader --type csv ... - pgsql:///target?foo
 
 Loading from CSV available through HTTP
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------------------
 
 The same command as just above can also be run if the CSV file happens to be
 found on a remote HTTP location::
@@ -84,7 +84,7 @@ Also notice that the same command will work against an archived version of
 the same data.
 
 Streaming CSV data from an HTTP compressed file
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------------------------
 
 Finally, it's important to note that pgloader first fetches the content from
 the HTTP URL it to a local file, then expand the archive when it's
@@ -110,7 +110,7 @@ and the commands and pgloader will take care of streaming the data down to
 PostgreSQL.
 
 Migrating from SQLite
-^^^^^^^^^^^^^^^^^^^^^
+---------------------
 
 The following command will open the SQLite database, discover its tables
 definitions including indexes and foreign keys, migrate those definitions
@@ -121,7 +121,7 @@ and then migrate the data over::
     pgloader ./test/sqlite/sqlite.db postgresql:///newdb
 
 Migrating from MySQL
-^^^^^^^^^^^^^^^^^^^^
+--------------------
 
 Just create a database where to host the MySQL data and definitions and have
 pgloader do the migration for you in a single command line::
@@ -130,7 +130,7 @@ pgloader do the migration for you in a single command line::
     pgloader mysql://user@localhost/sakila postgresql:///pagila
 
 Fetching an archived DBF file from a HTTP remote location
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------------------------------------
 
 It's possible for pgloader to download a file from HTTP, unarchive it, and
 only then open it to discover the schema then load the data::

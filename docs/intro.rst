@@ -35,30 +35,14 @@ expected input properties must be given to pgloader. In the case of a
 database, pgloader connects to the live service and knows how to fetch the
 metadata it needs directly from it.
 
-Continuous Migration
---------------------
-
-pgloader is meant to migrate a whole database in a single command line and
-without any manual intervention. The goal is to be able to setup a
-*Continuous Integration* environment as described in the `Project
-Methodology <http://mysqltopgsql.com/project/>`_ document of the `MySQL to
-PostgreSQL <http://mysqltopgsql.com/project/>`_ webpage.
-
-  1. Setup your target PostgreSQL Architecture
-  2. Fork a Continuous Integration environment that uses PostgreSQL
-  3. Migrate the data over and over again every night, from production
-  4. As soon as the CI is all green using PostgreSQL, schedule the D-Day
-  5. Migrate without suprise and enjoy! 
-
-In order to be able to follow this great methodology, you need tooling to
-implement the third step in a fully automated way. That's pgloader.
-
 Features Matrix
 ---------------
 
 Here's a comparison of the features supported depending on the source
-database engine. Most features that are not supported can be added to
-pgloader, it's just that nobody had the need to do so yet.
+database engine. Some features that are not supported can be added to
+pgloader, it's just that nobody had the need to do so yet. Those features
+are marked with ✗. Empty cells are used when the feature doesn't make sense
+for the selected source database.
 
 ==========================   =======  ======  ======  ===========  =========
 Feature                      SQLite   MySQL   MS SQL  PostgreSQL   Redshift 
@@ -71,14 +55,13 @@ Schema only                     ✓       ✓       ✓           ✓          �
 Data only                       ✓       ✓       ✓           ✓          ✓
 Repeatable (DROP+CREATE)        ✓       ✓       ✓           ✓          ✓
 User defined casting rules      ✓       ✓       ✓           ✓          ✓
-Encoding Overrides              ✗       ✓       ✗            ✗          ✗
+Encoding Overrides                      ✓
 On error stop                   ✓       ✓       ✓           ✓          ✓
 On error resume next            ✓       ✓       ✓           ✓          ✓
 Pre/Post SQL commands           ✓       ✓       ✓           ✓          ✓
 Post-Schema SQL commands        ✗       ✓       ✓           ✓          ✓
 Primary key support             ✓       ✓       ✓           ✓          ✓
-Foreign key support             ✓       ✓       ✓           ✓          ✗
-Incremental data loading        ✓       ✓       ✓           ✓          ✓
+Foreign key support             ✓       ✓       ✓           ✓
 Online ALTER schema             ✓       ✓       ✓           ✓          ✓
 Materialized views              ✗       ✓       ✓           ✓          ✓
 Distribute to Citus             ✗       ✓       ✓           ✓          ✓
