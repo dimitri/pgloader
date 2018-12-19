@@ -88,6 +88,9 @@
   datetime-precision
   character-set-name collation-name)
 
+(defmethod field-name ((field mssql-column) &key)
+  (mssql-column-name field))
+
 (defmethod mssql-column-ctype ((col mssql-column))
   "Build the ctype definition from the full mssql-column information."
   (let ((type (mssql-column-type col)))

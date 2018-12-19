@@ -83,6 +83,8 @@
                                             casts
                                             alter-schema
                                             alter-table
+                                            materialize-views
+                                            distribute-commands
                                             before-load
                                             after-load
                                             including-like-in-schema
@@ -139,7 +141,8 @@
 (defun lisp-code-for-loading-from-mssql (ms-db-conn pg-db-conn
                                          &key
                                            gucs mssql-gucs
-                                           casts before after options
+                                           casts before after
+                                           options distribute views
                                            alter-schema alter-table
                                            including excluding
                                            &allow-other-keys)
@@ -167,6 +170,8 @@
                       :excluding ',excluding
                       :alter-schema ',alter-schema
                       :alter-table ',alter-table
+                      :materialize-views ',views
+                      :distribute ',distribute
                       :set-table-oids t
                       :on-error-stop on-error-stop
                       ,@(remove-batch-control-option options))
@@ -177,8 +182,8 @@
   (:lambda (source)
     (bind (((ms-db-uri pg-db-uri
                        &key
-                       gucs mssql-gucs casts before after
-                       alter-schema alter-table
+                       gucs mssql-gucs casts views before after
+                       alter-schema alter-table distribute
                        including excluding options)
             source))
       (cond (*dry-run*
@@ -188,10 +193,12 @@
                                                :gucs gucs
                                                :mssql-gucs mssql-gucs
                                                :casts casts
+                                               :views views
                                                :before before
                                                :after after
                                                :alter-schema alter-schema
                                                :alter-table alter-table
+                                               :distribute distribute
                                                :options options
                                                :including including
                                                :excluding excluding))))))
