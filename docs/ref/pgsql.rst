@@ -283,6 +283,38 @@ The supported casting options are:
 
       column enumerate.foo using empty-string-to-null
 
+PostgreSQL Views Support
+------------------------
+
+PostgreSQL views support allows pgloader to migrate view as if they were
+base tables. This feature then allows for on-the-fly transformation of the
+source schema, as the view definition is used rather than the base data.
+
+MATERIALIZE VIEWS
+^^^^^^^^^^^^^^^^^
+
+This clause allows you to implement custom data processing at the data
+source by providing a *view definition* against which pgloader will query
+the data. It's not possible to just allow for plain `SQL` because we want to
+know a lot about the exact data types of each column involved in the query
+output.
+
+This clause expect a comma separated list of view definitions, each one
+being either the name of an existing view in your database or the following
+expression::
+
+  *name* `AS` `$$` *sql query* `$$`
+
+The *name* and the *sql query* will be used in a `CREATE VIEW` statement at
+the beginning of the data loading, and the resulting view will then be
+dropped at the end of the data loading.
+
+MATERIALIZE ALL VIEWS
+^^^^^^^^^^^^^^^^^^^^^
+
+Same behaviour as *MATERIALIZE VIEWS* using the dynamic list of views as
+returned by PostgreSQL rather than asking the user to specify the list.
+
 PostgreSQL Partial Migration
 ----------------------------
 
