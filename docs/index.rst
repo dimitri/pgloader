@@ -61,7 +61,7 @@ Reading files from an archive
 HTTP(S) support
     pgloader knows how to download a source file or a source archive using
     HTTP directly. It might be better to use ``curl -O- http://... |
-    pgloader` and read the data from *standard input*, then allowing for
+    pgloader`` and read the data from *standard input*, then allowing for
     streaming of the data from its source down to PostgreSQL.
     
 Target schema discovery
@@ -83,7 +83,7 @@ Pre/Post SQL commands
     This feature allows pgloader commands to include SQL commands to run
     before and after loading a file. It might be about creating a table
     first, then loading the data into it, and then doing more processing
-    on-top of the data (implementing an ``ELT`` pipeline then), or creating
+    on-top of the data (implementing an *ELT* pipeline then), or creating
     specific indexes as soon as the data has been made ready.
     
 One-command migration to PostgreSQL
@@ -150,12 +150,16 @@ Repeatable (DROP+CREATE)
     database before issing any CREATE statement, so that you can repeat the
     migration as many times as necessary until migration specifications and
     rules are bug free.
-    
-On error stop / On error resume next
-    The default behavior of pgloader when migrating from a database is ``on
-    error stop``. The idea is to let the user fix either the migration
-    specifications or the source data, and run the process again, until it
-    works.
+
+    The schedule the data migration to run every night (or even more often!)
+    for the whole duration of the code migration project. See the
+    `Continuous Migration <https://pgloader.io/blog/continuous-migration/>`_
+    methodology for more details about the approach.
+
+On error stop / On error resume next The default behavior of pgloader when
+    migrating from a database is ``on error stop``. The idea is to let the
+    user fix either the migration specifications or the source data, and run
+    the process again, until it works.
 
     In some cases the source data is so damaged as to be impossible to
     migrate in full, and it might be necessary to then resort to the ``on
