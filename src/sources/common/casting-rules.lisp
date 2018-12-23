@@ -58,7 +58,8 @@
              ;; otherwide, we do the full dance
              (and
               (or (and t-s-p (string= type rule-source-type)))
-              (or (null tm-s-p) (typemod-expr-matches-p typemod-expr typemod))
+              (or (null tm-s-p) (when typemod
+                                  (typemod-expr-matches-p typemod-expr typemod)))
               (or (null d-s-p)  (string= default rule-source-default))
               (or (null u-s-p)  (eq unsigned rule-unsigned))
               (or (null n-s-p)  (eq not-null rule-source-not-null))
