@@ -5,7 +5,7 @@ load database
   -- including only table names matching 'bits', ~/utilisateur/ in schema 'mysql'
   including only table names matching ~/geolocations/ in schema 'public'
 
-  materialize views public.some_usps
+  materialize views some_usps
   as $$
     select usps, geoid, aland, awater, aland_sqmi, awater_sqmi, location
       from districts

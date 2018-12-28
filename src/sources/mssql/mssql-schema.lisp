@@ -229,7 +229,7 @@
         (loop :for (name . def) :in views
            :for sql := (destructuring-bind (schema . v-name) name
                          (format nil
-                                 "CREATE VIEW ~s.~s AS ~a"
+                                 "CREATE VIEW ~@[~s~].~s AS ~a"
                                  schema v-name def))
            :do (progn
                  (log-message :info "MS SQL: ~a" sql)
@@ -249,7 +249,7 @@
                    :do (destructuring-bind (name . def) view-definition
                          (declare (ignore def))
                          (format sql
-                                 "~@[, ~]~s.~s"
+                                 "~@[, ~]~@[~s.~]~s"
                                  (not (zerop i)) (car name) (cdr name)))))))
          (log-message :info "PostgreSQL Source: ~a" sql)
          (mssql-query sql))))))

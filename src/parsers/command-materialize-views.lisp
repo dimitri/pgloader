@@ -7,7 +7,10 @@
 (in-package #:pgloader.parser)
 
 (defrule view-name (or qualified-table-name maybe-quoted-namestring)
-  (:identity t))
+  (:lambda (vn)
+    (etypecase vn
+      (cons   vn)
+      (string (cons nil vn)))))
 
 (defrule view-sql (and kw-as dollar-quoted)
   (:destructure (as sql) (declare (ignore as)) sql))
