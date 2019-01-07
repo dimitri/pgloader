@@ -67,6 +67,47 @@
     (loop for (name) in (sqlite:execute-to-list db sql)
        collect name)))
 
+(defun find-sequence (db table-name column-name)
+  "Find if table-name.column-name is attached to a sequence in
+   sqlite_sequence catalog."
+  (let* ((sql (format nil (sql "/sqlite/find-sequence.sql") table-name))
+         (seq (sqlite:execute-single db sql)))
+    (when (and seq (not (zerop seq)))
+      ;; magic marker for `apply-casting-rules'
+      (log-message :notice "SQLite column ~a.~a uses a sequence"
+                   table-name column-name)
+      seq)))
+
+(defun find-auto-increment-in-create-sql (db table-name column-name)
+  "The sqlite_sequence catalog is only created when some content has been
+   added to the table. So we might fail to FIND-SEQUENCE, and still need to
+   consider the column has an autoincrement. Parse the SQL definition of the
+   table to find out."
+  (let* ((sql (format nil (sql "/sqlite/get-create-table.sql") table-name))
+         (create-table (sqlite:execute-single db sql))
+         (open-paren   (+ 1 (position #\( create-table)))
+         (close-paren  (position #\) create-table :from-end t))
+         (coldefs
+          (mapcar (lambda (def) (string-trim (list #\Space) def))
+                  (split-sequence:split-sequence #\,
+                                                 create-table
+                                                 :start open-paren
+                                                 :end close-paren))))
+    (loop :for coldef :in coldefs
+       :do (let* ((words (mapcar (lambda (w) (string-trim '(#\" #\') w))
+                                 (split-sequence:split-sequence #\Space coldef)))
+                  (colname (first words))
+                  (props   (rest words)))
+             (when (and (string= colname column-name)
+                        (member "autoincrement" props :test #'string-equal))
+               ;; we know the target column has no sequence because we
+               ;; looked into that first by calling find-sequence, and we
+               ;; only call find-auto-increment-in-create-sql when
+               ;; find-sequence failed to find anything.
+               (log-message :notice "SQLite column ~a.~a is autoincrement, but has no sequence"
+                            table-name column-name)
+               (return t))))))
+
 (defun list-columns (table &key db-has-sequences (db *sqlite-db*) )
   "Return the list of columns found in TABLE-NAME."
   (let* ((table-name (table-source-name table))
@@ -85,17 +126,14 @@
                                       pk-id)))
              (when (and db-has-sequences
                         (not (zerop pk-id))
-                        (string-equal (coldef-ctype field) "integer"))
+                        (string-equal (coldef-ctype field) "integer")
+                        (or (find-sequence db table-name name)
+                            (find-auto-increment-in-create-sql db
+                                                               table-name
+                                                               name)))
                ;; then it might be an auto_increment, which we know by
                ;; looking at the sqlite_sequence catalog
-               (let* ((sql
-                       (format nil (sql "/sqlite/find-sequence.sql") table-name))
-                      (seq (sqlite:execute-single db sql)))
-                 (when (and seq (not (zerop seq)))
-                   ;; magic marker for `apply-casting-rules'
-                   (log-message :notice "SQLite column ~a.~a uses a sequence"
-                                table-name name)
-                   (setf (coldef-extra field) :auto-increment))))
+               (setf (coldef-extra field) :auto-increment))
              (add-field table field)))))
 
 (defun list-all-columns (schema
