@@ -167,6 +167,9 @@ test: $(PGLOADER)
 save: ./src/save.lisp $(LISP_SRC)
 	sbcl --no-userinit --load ./src/save.lisp
 
+check-saved: save
+	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) CL=$(CL) -C test regress
+
 clean-bundle:
 	rm -rf $(BUNDLEDIR)
 	rm -rf $(BUNDLETESTD)/$(BUNDLENAME)/*

@@ -12,6 +12,16 @@
    when unset."
   (or (sb-ext:posix-getenv name) default))
 
+;; So that we can #+pgloader-image some code away, see main.lisp
+(push :pgloader-image *features*)
+
+;;;
+;;; We need to support *print-circle* for the debug traces of the catalogs,
+;;; and while at it let's enforce *print-pretty* too.
+;;;
+(setf *print-circle* t *print-pretty* t)
+
+
 (require :asdf)                         ; should work in SBCL and CCL
 
 (defvar *quicklisp.lisp* "http://beta.quicklisp.org/quicklisp.lisp")
