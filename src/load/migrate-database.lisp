@@ -341,6 +341,7 @@
                            (log-message :error "MSSQL ERROR: ~a" e)
                            (log-message :log "You might need to review the FreeTDS protocol version in your freetds.conf file, see http://www.freetds.org/userguide/choosingtdsprotocol.htm")
                            (return-from copy-database))
+                         #+pgloader-image
                          (condition (e)
                            (log-message :error
                                         "~a: ~a"
