@@ -74,13 +74,17 @@
              (incf task-count)))
 
       (lp:task-handler-bind
-          ((copy-init-error
+          (#+pgloader-image
+           (copy-init-error
             #'(lambda (condition)
-                ;; everything has been handled already
+                ;; stop the other tasks and then transfer the control
+                (log-message :log "COPY INIT ERROR")
+                (lp:kill-tasks :default)
                 (lp:invoke-transfer-error condition)))
            (on-error-stop
             #'(lambda (condition)
-                ;; everything has been handled already
+                (log-message :log "ON ERROR STOP")
+                (lp:kill-tasks :default)
                 (lp:invoke-transfer-error condition)))
            #+pgloader-image
            (error

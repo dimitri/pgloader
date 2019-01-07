@@ -147,7 +147,8 @@
                       (*summary-pathname*    . ,*summary-pathname*)
                       (*sections*            . ',*sections*)))
          (kernel      (lp:make-kernel 1 :bindings bindings))
-         (lparallel:*kernel* kernel))
+         (lparallel:*kernel* kernel)
+         (lparallel:*task-category* :monitor))
 
     ;; make our kernel and channel visible from the outside
     (setf *monitoring-kernel* kernel
@@ -155,7 +156,8 @@
           *monitoring-queue*   (lq:make-queue))
 
     (lp:task-handler-bind
-        ((error
+        (#+pgloader-image
+         (error
           #'(lambda (c)
               ;; we can't log-message a monitor thread error
               (lp:invoke-transfer-error
