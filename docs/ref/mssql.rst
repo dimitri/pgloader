@@ -128,9 +128,30 @@ schema 'public' in the target database with this command::
 ALTER TABLE NAMES MATCHING ... IN SCHEMA '...'
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-See the MS SQL explanation for this clause above. It works the same in the
-context of migrating from MS SQL, only with the added option to specify the
-name of the schema where to find the definition of the target tables.
+Introduce a comma separated list of table names or *regular expressions*
+that you want to target in the pgloader *ALTER TABLE* command. Available
+actions are *SET SCHEMA*, *RENAME TO*, and *SET*::
+
+    ALTER TABLE NAMES MATCHING ~/_list$/, 'sales_by_store', ~/sales_by/
+      IN SCHEMA 'dbo'
+     SET SCHEMA 'mv'
+   
+    ALTER TABLE NAMES MATCHING 'film' IN SCHEMA 'dbo' RENAME TO 'films'
+    
+    ALTER TABLE NAMES MATCHING ~/./ IN SCHEMA 'dbo' SET (fillfactor='40')
+
+You can use as many such rules as you need. The list of tables to be
+migrated is searched in pgloader memory against the *ALTER TABLE* matching
+rules, and for each command pgloader stops at the first matching criteria
+(regexp or string).
+
+No *ALTER TABLE* command is sent to PostgreSQL, the modification happens at
+the level of the pgloader in-memory representation of your source database
+schema. In case of a name change, the mapping is kept and reused in the
+*foreign key* and *index* support.
+
+The *SET ()* action takes effect as a *WITH* clause for the `CREATE TABLE`
+command that pgloader will run when it has to create a table.
 
 The matching is done in pgloader itself, with a Common Lisp regular
 expression lib, so doesn't depend on the *LIKE* implementation of MS SQL,
