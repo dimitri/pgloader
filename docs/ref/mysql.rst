@@ -509,6 +509,8 @@ actions are *SET SCHEMA*, *RENAME TO*, and *SET*::
     
     ALTER TABLE NAMES MATCHING ~/./ SET (fillfactor='40')
 
+    ALTER TABLE NAMES MATCHING ~/./ SET TABLESPACE 'pg_default'
+
 You can use as many such rules as you need. The list of tables to be
 migrated is searched in pgloader memory against the *ALTER TABLE* matching
 rules, and for each command pgloader stops at the first matching criteria
@@ -521,6 +523,9 @@ schema. In case of a name change, the mapping is kept and reused in the
 
 The *SET ()* action takes effect as a *WITH* clause for the `CREATE TABLE`
 command that pgloader will run when it has to create a table.
+
+The *SET TABLESPACE* action takes effect as a *TABLESPACE* clause for the
+`CREATE TABLE` command that pgloader will run when it has to create a table.
 
 MySQL Migration: limitations
 ----------------------------

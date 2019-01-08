@@ -26,6 +26,7 @@
   (def-keyword-rule "with")
   (def-keyword-rule "when")
   (def-keyword-rule "set")
+  (def-keyword-rule "tablespace")
   (def-keyword-rule "database")
   (def-keyword-rule "messages")
   (def-keyword-rule "matches")

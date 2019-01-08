@@ -9,6 +9,7 @@ load database
       quote identifiers
 
  ALTER SCHEMA 'pgloader' RENAME TO 'mysql'
+ ALTER TABLE NAMES MATCHING ~/./ SET TABLESPACE 'pg_default'
 
  CAST column utilisateurs__Yvelines2013-06-28.sexe
           to text drop not null using empty-string-to-null,

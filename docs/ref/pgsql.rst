@@ -346,16 +346,18 @@ ALTER TABLE NAMES MATCHING
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Introduce a comma separated list of table names or *regular expressions*
-that you want to target in the pgloader *ALTER TABLE* command. The only two
-available actions are *SET SCHEMA* and *RENAME TO*, both take a quoted
-string as parameter::
+that you want to target in the pgloader *ALTER TABLE* command. Available
+actions are *SET SCHEMA*, *RENAME TO*, and *SET*::
 
     ALTER TABLE NAMES MATCHING ~/_list$/, 'sales_by_store', ~/sales_by/
+      IN SCHEMA 'public'
      SET SCHEMA 'mv'
    
-    ALTER TABLE NAMES MATCHING 'film' RENAME TO 'films'
+    ALTER TABLE NAMES MATCHING 'film' IN SCHEMA 'public' RENAME TO 'films'
     
-    ALTER TABLE NAMES MATCHING ~/./ SET (fillfactor='40')
+    ALTER TABLE NAMES MATCHING ~/./ IN SCHEMA 'public' SET (fillfactor='40')
+    
+    ALTER TABLE NAMES MATCHING ~/./ IN SCHEMA 'public' SET TABLESPACE 'pg_default'
 
 You can use as many such rules as you need. The list of tables to be
 migrated is searched in pgloader memory against the *ALTER TABLE* matching
@@ -369,6 +371,9 @@ schema. In case of a name change, the mapping is kept and reused in the
 
 The *SET ()* action takes effect as a *WITH* clause for the `CREATE TABLE`
 command that pgloader will run when it has to create a table.
+
+The *SET TABLESPACE* action takes effect as a *TABLESPACE* clause for the
+`CREATE TABLE` command that pgloader will run when it has to create a table.
 
 PostgreSQL Migration: limitations
 ---------------------------------

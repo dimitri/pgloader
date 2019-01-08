@@ -47,7 +47,8 @@
 (defstruct schema source-name name catalog in-search-path
            table-list view-list extension-list sqltype-list)
 
-(defstruct table source-name name schema oid comment storage-parameter-list
+(defstruct table source-name name schema oid comment
+           storage-parameter-list tablespace
            ;; field is for SOURCE
            ;; column is for TARGET
            ;; citus is an extra slot for citus support

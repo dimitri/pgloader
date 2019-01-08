@@ -92,6 +92,9 @@
                       (alexandria:alist-plist
                        (table-storage-parameter-list table))))
 
+            (when (table-tablespace table)
+              (format s "~%TABLESPACE ~a" (table-tablespace table)))
+
             (format s ";~%"))))
 
 (defmethod format-drop-sql ((table table) &key (stream nil) cascade (if-exists t))

@@ -139,6 +139,8 @@ actions are *SET SCHEMA*, *RENAME TO*, and *SET*::
     ALTER TABLE NAMES MATCHING 'film' IN SCHEMA 'dbo' RENAME TO 'films'
     
     ALTER TABLE NAMES MATCHING ~/./ IN SCHEMA 'dbo' SET (fillfactor='40')
+    
+    ALTER TABLE NAMES MATCHING ~/./ IN SCHEMA 'dbo' SET TABLESPACE 'tlbspc'
 
 You can use as many such rules as you need. The list of tables to be
 migrated is searched in pgloader memory against the *ALTER TABLE* matching
@@ -152,6 +154,9 @@ schema. In case of a name change, the mapping is kept and reused in the
 
 The *SET ()* action takes effect as a *WITH* clause for the `CREATE TABLE`
 command that pgloader will run when it has to create a table.
+
+The *SET TABLESPACE* action takes effect as a *TABLESPACE* clause for the
+`CREATE TABLE` command that pgloader will run when it has to create a table.
 
 The matching is done in pgloader itself, with a Common Lisp regular
 expression lib, so doesn't depend on the *LIKE* implementation of MS SQL,
