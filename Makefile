@@ -165,7 +165,7 @@ test: $(PGLOADER)
 	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) CL=$(CL) -C test regress
 
 save: ./src/save.lisp $(LISP_SRC)
-	sbcl --no-userinit --load ./src/save.lisp
+	$(CL) $(CL_OPTS) --load ./src/save.lisp
 
 check-saved: save
 	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) CL=$(CL) -C test regress

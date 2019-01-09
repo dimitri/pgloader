@@ -79,7 +79,6 @@
             #'(lambda (condition)
                 ;; stop the other tasks and then transfer the control
                 (log-message :log "COPY INIT ERROR")
-                (lp:kill-tasks :default)
                 (lp:invoke-transfer-error condition)))
            (on-error-stop
             #'(lambda (condition)
