@@ -98,6 +98,8 @@
         (loop :for path-spec :in path-list
            :count t
            :do (let ((table-source (clone-copy-for copy path-spec)))
+                 (when (and (header table-source) (null (fields table-source)))
+                   (parse-header table-source))
                  (incf task-count
                        (copy-from table-source
                                   :concurrency concurrency

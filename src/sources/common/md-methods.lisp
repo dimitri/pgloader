@@ -4,7 +4,7 @@
 
 (in-package #:pgloader.sources)
 
-(defmethod parse-header ((copy md-copy) header)
+(defmethod parse-header ((copy md-copy))
   "Unsupported by default, to be implemented in each md-copy subclass."
   (error "Parsing the header of a ~s is not implemented yet." (type-of copy)))
 
@@ -59,12 +59,8 @@
      ;; about skipping the first line
       (loop :repeat (skip-lines copy) :do (read-line input nil nil))
 
-      ;; we might now have to read the fields from the header line
-      (when (header copy)
-        (setf (fields copy)
-              (parse-header copy (read-line input nil nil)))
-
-        (log-message :debug "Parsed header columns ~s" (fields copy)))
+      ;; we might now have to skip the header line
+      (when (header copy) (read-line input nil nil))
 
       ;; read in the text file, split it into columns
       (process-rows copy input process-row-fn))))

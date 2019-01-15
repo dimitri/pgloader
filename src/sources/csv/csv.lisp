@@ -57,19 +57,29 @@
 ;;;
 ;;; Read a file format in CSV format, and call given function on each line.
 ;;;
-(defmethod parse-header ((csv copy-csv) header)
+(defmethod parse-header ((csv copy-csv))
   "Parse the header line given csv setup."
   ;; a field entry is a list of field name and options
-  (mapcar #'list
-          (car                          ; parsing a single line
-           (cl-csv:read-csv header
-                            :separator (csv-separator csv)
-                            :quote (csv-quote csv)
-                            :escape (csv-escape csv)
-                            :unquoted-empty-string-is-nil t
-                            :quoted-empty-string-is-nil nil
-                            :trim-outer-whitespace (csv-trim-blanks csv)
-                            :newline (csv-newline csv)))))
+  (with-connection (cnx (source csv)
+                        :direction :input
+                        :external-format (encoding csv)
+                        :if-does-not-exist nil)
+    (let ((input (md-strm cnx)))
+      (loop :repeat (skip-lines csv) :do (read-line input nil nil))
+      (let* ((header-line (read-line input nil nil))
+             (field-name-list
+              (mapcar #'list            ; we need each field to be a list
+                      (car              ; parsing a single line
+                       (cl-csv:read-csv header-line
+                                        :separator (csv-separator csv)
+                                        :quote (csv-quote csv)
+                                        :escape (csv-escape csv)
+                                        :unquoted-empty-string-is-nil t
+                                        :quoted-empty-string-is-nil nil
+                                        :trim-outer-whitespace (csv-trim-blanks csv)
+                                        :newline (csv-newline csv))))))
+        (log-message :notice "Parsed header columns ~s" (fields csv))
+        (setf (fields csv) field-name-list )))))
 
 (defmethod process-rows ((csv copy-csv) stream process-fn)
   "Process rows from STREAM according to COPY specifications and PROCESS-FN."
