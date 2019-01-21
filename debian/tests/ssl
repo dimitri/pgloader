@@ -20,9 +20,9 @@ pg_virtualenv <<-'EOF'
 
 	# test UNIX socket
 	rm -rf /tmp/pgloader
-	PGHOST=/var/run/postgresql su -c 'pgloader --regress test/allcols.load' postgres
+	PGHOST=/var/run/postgresql su -c 'pgloader --debug --regress test/allcols.load' postgres
 
 	# test SSL connection
 	rm -rf /tmp/pgloader
-	PGSSLMODE=require pgloader --regress test/allcols.load
+	PGSSLMODE=require pgloader --debug --regress test/allcols.load
 EOF

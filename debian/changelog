@@ -1,3 +1,9 @@
+pgloader (3.6.1-2) UNRELEASED; urgency=medium
+
+  * debian/tests/ssl: Add --debug to get backtraces.
+
+ -- Christoph Berg <myon@debian.org>  Mon, 21 Jan 2019 22:02:50 +0100
+
 pgloader (3.6.1-1) unstable; urgency=medium
 
   * New upstream version.
