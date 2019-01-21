@@ -214,7 +214,8 @@
            (start
             (when (start-start-logger event)
               (pgloader.logs:start-logger))
-            (cl-log:log-message :info "Starting monitor"))
+            (cl-log:log-message :info "Starting monitor")
+            (cl-log:log-message :log "pgloader version ~s" *version-string*))
 
            (stop
             (cl-log:log-message :info "Stopping monitor")

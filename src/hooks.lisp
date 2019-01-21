@@ -9,6 +9,8 @@
 ;;; :cl+ssl in its system definition.
 ;;;
 
+(in-package #:cl-user)
+
 ;; So that we can #+pgloader-image some code away, see main.lisp
 (push :pgloader-image *features*)
 
@@ -17,9 +19,6 @@
 ;;; and while at it let's enforce *print-pretty* too.
 ;;;
 (setf *print-circle* t *print-pretty* t)
-
-
-(in-package #:cl-user)
 
 (defun close-foreign-libs ()
   "Close Foreign libs in use by pgloader at application save time."
@@ -47,6 +46,10 @@
 ;;; Register all loaded systems in the image, so that ASDF don't search for
 ;;; them again when doing --self-upgrade
 ;;;
+
+;;; FIXME: this idea kept failing.
+
+#|
 (defun register-preloaded-system (system)
   (unless (string= "pgloader" (asdf::coerce-name system))
     (let ((version (slot-value system 'asdf::version)))
@@ -64,3 +67,4 @@
                                              (asdf:find-system system-name)))
      when (typep o 'asdf:load-source-op)
      append (asdf:input-files o c)))
+|#

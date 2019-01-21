@@ -1,6 +1,6 @@
 # pgloader build tool
 APP_NAME   = pgloader
-VERSION    = 3.6.0
+VERSION    = 3.6.1
 
 # use either sbcl or ccl
 CL	   = sbcl
@@ -24,7 +24,7 @@ QLDIR      = $(BUILDDIR)/quicklisp
 MANIFEST   = $(BUILDDIR)/manifest.ql
 LATEST     = $(BUILDDIR)/pgloader-latest.tgz
 
-BUNDLEDIST = 2018-10-18
+BUNDLEDIST = 2019-01-07
 BUNDLENAME = pgloader-bundle-$(VERSION)
 BUNDLEDIR  = $(BUILDDIR)/bundle/$(BUNDLENAME)
 BUNDLE     = $(BUILDDIR)/$(BUNDLENAME).tgz
@@ -99,8 +99,11 @@ clones: $(QLDIR)/local-projects/cl-ixf \
         $(QLDIR)/local-projects/cl-csv \
         $(QLDIR)/local-projects/qmynd ;
 
-$(LIBS): $(QLDIR)/setup.lisp clones
+$(LIBS): $(QLDIR)/setup.lisp
 	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp                   \
+             --eval '(push :pgloader-image *features*)'               \
+             --eval '(setf *print-circle* t *print-pretty* t)'        \
+             --eval '(ql:quickload "pgloader")'                       \
              --eval '(push "$(PWD)/" ql:*local-project-directories*)' \
              --eval '(ql:quickload "pgloader")'                       \
              --eval '(quit)'
@@ -141,8 +144,11 @@ $(PGLOADER): $(MANIFEST) $(BUILDAPP) $(LISP_SRC)
                          --manifest-file $(MANIFEST)             \
                          --asdf-tree $(QLDIR)/dists              \
                          --asdf-path .                           \
-                         --load-system $(APP_NAME)               \
+                         --load-system cffi                      \
+                         --load-system cl+ssl                    \
+                         --load-system mssql                     \
                          --load src/hooks.lisp                   \
+                         --load-system $(APP_NAME)               \
                          --entry pgloader:main                   \
                          --dynamic-space-size $(DYNSIZE)         \
                          $(COMPRESS_CORE_OPT)                    \

@@ -243,6 +243,11 @@
 
 	;; Then process options
 	(when debug
+          (format t "pgloader version ~a~%" *version-string*)
+          #+pgloader-image
+          (format t "compiled with ~a ~a~%"
+                  (lisp-implementation-type)
+                  (lisp-implementation-version))
 	  #+sbcl
           (format t "sb-impl::*default-external-format* ~s~%"
 		  sb-impl::*default-external-format*)
