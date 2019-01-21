@@ -1,0 +1,68 @@
+--
+-- Ads
+--
+load csv
+  from ads.csv
+  (
+    id, company_id, campaign_id, name, image_url, target_url,
+    impressions_count, clicks_count, created_at, updated_at
+  )
+  
+  into postgresql:///hackathon
+  
+  target table ads
+  target columns
+  (
+    id, campaign_id, name, image_url, target_url,
+    impressions_count, clicks_count, created_at, updated_at
+  )
+
+  with fields optionally enclosed by '"',
+       fields escaped by double-quote,
+       fields terminated by ',';
+
+--
+-- Clicks
+--
+load csv
+  from clicks.csv
+  (
+   id, company_id, ad_id, clicked_at, site_url, cost_per_click_usd, 
+   user_ip, user_data
+  )
+  
+  into postgresql:///hackathon
+  
+  target table clicks
+  target columns
+  (
+   id, ad_id, clicked_at, site_url, cost_per_click_usd, user_ip, user_data
+  )
+
+  with fields optionally enclosed by '"',
+       fields escaped by double-quote,
+       fields terminated by ',';
+
+
+--
+-- Impressions
+--
+load csv
+  from impressions.csv
+  (
+    id, company_id, ad_id, seen_at, site_url,
+    cost_per_impression_usd, user_ip, user_data
+  )
+  
+  into postgresql:///hackathon
+  
+  target table impressions
+  target columns
+  (
+    id, ad_id, seen_at, site_url, cost_per_impression_usd, user_ip, user_data
+  )
+
+  with drop indexes,
+       fields optionally enclosed by '"',
+       fields escaped by double-quote,
+       fields terminated by ',';

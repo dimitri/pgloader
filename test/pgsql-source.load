@@ -1,0 +1,14 @@
+load database
+     from pgsql://localhost/pgloader
+     into pgsql://localhost/copy
+
+  -- including only table names matching 'bits', ~/utilisateur/ in schema 'mysql'
+  including only table names matching ~/geolocations/ in schema 'public'
+
+  materialize views some_usps
+  as $$
+    select usps, geoid, aland, awater, aland_sqmi, awater_sqmi, location
+      from districts
+     where usps in ('MT', 'DE', 'AK', 'WY', 'PR', 'VT', 'SD', 'DC', 'ND');
+  $$
+  ;

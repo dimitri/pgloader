@@ -72,30 +72,63 @@
                              including
                              excluding)
   "MS SQL introspection to prepare the migration."
-  (declare (ignore materialize-views only-tables))
+  (declare (ignore only-tables))
   (with-stats-collection ("fetch meta data"
                           :use-result-as-rows t
                           :use-result-as-read t
                           :section :pre)
-      (with-connection (*mssql-db* (source-db mssql))
-        (list-all-columns catalog
-                          :including including
-                          :excluding excluding)
+    (with-connection (*mssql-db* (source-db mssql))
+      ;; If asked to MATERIALIZE VIEWS, now is the time to create them in MS
+      ;; SQL, when given definitions rather than existing view names.
+      (when (and materialize-views (not (eq :all materialize-views)))
+        (create-ms-views materialize-views))
 
-        (when create-indexes
-          (list-all-indexes catalog
-                            :including including
-                            :excluding excluding))
+      (list-all-columns catalog
+                        :including including
+                        :excluding excluding)
 
-        (when foreign-keys
-          (list-all-fkeys catalog
+      ;; fetch view (and their columns) metadata, covering comments too
+      (let* ((view-names (unless (eq :all materialize-views)
+                           (mapcar #'car materialize-views)))
+             (including
+              (loop :for (schema-name . view-name) :in view-names
+                 :do (let* ((schema-name (or schema-name "dbo"))
+                            (schema-entry
+                             (or (assoc schema-name including :test #'string=)
+                                 (progn (push (cons schema-name nil) including)
+                                        (assoc schema-name including
+                                               :test #'string=)))))
+                       (push-to-end view-name (cdr schema-entry))))))
+        (cond (view-names
+               (list-all-columns catalog
+                                 :including including
+                                 :table-type :view))
+
+              ((eq :all materialize-views)
+               (list-all-columns catalog :table-type :view))))
+
+      (when create-indexes
+        (list-all-indexes catalog
                           :including including
                           :excluding excluding))
 
-        ;; return how many objects we're going to deal with in total
-        ;; for stats collection
-        (+ (count-tables catalog) (count-indexes catalog))))
+      (when foreign-keys
+        (list-all-fkeys catalog
+                        :including including
+                        :excluding excluding))
+
+      ;; return how many objects we're going to deal with in total
+      ;; for stats collection
+      (+ (count-tables catalog) (count-indexes catalog))))
 
   ;; be sure to return the catalog itself
   catalog)
 
+
+(defmethod cleanup ((mssql copy-mssql) (catalog catalog) &key materialize-views)
+  "When there is a PostgreSQL error at prepare-pgsql-database step, we might
+   need to clean-up any view created in the MS SQL connection for the
+   migration purpose."
+  (when materialize-views
+    (with-connection (*mssql-db* (source-db mssql))
+      (drop-ms-views materialize-views))))

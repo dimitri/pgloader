@@ -20,7 +20,6 @@
 		       nil
 		       col))
 		 (lambda (col)
-		   (declare (optimize speed))
 		   (if (string= null-as col) nil col))))
 
 	   (field-name-as-symbol (field-name-or-list)
@@ -116,7 +115,7 @@
                                           sexp))
                               (t      sexp)))))
 		 `(lambda (row)
-		    (declare (optimize speed) (type list row))
+		    (declare (type list row))
 		    (destructuring-bind (&optional ,@args &rest extra) row
 		      (declare (ignorable ,@args) (ignore extra))
                       (let ,values

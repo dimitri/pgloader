@@ -30,7 +30,7 @@
 (defrule ignore-whitespace (* whitespace)
   (:constant nil))
 
-(defrule punct (or #\, #\- #\_ #\$ #\%)
+(defrule punct (or #\- #\_ #\$ #\%)
   (:text t))
 
 (defrule namestring (and (or #\_ (alpha-char-p character))
@@ -57,3 +57,11 @@
                                      quoted-namestring
                                      namestring))
 
+(defrule open-paren (and ignore-whitespace #\( ignore-whitespace)
+  (:constant :open-paren))
+
+(defrule close-paren (and ignore-whitespace #\) ignore-whitespace)
+  (:constant :close-paren))
+
+(defrule comma-separator (and ignore-whitespace #\, ignore-whitespace)
+  (:constant ","))

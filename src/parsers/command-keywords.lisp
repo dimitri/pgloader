@@ -26,6 +26,7 @@
   (def-keyword-rule "with")
   (def-keyword-rule "when")
   (def-keyword-rule "set")
+  (def-keyword-rule "tablespace")
   (def-keyword-rule "database")
   (def-keyword-rule "messages")
   (def-keyword-rule "matches")
@@ -103,6 +104,9 @@
   (def-keyword-rule "trim")
   (def-keyword-rule "unquoted")
   (def-keyword-rule "delimiter")
+  ;; option for Citus support
+  (def-keyword-rule "distribute")
+  (def-keyword-rule "reference")
   ;; option for MySQL imports
   (def-keyword-rule "schema")
   (def-keyword-rule "schemas")

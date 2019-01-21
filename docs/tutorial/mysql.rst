@@ -127,7 +127,8 @@ It's possible to use the *MATERIALIZE VIEWS* clause and give both the name
 and the SQL (in MySQL dialect) definition of view, then pgloader creates the
 view before loading the data, then drops it again at the end.
 
-## Loading the data
+Loading the data
+^^^^^^^^^^^^^^^^
 
 Let's start the `pgloader` command with our `sakila.load` command file::
 

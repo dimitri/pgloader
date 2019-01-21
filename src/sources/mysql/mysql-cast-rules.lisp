@@ -119,6 +119,10 @@
      :target (:type "timestamptz" :drop-default t :drop-not-null t)
      :using pgloader.transforms::zero-dates-to-null)
 
+    (:source (:type "datetime" :on-update-current-timestamp t :not-null nil)
+     :target (:type "timestamptz" :drop-default t)
+     :using pgloader.transforms::zero-dates-to-null)
+
     (:source (:type "timestamp" :default "0000-00-00 00:00:00" :not-null t)
      :target (:type "timestamptz" :drop-default t :drop-not-null t)
      :using pgloader.transforms::zero-dates-to-null)
@@ -129,6 +133,10 @@
 
     (:source (:type "timestamp" :on-update-current-timestamp t :not-null t)
      :target (:type "timestamptz" :drop-default t :drop-not-null t)
+     :using pgloader.transforms::zero-dates-to-null)
+
+    (:source (:type "timestamp" :on-update-current-timestamp t :not-null nil)
+     :target (:type "timestamptz" :drop-default t)
      :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "date" :default "0000-00-00")
@@ -177,6 +185,9 @@
 	     (:constructor make-mysql-column
 			   (table-name name comment dtype ctype default nullable extra)))
   table-name name dtype ctype default nullable extra comment)
+
+(defmethod field-name ((field mysql-column) &key)
+  (mysql-column-name field))
 
 (defun explode-mysql-enum (ctype)
   "Convert MySQL ENUM expression into a list of labels."

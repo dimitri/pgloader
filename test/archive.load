@@ -8,7 +8,8 @@
  */
 
 LOAD ARCHIVE
-   FROM http://pgsql.tapoueh.org/temp/foo.zip
+   -- FROM http://pgsql.tapoueh.org/temp/foo.zip
+   FROM http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV/GeoLiteCity-latest.zip
    INTO postgresql:///ip4r
 
    BEFORE LOAD

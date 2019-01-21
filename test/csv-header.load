@@ -15,11 +15,11 @@ LOAD CSV
           "repl$grpid"   text,
           "repl$id"      text,
           another        text,
-          fields         text
+          fields         integer
        )
     $$;
 
 
-somefields,rekplcode,repl$grpid,repl$id,another,fields
-a,b,c,d,e,f
-foo,bar,baz,quux,foobar,fizzbuzz
+somefields,rekplcode,repl$grpid,repl$id,fields,another
+a,b,c,d,1,e
+foo,bar,baz,quux,2,foobar

@@ -46,6 +46,12 @@
           (with-stats-collection ("Create SQL Types" :section :pre
                                                      :use-result-as-read t
                                                      :use-result-as-rows t)
+            ;; some SQL types come from extensions (ip4r, hstore, etc)
+            (create-extensions catalog
+                               :include-drop include-drop
+                               :if-not-exists t
+                               :client-min-messages :error)
+
             (create-sqltypes catalog
                              :include-drop include-drop
                              :client-min-messages :error))
@@ -64,9 +70,11 @@
           ;;
           ;; to be able to do that properly, get the constraints from
           ;; the pre-existing target database catalog
-          (let ((pgsql-catalog
-                 (fetch-pgsql-catalog (db-name (target-db copy))
-                                      :source-catalog catalog)))
+          (let* ((pgversion   (pgconn-major-version (target-db copy)))
+                 (pgsql-catalog
+                  (fetch-pgsql-catalog (db-name (target-db copy))
+                                       :source-catalog catalog
+                                       :pgversion pgversion)))
             (merge-catalogs catalog pgsql-catalog))
 
           ;; now the foreign keys and only then the indexes, because a
@@ -109,6 +117,20 @@
         (create-views catalog
                       :include-drop include-drop
                       :client-min-messages :error))))
+
+  ;; Citus Support
+  ;;
+  ;; We need a separate transaction here in some cases, because of the
+  ;; distributed DDL support from Citus, to avoid the following error:
+  ;;
+  ;; ERROR Database error 25001: cannot establish a new connection for
+  ;; placement 2299, since DDL has been executed on a connection that is in
+  ;; use
+  ;;
+  (when (catalog-distribution-rules catalog)
+    (with-pgsql-transaction (:pgconn (target-db copy))
+      (with-stats-collection ("Citus Distribute Tables" :section :pre)
+        (create-distributed-table (catalog-distribution-rules catalog)))))
 
   ;; log the catalog we just fetched and (maybe) merged
   (log-message :data "CATALOG: ~s" catalog))
@@ -207,9 +229,11 @@
                                :reset-sequences reset-sequences))))
 
 
-(defun process-catalog (copy catalog &key alter-table alter-schema)
+(defun process-catalog (copy catalog &key alter-table alter-schema distribute)
   "Do all the PostgreSQL catalog tweaking here: casts, index WHERE clause
    rewriting, pgloader level alter schema and alter table commands."
+  (log-message :info "Processing source catalogs")
+
   ;; cast the catalog into something PostgreSQL can work on
   (cast catalog)
 
@@ -223,7 +247,13 @@
   ;; if asked, now alter the catalog with given rules: the alter-table
   ;; keyword parameter actually contains a set of alter table rules.
   (when alter-table
-    (alter-table catalog alter-table)))
+    (alter-table catalog alter-table))
+
+  ;; we also support schema changes necessary for Citus distribution
+  (when distribute
+    (log-message :info "Applying distribution rules")
+    (setf (catalog-distribution-rules catalog)
+          (citus-distribute-schema catalog distribute))))
 
 
 ;;;
@@ -249,6 +279,8 @@
 			    (reset-sequences  t)
 			    (foreign-keys     t)
                             (reindex          nil)
+                            (after-schema     nil)
+                            distribute
 			    only-tables
 			    including
 			    excluding
@@ -289,19 +321,33 @@
 
          (copy-kernel  (make-kernel worker-count))
          (copy-channel (let ((lp:*kernel* copy-kernel)) (lp:make-channel)))
-         (catalog      (fetch-metadata
-                        copy
-                        (make-catalog
-                         :name (typecase (source-db copy)
-                                 (db-connection (db-name (source-db copy)))
-                                 (fd-connection (pathname-name
-                                                 (fd-path (source-db copy))))))
-                        :materialize-views materialize-views
-                        :create-indexes create-indexes
-                        :foreign-keys foreign-keys
-                        :only-tables only-tables
-                        :including including
-                        :excluding excluding))
+         (catalog      (handler-case
+                           (fetch-metadata
+                            copy
+                            (make-catalog
+                             :name (typecase (source-db copy)
+                                     (db-connection
+                                      (db-name (source-db copy)))
+                                     (fd-connection
+                                      (pathname-name
+                                       (fd-path (source-db copy))))))
+                            :materialize-views materialize-views
+                            :create-indexes create-indexes
+                            :foreign-keys foreign-keys
+                            :only-tables only-tables
+                            :including including
+                            :excluding excluding)
+                         (mssql::mssql-error (e)
+                           (log-message :error "MSSQL ERROR: ~a" e)
+                           (log-message :log "You might need to review the FreeTDS protocol version in your freetds.conf file, see http://www.freetds.org/userguide/choosingtdsprotocol.htm")
+                           (return-from copy-database))
+                         #+pgloader-image
+                         (condition (e)
+                           (log-message :error
+                                        "~a: ~a"
+                                        (conn-type (source-db copy))
+                                        e)
+                           (return-from copy-database))))
          pkeys
          (writers-count (make-hash-table :size (count-tables catalog)))
          (max-indexes   (when create-indexes
@@ -317,23 +363,44 @@
 
     ;; apply catalog level transformations to support the database migration
     ;; that's CAST rules, index WHERE clause rewriting and ALTER commands
-    (process-catalog copy catalog
-                     :alter-table alter-table
-                     :alter-schema alter-schema)
+    (handler-case
+        (process-catalog copy catalog
+                         :alter-table alter-table
+                         :alter-schema alter-schema
+                         :distribute distribute)
+
+      #+pgloader-image
+      ((or citus-rule-table-not-found citus-rule-is-missing-from-list) (e)
+        (log-message :fatal "~a" e)
+        (return-from copy-database))
+
+      #+pgloader-image
+      (condition (e)
+        (log-message :fatal "Failed to process catalogs: ~a" e)
+        (return-from copy-database)))
 
     ;; if asked, first drop/create the tables on the PostgreSQL side
     (handler-case
-        (prepare-pgsql-database copy
-                                catalog
-                                :truncate truncate
-                                :create-tables create-tables
-                                :create-schemas create-schemas
-                                :drop-indexes drop-indexes
-                                :drop-schema drop-schema
-                                :include-drop include-drop
-                                :foreign-keys foreign-keys
-                                :set-table-oids set-table-oids
-                                :materialize-views materialize-views)
+        (progn
+          (prepare-pgsql-database copy
+                                  catalog
+                                  :truncate truncate
+                                  :create-tables create-tables
+                                  :create-schemas create-schemas
+                                  :drop-indexes drop-indexes
+                                  :drop-schema drop-schema
+                                  :include-drop include-drop
+                                  :foreign-keys foreign-keys
+                                  :set-table-oids set-table-oids
+                                  :materialize-views materialize-views)
+
+          ;; if there's an AFTER SCHEMA DO/EXECUTE command, now is the time
+          ;; to run it.
+          (when after-schema
+            (pgloader.parser::execute-sql-code-block (target-db copy)
+                                                     :pre
+                                                     after-schema
+                                                     "after schema")))
       ;;
       ;; In case some error happens in the preparatory transaction, we
       ;; need to stop now and refrain from trying to load the data into

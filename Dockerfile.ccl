@@ -1,25 +1,51 @@
-FROM debian:stretch
-MAINTAINER Dimitri Fontaine <dim@tapoueh.org>
+FROM debian:stable-slim as builder
 
-RUN apt-get update                                   && \
-    apt-get install -y --no-install-recommends          \
-                    wget curl make git bzip2 time       \
-                    ca-certificates                     \
-                    libzip-dev libssl1.1 openssl        \
-                    patch unzip libsqlite3-dev gawk     \
-                    freetds-dev sbcl                 && \
-    rm -rf /var/lib/apt/lists/*
+  RUN apt-get update \
+      && apt-get install -y --no-install-recommends \
+        bzip2 \
+        ca-certificates \
+        curl \
+        freetds-dev \
+        gawk \
+        git \
+        libsqlite3-dev \
+        libssl1.1 \
+        libzip-dev \
+        make \
+        openssl \
+        patch \
+        sbcl \
+        time \
+        unzip \
+        wget \
+        cl-ironclad \
+        cl-babel \
+      && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /usr/local/src
-RUN curl --location -O https://github.com/Clozure/ccl/releases/download/v1.11.5/ccl-1.11.5-linuxx86.tar.gz
-RUN tar xf ccl-1.11.5-linuxx86.tar.gz
-RUN cp /usr/local/src/ccl/scripts/ccl64 /usr/local/bin/ccl
+  RUN curl -SL https://github.com/Clozure/ccl/releases/download/v1.11.5/ccl-1.11.5-linuxx86.tar.gz \
+      | tar xz -C /usr/local/src/ \
+      && mv /usr/local/src/ccl/scripts/ccl64 /usr/local/bin/ccl
 
-ADD ./ /opt/src/pgloader
-WORKDIR /opt/src/pgloader
+  COPY ./ /opt/src/pgloader
 
-# build/ is in the .dockerignore file, but we actually need it now
-RUN mkdir -p build/bin
-RUN make CL=ccl DYNSIZE=256
+  RUN mkdir -p /opt/src/pgloader/build/bin \
+      && cd /opt/src/pgloader \
+      && make CL=ccl DYNSIZE=256
 
-RUN cp /opt/src/pgloader/build/bin/pgloader /usr/local/bin
+FROM debian:stable-slim
+
+  RUN apt-get update \
+      && apt-get install -y --no-install-recommends \
+        curl \
+        freetds-dev \
+        gawk \
+        libsqlite3-dev \
+        libzip-dev \
+        make \
+        sbcl \
+        unzip \
+      && rm -rf /var/lib/apt/lists/*
+
+  COPY --from=builder /opt/src/pgloader/build/bin/pgloader /usr/local/bin
+
+  LABEL maintainer="Dimitri Fontaine <dim@tapoueh.org>"

@@ -95,7 +95,7 @@
                 :initform nil))           ;
   (:documentation "pgloader Multiple Files Data Source (csv, fixed, copy)."))
 
-(defgeneric parse-header (md-copy header)
+(defgeneric parse-header (md-copy)
   (:documentation "Parse the file header and return a list of fields."))
 
 (defgeneric process-rows (md-copy stream process-fn)

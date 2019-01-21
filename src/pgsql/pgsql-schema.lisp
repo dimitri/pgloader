@@ -5,7 +5,13 @@
 (in-package :pgloader.pgsql)
 
 (defun fetch-pgsql-catalog (dbname
-                            &key table source-catalog including excluding)
+                            &key
+                              table
+                              source-catalog
+                              including
+                              excluding
+                              (variant :pgdg)
+                              pgversion)
   "Fetch PostgreSQL catalogs for the target database. A PostgreSQL
    connection must be opened."
   (let* ((*identifier-case* :quote)
@@ -18,6 +24,10 @@
 
                           (t
                            including))))
+    (when (eq :pgdg variant)
+      (list-all-sqltypes catalog
+                         :including including
+                         :excluding excluding))
 
     (list-all-columns catalog
                       :table-type :table
@@ -26,16 +36,18 @@
 
     (list-all-indexes catalog
                       :including including
+                      :excluding excluding
+                      :pgversion pgversion)
+
+    (when (eq :pgdg variant)
+      (list-all-fkeys catalog
+                      :including including
                       :excluding excluding)
 
-    (list-all-fkeys catalog
-                    :including including
-                    :excluding excluding)
-
-    ;; fetch fkey we depend on with UNIQUE indexes but that have been
-    ;; excluded from the target list, we still need to take care of them to
-    ;; be able to DROP then CREATE those indexes again
-    (list-missing-fk-deps catalog)
+      ;; fetch fkey we depend on with UNIQUE indexes but that have been
+      ;; excluded from the target list, we still need to take care of them to
+      ;; be able to DROP then CREATE those indexes again
+      (list-missing-fk-deps catalog))
 
     (log-message :debug "fetch-pgsql-catalog: ~d tables, ~d indexes, ~d+~d fkeys"
                  (count-tables catalog)
@@ -96,7 +108,7 @@
 (defun format-table-name-as-including-exp (table)
   "Return a table name suitable for a catalog lookup using ~ operator."
   (let ((table-name (table-name table)))
-    (format nil "^~a$" (ensure-unquoted table-name))))
+    (make-string-match-rule :target (ensure-unquoted table-name))))
 
 (defun query-table-schema (table)
   "Get PostgreSQL schema name where to locate TABLE-NAME by following the
@@ -107,6 +119,27 @@
                                    (table-name table))
                            :single)))
 
+(defun make-including-expr-from-view-names (view-names)
+  "Turn MATERIALIZING VIEWs list of view names into an INCLUDING parameter."
+  (let (including current-schema)
+    (loop :for (schema-name . view-name) :in view-names
+       :do (let* ((schema-name
+                   (if schema-name
+                       (ensure-unquoted schema-name)
+                       (or
+                        current-schema
+                        (setf current-schema
+                              (pomo:query "select current_schema()" :single)))))
+                  (table-expr
+                   (make-string-match-rule :target (ensure-unquoted view-name)))
+                  (schema-entry
+                   (or (assoc schema-name including :test #'string=)
+                       (progn (push (cons schema-name nil) including)
+                              (assoc schema-name including :test #'string=)))))
+             (push-to-end table-expr (cdr schema-entry))))
+    ;; return the including alist
+    including))
+
 
 (defvar *table-type*
   '((:table    . ("r" "f" "p"))   ; ordinary, foreign and partitioned
@@ -116,18 +149,34 @@
   "Associate internal table type symbol with what's found in PostgreSQL
   pg_class.relkind column.")
 
-(defun filter-list-to-where-clause (filter-list
+(defun filter-list-to-where-clause (schema-filter-list
                                     &optional
                                       not
                                       (schema-col "table_schema")
                                       (table-col  "table_name"))
   "Given an INCLUDING or EXCLUDING clause, turn it into a PostgreSQL WHERE
    clause."
-  (loop :for (schema . table-name-list) :in filter-list
-     :append (mapcar (lambda (table-name)
-                       (format nil "(~a = '~a' and ~a ~:[~;NOT ~]~~ '~a')"
-                               schema-col schema table-col not table-name))
-                     table-name-list)))
+  (loop :for (schema . filter-list) :in schema-filter-list
+     :append (mapcar (lambda (filter)
+                       (typecase filter
+                         (string-match-rule
+                          (format nil "(~a = '~a' and ~a ~:[~;!~]= '~a')"
+                                  schema-col
+                                  schema
+                                  table-col
+                                  not
+                                  (string-match-rule-target filter)))
+                         (regex-match-rule
+                          (format nil "(~a = '~a' and ~a ~:[~;NOT ~]~~ '~a')"
+                                  schema-col
+                                  schema
+                                  table-col
+                                  not
+                                  (regex-match-rule-target filter)))))
+                     filter-list)))
+
+(defun normalize-extra (extra)
+  (cond ((string= "auto_increment" extra) :auto-increment)))
 
 (defun list-all-columns (catalog
                          &key
@@ -137,7 +186,8 @@
                          &aux
                            (table-type-name (cdr (assoc table-type *table-type*))))
   "Get the list of PostgreSQL column names per table."
-  (loop :for (schema-name table-name table-oid name type typmod notnull default)
+  (loop :for (schema-name table-name table-oid
+                          name type typmod notnull default extra)
      :in
      (query nil
             (format nil
@@ -156,23 +206,28 @@
      :do
      (let* ((schema    (maybe-add-schema catalog schema-name))
             (table     (maybe-add-table schema table-name :oid table-oid))
-            (field     (make-column :name name
+            (field     (make-column :table table
+                                    :name name
                                     :type-name type
                                     :type-mod typmod
                                     :nullable (not notnull)
-                                    :default default)))
+                                    :default default
+                                    :transform-default nil
+                                    :extra (normalize-extra extra))))
        (add-field table field))
      :finally (return catalog)))
 
-(defun list-all-indexes (catalog &key including excluding)
+(defun list-all-indexes (catalog &key including excluding pgversion)
   "Get the list of PostgreSQL index definitions per table."
   (loop
      :for (schema-name name oid
                        table-schema table-name
-                       primary unique sql conname condef)
+                       primary unique cols sql conname condef)
      :in (query nil
                 (format nil
-                        (sql "/pgsql/list-all-indexes.sql")
+                        (sql (sql-url-for-variant "pgsql"
+                                                  "list-all-indexes.sql"
+                                                  pgversion))
                         including       ; do we print the clause?
                         (filter-list-to-where-clause including
                                                      nil
@@ -186,17 +241,20 @@
      :do (let* ((schema   (find-schema catalog schema-name))
                 (tschema  (find-schema catalog table-schema))
                 (table    (find-table tschema table-name))
+                (columns  (parse-index-column-names cols sql))
                 (pg-index
-                 (make-index :name name
+                 (make-index :name (ensure-quoted name)
                              :oid oid
                              :schema schema
                              :table table
                              :primary primary
                              :unique unique
-                             :columns nil
+                             :columns columns
                              :sql sql
-                             :conname (unless (eq :null conname) conname)
-                             :condef  (unless (eq :null condef)  condef))))
+                             :conname (unless (eq :null conname)
+                                        (ensure-quoted conname))
+                             :condef  (unless (eq :null condef)
+                                        condef))))
            (maybe-add-index table name pg-index :key #'index-name))
      :finally (return catalog)))
 
@@ -204,7 +262,7 @@
   "Get the list of PostgreSQL index definitions per table."
   (loop
      :for (schema-name table-name fschema-name ftable-name
-                       conoid conname condef
+                       conoid pkeyoid conname condef
                        cols fcols
                        updrule delrule mrule deferrable deferred)
      :in (query nil
@@ -246,9 +304,13 @@
                   (table    (find-table schema table-name))
                   (fschema  (find-schema catalog fschema-name))
                   (ftable   (find-table fschema ftable-name))
+                  (pkey     (find pkeyoid (table-index-list ftable)
+                                  :test #'=
+                                  :key #'index-oid))
                   (fk
-                   (make-fkey :name conname
+                   (make-fkey :name (ensure-quoted conname)
                               :oid conoid
+                              :pkey pkey
                               :condef condef
                               :table table
                               :columns (split-sequence:split-sequence #\, cols)
@@ -259,6 +321,13 @@
                               :match-rule (pg-fk-match-rule-to-match-clause mrule)
                               :deferrable deferrable
                               :initially-deferred deferred)))
+             ;; add the fkey reference to the pkey index too
+             (unless (find conoid
+                           (index-fk-deps pkey)
+                           :test #'=
+                           :key #'fkey-oid)
+               (push-to-end fk (index-fk-deps pkey)))
+             ;; check that both tables are in pgloader's scope
              (if (and table ftable)
                  (add-fkey table fk)
                  (log-message :notice "Foreign Key ~a is ignored, one of its table is missing from pgloader table selection"
@@ -355,3 +424,71 @@
                        (sql "/pgsql/list-table-oids-from-temp-table.sql"))))
          :do (setf (gethash name oidmap) oid)))
     oidmap))
+
+
+
+;;;
+;;; PostgreSQL specific support for extensions and user defined data types.
+;;;
+(defun list-all-sqltypes (catalog &key including excluding)
+  "Set the catalog's schema extension list and sqltype list"
+  (loop :for (schema-name extension-name type-name enum-values)
+     :in (query nil
+                (format nil
+                        (sql "/pgsql/list-all-sqltypes.sql")
+                        including       ; do we print the clause?
+                        (filter-list-to-where-clause including
+                                                     nil
+                                                     "n.nspname"
+                                                     "c.relname")
+                        excluding       ; do we print the clause?
+                        (filter-list-to-where-clause excluding
+                                                     nil
+                                                     "n.nspname"
+                                                     "c.relname")))
+     :do
+     (let* ((schema    (maybe-add-schema catalog schema-name))
+            (sqltype
+             (make-sqltype :name (ensure-quoted type-name)
+                           :schema schema
+                           :type (when enum-values :enum)
+                           :extra (when (and enum-values
+                                             (not (eq enum-values :null)))
+                                    (coerce enum-values 'list)))))
+
+       (if (and extension-name (not (eq :null extension-name)))
+           ;; then create extension will create the type
+           (maybe-add-extension schema extension-name)
+
+           ;; only create a specific entry for types that we need to create
+           ;; ourselves, when extension is not null "create extension" is
+           ;; going to take care of creating the type.
+           (add-sqltype schema sqltype)))
+     :finally (return catalog)))
+
+
+
+;;;
+;;; Extra utils like parsing a list of column names from an index definition.
+;;;
+(defun parse-index-column-names (columns index-definition)
+  "Return a list of column names for the given index."
+  (if (and columns (not (eq :null columns)))
+      ;; the normal case, no much parsing to do, the data has been prepared
+      ;; for us in the SQL query
+      (split-sequence:split-sequence #\, columns)
+
+      ;; the redshift variant case, where there's no way to string_agg or
+      ;; even array_to_string(array_agg(...)) and so we need to parse the
+      ;; index-definition instead.
+      ;;
+      ;; CREATE UNIQUE INDEX pg_amproc_opc_proc_index ON pg_amproc USING btree (amopclaid, amprocsubtype, amprocnum)
+      (when index-definition
+        (let ((open-paren-pos  (position #\( index-definition))
+              (close-paren-pos (position #\) index-definition)))
+          (when (and open-paren-pos close-paren-pos)
+            (mapcar (lambda (colname) (string-trim " " colname))
+                    (split-sequence:split-sequence #\,
+                                                   index-definition
+                                                   :start (+ 1 open-paren-pos)
+                                                   :end close-paren-pos)))))))

@@ -48,9 +48,12 @@ $(PGLOADER): $(BUILDAPP)
                          $(BUILDAPP_OPTS)                             \
                          --sbcl $(CL)                                 \
                          --asdf-tree .                                \
+                         --load-system cffi                           \
+                         --load-system cl+ssl                         \
+                         --load-system mssql                          \
+                         --load $(SRCDIR)/src/hooks.lisp              \
                          --load-system $(APP_NAME)                    \
                          --eval '(setf pgloader.params::*version-string* "$(VERSION)")' \
-                         --load $(SRCDIR)/src/hooks.lisp              \
                          --entry pgloader:main                        \
                          --dynamic-space-size $(DYNSIZE)              \
                          $(COMPRESS_CORE_OPT)                         \
@@ -60,5 +63,8 @@ $(PGLOADER): $(BUILDAPP)
 
 test: $(PGLOADER)
 	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) -C $(SRCDIR)/test regress
+
+save:
+	sbcl --no-userinit --load ./save.lisp
 
 check: test ;

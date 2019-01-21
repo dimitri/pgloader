@@ -118,7 +118,19 @@
                                          (uiop:native-namestring crt-file)))
          (pomo::*ssl-key-file*         (when (and (ssl-enable-p pgconn)
                                                   (probe-file key-file))
-                                         (uiop:native-namestring key-file))))
+                                         (uiop:native-namestring key-file)))
+         ;;
+         ;; It's ok to set :verify-mode to NONE here because
+         ;; cl+ssl:*make-ssl-client-stream-verify-default* defaults to
+         ;; :require and takes precedence.
+         ;;
+         ;; Only when --no-ssl-cert-verification is passed as a command line
+         ;; option do we set cl+ssl:*make-ssl-client-stream-verify-default*
+         ;; to NIL, then allowing the NONE behaviour set here.
+         ;;
+         (ssl-context
+          (CL+SSL:MAKE-CONTEXT :disabled-protocols nil
+                               :verify-mode CL+SSL:+SSL-VERIFY-NONE+)))
     (flet ((connect (pgconn username)
              (handler-case
                  ;; in some cases (client_min_messages set to debug5
@@ -128,20 +140,29 @@
                                  #'(lambda (w)
                                      (log-message :warning "~a" w)
                                      (muffle-warning))))
-                   (pomo:connect (db-name pgconn)
-                                 (or username (db-user pgconn))
-                                 (db-pass pgconn)
-                                 (let ((host (db-host pgconn)))
-                                   (if (and (consp host) (eq :unix (car host)))
-                                       :unix
-                                       host))
-                                 :port (db-port pgconn)
-                                 :use-ssl (or (pgconn-use-ssl pgconn) :no)))
+                   (CL+SSL:WITH-GLOBAL-CONTEXT (ssl-context :auto-free-p t)
+                    (pomo:connect (db-name pgconn)
+                                  (or username (db-user pgconn))
+                                  (db-pass pgconn)
+                                  (let ((host (db-host pgconn)))
+                                    (if (and (consp host) (eq :unix (car host)))
+                                        :unix
+                                        host))
+                                  :port (db-port pgconn)
+                                  :use-ssl (or (pgconn-use-ssl pgconn) :no))))
+
                ((or too-many-connections configuration-limit-exceeded) (e)
                  (log-message :error
                               "Failed to connect to ~a: ~a; will try again in ~fs"
                               pgconn e *retry-connect-delay*)
-                 (sleep *retry-connect-delay*)))))
+                (sleep *retry-connect-delay*))
+
+               (CL+SSL:SSL-ERROR-VERIFY (e)
+                 (log-message :error
+                              "Connecting to PostgreSQL ~a: ~a"
+                              (db-host pgconn) e)
+                 (log-message :log "You may try --no-ssl-cert-verification")
+                 (error e)))))
       (loop :while (null (conn-handle pgconn))
          :repeat *retry-connect-times*
          :do (setf (conn-handle pgconn) (connect pgconn username))))
@@ -389,10 +410,11 @@
 ;;;
 ;;;  PostgreSQL 8.0.2 on i686-pc-linux-gnu, compiled by GCC gcc (GCC) 3.4.2 20041017 (Red Hat 3.4.2-6.fc3), Redshift 1.0.2058
 ;;;  PostgreSQL 10.1 on x86_64-apple-darwin14.5.0, compiled by Apple LLVM version 7.0.0 (clang-700.1.76), 64-bit
+;;;  PostgreSQL 10.6 (Ubuntu 10.6-1.pgdg14.04+1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 4.8.4-2ubuntu1~14.04.4) 4.8.4, 64-bit
 (defun parse-postgresql-version-string (version-string)
   "Parse PostgreSQL select version() output."
   (cl-ppcre:register-groups-bind (full-version maybe-variant)
-      ("PostgreSQL ([0-9.]+) on .*, [^,]+, (.*)" version-string)
+      ("PostgreSQL ([0-9.]+) [^,]+, [^,]+, (.*)" version-string)
     (let* ((version-dots  (split-sequence:split-sequence #\. full-version))
            (major-version (if (= 3 (length version-dots))
                               (format nil "~a.~a"

@@ -42,32 +42,44 @@
 ;;; Column structures details depend on the specific source type and are
 ;;; implemented in each source separately.
 ;;;
-(defstruct catalog name schema-list types-without-btree)
-(defstruct schema source-name name catalog table-list view-list in-search-path)
-(defstruct table source-name name schema oid comment storage-parameter-list
+(defstruct catalog name schema-list types-without-btree distribution-rules)
+
+(defstruct schema source-name name catalog in-search-path
+           table-list view-list extension-list sqltype-list)
+
+(defstruct table source-name name schema oid comment
+           storage-parameter-list tablespace
            ;; field is for SOURCE
            ;; column is for TARGET
-           field-list column-list index-list fkey-list trigger-list)
+           ;; citus is an extra slot for citus support
+           field-list column-list index-list fkey-list trigger-list citus-rule)
+
+;;;
+;;; When migrating from PostgreSQL to PostgreSQL we might have to install
+;;; extensions to have data type coverage.
+;;;
+(defstruct extension name schema)
 
 ;;;
 ;;; When migrating from another database to PostgreSQL some data types might
 ;;; need to be tranformed dynamically into User Defined Types: ENUMs, SET,
 ;;; etc.
 ;;;
-(defstruct sqltype name schema type source-def extra)
+(defstruct sqltype name schema type source-def extra extension)
 
 ;;;
 ;;; The generic PostgreSQL column that the CAST generic function is asked to
 ;;; produce, so that we know how to CREATE TABLEs in PostgreSQL whatever the
 ;;; source is.
 ;;;
-(defstruct column name type-name type-mod nullable default comment transform extra)
+(defstruct column table name type-name type-mod nullable default comment
+           transform extra (transform-default t))
 
 ;;;
 ;;; Index and Foreign Keys
 ;;;
 (defstruct fkey
-  name oid table columns foreign-table foreign-columns condef
+  name oid table columns pkey foreign-table foreign-columns condef
   update-rule delete-rule match-rule deferrable initially-deferred)
 
 ;;;
@@ -94,13 +106,18 @@
 ;;;
 ;;; Main data collection API
 ;;;
-(defgeneric add-schema  (object schema-name &key))
-(defgeneric add-table   (object table-name &key))
-(defgeneric add-view    (object view-name &key))
-(defgeneric add-column  (object column &key))
-(defgeneric add-index   (object index &key))
-(defgeneric add-fkey    (object fkey &key))
-(defgeneric add-comment (object comment &key))
+(defgeneric add-schema    (object schema-name &key))
+(defgeneric add-extension (object extension-name &key))
+(defgeneric add-table     (object table-name &key))
+(defgeneric add-view      (object view-name &key))
+(defgeneric add-sqltype   (object column &key))
+(defgeneric add-column    (object column &key))
+(defgeneric add-index     (object index &key))
+(defgeneric add-fkey      (object fkey &key))
+(defgeneric add-comment   (object comment &key))
+
+(defgeneric extension-list (object &key)
+  (:documentation "Return the list of extensions found in OBJECT."))
 
 (defgeneric table-list (object &key)
   (:documentation "Return the list of tables found in OBJECT."))
@@ -111,6 +128,10 @@
 (defgeneric find-schema (object schema-name &key)
   (:documentation
    "Find a schema by SCHEMA-NAME in a catalog OBJECT and return the schema"))
+
+(defgeneric find-extension (object extension-name &key)
+  (:documentation
+   "Find an extension by EXTENSION-NAME in a schema OBJECT and return the table"))
 
 (defgeneric find-table (object table-name &key)
   (:documentation
@@ -130,6 +151,9 @@
 
 (defgeneric maybe-add-schema (object schema-name &key)
   (:documentation "Add a new schema or return existing one."))
+
+(defgeneric maybe-add-extension (object extension-name &key)
+  (:documentation "Add a new extension or return existing one."))
 
 (defgeneric maybe-add-table (object table-name &key)
   (:documentation "Add a new table or return existing one."))
@@ -163,10 +187,44 @@
    "Cast a FIELD definition from a source database into a PostgreSQL COLUMN
     definition."))
 
+(defgeneric field-name (object &key)
+  (:documentation "Get the source database column name, or field-name."))
+
 
 ;;;
 ;;; Implementation of the methods
 ;;;
+(defmethod extension-list ((schema schema) &key)
+  "Return the list of extensions for SCHEMA."
+  (schema-extension-list schema))
+
+(defmethod extension-list ((catalog catalog) &key)
+  "Return the list of extensions for CATALOG."
+  (apply #'append (mapcar #'extension-list (catalog-schema-list catalog))))
+
+(defmethod sqltype-list ((column column) &key)
+  "Return the list of sqltypes for SCHEMA."
+  (when (typep (column-type-name column) 'sqltype)
+    (column-type-name column)))
+
+(defmethod sqltype-list ((table table) &key)
+  "Return the list of sqltypes for SCHEMA."
+  (mapcar #'sqltype-list (table-column-list table)))
+
+(defmethod sqltype-list ((schema schema) &key)
+  "Return the list of sqltypes for SCHEMA."
+  (append (schema-sqltype-list schema)
+          (apply #'append
+                 (mapcar #'sqltype-list (schema-table-list schema)))))
+
+(defmethod sqltype-list ((catalog catalog) &key)
+  "Return the list of sqltypes for CATALOG."
+  (remove-duplicates
+   (remove-if #'null
+              (apply #'append
+                     (mapcar #'sqltype-list (catalog-schema-list catalog))))
+   :test #'string-equal :key #'sqltype-name))
+
 (defmethod table-list ((schema schema) &key)
   "Return the list of tables for SCHEMA."
   (schema-table-list schema))
@@ -212,6 +270,17 @@
                              :in-search-path in-search-path)))
     (push-to-end schema (catalog-schema-list catalog))))
 
+(defmethod add-extension ((schema schema) extension-name &key)
+  "Add EXTENSION-NAME to SCHEMA and return the new extension instance."
+  (let ((extension
+         (make-extension :name extension-name
+                         :schema schema)))
+    (push-to-end extension (schema-extension-list schema))))
+
+(defmethod add-sqltype ((schema schema) sqltype &key)
+  "Add SQLTYPE instance to SCHEMA and return SQLTYPE."
+  (push-to-end sqltype (schema-sqltype-list schema)))
+
 (defmethod add-table ((schema schema) table-name &key comment oid)
   "Add TABLE-NAME to SCHEMA and return the new table instance."
   (let ((table
@@ -238,6 +307,11 @@
   (find schema-name (catalog-schema-list catalog)
         :key #'schema-source-name :test 'string=))
 
+(defmethod find-extension ((schema schema) extension-name &key)
+  "Find EXTENSION-NAME in SCHEMA and return the EXTENSION object of this name."
+  (find extension-name (schema-extension-list schema)
+        :key #'extension-name :test 'string=))
+
 (defmethod find-table ((schema schema) table-name &key)
   "Find TABLE-NAME in SCHEMA and return the TABLE object of this name."
   (find table-name (schema-table-list schema)
@@ -253,6 +327,12 @@
    schema of the same name if it already exists in the catalog schema-list"
   (let ((schema (find-schema catalog schema-name)))
     (or schema (add-schema catalog schema-name))))
+
+(defmethod maybe-add-extension ((schema schema) extension-name &key)
+  "Add TABLE-NAME to the table-list for SCHEMA, or return the existing table
+   of the same name if it already exists in the schema table-list."
+  (let ((extension (find-extension schema extension-name)))
+    (or extension (add-extension schema extension-name))))
 
 (defmethod maybe-add-table ((schema schema) table-name &key comment oid)
   "Add TABLE-NAME to the table-list for SCHEMA, or return the existing table
@@ -296,6 +376,9 @@
   "Cast all fields of all tables in all schemas in CATALOG into columns."
   (loop :for schema :in (catalog-schema-list catalog)
      :do (cast schema)))
+
+(defmethod field-name ((column column) &key)
+  (column-name column))
 
 ;;;
 ;;; There's no simple equivalent to array_agg() in MS SQL, so the index and

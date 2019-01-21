@@ -14,16 +14,22 @@
 (defrule pgpass-escaped-char (and #\\ (or #\\ #\:))
   (:lambda (c) (second c)))
 
+(defrule pgpass-ipv6-hostname (and #\[
+                                   (+ (or (digit-char-p character) ":"))
+                                   #\])
+  (:lambda (ipv6) (text (second ipv6))))
+
 (defrule pgpass-entry (or "*"
-                          (+ (or pgpass-escaped-char
+                          (+ (or pgpass-ipv6-hostname
+                                 pgpass-escaped-char
                                  (pgpass-char-p character))))
   (:lambda (e) (text e)))
 
-(defrule pgpass-line (and pgpass-entry #\: pgpass-entry #\:
+(defrule pgpass-line (and (? pgpass-entry) #\: pgpass-entry #\:
                           pgpass-entry #\: pgpass-entry #\:
                           (? pgpass-entry))
   (:lambda (pl)
-    (make-pgpass :hostname (first pl)
+    (make-pgpass :hostname (or (first pl) "localhost")
                  :port (third pl)
                  :database (fifth pl)
                  :username (seventh pl)

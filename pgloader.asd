@@ -69,6 +69,7 @@
                        (:file "quoting"     :depends-on ("utils"))
                        (:file "catalog"     :depends-on ("quoting"))
                        (:file "alter-table" :depends-on ("catalog"))
+                       (:file "citus"       :depends-on ("catalog"))
 
                        ;; State, monitoring, reporting
                        (:file "reject"  :depends-on ("state"))
@@ -95,6 +96,7 @@
                       :components
                       ((:file "connection")
                        (:file "pgsql-ddl")
+                       (:file "pgsql-ddl-citus")
                        (:file "pgsql-schema")
                        (:file "merge-catalogs" :depends-on ("pgsql-schema"))
                        (:file "pgsql-trigger")
@@ -149,40 +151,37 @@
                                         ;(:file "syslog") ; experimental...
 
                        (:module "sqlite"
+                                :serial t
                                 :depends-on ("common")
                                 :components
                                 ((:file "sqlite-cast-rules")
-                                 (:file "sqlite-schema"
-                                        :depends-on ("sqlite-cast-rules"))
-                                 (:file "sqlite"
-                                        :depends-on ("sqlite-cast-rules"
-                                                     "sqlite-schema"))))
+                                 (:file "sqlite-schema")
+                                 (:file "sqlite")))
 
                        (:module "mssql"
+                                :serial t
                                 :depends-on ("common")
                                 :components
                                 ((:file "mssql-cast-rules")
-                                 (:file "mssql-schema"
-                                        :depends-on ("mssql-cast-rules"))
-                                 (:file "mssql"
-                                        :depends-on ("mssql-cast-rules"
-                                                     "mssql-schema"))
-                                 (:file "mssql-index-filters"
-                                        :depends-on ("mssql"))))
+                                 (:file "mssql-schema")
+                                 (:file "mssql")
+                                 (:file "mssql-index-filters")))
 
                        (:module "mysql"
+                                :serial t
                                 :depends-on ("common")
                                 :components
                                 ((:file "mysql-cast-rules")
                                  (:file "mysql-connection")
-                                 (:file "mysql-schema"
-                                        :depends-on ("mysql-connection"
-                                                     "mysql-cast-rules"))
-                                 ;; (:file "mysql-csv"
-                                 ;;        :depends-on ("mysql-schema"))
-                                 (:file "mysql"
-                                        :depends-on ("mysql-cast-rules"
-                                                     "mysql-schema"))))))
+                                 (:file "mysql-schema")
+                                 (:file "mysql")))
+
+                       (:module "pgsql"
+                                :serial t
+                                :depends-on ("common")
+                                :components ((:file "pgsql-cast-rules")
+                                             (:file "pgsql-schema")
+                                             (:file "pgsql")))))
 
              ;; package pgloader.copy
              (:module "pg-copy"
@@ -243,10 +242,12 @@
                        (:file "command-cast-rules")
                        (:file "command-materialize-views")
                        (:file "command-alter-table")
+                       (:file "command-distribute")
                        (:file "command-mysql")
                        (:file "command-including-like")
                        (:file "command-mssql")
                        (:file "command-sqlite")
+                       (:file "command-pgsql")
                        (:file "command-archive")
                        (:file "command-parser")
                        (:file "parse-sqlite-type-name")

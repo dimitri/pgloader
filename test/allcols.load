@@ -13,7 +13,7 @@
 
 LOAD CSV
      FROM inline (a, b, c)
-     INTO postgresql:///pgloader?allcols (a, b, c)
+     INTO postgresql:///pgloader?allcols (a, b, c text using (subseq c 0))
 
      WITH fields optionally enclosed by '"',
           fields escaped by double-quote,

@@ -75,6 +75,10 @@
   "Alter the storage parameters of TABLE."
   (setf (table-storage-parameter-list table) parameters))
 
+(defun alter-table-set-tablespace (table tablespace)
+  "Alter the tablespace slot of TABLE"
+  (setf (table-tablespace table) tablespace))
+
 
 ;;;
 ;;; Apply the match rules as given by the parser to a table name.

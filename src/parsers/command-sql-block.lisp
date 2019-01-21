@@ -58,17 +58,26 @@
     (bind (((_ _ sql-list-of-list) after))
       (cons :after (apply #'append sql-list-of-list)))))
 
+(defrule after-schema (and kw-after kw-create kw-schema
+                           (+ (or load-do load-execute)))
+  (:lambda (after)
+    (bind (((_ _ _ sql-list-of-list) after))
+      (cons :after-schema (apply #'append sql-list-of-list)))))
+
 (defun sql-code-block (pgconn section commands label)
   "Return lisp code to run COMMANDS against DBNAME, updating STATE."
   (when commands
-    `(with-stats-collection (,label
-                             :dbname ,(db-name pgconn)
-                             :section ,section
-                             :use-result-as-read t
-                             :use-result-as-rows t)
-       (log-message :notice "Executing SQL block for ~a" ,label)
-       (with-pgsql-transaction (:pgconn ,pgconn)
-	 (loop for command in ',commands
-	    do
-	      (pgsql-execute command :client-min-messages :error)
-            counting command)))))
+    `(execute-sql-code-block ,pgconn ,section ',commands ,label)))
+
+(defun execute-sql-code-block (pgconn section commands label)
+  "Exceute given SQL commands."
+  (with-stats-collection (label
+                          :dbname (db-name pgconn)
+                          :section section
+                          :use-result-as-read t
+                          :use-result-as-rows t)
+    (log-message :notice "Executing SQL block for ~a" label)
+    (with-pgsql-transaction (:pgconn pgconn)
+      (loop :for command :in commands
+         :do (pgsql-execute command :client-min-messages :error)
+         :counting command))))

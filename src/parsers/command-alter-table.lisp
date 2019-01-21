@@ -47,9 +47,14 @@
     (bind (((_ _ parameters _) stmt))
       (list #'pgloader.catalog::alter-table-set-storage-parameters parameters))))
 
+(defrule set-tablespace (and kw-set kw-tablespace quoted-namestring)
+  (:lambda (stmt)
+    (list #'pgloader.catalog::alter-table-set-tablespace (third stmt))))
+
 (defrule alter-table-action (or rename-to
                                 set-schema
-                                set-storage-parameters))
+                                set-storage-parameters
+                                set-tablespace))
 
 (defrule alter-table-command (and alter-table-names-matching
                                   (? in-schema)

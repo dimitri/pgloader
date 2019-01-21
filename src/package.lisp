@@ -49,8 +49,9 @@
 
            #:catalog
            #:schema
-           #:table
+           #:extension
            #:sqltype
+           #:table
            #:column
            #:index
            #:fkey
@@ -76,12 +77,15 @@
            #:catalog-name
            #:catalog-schema-list
            #:catalog-types-without-btree
+           #:catalog-distribution-rules
 
            #:schema-name
            #:schema-catalog
            #:schema-source-name
            #:schema-table-list
            #:schema-view-list
+           #:schema-extension-list
+           #:schema-sqltype-list
            #:schema-in-search-path
 
            #:table-name
@@ -90,17 +94,23 @@
            #:table-oid
            #:table-comment
            #:table-storage-parameter-list
+           #:table-tablespace
            #:table-field-list
            #:table-column-list
            #:table-index-list
            #:table-fkey-list
            #:table-trigger-list
+           #:table-citus-rule
+
+           #:extension-name
+           #:extension-schema
 
            #:sqltype-name
            #:sqltype-schema
            #:sqltype-type
            #:sqltype-source-def
            #:sqltype-extra
+           #:sqltype-extension
 
            #:column-name
            #:column-type-name
@@ -110,6 +120,7 @@
            #:column-comment
            #:column-transform
            #:column-extra
+           #:column-transform-default
 
            #:index-name
            #:index-type
@@ -152,9 +163,15 @@
 
            #:table-list
            #:view-list
+           #:extension-list
+           #:sqltype-list
            #:add-schema
            #:find-schema
            #:maybe-add-schema
+           #:add-extension
+           #:find-extension
+           #:maybe-add-extension
+           #:add-sqltype
            #:add-table
            #:find-table
            #:maybe-add-table
@@ -174,6 +191,7 @@
            #:count-indexes
            #:count-fkeys
            #:max-indexes-per-table
+           #:field-name
 
            #:push-to-end
            #:with-schema
@@ -193,6 +211,17 @@
            #:match-rule-schema
            #:match-rule-action
            #:match-rule-args
+
+           #:citus-reference-rule
+           #:citus-distributed-rule
+           #:make-citus-reference-rule
+           #:make-citus-distributed-rule
+           #:citus-reference-rule-rule
+           #:citus-distributed-rule-table
+           #:citus-distributed-rule-using
+           #:citus-distributed-rule-from
+           #:citus-format-sql-select
+           #:citus-backfill-table-p
 
            #:format-table-name))
 
@@ -260,7 +289,30 @@
 (defpackage #:pgloader.queries
   (:use #:cl #:pgloader.params)
   (:export #:*queries*
-           #:sql))
+           #:sql
+           #:sql-url-for-variant))
+
+(defpackage #:pgloader.citus
+  (:use #:cl
+        #:pgloader.params
+        #:pgloader.catalog
+        #:pgloader.quoting
+        #:pgloader.monitor)
+  (:export #:citus-distribute-schema
+           #:citus-format-sql-select
+           #:citus-backfill-table-p
+           #:citus-rule-table-not-found
+           #:citus-rule-is-missing-from-list
+
+           #:citus-reference-rule
+           #:citus-reference-rule-p
+           #:citus-reference-rule-table
+
+           #:citus-distributed-rule
+           #:citus-distributed-rule-p
+           #:citus-distributed-rule-table
+           #:citus-distributed-rule-using
+           #:citus-distributed-rule-from))
 
 (defpackage #:pgloader.utils
   (:use #:cl
@@ -269,7 +321,8 @@
         #:pgloader.quoting
         #:pgloader.catalog
         #:pgloader.monitor
-        #:pgloader.state)
+        #:pgloader.state
+        #:pgloader.citus)
   (:import-from #:alexandria
                 #:appendf
                 #:read-file-into-string)
@@ -300,7 +353,8 @@
   (cl-user::export-inherited-symbols "pgloader.quoting" "pgloader.utils")
   (cl-user::export-inherited-symbols "pgloader.catalog" "pgloader.utils")
   (cl-user::export-inherited-symbols "pgloader.monitor" "pgloader.utils")
-  (cl-user::export-inherited-symbols "pgloader.state"   "pgloader.utils"))
+  (cl-user::export-inherited-symbols "pgloader.state"   "pgloader.utils")
+  (cl-user::export-inherited-symbols "pgloader.citus"   "pgloader.utils"))
 
 
 ;;
@@ -389,6 +443,7 @@
 	   #:truncate-tables
            #:set-table-oids
 
+           #:create-extensions
            #:create-sqltypes
 	   #:create-schemas
            #:add-to-search-path
@@ -408,6 +463,11 @@
            #:reset-sequences
            #:comment-on-tables-and-columns
 
+           #:create-distributed-table
+
+           #:make-including-expr-from-catalog
+           #:make-including-expr-from-view-names
+
            ;; finalizing catalogs support (redshift and other variants)
            #:finalize-catalogs
            #:adjust-data-types
@@ -417,6 +477,7 @@
            #:process-index-definitions
 
            ;; postgresql introspection queries
+           #:list-all-sqltypes
 	   #:list-all-columns
 	   #:list-all-indexes
 	   #:list-all-fkeys
@@ -674,6 +735,14 @@
 	   #:*mysql-default-cast-rules*
            #:with-mysql-connection))
 
+(defpackage #:pgloader.source.pgsql
+  (:use #:cl
+        #:pgloader.params #:pgloader.utils #:pgloader.connection
+        #:pgloader.sources #:pgloader.pgsql #:pgloader.catalog)
+  (:import-from #:pgloader.transforms #:precision #:scale)
+  (:export #:copy-pgsql
+           #:*pgsql-default-cast-rules*))
+
 (defpackage #:pgloader.source.sqlite
   (:use #:cl
         #:pgloader.params #:pgloader.utils #:pgloader.connection
@@ -763,6 +832,9 @@
   (:import-from #:pgloader.source.copy
                 #:copy-copy
                 #:copy-connection)
+  (:import-from #:pgloader.source.pgsql
+                #:copy-pgsql
+                #:*pgsql-default-cast-rules*)
   (:import-from #:pgloader.source.mysql
                 #:copy-mysql
                 #:mysql-connection
@@ -785,6 +857,7 @@
   (:export #:parse-commands
            #:parse-commands-from-file
            #:initialize-context
+           #:execute-sql-code-block
 
            ;; tools to enable complete cli parsing in main.lisp
            #:process-relative-pathnames

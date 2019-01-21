@@ -144,8 +144,14 @@
                                     :columns nil
                                     :filter filter))
             (index
-             (maybe-add-index table index-name pg-index :key #'index-name)))
-       (add-column index colname))
+             (when table
+               (maybe-add-index table index-name pg-index :key #'index-name))))
+       (unless table
+         (log-message :warning
+                      "Failed to find table ~s in schema ~s for index ~s, skipping the index"
+                      table-name schema-name index-name))
+       (when index
+         (add-column index colname)))
      :finally (return catalog)))
 
 (defun list-all-fkeys (catalog &key including excluding)
@@ -195,6 +201,7 @@
 
    Mostly we just use the name, and make try to avoid parsing dates."
   (case (intern (string-upcase type) "KEYWORD")
+    (:time           (format nil "convert(varchar, [~a], 114)" name))
     (:datetime       (format nil "convert(varchar, [~a], 126)" name))
     (:smalldatetime  (format nil "convert(varchar, [~a], 126)" name))
     (:date           (format nil "convert(varchar, [~a], 126)" name))
@@ -206,3 +213,43 @@
   (loop :for col :in columns
      :collect (with-slots (name type) col
                 (get-column-sql-expression name type))))
+
+
+
+;;;
+;;; Materialize Views support
+;;;
+(defun create-ms-views (views-alist)
+  "VIEWS-ALIST associates view names with their SQL definition, which might
+   be empty for already existing views. Create only the views for which we
+   have an SQL definition."
+  (unless (eq :all views-alist)
+    (let ((views (remove-if #'null views-alist :key #'cdr)))
+      (when views
+        (loop :for (name . def) :in views
+           :for sql := (destructuring-bind (schema . v-name) name
+                         (format nil
+                                 "CREATE VIEW ~@[~s~].~s AS ~a"
+                                 schema v-name def))
+           :do (progn
+                 (log-message :info "MS SQL: ~a" sql)
+                 (mssql-query sql)))))))
+
+(defun drop-ms-views (views-alist)
+  "See `create-ms-views' for VIEWS-ALIST description. This time we DROP the
+   views to clean out after our work."
+  (unless (eq :all views-alist)
+   (let ((views (remove-if #'null views-alist :key #'cdr)))
+     (when views
+       (let ((sql
+              (with-output-to-string (sql)
+                (format sql "DROP VIEW ")
+                (loop :for view-definition :in views
+                   :for i :from 0
+                   :do (destructuring-bind (name . def) view-definition
+                         (declare (ignore def))
+                         (format sql
+                                 "~@[, ~]~@[~s.~]~s"
+                                 (not (zerop i)) (car name) (cdr name)))))))
+         (log-message :info "PostgreSQL Source: ~a" sql)
+         (mssql-query sql))))))

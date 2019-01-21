@@ -101,6 +101,24 @@ create table bits
 insert into bits(bool) values(0b00), (0b01);
 
 /*
+ * https://github.com/dimitri/pgloader/issues/811
+ */
+CREATE TABLE `domain_filter` (
+  `id` binary(16) NOT NULL ,
+  `type` varchar(50) NOT NULL ,
+  `value` json DEFAULT NULL ,
+  `negated` tinyint(1) NOT NULL DEFAULT '0' ,
+  `report_id` varbinary(255) NOT NULL ,
+  `query_id` varchar(255) NOT NULL ,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ,
+  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP ,
+  `updated_by` varbinary(255) DEFAULT NULL ,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `domain_filter_unq` (`report_id`,`query_id`,`type`),
+  KEY `domain_filter` (`type`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+/*
  * https://github.com/dimitri/pgloader/issues/703
  */
 create table `CamelCase` (

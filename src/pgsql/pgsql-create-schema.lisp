@@ -13,17 +13,7 @@
                           include-drop
                           (client-min-messages :notice))
   "Create the needed data types for given CATALOG."
-  (let ((sqltype-list))
-    ;; build the sqltype list
-    (loop :for table :in (append (table-list catalog)
-                                 (view-list catalog))
-       :do (loop :for column :in (table-column-list table)
-              :do (when (typep (column-type-name column) 'sqltype)
-                    (pushnew (column-type-name column) sqltype-list
-                             :test #'string-equal
-                             :key #'sqltype-name))))
-
-    ;; now create the types
+  (let ((sqltype-list (sqltype-list catalog)))
     (loop :for sqltype :in sqltype-list
        :when include-drop
        :count t
@@ -114,6 +104,19 @@
                                    :log-level log-level
                                    :client-min-messages client-min-messages)))))
 
+(defun create-extensions (catalog
+                          &key
+                            if-not-exists
+                            include-drop
+                            (client-min-messages :notice))
+  "Create all extensions from the given database CATALOG."
+  (let ((sql
+         (loop :for extension :in (extension-list catalog)
+            :when include-drop
+            :collect (format-drop-sql extension :if-exists t :cascade t)
+            :collect (format-create-sql extension :if-not-exists if-not-exists))))
+    (pgsql-execute sql :client-min-messages client-min-messages)))
+
 (defun create-tables (catalog
                       &key
 			if-not-exists
@@ -150,7 +153,7 @@
                        :collect (format-create-sql (trigger-procedure trigger))
                        :collect (format-create-sql trigger)))))
     (pgsql-execute-with-timing section label sql-list
-                               :log-level :log
+                               :log-level :sql
                                :client-min-messages client-min-messages)))
 
 
@@ -462,3 +465,14 @@ $$; " tables)))
                                  (column-name column)
                                  quote (column-comment column) quote)))))
     (pgsql-execute-with-timing section label sql-list)))
+
+
+
+;;;
+;;; Citus Disitribution support
+;;;
+(defun create-distributed-table (distribute-rules)
+  (let ((citus-sql
+         (loop :for rule :in distribute-rules
+            :collect (format-create-sql rule))))
+    (pgsql-execute citus-sql)))

@@ -1,10 +1,9 @@
 Migrating a MySQL Database to PostgreSQL
 ========================================
 
-This command instructs pgloader to load data from a database connection. The
-only supported database source is currently *MySQL*, and pgloader supports
-dynamically converting the schema of the source database and the indexes
-building.
+This command instructs pgloader to load data from a database connection.
+pgloader supports dynamically converting the schema of the source database
+and the indexes building.
 
 A default set of casting rules are provided and might be overloaded and
 appended to by the command.
@@ -500,9 +499,8 @@ ALTER TABLE NAMES MATCHING
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Introduce a comma separated list of table names or *regular expressions*
-that you want to target in the pgloader *ALTER TABLE* command. The only two
-available actions are *SET SCHEMA* and *RENAME TO*, both take a quoted
-string as parameter::
+that you want to target in the pgloader *ALTER TABLE* command. Available
+actions are *SET SCHEMA*, *RENAME TO*, and *SET*::
 
     ALTER TABLE NAMES MATCHING ~/_list$/, 'sales_by_store', ~/sales_by/
      SET SCHEMA 'mv'
@@ -510,6 +508,8 @@ string as parameter::
     ALTER TABLE NAMES MATCHING 'film' RENAME TO 'films'
     
     ALTER TABLE NAMES MATCHING ~/./ SET (fillfactor='40')
+
+    ALTER TABLE NAMES MATCHING ~/./ SET TABLESPACE 'pg_default'
 
 You can use as many such rules as you need. The list of tables to be
 migrated is searched in pgloader memory against the *ALTER TABLE* matching
@@ -523,6 +523,9 @@ schema. In case of a name change, the mapping is kept and reused in the
 
 The *SET ()* action takes effect as a *WITH* clause for the `CREATE TABLE`
 command that pgloader will run when it has to create a table.
+
+The *SET TABLESPACE* action takes effect as a *TABLESPACE* clause for the
+`CREATE TABLE` command that pgloader will run when it has to create a table.
 
 MySQL Migration: limitations
 ----------------------------
@@ -556,7 +559,7 @@ Numbers::
   type int with extra auto_increment to serial when (< precision 10)
   type int with extra auto_increment to bigserial when (<= 10 precision)
   type int to int       when  (< precision 10)
-  type int to bigint    when  (<= 10 precision)
+  type int to bigint    when  (>= 10 precision)
   type tinyint   with extra auto_increment to serial
   type smallint  with extra auto_increment to serial
   type mediumint with extra auto_increment to serial
@@ -608,6 +611,14 @@ Date::
   type datetime when default "0000-00-00 00:00:00"
     to timestamptz drop default
 	using zero-dates-to-null
+
+  type datetime with extra on update current timestamp when not null
+    to timestamptz drop not null drop default
+       using zero-dates-to-null
+
+  type datetime with extra on update current timestamp
+    to timestamptz drop default
+       using zero-dates-to-null
 
   type timestamp when default "0000-00-00 00:00:00" and not null
     to timestamptz drop not null drop default

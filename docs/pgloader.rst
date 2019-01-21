@@ -154,6 +154,18 @@ Those options are meant to tweak `pgloader` behavior when loading data.
     machine code) another version of itself, usually a newer one like a very
     recent git checkout.
 
+  * `--no-ssl-cert-verification`
+
+    Uses the OpenSSL option to accept a locally issued server-side
+    certificate, avoiding the following error message::
+
+      SSL verify error: 20 X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY
+
+    The right way to fix the SSL issue is to use a trusted certificate, of
+    course. Sometimes though it's useful to make progress with the pgloader
+    setup while the certificate chain of trust is being fixed, maybe by
+    another team. That's when this option is useful.
+
 Command Line Only Operations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -551,6 +563,22 @@ Same behaviour as in the *AFTER LOAD DO* clause. Allows you to read the SQL
 queries from a SQL file. Implements support for PostgreSQL dollar-quoting
 and the `\i` and `\ir` include facilities as in `psql` batch mode (where
 they are the same thing).
+
+AFTER CREATE SCHEMA DO
+^^^^^^^^^^^^^^^^^^^^^^
+
+Same format as *BEFORE LOAD DO*, the dollar-quoted queries found in that
+section are executed once the schema has been craeted by pgloader, and
+before the data is loaded. It's the right time to ALTER TABLE or do some
+custom implementation on-top of what pgloader does, like maybe partitioning.
+
+AFTER CREATE SCHEMA EXECUTE
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Same behaviour as in the *AFTER CREATE SCHEMA DO* clause. Allows you to read
+the SQL queries from a SQL file. Implements support for PostgreSQL
+dollar-quoting and the `\i` and `\ir` include facilities as in `psql` batch
+mode (where they are the same thing).
 
 Connection String
 ^^^^^^^^^^^^^^^^^

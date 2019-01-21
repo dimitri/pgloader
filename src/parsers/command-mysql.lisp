@@ -89,14 +89,12 @@
                                             excluding-matching
                                             decoding-tables-as
                                             before-load
-                                            after-load))
+                                            after-load
+                                            distribute-commands))
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
 
 (defrule mysql-prefix "mysql://" (:constant (list :type :mysql)))
-
-(defrule mysql-dsn-dbname (and "/" maybe-quoted-namestring)
-  (:lambda (m-d-d) (list :dbname (text (second m-d-d)))))
 
 (defrule mysql-dsn-option-usessl-true  "true"  (:constant :yes))
 (defrule mysql-dsn-option-usessl-false "false" (:constant :no))
@@ -123,7 +121,7 @@
 (defrule mysql-uri (and mysql-prefix
                         (? dsn-user-password)
                         (? dsn-hostname)
-                        mysql-dsn-dbname
+                        dsn-dbname
                         (? mysql-dsn-options))
   (:lambda (uri)
     (destructuring-bind (&key type
@@ -167,7 +165,7 @@
                                          &key
                                            gucs mysql-gucs
                                            casts views before after options
-                                           alter-table alter-schema
+                                           alter-table alter-schema distribute
                                            ((:including incl))
                                            ((:excluding excl))
                                            ((:decoding decoding-as))
@@ -194,6 +192,7 @@
                       :materialize-views ',views
                       :alter-table ',alter-table
                       :alter-schema ',alter-schema
+                      :distribute ',distribute
                       :set-table-oids t
                       :on-error-stop on-error-stop
                       ,@(remove-batch-control-option options))
@@ -206,7 +205,7 @@
                          pg-db-uri
                          &key
                          gucs mysql-gucs casts views before after options
-                         alter-table alter-schema
+                         alter-table alter-schema distribute
                          including excluding decoding)
         source
       (cond (*dry-run*
@@ -222,6 +221,7 @@
                                                :options options
                                                :alter-table alter-table
                                                :alter-schema alter-schema
+                                               :distribute distribute
                                                :including including
                                                :excluding excluding
                                                :decoding decoding))))))

@@ -1,20 +1,47 @@
-FROM debian:stretch
-MAINTAINER Dimitri Fontaine <dim@tapoueh.org>
+FROM debian:stable-slim as builder
 
-RUN apt-get update                                   && \
-    apt-get install -y --no-install-recommends          \
-                    wget curl make git bzip2 time       \
-                    ca-certificates                     \
-                    libzip-dev libssl1.1 openssl        \
-                    patch unzip libsqlite3-dev gawk     \
-                    freetds-dev sbcl                 && \
-    rm -rf /var/lib/apt/lists/*
+  RUN apt-get update \
+      && apt-get install -y --no-install-recommends \
+        bzip2 \
+        ca-certificates \
+        curl \
+        freetds-dev \
+        gawk \
+        git \
+        libsqlite3-dev \
+        libssl1.1 \
+        libzip-dev \
+        make \
+        openssl \
+        patch \
+        sbcl \
+        time \
+        unzip \
+        wget \
+        cl-ironclad \
+        cl-babel \
+      && rm -rf /var/lib/apt/lists/*
 
-ADD ./ /opt/src/pgloader
-WORKDIR /opt/src/pgloader
+  COPY ./ /opt/src/pgloader
 
-# build/ is in the .dockerignore file, but we actually need it now
-RUN mkdir -p build/bin
-RUN make
+  RUN mkdir -p /opt/src/pgloader/build/bin \
+      && cd /opt/src/pgloader \
+      && make
 
-RUN cp /opt/src/pgloader/build/bin/pgloader /usr/local/bin
+FROM debian:stable-slim
+
+  RUN apt-get update \
+      && apt-get install -y --no-install-recommends \
+        curl \
+        freetds-dev \
+        gawk \
+        libsqlite3-dev \
+        libzip-dev \
+        make \
+        sbcl \
+        unzip \
+      && rm -rf /var/lib/apt/lists/*
+
+  COPY --from=builder /opt/src/pgloader/build/bin/pgloader /usr/local/bin
+
+  LABEL maintainer="Dimitri Fontaine <dim@tapoueh.org>"

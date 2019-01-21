@@ -42,7 +42,10 @@
     (handler-case
         (with-pgsql-connection (pgconn)
           (setf pgsql-catalog
-                (fetch-pgsql-catalog (db-name pgconn) :table (target copy)))
+                (fetch-pgsql-catalog (db-name pgconn)
+                                     :table (target copy)
+                                     :variant (pgconn-variant pgconn)
+                                     :pgversion (pgconn-major-version pgconn)))
 
           ;; if the user didn't tell us the column list of the table, now is
           ;; a proper time to set it in the copy object
@@ -95,6 +98,8 @@
         (loop :for path-spec :in path-list
            :count t
            :do (let ((table-source (clone-copy-for copy path-spec)))
+                 (when (and (header table-source) (null (fields table-source)))
+                   (parse-header table-source))
                  (incf task-count
                        (copy-from table-source
                                   :concurrency concurrency

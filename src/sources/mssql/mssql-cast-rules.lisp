@@ -88,6 +88,9 @@
   datetime-precision
   character-set-name collation-name)
 
+(defmethod field-name ((field mssql-column) &key)
+  (mssql-column-name field))
+
 (defmethod mssql-column-ctype ((col mssql-column))
   "Build the ctype definition from the full mssql-column information."
   (let ((type (mssql-column-type col)))
@@ -125,7 +128,7 @@
       field
     (declare (ignore schema))           ; FIXME
     (let* ((ctype (mssql-column-ctype field))
-           (extra (when (mssql-column-identity field) "auto_increment"))
+           (extra (when (mssql-column-identity field) :auto-increment))
            (pgcol
             (apply-casting-rules table-name name type ctype default nullable extra)))
       ;; the MS SQL driver smartly maps data to the proper CL type, but the

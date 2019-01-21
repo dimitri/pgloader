@@ -25,7 +25,7 @@
 (defrule doubled-at-sign (and "@@") (:constant "@"))
 (defrule doubled-colon   (and "::") (:constant ":"))
 (defrule password (+ (or (not "@") doubled-at-sign)) (:text t))
-(defrule username (and (or #\_ (alpha-char-p character))
+(defrule username (and (or #\_ (alpha-char-p character) (digit-char-p character))
                        (* (or (alpha-char-p character)
                               (digit-char-p character)
                               #\.
@@ -87,10 +87,11 @@
       (append (list :host (when host (process-hostname host)))
               port))))
 
-(defrule dsn-dbname (and "/" (? maybe-quoted-namestring))
-  (:destructure (slash dbname)
-		(declare (ignore slash))
-		(list :dbname dbname)))
+(defrule dsn-dbname (and "/" (? (* (or (alpha-char-p character)
+                                       (digit-char-p character)
+                                       punct))))
+  (:lambda (dbn)
+    (list :dbname (text (second dbn)))))
 
 (defrule dsn-option-ssl-disable "disable" (:constant :no))
 (defrule dsn-option-ssl-allow   "allow"   (:constant :try))

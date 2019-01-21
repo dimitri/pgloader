@@ -7,7 +7,9 @@
 --         excluding (ftable)
 --         filter-list-to-where-clause for excluding
  select n.nspname, c.relname, nf.nspname, cf.relname as frelname,
-        r.oid, conname,
+        r.oid,
+        d.refobjid as pkeyoid,
+        conname,
         pg_catalog.pg_get_constraintdef(r.oid, true) as condef,
         (select string_agg(attname, ',')
            from pg_attribute
@@ -26,6 +28,9 @@
         JOIN pg_namespace n on c.relnamespace = n.oid
         JOIN pg_class cf on r.confrelid = cf.oid
         JOIN pg_namespace nf on cf.relnamespace = nf.oid
+        JOIN pg_depend d on d.classid = 'pg_constraint'::regclass
+                        and d.objid = r.oid
+                        and d.refobjsubid = 0
    where r.contype = 'f'
          AND c.relkind in ('r', 'f', 'p')
          AND cf.relkind in ('r', 'f', 'p')
