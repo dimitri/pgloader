@@ -48,6 +48,7 @@ Build-Depends:
  debhelper (>= 9.0.0),
  gawk,
  help2man,
+ python3-sphinx-rtd-theme,
  python3-sphinx,
  sbcl (>= 1.1.13),
  tzdata,

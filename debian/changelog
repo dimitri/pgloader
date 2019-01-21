@@ -1,3 +1,11 @@
+pgloader (3.6.1-1) unstable; urgency=medium
+
+  * New upstream version.
+  * SSL is always enabled now, drop our patch.
+  * Add B-D on python3-sphinx-rtd-theme.
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Mon, 21 Jan 2019 16:09:17 +0100
+
 pgloader (3.5.2-3) unstable; urgency=medium
 
   * Make cl-pgloader test depend on ca-certificates so the snakeoil
