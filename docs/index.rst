@@ -55,7 +55,7 @@ Full Field projections
     
 Reading files from an archive
     Archive formats *zip*, *tar*, and *gzip* are supported by pgloader: the
-    archive is extracted in a temporary directly and expanded files are then
+    archive is extracted in a temporary directory and expanded files are then
     loaded.
     
 HTTP(S) support
