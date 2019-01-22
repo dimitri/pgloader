@@ -33,8 +33,11 @@ override_dh_auto_build-arch:
 		--asdf-tree /usr/share/common-lisp/systems			\
 		--load-system asdf-finalizers					\
 		--load-system asdf-system-connections				\
-		--load-system pgloader						\
+		--load-system cffi						\
+		--load-system cl+ssl						\
+		--load-system mssql						\
 		--load src/hooks.lisp						\
+		--load-system pgloader						\
 		--entry pgloader:main						\
 		--dynamic-space-size $(SIZE)					\
 		--compress-core							\
