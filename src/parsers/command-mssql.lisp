@@ -31,6 +31,7 @@
                           option-create-tables
                           option-create-schemas
                           option-create-indexes
+			  option-index-names
                           option-reset-sequences
 			  option-foreign-keys
                           option-encoding
