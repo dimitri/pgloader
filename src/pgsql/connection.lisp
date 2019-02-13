@@ -411,10 +411,12 @@
 ;;;  PostgreSQL 8.0.2 on i686-pc-linux-gnu, compiled by GCC gcc (GCC) 3.4.2 20041017 (Red Hat 3.4.2-6.fc3), Redshift 1.0.2058
 ;;;  PostgreSQL 10.1 on x86_64-apple-darwin14.5.0, compiled by Apple LLVM version 7.0.0 (clang-700.1.76), 64-bit
 ;;;  PostgreSQL 10.6 (Ubuntu 10.6-1.pgdg14.04+1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 4.8.4-2ubuntu1~14.04.4) 4.8.4, 64-bit
+;;;  PostgreSQL 10.6, compiled by Visual C++ build 1800, 64-bit
 (defun parse-postgresql-version-string (version-string)
   "Parse PostgreSQL select version() output."
-  (cl-ppcre:register-groups-bind (full-version maybe-variant)
-      ("PostgreSQL ([0-9.]+) [^,]+, [^,]+, (.*)" version-string)
+  (cl-ppcre:register-groups-bind (full-version maybe-os maybe-variant)
+      ("PostgreSQL ([0-9.]+)( [^,]+)?, [^,]+, (.*)" version-string)
+    (declare (ignore maybe-os))
     (let* ((version-dots  (split-sequence:split-sequence #\. full-version))
            (major-version (if (= 3 (length version-dots))
                               (format nil "~a.~a"
