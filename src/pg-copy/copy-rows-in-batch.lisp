@@ -67,9 +67,13 @@
         (log-message :error "PostgreSQL [~s] ~a" table-name condition)
         ;; clean the current transaction before retrying new ones
         (let ((errors
-               (retry-batch table columns batch condition)))
+               (handler-case
+                   (retry-batch table columns batch condition)
+                 (condition (e)
+                   (log-message :error "BUG: failed to retry-batch: ~a" e)
+                   (batch-count batch)))))
           (log-message :debug "retry-batch found ~d errors" errors)
-          (update-stats :data table :rows (- errors))))
+          (update-stats :data table :errs errors :rows (- errors))))
 
       (postgresql-unavailable (condition)
 
