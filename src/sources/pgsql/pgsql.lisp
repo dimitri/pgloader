@@ -63,8 +63,9 @@
             (cl-postgres:exec-query pomo:*database* sql map-reader))))))
 
 (defmethod copy-column-list ((pgsql copy-pgsql))
-  "We are sending the data in the MySQL columns ordering here."
-  (mapcar #'column-name (fields pgsql)))
+  "We are sending the data in the source columns ordering here."
+  (mapcar (lambda (field) (ensure-quoted (column-name field)))
+          (fields pgsql)))
 
 (defmethod fetch-metadata ((pgsql copy-pgsql)
                            (catalog catalog)
