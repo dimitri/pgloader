@@ -77,6 +77,7 @@
                        (copy-partial-batch table-name columns batch 1 pos))
                (postgresql-retryable (condition)
                  (pomo:execute "ROLLBACK")
+                 (process-bad-row table condition (aref (batch-data batch) pos))
                  (if first-error
                      ;; the first error has been logged about already
                      (setf first-error nil)
