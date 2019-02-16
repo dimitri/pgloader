@@ -70,7 +70,10 @@
                  table-name schema-name))))))
 
 (defun citus-find-table (catalog table)
-  (let* ((table-name  (cdr (table-source-name table)))
+  (let* ((source-name (table-source-name table))
+         (table-name  (etypecase source-name
+                        (string source-name)
+                        (cons   (cdr source-name))))
          (schema-name (schema-name (table-schema table))))
     (or (find-table (find-schema catalog schema-name) table-name)
         (error (make-condition 'citus-rule-table-not-found

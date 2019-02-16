@@ -17,4 +17,4 @@
          (rule-col-name (column-name (citus-distributed-rule-using rule))))
     (format stream "SELECT create_distributed_table('~a', '~a');"
             (format-table-name rule-table)
-            (apply-identifier-case rule-col-name))))
+            (ensure-unquoted rule-col-name))))
