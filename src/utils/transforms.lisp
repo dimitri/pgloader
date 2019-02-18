@@ -350,10 +350,40 @@
                    (t
                     date-string-or-integer)))))))
 
+;;;
+;;; MS SQL Server GUID binary representation is a mix of endianness, as
+;;; documented at
+;;; https://dba.stackexchange.com/questions/121869/sql-server-uniqueidentifier-guid-internal-representation
+;;; and
+;;; https://en.wikipedia.org/wiki/Globally_unique_identifier#Binary_encoding.
+;;;
+;;; "Other systems, notably Microsoft's marshalling of UUIDs in their
+;;;  COM/OLE libraries, use a mixed-endian format, whereby the first three
+;;;  components of the UUID are little-endian, and the last two are
+;;;  big-endian."
+;;;
+;;; So here we steal some code from the UUID lib and make it compatible with
+;;; this strange mix of endianness for SQL Server.
+;;;
+(defmacro arr-to-bytes-rev (from to array)
+  "Helper macro used in byte-array-to-uuid."
+  `(loop for i from ,to downto ,from
+      with res = 0
+      do (setf (ldb (byte 8 (* 8 (- i ,from))) res) (aref ,array i))
+      finally (return res)))
+
 (defun sql-server-uniqueidentifier-to-uuid (id)
   (declare (type (or null (array (unsigned-byte 8) (16))) id))
   (when id
-    (format nil "~a" (uuid:byte-array-to-uuid id))))
+    (let ((uuid
+           (make-instance 'uuid:uuid
+                          :time-low (arr-to-bytes-rev 0 3 id)
+                          :time-mid (arr-to-bytes-rev 4 5 id)
+                          :time-high (arr-to-bytes-rev 6 7 id)
+                          :clock-seq-var (aref id 8)
+                          :clock-seq-low (aref id 9)
+                          :node (uuid::arr-to-bytes 10 15 id))))
+      (princ-to-string uuid)))))
 
 (defun unix-timestamp-to-timestamptz (unixtime-string)
   "Takes a unix timestamp (seconds since beginning of 1970) and converts it
