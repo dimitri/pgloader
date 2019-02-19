@@ -383,7 +383,7 @@
                           :clock-seq-var (aref id 8)
                           :clock-seq-low (aref id 9)
                           :node (uuid::arr-to-bytes 10 15 id))))
-      (princ-to-string uuid)))))
+      (princ-to-string uuid))))
 
 (defun unix-timestamp-to-timestamptz (unixtime-string)
   "Takes a unix timestamp (seconds since beginning of 1970) and converts it
