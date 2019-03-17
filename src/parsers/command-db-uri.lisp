@@ -55,6 +55,10 @@
   (:lambda (ipv4)
     (list :ipv4 (text ipv4))))
 
+(defrule ipv6 (and #\[ (+ (or (digit-char-p character) ":")) #\])
+  (:lambda (ipv6)
+    (list :ipv6 (text ipv6))))
+
 ;;; socket directory is unix only, so we can forbid ":" on the parsing
 (defun socket-directory-character-p (char)
   (or (member char #.(quote (coerce "/.-_" 'list)))
@@ -71,7 +75,7 @@
     (let ((host (text name)))
       (list :host (unless (string= "" host) host)))))
 
-(defrule hostname (or ipv4 socket-directory network-name)
+(defrule hostname (or ipv4 ipv6 socket-directory network-name)
   (:identity t))
 
 (defun process-hostname (hostname)
@@ -79,6 +83,7 @@
     (ecase type
       (:unix  (if name (cons :unix name) :unix))
       (:ipv4  name)
+      (:ipv6  name)
       (:host  name))))
 
 (defrule dsn-hostname (and (? hostname) (? dsn-port))
@@ -87,9 +92,10 @@
       (append (list :host (when host (process-hostname host)))
               port))))
 
-(defrule dsn-dbname (and "/" (? (* (or (alpha-char-p character)
-                                       (digit-char-p character)
-                                       punct))))
+(defrule dsn-dbname (and "/" (? (or single-quoted-string
+                                    (* (or (alpha-char-p character)
+                                           (digit-char-p character)
+                                           punct)))))
   (:lambda (dbn)
     (list :dbname (text (second dbn)))))
 
