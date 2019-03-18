@@ -11,6 +11,8 @@ load database
  ALTER SCHEMA 'pgloader' RENAME TO 'mysql'
  ALTER TABLE NAMES MATCHING ~/./ SET TABLESPACE 'pg_default'
 
+ INCLUDING ONLY TABLE NAMES MATCHING 'encryption_key_canary'
+
  CAST column utilisateurs__Yvelines2013-06-28.sexe
           to text drop not null using empty-string-to-null,
 
@@ -31,6 +33,10 @@ load database
              using zero-dates-to-null,
 
       type timestamp with extra on update current timestamp
-        to "timestamp with time zone" drop extra
+        to "timestamp with time zone" drop extra,
 
- BEFORE LOAD DO $$ create schema if not exists mysql; $$;
+      column encryption_key_canary.uuid
+          to uuid drop typemod using byte-vector-to-hexstring
+
+ BEFORE LOAD DO
+   $$ create schema if not exists mysql; $$;

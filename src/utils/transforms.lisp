@@ -96,7 +96,8 @@
                  sql-server-bit-to-boolean
                  varbinary-to-string
                  base64-decode
-		 hex-to-dec))
+		 hex-to-dec
+                 byte-vector-to-hexstring))
 
 
 ;;;
@@ -412,6 +413,32 @@
            ((string= "((0))" bit-string-or-integer) "f")
            ((string= "((1))" bit-string-or-integer) "t")
            (t nil)))))
+
+(defun byte-vector-to-hexstring (vector)
+  "Transform binary input received as a vector of bytes into a string of
+  hexadecimal digits, as per the following example:
+
+  Input:   #(136 194 152 47 66 138 70 183 183 27 33 6 24 174 22 88)
+  Output:  88C2982F428A46B7B71B210618AE1658"
+  (declare (type (or null string (simple-array (unsigned-byte 8) (*))) vector))
+  (etypecase vector
+    (null nil)
+    (string (if (string= "" vector)
+                nil
+                (error "byte-vector-to-bytea called on a string: ~s" vector)))
+    (simple-array
+     (let ((hex-digits "0123456789abcdef")
+           (bytea (make-array (* 2 (length vector))
+                              :initial-element #\0
+                              :element-type 'standard-char)))
+
+       (loop for pos from 0 by 2
+          for byte across vector
+          do (let ((high (ldb (byte 4 4) byte))
+                   (low  (ldb (byte 4 0) byte)))
+               (setf (aref bytea pos)       (aref hex-digits high))
+               (setf (aref bytea (+ pos 1)) (aref hex-digits low)))
+          finally (return bytea))))))
 
 (defun varbinary-to-string (string)
   (let ((babel::*default-character-encoding*
