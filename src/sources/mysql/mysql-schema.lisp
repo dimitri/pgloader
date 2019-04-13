@@ -16,37 +16,45 @@
    be empty for already existing views. Create only the views for which we
    have an SQL definition."
   (unless (eq :all views-alist)
-   (let ((views (remove-if #'null views-alist :key #'cdr)))
-     (when views
-       (loop for (name . def) in views
-          for sql = (format nil "CREATE VIEW ~a AS ~a" name def)
-          do
-            (log-message :info "MySQL: ~a" sql)
-            #+pgloader-image
-            (mysql-query sql)
-            #-pgloader-image
-            (restart-case
-                (mysql-query sql)
-              (use-existing-view ()
-                :report "Use the already existing view and continue"
-                nil)
-              (replace-view ()
-                :report "Replace the view with the one from pgloader's command"
-                (let ((drop-sql (format nil "DROP VIEW ~a;" name)))
-                  (log-message :info "MySQL: ~a" drop-sql)
-                  (mysql-query drop-sql)
-                  (mysql-query sql)))))))))
+    (let ((views (remove-if #'null views-alist :key #'cdr)))
+      (when views
+        (loop :for (name . def) :in views
+           :for sql := (destructuring-bind (schema . v-name) name
+                         (format nil
+                                 "CREATE VIEW ~@[~s.~]~a AS ~a"
+                                 schema v-name def))
+           :do
+           (log-message :info "MySQL: ~a" sql)
+           #+pgloader-image
+           (mysql-query sql)
+           #-pgloader-image
+           (restart-case
+               (mysql-query sql)
+             (use-existing-view ()
+               :report "Use the already existing view and continue"
+               nil)
+             (replace-view ()
+               :report "Replace the view with the one from pgloader's command"
+               (let* ((v-name   (cdr name))
+                      (drop-sql (format nil "DROP VIEW ~a;" v-name)))
+                 (log-message :info "MySQL: ~a" drop-sql)
+                 (mysql-query drop-sql)
+                 (mysql-query sql)))))))))
 
 (defun drop-my-views (views-alist)
   "See `create-my-views' for VIEWS-ALIST description. This time we DROP the
    views to clean out after our work."
   (unless (eq :all views-alist)
-   (let ((views (remove-if #'null views-alist :key #'cdr)))
-     (when views
-       (let ((sql
-              (format nil "DROP VIEW ~{~a~^, ~};" (mapcar #'car views))))
-         (log-message :info "MySQL: ~a" sql)
-         (mysql-query sql))))))
+    (let ((views (remove-if #'null views-alist :key #'cdr)))
+      (when views
+        (let ((sql
+               (format nil "DROP VIEW ~{~a~^, ~};"
+                       (mapcar (lambda (qname)
+                                 (format nil "~@[~s.~]~a"
+                                         (car qname) (cdr qname)))
+                               (mapcar #'car views)))))
+          (log-message :info "MySQL: ~a" sql)
+          (mysql-query sql))))))
 
 
 ;;;
