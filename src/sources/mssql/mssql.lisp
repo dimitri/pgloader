@@ -102,6 +102,7 @@
         (cond (view-names
                (list-all-columns catalog
                                  :including including
+                                 :excluding excluding
                                  :table-type :view))
 
               ((eq :all materialize-views)
