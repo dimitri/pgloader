@@ -140,6 +140,7 @@
                                 :depends-on ("common" "csv")
                                 :components
                                 ((:file "db3-schema")
+                                 (:file "db3-cast-rules")
                                  (:file "db3" :depends-on ("db3-schema"))))
 
                        (:module "ixf"

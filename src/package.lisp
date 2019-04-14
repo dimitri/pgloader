@@ -704,6 +704,7 @@
 		#:create-tables
                 #:format-vector-row)
   (:export #:dbf-connection
+           #:*db3-default-cast-rules*
            #:copy-db3
 	   #:map-rows
 	   #:copy-to
@@ -850,7 +851,8 @@
                 #:*sqlite-default-cast-rules*)
   (:import-from #:pgloader.source.db3
                 #:copy-db3
-                #:dbf-connection)
+                #:dbf-connection
+                #:*db3-default-cast-rules*)
   (:import-from #:pgloader.source.ixf
                 #:copy-ixf
                 #:ixf-connection)

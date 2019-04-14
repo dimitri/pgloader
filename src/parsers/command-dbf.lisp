@@ -57,6 +57,7 @@
 
 (defrule load-dbf-optional-clauses (* (or dbf-options
                                           gucs
+                                          casts
                                           before-load
                                           after-load))
   (:lambda (clauses-list)
@@ -93,10 +94,12 @@
                                        &key
                                          target-table-name
                                          (encoding :ascii)
-                                         gucs before after options
+                                         gucs casts before after options
                                          &allow-other-keys)
   `(lambda ()
-     (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
+     (let* ((*default-cast-rules* ',*db3-default-cast-rules*)
+            (*cast-rules*         ',casts)
+            ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
               ,@(identifier-case-binding options)
               (on-error-stop (getf ',options :on-error-stop))
@@ -124,7 +127,7 @@
 (defrule load-dbf-file load-dbf-command
   (:lambda (command)
     (bind (((source encoding pg-db-uri table-name
-                    &key options gucs before after) command))
+                    &key options gucs casts before after) command))
       (cond (*dry-run*
              (lisp-code-for-dbf-dry-run source pg-db-uri))
             (t
@@ -132,6 +135,7 @@
                                              :target-table-name table-name
                                              :encoding encoding
                                              :gucs gucs
+                                             :casts casts
                                              :before before
                                              :after after
                                              :options options))))))
