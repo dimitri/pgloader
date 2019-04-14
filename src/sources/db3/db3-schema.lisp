@@ -17,12 +17,13 @@
         (open (fd-path dbfconn)
               :direction :input
               :element-type '(unsigned-byte 8)))
-  (let ((db3 (make-instance 'db3:db3)))
+  (let ((db3 (make-instance 'db3:db3 :filename  (fd-path dbfconn))))
     (db3:load-header db3 (conn-handle dbfconn))
     (setf (fd-db3 dbfconn) db3))
   dbfconn)
 
 (defmethod close-connection ((dbfconn dbf-connection))
+  (db3:close-memo (fd-db3 dbfconn))
   (close (conn-handle dbfconn))
   (setf (conn-handle dbfconn) nil
         (fd-db3 dbfconn) nil)
