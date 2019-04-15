@@ -180,44 +180,44 @@ Illegal ~a character starting at position ~a~@[: ~a~].~%"
                             :use-result-as-rows t
                             :use-result-as-read t
                             :section :pre)
-        (with-connection (*connection* (source-db mysql))
-          ;; If asked to MATERIALIZE VIEWS, now is the time to create them in
-          ;; MySQL, when given definitions rather than existing view names.
-          (when (and materialize-views (not (eq :all materialize-views)))
-            (create-my-views materialize-views))
+      (with-connection (*connection* (source-db mysql))
+        ;; If asked to MATERIALIZE VIEWS, now is the time to create them in
+        ;; MySQL, when given definitions rather than existing view names.
+        (when (and materialize-views (not (eq :all materialize-views)))
+          (create-my-views materialize-views))
 
-          ;; fetch table and columns metadata, covering table and column comments
-          (list-all-columns schema
-                            :only-tables only-tables
-                            :including including
-                            :excluding excluding)
+        ;; fetch table and columns metadata, covering table and column comments
+        (list-all-columns schema
+                          :only-tables only-tables
+                          :including including
+                          :excluding excluding)
 
-          ;; fetch view (and their columns) metadata, covering comments too
-          (cond (view-names (list-all-columns schema
-                                              :only-tables view-names
-                                              :table-type :view))
+        ;; fetch view (and their columns) metadata, covering comments too
+        (cond (view-names (list-all-columns schema
+                                            :only-tables view-names
+                                            :table-type :view))
 
-                ((eq :all materialize-views)
-                 (list-all-columns schema :table-type :view)))
+              ((eq :all materialize-views)
+               (list-all-columns schema :table-type :view)))
 
-          (when foreign-keys
-            (list-all-fkeys schema
+        (when foreign-keys
+          (list-all-fkeys schema
+                          :only-tables only-tables
+                          :including including
+                          :excluding excluding))
+
+        (when create-indexes
+          (list-all-indexes schema
                             :only-tables only-tables
                             :including including
                             :excluding excluding))
 
-          (when create-indexes
-            (list-all-indexes schema
-                              :only-tables only-tables
-                              :including including
-                              :excluding excluding))
-
-          ;; return how many objects we're going to deal with in total
-          ;; for stats collection
-          (+ (count-tables catalog)
-             (count-views catalog)
-             (count-indexes catalog)
-             (count-fkeys catalog))))
+        ;; return how many objects we're going to deal with in total
+        ;; for stats collection
+        (+ (count-tables catalog)
+           (count-views catalog)
+           (count-indexes catalog)
+           (count-fkeys catalog))))
 
     catalog))
 
