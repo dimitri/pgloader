@@ -193,12 +193,20 @@ Illegal ~a character starting at position ~a~@[: ~a~].~%"
                           :excluding excluding)
 
         ;; fetch view (and their columns) metadata, covering comments too
-        (cond (view-names (list-all-columns schema
-                                            :only-tables view-names
-                                            :table-type :view))
+        (let* ((view-names (unless (eq :all materialize-views)
+                             (mapcar #'car materialize-views)))
+               (including
+                (loop :for (schema-name . view-name) :in view-names
+                   :collect (make-string-match-rule :target view-name))))
+          (cond (view-names
+                 (list-all-columns schema
+                                   :only-tables only-tables
+                                   :including including
+                                   :excluding excluding
+                                   :table-type :view))
 
-              ((eq :all materialize-views)
-               (list-all-columns schema :table-type :view)))
+                ((eq :all materialize-views)
+                 (list-all-columns schema :table-type :view))))
 
         (when foreign-keys
           (list-all-fkeys schema
