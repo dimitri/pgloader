@@ -26,7 +26,7 @@ FROM debian:stable-slim as builder
 
   RUN mkdir -p /opt/src/pgloader/build/bin \
       && cd /opt/src/pgloader \
-      && make
+      && make clones save
 
 FROM debian:stable-slim
 
