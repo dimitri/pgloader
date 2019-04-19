@@ -36,9 +36,15 @@
 	     :target (:type "boolean" :drop-typemod t)
 	     :using pgloader.transforms::tinyint-to-boolean)
 
+    ;; bit(1) is most often used as a boolean too
     (:source (:type "bit" :typemod (= 1 precision))
 	     :target (:type "boolean" :drop-typemod t)
 	     :using pgloader.transforms::bits-to-boolean)
+
+    ;; bit(X) might be flags or another use case for bitstrings
+    (:source (:type "bit")
+	     :target (:type "bit" :drop-typemod nil)
+	     :using pgloader.transforms::bits-to-hex-bitstring)
 
     ;; bigint(20) unsigned (or not, actually) does not fit into PostgreSQL
     ;; bigint (-9223372036854775808 to +9223372036854775807):

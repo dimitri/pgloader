@@ -155,6 +155,27 @@ create table `CamelCase` (
  `validSizes` varchar(12)
 );
 
+/*
+ * https://github.com/dimitri/pgloader/issues/943
+ */
+CREATE TABLE `countdata_template`
+(
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `data` int(11) DEFAULT NULL,
+  `date_time` datetime DEFAULT NULL,
+  `gmt_offset` smallint(6) NOT NULL DEFAULT '0' COMMENT 'Offset GMT en minute',
+  `measurement_id` int(11) NOT NULL,
+  `flags` bit(16) NOT NULL DEFAULT b'0' COMMENT 'mot binaire : b1000=validé, b10000000=supprimé',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ak_countdata_idx` (`measurement_id`,`date_time`,`gmt_offset`)
+)
+ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='données de comptage';
+
+INSERT INTO `countdata_template`(`date_time`, `measurement_id`, `flags`)
+     VALUES (now(), 1, b'1000'),
+            (now(), 2, b'10000000');
+
+
 CREATE TABLE `fcm_batches` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `raw_payload` mediumtext COLLATE utf8_unicode_ci,

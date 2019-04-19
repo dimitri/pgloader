@@ -82,6 +82,7 @@
 		 time-with-no-separator
 		 tinyint-to-boolean
 		 bits-to-boolean
+                 bits-to-hex-bitstring
 		 int-to-ip
 		 ip-range
 		 convert-mysql-point
@@ -179,6 +180,29 @@
       (etypecase bit
         (fixnum    (if (= 0 bit) "f" "t"))
         (character (if (= 0 (char-code bit)) "f" "t"))))))
+
+(defun bits-to-hex-bitstring (bit-vector-or-string)
+  "Transform bit(XX) from MySQL to bit(XX) in PostgreSQL."
+  (etypecase bit-vector-or-string
+    (null nil)
+    ;; default value as string looks like "b'0'", skip b' and then closing '
+    (string (let ((default bit-vector-or-string)
+                  (size    (length bit-vector-or-string)))
+              (subseq default 2 (+ -1 size))))
+    (array  (let* ((bytes  bit-vector-or-string)
+                   (size   (length bit-vector-or-string))
+                   (digits "0123456789abcdef")
+                   (hexstr
+                    (make-array (+ 1 (* size 2)) :element-type 'character)))
+              ;; use Postgres hex bitstring support: x0ff
+              (setf (aref hexstr 0) #\X)
+              (loop :for pos :from 1 :by 2
+                 :for byte :across bytes
+                 :do  (let ((high (ldb (byte 4 4) byte))
+                            (low  (ldb (byte 4 0) byte)))
+                        (setf (aref hexstr pos)       (aref digits high))
+                        (setf (aref hexstr (+ pos 1)) (aref digits low))))
+              hexstr))))
 
 (defun int-to-ip (int)
   "Transform an IP as integer into its dotted notation, optimised code from
