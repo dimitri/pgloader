@@ -52,9 +52,12 @@
   "Remove current tag entry"
   (pop (parser-tags p)))
 
-(defmethod reset-state ((p parser))
+(defmethod reset-state ((p parser) &key tagp)
   "Depending on the current tags stack, set P state to either :eat or :eqt"
-  (setf (parser-state p) (if (null (parser-tags p)) :eat :eqt)))
+  (setf (parser-state p)
+        (cond ((null (parser-tags p)) :eat)
+              (tagp :ett)
+              (t :eqt))))
 
 #|
 Here's a test case straigth from the PostgreSQL docs:
@@ -99,9 +102,10 @@ Another test case for the classic quotes:
      - TAG    reading a tag that could be an embedded $x$ tag or a closing tag
      - EOT    End Of Tag
      - EQT    Eat Quoted Text
+     - ETT    Eat Tag-Quoted Text
      - EDQ    Eat Double-Quoted Text (identifiers)
      - EOQ    done reading the query
-     - ESC    read espaced text (with backslash)"
+     - ESC    read escaped text (with backslash)"
   (handler-case
       (loop
          :until (eq :eoq (parser-state state))
@@ -135,13 +139,13 @@ Another test case for the classic quotes:
 
                (#\$       (case (parser-state state)
                             (:eat    (setf (parser-state state) :tag))
-                            (:eqt    (setf (parser-state state) :tag))
+                            (:ett    (setf (parser-state state) :tag))
                             (:tag    (setf (parser-state state) :eot)))
 
                           ;; we act depending on the NEW state
                           (case (parser-state state)
-                            (:eat (write-char char (parser-stream state)))
-                            (:edq (write-char char (parser-stream state)))
+                            ((:eat :eqt :edq)
+                             (write-char char (parser-stream state)))
 
                             (:tag (push-new-tag state))
 
@@ -149,23 +153,23 @@ Another test case for the classic quotes:
                              (cond ((= 1 (length (parser-tags state)))
                                     ;; it's an opening tag, collect the text now
                                     (format-current-tag state)
-                                    (reset-state state))
+                                    (reset-state state :tagp t))
 
                                    (t   ; are we closing the current tag?
                                     (if (maybe-close-tags state)
-                                        (reset-state state)
+                                        (reset-state state :tagp t)
 
                                         ;; not the same tags, switch state back
                                         ;; don't forget to add the opening tag
                                         (progn
                                           (format-current-tag state)
-                                          (setf (parser-state state) :eqt))))))))
+                                          (setf (parser-state state) :ett))))))))
 
                (#\;       (case (parser-state state)
                             (:eat      (setf (parser-state state) :eoq))
                             (otherwise (write-char char (parser-stream state)))))
 
-               (otherwise (cond ((member (parser-state state) '(:eat :eqt :edq))
+               (otherwise (cond ((member (parser-state state) '(:eat :eqt :ett :edq))
                                  (write-char char (parser-stream state)))
 
                                 ;; see
