@@ -242,14 +242,10 @@
    (let ((views (remove-if #'null views-alist :key #'cdr)))
      (when views
        (let ((sql
-              (with-output-to-string (sql)
-                (format sql "DROP VIEW ")
-                (loop :for view-definition :in views
-                   :for i :from 0
-                   :do (destructuring-bind (name . def) view-definition
-                         (declare (ignore def))
-                         (format sql
-                                 "~@[, ~]~@[~s.~]~s"
-                                 (not (zerop i)) (car name) (cdr name)))))))
-         (log-message :info "PostgreSQL Source: ~a" sql)
+              (format nil "DROP VIEW ~{~a~^, ~};"
+                      (mapcar (lambda (qname)
+                                (format nil "~@[~s.~]~a"
+                                        (car qname) (cdr qname)))
+                              (mapcar #'car views)))))
+         (log-message :info "MSSQL: ~a" sql)
          (mssql-query sql))))))
