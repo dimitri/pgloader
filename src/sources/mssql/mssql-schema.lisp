@@ -188,8 +188,8 @@
                         :delete-rule fk-delete-rule))
             (fkey
              (maybe-add-fkey table fkey-name pg-fkey :key #'fkey-name)))
-       (push-to-end col  (fkey-columns fkey))
-       (push-to-end fcol (fkey-foreign-columns fkey)))
+       (push-to-end (apply-identifier-case col)  (fkey-columns fkey))
+       (push-to-end (apply-identifier-case fcol) (fkey-foreign-columns fkey)))
      :finally (return catalog)))
 
 
