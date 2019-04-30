@@ -7,9 +7,9 @@ sudo yum -y install yum-utils rpmdevtools @"Development Tools" \
 sudo yum -y install epel-release
 sudo yum install -y sbcl.x86_64 --enablerepo=epel
 
-wget http://downloads.sourceforge.net/project/sbcl/sbcl/1.3.6/sbcl-1.3.6-source.tar.bz2
-tar xfj sbcl-1.3.6-source.tar.bz2
-cd sbcl-1.3.6
+wget http://downloads.sourceforge.net/project/sbcl/sbcl/1.3.21/sbcl-1.3.21-source.tar.bz2
+tar xfj sbcl-1.3.21-source.tar.bz2
+cd sbcl-1.3.21
 ./make.sh --with-sb-thread --with-sb-core-compression --prefix=/usr > /dev/null 2>&1
 sudo sh install.sh
 cd
