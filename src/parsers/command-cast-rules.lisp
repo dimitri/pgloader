@@ -23,7 +23,9 @@
 (defrule cast-source-type (and kw-type trimmed-name)
   (:destructure (kw name) (declare (ignore kw)) (list :type name)))
 
-(defrule table-column-name (and namestring "." namestring)
+(defrule table-column-name (and maybe-quoted-namestring
+                                "."
+                                maybe-quoted-namestring)
   (:destructure (table-name dot column-name)
     (declare (ignore dot))
     (list :column (cons (text table-name) (text column-name)))))
