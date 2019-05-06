@@ -560,6 +560,16 @@
            #:instanciate-table-copy-object
            #:concurrency-support
 
+           #:filter-list-to-where-clause
+           #:fetch-columns
+           #:fetch-indexes
+           #:fetch-foreign-keys
+           #:fetch-comments
+           #:get-column-sql-expression
+           #:get-column-list
+           #:create-matviews
+           #:drop-matviews
+
            ;; database cast machinery
            #:*default-cast-rules*
            #:*cast-rules*

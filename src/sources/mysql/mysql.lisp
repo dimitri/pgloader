@@ -4,31 +4,6 @@
 
 (in-package :pgloader.source.mysql)
 
-(defclass copy-mysql (db-copy)
-  ((encoding :accessor encoding         ; allows forcing encoding
-             :initarg :encoding
-             :initform nil)
-   (range-list :accessor range-list
-               :initarg :range-list
-               :initform nil))
-  (:documentation "pgloader MySQL Data Source"))
-
-(defmethod initialize-instance :after ((source copy-mysql) &key)
-  "Add a default value for transforms in case it's not been provided."
-  (let ((transforms (and (slot-boundp source 'transforms)
-                         (slot-value  source 'transforms))))
-    (when (and (slot-boundp source 'fields) (slot-value source 'fields))
-      ;; cast typically happens in copy-database in the schema structure,
-      ;; and the result is then copied into the copy-mysql instance.
-      (unless (and (slot-boundp source 'columns) (slot-value source 'columns))
-        (setf (slot-value source 'columns)
-              (mapcar #'cast (slot-value source 'fields))))
-
-      (unless transforms
-        (setf (slot-value source 'transforms)
-              (mapcar #'column-transform (slot-value source 'columns)))))))
-
-
 ;;;
 ;;; Implement the specific methods
 ;;;
@@ -166,7 +141,6 @@ Illegal ~a character starting at position ~a~@[: ~a~].~%"
                            (catalog catalog)
                            &key
                              materialize-views
-                             only-tables
                              (create-indexes   t)
                              (foreign-keys     t)
                              including
@@ -174,8 +148,8 @@ Illegal ~a character starting at position ~a~@[: ~a~].~%"
   "MySQL introspection to prepare the migration."
   (let ((schema        (add-schema catalog (catalog-name catalog)
                                    :in-search-path t))
-        (view-names    (unless (eq :all materialize-views)
-                         (mapcar #'car materialize-views))))
+        (including     (filter-list-to-where-clause mysql including))
+        (excluding     (filter-list-to-where-clause mysql excluding :not t)))
     (with-stats-collection ("fetch meta data"
                             :use-result-as-rows t
                             :use-result-as-read t
@@ -187,10 +161,9 @@ Illegal ~a character starting at position ~a~@[: ~a~].~%"
           (create-my-views materialize-views))
 
         ;; fetch table and columns metadata, covering table and column comments
-        (list-all-columns schema
-                          :only-tables only-tables
-                          :including including
-                          :excluding excluding)
+        (fetch-columns schema mysql
+                       :including including
+                       :excluding excluding)
 
         ;; fetch view (and their columns) metadata, covering comments too
         (let* ((view-names (unless (eq :all materialize-views)
@@ -199,26 +172,23 @@ Illegal ~a character starting at position ~a~@[: ~a~].~%"
                 (loop :for (schema-name . view-name) :in view-names
                    :collect (make-string-match-rule :target view-name))))
           (cond (view-names
-                 (list-all-columns schema
-                                   :only-tables only-tables
-                                   :including including
-                                   :excluding excluding
-                                   :table-type :view))
+                 (fetch-columns schema mysql
+                                :including including
+                                :excluding excluding
+                                :table-type :view))
 
                 ((eq :all materialize-views)
-                 (list-all-columns schema :table-type :view))))
+                 (fetch-columns schema mysql :table-type :view))))
 
         (when foreign-keys
-          (list-all-fkeys schema
-                          :only-tables only-tables
-                          :including including
-                          :excluding excluding))
+          (fetch-foreign-keys schema mysql
+                              :including including
+                              :excluding excluding))
 
         (when create-indexes
-          (list-all-indexes schema
-                            :only-tables only-tables
-                            :including including
-                            :excluding excluding))
+          (fetch-indexes schema mysql
+                         :including including
+                         :excluding excluding))
 
         ;; return how many objects we're going to deal with in total
         ;; for stats collection

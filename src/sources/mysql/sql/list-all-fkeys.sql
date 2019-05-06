@@ -30,7 +30,6 @@ FROM
       WHERE     tc.table_schema = '~a'
             AND k.referenced_table_schema = '~a'
             AND tc.constraint_type = 'FOREIGN KEY'
-           ~:[~*~;and tc.table_name in (~{'~a'~^,~})~]
            ~:[~*~;and (~{tc.table_name ~a~^ or ~})~]
            ~:[~*~;and (~{tc.table_name ~a~^ and ~})~]
 

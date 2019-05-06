@@ -116,7 +116,6 @@
 (defgeneric fetch-metadata (db-copy catalog
                             &key
                               materialize-views
-                              only-tables
                               create-indexes
                               foreign-keys
                               including
@@ -127,3 +126,56 @@
 
 (defgeneric instanciate-table-copy-object (db-copy table)
   (:documentation "Create a new instance for copying TABLE data."))
+
+;;;
+;;; Database source schema introspection API
+;;;
+;;; The methods for those function query the source database catalogs and
+;;; populate pgloader's internal representation of its catalog.
+;;;
+;;; On some source systems (such as MySQL) a single schema can be adressed
+;;; at a time, and the catalog object might be a schema directly.
+;;;
+(defgeneric filter-list-to-where-clause (db-copy filter-list
+                                         &key
+                                           not
+                                           schema-col
+                                           table-col)
+  (:documentation "Transform a filter-list into SQL expression for DB-COPY."))
+
+(defgeneric fetch-columns (catalog db-copy &key table-type including excluding)
+  (:documentation
+   "Get the list of schema, tables and columns from the source database."))
+
+(defgeneric fetch-indexes (catalog db-copy &key including excluding)
+  (:documentation "Get the list of indexes from the source database."))
+
+(defgeneric fetch-foreign-keys (catalog db-copy &key including excluding)
+  (:documentation "Get the list of foreign keys from the source database."))
+
+(defgeneric fetch-comments (catalog db-copy &key including excluding)
+  (:documentation "Get the list of comments from the source database."))
+
+;;;
+;;; We're going to generate SELECT * FROM table; queries to fetch the data
+;;; and COPY it to the PostgreSQL target database. In reality we don't use
+;;; SELECT *, and in many interesting cases we have to generate some SQL
+;;; expression to fetch the source values in a format we can then either
+;;; process in pgloader or just send-over as-is to Postgres.
+;;;
+(defgeneric get-column-sql-expression (db-copy name type)
+  (:documentation
+   "Generate SQL expression for the SELECT clause for given column."))
+
+(defgeneric get-column-list (copy-db)
+  (:documentation
+   "Generate the SQL projection column list for the SELECT clause."))
+
+;;;
+;;; Materialized Views support
+;;;
+(defgeneric create-matviews (catalog db-copy)
+  (:documentation "Create Materialized Views."))
+
+(defgeneric drop-matviews (catalog db-copy)
+  (:documentation "Drop Materialized Views."))
