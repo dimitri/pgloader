@@ -103,7 +103,7 @@ MySQL Database Migration Options: WITH
 --------------------------------------
 
 When loading from a `MySQL` database, the following options are supported,
-and the default *WITH* clause is: *no truncate*, *create schema*, *create
+and the default *WITH* clause is: *no truncate*, *create
 tables*, *include drop*, *create indexes*, *reset sequences*, *foreign
 keys*, *downcase identifiers*, *uniquify index names*.
 
