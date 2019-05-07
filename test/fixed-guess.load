@@ -1,0 +1,36 @@
+LOAD FIXED
+     FROM fixed-guess.dat
+     INTO postgresql:///pgloader
+   TARGET TABLE fixed.guess
+
+      WITH fixed header
+
+      SET work_mem to '14MB',
+          standard_conforming_strings to 'on'
+
+  before load do
+  $$ create schema if not exists fixed; $$,
+  $$ drop table if exists fixed.guess; $$,
+  $$
+    create table fixed.guess
+    (
+          QECDPO character varying(3),
+          QECSEM character varying(3),
+          QELSEM character varying(30),
+          QERSEM character varying(15),
+          QENCOM integer,
+          QESCRE smallint,
+          QEACRE smallint,
+          QEMCRE smallint,
+          QEJCRE smallint,
+          QEHCRE integer,
+          QECUCR character varying(10),
+          QESMAJ smallint,
+          QEAMAJ smallint,
+          QEMMAJ smallint,
+          QEJMAJ smallint,
+          QEHMAJ integer,
+          QECUMJ character varying(10),
+          QETOPD character varying(1)
+    );
+  $$ ;

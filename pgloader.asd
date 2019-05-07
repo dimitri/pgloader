@@ -130,8 +130,12 @@
                                  ;; (:file "csv-database")
                                  (:file "csv")))
 
-                       (:file "fixed"
-                              :depends-on ("common" "csv"))
+                       (:module "fixed"
+                                :depends-on ("common")
+                                :serial t
+                                :components
+                                ((:file "fixed-guess")
+                                 (:file "fixed")))
 
                        (:file "copy"
                               :depends-on ("common" "csv"))

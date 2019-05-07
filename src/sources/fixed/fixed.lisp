@@ -10,12 +10,7 @@
   "Assign the type slot to sqlite."
   (setf (slot-value fixed 'type) "fixed"))
 
-(defclass copy-fixed (md-copy)
-  ((encoding    :accessor encoding	  ; file encoding
-	        :initarg :encoding)	  ;
-   (skip-lines  :accessor skip-lines	  ; CSV headers
-	        :initarg :skip-lines	  ;
-		:initform 0))
+(defclass copy-fixed (md-copy) ()
   (:documentation "pgloader Fixed Columns Data Source"))
 
 (defmethod clone-copy-for ((fixed copy-fixed) path-spec)
@@ -29,6 +24,29 @@
 
     ;; return the new instance!
     fixed-clone))
+
+(defmethod parse-header ((fixed copy-fixed))
+  "Parse the header line given a FIXED setup."
+  (with-connection (cnx (source fixed)
+                        :direction :input
+                        :external-format (encoding fixed)
+                        :if-does-not-exist nil)
+    (let ((input (md-strm cnx)))
+      (loop :repeat (skip-lines fixed) :do (read-line input nil nil))
+      (let* ((field-spec-list (guess-fixed-specs input))
+             (specifications
+              (loop :for specs :in field-spec-list
+                 :collect (destructuring-bind (name &key start length
+                                                    &allow-other-keys)
+                              specs
+                            (format nil
+                                    "~a from ~d for ~d ~a"
+                                    name start length
+                                    "[null if blanks, trim right whitespace]")))))
+        (setf (fields fixed) field-spec-list)
+        (log-message :log
+                     "Parsed ~d columns specs from header:~%(~%~{ ~a~^,~%~}~%)"
+                     (length (fields fixed)) specifications)))))
 
 (declaim (inline parse-row))
 
