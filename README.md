@@ -1,9 +1,7 @@
 # PGLoader
 
 [![Build Status](https://travis-ci.org/dimitri/pgloader.svg?branch=master)](https://travis-ci.org/dimitri/pgloader)
-
 [![Join the chat at https://gitter.im/dimitri/pgloader](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/dimitri/pgloader?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
 [![Docker Build Status](https://img.shields.io/docker/cloud/build/dimitri/pgloader.svg)](https://cloud.docker.com/repository/docker/dimitri/pgloader)
 
 pgloader is a data loading tool for PostgreSQL, using the `COPY` command.
