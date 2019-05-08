@@ -179,9 +179,3 @@ indexes, foreign keys, comments) and parallel loading of the corrected data:
 
     $ createdb pagila
     $ pgloader mysql://user@localhost/sakila postgresql:///pagila
-
-See the documentation file `pgloader.1.md` for details. You can compile that
-file into a manual page or an HTML page thanks to the `ronn` application:
-
-    $ apt-get install ruby-ronn
-	$ make docs
