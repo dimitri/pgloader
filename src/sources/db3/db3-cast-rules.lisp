@@ -16,6 +16,10 @@
      :target (:type "numeric")
      :using pgloader.transforms::db3-numeric-to-pgsql-numeric)
 
+    (:source (:type "I")
+     :target (:type "integer")
+     :using pgloader.transforms::db3-numeric-to-pgsql-integer)
+
     (:source (:type "L")
      :target (:type "boolean")
      :using pgloader.transforms::logical-to-boolean)

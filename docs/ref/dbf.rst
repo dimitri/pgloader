@@ -65,7 +65,8 @@ When migrating from DB3 the following Casting Rules are provided::
 
   type C to text using db3-trim-string
   type M to text using db3-trim-string
-  type N to numeric using db3-numeric-to-pgsql-numeric
+  type N to numeric using db3-numeric-to-pgsql-integer
+  type I to numeric using db3-numeric-to-pgsql-numeric
   type L to boolean using logical-to-boolean
   type D to date using db3-date-to-pgsql-date
 
