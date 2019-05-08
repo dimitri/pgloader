@@ -21,7 +21,7 @@ before_script:
   - PGUSER=pgloader psql -d pgloader -c "create schema expected;"
   - PGUSER=pgloader psql -d pgloader -c "create schema err;"
   - make --version
-  - make "CL=$LISP"
+  - make "CL=$LISP" clones save
 
 script:
   - PGUSER=pgloader make "CL=$LISP" check
