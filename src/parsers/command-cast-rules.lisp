@@ -141,7 +141,12 @@
       (string (intern (string-upcase fname) :pgloader.transforms))
       (symbol fname))))
 
-(defrule cast-function (and kw-using maybe-qualified-function-name)
+(defrule transform-expression sexp
+  (:lambda (sexp)
+    (eval sexp)))
+
+(defrule cast-function (and kw-using (or maybe-qualified-function-name
+                                         transform-expression))
   (:destructure (using symbol) (declare (ignore using)) symbol))
 
 (defun fix-target-type (source target)

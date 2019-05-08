@@ -104,6 +104,7 @@
                  logical-to-boolean
 		 db3-trim-string
                  db3-numeric-to-pgsql-numeric
+                 db3-numeric-to-pgsql-integer
 		 db3-date-to-pgsql-date))
 
 
@@ -505,9 +506,16 @@
 
 (defun db3-numeric-to-pgsql-numeric (value)
   "DB3 numerics should be good to go, but might contain spaces."
-  (let ((trimmed-string (string-right-trim '(#\Space) value)))
+  (let ((trimmed-string (string-trim '(#\Space) value)))
     (unless (string= "" trimmed-string)
       trimmed-string)))
+
+(defun db3-numeric-to-pgsql-integer (value)
+  "DB3 numerics should be good to go, but might contain spaces."
+  (when value
+    (let ((integer-or-nil (parse-integer value :junk-allowed t)))
+      (when integer-or-nil
+        (write-to-string integer-or-nil)))))
 
 (defun db3-date-to-pgsql-date (value)
   "Convert a DB3 date to a PostgreSQL date."
