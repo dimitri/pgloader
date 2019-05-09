@@ -77,9 +77,8 @@
                         :toplevel-function #'cl-user::pgloader-image-main
                         :prepend-kernel t)
   #+sbcl
-  (let ((compression (when (member :sb-core-compression cl:*features*) t)))
-    (sb-ext:save-lisp-and-die image-filename
-                              :toplevel #'cl-user::pgloader-image-main
-                              :executable t
-                              :save-runtime-options t
-                              :compression compression)))
+  (sb-ext:save-lisp-and-die image-filename
+                            :toplevel #'cl-user::pgloader-image-main
+                            :executable t
+                            :save-runtime-options t
+                            :compression (uiop:featurep :sb-core-compression)))
