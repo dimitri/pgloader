@@ -38,6 +38,6 @@
   "Return the list of columns for the given DB3-FILE-NAME."
   (loop
      :for field :in (db3::fields db3)
-     :do (add-field table (make-db3-field (db3::field-name field)
-                                          (string (db3::field-type field))
-                                          (db3::field-length field)))))
+     :do (add-field table (make-db3-coldef (db3::field-name field)
+                                           (string (db3::field-type field))
+                                           (db3::field-length field)))))

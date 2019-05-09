@@ -33,11 +33,11 @@
      :using pgloader.transforms::db3-trim-string))
   "Data Type Casting rules to migrate from DB3 to PostgreSQL")
 
-(defstruct (db3-field
-	     (:constructor make-db3-field (name type length)))
+(defstruct (db3-coldef
+	     (:constructor make-db3-coldef (name type length)))
   name type length default (nullable t) extra)
 
-(defmethod cast ((field db3-field) &key table)
+(defmethod cast ((field db3-coldef) &key table)
   "Return the PostgreSQL type definition given the DB3 one."
   (let ((table-name (table-name table)))
     (with-slots (name type length default nullable extra) field
