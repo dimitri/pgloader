@@ -512,10 +512,12 @@
 
 (defun db3-numeric-to-pgsql-integer (value)
   "DB3 numerics should be good to go, but might contain spaces."
-  (when value
-    (let ((integer-or-nil (parse-integer value :junk-allowed t)))
-      (when integer-or-nil
-        (write-to-string integer-or-nil)))))
+  (etypecase value
+    (null nil)
+    (integer (write-to-string value))
+    (string  (let ((integer-or-nil (parse-integer value :junk-allowed t)))
+               (when integer-or-nil
+                 (write-to-string integer-or-nil))))))
 
 (defun db3-date-to-pgsql-date (value)
   "Convert a DB3 date to a PostgreSQL date."
