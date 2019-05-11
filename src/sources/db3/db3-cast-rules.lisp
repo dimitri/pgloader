@@ -20,6 +20,18 @@
      :target (:type "integer")
      :using pgloader.transforms::db3-numeric-to-pgsql-integer)
 
+    (:source (:type "Y")
+     :target (:type "bigint")
+     :using pgloader.transforms::db3-numeric-to-pgsql-integer)
+
+    (:source (:type "+")
+     :target (:type "serial")
+     :using pgloader.transforms::db3-numeric-to-pgsql-integer)
+
+    (:source (:type "F")
+     :target (:type "double precision")
+     :using pgloader.transforms::float-to-string)
+
     (:source (:type "L")
      :target (:type "boolean")
      :using pgloader.transforms::logical-to-boolean)
@@ -30,7 +42,11 @@
 
     (:source (:type "M")
      :target (:type "text")
-     :using pgloader.transforms::db3-trim-string))
+     :using pgloader.transforms::db3-trim-string)
+
+    (:source (:type "0")
+     :target (:type "bit(8)")
+     :using pgloader.transforms::bits-to-hex-bitstring))
   "Data Type Casting rules to migrate from DB3 to PostgreSQL")
 
 (defstruct (db3-coldef

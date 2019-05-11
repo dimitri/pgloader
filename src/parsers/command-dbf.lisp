@@ -66,9 +66,8 @@
 ;;; dbf defaults to ascii rather than utf-8
 (defrule dbf-file-encoding (? (and kw-with kw-encoding encoding))
   (:lambda (enc)
-    (if enc
-        (bind (((_ _ encoding) enc)) encoding)
-	:ascii)))
+    (when enc
+      (bind (((_ _ encoding) enc)) encoding))))
 
 (defrule load-dbf-command (and dbf-source
                                (? dbf-file-encoding)
@@ -93,7 +92,7 @@
 (defun lisp-code-for-loading-from-dbf (dbf-db-conn pg-db-conn
                                        &key
                                          target-table-name
-                                         (encoding :ascii)
+                                         encoding
                                          gucs casts before after options
                                          &allow-other-keys)
   `(lambda ()

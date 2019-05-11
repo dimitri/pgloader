@@ -498,7 +498,7 @@
 
 (defun logical-to-boolean (value)
   "Convert a DB3 logical value to a PostgreSQL boolean."
-  (if (string= value "?") nil value))
+  (if (member value '("?" " ") :test #'string=) nil value))
 
 (defun db3-trim-string (value)
   "DB3 Strings a right padded with spaces, fix that."

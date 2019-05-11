@@ -24,8 +24,17 @@
    argument (a list of column values) for each row."
   (with-connection (conn (source-db copy-db3))
     (let ((stream (conn-handle (source-db copy-db3)))
-          (db3    (fd-db3 (source-db copy-db3)))
-          (db3:*external-format* (encoding copy-db3)))
+          (db3    (fd-db3 (source-db copy-db3))))
+
+      ;; when the pgloader command has an ENCODING clause, it takes
+      ;; precedence to the encoding embedded in the db3 file, if any.
+      (when (and (encoding copy-db3)
+                 (db3::encoding db3)
+                 (not (eq (encoding copy-db3) (db3::encoding db3))))
+        (log-message :warning "Forcing encoding to ~a, db3 file has ~a"
+                     (encoding copy-db3) (db3::encoding db3))
+        (setf (db3::encoding db3) (encoding copy-db3)))
+
       (loop
          :with count := (db3:record-count db3)
          :repeat count

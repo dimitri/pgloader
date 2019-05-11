@@ -1,0 +1,15 @@
+
+Database: dbase_8b.dbf
+Type: (8b) dBase IV with memo file
+Memo File: true
+Records: 10
+
+Fields:
+Name             Type       Length     Decimal
+------------------------------------------------------------------------------
+CHARACTER        C          100        0         
+NUMERICAL        N          20         2         
+DATE             D          8          0         
+LOGICAL          L          1          0         
+FLOAT            F          20         18        
+MEMO             M          10         0         
