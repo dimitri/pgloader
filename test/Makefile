@@ -24,6 +24,9 @@ REGRESS= allcols.load 		    \
 	 copy.load                  \
 	 copy-hex.load              \
          dbf.load 		    \
+         dbf-memo.load 		    \
+         dbf-31.load 		    \
+         dbf-8b.load 		    \
          errors.load 		    \
          fixed.load 		    \
          fields-with-periods.load   \

@@ -1,0 +1,10 @@
+One	1.00	1970-01-01	t	1.23456789012346	First memo\r\n
+Two	2.00	1970-12-31	t	2	Second memo\n
+Three	3.00	1980-01-01	\N	3	Thierd memo\n
+Four	4.00	1900-01-01	\N	4	Fourth memo\n
+Five	5.00	1900-12-31	\N	5	Fifth memoo\n
+Six	6.00	1901-01-01	\N	6	Sixth memoo\n
+Seven	7.00	1999-12-31	\N	7	Seventh memo
+Eight	8.00	1919-12-31	\N	8	Eigth memomo
+Nine	9.00	\N	\N	\N	Nineth memoo
+Ten records stored in this database	10.00	\N	\N	0.1	NIL

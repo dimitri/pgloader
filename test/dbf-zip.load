@@ -3,4 +3,6 @@ LOAD DBF
     FROM https://www.insee.fr/fr/statistiques/fichier/2114819/france2016-dbf.zip
     with encoding cp850
     INTO postgresql:///pgloader
-    WITH truncate, create table;
+   TARGET TABLE dbf.france2016
+    WITH truncate, create table
+  BEFORE LOAD DO $$ create schema if not exists dbf; $$;

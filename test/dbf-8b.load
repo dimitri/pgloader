@@ -2,4 +2,5 @@ LOAD DBF
     FROM data/dbase_8b.dbf
     INTO postgresql:///pgloader
     TARGET TABLE dbf.dbase_8b
-    WITH truncate, create table, disable triggers;
+    WITH truncate, create table, disable triggers
+  BEFORE LOAD DO $$ create schema if not exists dbf; $$;

@@ -1,8 +1,9 @@
 LOAD DBF
     FROM data/DNORDOC.DBF with encoding cp866
     INTO postgresql:///pgloader
-    TARGET TABLE public.dnordoc
+    TARGET TABLE dbf.dnordoc
     WITH truncate, create table, disable triggers
+  BEFORE LOAD DO $$ create schema if not exists dbf; $$
 
     cast
       column dnordoc.normdocid
