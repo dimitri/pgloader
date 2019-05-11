@@ -95,7 +95,7 @@
              :collect schema-name)))
     (when missing-schemas
       (let ((sql (format nil
-                         "ALTER DATABASE ~a SET search_path TO ~{~a~^, ~};"
+                         "ALTER DATABASE ~s SET search_path TO ~{~a~^, ~};"
                          dbname
                          (append search-path missing-schemas))))
         (pgsql-execute-with-timing section
