@@ -20,6 +20,7 @@ REGRESS= allcols.load 		    \
          csv-nulls.load             \
          csv-temp.load              \
          csv-trim-extra-blanks.load \
+         csv-using-sexp.load        \
          csv.load 		    \
 	 copy.load                  \
 	 copy-hex.load              \
