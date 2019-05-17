@@ -39,6 +39,7 @@ FROM debian:stable-slim
         freetds-dev \
         gawk \
         libsqlite3-dev \
+        libssl1.1 \
         libzip-dev \
         make \
         sbcl \
