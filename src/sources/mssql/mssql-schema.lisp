@@ -213,39 +213,3 @@
   (loop :for field :in (fields mssql)
      :collect (with-slots (name type) field
                 (get-column-sql-expression mssql name type))))
-
-
-
-;;;
-;;; Materialize Views support
-;;;
-(defun create-ms-views (views-alist)
-  "VIEWS-ALIST associates view names with their SQL definition, which might
-   be empty for already existing views. Create only the views for which we
-   have an SQL definition."
-  (unless (eq :all views-alist)
-    (let ((views (remove-if #'null views-alist :key #'cdr)))
-      (when views
-        (loop :for (name . def) :in views
-           :for sql := (destructuring-bind (schema . v-name) name
-                         (format nil
-                                 "CREATE VIEW ~@[~s~].~s AS ~a"
-                                 schema v-name def))
-           :do (progn
-                 (log-message :info "MS SQL: ~a" sql)
-                 (mssql-query sql)))))))
-
-(defun drop-ms-views (views-alist)
-  "See `create-ms-views' for VIEWS-ALIST description. This time we DROP the
-   views to clean out after our work."
-  (unless (eq :all views-alist)
-   (let ((views (remove-if #'null views-alist :key #'cdr)))
-     (when views
-       (let ((sql
-              (format nil "DROP VIEW ~{~a~^, ~};"
-                      (mapcar (lambda (qname)
-                                (format nil "~@[~s.~]~a"
-                                        (car qname) (cdr qname)))
-                              (mapcar #'car views)))))
-         (log-message :info "MSSQL: ~a" sql)
-         (mssql-query sql))))))

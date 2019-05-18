@@ -9,14 +9,23 @@
 (defrule view-name (or qualified-table-name maybe-quoted-namestring)
   (:lambda (vn)
     (etypecase vn
-      (cons   vn)
-      (string (cons nil vn)))))
+      (cons   (let* ((schema-name (apply-identifier-case (cdr vn)))
+                     (schema (make-schema :source-name (cdr vn)
+                                          :name schema-name)))
+                (make-matview :source-name vn
+                              :name (apply-identifier-case (car vn))
+                              :schema schema)))
+      (string (make-matview :source-name (cons nil vn)
+                            :schema nil
+                            :name (apply-identifier-case vn))))))
 
 (defrule view-sql (and kw-as dollar-quoted)
   (:destructure (as sql) (declare (ignore as)) sql))
 
 (defrule view-definition (and view-name (? view-sql))
-  (:destructure (name sql) (cons name sql)))
+  (:destructure (matview sql)
+    (setf (matview-definition matview) sql)
+    matview))
 
 (defrule another-view-definition (and comma-separator view-definition)
   (:lambda (source)

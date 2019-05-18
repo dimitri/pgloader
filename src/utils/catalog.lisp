@@ -45,7 +45,7 @@
 (defstruct catalog name schema-list types-without-btree distribution-rules)
 
 (defstruct schema source-name name catalog in-search-path
-           table-list view-list extension-list sqltype-list)
+           table-list view-list matview-list extension-list sqltype-list)
 
 (defstruct table source-name name schema oid comment
            storage-parameter-list tablespace
@@ -53,6 +53,8 @@
            ;; column is for TARGET
            ;; citus is an extra slot for citus support
            field-list column-list index-list fkey-list trigger-list citus-rule)
+
+(defstruct matview source-name name schema definition)
 
 ;;;
 ;;; When migrating from PostgreSQL to PostgreSQL we might have to install

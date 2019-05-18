@@ -58,7 +58,7 @@
       ;; If asked to MATERIALIZE VIEWS, now is the time to create them in MS
       ;; SQL, when given definitions rather than existing view names.
       (when (and materialize-views (not (eq :all materialize-views)))
-        (create-ms-views materialize-views))
+        (create-matviews materialize-views mssql))
 
       (fetch-columns catalog mssql
                      :including including
@@ -66,7 +66,7 @@
 
       ;; fetch view (and their columns) metadata, covering comments too
       (let* ((view-names (unless (eq :all materialize-views)
-                           (mapcar #'car materialize-views)))
+                           (mapcar #'matview-source-name materialize-views)))
              (including
               (loop :for (schema-name . view-name) :in view-names
                  :do (let* ((schema-name (or schema-name "dbo"))
@@ -112,4 +112,4 @@
    migration purpose."
   (when materialize-views
     (with-connection (*mssql-db* (source-db mssql))
-      (drop-ms-views materialize-views))))
+      (drop-matviews materialize-views mssql))))

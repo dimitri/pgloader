@@ -158,7 +158,7 @@ Illegal ~a character starting at position ~a~@[: ~a~].~%"
         ;; If asked to MATERIALIZE VIEWS, now is the time to create them in
         ;; MySQL, when given definitions rather than existing view names.
         (when (and materialize-views (not (eq :all materialize-views)))
-          (create-my-views materialize-views))
+          (create-matviews materialize-views mysql))
 
         ;; fetch table and columns metadata, covering table and column comments
         (fetch-columns schema mysql
@@ -167,13 +167,14 @@ Illegal ~a character starting at position ~a~@[: ~a~].~%"
 
         ;; fetch view (and their columns) metadata, covering comments too
         (let* ((view-names (unless (eq :all materialize-views)
-                             (mapcar #'car materialize-views)))
+                             (mapcar #'matview-source-name materialize-views)))
                (including
                 (loop :for (schema-name . view-name) :in view-names
-                   :collect (make-string-match-rule :target view-name))))
+                   :collect (make-string-match-rule :target view-name)))
+               (including-clause (filter-list-to-where-clause mysql including)))
           (cond (view-names
                  (fetch-columns schema mysql
-                                :including including
+                                :including including-clause
                                 :excluding excluding
                                 :table-type :view))
 
@@ -205,7 +206,7 @@ Illegal ~a character starting at position ~a~@[: ~a~].~%"
    migration purpose."
   (when materialize-views
     (with-connection (*connection* (source-db mysql))
-      (drop-my-views materialize-views))))
+      (drop-matviews materialize-views mysql))))
 
 (defvar *decoding-as* nil
   "Special per-table encoding/decoding overloading rules for MySQL.")

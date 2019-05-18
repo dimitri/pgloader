@@ -90,7 +90,7 @@
         ;; the target database.
         ;;
         (when (and materialize-views (not (eq :all materialize-views)))
-          (create-pg-views materialize-views))
+          (create-matviews materialize-views pgsql))
 
         (when (eq :pgdg variant)
           (list-all-sqltypes catalog
@@ -102,7 +102,7 @@
                           :excluding excluding)
 
         (let* ((view-names (unless (eq :all materialize-views)
-                             (mapcar #'car materialize-views)))
+                             (mapcar #'matview-source-name materialize-views)))
                (including  (make-including-expr-from-view-names view-names)))
           (cond (view-names
                  (list-all-columns catalog
@@ -140,4 +140,4 @@
    the migration purpose."
   (when materialize-views
     (with-pgsql-transaction (:pgconn  (source-db pgsql))
-      (drop-pg-views materialize-views))))
+      (drop-matviews materialize-views pgsql))))

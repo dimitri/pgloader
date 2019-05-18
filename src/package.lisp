@@ -52,6 +52,7 @@
            #:extension
            #:sqltype
            #:table
+           #:matview
            #:column
            #:index
            #:fkey
@@ -66,7 +67,7 @@
            #:make-schema
            #:make-table
            #:create-table
-           #:make-view
+           #:make-matview
            #:make-sqltype
            #:make-column
            #:make-index
@@ -101,6 +102,11 @@
            #:table-fkey-list
            #:table-trigger-list
            #:table-citus-rule
+
+           #:matview-name
+           #:matview-source-name
+           #:matview-schema
+           #:matview-definition
 
            #:extension-name
            #:extension-schema
@@ -567,6 +573,7 @@
            #:fetch-comments
            #:get-column-sql-expression
            #:get-column-list
+           #:format-matview-name
            #:create-matviews
            #:drop-matviews
 

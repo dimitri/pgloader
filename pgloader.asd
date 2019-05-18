@@ -119,6 +119,7 @@
                                 ((:file "api")
                                  (:file "methods")
                                  (:file "md-methods")
+                                 (:file "matviews")
                                  (:file "casting-rules")
                                  (:file "files-and-pathnames")
                                  (:file "project-fields")))
@@ -192,7 +193,6 @@
                                 :serial t
                                 :depends-on ("common")
                                 :components ((:file "pgsql-cast-rules")
-                                             (:file "pgsql-schema")
                                              (:file "pgsql")))))
 
              ;; package pgloader.copy

@@ -174,8 +174,12 @@
 ;;;
 ;;; Materialized Views support
 ;;;
-(defgeneric create-matviews (catalog db-copy)
+(defgeneric format-matview-name (matview copy)
+  (:documentation "Format the materialized view name."))
+
+(defgeneric create-matviews (matview-list db-copy)
   (:documentation "Create Materialized Views."))
 
-(defgeneric drop-matviews (catalog db-copy)
+(defgeneric drop-matviews (matview-list db-copy)
   (:documentation "Drop Materialized Views."))
+
