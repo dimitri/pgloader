@@ -7,22 +7,6 @@
   ((db :accessor db :initarg :db))
   (:documentation "pgloader SQLite Data Source"))
 
-(defmethod initialize-instance :after ((source copy-sqlite) &key)
-  "Add a default value for transforms in case it's not been provided."
-  (let* ((transforms (when (slot-boundp source 'transforms)
-		       (slot-value source 'transforms))))
-    (when (and (slot-boundp source 'fields) (slot-value source 'fields))
-      ;; cast typically happens in copy-database in the schema structure,
-      ;; and the result is then copied into the copy-mysql instance.
-      (unless (and (slot-boundp source 'columns) (slot-value source 'columns))
-        (setf (slot-value source 'columns)
-              (mapcar #'cast (slot-value source 'fields))))
-
-      (unless transforms
-        (setf (slot-value source 'transforms)
-              (mapcar #'column-transform (slot-value source 'columns)))))))
-
-
 ;;;
 ;;; SQLite schema introspection facilities
 ;;;

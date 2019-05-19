@@ -8,7 +8,7 @@
   "The MS SQL database connection handler.")
 
 ;;;
-;;; General utility to manage MySQL connection
+;;; General utility to manage MS SQL connection
 ;;;
 (defclass mssql-connection (db-connection) ())
 
@@ -21,7 +21,7 @@
                                             (db-user msconn)
                                             (db-pass msconn)
                                             (db-host msconn)))
-  ;; apply mysql-settings, if any
+  ;; apply mssql-settings, if any
   (loop :for (name . value) :in *mssql-settings*
      :for sql := (format nil "set ~a ~a;" name value)
      :do (query msconn sql))

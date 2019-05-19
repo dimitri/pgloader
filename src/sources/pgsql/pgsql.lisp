@@ -7,21 +7,6 @@
 (defclass copy-pgsql (db-copy) ()
   (:documentation "pgloader PostgreSQL Data Source"))
 
-(defmethod initialize-instance :after ((source copy-pgsql) &key)
-  "Add a default value for transforms in case it's not been provided."
-  (let* ((transforms (when (slot-boundp source 'transforms)
-		       (slot-value source 'transforms))))
-    (when (and (slot-boundp source 'fields) (slot-value source 'fields))
-      ;; cast typically happens in copy-database in the schema structure,
-      ;; and the result is then copied into the copy-mysql instance.
-      (unless (and (slot-boundp source 'columns) (slot-value source 'columns))
-        (setf (slot-value source 'columns)
-              (mapcar #'cast (slot-value source 'fields))))
-
-      (unless transforms
-        (setf (slot-value source 'transforms)
-              (mapcar #'column-transform (slot-value source 'columns)))))))
-
 (defmethod map-rows ((pgsql copy-pgsql) &key process-row-fn)
   "Extract PostgreSQL data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row"

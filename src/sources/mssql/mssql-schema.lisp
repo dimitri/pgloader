@@ -10,22 +10,6 @@
              :initform nil))
   (:documentation "pgloader MS SQL Data Source"))
 
-(defmethod initialize-instance :after ((source copy-mssql) &key)
-  "Add a default value for transforms in case it's not been provided."
-  (let* ((transforms (when (slot-boundp source 'transforms)
-		       (slot-value source 'transforms))))
-    (when (and (slot-boundp source 'fields) (slot-value source 'fields))
-      ;; cast typically happens in copy-database in the schema structure,
-      ;; and the result is then copied into the copy-mysql instance.
-      (unless (and (slot-boundp source 'columns) (slot-value source 'columns))
-        (setf (slot-value source 'columns)
-              (mapcar #'cast (slot-value source 'fields))))
-
-      (unless transforms
-        (setf (slot-value source 'transforms)
-              (mapcar #'column-transform (slot-value source 'columns)))))))
-
-
 ;;;
 ;;; Those functions are to be called from withing an already established
 ;;; MS SQL Connection.
@@ -62,44 +46,38 @@
                             (table-type-name
                              (cdr (assoc table-type *table-type*))))
   (loop
+     :with incl-where := (filter-list-to-where-clause
+                          mssql including :not nil
+                          :schema-col "c.table_schema"
+                          :table-col "c.table_name")
+     :with excl-where := (filter-list-to-where-clause
+                          mssql excluding :not t
+                          :schema-col "c.table_schema"
+                          :table-col "c.table_name")
      :for (schema-name table-name name type default nullable identity
                        character-maximum-length
                        numeric-precision numeric-precision-radix numeric-scale
                        datetime-precision
                        character-set-name collation-name)
-     :in
-     (let ((including
-            (filter-list-to-where-clause mssql
-                                         including
-                                         :not nil
-                                         :schema-col "c.table_schema"
-                                         :table-col "c.table_name"))
-           (excluding
-            (filter-list-to-where-clause mssql
-                                         excluding
-                                         :not t
-                                         :schema-col "c.table_schema"
-                                         :table-col "c.table_name")))
-       (mssql-query (format nil
-                            (sql "/mssql/list-all-columns.sql")
-                            (db-name *mssql-db*)
-                            table-type-name
-                            including   ; do we print the clause?
-                            including
-                            excluding   ; do we print the clause?
-                            excluding)))
-     :do
-     (let* ((schema     (maybe-add-schema catalog schema-name))
-            (table      (maybe-add-table schema table-name))
-            (field
-             (make-mssql-column
-              schema-name table-name name type default nullable
-              (eq 1 identity)
-              character-maximum-length
-              numeric-precision numeric-precision-radix numeric-scale
-              datetime-precision
-              character-set-name collation-name)))
-       (add-field table field))
+     :in (mssql-query (format nil
+                              (sql "/mssql/list-all-columns.sql")
+                              (db-name *mssql-db*)
+                              table-type-name
+                              incl-where ; do we print the clause?
+                              incl-where
+                              excl-where ; do we print the clause?
+                              excl-where))
+     :do (let* ((schema     (maybe-add-schema catalog schema-name))
+                (table      (maybe-add-table schema table-name))
+                (field
+                 (make-mssql-column
+                  schema-name table-name name type default nullable
+                  (eq 1 identity)
+                  character-maximum-length
+                  numeric-precision numeric-precision-radix numeric-scale
+                  datetime-precision
+                  character-set-name collation-name)))
+           (add-field table field))
      :finally (return catalog)))
 
 (defmethod fetch-indexes ((catalog catalog)
@@ -107,89 +85,81 @@
                           &key including excluding)
   "Get the list of MSSQL index definitions per table."
   (loop
+     :with incl-where := (filter-list-to-where-clause
+                          mssql including :not nil
+                          :schema-col "schema_name(schema_id)"
+                          :table-col "o.name")
+     :with excl-where := (filter-list-to-where-clause
+                          mssql excluding :not t
+                          :schema-col "schema_name(schema_id)"
+                          :table-col "o.name")
      :for (schema-name table-name index-name colname unique pkey filter)
-     :in  (let ((including
-                 (filter-list-to-where-clause mssql
-                                              including
-                                              :not nil
-                                              :schema-col "schema_name(schema_id)"
-                                              :table-col "o.name"))
-                (excluding
-                 (filter-list-to-where-clause mssql
-                                              excluding
-                                              :not t
-                                              :schema-col "schema_name(schema_id)"
-                                              :table-col "o.name")))
-            (mssql-query (format nil
-                                 (sql "/mssql/list-all-indexes.sql")
-                                 including ; do we print the clause?
-                                 including
-                                 excluding ; do we print the clause?
-                                 excluding)))
-     :do
-     (let* ((schema     (find-schema catalog schema-name))
-            (table      (find-table schema table-name))
-            (pg-index   (make-index :name index-name
-                                    :schema schema
-                                    :table table
-                                    :primary (= pkey 1)
-                                    :unique (= unique 1)
-                                    :columns nil
-                                    :filter filter))
-            (index
-             (when table
-               (maybe-add-index table index-name pg-index :key #'index-name))))
-       (unless table
-         (log-message :warning
-                      "Failed to find table ~s in schema ~s for index ~s, skipping the index"
-                      table-name schema-name index-name))
-       (when index
-         (add-column index colname)))
+     :in  (mssql-query (format nil
+                               (sql "/mssql/list-all-indexes.sql")
+                               incl-where ; do we print the clause?
+                               incl-where
+                               excl-where ; do we print the clause?
+                               excl-where))
+     :do (let* ((schema     (find-schema catalog schema-name))
+                (table      (find-table schema table-name))
+                (pg-index   (make-index :name index-name
+                                        :schema schema
+                                        :table table
+                                        :primary (= pkey 1)
+                                        :unique (= unique 1)
+                                        :columns nil
+                                        :filter filter))
+                (index
+                 (when table
+                   (maybe-add-index table index-name pg-index :key #'index-name))))
+           (unless table
+             (log-message :warning
+                          "Failed to find table ~s in schema ~s for index ~s, skipping the index"
+                          table-name schema-name index-name))
+           (when index
+             (add-column index colname)))
      :finally (return catalog)))
 
 (defmethod fetch-foreign-keys ((catalog catalog) (mssql copy-mssql)
                                &key including excluding)
   "Get the list of MSSQL index definitions per table."
   (loop
+     :with incl-where := (filter-list-to-where-clause
+                          mssql including :not nil
+                          :schema-col "kcu1.table_schema"
+                          :table-col "kcu1.table_name")
+     :with excl-where := (filter-list-to-where-clause
+                          mssql excluding :not t
+                          :schema-col "kcu1.table_schema"
+                          :table-col "kcu1.table_name")
      :for (fkey-name schema-name table-name col
                      fschema-name ftable-name fcol
                      fk-update-rule fk-delete-rule)
-     :in  (let ((including
-                 (filter-list-to-where-clause mssql
-                                              including
-                                              :not nil
-                                              :schema-col "kcu1.table_schema"
-                                              :table-col "kcu1.table_name"))
-                (excluding
-                 (filter-list-to-where-clause mssql
-                                              excluding
-                                              :not t
-                                              :schema-col "kcu1.table_schema"
-                                              :table-col "kcu1.table_name")))
-            (mssql-query (format nil
-                                 (sql "/mssql/list-all-fkeys.sql")
-                                 (db-name *mssql-db*) (db-name *mssql-db*)
-                                 including ; do we print the clause?
-                                 including
-                                 excluding ; do we print the clause?
-                                 excluding)))
-     :do
-     (let* ((schema     (find-schema catalog schema-name))
-            (table      (find-table schema table-name))
-            (fschema    (find-schema catalog fschema-name))
-            (ftable     (find-table fschema ftable-name))
-            (pg-fkey
-             (make-fkey :name fkey-name
-                        :table table
-                        :columns nil
-                        :foreign-table ftable
-                        :foreign-columns nil
-                        :update-rule fk-update-rule
-                        :delete-rule fk-delete-rule))
-            (fkey
-             (maybe-add-fkey table fkey-name pg-fkey :key #'fkey-name)))
-       (push-to-end (apply-identifier-case col)  (fkey-columns fkey))
-       (push-to-end (apply-identifier-case fcol) (fkey-foreign-columns fkey)))
+     :in  (mssql-query (format nil
+                               (sql "/mssql/list-all-fkeys.sql")
+                               (db-name *mssql-db*) (db-name *mssql-db*)
+                               incl-where ; do we print the clause?
+                               incl-where
+                               excl-where ; do we print the clause?
+                               excl-where))
+     :do (let* ((schema    (find-schema catalog schema-name))
+                (table     (find-table schema table-name))
+                (fschema   (find-schema catalog fschema-name))
+                (ftable    (find-table fschema ftable-name))
+                (col-name  (apply-identifier-case col))
+                (fcol-name (apply-identifier-case fcol))
+                (pg-fkey
+                 (make-fkey :name fkey-name
+                            :table table
+                            :columns nil
+                            :foreign-table ftable
+                            :foreign-columns nil
+                            :update-rule fk-update-rule
+                            :delete-rule fk-delete-rule))
+                (fkey
+                 (maybe-add-fkey table fkey-name pg-fkey :key #'fkey-name)))
+           (push-to-end col-name (fkey-columns fkey))
+           (push-to-end fcol-name (fkey-foreign-columns fkey)))
      :finally (return catalog)))
 
 
