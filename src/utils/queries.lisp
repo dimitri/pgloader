@@ -61,8 +61,10 @@
 (defun sql (url &rest args)
   "Abstract the hash-table based implementation of our SQL file system."
   (restart-case
-      (or (apply #'format nil (gethash url *fs*) args)
-          (error "URL ~s not found!" url))
+      (apply #'format nil
+             (or (gethash url *fs*)
+                 (error "URL ~s not found!" url))
+             args)
     (recompute-fs-and-retry ()
       (setf *fs* (walk-sources-and-build-fs))
       (sql url))))
