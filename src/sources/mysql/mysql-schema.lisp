@@ -61,7 +61,6 @@
                             (table-type-name
                              (cdr (assoc table-type *table-type*))))
   "Get the list of MySQL column names per table."
-  (declare (ignore mysql))
   (loop
      :for (tname tcomment cname ccomment dtype ctype default nullable extra)
      :in
