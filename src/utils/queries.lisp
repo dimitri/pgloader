@@ -58,10 +58,10 @@
   (walk-sources-and-build-fs)
   "File system as an hash-table in memory.")
 
-(defun sql (url)
+(defun sql (url &rest args)
   "Abstract the hash-table based implementation of our SQL file system."
   (restart-case
-      (or (gethash url *fs*)
+      (or (apply #'format nil (gethash url *fs*) args)
           (error "URL ~s not found!" url))
     (recompute-fs-and-retry ()
       (setf *fs* (walk-sources-and-build-fs))

@@ -59,14 +59,12 @@
                        numeric-precision numeric-precision-radix numeric-scale
                        datetime-precision
                        character-set-name collation-name)
-     :in (mssql-query (format nil
-                              (sql "/mssql/list-all-columns.sql")
-                              (db-name *mssql-db*)
-                              table-type-name
-                              incl-where ; do we print the clause?
-                              incl-where
-                              excl-where ; do we print the clause?
-                              excl-where))
+     :in (mssql-query (sql "/mssql/list-all-columns.sql"
+                           (db-name *mssql-db*)
+                           table-type-name
+                           incl-where   ; do we print the clause?
+                           incl-where
+                           excl-where))
      :do (let* ((schema     (maybe-add-schema catalog schema-name))
                 (table      (maybe-add-table schema table-name))
                 (field
@@ -94,12 +92,11 @@
                           :schema-col "schema_name(schema_id)"
                           :table-col "o.name")
      :for (schema-name table-name index-name colname unique pkey filter)
-     :in  (mssql-query (format nil
-                               (sql "/mssql/list-all-indexes.sql")
-                               incl-where ; do we print the clause?
-                               incl-where
-                               excl-where ; do we print the clause?
-                               excl-where))
+     :in  (mssql-query (sql "/mssql/list-all-indexes.sql"
+                            incl-where  ; do we print the clause?
+                            incl-where
+                            excl-where  ; do we print the clause?
+                            excl-where))
      :do (let* ((schema     (find-schema catalog schema-name))
                 (table      (find-table schema table-name))
                 (pg-index   (make-index :name index-name
@@ -135,13 +132,12 @@
      :for (fkey-name schema-name table-name col
                      fschema-name ftable-name fcol
                      fk-update-rule fk-delete-rule)
-     :in  (mssql-query (format nil
-                               (sql "/mssql/list-all-fkeys.sql")
-                               (db-name *mssql-db*) (db-name *mssql-db*)
-                               incl-where ; do we print the clause?
-                               incl-where
-                               excl-where ; do we print the clause?
-                               excl-where))
+     :in  (mssql-query (sql "/mssql/list-all-fkeys.sql"
+                            (db-name *mssql-db*) (db-name *mssql-db*)
+                            incl-where  ; do we print the clause?
+                            incl-where
+                            excl-where  ; do we print the clause?
+                            excl-where))
      :do (let* ((schema    (find-schema catalog schema-name))
                 (table     (find-table schema table-name))
                 (fschema   (find-schema catalog fschema-name))

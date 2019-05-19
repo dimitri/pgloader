@@ -63,15 +63,13 @@
   "Get the list of MySQL column names per table."
   (loop
      :for (tname tcomment cname ccomment dtype ctype default nullable extra)
-     :in
-     (mysql-query (format nil
-                          (sql "/mysql/list-all-columns.sql")
-                          (db-name *connection*)
-                          table-type-name
-                          including     ; do we print the clause?
-                          including
-                          excluding     ; do we print the clause?
-                          excluding))
+     :in (mysql-query (sql "/mysql/list-all-columns.sql"
+                           (db-name *connection*)
+                           table-type-name
+                           including    ; do we print the clause?
+                           including
+                           excluding    ; do we print the clause?
+                           excluding))
      :do
      (let* ((table
              (case table-type
@@ -93,13 +91,12 @@
   "Get the list of MySQL index definitions per table."
   (loop
      :for (table-name name index-type non-unique cols)
-     :in (mysql-query (format nil
-                              (sql "/mysql/list-all-indexes.sql")
-                              (db-name *connection*)
-                              including ; do we print the clause?
-                              including
-                              excluding ; do we print the clause?
-                              excluding))
+     :in (mysql-query (sql "/mysql/list-all-indexes.sql"
+                           (db-name *connection*)
+                           including ; do we print the clause?
+                           including
+                           excluding ; do we print the clause?
+                           excluding))
      :do (let* ((table (find-table schema table-name))
                 (index
                  (make-index :name name ; further processing is needed
@@ -126,13 +123,12 @@
   "Get the list of MySQL Foreign Keys definitions per table."
   (loop
      :for (table-name name ftable-name cols fcols update-rule delete-rule)
-     :in (mysql-query (format nil
-                              (sql "/mysql/list-all-fkeys.sql")
-                              (db-name *connection*) (db-name *connection*)
-                              including ; do we print the clause?
-                              including
-                              excluding ; do we print the clause?
-                              excluding))
+     :in (mysql-query (sql "/mysql/list-all-fkeys.sql"
+                           (db-name *connection*) (db-name *connection*)
+                           including    ; do we print the clause?
+                           including
+                           excluding    ; do we print the clause?
+                           excluding))
      :do (let* ((table  (find-table schema table-name))
                 (ftable (find-table schema ftable-name))
                 (fk
@@ -170,13 +166,12 @@
   "Return comments on MySQL tables."
   (loop
      :for (table-name comment)
-     :in (mysql-query (format nil
-                              (sql "/mysql/list-table-comments.sql")
-                              (db-name *connection*)
-                              including ; do we print the clause?
-                              including
-                              excluding ; do we print the clause?
-                              excluding))
+     :in (mysql-query (sql "/mysql/list-table-comments.sql"
+                           (db-name *connection*)
+                           including ; do we print the clause?
+                           including
+                           excluding ; do we print the clause?
+                           excluding))
      :when (and comment (not (string= comment "")))
      :collect (list table-name comment)))
 
@@ -184,13 +179,12 @@
   "Return comments on MySQL tables."
   (loop
      :for (table-name column-name comment)
-     :in (mysql-query (format nil
-                              (sql "/mysql/list-columns-comments.sql")
-                              (db-name *connection*)
-                              including ; do we print the clause?
-                              including
-                              excluding ; do we print the clause?
-                              excluding))
+     :in (mysql-query (sql "/mysql/list-columns-comments.sql"
+                           (db-name *connection*)
+                           including    ; do we print the clause?
+                           including
+                           excluding    ; do we print the clause?
+                           excluding))
      :when (and comment (not (string= comment "")))
      :collect (list table-name column-name comment)))
 

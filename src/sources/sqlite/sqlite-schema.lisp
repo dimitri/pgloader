@@ -36,11 +36,11 @@
                       including
                       excluding)
   "Return the list of tables found in SQLITE-DB."
-  (let ((sql (format nil (sql "/sqlite/list-tables.sql")
-                     including          ; do we print the clause?
-                     (filter-list-to-where-clause sqlite including :not nil)
-                     excluding          ; do we print the clause?
-                     (filter-list-to-where-clause sqlite excluding :not t))))
+  (let ((sql (sql "/sqlite/list-tables.sql"
+                  including             ; do we print the clause?
+                  (filter-list-to-where-clause sqlite including :not nil)
+                  excluding             ; do we print the clause?
+                  (filter-list-to-where-clause sqlite excluding :not t))))
     (log-message :sql "~a" sql)
     (loop for (name) in (sqlite:execute-to-list db sql)
        collect name)))
@@ -48,7 +48,7 @@
 (defun find-sequence (db table-name column-name)
   "Find if table-name.column-name is attached to a sequence in
    sqlite_sequence catalog."
-  (let* ((sql (format nil (sql "/sqlite/find-sequence.sql") table-name))
+  (let* ((sql (sql "/sqlite/find-sequence.sql" table-name))
          (seq (sqlite:execute-single db sql)))
     (when (and seq (not (zerop seq)))
       ;; magic marker for `apply-casting-rules'
@@ -61,7 +61,7 @@
    added to the table. So we might fail to FIND-SEQUENCE, and still need to
    consider the column has an autoincrement. Parse the SQL definition of the
    table to find out."
-  (let* ((sql (format nil (sql "/sqlite/get-create-table.sql") table-name))
+  (let* ((sql (sql "/sqlite/get-create-table.sql" table-name))
          (create-table (sqlite:execute-single db sql))
          (open-paren   (+ 1 (position #\( create-table)))
          (close-paren  (position #\) create-table :from-end t))
@@ -89,7 +89,7 @@
 (defun list-columns (table &key db-has-sequences (db *sqlite-db*) )
   "Return the list of columns found in TABLE-NAME."
   (let* ((table-name (table-source-name table))
-         (sql        (format nil (sql "/sqlite/list-columns.sql") table-name)))
+         (sql        (sql "/sqlite/list-columns.sql" table-name)))
     (loop :for (ctid name type nullable default pk-id)
        :in (sqlite:execute-to-list db sql)
        :do (let* ((ctype (normalize type))
@@ -168,15 +168,14 @@
 
 (defun list-index-cols (index-name &optional (db *sqlite-db*))
   "Return the list of columns in INDEX-NAME."
-  (let ((sql (format nil (sql "/sqlite/list-index-cols.sql") index-name)))
+  (let ((sql (sql "/sqlite/list-index-cols.sql" index-name)))
     (loop :for (index-pos table-pos col-name) :in (sqlite:execute-to-list db sql)
        :collect (apply-identifier-case col-name))))
 
 (defun list-indexes (table &optional (db *sqlite-db*))
   "Return the list of indexes attached to TABLE."
   (let* ((table-name (table-source-name table))
-         (sql
-          (format nil (sql "/sqlite/list-table-indexes.sql") table-name)))
+         (sql (sql "/sqlite/list-table-indexes.sql" table-name)))
     (loop
        :for (seq index-name unique origin partial)
        :in (sqlite:execute-to-list db sql)
@@ -209,8 +208,7 @@
 (defun list-fkeys (table &optional (db *sqlite-db*))
   "Return the list of indexes attached to TABLE."
   (let* ((table-name (table-source-name table))
-         (sql
-          (format nil (sql "/sqlite/list-fkeys.sql") table-name)))
+         (sql (sql "/sqlite/list-fkeys.sql" table-name)))
     (loop
        :with fkey-table := (make-hash-table)
        :for (id seq ftable-name from to on-update on-delete match)
