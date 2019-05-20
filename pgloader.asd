@@ -119,6 +119,7 @@
                                 ((:file "api")
                                  (:file "methods")
                                  (:file "md-methods")
+                                 (:file "matviews")
                                  (:file "casting-rules")
                                  (:file "files-and-pathnames")
                                  (:file "project-fields")))
@@ -141,16 +142,21 @@
                               :depends-on ("common" "csv"))
 
                        (:module "db3"
+                                :serial t
                                 :depends-on ("common" "csv")
                                 :components
-                                ((:file "db3-schema")
-                                 (:file "db3-cast-rules")
-                                 (:file "db3" :depends-on ("db3-schema"))))
+                                ((:file "db3-cast-rules")
+                                 (:file "db3-connection")
+                                 (:file "db3-schema")
+                                 (:file "db3")))
 
                        (:module "ixf"
+                                :serial t
                                 :depends-on ("common")
                                 :components
-                                ((:file "ixf-schema")
+                                ((:file "ixf-cast-rules")
+                                 (:file "ixf-connection")
+                                 (:file "ixf-schema")
                                  (:file "ixf" :depends-on ("ixf-schema"))))
 
                                         ;(:file "syslog") ; experimental...
@@ -160,6 +166,7 @@
                                 :depends-on ("common")
                                 :components
                                 ((:file "sqlite-cast-rules")
+                                 (:file "sqlite-connection")
                                  (:file "sqlite-schema")
                                  (:file "sqlite")))
 
@@ -168,6 +175,7 @@
                                 :depends-on ("common")
                                 :components
                                 ((:file "mssql-cast-rules")
+                                 (:file "mssql-connection")
                                  (:file "mssql-schema")
                                  (:file "mssql")
                                  (:file "mssql-index-filters")))
@@ -185,7 +193,6 @@
                                 :serial t
                                 :depends-on ("common")
                                 :components ((:file "pgsql-cast-rules")
-                                             (:file "pgsql-schema")
                                              (:file "pgsql")))))
 
              ;; package pgloader.copy

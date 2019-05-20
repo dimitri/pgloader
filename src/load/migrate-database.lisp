@@ -281,7 +281,6 @@
                             (reindex          nil)
                             (after-schema     nil)
                             distribute
-			    only-tables
 			    including
 			    excluding
                             set-table-oids
@@ -334,7 +333,6 @@
                             :materialize-views materialize-views
                             :create-indexes create-indexes
                             :foreign-keys foreign-keys
-                            :only-tables only-tables
                             :including including
                             :excluding excluding)
                          (mssql::mssql-error (e)

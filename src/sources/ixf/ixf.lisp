@@ -5,26 +5,6 @@
 
 (in-package :pgloader.source.ixf)
 
-;;;
-;;; Integration with pgloader
-;;;
-(defclass copy-ixf (db-copy)
-  ((timezone    :accessor timezone	  ; timezone
-	        :initarg :timezone
-                :initform local-time:+utc-zone+))
-  (:documentation "pgloader IXF Data Source"))
-
-(defmethod initialize-instance :after ((source copy-ixf) &key)
-  "Add a default value for transforms in case it's not been provided."
-  (setf (slot-value source 'source)
-        (let ((table-name (pathname-name (fd-path (source-db source)))))
-          (make-table :source-name table-name
-                      :name (apply-identifier-case table-name))))
-
-  ;; force default timezone when nil
-  (when (null (timezone source))
-    (setf (timezone source) local-time:+utc-zone+)))
-
 (defmethod map-rows ((copy-ixf copy-ixf) &key process-row-fn)
   "Extract IXF data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row."
@@ -58,7 +38,7 @@
     (push-to-end table (schema-table-list schema))
 
     (with-connection (conn (source-db ixf))
-      (list-all-columns (conn-handle conn) table))
+      (fetch-columns table ixf))
 
     catalog))
 

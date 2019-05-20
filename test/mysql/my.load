@@ -11,7 +11,7 @@ load database
  ALTER SCHEMA 'pgloader' RENAME TO 'mysql'
  ALTER TABLE NAMES MATCHING ~/./ SET TABLESPACE 'pg_default'
 
- INCLUDING ONLY TABLE NAMES MATCHING 'encryption_key_canary'
+ -- INCLUDING ONLY TABLE NAMES MATCHING 'encryption_key_canary'
 
  CAST column utilisateurs__Yvelines2013-06-28.sexe
           to text drop not null using empty-string-to-null,
