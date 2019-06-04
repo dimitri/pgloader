@@ -19,6 +19,9 @@ load database
       column base64.id to uuid drop typemod,
       column base64.data to jsonb using base64-decode,
 
+      -- This is now a default casting rule for MySQL
+      -- type bigint when signed to bigint drop typemod,
+
       type decimal
       when (and (= 18 precision) (= 6 scale))
         to "double precision" drop typemod,

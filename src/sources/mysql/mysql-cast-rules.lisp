@@ -46,10 +46,14 @@
 	     :target (:type "bit" :drop-typemod nil)
 	     :using pgloader.transforms::bits-to-hex-bitstring)
 
-    ;; bigint(20) unsigned (or not, actually) does not fit into PostgreSQL
-    ;; bigint (-9223372036854775808 to +9223372036854775807):
+    ;; bigint(20) signed do fit into PostgreSQL bigint
+    ;; (-9223372036854775808 to +9223372036854775807):
+    (:source (:type "bigint" :signed t)
+             :target (:type "bigint" :drop-typemod t))
+
+    ;; bigint(20) unsigned does not fit into PostgreSQL bigint
     (:source (:type "bigint" :typemod (< 19 precision))
-     :target (:type "numeric" :drop-typemod t))
+             :target (:type "numeric" :drop-typemod t))
 
     ;; now unsigned types
     (:source (:type "tinyint" :unsigned t)
