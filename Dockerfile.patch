@@ -31,6 +31,7 @@ FROM debian:stable-slim as builder
 FROM debian:stable-slim
 
   RUN apt-get update \
+      && mkdir -p /usr/share/man/man1 /usr/share/man/man7 \
       && apt-get install -y --no-install-recommends \
         curl \
         freetds-dev \
@@ -39,9 +40,14 @@ FROM debian:stable-slim
         libzip-dev \
         make \
         sbcl \
+        postgresql-client \
+        inotify-tools \
         unzip \
       && rm -rf /var/lib/apt/lists/*
 
   COPY --from=builder /opt/src/pgloader/build/bin/pgloader /usr/local/bin
+
+  COPY ./docker-entrypoint.sh /
+  ENTRYPOINT ["/docker-entrypoint.sh"]
 
   LABEL maintainer="Dimitri Fontaine <dim@tapoueh.org>"
