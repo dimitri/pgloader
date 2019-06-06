@@ -1,5 +1,4 @@
 #!/bin/bash
-
 create_file () {
   if [ "$LOAD_FILE" != "" ]; then
 cat <<EOF> $LOAD_FILE
@@ -8,10 +7,10 @@ load database
   into postgres://$PG_USER:$PG_PASS@$HOSTNAME/$DB
 
 WITH include drop, create tables, no truncate,
-  batch rows = 10000, batch concurrency = 10,
+  batch rows = $BATCH_ROWS, batch concurrency = $BATCH_CONCURRENCY,
   create indexes, reset sequences, foreign keys
 
---SET maintenance_work_mem to '1024MB', work_mem to '128MB', search_path to '$SCHEMA'
+--SET maintenance_work_mem to '$MAIN_MEM', work_mem to '$WORK_MEM', search_path to '$SCHEMA'
   SET search_path to '$SCHEMA'
 
 BEFORE LOAD DO
@@ -20,10 +19,9 @@ EOF
   fi
 }
 
-# inotifywait -m  /srv |
 inotifywait -m -e create /srv |
 while read path action file; do
-  if [[ $file =~ blockstack-server.db.bak.[0-9]* ]] || [[ $file =~ subdomains.db.bak.[0-9]* ]]; then
+  if [[ $file =~ $DB_1.[0-9]* ]] || [[ $file =~ $DB_2.[0-9]* ]]; then
     echo "File matched: $file"
     BLOCK=$(echo $file | cut -f4 -d ".")
     LOAD_FILE="/srv/`date +'%Y%m%d%H'`_$BLOCK.load"
@@ -37,9 +35,9 @@ while read path action file; do
   if [ -f "$LOAD_FILE" ]; then
     echo "Removing loadfile"
     rm $LOAD_FILE
-    CMD=`PGPASSWORD=$PG_PASS psql --host host.docker.internal -p 5433 -U postgres blockstack_core -c 'ALTER TABLE subdomain_records ALTER COLUMN block_height TYPE INT;'`
+    CMD=`PGPASSWORD=$PG_PASS psql --host $HOSTNAME -p $PORT -U postgres $DB -c 'ALTER TABLE subdomain_records ALTER COLUMN block_height TYPE INT;'`
     if [ $? -eq 0 ]; then
-      echo "subdomains_records ALTER block_height to INT completed"
+      echo "customization completed"
     fi
   fi
 done
