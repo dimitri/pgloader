@@ -4,7 +4,7 @@ create_file () {
 cat <<EOF> $LOAD_FILE
 load database
   from sqlite:///srv/$file
-  into postgres://$PG_USER:$PG_PASS@$HOSTNAME/$DB
+  into postgres://$PG_USER:$PG_PASS@$HOSTNAME:$PORT/$DB
 
 WITH include drop, create tables, no truncate,
   batch rows = $BATCH_ROWS, batch concurrency = $BATCH_CONCURRENCY,
