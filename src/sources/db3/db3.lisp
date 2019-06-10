@@ -23,7 +23,9 @@
       (loop
          :with count := (db3:record-count db3)
          :repeat count
-         :for row-array := (db3:load-record db3 stream)
+         :for (row-array deleted) := (multiple-value-list
+                                      (db3:load-record db3 stream))
+         :unless deleted
          :do (funcall process-row-fn row-array)
          :finally (return count)))))
 
