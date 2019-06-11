@@ -13,6 +13,8 @@ WITH include drop, create tables, no truncate,
 --SET maintenance_work_mem to '$MAIN_MEM', work_mem to '$WORK_MEM', search_path to '$SCHEMA'
   SET search_path to '$SCHEMA'
 
+ALTER TABLE NAMES MATCHING 'subdomain_records' IN SCHEMA '$SCHEMA' RENAME TO 'subdomain_records_backup'
+
 BEFORE LOAD DO
 \$\$ CREATE SCHEMA IF NOT EXISTS $SCHEMA; \$\$;
 EOF
@@ -36,6 +38,9 @@ while read path action file; do
     echo "Removing loadfile"
     rm $LOAD_FILE
     CMD=`PGPASSWORD=$PG_PASS psql --host $HOSTNAME -p $PORT -U postgres $DB -c 'ALTER TABLE subdomain_records ALTER COLUMN block_height TYPE INT;'`
+    CMD=`PGPASSWORD=$PG_PASS psql --host $HOSTNAME -p $PORT -U postgres $DB -c 'DROP TABLE subdomain_records;'`
+    CMD=`PGPASSWORD=$PG_PASS psql --host $HOSTNAME -p $PORT -U postgres $DB -c 'ALTER TABLE subdomain_records_backup RENAME TO subdomain_records;'`
+    CMD=`PGPASSWORD=$PG_PASS psql --host $HOSTNAME -p $PORT -U postgres $DB -c 'CREATE TABLE subdomain_records_backup AS TABLE subdomain_records WITH NO DATA;'`
     if [ $? -eq 0 ]; then
       echo "customization completed"
     fi
