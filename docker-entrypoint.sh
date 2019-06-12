@@ -1,4 +1,6 @@
 #!/bin/bash
+SQL_FILE="/srv/move_tables.sql"
+
 create_file () {
   if [ "$LOAD_FILE" != "" ]; then
 cat <<EOF> $LOAD_FILE
@@ -20,7 +22,21 @@ BEFORE LOAD DO
 \$\$ CREATE SCHEMA IF NOT EXISTS $SCHEMA; \$\$;
 EOF
   fi
+  if [ -f $SQL_FILE ];then
+    rm /srv/move_tables.sql
+  fi
+cat <<EOF> $SQL_FILE
+DO \$\$DECLARE row record;
+BEGIN
+    FOR row IN SELECT tablename FROM pg_tables WHERE schemaname = 'temp'
+    LOOP
+        EXECUTE 'DROP TABLE IF EXISTS $SCHEMA.' || quote_ident(row.tablename) || ' CASCADE;';
+        EXECUTE 'ALTER TABLE temp.' || quote_ident(row.tablename) || ' SET SCHEMA $SCHEMA;';
+    END LOOP;
+END\$\$;
+EOF
 }
+
 
 inotifywait -m -e create /srv |
 while read path action file; do
@@ -37,7 +53,7 @@ while read path action file; do
   fi
   if [ -f "$LOAD_FILE" ]; then
     echo "Removing loadfile"
-    CMD=`PGPASSWORD=$PG_PASS psql -h $HOSTNAME -p $PORT -U $USER -d $DB -a -f /srv/move_tables.sql`
+    CMD=`PGPASSWORD=$PG_PASS psql -h $HOSTNAME -p $PORT -U $USER -d $DB -a -f $SQL_FILE`
     if [ $? -eq 0 ]; then
       echo "Customization completed. Deleting $LOAD_FILE"
       rm $LOAD_FILE
