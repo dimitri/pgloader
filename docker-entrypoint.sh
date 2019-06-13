@@ -2,7 +2,9 @@
 
 # rename these files to be based on subdomain or blockstack-server 
 SQL_FILE="/srv/move_tables.sql"
+# SQL_FILE="/srv/move_tables.sql"
 LOAD_FILE="/srv/run1.load"
+# SQL_FILE="/srv/move_tables.sql"
 
 create_file () {
   if [ -f "$LOAD_FILE" ]; then
@@ -68,14 +70,13 @@ inotifywait -m /srv \
   --exclude '.*(\.load|~)' \
   --exclude '.*(\.sql|~)' \
   --exclude '.*(\.sh|~)' \
+  # lock file name has a txt extension
+  # --exclude '.*(\.txt|~)'\
   -e create \
   --format '%f %e %T' --timefmt '%H%M%S' |
 while read file event tm; do
   if [[ $file == *.db.bak.[0-9]* ]]; then
     TIME_CHECK=$(date +'%H%M%S')
-    BLOCK=$(echo $file | cut -f4 -d ".")
-    # create lock file 
-    LOCK=$(echo $file | cut -f1 -d ".")
     # need to ensure here that if db files are written within 1 second of each other
     # we process both, and not just a single file
     #   i.e.
@@ -83,6 +84,9 @@ while read file event tm; do
     #     even if they are both written at the same second.
     #     this time_check will fail that scenario
     # if [ $tm -eq $TIME_CHECK ]; then
+    BLOCK=$(echo $file | cut -f4 -d ".")
+    # subdomain based lockfile instead of timestamp approach   
+    LOCK=$(echo $file | cut -f1 -d ".")
     if [ -f "$LOCK" ]; then
       # echo "Time check passed..."
       echo "$LOCK file exists..."
