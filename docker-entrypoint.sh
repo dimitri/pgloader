@@ -68,8 +68,7 @@ inotifywait -m /srv \
   --exclude '.*(\.load|~)' \
   --exclude '.*(\.sql|~)' \
   --exclude '.*(\.sh|~)' \
-  # lock file name has a txt extension
-  # --exclude '.*(\.txt|~)'\
+  --exclude '.*(\.lock|~)'\
   -e create \
   --format '%f %e %T' --timefmt '%H%M%S' |
 while read file event tm; do
