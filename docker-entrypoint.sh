@@ -59,6 +59,8 @@ run_psql () {
     # of other database named files created at the same time
     if [ -f "$LOCK" ]; then
       echo "  deleting $LOCK file"
+      rm "$LOCK"
+    fi
   fi
 }
 
