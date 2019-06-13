@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # rename these files to be based on subdomain or blockstack-server 
 SQL_FILE="/srv/move_tables.sql"
 # SQL_FILE="/srv/move_tables.sql"
@@ -7,6 +6,7 @@ LOAD_FILE="/srv/run1.load"
 # SQL_FILE="/srv/move_tables.sql"
 
 create_file () {
+  # logic here for naming the env vars 
   if [ -f "$LOAD_FILE" ]; then
     rm "$LOAD_FILE"
   fi
@@ -89,6 +89,7 @@ while read file event tm; do
     LOCK=$(echo $file | cut -f1 -d ".")
     if [ -f "$LOCK" ]; then
       # echo "Time check passed..."
+      # trying out lock files instead of timestamps 
       echo "$LOCK file exists..."
       echo "  Found file: $file"
       create_file
