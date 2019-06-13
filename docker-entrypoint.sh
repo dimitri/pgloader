@@ -24,6 +24,9 @@ BEFORE LOAD DO
 \$\$ CREATE SCHEMA IF NOT EXISTS $SCHEMA; \$\$;
 EOF
 
+# this file uses tmp schemas to drop and rename in prod for latency reduction via a local table name overwrite 
+# is this pre or post sql 
+
   if [ -f "$SQL_FILE" ];then
     rm "$SQL_FILE"
   fi
@@ -70,13 +73,20 @@ inotifywait -m /srv \
   --format '%f %e %T' --timefmt '%H%M%S' |
 while read file event tm; do
   if [[ $file == *.db.bak.[0-9]* ]]; then
+    # originally we approach with timestamps but used lockfiles for handling
+    # edge cases instead. The variables associated with this approach are here
+    # for potential future use per jwileys request! 
     # TIME_CHECK=$(date +'%H%M%S')
     # BLOCK=$(echo $file | cut -f4 -d ".")
     # subdomain based lockfile instead of timestamp approach   
     LOCK="$(echo $file | cut -f1 -d ".").lock"
     if [ ! -f "$LOCK" ]; then
+      # the lock file accounts for multiple creation of 
+      # a) a subdomain or blockstack-server.db being uploaded while a migration is currently ongoing
+      # b) subdomain and blockstack-server being created at the same time 
+      # the intended output is post load file removal (in above function) inotify will 
+      # detect the other load files (named based on their db name/defined in ENV VARs in create function above 
       touch $LOCK
-      # trying out lock files instead of timestamps 
       echo "$LOCK file exists..."
       echo "  Found file: $file"
       create_file
