@@ -1,12 +1,16 @@
 #!/bin/bash
 # rename these files to be based on subdomain or blockstack-server 
-SQL_FILE="/srv/move_tables.sql"
+# will need to be in create_file function called in notify upon file creation/appearing
 # SQL_FILE="/srv/move_tables.sql"
-LOAD_FILE="/srv/run1.load"
 # SQL_FILE="/srv/move_tables.sql"
 
 create_file () {
   # logic here for naming the env vars 
+  # how to string file names with file extensions together 
+  SQL_FILE="/srv/$(echo $file | cut -f1 -d ".").sql"
+  echo "I created $SQL_FILE"
+  LOAD_FILE="/srv/$(echo $file | cut -f1 -d ".").load"
+  echo "Icreated $LOAD_FILE"
   if [ -f "$LOAD_FILE" ]; then
     rm "$LOAD_FILE"
   fi
@@ -87,7 +91,7 @@ while read file event tm; do
     BLOCK=$(echo $file | cut -f4 -d ".")
     # subdomain based lockfile instead of timestamp approach   
     LOCK=$(echo $file | cut -f1 -d ".")
-    if [ -f "$LOCK" ]; then
+    if [ ! -f "$LOCK" ]; then
       # echo "Time check passed..."
       # trying out lock files instead of timestamps 
       echo "$LOCK file exists..."
