@@ -10,7 +10,7 @@ create_file () {
   SQL_FILE="/srv/$(echo $file | cut -f1 -d ".").sql"
   echo "I created $SQL_FILE"
   LOAD_FILE="/srv/$(echo $file | cut -f1 -d ".").load"
-  echo "Icreated $LOAD_FILE"
+  echo "I created $LOAD_FILE"
   if [ -f "$LOAD_FILE" ]; then
     rm "$LOAD_FILE"
   fi
