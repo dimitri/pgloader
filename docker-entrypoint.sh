@@ -1,12 +1,6 @@
 #!/bin/bash
-# rename these files to be based on subdomain or blockstack-server 
-# will need to be in create_file function called in notify upon file creation/appearing
-# SQL_FILE="/srv/move_tables.sql"
-# SQL_FILE="/srv/move_tables.sql"
-
 create_file () {
   # logic here for naming the env vars 
-  # how to string file names with file extensions together 
   SQL_FILE="/srv/$(echo $file | cut -f1 -d ".").sql"
   echo "I created $SQL_FILE"
   LOAD_FILE="/srv/$(echo $file | cut -f1 -d ".").load"
