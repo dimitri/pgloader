@@ -1,8 +1,11 @@
 #!/bin/bash
 SQL_FILE="/srv/move_tables.sql"
+LOAD_FILE="/srv/run.load"
 
 create_file () {
-  if [ "$LOAD_FILE" != "" ]; then
+  if [ -f "$LOAD_FILE" ]; then
+    rm "$LOAD_FILE"
+  fi
 cat <<EOF> $LOAD_FILE
 load database
   from sqlite:///srv/$file
@@ -21,9 +24,9 @@ BEFORE LOAD DO
 \$\$ CREATE SCHEMA IF NOT EXISTS temp; \$\$,
 \$\$ CREATE SCHEMA IF NOT EXISTS $SCHEMA; \$\$;
 EOF
-  fi
-  if [ -f $SQL_FILE ];then
-    rm /srv/move_tables.sql
+
+  if [ -f "$SQL_FILE" ];then
+    rm "$SQL_FILE"
   fi
 cat <<EOF> $SQL_FILE
 DO \$\$DECLARE row record;
@@ -37,27 +40,52 @@ END\$\$;
 EOF
 }
 
+run_psql () {
+  CMD=`PGPASSWORD=$PG_PASS psql -h $HOSTNAME -p $PORT -U $PG_USER -d $DB -a -f $SQL_FILE`
+  RET=$?
+  if [ $RET -eq 0 ]; then
+    echo "Customization completed. Deleting files"
+    if [ -f "$SQL_FILE" ]; then
+      echo "  deleting $SQL_FILE"
+      rm "$SQL_FILE"
+    fi
+    if [ -f "$LOAD_FILE" ]; then
+      echo "  deleting $LOAD_FILE"
+      rm "$LOAD_FILE"
+    fi
+  fi
+}
 
-inotifywait -m -e create /srv |
-while read path action file; do
-  if [[ $file =~ $DB_1.[0-9]* ]] || [[ $file =~ $DB_2.[0-9]* ]]; then
-    echo "File matched: $file"
+inotifywait -m /srv \
+  --exclude '.*(\.load|~)' \
+  --exclude '.*(\.sql|~)' \
+  --exclude '.*(\.sh|~)' \
+  -e create \
+  --format '%f %e %T' --timefmt '%H%M%S' |
+while read file event tm; do
+  if [[ $file == *.db.bak.[0-9]* ]]; then
+    TIME_CHECK=$(date +'%H%M%S')
     BLOCK=$(echo $file | cut -f4 -d ".")
-    LOAD_FILE="/srv/`date +'%Y%m%d%H'`_$BLOCK.load"
-    if [ ! -f "$LOAD_FILE" ]; then
+    # need to ensure here that if db files are written within 1 second of each other
+    # we process both, and not just a single file
+    #   i.e.
+    #     subdomains and blockstack-server db files shoud both be written
+    #     even if they are both written at the same second.
+    #     this time_check will fail that scenario
+    if [ $tm -eq $TIME_CHECK ]; then
+      echo "Time check passed..."
+      echo "  Found file: $file"
       create_file
       if [ -f "$LOAD_FILE" ]; then
         pgloader $LOAD_FILE
+        run_psql
+        echo ""
+        echo "Completed run on $(date)"
+        echo "**********************************************"
+        echo ""
       fi
     fi
-  fi
-  if [ -f "$LOAD_FILE" ]; then
-    echo "Removing loadfile"
-    CMD=`PGPASSWORD=$PG_PASS psql -h $HOSTNAME -p $PORT -U $USER -d $DB -a -f $SQL_FILE`
-    if [ $? -eq 0 ]; then
-      echo "Customization completed. Deleting $LOAD_FILE"
-      rm $LOAD_FILE
-    fi
+    sleep 5
   fi
 done
 exit 0
