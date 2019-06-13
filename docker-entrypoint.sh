@@ -1,10 +1,7 @@
 #!/bin/bash
 create_file () {
-  # logic here for naming the env vars 
   SQL_FILE="/srv/$(echo $file | cut -f1 -d ".").sql"
-  echo "I created $SQL_FILE"
   LOAD_FILE="/srv/$(echo $file | cut -f1 -d ".").load"
-  echo "I created $LOAD_FILE"
   if [ -f "$LOAD_FILE" ]; then
     rm "$LOAD_FILE"
   fi
@@ -73,19 +70,12 @@ inotifywait -m /srv \
   --format '%f %e %T' --timefmt '%H%M%S' |
 while read file event tm; do
   if [[ $file == *.db.bak.[0-9]* ]]; then
-    TIME_CHECK=$(date +'%H%M%S')
-    # need to ensure here that if db files are written within 1 second of each other
-    # we process both, and not just a single file
-    #   i.e.
-    #     subdomains and blockstack-server db files shoud both be written
-    #     even if they are both written at the same second.
-    #     this time_check will fail that scenario
-    # if [ $tm -eq $TIME_CHECK ]; then
-    BLOCK=$(echo $file | cut -f4 -d ".")
+    # TIME_CHECK=$(date +'%H%M%S')
+    # BLOCK=$(echo $file | cut -f4 -d ".")
     # subdomain based lockfile instead of timestamp approach   
-    LOCK=$(echo $file | cut -f1 -d ".")
+    LOCK="$(echo $file | cut -f1 -d ".").lock"
     if [ ! -f "$LOCK" ]; then
-      # echo "Time check passed..."
+      touch $LOCK
       # trying out lock files instead of timestamps 
       echo "$LOCK file exists..."
       echo "  Found file: $file"
