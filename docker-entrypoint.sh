@@ -25,8 +25,6 @@ BEFORE LOAD DO
 EOF
 
 # this file uses tmp schemas to drop and rename in prod for latency reduction via a local table name overwrite 
-# is this pre or post sql 
-
   if [ -f "$SQL_FILE" ];then
     rm "$SQL_FILE"
   fi
