@@ -67,7 +67,7 @@ inotifywait -m /srv \
   --exclude '.*(\.sql|~)' \
   --exclude '.*(\.sh|~)' \
   --exclude '.*(\.lock|~)'\
-  -e create \
+  -e modify \
   --format '%f %e %T' --timefmt '%H%M%S' |
 while read file event tm; do
   if [[ $file == *.db.bak.[0-9]* ]]; then
