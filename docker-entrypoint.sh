@@ -36,10 +36,6 @@ BEGIN
         EXECUTE 'DROP TABLE IF EXISTS $SCHEMA.' || quote_ident(row.tablename) || ' CASCADE;';
         EXECUTE 'ALTER TABLE temp.' || quote_ident(row.tablename) || ' SET SCHEMA $SCHEMA;';
     END LOOP;
-    grant create, usage on schema $SCHEMA to explorer_prod_rw;
-    grant usage on schema $SCHEMA to explorer_prod_ro;
-    grant select on all tables in schema $SCHEMA to explorer_prod_ro;
-    alter default privileges in schema $SCHEMA grant select on tables to explorer_prod_ro;
 END\$\$;
 EOF
 }
