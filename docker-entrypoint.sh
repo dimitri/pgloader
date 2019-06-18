@@ -1,7 +1,7 @@
 #!/bin/bash
 create_file () {
-  SQL_FILE="/srv/$(echo $file | cut -f1 -d ".").sql"
-  LOAD_FILE="/srv/$(echo $file | cut -f1 -d ".").load"
+  SQL_FILE="$(echo $file | cut -f1 -d ".").sql"
+  LOAD_FILE="$(echo $file | cut -f1 -d ".").load"
   if [ -f "$LOAD_FILE" ]; then
     rm "$LOAD_FILE"
   fi
