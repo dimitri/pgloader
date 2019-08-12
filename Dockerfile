@@ -20,6 +20,7 @@ FROM debian:stable-slim as builder
         wget \
         cl-ironclad \
         cl-babel \
+        cl-plus-ssl \
       && rm -rf /var/lib/apt/lists/*
 
   COPY ./ /opt/src/pgloader
