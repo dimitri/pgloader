@@ -27,14 +27,45 @@ about how to backport a recent enough SBCL here (1.2.5 or newer).
 
 ### Redhat / CentOS
 
-You will need to install the Steel Bank Common Lisp package (sbcl) from EPEL, as 
-well as the freetds-devel package for some shared libraries. With RHEL/CentOS 6, 
-if the packaged version isn't >=1.3.6, you'll need to build it from source. With 
-v7, after installing freetds, you also need to create a softlink from the versioned
-shared library `libsybdb.so.5` to `libsybdb.so`. 
+To build and install pgloader the Steel Bank Common Lisp package (sbcl) from EPEL,
+and the freetds packages are required.
 
-The above steps are prepared for you with `boostrap-centos.sh` and `bootstrap-centos7.sh` respectively. 
-Please report to us if your standard RHEL/CentOS installation required additional steps.
+With RHEL/CentOS 6, if the packaged version of sbcl isn't >=1.3.6, you'll need
+to build it from source.
+
+It is recommended to build the RPM yourself, see below, to ensure that all installed
+files are properly tracked and that you can safely update to newer versions of
+pgloader as they're released.
+
+To do an adhoc build and install run `boostrap-centos.sh` for CentOS 6 or
+`bootstrap-centos7.sh` for CentOS 7 to install the required dependencies.
+[Build pgloader](INSTALL.md#building-pgloader).
+
+#### rpmbuild
+
+The spec file in the root of the pgloader repository can be used to build your
+own RPM. For production deployments it is recommended that you build this RPM on
+a dedicated build box and then copy the RPM to your production environment for
+use; it is considered bad practice to have compilers and build tools present in
+production environments.
+
+1. Install the [EPEL repo](https://fedoraproject.org/wiki/EPEL#Quickstart).
+
+1. Install rpmbuild dependencies:
+
+        sudo yum -y install yum-utils rpmdevtools @"Development Tools"
+
+1. Install pgloader build dependencies:
+
+        sudo yum-builddep pgloader.spec
+
+1. Download pgloader source:
+
+        spectool -g -R pgloader.spec
+
+1. Build the source and binary RPMs (see `rpmbuild --help` for other build options):
+
+        rpmbuild -ba pgloader.spec
 
 ### Mac OS X
 
