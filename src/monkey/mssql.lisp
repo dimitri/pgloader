@@ -95,7 +95,7 @@
              (:syb-int8 (mem-ref data :int8))
              (:syb-real (mem-ref data :float))
              (:syb-flt8 (mem-ref data :double))
-             ((:syb-datetime :syb-datetime4 :syb-msdate :syb-mstime)
+             ((:syb-datetime :syb-datetime4 :syb-msdate :syb-mstime :syb-msdatetime2)
               (with-foreign-pointer (%buf +numeric-buf-sz+)
                 (let ((count
                        (%dbconvert %dbproc
