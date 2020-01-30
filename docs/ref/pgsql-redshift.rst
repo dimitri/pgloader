@@ -8,7 +8,7 @@ Redshift database by parsing the output of the `SELECT version()` SQL query.
 Redhift as a data source
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Redshit is a variant of PostgreSQL version 8.0.2, which allows pgloader to
+Redshift is a variant of PostgreSQL version 8.0.2, which allows pgloader to
 work with only a very small amount of adaptation in the catalog queries
 used. In other words, migrating from Redshift to PostgreSQL works just the
 same as when migrating from a PostgreSQL data source, including the
