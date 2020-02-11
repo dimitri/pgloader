@@ -7,8 +7,8 @@ with seqattr as
  (
    select adrelid, 
           adnum,
-          adsrc,
-          case when adsrc ~~ 'nextval'
+          pg_get_expr(d.adbin, d.adrelid) as adsrc,
+          case when pg_get_expr(d.adbin, d.adrelid) ~~ 'nextval'
                then substring(pg_get_expr(d.adbin, d.adrelid)
                               from '''([^'']+)'''
                     )
@@ -23,7 +23,9 @@ with seqattr as
                 else null
             end as typmod,
            attnotnull,
-           case when atthasdef then def.adsrc end as default,
+           case when atthasdef
+                then pg_get_expr(def.adbin, def.adrelid)
+            end as default           ,
            case when s.seqname is not null then 'auto_increment' end as extra
       from pg_class c
            join pg_namespace n on n.oid = c.relnamespace
