@@ -59,6 +59,7 @@
                                           gucs
                                           casts
                                           before-load
+                                          after-schema
                                           after-load))
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
@@ -93,7 +94,8 @@
                                        &key
                                          target-table-name
                                          encoding
-                                         gucs casts before after options
+                                         gucs casts options
+                                         before after-schema after
                                          &allow-other-keys)
   `(lambda ()
      (let* ((*default-cast-rules* ',*db3-default-cast-rules*)
@@ -116,6 +118,7 @@
 
        (copy-database source
                       ,@(remove-batch-control-option options)
+                      :after-schema ',after-schema
                       :on-error-stop on-error-stop
                       :create-indexes nil
                       :foreign-keys nil
@@ -126,7 +129,8 @@
 (defrule load-dbf-file load-dbf-command
   (:lambda (command)
     (bind (((source encoding pg-db-uri table-name
-                    &key options gucs casts before after) command))
+                    &key options gucs casts before after-schema after)
+            command))
       (cond (*dry-run*
              (lisp-code-for-dbf-dry-run source pg-db-uri))
             (t
@@ -136,5 +140,6 @@
                                              :gucs gucs
                                              :casts casts
                                              :before before
+                                             :after-schema after-schema
                                              :after after
                                              :options options))))))

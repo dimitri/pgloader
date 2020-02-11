@@ -92,7 +92,8 @@ load database
 
 (defun lisp-code-for-loading-from-sqlite (sqlite-db-conn pg-db-conn
                                           &key
-                                            gucs casts before after options
+                                            gucs casts  options
+                                            before after-schema after
                                             alter-table alter-schema
                                             ((:including incl))
                                             ((:excluding excl))
@@ -116,6 +117,7 @@ load database
        (copy-database source
                       :alter-table ',alter-table
                       :alter-schema ',alter-schema
+                      :after-schema ',after-schema
                       :set-table-oids t
                       :including ',incl
                       :excluding ',excl
@@ -129,7 +131,7 @@ load database
     (destructuring-bind (sqlite-uri
                          pg-db-uri
                          &key
-                         gucs casts before after options
+                         gucs casts before after after-schema options
                          alter-table alter-schema
                          including excluding)
         source
@@ -140,6 +142,7 @@ load database
                                                 :gucs gucs
                                                 :casts casts
                                                 :before before
+                                                :after-schema after-schema
                                                 :after after
                                                 :options options
                                                 :alter-table alter-table

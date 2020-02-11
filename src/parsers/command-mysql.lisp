@@ -89,6 +89,7 @@
                                             excluding-matching
                                             decoding-tables-as
                                             before-load
+                                            after-schema
                                             after-load
                                             distribute-commands))
   (:lambda (clauses-list)
@@ -164,8 +165,10 @@
 (defun lisp-code-for-loading-from-mysql (my-db-conn pg-db-conn
                                          &key
                                            gucs mysql-gucs
-                                           casts views before after options
-                                           alter-table alter-schema distribute
+                                           casts options views
+                                           before after after-schema
+                                           alter-table alter-schema
+                                           distribute
                                            ((:including incl))
                                            ((:excluding excl))
                                            ((:decoding decoding-as))
@@ -192,6 +195,7 @@
                       :materialize-views ',views
                       :alter-table ',alter-table
                       :alter-schema ',alter-schema
+                      :after-schema ',after-schema
                       :distribute ',distribute
                       :set-table-oids t
                       :on-error-stop on-error-stop
@@ -204,8 +208,8 @@
     (destructuring-bind (my-db-uri
                          pg-db-uri
                          &key
-                         gucs mysql-gucs casts views before after options
-                         alter-table alter-schema distribute
+                         gucs mysql-gucs casts views before after after-schema
+                         options alter-table alter-schema distribute
                          including excluding decoding)
         source
       (cond (*dry-run*
@@ -218,6 +222,7 @@
                                                :views views
                                                :before before
                                                :after after
+                                               :after-schema after-schema
                                                :options options
                                                :alter-table alter-table
                                                :alter-schema alter-schema
