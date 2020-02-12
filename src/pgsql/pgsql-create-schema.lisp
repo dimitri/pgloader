@@ -233,8 +233,15 @@
   (let ((fk-sql-list
          (loop :for table :in (table-list catalog)
             :append (loop :for fkey :in (table-fkey-list table)
-                       :for sql := (format-create-sql fkey)
-                       :collect sql)
+                       ;; we might have loaded fkeys referencing tables that
+                       ;; have not been included in (or have been excluded
+                       ;; from) the load
+                       :unless (and (fkey-table fkey)
+                                    (fkey-foreign-table fkey))
+                       :do (log-message :debug "Skipping foreign key ~a" fkey)
+                       :when (and (fkey-table fkey)
+                                  (fkey-foreign-table fkey))
+                       :collect (format-create-sql fkey))
             :append (loop :for index :in (table-index-list table)
                        :do (loop :for fkey :in (index-fk-deps index)
                               :for sql := (format-create-sql fkey)
