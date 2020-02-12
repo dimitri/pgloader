@@ -90,8 +90,12 @@ it builds aginst current set of dependencies versions.
 
     $ apt-get install sbcl unzip libsqlite3-dev make curl gawk freetds-dev libzip-dev
     $ cd /path/to/pgloader
-	$ make pgloader
-	$ ./build/bin/pgloader --help
+    $ make pgloader
+    $ ./build/bin/pgloader --help
+
+### Building from sources on RedHat/CentOS
+
+See "Redhat / CentOS" in [INSTALL.md](INSTALL.md#redhat--centos)
 
 ### Building from sources on macOS
 
