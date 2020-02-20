@@ -237,7 +237,7 @@
          (index-name  (index-name index)))
     (cond ((index-conname index)
            (format stream
-                   "ALTER TABLE ~a DROP CONSTRAINT~:[~; IF EXISTS~] ~a~@[ CASCADE~];"
+                   "-- 1 ALTER TABLE ~a DROP CONSTRAINT~:[~; IF EXISTS~] ~a~@[ CASCADE~];"
                    (format-table-name (index-table index))
                    if-exists
                    (index-conname index)
@@ -306,7 +306,7 @@
 (defmethod format-drop-sql ((fk fkey) &key (stream nil) cascade if-exists)
   (let* ((constraint-name (fkey-name fk))
          (table-name      (format-table-name (fkey-table fk))))
-    (format stream "ALTER TABLE ~a DROP CONSTRAINT~:[~; IF EXISTS~] ~a~@[ CASCADE~];"
+    (format stream "-- 2 ALTER TABLE ~a DROP CONSTRAINT~:[~; IF EXISTS~] ~a~@[ CASCADE~];"
             table-name if-exists constraint-name cascade)))
 
 
