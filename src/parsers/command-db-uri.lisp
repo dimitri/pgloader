@@ -89,9 +89,8 @@
 
 (defrule network-label-with-hyphen
     (and network-label-letters-digit
-         (+ (or (and #\- (& network-label-letters-digit))
-                network-label-letters-digit))
-         (! #\-))
+         (+ (or (and #\- network-label-letters-digit)
+                network-label-letters-digit)))
   (:text t))
 
 (defrule network-label-no-hyphen (+ network-label-letters-digit)
