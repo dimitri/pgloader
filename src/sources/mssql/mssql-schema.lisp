@@ -170,6 +170,7 @@
   (case (intern (string-upcase type) "KEYWORD")
     (:time           (format nil "convert(varchar, [~a], 114)" name))
     (:datetime       (format nil "convert(varchar, [~a], 126)" name))
+    (:datetime2      (format nil "convert(varchar, [~a], 126)" name))
     (:smalldatetime  (format nil "convert(varchar, [~a], 126)" name))
     (:date           (format nil "convert(varchar, [~a], 126)" name))
     (:bigint         (format nil "cast([~a] as numeric)" name))
