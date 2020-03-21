@@ -103,7 +103,6 @@ $(LIBS): $(QLDIR)/setup.lisp
 	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp                   \
              --eval '(push :pgloader-image *features*)'               \
              --eval '(setf *print-circle* t *print-pretty* t)'        \
-             --eval '(ql:quickload "pgloader")'                       \
              --eval '(push "$(PWD)/" ql:*local-project-directories*)' \
              --eval '(ql:quickload "pgloader")'                       \
              --eval '(quit)'
