@@ -23,7 +23,14 @@
   (:lambda (extra)
     (cons (third extra) t)))
 
-(defrule cast-source-type (and kw-type trimmed-name)
+;; type names may be "double quoted"
+(defrule cast-type-name (or double-quoted-namestring
+                            (and (alpha-char-p character)
+                                 (* (or (alpha-char-p character)
+                                        (digit-char-p character)))))
+  (:text t))
+
+(defrule cast-source-type (and kw-type cast-type-name)
   (:destructure (kw name) (declare (ignore kw)) (list :type name)))
 
 (defrule table-column-name (and maybe-quoted-namestring
@@ -64,12 +71,6 @@
 		,@(when ai-s-p (list :auto-increment auto-increment))
                 ,@(when ouct-s-p (list :on-update-current-timestamp
                                        on-update-current-timestamp))))))
-
-(defrule cast-type-name (or double-quoted-namestring
-                            (and (alpha-char-p character)
-                                 (* (or (alpha-char-p character)
-                                        (digit-char-p character)))))
-  (:text t))
 
 (defrule cast-to-type (and kw-to cast-type-name ignore-whitespace)
   (:lambda (source)
