@@ -121,7 +121,7 @@
     ;; month is 00
     ((string= date-string "0000-00-00" :start1 5 :end1 7 :start2 5 :end2 7) nil)
     ;; year is 0000
-    ((string= date-string "0000-00-00" :start1 0 :end1 3 :start2 0 :end2 3) nil)
+    ((string= date-string "0000-00-00" :start1 0 :end1 4 :start2 0 :end2 4) nil)
     (t date-string)))
 
 (defun date-with-no-separator
