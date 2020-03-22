@@ -40,7 +40,7 @@
 
 (in-package :pgloader.params)
 
-(defparameter *release* nil
+(defparameter *release* t
   "non-nil when this build is a release build.")
 
 (defparameter *major-version* "3.6")
