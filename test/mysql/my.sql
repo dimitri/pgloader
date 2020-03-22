@@ -176,6 +176,15 @@ INSERT INTO `countdata_template`(`date_time`, `measurement_id`, `flags`)
             (now(), 2, b'10000000');
 
 
+/*
+ * https://github.com/dimitri/pgloader/issues/1102
+ */
+CREATE TABLE `uw_defined_meaning` (
+  `defined_meaning_id` int(8) unsigned NOT NULL,
+  `expression_id` int(10) NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
 CREATE TABLE `fcm_batches` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `raw_payload` mediumtext COLLATE utf8_unicode_ci,
