@@ -197,12 +197,12 @@
   "Return per-TYPE SQL expression to use given a column NAME.
 
    Mostly we just use the name, but in case of POINT we need to use
-   astext(name)."
+   st_astext(name)."
   (declare (ignore mysql))
   (case (intern (string-upcase type) "KEYWORD")
-    (:geometry   (format nil "astext(`~a`) as `~a`" name name))
-    (:point      (format nil "astext(`~a`) as `~a`" name name))
-    (:linestring (format nil "astext(`~a`) as `~a`" name name))
+    (:geometry   (format nil "st_astext(`~a`) as `~a`" name name))
+    (:point      (format nil "st_astext(`~a`) as `~a`" name name))
+    (:linestring (format nil "st_astext(`~a`) as `~a`" name name))
     (t           (format nil "`~a`" name))))
 
 (defmethod get-column-list ((mysql copy-mysql))
