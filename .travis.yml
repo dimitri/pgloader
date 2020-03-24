@@ -1,8 +1,9 @@
-language: common-lisp
-sudo: required
+language: shell
+os: linux
+dist: xenial
 
 env:
-  matrix:
+  jobs:
     - LISP=ccl
     - LISP=ccl  PGVERSION=9.6
     - LISP=sbcl
