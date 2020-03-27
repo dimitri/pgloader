@@ -174,7 +174,7 @@
     (:datetimeoffset (format nil "convert(varchar(35), [~a], 127)" name))
     (:smalldatetime  (format nil "convert(varchar(30), [~a], 126)" name))
     (:date           (format nil "convert(varchar(30), [~a], 126)" name))
-    (:bigint         (format nil "cast([~a] as numeric)" name))
+    (:bigint         (format nil "cast([~a] as numeric(20))" name))
     (t               (format nil "[~a]" name))))
 
 (defmethod get-column-list ((mssql copy-mssql))
