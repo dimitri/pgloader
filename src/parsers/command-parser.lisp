@@ -269,7 +269,7 @@
                         (:sqlite 'sqlite-option)
                         (:pgsql  'pgsql-option)
                         (:mysql  'mysql-option)
-                        (:mssql  'mysql-option))
+                        (:mssql  'mssql-option))
                       option))))
 
 (defun parse-cli-casts (casts)
