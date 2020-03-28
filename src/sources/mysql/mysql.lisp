@@ -165,6 +165,11 @@ Illegal ~a character starting at position ~a~@[: ~a~].~%"
                        :including including
                        :excluding excluding)
 
+        ;; fetch tables row count estimate
+        (fetch-table-row-count schema mysql
+                               :including including
+                               :excluding excluding)
+
         ;; fetch view (and their columns) metadata, covering comments too
         (let* ((view-names (unless (eq :all materialize-views)
                              (mapcar #'matview-source-name materialize-views)))

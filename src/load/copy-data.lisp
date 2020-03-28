@@ -9,6 +9,11 @@
 (defmethod queue-raw-data ((copy copy) rawq concurrency)
   "Stream data as read by the map-queue method on the COPY argument into QUEUE,
    as given."
+  (log-message :notice "COPY ~a ~@[with ~d rows estimated~] [~a/~a]"
+               (format-table-name (target copy))
+               (table-row-count-estimate (target copy))
+               (lp:kernel-worker-index)
+               (lp:kernel-worker-count))
   (log-message :debug "Reader started for ~a" (format-table-name (target copy)))
   (let* ((start-time (get-internal-real-time))
          (row-count 0)
@@ -93,7 +98,6 @@
                              (trivial-backtrace:print-backtrace condition
                                                                 :output nil))
                 (lp::invoke-transfer-error condition))))
-        (log-message :notice "COPY ~a" table-name)
 
         ;; Check for Read Concurrency Support from our source
         (when (and multiple-readers (< 1 concurrency))

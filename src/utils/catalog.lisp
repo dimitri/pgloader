@@ -48,11 +48,16 @@
            table-list view-list matview-list extension-list sqltype-list)
 
 (defstruct table source-name name schema oid comment
-           storage-parameter-list tablespace
+           storage-parameter-list tablespace row-count-estimate
            ;; field is for SOURCE
+           field-list
            ;; column is for TARGET
+           column-list
+           index-list
+           fkey-list
+           trigger-list
            ;; citus is an extra slot for citus support
-           field-list column-list index-list fkey-list trigger-list citus-rule)
+           citus-rule)
 
 (defstruct matview source-name name schema definition)
 
