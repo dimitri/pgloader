@@ -47,6 +47,7 @@ postgresql_install() {
 		echo 'PGVERSION environment variable not set.';
 		exit 1
 	fi
+
 	xargs sudo apt-get -y install <<-packages
 		postgresql-${PGVERSION}
 		postgresql-${PGVERSION}-ip4r
