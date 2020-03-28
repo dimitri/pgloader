@@ -1,5 +1,6 @@
-language: common-lisp
-sudo: required
+language: shell
+os: linux
+dist: xenial
 
 env:
   matrix:

@@ -44,17 +44,8 @@ pgdg_repositories() {
 
 postgresql_install() {
 	if [ -z "${PGVERSION:-}" ]; then
-		PGVERSION="$( psql -d postgres -XAtc "select regexp_replace(current_setting('server_version'), '[.][0-9]+$', '')" )"
-	else
-		sudo service postgresql stop
-		xargs sudo apt-get -y --purge remove <<-packages
-			libpq-dev
-			libpq5
-			postgresql
-			postgresql-client-common
-			postgresql-common
-		packages
-		sudo rm -rf /var/lib/postgresql
+		echo 'PGVERSION environment variable not set.';
+		exit 1
 	fi
 
 	xargs sudo apt-get -y install <<-packages
