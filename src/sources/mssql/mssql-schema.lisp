@@ -168,12 +168,13 @@
 
    Mostly we just use the name, and make try to avoid parsing dates."
   (case (intern (string-upcase type) "KEYWORD")
-    (:time           (format nil "convert(varchar, [~a], 114)" name))
-    (:datetime       (format nil "convert(varchar, [~a], 126)" name))
-    (:datetime2      (format nil "convert(varchar, [~a], 126)" name))
-    (:smalldatetime  (format nil "convert(varchar, [~a], 126)" name))
-    (:date           (format nil "convert(varchar, [~a], 126)" name))
-    (:bigint         (format nil "cast([~a] as numeric)" name))
+    (:time           (format nil "convert(varchar(30), [~a], 114)" name))
+    (:datetime       (format nil "convert(varchar(30), [~a], 126)" name))
+    (:datetime2      (format nil "convert(varchar(30), [~a], 126)" name))
+    (:datetimeoffset (format nil "convert(varchar(35), [~a], 127)" name))
+    (:smalldatetime  (format nil "convert(varchar(30), [~a], 126)" name))
+    (:date           (format nil "convert(varchar(30), [~a], 126)" name))
+    (:bigint         (format nil "cast([~a] as numeric(20))" name))
     (t               (format nil "[~a]" name))))
 
 (defmethod get-column-list ((mssql copy-mssql))

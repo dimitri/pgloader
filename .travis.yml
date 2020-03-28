@@ -3,11 +3,15 @@ os: linux
 dist: xenial
 
 env:
-  jobs:
-    - LISP=ccl
+  matrix:
     - LISP=ccl  PGVERSION=9.6
-    - LISP=sbcl
+    - LISP=ccl  PGVERSION=10
+    - LISP=ccl  PGVERSION=11
+    - LISP=ccl  PGVERSION=12
     - LISP=sbcl PGVERSION=9.6
+    - LISP=sbcl PGVERSION=10
+    - LISP=sbcl PGVERSION=11
+    - LISP=sbcl PGVERSION=12
 
 install:
   - ./.travis.sh lisp_install

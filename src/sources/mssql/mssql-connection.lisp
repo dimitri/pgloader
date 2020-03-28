@@ -17,6 +17,9 @@
   (setf (slot-value msconn 'type) "mssql"))
 
 (defmethod open-connection ((msconn mssql-connection) &key)
+  ;; we can't pass in the port number, set it in the TDSPORT env instead
+  (setf (uiop:getenv "TDSPORT") (princ-to-string (db-port msconn)))
+
   (setf (conn-handle msconn) (mssql:connect (db-name msconn)
                                             (db-user msconn)
                                             (db-pass msconn)

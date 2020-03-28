@@ -99,7 +99,8 @@
                :syb-datetime4
                :syb-msdate
                :syb-mstime
-               :syb-msdatetime2)
+               :syb-msdatetime2
+               :syb-msdatetimeoffset)
               (with-foreign-pointer (%buf +numeric-buf-sz+)
                 (let ((count
                        (%dbconvert %dbproc
