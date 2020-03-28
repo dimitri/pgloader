@@ -1,6 +1,6 @@
 Summary:            extract, transform and load data into PostgreSQL
 Name:               pgloader
-Version:            3.6.1
+Version:            3.6.2
 Release:            22%{?dist}
 License:            The PostgreSQL Licence
 Group:              System Environment/Base
@@ -49,6 +49,9 @@ echo '-b /usr/bin/pgloader' > $RPM_BUILD_ROOT/etc/prelink.conf.d/%{name}.conf
 /etc/prelink.conf.d/%{name}.conf
 
 %changelog
+* Sun Mar 22 2020 Michał "phoe" Herda <phoe@disroot.org> - 3.6.2
+- Release 3.6.2
+
 * Tue Sep 24 2019 Phil Ingram <pingram.au@gmail.com> - 3.6.1
 - Release 3.6.1
 - Use Requires and BuildRequires
