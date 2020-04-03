@@ -340,6 +340,7 @@
   (let* ((summary-stream (when *summary-pathname*
                            (open *summary-pathname*
                                  :direction :output
+                                 :external-format :utf-8
                                  :if-exists :rename
                                  :if-does-not-exist :create)))
          (*report-stream* (or summary-stream *standard-output*)))
