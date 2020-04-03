@@ -48,7 +48,8 @@
            table-list view-list matview-list extension-list sqltype-list)
 
 (defstruct table source-name name schema oid comment
-           storage-parameter-list tablespace row-count-estimate
+           storage-parameter-list tablespace
+           (row-count-estimate 0 :type fixnum)
            ;; field is for SOURCE
            field-list
            ;; column is for TARGET

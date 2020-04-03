@@ -163,7 +163,7 @@
                                   &key
                                     including
                                     excluding)
-  "Get the row count estimate for given MySQL tables."
+  "Retrieve and set the row count estimate for given MySQL tables."
   (loop
      :for (table-name count)
      :in (mysql-query (sql "/mysql/list-table-rows.sql"

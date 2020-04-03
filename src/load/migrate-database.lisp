@@ -261,22 +261,17 @@
         (view-list  (copy-list (view-list catalog))))
     ;; when materialized views are not supported, view-list is empty here
     (cond
-      ((notevery #'null (mapcar #'table-row-count-estimate table-list))
-           (flet ((compare-row-count-estimates (a b)
-                    (declare (type (or null fixnum) a b))
-                    (> (or a 0) (or b 0))))
-             (let ((sorted-table-list (sort table-list
-                                            #'compare-row-count-estimates
-                                            :key #'table-row-count-estimate)))
-               (log-message :notice
-                            "Processing tables in this order: ~{~a: ~d rows~^, ~}"
-                            (loop :for table
-                               :in (append sorted-table-list view-list)
-                               :append (list (format-table-name table)
-                                             (table-row-count-estimate table))))
-               (append sorted-table-list view-list))))
+      ((notevery #'zerop (mapcar #'table-row-count-estimate table-list))
+       (let ((sorted-table-list
+              (sort table-list #'> :key #'table-row-count-estimate)))
+         (log-message :notice
+                      "Processing tables in this order: ~{~a: ~d rows~^, ~}"
+                      (loop :for table :in (append table-list view-list)
+                         :collect (format-table-name table)
+                         :collect (table-row-count-estimate table)))
+         (nconc sorted-table-list view-list)))
       (t
-       (append table-list view-list)))))
+       (nconc table-list view-list)))))
 
 
 ;;;
