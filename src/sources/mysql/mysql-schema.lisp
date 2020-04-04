@@ -155,6 +155,27 @@
      :finally
      (return schema)))
 
+;;;
+;;; MySQL table row count estimate
+;;;
+(defmethod fetch-table-row-count ((schema schema)
+                                  (mysql copy-mysql)
+                                  &key
+                                    including
+                                    excluding)
+  "Retrieve and set the row count estimate for given MySQL tables."
+  (loop
+     :for (table-name count)
+     :in (mysql-query (sql "/mysql/list-table-rows.sql"
+                           (db-name *connection*)
+                           including    ; do we print the clause?
+                           including
+                           excluding    ; do we print the clause?
+                           excluding))
+     :do (let* ((table  (find-table schema table-name)))
+           (when table
+             (setf (table-row-count-estimate table) (parse-integer count))))))
+
 
 ;;;
 ;;; Queries to get the MySQL comments.

@@ -255,6 +255,24 @@
     (setf (catalog-distribution-rules catalog)
           (citus-distribute-schema catalog distribute))))
 
+(defun optimize-table-copy-ordering (catalog)
+  "Return a list of tables to copy over in optimized order"
+  (let ((table-list (copy-list (table-list catalog)))
+        (view-list  (copy-list (view-list catalog))))
+    ;; when materialized views are not supported, view-list is empty here
+    (cond
+      ((notevery #'zerop (mapcar #'table-row-count-estimate table-list))
+       (let ((sorted-table-list
+              (sort table-list #'> :key #'table-row-count-estimate)))
+         (log-message :notice
+                      "Processing tables in this order: ~{~a: ~d rows~^, ~}"
+                      (loop :for table :in (append table-list view-list)
+                         :collect (format-table-name table)
+                         :collect (table-row-count-estimate table)))
+         (nconc sorted-table-list view-list)))
+      (t
+       (nconc table-list view-list)))))
+
 
 ;;;
 ;;; Generic enough implementation of the copy-database method.
@@ -414,10 +432,7 @@
         (return-from copy-database)))
 
     (loop
-       :for table :in (append (table-list catalog)
-                              ;; when materialized views are not supported,
-                              ;; view-list is empty here
-                              (view-list catalog))
+       :for table :in (optimize-table-copy-ordering catalog)
 
        :do (let ((table-source (instanciate-table-copy-object copy table)))
              ;; first COPY the data from source to PostgreSQL, using copy-kernel
@@ -472,8 +487,21 @@
 
                      (when (and create-indexes
                                 (zerop (gethash table writers-count)))
-                       (log-message :notice "DONE copying ~a"
-                                    (format-table-name table))
+
+                       (let* ((stats   pgloader.monitor::*sections*)
+                              (section (get-state-section stats :data))
+                              (table-stats (pgstate-get-label section table))
+                              (pprint-secs
+                               (pgloader.state::format-interval seconds nil)))
+                         ;; in CCL we have access to the *sections* dynamic
+                         ;; binding from another thread, in SBCL we access
+                         ;; an empty copy.
+                         (log-message :notice
+                                      "DONE copying ~a in ~a~@[ for ~d rows~]"
+                                     (format-table-name table)
+                                     pprint-secs
+                                     (when table-stats
+                                       (pgtable-rows table-stats))))
                        (alexandria:appendf
                         pkeys
                         (create-indexes-in-kernel (target-db copy)

@@ -153,6 +153,9 @@
 (defgeneric fetch-foreign-keys (catalog db-copy &key including excluding)
   (:documentation "Get the list of foreign keys from the source database."))
 
+(defgeneric fetch-table-row-count (catalog db-copy &key including excluding)
+  (:documentation "Retrieve and set the row count estimate for given tables."))
+
 (defgeneric fetch-comments (catalog db-copy &key including excluding)
   (:documentation "Get the list of comments from the source database."))
 
