@@ -41,6 +41,10 @@
                                   :row-fn process-row-fn
                                   :connection (conn-handle *mssql-db*))))))
 
+(defmethod copy-column-list ((mssql copy-mssql))
+  "We are sending the data in the MS SQL columns ordering here."
+  (mapcar #'apply-identifier-case (mapcar #'mssql-column-name (fields mssql))))
+
 (defmethod fetch-metadata ((mssql copy-mssql)
                            (catalog catalog)
                            &key
