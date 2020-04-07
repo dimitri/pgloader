@@ -4,7 +4,7 @@
 --         excluding
 --         filter-list-to-where-clause excluding
     SELECT table_name,
-           cast(data_length/avg_row_length as integer)
+           cast(data_length/avg_row_length as unsigned)
       FROM information_schema.tables
     WHERE     table_schema = '~a'
           and table_type = 'BASE TABLE'
