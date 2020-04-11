@@ -7,6 +7,7 @@
 
 (defrule extra-qualifiers (and (? " ")
                                (or (~ "unsigned")
+                                   (~ "signed")
                                    (~ "short")
                                    (~ "varying")
                                    (~ "native")

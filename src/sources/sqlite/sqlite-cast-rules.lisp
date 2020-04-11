@@ -23,6 +23,9 @@
     (:source (:type "integer") :target (:type "bigint")
              :using pgloader.transforms::integer-to-string)
 
+    (:source (:type "long") :target (:type "bigint")
+             :using pgloader.transforms::integer-to-string)
+
     (:source (:type "float") :target (:type "float")
              :using pgloader.transforms::float-to-string)
 
