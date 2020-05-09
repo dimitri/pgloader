@@ -35,6 +35,9 @@
     (:source (:type "double") :target (:type "double precision")
              :using pgloader.transforms::float-to-string)
 
+    (:source (:type "double precision") :target (:type "double precision")
+             :using pgloader.transforms::float-to-string)
+
     (:source (:type "numeric") :target (:type "numeric" :drop-typemod nil)
              :using pgloader.transforms::float-to-string)
 

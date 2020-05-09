@@ -31,20 +31,27 @@
 
 (defrule sqlite-typemod (or sqlite-double-typemod sqlite-single-typemod))
 
-(defrule sqlite-type-name (and (* extra-qualifiers)
-                               (+ (or (alpha-char-p character) #\_))
+;; type names may be "double quoted", such as "double precision"
+(defrule sqlite-type-name (or (+ (and (not extra-qualifiers)
+                                      (+ (or (alpha-char-p character) #\_))
+                                      (? " "))))
+  (:text t))
+
+(defrule sqlite-type-expr (and (* extra-qualifiers)
+                               sqlite-type-name
                                (* extra-qualifiers)
                                ignore-whitespace
                                (? sqlite-typemod)
                                ignore-whitespace
                                (* extra-qualifiers))
-  (:lambda (tn) (list (text (second tn))
-                      (fifth tn)
-                      (remove-if #'null
-                                 (append (first tn) (third tn) (seventh tn))))))
+  (:lambda (tn)
+    (list (text (second tn))
+          (fifth tn)
+          (remove-if #'null
+                     (append (first tn) (third tn) (seventh tn))))))
 
 (defun parse-sqlite-type-name (type-name)
   (if (string= type-name "")
       ;; yes SQLite allows for empty type names
       "text"
-      (values-list (parse 'sqlite-type-name (string-downcase type-name)))))
+      (values-list (parse 'sqlite-type-expr (string-downcase type-name)))))
