@@ -146,7 +146,7 @@
                 (col-name  (apply-identifier-case col))
                 (fcol-name (apply-identifier-case fcol))
                 (pg-fkey
-                 (make-fkey :name fkey-name
+                 (make-fkey :name (apply-identifier-case fkey-name)
                             :table table
                             :columns nil
                             :foreign-table ftable
