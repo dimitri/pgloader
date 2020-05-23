@@ -5,7 +5,7 @@ The command and behavior are the same as when migration from a PostgreSQL
 database source. pgloader automatically discovers that it's talking to a
 Redshift database by parsing the output of the `SELECT version()` SQL query.
 
-Redhift as a data source
+Redshift as a data source
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 Redshift is a variant of PostgreSQL version 8.0.2, which allows pgloader to
