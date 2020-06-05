@@ -412,21 +412,57 @@
 ;;;  PostgreSQL 10.1 on x86_64-apple-darwin14.5.0, compiled by Apple LLVM version 7.0.0 (clang-700.1.76), 64-bit
 ;;;  PostgreSQL 10.6 (Ubuntu 10.6-1.pgdg14.04+1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 4.8.4-2ubuntu1~14.04.4) 4.8.4, 64-bit
 ;;;  PostgreSQL 10.6, compiled by Visual C++ build 1800, 64-bit
-(defun parse-postgresql-version-string (version-string)
-  "Parse PostgreSQL select version() output."
-  (cl-ppcre:register-groups-bind (full-version maybe-os maybe-variant)
-      ("PostgreSQL ([0-9.]+)( [^,]+)?, [^,]+, (.*)" version-string)
-    (declare (ignore maybe-os))
+;;;  PostgreSQL 12.2
+;;;  PostgreSQL 11.2-YB-2.1.6.0-b0 on x86_64-pc-linux-gnu, compiled by gcc (Homebrew gcc 5.5.0_4) 5.5.0, 64-bit
+
+(defun parse-postgresql-version-number (version-string)
+  "Parse PostgreSQL select version() output for full version and major version."
+  (cl-ppcre:register-groups-bind (full-version)
+      ("PostgreSQL ([0-9.]+).*" version-string)
     (let* ((version-dots  (split-sequence:split-sequence #\. full-version))
            (major-version (if (= 3 (length version-dots))
                               (format nil "~a.~a"
                                       (first version-dots)
                                       (second version-dots))
-                              (first version-dots)))
-           (variant       (if (cl-ppcre:scan "Redshift" maybe-variant)
-                              :redshift
-                              :pgdg)))
-      (values full-version major-version variant))))
+                              (first version-dots))))
+      (values full-version major-version))))
+
+(defun parse-postgresql-version-variant (version-string)
+  "Parse PostgreSQL select version() output for Postgres variant, if any."
+  (or (cl-ppcre:register-groups-bind (maybe-variant)
+          ("PostgreSQL (?:[0-9.]+)(?: [^,]+)?, [^,]+, (.*)" version-string)
+        (when (cl-ppcre:scan "Redshift" maybe-variant) :redshift))
+      :pgdg))
+
+(defun parse-postgresql-version-string (version-string)
+  (multiple-value-bind (full-version major-version)
+      (parse-postgresql-version-number version-string)
+    (values full-version
+            major-version
+            (parse-postgresql-version-variant version-string))))
+
+;;;
+;;; Quick unit test for use in the development environment, not exported in
+;;; the test suite at the moment. The test suite is about integration or
+;;; end-to-end testing.
+;;;
+(defvar *test/versions*
+  '(("8.0.2" "8.0" :REDSHIFT
+     "PostgreSQL 8.0.2 on i686-pc-linux-gnu, compiled by GCC gcc (GCC) 3.4.2 20041017 (Red Hat 3.4.2-6.fc3), Redshift 1.0.2058")
+    ("10.1" "10" :PGDG "PostgreSQL 10.1 on x86_64-apple-darwin14.5.0, compiled by Apple LLVM version 7.0.0 (clang-700.1.76), 64-bit")
+    ("10.6" "10" :PGDG "PostgreSQL 10.6 (Ubuntu 10.6-1.pgdg14.04+1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 4.8.4-2ubuntu1~14.04.4) 4.8.4, 64-bit")
+    ("10.6" "10" :PGDG "PostgreSQL 10.6, compiled by Visual C++ build 1800, 64-bit")
+    ("12.2" "12" :PGDG "PostgreSQL 12.2")
+    ("11.2" "11" :PGDG "PostgreSQL 11.2-YB-2.1.6.0-b0 on x86_64-pc-linux-gnu, compiled by gcc (Homebrew gcc 5.5.0_4) 5.5.0, 64-bit"))
+  "A list of test values and Postgres version string")
+
+(defun test/parse-postgresql-version-string ()
+  (loop :for (full major variant version-string) :in *test/versions*
+     :always (multiple-value-bind (parsed-full parsed-major parsed-variant)
+                 (parse-postgresql-version-string version-string)
+               (and (string= parsed-full full)
+                    (string= parsed-major major)
+                    (eq parsed-variant variant)))))
 
 (defun list-typenames-without-btree-support ()
   "Fetch PostgresQL data types without btree support, so that it's possible
