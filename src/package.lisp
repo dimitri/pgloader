@@ -914,7 +914,8 @@
            #:lisp-code-for-loading-from-dbf
            #:lisp-code-for-loading-from-ixf
            #:lisp-code-for-loading-from-sqlite
-           #:lisp-code-for-loading-from-mssql))
+           #:lisp-code-for-loading-from-mssql
+           #:lisp-code-for-loading-from-pgsql))
 
 
 ;;

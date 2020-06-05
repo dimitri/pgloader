@@ -227,7 +227,8 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
         (cons 'ixf-connection     #'lisp-code-for-loading-from-ixf)
         (cons 'sqlite-connection  #'lisp-code-for-loading-from-sqlite)
         (cons 'mysql-connection   #'lisp-code-for-loading-from-mysql)
-        (cons 'mssql-connection   #'lisp-code-for-loading-from-mssql))
+        (cons 'mssql-connection   #'lisp-code-for-loading-from-mssql)
+        (cons 'pgsql-connection   #'lisp-code-for-loading-from-pgsql))
   "Each source type might require a different set of options.")
 
 (defun lisp-code-for-loading (&key
