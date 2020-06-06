@@ -429,10 +429,7 @@
 
 (defun parse-postgresql-version-variant (version-string)
   "Parse PostgreSQL select version() output for Postgres variant, if any."
-  (or (cl-ppcre:register-groups-bind (maybe-variant)
-          ("PostgreSQL (?:[0-9.]+)(?: [^,]+)?, [^,]+, (.*)" version-string)
-        (when (cl-ppcre:scan "Redshift" maybe-variant) :redshift))
-      :pgdg))
+  (if (cl-ppcre:scan "Redshift" version-string) :redshift :pgdg))
 
 (defun parse-postgresql-version-string (version-string)
   (multiple-value-bind (full-version major-version)
@@ -457,12 +454,14 @@
   "A list of test values and Postgres version string")
 
 (defun test/parse-postgresql-version-string ()
-  (loop :for (full major variant version-string) :in *test/versions*
-     :always (multiple-value-bind (parsed-full parsed-major parsed-variant)
-                 (parse-postgresql-version-string version-string)
-               (and (string= parsed-full full)
-                    (string= parsed-major major)
-                    (eq parsed-variant variant)))))
+  (let ((results
+         (loop :for (full major variant version-string) :in *test/versions*
+            :collect (multiple-value-bind (parsed-full parsed-major parsed-variant)
+                         (parse-postgresql-version-string version-string)
+                       (and (string= parsed-full full)
+                            (string= parsed-major major)
+                            (eq parsed-variant variant))))))
+    (values (every #'identity results) results)))
 
 (defun list-typenames-without-btree-support ()
   "Fetch PostgresQL data types without btree support, so that it's possible
