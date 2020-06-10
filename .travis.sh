@@ -15,8 +15,8 @@ lisp_install() {
 			;;
 
 		sbcl)
-			sbcl_checksum='eb44d9efb4389f71c05af0327bab7cd18f8bb221fb13a6e458477a9194853958'
-			sbcl_version='1.3.18'
+			sbcl_checksum='22ccd9409b2ea16d4be69235c5ad5fde833452955cb24483815312d3b1d7401c'
+			sbcl_version='1.5.2'
 
 			remote_file "/tmp/sbcl-${sbcl_version}.tgz" "http://prdownloads.sourceforge.net/sbcl/sbcl-${sbcl_version}-x86-64-linux-binary.tar.bz2" "$sbcl_checksum"
 			tar --file  "/tmp/sbcl-${sbcl_version}.tgz" --extract --directory '/tmp'

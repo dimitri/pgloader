@@ -7,21 +7,6 @@
 (defclass copy-pgsql (db-copy) ()
   (:documentation "pgloader PostgreSQL Data Source"))
 
-(defmethod initialize-instance :after ((source copy-pgsql) &key)
-  "Add a default value for transforms in case it's not been provided."
-  (let* ((transforms (when (slot-boundp source 'transforms)
-		       (slot-value source 'transforms))))
-    (when (and (slot-boundp source 'fields) (slot-value source 'fields))
-      ;; cast typically happens in copy-database in the schema structure,
-      ;; and the result is then copied into the copy-mysql instance.
-      (unless (and (slot-boundp source 'columns) (slot-value source 'columns))
-        (setf (slot-value source 'columns)
-              (mapcar #'cast (slot-value source 'fields))))
-
-      (unless transforms
-        (setf (slot-value source 'transforms)
-              (mapcar #'column-transform (slot-value source 'columns)))))))
-
 (defmethod map-rows ((pgsql copy-pgsql) &key process-row-fn)
   "Extract PostgreSQL data and call PROCESS-ROW-FN function with a single
    argument (a list of column values) for each row"
@@ -63,8 +48,9 @@
             (cl-postgres:exec-query pomo:*database* sql map-reader))))))
 
 (defmethod copy-column-list ((pgsql copy-pgsql))
-  "We are sending the data in the MySQL columns ordering here."
-  (mapcar #'column-name (fields pgsql)))
+  "We are sending the data in the source columns ordering here."
+  (mapcar (lambda (field) (ensure-quoted (column-name field)))
+          (fields pgsql)))
 
 (defmethod fetch-metadata ((pgsql copy-pgsql)
                            (catalog catalog)
@@ -89,7 +75,7 @@
         ;; the target database.
         ;;
         (when (and materialize-views (not (eq :all materialize-views)))
-          (create-pg-views materialize-views))
+          (create-matviews materialize-views pgsql))
 
         (when (eq :pgdg variant)
           (list-all-sqltypes catalog
@@ -101,7 +87,7 @@
                           :excluding excluding)
 
         (let* ((view-names (unless (eq :all materialize-views)
-                             (mapcar #'car materialize-views)))
+                             (mapcar #'matview-source-name materialize-views)))
                (including  (make-including-expr-from-view-names view-names)))
           (cond (view-names
                  (list-all-columns catalog
@@ -139,4 +125,4 @@
    the migration purpose."
   (when materialize-views
     (with-pgsql-transaction (:pgconn  (source-db pgsql))
-      (drop-pg-views materialize-views))))
+      (drop-matviews materialize-views pgsql))))

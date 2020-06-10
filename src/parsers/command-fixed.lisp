@@ -7,6 +7,9 @@
 
 (in-package #:pgloader.parser)
 
+(defrule option-fixed-header (and kw-fixed kw-header)
+  (:constant (cons :header t)))
+
 (defrule hex-number (and "0x" (+ (hexdigit-char-p character)))
   (:lambda (hex)
     (bind (((_ digits) hex))
@@ -55,7 +58,8 @@
                           option-drop-indexes
                           option-disable-triggers
                           option-identifiers-case
-			  option-skip-header))
+			  option-skip-header
+                          option-fixed-header))
 
 (defrule fixed-options (and kw-with
                             (and fixed-option (* (and comma fixed-option))))
@@ -94,7 +98,7 @@
     (alexandria:alist-plist clauses-list)))
 
 (defrule load-fixed-cols-file-command (and fixed-source (? file-encoding)
-                                           fixed-source-field-list
+                                           (? fixed-source-field-list)
                                            target
                                            (? csv-target-table)
                                            (? csv-target-column-list)
@@ -144,7 +148,8 @@
                                :encoding ,encoding
                                :fields ',fields
                                :columns ',columns
-                               :skip-lines ,(or (getf options :skip-line) 0))))
+                               :skip-lines ,(or (getf options :skip-lines) 0)
+                               :header ,(getf options :header))))
 
            (copy-database source
                           ,@ (when worker-count

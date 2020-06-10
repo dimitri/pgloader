@@ -1,13 +1,19 @@
 Loading DBF data
 =================
 
-This command instructs pgloader to load data from a `DBF` file. Here's an
-example::
+This command instructs pgloader to load data from a `DBF` file. A default
+set of casting rules are provided and might be overloaded and appended to by
+the command.
+
+Here's an example with a remote HTTP source and some user defined casting
+rules::
 
     LOAD DBF
 	    FROM http://www.insee.fr/fr/methodes/nomenclatures/cog/telechargement/2013/dbf/reg2013.dbf
         INTO postgresql://user@localhost/dbname
-        WITH truncate, create table;
+        WITH truncate, create table
+        CAST column reg2013.region to integer,
+             column reg2013.tncc to smallint;
 
 The `dbf` format command accepts the following clauses and options.
 
@@ -51,3 +57,16 @@ When loading from a `DBF` file, the following options are supported:
 
     This options expects as its value the possibly qualified name of the
     table to create.
+
+Default DB3 Casting Rules
+-------------------------
+
+When migrating from DB3 the following Casting Rules are provided::
+
+  type C to text using db3-trim-string
+  type M to text using db3-trim-string
+  type N to numeric using db3-numeric-to-pgsql-integer
+  type I to numeric using db3-numeric-to-pgsql-numeric
+  type L to boolean using logical-to-boolean
+  type D to date using db3-date-to-pgsql-date
+

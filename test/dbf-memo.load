@@ -1,0 +1,13 @@
+LOAD DBF
+    FROM data/DNORDOC.DBF with encoding cp866
+    INTO postgresql:///pgloader
+    TARGET TABLE dbf.dnordoc
+    WITH truncate, create table, disable triggers
+  BEFORE LOAD DO $$ create schema if not exists dbf; $$
+
+    cast
+      column dnordoc.normdocid
+          to uuid
+      using (lambda (normdocid)
+              (empty-string-to-null (right-trim normdocid))),
+      column dnordoc.doctype to integer using db3-numeric-to-pgsql-integer;

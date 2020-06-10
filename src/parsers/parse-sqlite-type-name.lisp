@@ -31,7 +31,7 @@
 (defrule sqlite-typemod (or sqlite-double-typemod sqlite-single-typemod))
 
 (defrule sqlite-type-name (and (* extra-qualifiers)
-                               (+ (alpha-char-p character))
+                               (+ (or (alpha-char-p character) #\_))
                                (* extra-qualifiers)
                                ignore-whitespace
                                (? sqlite-typemod)

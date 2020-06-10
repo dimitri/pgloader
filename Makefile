@@ -1,6 +1,6 @@
 # pgloader build tool
 APP_NAME   = pgloader
-VERSION    = 3.6.1
+VERSION    = 3.6.2
 
 # use either sbcl or ccl
 CL	   = sbcl
@@ -24,7 +24,7 @@ QLDIR      = $(BUILDDIR)/quicklisp
 MANIFEST   = $(BUILDDIR)/manifest.ql
 LATEST     = $(BUILDDIR)/pgloader-latest.tgz
 
-BUNDLEDIST = 2019-01-07
+BUNDLEDIST = 2020-02-18
 BUNDLENAME = pgloader-bundle-$(VERSION)
 BUNDLEDIR  = $(BUILDDIR)/bundle/$(BUNDLENAME)
 BUNDLE     = $(BUILDDIR)/$(BUNDLENAME).tgz
@@ -103,7 +103,6 @@ $(LIBS): $(QLDIR)/setup.lisp
 	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp                   \
              --eval '(push :pgloader-image *features*)'               \
              --eval '(setf *print-circle* t *print-pretty* t)'        \
-             --eval '(ql:quickload "pgloader")'                       \
              --eval '(push "$(PWD)/" ql:*local-project-directories*)' \
              --eval '(ql:quickload "pgloader")'                       \
              --eval '(quit)'
@@ -173,7 +172,7 @@ test: $(PGLOADER)
 save: ./src/save.lisp $(LISP_SRC)
 	$(CL) $(CL_OPTS) --load ./src/save.lisp
 
-check-saved: save
+check-saved:
 	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) CL=$(CL) -C test regress
 
 clean-bundle:

@@ -62,6 +62,34 @@
 
   (log-message :info "Entering error recovery.")
 
+  ;; Not all COPY errors produce a COPY error message. Foreign key violation
+  ;; produce a detailed message containing the data that we can't insert. In
+  ;; that case we're going to insert every single row of the batch, one at a
+  ;; time, and handle the error(s) individually.
+  ;;
+  (unless (parse-copy-error-context (database-error-context condition))
+    (let ((table-name  (format-table-name table))
+          (first-error t))
+      (loop :repeat (batch-count batch)
+         :for pos :from 0
+         :do (handler-case
+                 (incf pos
+                       (copy-partial-batch table-name columns batch 1 pos))
+               (postgresql-retryable (condition)
+                 (pomo:execute "ROLLBACK")
+                 (process-bad-row table condition (aref (batch-data batch) pos))
+                 (if first-error
+                     ;; the first error has been logged about already
+                     (setf first-error nil)
+                     (log-message :error "PostgreSQL [~s] ~a"
+                                  table-name condition))
+                 (incf nb-errors)))))
+
+    ;; that's all folks, we're done.
+    (return-from retry-batch nb-errors))
+
+  ;; now deal with the COPY error case where we have a line number and have
+  ;; the opportunity to be smart about it.
   (loop
      :with table-name := (format-table-name table)
      :with next-error := (parse-copy-error-context
@@ -70,7 +98,7 @@
      :while (< current-batch-pos (batch-count batch))
 
      :do
-     (progn                           ; indenting helper
+     (progn                             ; indenting helper
        (log-message :debug "pos: ~s ; err: ~a" current-batch-pos next-error)
        (when (= current-batch-pos next-error)
          (log-message :info "error recovery at ~d/~d, processing bad row"

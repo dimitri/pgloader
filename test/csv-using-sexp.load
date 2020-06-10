@@ -1,0 +1,29 @@
+/*
+ * See https://github.com/dimitri/pgloader/issues/965
+ */
+LOAD CSV
+     FROM INLINE(id,f1)
+     INTO postgresql:///pgloader
+   TARGET TABLE sexp
+        (
+          id,
+          f1 text using (format nil "~{~a~^ ~}"
+                          (split-sequence #\Space f1 :remove-empty-subseqs cl:t))
+        )
+
+     WITH truncate,
+          fields terminated by ','
+
+   BEFORE LOAD DO
+    $$ drop table if exists sexp; $$,
+    $$ CREATE TABLE sexp
+       (
+          id     int,
+          f1     text
+       )
+    $$;
+
+
+1,Hello World
+2,Hello    World
+2,  foobar  foobaz  

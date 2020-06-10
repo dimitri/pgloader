@@ -1,8 +1,9 @@
 # PGLoader
 
 [![Build Status](https://travis-ci.org/dimitri/pgloader.svg?branch=master)](https://travis-ci.org/dimitri/pgloader)
-
 [![Join the chat at https://gitter.im/dimitri/pgloader](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/dimitri/pgloader?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Docker Build Status](https://img.shields.io/docker/cloud/build/dimitri/pgloader.svg)](https://cloud.docker.com/repository/docker/dimitri/pgloader)
+[![Read The Docs Status](https://readthedocs.org/projects/pgloader/badge/?version=latest&style=plastic)](http://pgloader.readthedocs.io/en/latest/)
 
 pgloader is a data loading tool for PostgreSQL, using the `COPY` command.
 
@@ -89,8 +90,12 @@ it builds aginst current set of dependencies versions.
 
     $ apt-get install sbcl unzip libsqlite3-dev make curl gawk freetds-dev libzip-dev
     $ cd /path/to/pgloader
-	$ make pgloader
-	$ ./build/bin/pgloader --help
+    $ make pgloader
+    $ ./build/bin/pgloader --help
+
+### Building from sources on RedHat/CentOS
+
+See "Redhat / CentOS" in [INSTALL.md](INSTALL.md#redhat--centos)
 
 ### Building from sources on macOS
 
@@ -178,9 +183,3 @@ indexes, foreign keys, comments) and parallel loading of the corrected data:
 
     $ createdb pagila
     $ pgloader mysql://user@localhost/sakila postgresql:///pagila
-
-See the documentation file `pgloader.1.md` for details. You can compile that
-file into a manual page or an HTML page thanks to the `ronn` application:
-
-    $ apt-get install ruby-ronn
-	$ make docs

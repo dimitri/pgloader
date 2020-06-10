@@ -114,9 +114,8 @@
   "Get PostgreSQL schema name where to locate TABLE-NAME by following the
   current search_path rules. A PostgreSQL connection must be opened."
   (make-schema :name
-               (pomo:query (format nil
-                                   (sql "/pgsql/query-table-schema.sql")
-                                   (table-name table))
+               (pomo:query (sql "/pgsql/query-table-schema.sql"
+                                (table-name table))
                            :single)))
 
 (defun make-including-expr-from-view-names (view-names)
@@ -188,21 +187,18 @@
   "Get the list of PostgreSQL column names per table."
   (loop :for (schema-name table-name table-oid
                           name type typmod notnull default extra)
-     :in
-     (query nil
-            (format nil
-                    (sql "/pgsql/list-all-columns.sql")
-                    table-type-name
-                    including           ; do we print the clause?
-                    (filter-list-to-where-clause including
-                                                 nil
-                                                 "n.nspname"
-                                                 "c.relname")
-                    excluding           ; do we print the clause?
-                    (filter-list-to-where-clause excluding
-                                                 nil
-                                                 "n.nspname"
-                                                 "c.relname")))
+     :in (query nil (sql "/pgsql/list-all-columns.sql"
+                         table-type-name
+                         including      ; do we print the clause?
+                         (filter-list-to-where-clause including
+                                                      nil
+                                                      "n.nspname"
+                                                      "c.relname")
+                         excluding      ; do we print the clause?
+                         (filter-list-to-where-clause excluding
+                                                      nil
+                                                      "n.nspname"
+                                                      "c.relname")))
      :do
      (let* ((schema    (maybe-add-schema catalog schema-name))
             (table     (maybe-add-table schema table-name :oid table-oid))
@@ -223,21 +219,19 @@
      :for (schema-name name oid
                        table-schema table-name
                        primary unique cols sql conname condef)
-     :in (query nil
-                (format nil
-                        (sql (sql-url-for-variant "pgsql"
-                                                  "list-all-indexes.sql"
-                                                  pgversion))
-                        including       ; do we print the clause?
-                        (filter-list-to-where-clause including
-                                                     nil
-                                                     "rn.nspname"
-                                                     "r.relname")
-                        excluding       ; do we print the clause?
-                        (filter-list-to-where-clause excluding
-                                                     nil
-                                                     "rn.nspname"
-                                                     "r.relname")))
+     :in (query nil (sql (sql-url-for-variant "pgsql"
+                                              "list-all-indexes.sql"
+                                              pgversion)
+                         including      ; do we print the clause?
+                         (filter-list-to-where-clause including
+                                                      nil
+                                                      "rn.nspname"
+                                                      "r.relname")
+                         excluding      ; do we print the clause?
+                         (filter-list-to-where-clause excluding
+                                                      nil
+                                                      "rn.nspname"
+                                                      "r.relname")))
      :do (let* ((schema   (find-schema catalog schema-name))
                 (tschema  (find-schema catalog table-schema))
                 (table    (find-table tschema table-name))
@@ -265,29 +259,27 @@
                        conoid pkeyoid conname condef
                        cols fcols
                        updrule delrule mrule deferrable deferred)
-     :in (query nil
-                (format nil
-                        (sql "/pgsql/list-all-fkeys.sql")
-                        including       ; do we print the clause (table)?
-                        (filter-list-to-where-clause including
-                                                     nil
-                                                     "n.nspname"
-                                                     "c.relname")
-                        excluding       ; do we print the clause (table)?
-                        (filter-list-to-where-clause excluding
-                                                     nil
-                                                     "n.nspname"
-                                                     "c.relname")
-                        including       ; do we print the clause (ftable)?
-                        (filter-list-to-where-clause including
-                                                     nil
-                                                     "nf.nspname"
-                                                     "cf.relname")
-                        excluding       ; do we print the clause (ftable)?
-                        (filter-list-to-where-clause excluding
-                                                     nil
-                                                     "nf.nspname"
-                                                     "cf.relname")))
+     :in (query nil (sql "/pgsql/list-all-fkeys.sql"
+                         including      ; do we print the clause (table)?
+                         (filter-list-to-where-clause including
+                                                      nil
+                                                      "n.nspname"
+                                                      "c.relname")
+                         excluding      ; do we print the clause (table)?
+                         (filter-list-to-where-clause excluding
+                                                      nil
+                                                      "n.nspname"
+                                                      "c.relname")
+                         including      ; do we print the clause (ftable)?
+                         (filter-list-to-where-clause including
+                                                      nil
+                                                      "nf.nspname"
+                                                      "cf.relname")
+                         excluding      ; do we print the clause (ftable)?
+                         (filter-list-to-where-clause excluding
+                                                      nil
+                                                      "nf.nspname"
+                                                      "cf.relname")))
      :do (flet ((pg-fk-rule-to-action (rule)
                   (case rule
                     (#\a "NO ACTION")
@@ -350,11 +342,9 @@
     (when pkey-oid-list
       (loop :for (schema-name table-name fschema-name ftable-name
                               conoid conname condef index-oid)
-         :in (query nil
-                    (format nil
-                            (sql "/pgsql/list-missing-fk-deps.sql")
-                            pkey-oid-list
-                            (or fkey-oid-list (list -1))))
+         :in (query nil (sql "/pgsql/list-missing-fk-deps.sql"
+                             pkey-oid-list
+                             (or fkey-oid-list (list -1))))
          ;;
          ;; We don't need to reference the main catalog entries for the tables
          ;; here, as the only goal is to be sure to DROP then CREATE again the
@@ -403,9 +393,8 @@
          :in (ecase variant
                (:pgdg
                 ;; use the SELECT ... FROM (VALUES ...) variant
-                (query nil (format nil
-                                   (sql "/pgsql/list-table-oids.sql")
-                                   (mapcar #'format-table-name table-list))))
+                (query nil (sql "/pgsql/list-table-oids.sql"
+                                (mapcar #'format-table-name table-list))))
                (:redshift
                 ;; use the TEMP TABLE variant in Redshift, which doesn't
                 ;; have proper support for VALUES (landed in PostgreSQL 8.2)
@@ -433,19 +422,17 @@
 (defun list-all-sqltypes (catalog &key including excluding)
   "Set the catalog's schema extension list and sqltype list"
   (loop :for (schema-name extension-name type-name enum-values)
-     :in (query nil
-                (format nil
-                        (sql "/pgsql/list-all-sqltypes.sql")
-                        including       ; do we print the clause?
-                        (filter-list-to-where-clause including
-                                                     nil
-                                                     "n.nspname"
-                                                     "c.relname")
-                        excluding       ; do we print the clause?
-                        (filter-list-to-where-clause excluding
-                                                     nil
-                                                     "n.nspname"
-                                                     "c.relname")))
+     :in (query nil (sql "/pgsql/list-all-sqltypes.sql"
+                         including      ; do we print the clause?
+                         (filter-list-to-where-clause including
+                                                      nil
+                                                      "n.nspname"
+                                                      "c.relname")
+                         excluding      ; do we print the clause?
+                         (filter-list-to-where-clause excluding
+                                                      nil
+                                                      "n.nspname"
+                                                      "c.relname")))
      :do
      (let* ((schema    (maybe-add-schema catalog schema-name))
             (sqltype

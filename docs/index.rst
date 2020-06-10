@@ -147,7 +147,7 @@ Schema only, Data only
     
 Repeatable (DROP+CREATE)
     By default, pgloader issues DROP statements in the target PostgreSQL
-    database before issing any CREATE statement, so that you can repeat the
+    database before issuing any CREATE statement, so that you can repeat the
     migration as many times as necessary until migration specifications and
     rules are bug free.
 

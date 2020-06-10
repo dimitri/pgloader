@@ -82,6 +82,7 @@
 		 time-with-no-separator
 		 tinyint-to-boolean
 		 bits-to-boolean
+                 bits-to-hex-bitstring
 		 int-to-ip
 		 ip-range
 		 convert-mysql-point
@@ -96,7 +97,15 @@
                  sql-server-bit-to-boolean
                  varbinary-to-string
                  base64-decode
-		 hex-to-dec))
+		 hex-to-dec
+                 byte-vector-to-hexstring
+
+                 ;; db3 specifics
+                 logical-to-boolean
+		 db3-trim-string
+                 db3-numeric-to-pgsql-numeric
+                 db3-numeric-to-pgsql-integer
+		 db3-date-to-pgsql-date))
 
 
 ;;;
@@ -112,7 +121,7 @@
     ;; month is 00
     ((string= date-string "0000-00-00" :start1 5 :end1 7 :start2 5 :end2 7) nil)
     ;; year is 0000
-    ((string= date-string "0000-00-00" :start1 0 :end1 3 :start2 0 :end2 3) nil)
+    ((string= date-string "0000-00-00" :start1 0 :end1 4 :start2 0 :end2 4) nil)
     (t date-string)))
 
 (defun date-with-no-separator
@@ -178,6 +187,29 @@
       (etypecase bit
         (fixnum    (if (= 0 bit) "f" "t"))
         (character (if (= 0 (char-code bit)) "f" "t"))))))
+
+(defun bits-to-hex-bitstring (bit-vector-or-string)
+  "Transform bit(XX) from MySQL to bit(XX) in PostgreSQL."
+  (etypecase bit-vector-or-string
+    (null nil)
+    ;; default value as string looks like "b'0'", skip b' and then closing '
+    (string (let ((default bit-vector-or-string)
+                  (size    (length bit-vector-or-string)))
+              (subseq default 2 (+ -1 size))))
+    (array  (let* ((bytes  bit-vector-or-string)
+                   (size   (length bit-vector-or-string))
+                   (digits "0123456789abcdef")
+                   (hexstr
+                    (make-array (+ 1 (* size 2)) :element-type 'character)))
+              ;; use Postgres hex bitstring support: x0ff
+              (setf (aref hexstr 0) #\X)
+              (loop :for pos :from 1 :by 2
+                 :for byte :across bytes
+                 :do  (let ((high (ldb (byte 4 4) byte))
+                            (low  (ldb (byte 4 0) byte)))
+                        (setf (aref hexstr pos)       (aref digits high))
+                        (setf (aref hexstr (+ pos 1)) (aref digits low))))
+              hexstr))))
 
 (defun int-to-ip (int)
   "Transform an IP as integer into its dotted notation, optimised code from
@@ -350,10 +382,40 @@
                    (t
                     date-string-or-integer)))))))
 
+;;;
+;;; MS SQL Server GUID binary representation is a mix of endianness, as
+;;; documented at
+;;; https://dba.stackexchange.com/questions/121869/sql-server-uniqueidentifier-guid-internal-representation
+;;; and
+;;; https://en.wikipedia.org/wiki/Globally_unique_identifier#Binary_encoding.
+;;;
+;;; "Other systems, notably Microsoft's marshalling of UUIDs in their
+;;;  COM/OLE libraries, use a mixed-endian format, whereby the first three
+;;;  components of the UUID are little-endian, and the last two are
+;;;  big-endian."
+;;;
+;;; So here we steal some code from the UUID lib and make it compatible with
+;;; this strange mix of endianness for SQL Server.
+;;;
+(defmacro arr-to-bytes-rev (from to array)
+  "Helper macro used in byte-array-to-uuid."
+  `(loop for i from ,to downto ,from
+      with res = 0
+      do (setf (ldb (byte 8 (* 8 (- i ,from))) res) (aref ,array i))
+      finally (return res)))
+
 (defun sql-server-uniqueidentifier-to-uuid (id)
   (declare (type (or null (array (unsigned-byte 8) (16))) id))
   (when id
-    (format nil "~a" (uuid:byte-array-to-uuid id))))
+    (let ((uuid
+           (make-instance 'uuid:uuid
+                          :time-low (arr-to-bytes-rev 0 3 id)
+                          :time-mid (arr-to-bytes-rev 4 5 id)
+                          :time-high (arr-to-bytes-rev 6 7 id)
+                          :clock-seq-var (aref id 8)
+                          :clock-seq-low (aref id 9)
+                          :node (uuid::arr-to-bytes 10 15 id))))
+      (princ-to-string uuid))))
 
 (defun unix-timestamp-to-timestamptz (unixtime-string)
   "Takes a unix timestamp (seconds since beginning of 1970) and converts it
@@ -383,6 +445,32 @@
            ((string= "((1))" bit-string-or-integer) "t")
            (t nil)))))
 
+(defun byte-vector-to-hexstring (vector)
+  "Transform binary input received as a vector of bytes into a string of
+  hexadecimal digits, as per the following example:
+
+  Input:   #(136 194 152 47 66 138 70 183 183 27 33 6 24 174 22 88)
+  Output:  88C2982F428A46B7B71B210618AE1658"
+  (declare (type (or null string (simple-array (unsigned-byte 8) (*))) vector))
+  (etypecase vector
+    (null nil)
+    (string (if (string= "" vector)
+                nil
+                (error "byte-vector-to-bytea called on a string: ~s" vector)))
+    (simple-array
+     (let ((hex-digits "0123456789abcdef")
+           (bytea (make-array (* 2 (length vector))
+                              :initial-element #\0
+                              :element-type 'standard-char)))
+
+       (loop for pos from 0 by 2
+          for byte across vector
+          do (let ((high (ldb (byte 4 4) byte))
+                   (low  (ldb (byte 4 0) byte)))
+               (setf (aref bytea pos)       (aref hex-digits high))
+               (setf (aref bytea (+ pos 1)) (aref hex-digits low)))
+          finally (return bytea))))))
+
 (defun varbinary-to-string (string)
   (let ((babel::*default-character-encoding*
          (or qmynd::*mysql-encoding*
@@ -402,3 +490,40 @@
     (null    nil)
     (integer hex-string)
     (string (write-to-string (parse-integer hex-string :radix 16)))))
+
+
+;;;
+;;; DBF/DB3 transformation functions
+;;;
+
+(defun logical-to-boolean (value)
+  "Convert a DB3 logical value to a PostgreSQL boolean."
+  (if (member value '("?" " ") :test #'string=) nil value))
+
+(defun db3-trim-string (value)
+  "DB3 Strings a right padded with spaces, fix that."
+  (string-right-trim '(#\Space) value))
+
+(defun db3-numeric-to-pgsql-numeric (value)
+  "DB3 numerics should be good to go, but might contain spaces."
+  (let ((trimmed-string (string-trim '(#\Space) value)))
+    (unless (string= "" trimmed-string)
+      trimmed-string)))
+
+(defun db3-numeric-to-pgsql-integer (value)
+  "DB3 numerics should be good to go, but might contain spaces."
+  (etypecase value
+    (null nil)
+    (integer (write-to-string value))
+    (string  (let ((integer-or-nil (parse-integer value :junk-allowed t)))
+               (when integer-or-nil
+                 (write-to-string integer-or-nil))))))
+
+(defun db3-date-to-pgsql-date (value)
+  "Convert a DB3 date to a PostgreSQL date."
+  (when (and value (string/= "" value) (= 8 (length value)))
+    (let ((year  (parse-integer (subseq value 0 4) :junk-allowed t))
+          (month (parse-integer (subseq value 4 6) :junk-allowed t))
+          (day   (parse-integer (subseq value 6 8) :junk-allowed t)))
+      (when (and year month day)
+        (format nil "~4,'0d-~2,'0d-~2,'0d" year month day)))))

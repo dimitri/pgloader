@@ -13,6 +13,9 @@
 (defrule cast-unsigned-guard (and kw-when kw-unsigned)
   (:constant (cons :unsigned t)))
 
+(defrule cast-signed-guard (and kw-when kw-signed)
+  (:constant (cons :signed t)))
+
 ;; at the moment we only know about extra auto_increment
 (defrule cast-source-extra (and kw-with kw-extra
                                 (or kw-auto-increment
@@ -20,10 +23,19 @@
   (:lambda (extra)
     (cons (third extra) t)))
 
-(defrule cast-source-type (and kw-type trimmed-name)
+;; type names may be "double quoted"
+(defrule cast-type-name (or double-quoted-namestring
+                            (and (alpha-char-p character)
+                                 (* (or (alpha-char-p character)
+                                        (digit-char-p character)))))
+  (:text t))
+
+(defrule cast-source-type (and kw-type cast-type-name)
   (:destructure (kw name) (declare (ignore kw)) (list :type name)))
 
-(defrule table-column-name (and namestring "." namestring)
+(defrule table-column-name (and maybe-quoted-namestring
+                                "."
+                                maybe-quoted-namestring)
   (:destructure (table-name dot column-name)
     (declare (ignore dot))
     (list :column (cons (text table-name) (text column-name)))))
@@ -33,6 +45,7 @@
   (:destructure (kw name) (declare (ignore kw)) name))
 
 (defrule cast-source-extra-or-guard (* (or cast-unsigned-guard
+                                           cast-signed-guard
                                            cast-default-guard
                                            cast-typemod-guard
                                            cast-source-extra))
@@ -44,6 +57,7 @@
     (bind (((name-and-type extra-and-guards) source)
            ((&key (default nil d-s-p)
                   (typemod nil t-s-p)
+                  (signed nil s-s-p)
                   (unsigned nil u-s-p)
                   (auto-increment nil ai-s-p)
                   (on-update-current-timestamp nil ouct-s-p)
@@ -52,16 +66,11 @@
       `(,@name-and-type
 		,@(when t-s-p (list :typemod typemod))
 		,@(when d-s-p (list :default default))
+		,@(when s-s-p (list :signed signed))
 		,@(when u-s-p (list :unsigned unsigned))
 		,@(when ai-s-p (list :auto-increment auto-increment))
                 ,@(when ouct-s-p (list :on-update-current-timestamp
                                        on-update-current-timestamp))))))
-
-(defrule cast-type-name (or double-quoted-namestring
-                            (and (alpha-char-p character)
-                                 (* (or (alpha-char-p character)
-                                        (digit-char-p character)))))
-  (:text t))
 
 (defrule cast-to-type (and kw-to cast-type-name ignore-whitespace)
   (:lambda (source)
@@ -139,7 +148,12 @@
       (string (intern (string-upcase fname) :pgloader.transforms))
       (symbol fname))))
 
-(defrule cast-function (and kw-using maybe-qualified-function-name)
+(defrule transform-expression sexp
+  (:lambda (sexp)
+    (eval sexp)))
+
+(defrule cast-function (and kw-using (or maybe-qualified-function-name
+                                         transform-expression))
   (:destructure (using symbol) (declare (ignore using)) symbol))
 
 (defun fix-target-type (source target)

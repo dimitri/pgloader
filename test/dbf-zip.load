@@ -1,5 +1,8 @@
 LOAD DBF
-    FROM http://www.insee.fr/fr/methodes/nomenclatures/cog/telechargement/2013/dbf/historiq2013.zip
+    -- FROM http://www.insee.fr/fr/methodes/nomenclatures/cog/telechargement/2013/dbf/historiq2013.zip
+    FROM https://www.insee.fr/fr/statistiques/fichier/2114819/france2016-dbf.zip
+    with encoding cp850
     INTO postgresql:///pgloader
+   TARGET TABLE dbf.france2016
     WITH truncate, create table
-     SET client_encoding TO 'latin1';
+  BEFORE LOAD DO $$ create schema if not exists dbf; $$;

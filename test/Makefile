@@ -20,6 +20,7 @@ REGRESS= allcols.load 		    \
          csv-nulls.load             \
          csv-temp.load              \
          csv-trim-extra-blanks.load \
+         csv-using-sexp.load        \
          csv.load 		    \
 	 copy.load                  \
 	 copy-hex.load              \
@@ -33,6 +34,13 @@ REGRESS= allcols.load 		    \
          serial.load 		    \
          udc.load 		    \
          xzero.load
+
+# Those are not included in the tests because CCL doesn't have the cp866
+# encoding, and then PostgreSQL 9.6 lacks "create schema if not exists".
+#
+# dbf-memo.load
+# dbf-31.load
+# dbf-8b.load
 
 PGLOADER ?= ../build/bin/pgloader
 PGSUPERUSER ?= postgres

@@ -1,11 +1,20 @@
 Summary:            extract, transform and load data into PostgreSQL
 Name:               pgloader
-Version:            3.3.2
+Version:            3.6.1
 Release:            22%{?dist}
 License:            The PostgreSQL Licence
 Group:              System Environment/Base
-Source:             %{name}-%{version}.tar.gz
 URL:                https://github.com/dimitri/pgloader
+Source0:            %{url}/archive/v%{version}.tar.gz
+
+BuildRequires: sbcl
+BuildRequires: freetds-devel
+BuildRequires: sqlite-devel
+BuildRequires: zlib-devel
+Requires: freetds
+Requires: sbcl
+Requires: zlib
+Requires: sqlite
 
 %description
 pgloader imports data from different kind of sources and COPY it into
@@ -22,7 +31,7 @@ PostgreSQL. In the MySQL case it's possible to edit CASTing rules from the
 pgloader command directly.
 
 %prep
-%setup -q -n %{name}
+%setup -q -n %{name}-%{version}
 
 %build
 %define debug_package %{nil}
@@ -35,11 +44,17 @@ mkdir -p $RPM_BUILD_ROOT/etc/prelink.conf.d
 echo '-b /usr/bin/pgloader' > $RPM_BUILD_ROOT/etc/prelink.conf.d/%{name}.conf
 
 %files
-%doc README.md pgloader.1.md
+%doc README.md
 %{_bindir}/*
 /etc/prelink.conf.d/%{name}.conf
 
 %changelog
+* Tue Sep 24 2019 Phil Ingram <pingram.au@gmail.com> - 3.6.1
+- Release 3.6.1
+- Use Requires and BuildRequires
+- Variablise Source0
+- Fix Files
+
 * Thu Jan 22 2015 Dimitri Fontaine <dimitri@2ndQuadrant.fr> - 3.2.1.preview-22
 - Release 3.2.1.preview
 

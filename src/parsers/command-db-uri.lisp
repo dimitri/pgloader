@@ -55,6 +55,10 @@
   (:lambda (ipv4)
     (list :ipv4 (text ipv4))))
 
+(defrule ipv6 (and #\[ (+ (or (digit-char-p character) ":")) #\])
+  (:lambda (ipv6)
+    (list :ipv6 (text ipv6))))
+
 ;;; socket directory is unix only, so we can forbid ":" on the parsing
 (defun socket-directory-character-p (char)
   (or (member char #.(quote (coerce "/.-_" 'list)))
@@ -66,12 +70,41 @@
 		(declare (ignore unix))
     (list :unix (when socket-directory (text socket-directory)))))
 
-(defrule network-name (and namestring (* (and "." namestring)))
+;;;
+;;; See https://en.wikipedia.org/wiki/Hostname#Restrictions_on_valid_hostnames
+;;;
+;;; The characters allowed in labels are a subset of the ASCII character
+;;; set, consisting of characters a through z, A through Z, digits 0 through
+;;; 9, and hyphen.
+;;;
+;;; This rule is known as the LDH rule (letters, digits, hyphen).
+;;;
+;;;  - Domain names are interpreted in case-independent manner.
+;;;  - Labels may not start or end with a hyphen.
+;;;  - An additional rule requires that top-level domain names should not be
+;;;    all-numeric.
+;;;
+(defrule network-label-letters-digit (or (alpha-char-p character)
+                                         (digit-char-p character)))
+
+(defrule network-label-with-hyphen
+    (and network-label-letters-digit
+         (+ (or (and #\- network-label-letters-digit)
+                network-label-letters-digit)))
+  (:text t))
+
+(defrule network-label-no-hyphen (+ network-label-letters-digit)
+  (:text t))
+
+(defrule network-label (or network-label-with-hyphen network-label-no-hyphen)
+  (:identity t))
+
+(defrule network-hostname (and network-label (* (and "." network-label)))
   (:lambda (name)
     (let ((host (text name)))
       (list :host (unless (string= "" host) host)))))
 
-(defrule hostname (or ipv4 socket-directory network-name)
+(defrule hostname (or ipv4 ipv6 socket-directory network-hostname)
   (:identity t))
 
 (defun process-hostname (hostname)
@@ -79,6 +112,7 @@
     (ecase type
       (:unix  (if name (cons :unix name) :unix))
       (:ipv4  name)
+      (:ipv6  name)
       (:host  name))))
 
 (defrule dsn-hostname (and (? hostname) (? dsn-port))
@@ -87,9 +121,10 @@
       (append (list :host (when host (process-hostname host)))
               port))))
 
-(defrule dsn-dbname (and "/" (? (* (or (alpha-char-p character)
-                                       (digit-char-p character)
-                                       punct))))
+(defrule dsn-dbname (and "/" (? (or single-quoted-string
+                                    (* (or (alpha-char-p character)
+                                           (digit-char-p character)
+                                           punct)))))
   (:lambda (dbn)
     (list :dbname (text (second dbn)))))
 

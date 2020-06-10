@@ -1,0 +1,20 @@
+
+Database: dbase_31.dbf
+Type: (31) Visual FoxPro with AutoIncrement field
+Memo File: false
+Records: 77
+
+Fields:
+Name             Type       Length     Decimal
+------------------------------------------------------------------------------
+PRODUCTID        I          4          0         
+PRODUCTNAM       C          40         0         
+SUPPLIERID       I          4          0         
+CATEGORYID       I          4          0         
+QUANTITYPE       C          20         0         
+UNITPRICE        Y          8          4         
+UNITSINSTO       I          4          0         
+UNITSONORD       I          4          0         
+REORDERLEV       I          4          0         
+DISCONTINU       L          1          0         
+_NullFlags       0          1          0         

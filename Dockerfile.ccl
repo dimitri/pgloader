@@ -14,7 +14,6 @@ FROM debian:stable-slim as builder
         make \
         openssl \
         patch \
-        sbcl \
         time \
         unzip \
         wget \
@@ -30,7 +29,7 @@ FROM debian:stable-slim as builder
 
   RUN mkdir -p /opt/src/pgloader/build/bin \
       && cd /opt/src/pgloader \
-      && make CL=ccl DYNSIZE=256
+      && make CL=ccl DYNSIZE=256 clones save
 
 FROM debian:stable-slim
 
@@ -40,6 +39,7 @@ FROM debian:stable-slim
         freetds-dev \
         gawk \
         libsqlite3-dev \
+        libssl1.1 \
         libzip-dev \
         make \
         sbcl \

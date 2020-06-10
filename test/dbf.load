@@ -6,4 +6,7 @@
 LOAD DBF
     FROM data/reg2013.dbf with encoding cp850
     INTO postgresql:///pgloader?public.reg2013
-    WITH truncate, create table, disable triggers;
+    WITH truncate, create table, disable triggers
+
+    CAST column "reg2013"."region" to integer,
+         column "reg2013".tncc to smallint;

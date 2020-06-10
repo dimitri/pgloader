@@ -148,7 +148,7 @@
    similar enough that we may continue with the migration."
   (let ((source-type-name (get-type-name source-column))
         (target-type-name (column-type-name target-column)))
-    (or (string= source-type-name target-type-name)
+    (or (string-equal source-type-name target-type-name)
         (member target-type-name (cdr (assoc source-type-name *type-name-mapping*
                                              :test #'string=))
-                :test #'string=))))
+                :test #'string-equal))))

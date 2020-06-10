@@ -81,4 +81,4 @@
                             :toplevel #'cl-user::pgloader-image-main
                             :executable t
                             :save-runtime-options t
-                            :compression t))
+                            :compression (uiop:featurep :sb-core-compression)))

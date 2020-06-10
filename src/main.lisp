@@ -225,6 +225,11 @@
             (let ((*self-upgraded-already* t))
               (main argv))))
 
+        ;; --list-encodings, -E
+	(when list-encodings
+	  (show-encodings)
+	  (uiop:quit +os-code-success+))
+
 	;; First care about the root directory where pgloader is supposed to
 	;; output its data logs and reject files
         (let ((root-dir-truename (or (probe-file root-dir)
@@ -267,10 +272,6 @@
         (when (null arguments)
           (usage argv)
           (uiop:quit +os-code-error-usage+))
-
-	(when list-encodings
-	  (show-encodings)
-	  (uiop:quit +os-code-success+))
 
 	(when upgrade-config
 	  (loop for filename in arguments

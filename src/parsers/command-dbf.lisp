@@ -57,7 +57,9 @@
 
 (defrule load-dbf-optional-clauses (* (or dbf-options
                                           gucs
+                                          casts
                                           before-load
+                                          after-schema
                                           after-load))
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
@@ -65,9 +67,8 @@
 ;;; dbf defaults to ascii rather than utf-8
 (defrule dbf-file-encoding (? (and kw-with kw-encoding encoding))
   (:lambda (enc)
-    (if enc
-        (bind (((_ _ encoding) enc)) encoding)
-	:ascii)))
+    (when enc
+      (bind (((_ _ encoding) enc)) encoding))))
 
 (defrule load-dbf-command (and dbf-source
                                (? dbf-file-encoding)
@@ -92,11 +93,14 @@
 (defun lisp-code-for-loading-from-dbf (dbf-db-conn pg-db-conn
                                        &key
                                          target-table-name
-                                         (encoding :ascii)
-                                         gucs before after options
+                                         encoding
+                                         gucs casts options
+                                         before after-schema after
                                          &allow-other-keys)
   `(lambda ()
-     (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
+     (let* ((*default-cast-rules* ',*db3-default-cast-rules*)
+            (*cast-rules*         ',casts)
+            ,@(pgsql-connection-bindings pg-db-conn gucs)
             ,@(batch-control-bindings options)
               ,@(identifier-case-binding options)
               (on-error-stop (getf ',options :on-error-stop))
@@ -114,6 +118,7 @@
 
        (copy-database source
                       ,@(remove-batch-control-option options)
+                      :after-schema ',after-schema
                       :on-error-stop on-error-stop
                       :create-indexes nil
                       :foreign-keys nil
@@ -124,7 +129,8 @@
 (defrule load-dbf-file load-dbf-command
   (:lambda (command)
     (bind (((source encoding pg-db-uri table-name
-                    &key options gucs before after) command))
+                    &key options gucs casts before after-schema after)
+            command))
       (cond (*dry-run*
              (lisp-code-for-dbf-dry-run source pg-db-uri))
             (t
@@ -132,6 +138,8 @@
                                              :target-table-name table-name
                                              :encoding encoding
                                              :gucs gucs
+                                             :casts casts
                                              :before before
+                                             :after-schema after-schema
                                              :after after
                                              :options options))))))

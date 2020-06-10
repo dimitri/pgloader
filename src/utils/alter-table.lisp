@@ -65,7 +65,10 @@
   "Alter the schema of TABLE, set SCHEMA-NAME instead."
   (let* ((catalog (schema-catalog (table-schema table)))
          (schema  (maybe-add-schema catalog schema-name)))
-    (setf (table-schema table) schema)))
+    (setf (table-schema table) schema)
+
+    ;; this voids any index definition extracted from the source database...
+    (reset-sql-definitions table)))
 
 (defun alter-table-rename (table new-name)
   "Alter the name of TABLE to NEW-NAME."
@@ -130,4 +133,26 @@
 
 (defun alter-schema-rename (schema new-name)
   "Alter the name fo the given schema to new-name."
-  (setf (schema-name schema) new-name))
+  (setf (schema-name schema) new-name)
+
+  ;; this voids any index definition extracted from the source database...
+  (loop :for table :in (schema-table-list schema)
+     :do (reset-sql-definitions table)))
+
+
+
+;;;
+;;; When a table targets a new schema, we need to refrain from using its
+;;; index SQL definition when we got it from the source system, such as with
+;;; pg_get_indexdef() on PostgreSQL.
+;;;
+(defun reset-sql-definitions (table)
+  "Reset source database given wholesale SQL definition for table's indexes
+   and foreign keys."
+  (loop :for index :in (table-index-list table)
+     :do (when (index-sql index)
+           (setf (index-sql index) nil)))
+
+  (loop :for fkey :in (table-fkey-list table)
+     :do (when (fkey-condef fkey)
+           (setf (fkey-condef fkey) nil))))

@@ -31,6 +31,7 @@
                           option-create-tables
                           option-create-schemas
                           option-create-indexes
+			  option-index-names
                           option-reset-sequences
 			  option-foreign-keys
                           option-encoding
@@ -86,6 +87,7 @@
                                             materialize-views
                                             distribute-commands
                                             before-load
+                                            after-schema
                                             after-load
                                             including-like-in-schema
                                             excluding-like-in-schema))
@@ -141,7 +143,7 @@
 (defun lisp-code-for-loading-from-mssql (ms-db-conn pg-db-conn
                                          &key
                                            gucs mssql-gucs
-                                           casts before after
+                                           casts before after after-schema
                                            options distribute views
                                            alter-schema alter-table
                                            including excluding
@@ -170,6 +172,7 @@
                       :excluding ',excluding
                       :alter-schema ',alter-schema
                       :alter-table ',alter-table
+                      :after-schema ',after-schema
                       :materialize-views ',views
                       :distribute ',distribute
                       :set-table-oids t
@@ -182,7 +185,7 @@
   (:lambda (source)
     (bind (((ms-db-uri pg-db-uri
                        &key
-                       gucs mssql-gucs casts views before after
+                       gucs mssql-gucs casts views before after-schema after
                        alter-schema alter-table distribute
                        including excluding options)
             source))
@@ -195,6 +198,7 @@
                                                :casts casts
                                                :views views
                                                :before before
+                                               :after-schema after-schema
                                                :after after
                                                :alter-schema alter-schema
                                                :alter-table alter-table

@@ -17,11 +17,23 @@
 (defrule sexp-symbol (and (symbol-first-character-p character)
 			  (* (symbol-character-p character)))
   (:lambda (schars)
-    (pgloader.transforms:intern-symbol
-     (text schars)
-     '(("nil"       . cl:nil)
-       ("precision" . pgloader.transforms::precision)
-       ("scale"     . pgloader.transforms::scale)))))
+    (if (char= #\: (car schars))
+        (read-from-string (text schars))
+        (pgloader.transforms:intern-symbol
+         (text schars)
+         '(("nil"       . cl:nil)
+           ("cl:t"      . cl:t)
+           ("precision" . pgloader.transforms::precision)
+           ("scale"     . pgloader.transforms::scale)
+           ("split-sequence" . split-sequence:split-sequence))))))
+
+(defrule sexp-char (and #\# #\\
+                        (alpha-char-p character)
+                        (+ (or (alpha-char-p character)
+                               (digit-char-p character)
+                               #\_)))
+  (:lambda (char-name)
+    (read-from-string (text char-name))))
 
 (defrule sexp-string-char (or (not-doublequote character) (and #\\ #\")))
 
@@ -40,7 +52,7 @@
     (cons car cdr)))
 
 (defrule sexp-atom (and ignore-whitespace
-			(or sexp-string sexp-integer sexp-symbol))
+			(or sexp-char sexp-string sexp-integer sexp-symbol))
   (:lambda (atom)
     (bind (((_ a) atom)) a)))
 

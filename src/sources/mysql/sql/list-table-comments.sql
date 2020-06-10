@@ -10,6 +10,5 @@
       FROM information_schema.tables
     WHERE     table_schema = '~a'
           and table_type = 'BASE TABLE'
-         ~:[~*~;and table_name in (~{'~a'~^,~})~]
          ~:[~*~;and (~{table_name ~a~^ or ~})~]
          ~:[~*~;and (~{table_name ~a~^ and ~})~];

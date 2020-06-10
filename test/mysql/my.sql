@@ -119,11 +119,71 @@ CREATE TABLE `domain_filter` (
 ) ENGINE=InnoDB DEFAULT CHARSET=ascii;
 
 /*
+ * https://github.com/dimitri/pgloader/issues/904
+ */
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `encryption_key_canary` (
+  `encrypted_value` blob,
+  `nonce` tinyblob,
+  `uuid` binary(16) NOT NULL,
+  `salt` tinyblob,
+  PRIMARY KEY (`uuid`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `encryption_key_canary`
+--
+
+LOCK TABLES `encryption_key_canary` WRITE;
+/*!40000 ALTER TABLE `encryption_key_canary` DISABLE KEYS */;
+INSERT INTO `encryption_key_canary` VALUES (
+  0x1F36F183D7EE47C71453850B756945C16D9D711B2F0594E5D5E54D1EC94E081716AB8642AA60F84B50F69454D098122B7136A0DEB3AF200C2C5C7500BDFA0BD9689CCBF10A76972374882B304F7F15A227E815989FC87EEB72612396F569C662E72A2A7555E654605A3B83C1C753297832E52C5961E81EBC60DC43D929ABAB8CB14601DEFED121604CEB26210AB6D724,
+  0x044AA707DF17021E55E9A1E4,
+  0x88C2982F428A46B7B71B210618AE1658,
+  0xAE7F18028E7984FB5630F7D23FB77999C6CA7CF5355EF0194F3F16521EA7EC503F566229ED8DC5EFBBE9C12BA491BDDC939FE60FA31FB9AF123B2B4D5B7A61FE
+);
+/*!40000 ALTER TABLE `encryption_key_canary` ENABLE KEYS */;
+UNLOCK TABLES;
+
+
+/*
  * https://github.com/dimitri/pgloader/issues/703
  */
 create table `CamelCase` (
  `validSizes` varchar(12)
 );
+
+/*
+ * https://github.com/dimitri/pgloader/issues/943
+ */
+CREATE TABLE `countdata_template`
+(
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `data` int(11) DEFAULT NULL,
+  `date_time` datetime DEFAULT NULL,
+  `gmt_offset` smallint(6) NOT NULL DEFAULT '0' COMMENT 'Offset GMT en minute',
+  `measurement_id` int(11) NOT NULL,
+  `flags` bit(16) NOT NULL DEFAULT b'0' COMMENT 'mot binaire : b1000=validé, b10000000=supprimé',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ak_countdata_idx` (`measurement_id`,`date_time`,`gmt_offset`)
+)
+ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='données de comptage';
+
+INSERT INTO `countdata_template`(`date_time`, `measurement_id`, `flags`)
+     VALUES (now(), 1, b'1000'),
+            (now(), 2, b'10000000');
+
+
+/*
+ * https://github.com/dimitri/pgloader/issues/1102
+ */
+CREATE TABLE `uw_defined_meaning` (
+  `defined_meaning_id` int(8) unsigned NOT NULL,
+  `expression_id` int(10) NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 
 CREATE TABLE `fcm_batches` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,

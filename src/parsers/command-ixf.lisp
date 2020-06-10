@@ -59,6 +59,7 @@
 (defrule load-ixf-optional-clauses (* (or ixf-options
                                           gucs
                                           before-load
+                                          after-schema
                                           after-load))
   (:lambda (clauses-list)
     (alexandria:alist-plist clauses-list)))
@@ -76,8 +77,8 @@
 
 (defun lisp-code-for-loading-from-ixf (ixf-db-conn pg-db-conn
                                        &key
-                                         target-table-name
-                                         gucs before after options
+                                         target-table-name gucs options
+                                         before after-schema after
                                          &allow-other-keys)
   `(lambda ()
      (let* (,@(pgsql-connection-bindings pg-db-conn gucs)
@@ -101,6 +102,7 @@
                          options
                          :extras '(:timezone))
                       :on-error-stop on-error-stop
+                      :after-schema ',after-schema
                       :foreign-keys nil
                       :reset-sequences nil)
 
@@ -109,7 +111,8 @@
 (defrule load-ixf-file load-ixf-command
   (:lambda (command)
     (bind (((source pg-db-uri table-name
-                    &key options gucs before after) command))
+                    &key options gucs before after-schema after)
+            command))
       (cond (*dry-run*
              (lisp-code-for-csv-dry-run pg-db-uri))
             (t
@@ -117,5 +120,6 @@
                                              :target-table-name table-name
                                              :gucs gucs
                                              :before before
+                                             :after-schema after-schema
                                              :after after
                                              :options options))))))
