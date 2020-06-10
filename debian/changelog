@@ -1,5 +1,6 @@
-pgloader (3.6.1-2) UNRELEASED; urgency=medium
+pgloader (3.6.2-1) UNRELEASED; urgency=medium
 
+  * New upstream version.
   * debian/tests/ssl: Add --debug to get backtraces.
   * debian/rules: Sync loaded systems with Makefile.
 
