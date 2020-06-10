@@ -45,14 +45,14 @@ Build-Depends:
  cl-uuid,
  cl-yason,
  cl-zs3,
- debhelper (>= 9.0.0),
+ debhelper-compat (= 13),
  gawk,
  help2man,
  python3-sphinx-rtd-theme,
  python3-sphinx,
  sbcl (>= 1.1.13),
  tzdata,
-Standards-Version: 4.1.4
+Standards-Version: 4.5.0
 Homepage: https://github.com/dimitri/pgloader
 Vcs-Git: https://github.com/dimitri/pgloader.git
 Vcs-Browser: https://github.com/dimitri/pgloader
