@@ -1,4 +1,4 @@
-FROM debian:stable-slim as builder
+FROM debian:bullseye-slim as builder
 
   RUN apt-get update \
       && apt-get install -y --no-install-recommends \
@@ -28,7 +28,7 @@ FROM debian:stable-slim as builder
       && cd /opt/src/pgloader \
       && make clones save
 
-FROM debian:stable-slim
+FROM debian:bullseye-slim
 
   RUN apt-get update \
       && apt-get install -y --no-install-recommends \
