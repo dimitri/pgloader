@@ -41,7 +41,11 @@ override_dh_auto_build-arch:
 		--entry pgloader:main						\
 		--dynamic-space-size $(SIZE)					\
 		--compress-core							\
-		--output build/bin/pgloader
+		--logfile buildapp.log						\
+		--output build/bin/pgloader					\
+			|| echo $$? > buildapp.fail
+	cat buildapp.log
+	test ! -f buildapp.fail
 	$(MAKE) -C docs html
 
 override_dh_auto_test:

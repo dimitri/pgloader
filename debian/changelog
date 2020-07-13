@@ -3,6 +3,7 @@ pgloader (3.6.2-1) UNRELEASED; urgency=medium
   * New upstream version.
   * debian/tests/ssl: Add --debug to get backtraces.
   * debian/rules: Sync loaded systems with Makefile.
+  * debian/rules: Print actual compiler log.
   * Bump required cl-db3 version to 20200212.
   * DH 13.
 
