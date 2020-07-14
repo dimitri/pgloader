@@ -51,8 +51,8 @@ override_dh_auto_build-arch:
 override_dh_auto_test:
 	# do nothing
 
-override_dh_strip:
-	# do nothing
+override_dh_strip override_dh_dwz:
+	# do nothing, sbcl doesn't write any debug info
 
 override_dh_installman-arch:
 	mkdir -p debian/pgloader/usr/share/man/man1/

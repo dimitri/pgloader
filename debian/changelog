@@ -4,6 +4,7 @@ pgloader (3.6.2-1) UNRELEASED; urgency=medium
   * debian/tests/ssl: Add --debug to get backtraces.
   * debian/rules: Sync loaded systems with Makefile.
   * debian/rules: Print actual compiler log.
+  * debian/rules: Skip dh_dwz like dh_strip as it fails on buster.
   * Bump required cl-db3 version to 20200212.
   * DH 13.
 
