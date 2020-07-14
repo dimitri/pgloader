@@ -1,4 +1,4 @@
-pgloader (3.6.2-1) UNRELEASED; urgency=medium
+pgloader (3.6.2-1) unstable; urgency=medium
 
   * New upstream version.
   * debian/tests/ssl: Add --debug to get backtraces.
@@ -10,7 +10,7 @@ pgloader (3.6.2-1) UNRELEASED; urgency=medium
   * Note that we need cl-csv 20180712 or later.
   * DH 13.
 
- -- Christoph Berg <myon@debian.org>  Mon, 21 Jan 2019 22:02:50 +0100
+ -- Christoph Berg <myon@debian.org>  Tue, 14 Jul 2020 17:02:30 +0200
 
 pgloader (3.6.1-1) unstable; urgency=medium
 
