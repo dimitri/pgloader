@@ -13,7 +13,7 @@ Build-Depends:
  cl-bordeaux-threads (>= 0.8.3),
  cl-cffi (>= 1:0.12.0),
  cl-command-line-arguments,
- cl-csv,
+ cl-csv (>= 20180712),
  cl-db3 (>= 20200212),
  cl-drakma,
  cl-esrap,
