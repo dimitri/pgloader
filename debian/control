@@ -13,8 +13,8 @@ Build-Depends:
  cl-bordeaux-threads (>= 0.8.3),
  cl-cffi (>= 1:0.12.0),
  cl-command-line-arguments,
- cl-csv,
- cl-db3,
+ cl-csv (>= 20180712),
+ cl-db3 (>= 20200212),
  cl-drakma,
  cl-esrap,
  cl-fad,
@@ -29,6 +29,7 @@ Build-Depends:
  cl-metabang-bind,
  cl-mssql,
  cl-mustache,
+ cl-plus-ssl (>= 20190204),
  cl-postmodern,
  cl-ppcre,
  cl-py-configparser,
@@ -45,14 +46,14 @@ Build-Depends:
  cl-uuid,
  cl-yason,
  cl-zs3,
- debhelper (>= 9.0.0),
+ debhelper-compat (= 13),
  gawk,
  help2man,
  python3-sphinx-rtd-theme,
  python3-sphinx,
  sbcl (>= 1.1.13),
  tzdata,
-Standards-Version: 4.1.4
+Standards-Version: 4.5.0
 Homepage: https://github.com/dimitri/pgloader
 Vcs-Git: https://github.com/dimitri/pgloader.git
 Vcs-Browser: https://github.com/dimitri/pgloader
@@ -87,7 +88,7 @@ Depends:
  cl-cffi (>= 1:0.12.0),
  cl-command-line-arguments,
  cl-csv,
- cl-db3,
+ cl-db3 (>= 20200212),
  cl-drakma,
  cl-esrap,
  cl-fad,

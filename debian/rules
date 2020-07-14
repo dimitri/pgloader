@@ -33,19 +33,26 @@ override_dh_auto_build-arch:
 		--asdf-tree /usr/share/common-lisp/systems			\
 		--load-system asdf-finalizers					\
 		--load-system asdf-system-connections				\
-		--load-system pgloader						\
+		--load-system cffi						\
+		--load-system cl+ssl						\
+		--load-system mssql						\
 		--load src/hooks.lisp						\
+		--load-system pgloader						\
 		--entry pgloader:main						\
 		--dynamic-space-size $(SIZE)					\
 		--compress-core							\
-		--output build/bin/pgloader
+		--logfile buildapp.log						\
+		--output build/bin/pgloader					\
+			|| echo $$? > buildapp.fail
+	cat buildapp.log
+	test ! -f buildapp.fail
 	$(MAKE) -C docs html
 
 override_dh_auto_test:
 	# do nothing
 
-override_dh_strip:
-	# do nothing
+override_dh_strip override_dh_dwz:
+	# do nothing, sbcl doesn't write any debug info
 
 override_dh_installman-arch:
 	mkdir -p debian/pgloader/usr/share/man/man1/

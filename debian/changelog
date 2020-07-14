@@ -1,3 +1,17 @@
+pgloader (3.6.2-1) unstable; urgency=medium
+
+  * New upstream version.
+  * debian/tests/ssl: Add --debug to get backtraces.
+  * debian/rules: Sync loaded systems with Makefile.
+  * debian/rules: Print actual compiler log.
+  * debian/rules: Skip dh_dwz like dh_strip as it fails on buster.
+  * Bump required cl-db3 version to 20200212.
+  * Note that we need cl-plus-ssl 20190204 or later.
+  * Note that we need cl-csv 20180712 or later.
+  * DH 13.
+
+ -- Christoph Berg <myon@debian.org>  Tue, 14 Jul 2020 17:02:30 +0200
+
 pgloader (3.6.1-1) unstable; urgency=medium
 
   * New upstream version.
