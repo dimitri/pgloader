@@ -6,6 +6,7 @@ pgloader (3.6.2-1) UNRELEASED; urgency=medium
   * debian/rules: Print actual compiler log.
   * debian/rules: Skip dh_dwz like dh_strip as it fails on buster.
   * Bump required cl-db3 version to 20200212.
+  * Note that we need cl-plus-ssl 20180328 or later.
   * DH 13.
 
  -- Christoph Berg <myon@debian.org>  Mon, 21 Jan 2019 22:02:50 +0100
