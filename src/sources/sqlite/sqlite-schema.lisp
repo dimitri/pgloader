@@ -10,9 +10,21 @@
 ;;;
 ;;; SQLite schema introspection facilities
 ;;;
+(defun sqlite-pragma-encoding (db)
+  (handler-case
+      (sqlite:execute-single db "pragma encoding;")
+    (sqlite:sqlite-error (e)
+      (if (eq :busy (sqlite:sqlite-error-code e))
+          ;; retry when "database is locked" for being BUSY
+          (progn
+            (sleep 0.1)
+            (sqlite-pragma-encoding db))
+          ;; fail by re-signaling the error
+          (error e)))))
+
 (defun sqlite-encoding (db)
   "Return a BABEL suitable encoding for the SQLite db handle."
-  (let ((encoding-string (sqlite:execute-single db "pragma encoding;")))
+  (let ((encoding-string (sqlite-pragma-encoding db)))
     (cond ((string-equal encoding-string "UTF-8")    :utf-8)
           ((string-equal encoding-string "UTF-16")   :utf-16)
           ((string-equal encoding-string "UTF-16le") :utf-16le)
