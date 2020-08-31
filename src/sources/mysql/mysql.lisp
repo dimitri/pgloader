@@ -32,7 +32,7 @@
           (let* ((col (mysql-column-name
                        (nth (position coldef (table-column-list (target mysql)))
                             (fields mysql))))
-                 (sql (format nil "select min(`~a`), max(`~a`) from `~a`"
+                 (sql (format nil "select min(`~a`), max(`~a`) + 1 from `~a`"
                               col col (table-source-name (source mysql)))))
             (destructuring-bind (min max)
                 (let ((result (first (mysql-query sql))))
