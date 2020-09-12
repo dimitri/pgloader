@@ -98,8 +98,10 @@
                  varbinary-to-string
                  base64-decode
 		 hex-to-dec
+          substr
                  byte-vector-to-hexstring
-
+                 ;; progress 4gl specifics
+                 progress-logical-to-boolean 
                  ;; db3 specifics
                  logical-to-boolean
 		 db3-trim-string
@@ -111,6 +113,14 @@
 ;;;
 ;;; Transformation functions
 ;;;
+
+(defun substr(value start len)
+    (let ((l  (length value)))
+    (if (= 0 l) ""
+        (subseq value (min start (- l 1)  ) (min len l))
+    )
+    )
+)
 (defun zero-dates-to-null (date-string)
   "MySQL accepts '0000-00-00' as a date, we want NIL (SQL NULL) instead."
   (cond
@@ -500,6 +510,9 @@
   "Convert a DB3 logical value to a PostgreSQL boolean."
   (if (member value '("?" " ") :test #'string=) nil value))
 
+(defun progress-logical-to-boolean (value)
+    (if (string= value "yes") "1" (if (string= value "no") "0" nil))
+)
 (defun db3-trim-string (value)
   "DB3 Strings a right padded with spaces, fix that."
   (string-right-trim '(#\Space) value))
