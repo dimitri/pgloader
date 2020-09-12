@@ -98,10 +98,11 @@
                  varbinary-to-string
                  base64-decode
 		 hex-to-dec
-          substr
                  byte-vector-to-hexstring
+
                  ;; progress 4gl specifics
                  progress-logical-to-boolean 
+
                  ;; db3 specifics
                  logical-to-boolean
 		 db3-trim-string
@@ -113,14 +114,6 @@
 ;;;
 ;;; Transformation functions
 ;;;
-
-(defun substr(value start len)
-    (let ((l  (length value)))
-    (if (= 0 l) ""
-        (subseq value (min start (- l 1)  ) (min len l))
-    )
-    )
-)
 (defun zero-dates-to-null (date-string)
   "MySQL accepts '0000-00-00' as a date, we want NIL (SQL NULL) instead."
   (cond
