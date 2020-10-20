@@ -243,10 +243,10 @@
                                   (fkey-foreign-table fkey))
                        :collect (format-create-sql fkey))
             :append (loop :for index :in (table-index-list table)
-                       :do (loop :for fkey :in (index-fk-deps index)
-                              :for sql := (format-create-sql fkey)
-                              :do (log-message :debug "EXTRA FK DEPS! ~a" sql)
-                              :collect sql)))))
+                       :append (loop :for fkey :in (index-fk-deps index)
+                                  :for sql := (format-create-sql fkey)
+                                  :do (log-message :debug "EXTRA FK DEPS! ~a" sql)
+                                  :collect sql)))))
     ;; and now execute our list
     (pgsql-execute-with-timing section label fk-sql-list :log-level log-level)))
 
