@@ -8,10 +8,12 @@ env:
     - LISP=ccl  PGVERSION=10
     - LISP=ccl  PGVERSION=11
     - LISP=ccl  PGVERSION=12
+    - LISP=ccl  PGVERSION=13
     - LISP=sbcl PGVERSION=9.6
     - LISP=sbcl PGVERSION=10
     - LISP=sbcl PGVERSION=11
     - LISP=sbcl PGVERSION=12
+    - LISP=sbcl PGVERSION=13
 
 install:
   - ./.travis.sh lisp_install
