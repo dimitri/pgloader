@@ -67,7 +67,7 @@
                           :use-result-as-rows t
                           :use-result-as-read t
                           :section :pre)
-    (with-pgsql-transaction (:pgconn (source-db pgsql))
+    (with-pgsql-transaction-read (:pgconn (source-db pgsql))
       (let ((variant   (pgconn-variant (source-db pgsql)))
             (pgversion (pgconn-major-version (source-db pgsql))))
         ;;
@@ -124,5 +124,5 @@
    need to clean-up any view created in the source PostgreSQL connection for
    the migration purpose."
   (when materialize-views
-    (with-pgsql-transaction (:pgconn  (source-db pgsql))
+    (with-pgsql-transaction-read (:pgconn (source-db pgsql))
       (drop-matviews materialize-views pgsql))))
