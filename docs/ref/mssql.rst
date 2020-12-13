@@ -193,7 +193,7 @@ Numbers::
 Texts::
 
   type char      to text drop typemod
-  type nchat     to text drop typemod
+  type nchar     to text drop typemod
   type varchar   to text drop typemod
   type nvarchar  to text drop typemod
   type xml       to text drop typemod
