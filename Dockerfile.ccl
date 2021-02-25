@@ -27,9 +27,11 @@ FROM debian:stable-slim as builder
 
   COPY ./ /opt/src/pgloader
 
+ARG DYNSIZE=256
+
   RUN mkdir -p /opt/src/pgloader/build/bin \
       && cd /opt/src/pgloader \
-      && make CL=ccl DYNSIZE=256 clones save
+      && make CL=ccl DYNSIZE=$DYNSIZE clones save
 
 FROM debian:stable-slim
 
