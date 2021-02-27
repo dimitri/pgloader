@@ -28,7 +28,7 @@
         {
           "uses": "40ants/setup-lisp@v1",
           "with": {
-            "asdf-system": "pgloader-ci"
+            "asdf-system": "pgloader"
           }
         },
         {
@@ -38,7 +38,7 @@
         },
         {
           "name": "Run Linter",
-          "run": "qlot exec sblint pgloader-ci.asd pgloader.asd",
+          "run": "qlot exec sblint pgloader.asd",
           "shell": "bash"
         }
       ]
@@ -66,14 +66,14 @@
         {
           "uses": "40ants/setup-lisp@v1",
           "with": {
-            "asdf-system": "pgloader-ci",
+            "asdf-system": "pgloader",
             "qlfile-template": "{% ifequal quicklisp_dist \"ultralisp\" %}\ndist ultralisp http://dist.ultralisp.org\n{% endifequal %}\n\ngithub mgl-pax svetlyak40wt/mgl-pax :branch mgl-pax-minimal"
           }
         },
         {
           "uses": "40ants/run-tests@v2",
           "with": {
-            "asdf-system": "pgloader-ci",
+            "asdf-system": "pgloader",
             "coveralls-token": "\n${{ matrix.lisp == 'sbcl-bin' &&\n    matrix.os == 'ubuntu-latest' &&\n    matrix.quicklisp-dist == 'ultralisp' &&\n    secrets.github_token }}"
           }
         }

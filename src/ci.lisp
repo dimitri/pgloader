@@ -15,7 +15,10 @@
   :by-cron "0 10 * * 1"
   :on-pull-request t
   :cache t
-  :jobs ((linter)
+  :jobs ((linter
+          ;; When CI workflow defined in a separate non package-inferred
+          ;; package, we have to specify system to test manually.
+          :asd-system "pgloader")
          (run-tests
           :os ("ubuntu-latest"
                "macos-latest")
@@ -26,7 +29,9 @@
                  ;; "ccl-bin"
                  ;; "allegro"
                  )
-          
+
+
+          :asd-system "pgloader"
           :coverage t
           :qlfile "{% ifequal quicklisp_dist \"ultralisp\" %}
                    dist ultralisp http://dist.ultralisp.org
