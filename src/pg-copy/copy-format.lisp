@@ -106,7 +106,7 @@
                    (if fun (funcall fun col) col))
          :finally (return row))
     (condition (e)
-      (log-message :error "Error while formating a row from ~s:"
+      (log-message :error "Error while formatting a row from ~s:"
                    (format-table-name (target copy)))
       (log-message :error "~a" e)
       (update-stats :data (target copy) :errs 1)
