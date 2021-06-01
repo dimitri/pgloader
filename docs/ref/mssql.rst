@@ -31,7 +31,7 @@ MS SQL Database Migration Options: WITH
 ---------------------------------------
 
 When loading from a `MS SQL` database, the same options as when loading a
-`MS SQL` database are supported. Please refer to the MS SQL section. The
+`MYSQL` database are supported. Please refer to the MYSQL section. The
 following options are added:
 
   - *create schemas*
