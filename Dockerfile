@@ -44,4 +44,6 @@ FROM debian:stable-slim
 
   COPY --from=builder /opt/src/pgloader/build/bin/pgloader /usr/local/bin
 
+  ADD conf/freetds.conf /etc/freetds/freetds.conf
+
   LABEL maintainer="Dimitri Fontaine <dim@tapoueh.org>"
