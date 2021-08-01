@@ -46,7 +46,7 @@ following special values:
 
     Reads the data from the standard input stream.
 
-  - *FILENAMES MATCHING*
+  - *FILENAME MATCHING*
 
     The whole *matching* clause must follow the following rule::
 
