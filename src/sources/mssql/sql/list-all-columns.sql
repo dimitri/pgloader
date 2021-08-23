@@ -45,6 +45,6 @@
    where     c.TABLE_CATALOG = '~a'
          and t.TABLE_TYPE = '~a'
          ~:[~*~;and (~{~a~^~&~10t or ~})~]
-         ~:[~*~;and (~{~a~^~&~10t and ~})~]
+         ~:[~*~;and (~{~a~^~&~10t or ~})~]
 
 order by c.table_schema, c.table_name, c.ordinal_position;
