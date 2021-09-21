@@ -568,7 +568,7 @@ AFTER CREATE SCHEMA DO
 ^^^^^^^^^^^^^^^^^^^^^^
 
 Same format as *BEFORE LOAD DO*, the dollar-quoted queries found in that
-section are executed once the schema has been craeted by pgloader, and
+section are executed once the schema has been created by pgloader, and
 before the data is loaded. It's the right time to ALTER TABLE or do some
 custom implementation on-top of what pgloader does, like maybe partitioning.
 
