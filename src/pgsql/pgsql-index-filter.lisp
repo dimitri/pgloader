@@ -35,7 +35,7 @@
   "Rewrite all index filter in TABLE."
   (loop :for index :in (table-index-list table)
      :when (index-filter index)
-     :do (let ((pg-filter
+     :do (let ((sys-filter
                 (handler-case
                     (translate-index-filter table index sql-dialect)
                   (condition (c)
@@ -47,5 +47,5 @@
                     (log-message :debug "filter translation error: ~a" c)
                     ;; try to create the index without the WHERE clause...
                     (setf (index-filter index) nil)))))
-           (log-message :info "tranlate-index-filter: ~s" pg-filter)
-           (setf (index-filter index) pg-filter))))
+           (log-message :info "tranlate-index-filter: ~s" sys-filter)
+           (setf (index-filter index) sys-filter))))

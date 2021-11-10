@@ -370,12 +370,12 @@
 (defun list-schemas ()
   "Return the list of PostgreSQL schemas in the already established
    PostgreSQL connection."
-  (pomo:query "SELECT nspname FROM pg_catalog.pg_namespace;" :column))
+  (pomo:query "SELECT nspname FROM sys_catalog.sys_namespace;" :column))
 
 (defun list-search-path ()
   "Return the current list of schemas in the Search Path"
   (pomo:query
-   "SELECT name FROM unnest(pg_catalog.current_schemas(false)) as t(name);"
+   "SELECT name FROM unnest(sys_catalog.current_schemas(false)) as t(name);"
    :column))
 
 (defun get-current-database ()
@@ -469,7 +469,7 @@
       ;; even array_to_string(array_agg(...)) and so we need to parse the
       ;; index-definition instead.
       ;;
-      ;; CREATE UNIQUE INDEX pg_amproc_opc_proc_index ON pg_amproc USING btree (amopclaid, amprocsubtype, amprocnum)
+      ;; CREATE UNIQUE INDEX sys_amproc_opc_proc_index ON sys_amproc USING btree (amopclaid, amprocsubtype, amprocnum)
       (when index-definition
         (let ((open-paren-pos  (position #\( index-definition))
               (close-paren-pos (position #\) index-definition)))

@@ -406,25 +406,25 @@ BEGIN
   FOR r in
        SELECT 'select '
                || trim(trailing ')'
-                  from replace(pg_get_expr(d.adbin, d.adrelid),
+                  from replace(sys_get_expr(d.adbin, d.adrelid),
                                'nextval', 'setval'))
                || ', (select greatest(max(' || quote_ident(a.attname) || '), 1) from only '
                || quote_ident(nspname) || '.' || quote_ident(relname) || '));' as sql
-         FROM pg_class c
-              JOIN pg_namespace n on n.oid = c.relnamespace
-              JOIN pg_attribute a on a.attrelid = c.oid
-              JOIN pg_attrdef d on d.adrelid = a.attrelid
+         FROM sys_class c
+              JOIN sys_namespace n on n.oid = c.relnamespace
+              JOIN sys_attribute a on a.attrelid = c.oid
+              JOIN sys_attrdef d on d.adrelid = a.attrelid
                                  and d.adnum = a.attnum
                                  and a.atthasdef
         WHERE relkind = 'r' and a.attnum > 0
-              and pg_get_expr(d.adbin, d.adrelid) ~~ '^nextval'
+              and sys_get_expr(d.adbin, d.adrelid) ~~ '^nextval'
               ~@[and c.oid in (select oid from reloids)~]
   LOOP
     n := n + 1;
     EXECUTE r.sql;
   END LOOP;
 
-  PERFORM pg_notify('seqs', n::text);
+  PERFORM sys_notify('seqs', n::text);
 END;
 $$; " tables)))
                 (pomo:execute sql))
