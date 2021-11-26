@@ -9,9 +9,11 @@ Source0:            %{url}/archive/v%{version}.tar.gz
 
 BuildRequires: sbcl
 BuildRequires: freetds-devel
+BuildRequires: openssl-devel
 BuildRequires: sqlite-devel
 BuildRequires: zlib-devel
 Requires: freetds
+Requires: openssl-devel
 Requires: sbcl
 Requires: zlib
 Requires: sqlite
