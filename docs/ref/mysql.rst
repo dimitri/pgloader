@@ -601,12 +601,12 @@ Texts::
 
 Binary::
 
-  type binary     to bytea using byte-vecotr-to-bytea
-  type varbinary  to bytea using byte-vecotr-to-bytea
-  type tinyblob   to bytea using byte-vecotr-to-bytea
-  type blob       to bytea using byte-vecotr-to-bytea
-  type mediumblob to bytea using byte-vecotr-to-bytea
-  type longblob   to bytea using byte-vecotr-to-bytea
+  type binary     to bytea using byte-vector-to-bytea
+  type varbinary  to bytea using byte-vector-to-bytea
+  type tinyblob   to bytea using byte-vector-to-bytea
+  type blob       to bytea using byte-vector-to-bytea
+  type mediumblob to bytea using byte-vector-to-bytea
+  type longblob   to bytea using byte-vector-to-bytea
 
 Date::
   
