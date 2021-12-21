@@ -1,3 +1,0 @@
-pgloader.asd usr/share/common-lisp/source/pgloader
-pgloader.lisp usr/share/common-lisp/source/pgloader
-src usr/share/common-lisp/source/pgloader
