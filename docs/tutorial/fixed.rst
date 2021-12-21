@@ -18,7 +18,7 @@ You can find more files from them at the
 Here's our command::
 
     LOAD ARCHIVE
-       FROM http://www.census.gov/geo/maps-data/data/docs/gazetteer/places2k.zip
+       FROM http://www2.census.gov/geo/docs/maps-data/data/gazetteer/places2k.zip
        INTO postgresql:///pgloader
     
        BEFORE LOAD DO
@@ -76,7 +76,7 @@ Let's start the `pgloader` command with our `census-places.load` command file::
     $ pgloader census-places.load
     ... LOG Starting pgloader, log system is ready.
     ... LOG Parsing commands from file "/Users/dim/dev/pgloader/test/census-places.load"
-    ... LOG Fetching 'http://www.census.gov/geo/maps-data/data/docs/gazetteer/places2k.zip'
+    ... LOG Fetching 'http://www2.census.gov/geo/docs/maps-data/data/gazetteer/places2k.zip'
     ... LOG Extracting files from archive '//private/var/folders/w7/9n8v8pw54t1gngfff0lj16040000gn/T/pgloader//places2k.zip'
     
            table name       read   imported     errors            time
