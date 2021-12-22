@@ -2,6 +2,7 @@ pgloader (3.6.3-1) unstable; urgency=medium
 
   * New upstream version.
   * Remove cl-pgloader, deprecated upstream.
+  * debian/tests/ssl: Force md5 auth if cl-postmodern is too old.
 
  -- Christoph Berg <myon@debian.org>  Tue, 21 Dec 2021 10:09:53 +0100
 
