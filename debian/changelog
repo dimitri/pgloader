@@ -1,5 +1,6 @@
-pgloader (3.6.2-2) UNRELEASED; urgency=medium
+pgloader (3.6.3-1) unstable; urgency=medium
 
+  * New upstream version.
   * Remove cl-pgloader, deprecated upstream.
 
  -- Christoph Berg <myon@debian.org>  Tue, 21 Dec 2021 10:09:53 +0100
