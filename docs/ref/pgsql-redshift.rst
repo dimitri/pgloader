@@ -6,7 +6,7 @@ database source. pgloader automatically discovers that it's talking to a
 Redshift database by parsing the output of the `SELECT version()` SQL query.
 
 Redshift as a data source
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Redshift is a variant of PostgreSQL version 8.0.2, which allows pgloader to
 work with only a very small amount of adaptation in the catalog queries
