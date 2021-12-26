@@ -556,16 +556,16 @@ When migrating from MySQL the following Casting Rules are provided:
 
 Numbers::
 
-  type int with extra auto_increment to serial when (< precision 10)
-  type int with extra auto_increment to bigserial when (<= 10 precision)
-  type int to int       when  (< precision 10)
-  type int to bigint    when  (<= 10 precision)
+  type int when (<  precision 10) with extra auto_increment to serial
+  type int when (<= 10 precision) with extra auto_increment to bigserial
+  type int when (<  precision 10)                           to int       
+  type int when (<= 10 precision)                           to bigint    
   type tinyint   with extra auto_increment to serial
   type smallint  with extra auto_increment to serial
   type mediumint with extra auto_increment to serial
   type bigint    with extra auto_increment to bigserial
 
-  type tinyint to boolean when (= 1 precision) using tinyint-to-boolean
+  type tinyint when (= 1 precision) to boolean using tinyint-to-boolean
 
   type bit when (= 1 precision) to boolean drop typemod using bits-to-boolean
   type bit to bit drop typemod using bits-to-hex-bitstring
