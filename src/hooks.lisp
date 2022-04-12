@@ -24,6 +24,7 @@
   "Close Foreign libs in use by pgloader at application save time."
   (let (#+sbcl (sb-ext:*muffled-warnings* 'style-warning))
     (mapc #'cffi:close-foreign-library '(cl+ssl::libssl
+                                         cl+ssl::libcrypto
                                          mssql::sybdb))))
 
 (defun open-foreign-libs ()
