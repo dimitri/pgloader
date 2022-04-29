@@ -23,7 +23,7 @@ pgloader knows how to read data from different kind of sources:
     * PostgreSQL
     * Redshift
 
-pgloader knows how to target different products using the PostgresQL Protocol:
+pgloader knows how to target different products using the PostgreSQL Protocol:
 
   * PostgreSQL
   * `Citus <https://www.citusdata.com>`_
