@@ -27,7 +27,8 @@
 (defrule cast-type-name (or double-quoted-namestring
                             (and (alpha-char-p character)
                                  (* (or (alpha-char-p character)
-                                        (digit-char-p character)))))
+                                        (digit-char-p character)
+                                        #\_))))
   (:text t))
 
 (defrule cast-source-type (and kw-type cast-type-name)
