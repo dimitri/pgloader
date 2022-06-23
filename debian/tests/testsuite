@@ -2,8 +2,9 @@
 
 set -eux
 
-pg_virtualenv << EOF
-	set -eux
-	cd test
-	PGSUPERUSER=\$PGUSER make -k all
-EOF
+case $USER in
+  root) PGSUPERUSER=postgres ;;
+  *) PGSUPERUSER=$USER ;;
+esac
+
+PGSUPERUSER=$PGSUPERUSER pg_virtualenv make -C test all

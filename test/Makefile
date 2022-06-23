@@ -67,6 +67,7 @@ prepare: bossa.sql
 	-dropdb -U $(PGSUPERUSER) pgloader
 	-dropdb -U $(PGSUPERUSER) stocks
 	-dropdb -U $(PGSUPERUSER) ip4r
+	-createuser -U $(PGSUPERUSER) --superuser `whoami`
 	createdb -U $(PGSUPERUSER) -O `whoami` pgloader
 	createdb -U $(PGSUPERUSER) -O `whoami` stocks
 	createdb -U $(PGSUPERUSER) -O `whoami` ip4r
