@@ -2,6 +2,7 @@
 local-data
 pgloader.html
 pgloader.pdf
+debian/home/
 debian/pgloader.debhelper.log
 debian/pgloader.substvars
 debian/pgloader/
@@ -16,4 +17,5 @@ web/howto/quickstart.html
 web/howto/sqlite.html
 .DS_Store
 system-index.txt
+buildapp.log
 docs/_build
