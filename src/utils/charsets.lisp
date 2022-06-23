@@ -232,8 +232,20 @@ in 2 bytes.
          #+ccl
           (parse-ccl-encodings-desc (with-output-to-string (*standard-output*)
                                       (ccl:describe-character-encodings)))
-          #+sbcl
-          (let ((result '()))
+         #+sbcl
+         (typecase sb-impl::*external-formats*
+           (vector
+            (loop :for encoding :across sb-impl::*external-formats*
+                  :when encoding
+                    :collect
+                    (mapcar (function string-upcase)
+                            (typecase encoding
+                              (sb-impl::external-format
+                               (slot-value encoding 'sb-impl::names))
+                              (list
+                               (slot-value (first encoding) 'sb-impl::names))))))
+           (hash-table
+            (let ((result '()))
             (maphash (lambda (name encoding)
                        (declare (ignore name))
                        (pushnew encoding result))
@@ -241,7 +253,7 @@ in 2 bytes.
             (mapcar (lambda (encoding)
                       (mapcar (function string-upcase)
                               (slot-value encoding 'sb-impl::names)))
-                    result))))
+                    result))))))
     (sort encoding-and-aliases #'string< :key #'car)))
 
 (defun show-encodings ()
