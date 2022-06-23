@@ -1,0 +1,30 @@
+name: Debian Autopkgtest
+
+on:
+  pull_request: {}
+  push: {}
+
+jobs:
+
+  debian-build:
+    # focal is too old, use jammy
+    runs-on: ubuntu-22.04
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Tweak debhelper compat level for focal
+        run: sed -i -e 's/debhelper-compat (= 13)/debhelper-compat (= 12)/' debian/control
+
+      - name: Install build-dependencies
+        run: sudo apt-get build-dep -y .
+
+      - name: Build pgloader.deb
+        run: dpkg-buildpackage --no-sign --buildinfo-option=--version -b
+
+      - name: Install autopkgtest
+        run: sudo apt-get install -y autopkgtest
+
+      - name: Autopkgtest
+        run: sudo autopkgtest ./ ../pgloader_*_amd64.deb -- null
