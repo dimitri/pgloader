@@ -1,0 +1,9 @@
+#!/bin/sh
+
+set -eux
+
+pg_virtualenv << EOF
+	set -eux
+	cd test
+	PGSUPERUSER=\$PGUSER make -k all
+EOF
