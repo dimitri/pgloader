@@ -24,7 +24,7 @@ QLDIR      = $(BUILDDIR)/quicklisp
 MANIFEST   = $(BUILDDIR)/manifest.ql
 LATEST     = $(BUILDDIR)/pgloader-latest.tgz
 
-BUNDLEDIST = 2020-02-18
+BUNDLEDIST = 2022-02-20
 BUNDLENAME = pgloader-bundle-$(VERSION)
 BUNDLEDIR  = $(BUILDDIR)/bundle/$(BUNDLENAME)
 BUNDLE     = $(BUILDDIR)/$(BUNDLENAME).tgz
@@ -182,7 +182,7 @@ clean-bundle:
 $(BUNDLETESTD):
 	mkdir -p $@
 
-$(BUNDLEDIR):
+$(BUNDLEDIR): quicklisp
 	mkdir -p $@
 	$(CL) $(CL_OPTS) --load $(QLDIR)/setup.lisp      \
              --eval '(defvar *bundle-dir* "$@")'         \
