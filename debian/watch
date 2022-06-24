@@ -1,2 +1,2 @@
 version=4
-https://github.com/dimitri/pgloader/releases .*/v(.*).tar.gz
+https://github.com/dimitri/pgloader/tags .*/v(.*).tar.gz
