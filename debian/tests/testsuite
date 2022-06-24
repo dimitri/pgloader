@@ -7,4 +7,4 @@ case $USER in
   *) PGSUPERUSER=$USER ;;
 esac
 
-PGSUPERUSER=$PGSUPERUSER pg_virtualenv make -C test all
+PGSUPERUSER=$PGSUPERUSER pg_virtualenv make -C test prepare regress
