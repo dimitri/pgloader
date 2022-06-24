@@ -24,6 +24,7 @@ LOAD CSV
           standard_conforming_strings to 'on'
 
    BEFORE LOAD DO
+   $$ create schema if not exists csv; $$,
    $$ drop table if exists csv.partial; $$,
    $$ create table csv.partial (
        a integer unique,
