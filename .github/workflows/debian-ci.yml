@@ -14,9 +14,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Tweak debhelper compat level for focal
-        run: sed -i -e 's/debhelper-compat (= 13)/debhelper-compat (= 12)/' debian/control
-
       - name: Install build-dependencies
         run: sudo apt-get build-dep -y .
 
