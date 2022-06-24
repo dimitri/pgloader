@@ -1,3 +1,10 @@
+pgloader (3.6.4-1) unstable; urgency=medium
+
+  * New upstream version.
+  * debian/tests/testsuite: Run regression tests.
+
+ -- Christoph Berg <myon@debian.org>  Fri, 24 Jun 2022 14:32:54 +0200
+
 pgloader (3.6.3-1) unstable; urgency=medium
 
   * New upstream version.
