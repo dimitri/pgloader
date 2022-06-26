@@ -49,6 +49,7 @@ Build-Depends:
  debhelper-compat (= 13),
  gawk,
  help2man,
+ postgresql-14-ip4r <!nocheck> | postgresql-ip4r <!nocheck>,
  python3-sphinx-rtd-theme,
  python3-sphinx,
  sbcl (>= 1.1.13),

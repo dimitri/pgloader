@@ -49,7 +49,7 @@ override_dh_auto_build-arch:
 	$(MAKE) -C docs html
 
 override_dh_auto_test:
-	# do nothing
+	PATH=$(CURDIR)/build/bin:$(PATH) debian/tests/testsuite
 
 override_dh_strip override_dh_dwz:
 	# do nothing, sbcl doesn't write any debug info
