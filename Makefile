@@ -72,6 +72,7 @@ all: $(PGLOADER)
 clean:
 	rm -rf $(LIBS) $(QLDIR) $(MANIFEST) $(BUILDAPP) $(PGLOADER) \
 		buildapp.log build/bundle/* build/pgloader-bundle* build/quicklisp.lisp docs/_build
+	$(MAKE) -C test clean
 
 $(QLDIR)/local-projects/qmynd:
 	git clone --depth 1 https://github.com/qitab/qmynd.git $@

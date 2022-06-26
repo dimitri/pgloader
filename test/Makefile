@@ -54,7 +54,7 @@ endif
 
 regress: clean-out $(addprefix regress/out/, $(REGRESS:.load=.out)) ;
 
-clean-out:
+clean clean-out:
 	rm -f regress/out/*
 
 local: prepare $(LOCAL)
