@@ -1,9 +1,9 @@
-pgloader (3.6.5-1) unstable; urgency=medium
+pgloader (3.6.6-1) unstable; urgency=medium
 
   * New upstream version.
   * Run tests at build-time as well.
 
- -- Christoph Berg <myon@debian.org>  Mon, 27 Jun 2022 10:24:50 +0200
+ -- Christoph Berg <myon@debian.org>  Mon, 27 Jun 2022 11:03:00 +0200
 
 pgloader (3.6.4-1) unstable; urgency=medium
 
