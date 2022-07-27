@@ -24,7 +24,7 @@ FROM debian:stable-slim as builder
 
   COPY ./ /opt/src/pgloader
 
-ARG DYNSIZE=4096
+ARG DYNSIZE=16384
 
   RUN mkdir -p /opt/src/pgloader/build/bin \
       && cd /opt/src/pgloader \

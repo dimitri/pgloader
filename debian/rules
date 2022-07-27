@@ -9,7 +9,7 @@ BITS = $(shell dpkg-architecture -qDEB_BUILD_ARCH_BITS)
 ifeq ($(BITS),32)
 SIZE=1024
 else
-SIZE=4096
+SIZE=16384
 endif
 
 # buildd provides a build environment where $HOME is not writable, but the

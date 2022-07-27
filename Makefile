@@ -5,8 +5,8 @@ VERSION    = 3.6.6
 # use either sbcl or ccl
 CL	   = sbcl
 
-# default to 4096 MB of RAM size in the image
-DYNSIZE    = 4096
+# default to 16 GB of RAM size in the image
+DYNSIZE    = 16384
 
 LISP_SRC   = $(wildcard src/*lisp)         \
              $(wildcard src/monkey/*lisp)  \

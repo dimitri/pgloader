@@ -10,7 +10,7 @@ EXE           = .exe
 COMPRESS_CORE = no
 DYNSIZE       = 1024		# support for windows 32 bits
 else
-DYNSIZE       = 4096
+DYNSIZE       = 16384
 EXE =
 endif
 
