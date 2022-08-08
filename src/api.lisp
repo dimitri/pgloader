@@ -157,7 +157,13 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
             (typecase source
               (function (list source))
 
-              (list     (list (compile nil source)))
+              (list     (list
+                         (let (c)
+                           (multiple-value-bind (function warnings-p failure-p)
+                               (handler-case
+                                   (compile nil source)
+                                 (condition (setf c condition)))
+                             (if (and failure-p c) (signal c) function)))))
 
               (pathname (mapcar (lambda (expr) (compile nil expr))
                                 (parse-commands-from-file source)))
