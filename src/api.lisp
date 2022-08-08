@@ -166,7 +166,7 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
                              (cond
                                ((and failure-p notes) (signal notes))
                                (warnings-p            function)
-                               (nil                   function))))))
+                               (t                     function))))))
 
               (pathname (mapcar (lambda (expr) (compile nil expr))
                                 (parse-commands-from-file source)))
