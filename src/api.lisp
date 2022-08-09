@@ -158,15 +158,13 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
               (function (list source))
 
               (list     (list
-                         (let (notes)
-                           (multiple-value-bind (function warnings-p failure-p)
-                               (handler-case
-                                   (compile nil source)
-                                 (condition (c) (setf notes c)))
-                             (cond
-                               ((and failure-p notes) (signal notes))
-                               (warnings-p            function)
-                               (t                     function))))))
+                         (multiple-value-bind (function warnings-p failure-p)
+                             (compile nil source)
+                           (cond
+                             (failure-p   (error "Failed to compile code: ~a"
+                                                 source))
+                             (warnings-p  function)
+                             (t           function)))))
 
               (pathname (mapcar (lambda (expr) (compile nil expr))
                                 (parse-commands-from-file source)))

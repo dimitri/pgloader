@@ -321,7 +321,8 @@
                                               regression-test-error)))
                       #'(lambda (condition)
                           (format *error-output* "KABOOM!~%")
-                          (format *error-output* "FATAL error: ~a~%~a~%~%"
+                          (format *error-output* "~a: ~a~%~a~%~%"
+                                  (class-name (class-of condition))
                                   condition
                                   (print-backtrace condition debug)))))
 
@@ -385,7 +386,7 @@
                 (format *error-output* "~a~%" c)
                 (uiop:quit +os-code-error+))
 
-              (condition (c)
+              (serious-condition (c)
                 (format *error-output* "~%What I am doing here?~%~%")
                 (format *error-output* "~a~%~%" c)
                 (uiop:quit +os-code-error+)))))
