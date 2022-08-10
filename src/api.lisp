@@ -158,13 +158,24 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
               (function (list source))
 
               (list     (list
-                         (multiple-value-bind (function warnings-p failure-p)
-                             (compile nil source)
-                           (cond
-                             (failure-p   (error "Failed to compile code: ~a"
-                                                 source))
-                             (warnings-p  function)
-                             (t           function)))))
+                         (let (fun notes)
+                           (multiple-value-bind (function warnings-p failure-p)
+                               ;; capture the compiler notes and warnings
+                               (setf notes
+                                     (with-output-to-string (stream)
+                                       (with-compilation-unit (:override t)
+                                         (let ((*standard-output* stream)
+                                               (*error-output* stream)
+                                               (*trace-output* stream))
+                                           (setf fun (compile nil source))))))
+                             (when (and notes (string/= notes ""))
+                               (log-message :debug "~a" notes))
+                             (cond
+                               (failure-p   (error
+                                             "Failed to compile code: ~a~%~a"
+                                             source notes))
+                               (warnings-p  function)
+                               (t           function))))))
 
               (pathname (mapcar (lambda (expr) (compile nil expr))
                                 (parse-commands-from-file source)))
