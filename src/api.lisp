@@ -159,10 +159,10 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
 
               (list     (list (compile-lisp-command source)))
 
-              (pathname (mapcar (lambda (expr) (compile nil expr))
+              (pathname (mapcar #'compile-lisp-command
                                 (parse-commands-from-file source)))
 
-              (t        (mapcar (lambda (expr) (compile nil expr))
+              (t        (mapcar #'compile-lisp-command
                                 (if (probe-file source)
                                     (parse-commands-from-file source)
                                     (parse-commands source)))))))
@@ -184,12 +184,15 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
               (with-compilation-unit (:override t)
                 (setf (values function warnings-p failure-p)
                       (compile nil source))))))
+
+    ;; log the captured compiler output at the DEBUG level
     (when (and notes (string/= notes ""))
-      (log-message :debug "~a" notes))
+      (let ((pp-source (with-output-to-string (s) (pprint source s))))
+        (log-message :debug "While compiling:~%~a~%~a" pp-source notes)))
+
+    ;; and signal an error if we failed to compile our lisp code
     (cond
-      (failure-p   (error
-                    "Failed to compile code: ~a~%~a"
-                    source notes))
+      (failure-p   (error "Failed to compile code: ~a~%~a" source notes))
       (warnings-p  function)
       (t           function))))
 
