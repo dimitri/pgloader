@@ -157,25 +157,7 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
             (typecase source
               (function (list source))
 
-              (list     (list
-                         ;; capture the compiler notes and warnings
-                         (let (function warnings-p failure-p notes)
-                           (setf notes
-                                 (with-output-to-string (stream)
-                                   (with-compilation-unit (:override t)
-                                     (let ((*standard-output* stream)
-                                           (*error-output* stream)
-                                           (*trace-output* stream))
-                                       (setf (values function warnings-p failure-p)
-                                             (compile nil source))))))
-                           (when (and notes (string/= notes ""))
-                               (log-message :debug "~a" notes))
-                             (cond
-                               (failure-p   (error
-                                             "Failed to compile code: ~a~%~a"
-                                             source notes))
-                               (warnings-p  function)
-                               (t           function)))))
+              (list     (list (compile-lisp-command source)))
 
               (pathname (mapcar (lambda (expr) (compile nil expr))
                                 (parse-commands-from-file source)))
@@ -189,6 +171,27 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
          :do (funcall func)
          :do (when flush-summary
                (flush-summary :reset t))))))
+
+(defun compile-lisp-command (source)
+  "SOURCE must be lisp source code, a list form."
+  (let (function warnings-p failure-p notes)
+    ;; capture the compiler notes and warnings
+    (setf notes
+          (with-output-to-string (stream)
+            (let ((*standard-output* stream)
+                  (*error-output* stream)
+                  (*trace-output* stream))
+              (with-compilation-unit (:override t)
+                (setf (values function warnings-p failure-p)
+                      (compile nil source))))))
+    (when (and notes (string/= notes ""))
+      (log-message :debug "~a" notes))
+    (cond
+      (failure-p   (error
+                    "Failed to compile code: ~a~%~a"
+                    source notes))
+      (warnings-p  function)
+      (t           function))))
 
 
 ;;;
