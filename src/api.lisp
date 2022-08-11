@@ -157,12 +157,12 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
             (typecase source
               (function (list source))
 
-              (list     (list (compile nil source)))
+              (list     (list (compile-lisp-command source)))
 
-              (pathname (mapcar (lambda (expr) (compile nil expr))
+              (pathname (mapcar #'compile-lisp-command
                                 (parse-commands-from-file source)))
 
-              (t        (mapcar (lambda (expr) (compile nil expr))
+              (t        (mapcar #'compile-lisp-command
                                 (if (probe-file source)
                                     (parse-commands-from-file source)
                                     (parse-commands source)))))))
@@ -171,6 +171,30 @@ Parameters here are meant to be already parsed, see parse-cli-optargs."
          :do (funcall func)
          :do (when flush-summary
                (flush-summary :reset t))))))
+
+(defun compile-lisp-command (source)
+  "SOURCE must be lisp source code, a list form."
+  (let (function warnings-p failure-p notes)
+    ;; capture the compiler notes and warnings
+    (setf notes
+          (with-output-to-string (stream)
+            (let ((*standard-output* stream)
+                  (*error-output* stream)
+                  (*trace-output* stream))
+              (with-compilation-unit (:override t)
+                (setf (values function warnings-p failure-p)
+                      (compile nil source))))))
+
+    ;; log the captured compiler output at the DEBUG level
+    (when (and notes (string/= notes ""))
+      (let ((pp-source (with-output-to-string (s) (pprint source s))))
+        (log-message :debug "While compiling:~%~a~%~a" pp-source notes)))
+
+    ;; and signal an error if we failed to compile our lisp code
+    (cond
+      (failure-p   (error "Failed to compile code: ~a~%~a" source notes))
+      (warnings-p  function)
+      (t           function))))
 
 
 ;;;

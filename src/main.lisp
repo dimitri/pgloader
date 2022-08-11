@@ -315,15 +315,16 @@
                 ;; meaningful backtrace to the user in case of unexpected
                 ;; conditions being signaled.
                 (handler-bind
-                    (((and condition (not (or monitor-error
-                                              cli-parsing-error
-                                              source-definition-error
-                                              regression-test-error)))
-                      #'(lambda (condition)
-                          (format *error-output* "KABOOM!~%")
-                          (format *error-output* "FATAL error: ~a~%~a~%~%"
-                                  condition
-                                  (print-backtrace condition debug)))))
+                    (((and serious-condition (not (or monitor-error
+                                                      cli-parsing-error
+                                                      source-definition-error
+                                                      regression-test-error)))
+                       #'(lambda (condition)
+                           (format *error-output* "KABOOM!~%")
+                           (format *error-output* "~a: ~a~%~a~%~%"
+                                   (class-name (class-of condition))
+                                   condition
+                                   (print-backtrace condition debug)))))
 
                   (with-monitor ()
                     ;; tell the user where to look for interesting things
@@ -385,7 +386,7 @@
                 (format *error-output* "~a~%" c)
                 (uiop:quit +os-code-error+))
 
-              (condition (c)
+              (serious-condition (c)
                 (format *error-output* "~%What I am doing here?~%~%")
                 (format *error-output* "~a~%~%" c)
                 (uiop:quit +os-code-error+)))))
