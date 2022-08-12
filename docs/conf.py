@@ -92,11 +92,11 @@ html_theme = 'sphinx_rtd_theme'
 #
 # html_theme_options = {}
 html_theme_options = {
-    'github_user': 'dimitri',
-    'github_repo': 'pgloader',
-    'description': 'your migration companion',
-    'travis_button': True,
-    'show_related': True,
+    #'github_user': 'dimitri',
+    #'github_repo': 'pgloader',
+    #'description': 'your migration companion',
+    #'travis_button': True,
+    #'show_related': True,
     #'sidebar_collapse': False,
 }
 

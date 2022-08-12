@@ -8,9 +8,31 @@ and the indexes building.
 A default set of casting rules are provided and might be overloaded and
 appended to by the command.
 
-Here's an example using as many options as possible, some of them even being
-defaults. Chances are you don't need that complex a setup, don't copy and
-paste it, use it only as a reference!
+Using default settings
+----------------------
+
+Here is the simplest command line example, which might be all you need:
+
+::
+
+   $ pgloader mysql://myuser@myhost/dbname pgsql://pguser@pghost/dbname
+
+Using advanced options and a load command file
+----------------------------------------------
+
+It might be that you want more flexibility than that and want to set
+advanced options. Then the next example is using as many options as
+possible, some of them even being defaults. Chances are you don't need that
+complex a setup, don't copy and paste it, use it only as a reference!
+
+The command then would be:
+
+::
+
+   $ pgloader my.load
+
+And the contents of the command file ``my.load`` could be inspired from the
+following:
 
 ::
    
@@ -58,7 +80,11 @@ paste it, use it only as a reference!
        $$ alter database sakila set search_path to pagila, mv, public; $$;
 
 
-The `database` command accepts the following clauses and options.
+Common Clauses
+--------------
+
+Please refer to :ref:`common_clauses` for documentation about common
+clauses.
 
 MySQL Database Source Specification: FROM
 -----------------------------------------
@@ -78,14 +104,16 @@ mode is not implemented (yet).
     mysql://[user[:password]@][netloc][:port][/dbname][?option=value&...]
 
 
-  - *options*
+MySQL connection strings support specific options:
+
+  - ``useSSL``
 
     The same notation rules as found in the *Connection String* parts of the
-    documentation apply, and we have a specific MySQL option: `useSSL`. The
-    value for `useSSL` can be either `false` or `true`.
+    documentation apply, and we have a specific MySQL option: ``useSSL``.
+    The value for ``useSSL`` can be either ``false`` or ``true``.
 
-    If both `sslmode` and `useSSL` are used in the same connection string,
-    pgloader behavior is undefined.
+    If both ``sslmode`` and ``useSSL`` are used in the same connection
+    string, pgloader behavior is undefined.
     
 The MySQL connection string also accepts the *useSSL* parameter with values
 being either *false* or *true*.

@@ -5,7 +5,28 @@ This command instructs pgloader to load data from a MS SQL database.
 Automatic discovery of the schema is supported, including build of the
 indexes, primary and foreign keys constraints.
 
-Here's an example::
+Using default settings
+----------------------
+
+Here is the simplest command line example, which might be all you need:
+
+::
+
+   $ pgloader mssql://user@mshost/dbname pgsql://pguser@pghost/dbname
+
+Using advanced options and a load command file
+----------------------------------------------
+
+The command then would be:
+
+::
+
+   $ pgloader ms.load
+
+And the contents of the command file ``ms.load`` could be inspired from the
+following:
+
+::
 
     load database
          from mssql://user@host/dbname
@@ -17,7 +38,11 @@ Here's an example::
 
     before load do $$ drop schema if exists dbo cascade; $$;
 
-The `mssql` command accepts the following clauses and options.
+Common Clauses
+--------------
+
+Please refer to :ref:`common_clauses` for documentation about common
+clauses.
 
 MS SQL Database Source Specification: FROM
 ------------------------------------------

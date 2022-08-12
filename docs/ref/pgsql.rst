@@ -1,3 +1,5 @@
+.. _migrating_to_pgsql:
+
 Migrating a PostgreSQL Database to PostgreSQL
 =============================================
 
@@ -6,8 +8,28 @@ Automatic discovery of the schema is supported, including build of the
 indexes, primary and foreign keys constraints. A default set of casting
 rules are provided and might be overloaded and appended to by the command.
 
+Using default settings
+----------------------
+
+Here is the simplest command line example, which might be all you need:
+
+::
+
+   $ pgloader pgsql://user@source/dbname pgsql://user@target/dbname
+
+Using advanced options and a load command file
+----------------------------------------------
+
 Here's a short example of migrating a database from a PostgreSQL server to
-another:
+another. The command would then be:
+
+::
+
+   $ pgloader pg.load
+
+
+And the contents of the command file ``pg.load`` could be inspired from the
+following:
 
 ::
 
@@ -18,6 +40,12 @@ another:
    including only table names matching 'bits', ~/utilisateur/ in schema 'mysql'
    including only table names matching ~/geolocations/ in schema 'public'
    ;
+
+Common Clauses
+--------------
+
+Please refer to :ref:`common_clauses` for documentation about common
+clauses.
 
 PostgreSQL Database Source Specification: FROM
 ----------------------------------------------

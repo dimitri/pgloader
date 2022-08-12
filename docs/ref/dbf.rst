@@ -5,17 +5,33 @@ This command instructs pgloader to load data from a `DBF` file. A default
 set of casting rules are provided and might be overloaded and appended to by
 the command.
 
+Using advanced options and a load command file
+----------------------------------------------
+
 Here's an example with a remote HTTP source and some user defined casting
-rules::
+rules. The command then would be:
+
+::
+
+   $ pgloader dbf.load
+
+And the contents of the ``dbf.load`` file could be inspired from the following:
+
+::
 
     LOAD DBF
-	    FROM http://www.insee.fr/fr/methodes/nomenclatures/cog/telechargement/2013/dbf/reg2013.dbf
+        FROM http://www.insee.fr/fr/methodes/nomenclatures/cog/telechargement/2013/dbf/reg2013.dbf
         INTO postgresql://user@localhost/dbname
         WITH truncate, create table
         CAST column reg2013.region to integer,
              column reg2013.tncc to smallint;
 
-The `dbf` format command accepts the following clauses and options.
+
+Common Clauses
+--------------
+
+Please refer to :ref:`common_clauses` for documentation about common
+clauses.
 
 DBF Source Specification: FROM
 ------------------------------
