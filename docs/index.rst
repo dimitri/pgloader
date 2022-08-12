@@ -244,6 +244,7 @@ implement the third step in a fully automated way. That's pgloader.
    intro
    quickstart
    tutorial/tutorial
+   install
    pgloader
    ref/csv
    ref/fixed
