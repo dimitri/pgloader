@@ -104,14 +104,16 @@ mode is not implemented (yet).
     mysql://[user[:password]@][netloc][:port][/dbname][?option=value&...]
 
 
-  - *options*
+MySQL connection strings support specific options:
+
+  - ``useSSL``
 
     The same notation rules as found in the *Connection String* parts of the
-    documentation apply, and we have a specific MySQL option: `useSSL`. The
-    value for `useSSL` can be either `false` or `true`.
+    documentation apply, and we have a specific MySQL option: ``useSSL``.
+    The value for ``useSSL`` can be either ``false`` or ``true``.
 
-    If both `sslmode` and `useSSL` are used in the same connection string,
-    pgloader behavior is undefined.
+    If both ``sslmode`` and ``useSSL`` are used in the same connection
+    string, pgloader behavior is undefined.
     
 The MySQL connection string also accepts the *useSSL* parameter with values
 being either *false* or *true*.
