@@ -88,3 +88,13 @@ Licence](http://www.postgresql.org/about/licence/).
 
 Please see full documentation at
 [https://pgloader.readthedocs.io/](https://pgloader.readthedocs.io/en/latest/install.html).
+
+If you're using debian, it's already available:
+
+    $ apt-get install pgloader
+
+If you're using docker, you can use the latest version built by the CI at
+each commit to the master branch:
+
+    $ docker pull ghcr.io/dimitri/pgloader:latest
+    $ docker run --rm -it ghcr.io/dimitri/pgloader:latest pgloader --version

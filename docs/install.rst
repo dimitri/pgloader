@@ -16,6 +16,14 @@ official debian repositories, see `packages.debian.org/pgloader`__.
 __ https://wiki.postgresql.org/wiki/Apt
 __ https://packages.debian.org/search?keywords=pgloader
 
+RPM packages
+------------
+
+The Postgres community repository for RPM packages is `yum.postgresql.org`__
+and does include binary packages for pgloader.
+
+__ https://yum.postgresql.org
+
 Docker Images
 -------------
 
@@ -125,7 +133,7 @@ production environments.
         rpmbuild -ba pgloader.spec
 
 Building from sources on macOS
-------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We suppose you already have ``git`` and ``make`` available, if that's not
 the case now is the time to install those tools. The SQLite lib that comes
@@ -154,7 +162,7 @@ Then use the normal build system for pgloader:
    $ ./build/bin/pgloader --version
 
 Building from sources on Windows
---------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Building pgloader on Windows is supported (in theory), thanks to Common Lisp
 implementations being available on that platform, and to the Common Lisp
@@ -173,7 +181,7 @@ integration with a windows build host would allow ensuring that we continue
 to support that target.
 
 Building Docker image from sources
-----------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can build a Docker image from source using SBCL by default::
 
@@ -184,7 +192,7 @@ Or Clozure CL (CCL)::
   $ docker build -f Dockerfile.ccl .
 
 More options when building from source
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ``Makefile`` target ``save`` knows how to produce a Self Contained
 Binary file for pgloader, found at ``./build/bin/pgloader``::
