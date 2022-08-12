@@ -81,7 +81,8 @@ indexes, foreign keys, comments) and parallel loading of the corrected data:
 
 ## LICENCE
 
-pgloader is available under [The PostgreSQL Licence](http://www.postgresql.org/about/licence/).#
+pgloader is available under [The PostgreSQL
+Licence](http://www.postgresql.org/about/licence/).
 
 ## INSTALL
 
