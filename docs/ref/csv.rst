@@ -1,8 +1,23 @@
 Loading CSV data
 ================
 
-This command instructs pgloader to load data from a `CSV` file. Here's an
-example::
+This command instructs pgloader to load data from a `CSV` file. Because of
+the complexity of guessing the parameters of a CSV file, it's simpler to
+instruct pgloader with how to parse the data in there, using the full
+pgloader command syntax and CSV specifications as in the following example.
+
+Using advanced options and a load command file
+----------------------------------------------
+
+The command then would be:
+
+::
+
+   $ pgloader csv.load
+
+And the contents of the ``csv.load`` file could be inspired from the following:
+
+::
 
     LOAD CSV
        FROM 'GeoLiteCity-Blocks.csv' WITH ENCODING iso-646-us
@@ -25,7 +40,11 @@ example::
 
         SET work_mem to '32 MB', maintenance_work_mem to '64 MB';
 
-The `csv` format command accepts the following clauses and options.
+Common Clauses
+--------------
+
+Please refer to :ref:`common_clauses` for documentation about common
+clauses.
 
 CSV Source Specification: FROM
 ------------------------------

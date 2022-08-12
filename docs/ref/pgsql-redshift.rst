@@ -2,8 +2,9 @@ Support for Redshift in pgloader
 ================================
 
 The command and behavior are the same as when migration from a PostgreSQL
-database source. pgloader automatically discovers that it's talking to a
-Redshift database by parsing the output of the `SELECT version()` SQL query.
+database source, see :ref:`migrating_to_pgsql`. pgloader automatically
+discovers that it's talking to a Redshift database by parsing the output of
+the ``SELECT version()`` SQL query.
 
 Redshift as a data source
 ^^^^^^^^^^^^^^^^^^^^^^^^^

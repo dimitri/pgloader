@@ -2,7 +2,20 @@ Loading Fixed Cols File Formats
 ===============================
 
 This command instructs pgloader to load data from a text file containing
-columns arranged in a *fixed size* manner. Here's an example::
+columns arranged in a *fixed size* manner.
+
+Using advanced options and a load command file
+----------------------------------------------
+
+The command then would be:
+
+::
+
+   $ pgloader fixed.load
+
+And the contents of the ``fixed.load`` file could be inspired from the following:
+
+::
 
     LOAD FIXED
          FROM inline
@@ -41,7 +54,16 @@ columns arranged in a *fixed size* manner. Here's an example::
       2345609872014092914371500                 
       2345678902014092914371520
 
-The `fixed` format command accepts the following clauses and options.
+Note that the example comes from the test suite of pgloader, where we use
+the advanced feature ``FROM inline`` that allows embedding the source data
+within the command file. In most cases a more classic FROM clause loading
+the data from a separate file would be used.
+
+Common Clauses
+--------------
+
+Please refer to :ref:`common_clauses` for documentation about common
+clauses.
 
 Fixed File Format Source Specification: FROM
 --------------------------------------------

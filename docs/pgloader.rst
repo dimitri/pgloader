@@ -455,6 +455,8 @@ pgloader templating system::
 The mustache templates implementation with OS environment support replaces
 former `GETENV` implementation, which didn't work anyway.
 
+.. _common_clauses:
+
 Common Clauses
 --------------
 

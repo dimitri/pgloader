@@ -2,7 +2,20 @@ Loading COPY Formatted Files
 ============================
 
 This commands instructs pgloader to load from a file containing COPY TEXT
-data as described in the PostgreSQL documentation. Here's an example::
+data as described in the PostgreSQL documentation.
+
+Using advanced options and a load command file
+----------------------------------------------
+
+The command then would be:
+
+::
+
+   $ pgloader copy.load
+
+And the contents of the ``copy.load`` file could be inspired from the following:
+
+::
 
     LOAD COPY
          FROM copy://./data/track.copy
@@ -33,7 +46,12 @@ data as described in the PostgreSQL documentation. Here's an example::
             );
          $$;
 
-The `COPY` format command accepts the following clauses and options.
+
+Common Clauses
+--------------
+
+Please refer to :ref:`common_clauses` for documentation about common
+clauses.
 
 COPY Formatted Files Source Specification: FROM
 -----------------------------------------------

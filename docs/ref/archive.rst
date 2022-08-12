@@ -5,7 +5,19 @@ This command instructs pgloader to load data from one or more files contained
 in an archive. Currently the only supported archive format is *ZIP*, and the
 archive might be downloaded from an *HTTP* URL.
 
-Here's an example::
+Using advanced options and a load command file
+----------------------------------------------
+
+The command then would be:
+
+::
+
+   $ pgloader archive.load
+
+And the contents of the ``archive.load`` file could be inspired from the
+following:
+
+::
 
     LOAD ARCHIVE
        FROM /Users/dim/Downloads/GeoLiteCity-latest.zip
@@ -61,7 +73,11 @@ Here's an example::
        FINALLY DO
          $$ create index blocks_ip4r_idx on geolite.blocks using gist(iprange); $$;
 
-The `archive` command accepts the following clauses and options.
+Common Clauses
+--------------
+
+Please refer to :ref:`common_clauses` for documentation about common
+clauses.
 
 Archive Source Specification: FROM
 ----------------------------------

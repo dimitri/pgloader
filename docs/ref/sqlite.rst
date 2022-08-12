@@ -4,7 +4,25 @@ Migrating a SQLite database to PostgreSQL
 This command instructs pgloader to load data from a SQLite file. Automatic
 discovery of the schema is supported, including build of the indexes.
 
-Here's an example::
+Using default settings
+----------------------
+
+Here is the simplest command line example, which might be all you need:
+
+::
+
+   $ pgloader sqlite:///path/to/file.db pgsql://pguser@pghost/dbname
+
+Using advanced options and a load command file
+----------------------------------------------
+
+The command then would be:
+
+::
+
+   $ pgloader db.load
+
+Here's an example of the ``db.load`` contents then::
 
     load database
          from sqlite:///Users/dim/Downloads/lastfm_tags.db
@@ -14,7 +32,11 @@ Here's an example::
 
       set work_mem to '16MB', maintenance_work_mem to '512 MB';
 
-The `sqlite` command accepts the following clauses and options.
+Common Clauses
+--------------
+
+Please refer to :ref:`common_clauses` for documentation about common
+clauses.
 
 SQLite Database Source Specification: FROM
 ------------------------------------------

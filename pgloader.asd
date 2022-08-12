@@ -22,7 +22,6 @@
                #:usocket		; UDP / syslog
                #:local-time		; UDP date parsing
                #:command-line-arguments ; for the main function
-               #:abnf			; ABNF parser generator (for syslog)
                #:db3			; DBF version 3 file reader
                #:ixf			; IBM IXF file format reader
                #:py-configparser	; Read old-style INI config files

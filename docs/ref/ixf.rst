@@ -1,9 +1,21 @@
 Loading IXF Data
 ================
 
-This command instructs pgloader to load data from an IBM `IXF` file. Here's
-an example::
+This command instructs pgloader to load data from an IBM `IXF` file.
 
+Using advanced options and a load command file
+----------------------------------------------
+
+The command then would be:
+
+::
+
+   $ pgloader ixf.load
+
+And the contents of the ``ixf.load`` file could be inspired from the following:
+
+::
+   
     LOAD IXF
         FROM data/nsitra.test1.ixf
         INTO postgresql:///pgloader
@@ -14,7 +26,12 @@ an example::
        $$ create schema if not exists nsitra; $$,
        $$ drop table if exists nsitra.test1; $$;
 
-The `ixf` format command accepts the following clauses and options.
+
+Common Clauses
+--------------
+
+Please refer to :ref:`common_clauses` for documentation about common
+clauses.
 
 IXF Source Specification: FROM
 ------------------------------
