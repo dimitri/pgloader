@@ -21,7 +21,7 @@ FROM debian:stable-slim as builder
         cl-babel \
       && rm -rf /var/lib/apt/lists/*
 
-  RUN curl -SL https://github.com/Clozure/ccl/releases/download/v1.11.5/ccl-1.11.5-linuxx86.tar.gz \
+  RUN curl -SL https://github.com/Clozure/ccl/releases/download/v1.12/ccl-1.12-linuxx86.tar.gz \
       | tar xz -C /usr/local/src/ \
       && mv /usr/local/src/ccl/scripts/ccl64 /usr/local/bin/ccl
 
