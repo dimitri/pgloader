@@ -20,7 +20,7 @@
   "Transform given PATHNAME into an URL at which to serve it within URL-PATH."
   (multiple-value-bind (flag path-list last-component file-namestring-p)
       (uiop:split-unix-namestring-directory-components
-       (uiop:native-namestring
+       (uiop:unix-namestring
         (uiop:enough-pathname pathname root)))
     (declare (ignore flag file-namestring-p))
     ;;
