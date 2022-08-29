@@ -23,8 +23,8 @@ never had a *year zero*).
 ## Documentation
 
 Full documentation is available online, including manual pages of all the
-pgcopydb sub-commands. Check out
-[https://pgcopydb.readthedocs.io/](https://pgcopydb.readthedocs.io/en/latest/).
+pgloader sub-commands. Check out
+[https://pgloader.readthedocs.io/](https://[pgcopydb](https://pgloader.readthedocs.io/en/latest/).
 
 ```
 $ pgloader --help
