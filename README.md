@@ -24,7 +24,7 @@ never had a *year zero*).
 
 Full documentation is available online, including manual pages of all the
 pgloader sub-commands. Check out
-[https://pgloader.readthedocs.io/](https://[pgcopydb](https://pgloader.readthedocs.io/en/latest/).
+[https://pgloader.readthedocs.io/](https://pgloader.readthedocs.io/en/latest/).
 
 ```
 $ pgloader --help
