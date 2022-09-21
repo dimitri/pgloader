@@ -14,6 +14,12 @@
 
     (:source (:type "int" :auto-increment t)
              :target (:type "bigserial" :drop-default t))
+    
+    (:source (:type "bigint" :auto-increment t)
+             :target (:type "bigserial")
+
+    (:source (:type "smallint" :auto-increment t)
+             :target (:type "smallserial"))
 
     (:source (:type "tinyint") :target (:type "smallint"))
 
