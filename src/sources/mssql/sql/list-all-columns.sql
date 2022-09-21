@@ -28,7 +28,7 @@
          ELSE c.COLUMN_DEFAULT
          END,
          c.IS_NULLABLE,
-         COLUMNPROPERTY(object_id(c.TABLE_NAME), c.COLUMN_NAME, 'IsIdentity'),
+         COLUMNPROPERTY(object_id(CONCAT(c.TABLE_SCHEMA, '.', c.TABLE_NAME)), c.COLUMN_NAME, 'IsIdentity'),
          c.CHARACTER_MAXIMUM_LENGTH,
          c.NUMERIC_PRECISION,
          c.NUMERIC_PRECISION_RADIX,
