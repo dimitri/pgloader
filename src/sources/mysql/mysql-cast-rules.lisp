@@ -66,10 +66,12 @@
              :target (:type "bigint"  :drop-typemod t))
     (:source (:type "int" :unsigned t)
              :target (:type "bigint"  :drop-typemod t))
-    
+
     (:source (:type "int" :unsigned t :auto-increment t)
               :target (:type "bigserial" :drop-typemod t))
-    
+    (:source (:type "int" :signed t :auto-increment t)
+              :target (:type "serial" :drop-typemod t))
+
     ;; we need the following to benefit from :drop-typemod
     (:source (:type "tinyint")   :target (:type "smallint" :drop-typemod t))
     (:source (:type "smallint")  :target (:type "smallint" :drop-typemod t))
