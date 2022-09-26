@@ -1,6 +1,6 @@
 Summary:            extract, transform and load data into PostgreSQL
 Name:               pgloader
-Version:            3.6.7
+Version:            3.6.8
 Release:            22%{?dist}
 License:            The PostgreSQL Licence
 Group:              System Environment/Base

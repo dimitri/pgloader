@@ -14,6 +14,11 @@ else
 SIZE=16384
 endif
 
+MAKEFILE_VERSION = $(shell awk '/^VERSION/ { print $$3 }' Makefile)
+DOC_VERSION = $(shell awk '/^release/ { print $$3 }' docs/conf.py | tr -d "'")
+SPECFILE_VERSION = $(shell awk '/^Version/ { print $$2 }' pgloader.spec)
+DEBIAN_VERSION = $(shell dpkg-parsechangelog -SVersion | cut -d- -f 1)
+
 # buildd provides a build environment where $HOME is not writable, but the
 # CL compilers here will need to fill-in a per-user cache
 export HOME = $(CURDIR)/debian/home
@@ -21,6 +26,10 @@ export HOME = $(CURDIR)/debian/home
 override_dh_auto_clean:
 	dh_auto_clean
 	rm -rf debian/home
+	# sanity checks on version number
+	[ "$(MAKEFILE_VERSION)" = "$(DOC_VERSION)" ] # Makefile = docs/conf.py version
+	[ "$(MAKEFILE_VERSION)" = "$(SPECFILE_VERSION)" ] # Makefile = pgloader.spec version
+	[ "$(MAKEFILE_VERSION)" = "$(DEBIAN_VERSION)" ] # Makefile = debian/changelog version
 
 override_dh_auto_build-indep:
 	# do nothing

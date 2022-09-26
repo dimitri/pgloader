@@ -1,8 +1,9 @@
-pgloader (3.6.7-2) UNRELEASED; urgency=medium
+pgloader (3.6.8-1) unstable; urgency=medium
 
+  * New upstream version.
   * Depend on libsqlite3-0.
 
- -- Christoph Berg <myon@debian.org>  Mon, 26 Sep 2022 11:09:44 +0200
+ -- Christoph Berg <myon@debian.org>  Mon, 26 Sep 2022 14:24:02 +0200
 
 pgloader (3.6.7-1) unstable; urgency=medium
 
