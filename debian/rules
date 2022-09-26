@@ -2,6 +2,8 @@
 
 include /usr/share/dpkg/pkg-info.mk
 
+# get libsqlite3 package name from libsqlite3-dev
+LIBSQLITE := $(shell dpkg-query --showformat='$${Depends}' --show libsqlite3-dev | grep -o 'libsqlite[^ ]*')
 # make pgloader depend on the libssl package cl-plus-ssl depends on
 LIBSSL := $(shell dpkg-query --showformat='$${Depends}' --show cl-plus-ssl | grep -o 'libssl[^ ]*')
 
@@ -64,7 +66,9 @@ override_dh_installman-arch:
 		debian/pgloader/usr/share/man/man1/pgloader.1
 
 override_dh_gencontrol:
-	dh_gencontrol -- -V"ssl:Depends=$(LIBSSL)"
+	dh_gencontrol -- \
+		-V"sqlite:Depends=$(LIBSQLITE)" \
+		-V"ssl:Depends=$(LIBSSL)"
 
 %:
 	dh $@

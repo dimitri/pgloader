@@ -50,12 +50,13 @@ Build-Depends:
  debhelper-compat (= 13),
  gawk,
  help2man,
+ libsqlite3-dev,
  postgresql-14-ip4r <!nocheck> | postgresql-ip4r <!nocheck>,
  python3-sphinx,
  python3-sphinx-rtd-theme,
  sbcl (>= 1.1.13),
  tzdata,
-Standards-Version: 4.5.0
+Standards-Version: 4.6.0
 Homepage: https://github.com/dimitri/pgloader
 Vcs-Git: https://github.com/dimitri/pgloader.git
 Vcs-Browser: https://github.com/dimitri/pgloader
@@ -66,6 +67,7 @@ Depends:
  freetds-dev,
  ${misc:Depends},
  ${shlibs:Depends},
+ ${sqlite:Depends},
  ${ssl:Depends},
 Description: extract, transform and load data into PostgreSQL
  pgloader imports data from different kind of sources and COPY it into
