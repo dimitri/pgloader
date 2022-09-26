@@ -2,7 +2,8 @@ Source: pgloader
 Section: database
 Priority: optional
 Maintainer: Dimitri Fontaine <dim@tapoueh.org>
-Uploaders: Christoph Berg <myon@debian.org>
+Uploaders:
+ Christoph Berg <myon@debian.org>,
 Build-Depends:
  buildapp (>= 1.5),
  cl-abnf,
@@ -50,8 +51,8 @@ Build-Depends:
  gawk,
  help2man,
  postgresql-14-ip4r <!nocheck> | postgresql-ip4r <!nocheck>,
- python3-sphinx-rtd-theme,
  python3-sphinx,
+ python3-sphinx-rtd-theme,
  sbcl (>= 1.1.13),
  tzdata,
 Standards-Version: 4.5.0
@@ -61,7 +62,11 @@ Vcs-Browser: https://github.com/dimitri/pgloader
 
 Package: pgloader
 Architecture: any
-Depends: freetds-dev, ${misc:Depends}, ${shlibs:Depends}, ${ssl:Depends}
+Depends:
+ freetds-dev,
+ ${misc:Depends},
+ ${shlibs:Depends},
+ ${ssl:Depends},
 Description: extract, transform and load data into PostgreSQL
  pgloader imports data from different kind of sources and COPY it into
  PostgreSQL.

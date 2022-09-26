@@ -1,7 +1,13 @@
-Depends: pgloader, ca-certificates, cl-postmodern, postgresql
+Depends:
+ ca-certificates,
+ cl-postmodern,
+ pgloader,
+ postgresql,
 Tests: ssl
 Restrictions: allow-stderr, needs-root
 
-Depends: pgloader, postgresql-14-ip4r | postgresql-ip4r
+Depends:
+ pgloader,
+ postgresql-14-ip4r | postgresql-ip4r,
 Tests: testsuite
 Restrictions: allow-stderr
