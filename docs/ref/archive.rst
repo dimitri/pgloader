@@ -1,5 +1,5 @@
-Loading From an Archive
-=======================
+Archive (http, zip)
+===================
 
 This command instructs pgloader to load data from one or more files contained
 in an archive. Currently the only supported archive format is *ZIP*, and the

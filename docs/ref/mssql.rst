@@ -1,5 +1,5 @@
-Migrating a MS SQL Database to PostgreSQL
-=========================================
+MS SQL to Postgres
+==================
 
 This command instructs pgloader to load data from a MS SQL database.
 Automatic discovery of the schema is supported, including build of the

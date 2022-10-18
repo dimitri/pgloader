@@ -1,12 +1,17 @@
 .. _migrating_to_pgsql:
 
-Migrating a PostgreSQL Database to PostgreSQL
-=============================================
+Postgres to Postgres
+====================
 
 This command instructs pgloader to load data from a database connection.
 Automatic discovery of the schema is supported, including build of the
 indexes, primary and foreign keys constraints. A default set of casting
 rules are provided and might be overloaded and appended to by the command.
+
+For a complete Postgres to Postgres solution including Change Data Capture
+support with Logical Decoding, see `pgcopydb`__.
+
+__ https://pgcopydb.readthedocs.io/
 
 Using default settings
 ----------------------

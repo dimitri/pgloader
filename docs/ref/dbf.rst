@@ -1,5 +1,5 @@
-Loading DBF data
-=================
+DBF
+===
 
 This command instructs pgloader to load data from a `DBF` file. A default
 set of casting rules are provided and might be overloaded and appended to by

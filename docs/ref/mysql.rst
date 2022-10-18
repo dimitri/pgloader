@@ -1,5 +1,5 @@
-Migrating a MySQL Database to PostgreSQL
-========================================
+MySQL to Postgres
+=================
 
 This command instructs pgloader to load data from a database connection.
 pgloader supports dynamically converting the schema of the source database

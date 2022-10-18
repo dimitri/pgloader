@@ -1,5 +1,5 @@
-Loading COPY Formatted Files
-============================
+COPY
+====
 
 This commands instructs pgloader to load from a file containing COPY TEXT
 data as described in the PostgreSQL documentation.

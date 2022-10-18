@@ -1,5 +1,5 @@
-Loading IXF Data
-================
+IXF
+===
 
 This command instructs pgloader to load data from an IBM `IXF` file.
 

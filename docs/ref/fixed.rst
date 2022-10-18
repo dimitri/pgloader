@@ -1,5 +1,5 @@
-Loading Fixed Cols File Formats
-===============================
+Fixed Columns
+=============
 
 This command instructs pgloader to load data from a text file containing
 columns arranged in a *fixed size* manner.
