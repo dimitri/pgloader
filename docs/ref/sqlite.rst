@@ -1,5 +1,5 @@
-Migrating a SQLite database to PostgreSQL
-=========================================
+SQLite to Postgres
+==================
 
 This command instructs pgloader to load data from a SQLite file. Automatic
 discovery of the schema is supported, including build of the indexes.

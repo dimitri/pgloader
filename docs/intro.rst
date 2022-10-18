@@ -13,7 +13,9 @@ pgloader knows how to read data from different kind of sources:
 
     * CSV
     * Fixed Format
+    * Postgres COPY text format
     * DBF
+    * IXF
 
   * Databases
 

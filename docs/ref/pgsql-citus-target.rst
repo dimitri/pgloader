@@ -1,5 +1,5 @@
-Migrating a PostgreSQL Database to Citus
-========================================
+PostgreSQL to Citus
+===================
 
 This command instructs pgloader to load data from a database connection.
 Automatic discovery of the schema is supported, including build of the

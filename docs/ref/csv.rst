@@ -1,5 +1,5 @@
-Loading CSV data
-================
+CSV
+===
 
 This command instructs pgloader to load data from a `CSV` file. Because of
 the complexity of guessing the parameters of a CSV file, it's simpler to

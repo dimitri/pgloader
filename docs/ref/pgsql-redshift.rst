@@ -1,5 +1,5 @@
-Support for Redshift in pgloader
-================================
+Redshift to Postgres
+====================
 
 The command and behavior are the same as when migration from a PostgreSQL
 database source, see :ref:`migrating_to_pgsql`. pgloader automatically

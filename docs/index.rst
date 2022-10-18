@@ -6,6 +6,14 @@
 Welcome to pgloader's documentation!
 ====================================
 
+The `pgloader`__ project is an Open Source Software project. The development
+happens at `https://github.com/dimitri/pgloader`__ and is public: everyone
+is welcome to participate by opening issues, pull requests, giving feedback,
+etc.
+
+__ https://github.com/dimitri/pgloader
+__ https://github.com/dimitri/pgloader
+
 pgloader loads data from various sources into PostgreSQL. It can transform
 the data it reads on the fly and submit raw SQL before and after the
 loading. It uses the `COPY` PostgreSQL protocol to stream the data into the
@@ -238,28 +246,47 @@ In order to be able to follow this great methodology, you need tooling to
 implement the third step in a fully automated way. That's pgloader.
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Table Of Contents:
+   :hidden:
+   :caption: Getting Started
 
    intro
    quickstart
    tutorial/tutorial
    install
+   bugreport
+
+.. toctree::
+   :hidden:
+   :caption: Reference Manual
+
    pgloader
+   command
+   batches
+   ref/transforms
+
+.. toctree::
+   :hidden:
+   :caption: Manual for file formats
+
    ref/csv
    ref/fixed
    ref/copy
    ref/dbf
    ref/ixf
    ref/archive
+   
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: Manual for Database Servers
+
    ref/mysql
    ref/sqlite
    ref/mssql
    ref/pgsql
    ref/pgsql-citus-target
    ref/pgsql-redshift
-   ref/transforms
-   bugreport
+   
 
 Indices and tables
 ==================
