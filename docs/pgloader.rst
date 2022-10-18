@@ -59,87 +59,88 @@ Options
 Inquiry Options
 ^^^^^^^^^^^^^^^
 
-Use these options when you want to know more about how to use `pgloader`, as
-those options will cause `pgloader` not to load any data.
+Use these options when you want to know more about how to use pgloader, as
+those options will cause pgloader not to load any data.
 
-  * `-h`, `--help`
+--help
 
     Show command usage summary and exit.
 
-  * `-V`, `--version`
+--version
 
     Show pgloader version string and exit.
 
-  * `-E`, `--list-encodings`
+--with-encodings
 
     List known encodings in this version of pgloader.
 
-  * `-U`, `--upgrade-config`
+--upgrade-config
     
-    Parse given files in the command line as `pgloader.conf` files with the
-    `INI` syntax that was in use in pgloader versions 2.x, and output the
+    Parse given files in the command line as ``pgloader.conf`` files with
+    the INI syntax that was in use in pgloader versions 2.x, and output the
     new command syntax for pgloader on standard output.
 
 
 General Options
 ^^^^^^^^^^^^^^^
 
-Those options are meant to tweak `pgloader` behavior when loading data.
+Those options are meant to tweak pgloader behavior when loading data.
 
-  * `-v`, `--verbose`
+--verbose
     
     Be verbose.
 
-  * `-q`, `--quiet`
+--quiet
     
     Be quiet.
 
-  * `-d`, `--debug`
+--debug
     
     Show debug level information messages.
 
-  * `-D`, `--root-dir`
+--root-dir
     
-    Set the root working directory (default to "/tmp/pgloader").
+    Set the root working directory (defaults to ``/tmp/pgloader``).
 
-  * `-L`, `--logfile`
+--logfile
     
-    Set the pgloader log file (default to "/tmp/pgloader/pgloader.log").
+    Set the pgloader log file (defaults to ``/tmp/pgloader/pgloader.log``).
 
-  * `--log-min-messages`
+--log-min-messages
     
     Minimum level of verbosity needed for log message to make it to the
     logfile. One of critical, log, error, warning, notice, info or debug.
 
-  * `--client-min-messages`
+--client-min-messages
     
     Minimum level of verbosity needed for log message to make it to the
     console. One of critical, log, error, warning, notice, info or debug.
 
-  * `-S`, `--summary`
+--summary
     
     A filename where to copy the summary output. When relative, the filename
-    is expanded into `*root-dir*`.
+    is expanded into ``*root-dir*``.
 
     The format of the filename defaults to being *human readable*. It is
+
     possible to have the output in machine friendly formats such as *CSV*,
     *COPY* (PostgreSQL's own COPY format) or *JSON* by specifying a filename
-    with the extension resp. `.csv`, `.copy` or `.json`.
+    with the extension resp. ``.csv``, ``.copy`` or ``.json``.
 
-  * `-l <file>`, `--load-lisp-file <file>`
+--load-lisp-file <file>
     
     Specify a lisp <file> to compile and load into the pgloader image before
     reading the commands, allowing to define extra transformation function.
-    Those functions should be defined in the `pgloader.transforms` package.
-    This option can appear more than once in the command line.
+    Those functions should be defined in the ``pgloader.transforms``
+    package. This option can appear more than once in the command line.
 
-  * `--dry-run`
+--dry-run
 
-    Allow testing a `.load` file without actually trying to load any data.
+    Allow testing a ``.load`` file without actually trying to load any data.
     It's useful to debug it until it's ok, in particular to fix connection
     strings.
 
-  * `--on-error-stop`
+--on-error-stop
 
     Alter pgloader behavior: rather than trying to be smart about error
     handling and continue loading good data, separating away the bad one,
@@ -147,14 +148,14 @@ Those options are meant to tweak `pgloader` behavior when loading data.
     debug data processing, transformation function and specific type
     casting.
 
-  * `--self-upgrade <directory>`
+--self-upgrade <directory>
 
     Specify a <directory> where to find pgloader sources so that one of the
     very first things it does is dynamically loading-in (and compiling to
     machine code) another version of itself, usually a newer one like a very
     recent git checkout.
 
-  * `--no-ssl-cert-verification`
+--no-ssl-cert-verification
 
     Uses the OpenSSL option to accept a locally issued server-side
     certificate, avoiding the following error message::
@@ -169,53 +170,55 @@ Those options are meant to tweak `pgloader` behavior when loading data.
 Command Line Only Operations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Those options are meant to be used when using `pgloader` from the command
-line only, rather than using a command file and the rich command clauses and
+Those options are meant to be used when using pgloader from the command line
+only, rather than using a command file and the rich command clauses and
 parser. In simple cases, it can be much easier to use the *SOURCE* and
 *TARGET* directly on the command line, then tweak the loading with those
 options:
 
-  * `--with "option"`
+--with <option>
 
     Allows setting options from the command line. You can use that option as
     many times as you want. The option arguments must follow the *WITH*
-    clause for the source type of the `SOURCE` specification, as described
+    clause for the source type of the ``SOURCE`` specification, as described
     later in this document.
 
-  * `--set "guc_name='value'"`
+--set
 
     Allows setting PostgreSQL configuration from the command line. Note that
     the option parsing is the same as when used from the *SET* command
     clause, in particular you must enclose the guc value with single-quotes.
 
-  * `--field "..."`
+    Use ``--set "guc_name='value'"``.
+
+--field
 
     Allows setting a source field definition. Fields are accumulated in the
-    order given on the command line. It's possible to either use a `--field`
-    option per field in the source file, or to separate field definitions by
-    a comma, as you would do in the *HAVING FIELDS* clause.
+    order given on the command line. It's possible to either use a
+    ``--field`` option per field in the source file, or to separate field
+    definitions by a comma, as you would do in the *HAVING FIELDS* clause.
 
-  * `--cast "..."`
+--cast <rule>
 
     Allows setting a specific casting rule for loading the data.
 
-  * `--type csv|fixed|db3|ixf|sqlite|mysql|mssql`
+--type <csv|fixed|db3|ixf|sqlite|mysql|mssql>
 
     Allows forcing the source type, in case when the *SOURCE* parsing isn't
     satisfying.
 
-  * `--encoding <encoding>`
+--encoding <encoding>
 
     Set the encoding of the source file to load data from.
 
-  * `--before <filename>`
+--before <filename>
 
     Parse given filename for SQL queries and run them against the target
     database before loading the data from the source. The queries are parsed
     by pgloader itself: they need to be terminated by a semi-colon (;) and
     the file may include `\i` or `\ir` commands to *include* another file.
 
-  * `--after <filename>`
+--after <filename>
 
     Parse given filename for SQL queries and run them against the target
     database after having loaded the data from the source. The queries are
