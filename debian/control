@@ -51,7 +51,7 @@ Build-Depends:
  gawk,
  help2man,
  libsqlite3-dev,
- postgresql-14-ip4r <!nocheck> | postgresql-ip4r <!nocheck>,
+ postgresql-15-ip4r <!nocheck> | postgresql-ip4r <!nocheck>,
  python3-sphinx,
  python3-sphinx-rtd-theme,
  sbcl (>= 1.1.13),

@@ -27,8 +27,8 @@ sudo apt-key adv --recv-keys --keyserver keyserver.ubuntu.com 0xcbcb082a1bb943db
 sudo add-apt-repository 'deb http://mirrors.linsrv.net/mariadb/repo/10.0/debian wheezy main'
 
 sudo apt-get update
-sudo apt-get install -y postgresql-9.3 postgresql-contrib-9.3 \
-                        postgresql-9.3-ip4r                   \
+sudo apt-get install -y postgresql-15                         \
+                        postgresql-15-ip4r                    \
                         sbcl                                  \
                         git patch unzip                       \
                         devscripts pandoc                     \
