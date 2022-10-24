@@ -1,3 +1,10 @@
+pgloader (3.6.9-1) unstable; urgency=medium
+
+  * New upstream version.
+  * Bump ip4r dependencies to 15. (Closes: #1022296)
+
+ -- Christoph Berg <myon@debian.org>  Mon, 24 Oct 2022 12:58:09 +0200
+
 pgloader (3.6.8-1) unstable; urgency=medium
 
   * New upstream version.

@@ -28,7 +28,7 @@ copyright = '2005-2022, Dimitri Fontaine'
 author = 'Dimitri Fontaine'
 
 version = '3.6'
-release = '3.6.8'
+release = '3.6.9'
 
 # -- General configuration ------------------------------------------------
 
