@@ -14,6 +14,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Install postgresql-common
+        run: sudo apt-get install -y postgresql-common
+
+      - name: Install pgapt repository
+        run: sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+
       - name: Install build-dependencies
         run: sudo apt-get build-dep -y .
 
