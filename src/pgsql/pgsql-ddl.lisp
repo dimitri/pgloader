@@ -100,7 +100,7 @@
 (defmethod format-drop-sql ((table table) &key (stream nil) cascade (if-exists t))
   "Return the PostgreSQL DROP TABLE IF EXISTS statement for TABLE-NAME."
   (format stream
-          "DROP TABLE~:[~; IF EXISTS~] ~a~@[ CASCADE~];"
+          "DROP TABLE~:[~; IF EXISTS~] ~a~\"@\"[ CASCADE~];"
           if-exists (format-table-name table) cascade))
 
 
