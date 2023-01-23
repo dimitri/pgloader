@@ -64,7 +64,7 @@
                     (member (ensure-unquoted schema-name)
                             schema-list
                             :test #'string=))
-         :do (let ((sql (format nil "DROP SCHEMA ~a CASCADE;" schema-name)))
+         :do (let ((sql (format nil "DROP SCHEMA \"~a\" CASCADE;" schema-name)))
                (pgsql-execute sql :client-min-messages client-min-messages))))
 
     ;; now create the schemas (again?)
@@ -75,7 +75,7 @@
                       (not (member (ensure-unquoted schema-name)
                                    schema-list
                                    :test #'string=))))
-       :do (let ((sql (format nil "CREATE SCHEMA ~a;" (schema-name schema))))
+       :do (let ((sql (format nil "CREATE SCHEMA \"~a\";" (schema-name schema))))
              (pgsql-execute sql :client-min-messages client-min-messages)))))
 
 (defun add-to-search-path (catalog
