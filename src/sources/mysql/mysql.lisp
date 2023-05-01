@@ -217,7 +217,7 @@ Illegal ~a character starting at position ~a~@[: ~a~].~%"
   "Special per-table encoding/decoding overloading rules for MySQL.")
 
 (defun apply-decoding-as-filters (table-name filters)
-  "Return a generialized boolean which is non-nil only if TABLE-NAME matches
+  "Return a generalized boolean which is non-nil only if TABLE-NAME matches
    one of the FILTERS."
   (flet ((apply-filter (filter) (matches filter table-name)))
     (some #'apply-filter filters)))

@@ -168,7 +168,7 @@
                              *redshift-decimal-max-precision* scale)))))
 
           ;;
-          ;; Target data type is suppported, just keep it around.
+          ;; Target data type is supported, just keep it around.
           ;;
           ((and (stringp (column-type-name column))
                 (member (column-type-name column)

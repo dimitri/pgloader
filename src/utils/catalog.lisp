@@ -70,7 +70,7 @@
 
 ;;;
 ;;; When migrating from another database to PostgreSQL some data types might
-;;; need to be tranformed dynamically into User Defined Types: ENUMs, SET,
+;;; need to be transformed dynamically into User Defined Types: ENUMs, SET,
 ;;; etc.
 ;;;
 (defstruct sqltype name schema type source-def extra extension)

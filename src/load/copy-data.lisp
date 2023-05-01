@@ -49,7 +49,7 @@
 
 
 (defmethod copy-to ((copy copy) pgsql-copy-filename)
-  "Extract data from COPY file into a PotgreSQL COPY TEXT formated file"
+  "Extract data from COPY file into a PostgreSQL COPY TEXT formatted file"
   (with-open-file (text-file pgsql-copy-filename
                              :direction :output
                              :if-exists :supersede

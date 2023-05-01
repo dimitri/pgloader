@@ -338,7 +338,7 @@
       (assert (eq m-type :regex))
       (assert (eq d-type :filename))
       (unless root
-        (error "Directory ~s does not exists."
+        (error "Directory ~s does not exist."
                (uiop:native-namestring dir)))
       `(:regex ,first-or-all ,regex ,root))))
 
