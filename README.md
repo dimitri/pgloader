@@ -1,6 +1,6 @@
 # PGLoader
 
-[![Build Status](https://travis-ci.org/dimitri/pgloader.svg?branch=master)](https://travis-ci.org/dimitri/pgloader)
+[![Build Status](https://github.com/dimitri/pgloader/workflows/build/badge.svg?branch=master)](https://github.com/dimitri/pgloader/actions?query=workflow%3Abuild+branch%3Amaster)
 [![Join the chat at https://gitter.im/dimitri/pgloader](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/dimitri/pgloader?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Read The Docs Status](https://readthedocs.org/projects/pgloader/badge/?version=latest&style=plastic)](http://pgloader.readthedocs.io/en/latest/)
 
