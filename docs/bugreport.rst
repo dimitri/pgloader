@@ -3,12 +3,12 @@ Reporting Bugs
 
 pgloader is a software and as such contains bugs. Most bugs are easy to
 solve and taken care of in a short delay. For this to be possible though,
-bug reports need to follow those recommandations:
+bug reports need to follow those recommendations:
 
   - include pgloader version,
   - include problematic input and output,
   - include a description of the output you expected,
-  - explain the difference between the ouput you have and the one you expected,
+  - explain the difference between the output you have and the one you expected,
   - include a self-reproducing test-case
 
 Test Cases to Reproduce Bugs

@@ -86,7 +86,7 @@ they can be loaded correctly.
 
 ### Compiling SBCL by yourself
 
-If you ended up building SBCL yourself or you just want to do that, you can
+If you ended up building SBCL yourself, or you just want to do that, you can
 download the source from http://www.sbcl.org/ .
 
 You will need to build SBCL with the following command and options:
@@ -98,7 +98,7 @@ NOTE: You could also remove the --compress-core option.
 
 ## Building pgloader
 
-Now that the dependences are installed, just type make.
+Now that the dependencies are installed, just type make.
 
     make
 
