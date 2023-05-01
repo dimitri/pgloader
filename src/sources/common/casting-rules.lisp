@@ -56,7 +56,7 @@
                   (string-equal table-name (car rule-source-column))
                   (string-equal column-name (cdr rule-source-column)))
 
-             ;; otherwide, we do the full dance
+             ;; otherwise, we do the full dance
              (and
               (or (and t-s-p (or (eq t rule-source-type)
                                   (string-equal type rule-source-type))))

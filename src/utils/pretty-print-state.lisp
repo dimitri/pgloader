@@ -293,7 +293,7 @@
 
 
 ;;;
-;;; Have yason output JSON formated output, straight from our instances.
+;;; Have yason output JSON formatted output, straight from our instances.
 ;;;
 (defmacro define-yason-encoder (class)
   "Define a new yason:encode method for CLASS."

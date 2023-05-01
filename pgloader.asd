@@ -10,7 +10,7 @@
                #:postmodern		; PostgreSQL protocol implementation
                #:cl-postgres		; low level bits for COPY streaming
                #:simple-date		; FIXME: recheck dependency
-               #:qmynd                  ; MySQL protocol implemenation
+               #:qmynd                  ; MySQL protocol implementation
                #:split-sequence         ; some parsing is made easy
                #:cl-csv                 ; full CSV reader
                #:cl-fad                 ; file and directories

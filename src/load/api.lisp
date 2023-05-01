@@ -16,7 +16,7 @@
    "Load data from SOURCE and serialize it into FILENAME, using PostgreSQL
     COPY TEXT format."))
 
-;; The next generic function is only to get instanciated for sources
+;; The next generic function is only to get instantiated for sources
 ;; actually containing more than a single source item (tables, collections,
 ;; etc)
 

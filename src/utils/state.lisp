@@ -103,7 +103,7 @@
   (gethash name (pgstate-tables pgstate)))
 
 (defun pgstate-new-label (pgstate label)
-  "Instanciate a new pgtable structure to hold our stats, and return it."
+  "Instantiate a new pgtable structure to hold our stats, and return it."
   (or (pgstate-get-label pgstate label)
       (let* ((pgtable (setf (gethash label (pgstate-tables pgstate))
                             (make-pgtable :name label
