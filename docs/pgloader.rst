@@ -44,7 +44,7 @@ Also note that some file formats require describing some implementation
 details such as columns to be read and delimiters and quoting when loading
 from csv.
 
-For more complex loading scenarios, you will need to write a full fledge
+For more complex loading scenarios, you will need to write a full fledged
 load command in the syntax described later in this document.
 
 Target Connection String
