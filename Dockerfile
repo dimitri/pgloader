@@ -1,4 +1,4 @@
-FROM debian:stable-slim as builder
+FROM debian:bookworm-slim as builder
 
   RUN apt-get update \
       && apt-get install -y --no-install-recommends \
@@ -9,7 +9,7 @@ FROM debian:stable-slim as builder
         gawk \
         git \
         libsqlite3-dev \
-        libssl1.1 \
+        libssl3 \
         libzip-dev \
         make \
         openssl \
@@ -30,7 +30,7 @@ ARG DYNSIZE=16384
       && cd /opt/src/pgloader \
       && make DYNSIZE=$DYNSIZE clones save
 
-FROM debian:stable-slim
+FROM debian:bookworm-slim
 
   RUN apt-get update \
       && apt-get install -y --no-install-recommends \
