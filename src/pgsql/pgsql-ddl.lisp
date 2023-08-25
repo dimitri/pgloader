@@ -198,7 +198,7 @@
         ;; LOCK on the table before we have the index done already
         (or (index-sql index)
             (format stream
-                    "CREATE UNIQUE INDEX ~a ON ~a (~{~a~^, ~})~@[ WHERE ~a~];"
+                    "CREATE UNIQUE INDEX \"~a\" ON ~a (~{~a~^, ~})~@[ WHERE ~a~];"
                     index-name
                     (format-table-name table)
                     (index-columns index)
@@ -224,7 +224,7 @@
            (multiple-value-bind (access-method expression)
                (index-access-method index)
             (format stream
-                    "CREATE~:[~; UNIQUE~] INDEX ~a ON ~a ~@[USING ~a~](~{~a~^, ~})~@[ WHERE ~a~];"
+                    "CREATE~:[~; UNIQUE~] INDEX \"~a\" ON ~a ~@[USING ~a~](~{~a~^, ~})~@[ WHERE ~a~];"
                     (index-unique index)
                     index-name
                     (format-table-name table)
