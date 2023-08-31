@@ -1,5 +1,9 @@
 FROM debian:stable-slim as builder
 
+  RUN apt-get update && apt-get install -y wget
+  RUN wget http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1-1ubuntu2.1~18.04.23_amd64.deb
+  RUN dpkg -i libssl1.1_1.1.1-1ubuntu2.1~18.04.23_amd64.deb
+
   RUN apt-get update \
       && apt-get install -y --no-install-recommends \
         bzip2 \
@@ -9,7 +13,6 @@ FROM debian:stable-slim as builder
         gawk \
         git \
         libsqlite3-dev \
-        libssl1.1 \
         libzip-dev \
         make \
         openssl \
