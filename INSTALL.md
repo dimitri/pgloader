@@ -25,7 +25,7 @@ backporting the one found in `sid` rather than using the very old one found
 in current *stable* debian release. See `bootstrap-debian.sh` for details
 about how to backport a recent enough SBCL here (1.2.5 or newer).
 
-### Redhat / CentOS
+### Redhat / CentOS / Amazon Linux 2
 
 To build and install pgloader the Steel Bank Common Lisp package (sbcl) from EPEL,
 and the freetds packages are required.
