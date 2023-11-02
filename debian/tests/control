@@ -8,6 +8,6 @@ Restrictions: allow-stderr, needs-root
 
 Depends:
  pgloader,
- postgresql-15-ip4r | postgresql-ip4r,
+ postgresql-16-ip4r | postgresql-ip4r,
 Tests: testsuite
 Restrictions: allow-stderr
