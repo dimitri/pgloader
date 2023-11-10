@@ -438,6 +438,7 @@
            #:pgconn-major-version
            #:pgconn-variant
            #:with-pgsql-transaction
+           #:with-pgsql-transaction-read
 	   #:with-pgsql-connection
 	   #:pgsql-execute
 	   #:pgsql-execute-with-timing
@@ -634,6 +635,7 @@
   (:import-from #:alexandria #:read-file-into-string)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
+		#:with-pgsql-transaction-read
 		#:pgsql-execute)
   (:export #:read-ini-file
 	   #:parse-ini-file
@@ -702,6 +704,7 @@
         #:pgloader.sources)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
+		#:with-pgsql-transaction-read
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
 		#:create-tables
@@ -717,6 +720,7 @@
         #:pgloader.sources)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
+		#:with-pgsql-transaction-read
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
 		#:create-tables
@@ -736,6 +740,7 @@
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-connection
 		#:with-pgsql-transaction
+		#:with-pgsql-transaction-read
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
 		#:list-table-oids
@@ -769,6 +774,7 @@
   (:import-from #:pgloader.transforms #:precision #:scale)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
+		#:with-pgsql-transaction-read
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
 		#:create-tables
@@ -788,6 +794,7 @@
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-connection
 		#:with-pgsql-transaction
+		#:with-pgsql-transaction-read
 		#:pgsql-execute
 		#:pgsql-execute-with-timing
 		#:pgsql-connect-and-execute-with-timing
@@ -812,6 +819,7 @@
   (:use #:cl #:pgloader.params #:pgloader.utils)
   (:import-from #:pgloader.pgsql
 		#:with-pgsql-transaction
+		#:with-pgsql-transaction-read
 		#:pgsql-execute)
   (:export #:stream-messages
 	   #:start-syslog-server
@@ -836,6 +844,7 @@
   (:import-from #:pgloader.pgsql
                 #:pgsql-connection
 		#:with-pgsql-transaction
+		#:with-pgsql-transaction-read
 		#:pgsql-execute
                 #:pgconn-use-ssl
                 #:pgconn-table-name
