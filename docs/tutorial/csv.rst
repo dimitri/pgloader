@@ -50,7 +50,7 @@ This command allows loading the following CSV file content::
 Loading the data
 ^^^^^^^^^^^^^^^^
 
-Here's how to start loading the data. Note that the ouput here has been
+Here's how to start loading the data. Note that the output here has been
 edited so as to facilitate its browsing online::
 
     $ pgloader csv.load
