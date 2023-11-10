@@ -127,7 +127,7 @@
 (defun reformat-then-process (&key fields columns target)
   "Return a lambda form to apply to each row we read.
 
-   The lambda closes over the READ paramater, which is a counter of how many
+   The lambda closes over the READ parameter, which is a counter of how many
    lines we did read in the file."
   (let ((projection (project-fields :fields fields :columns columns)))
     (lambda (row)

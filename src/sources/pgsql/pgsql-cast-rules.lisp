@@ -13,7 +13,7 @@
 
     (:source (:type "character varying")
      :target (:type "text" :drop-typemod t)))
-  "Data Type Casting to migrate from PostgtreSQL to PostgreSQL")
+  "Data Type Casting to migrate from PostgreSQL to PostgreSQL")
 
 (defmethod pgsql-column-ctype ((column column))
   "Build the ctype definition from the PostgreSQL column information."

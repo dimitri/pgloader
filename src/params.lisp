@@ -63,7 +63,7 @@
 (defparameter *version-string*
   (concatenate 'string *major-version* "."
                (if *release* *minor-version* (git-hash)))
-  "pgloader version strings, following Emacs versionning model.")
+  "pgloader version strings, following Emacs versioning model.")
 
 (defvar *self-upgrade-immutable-systems* nil
   "Used for --self-upgrade.")
@@ -175,7 +175,7 @@
 ;;; Run time context to fill-in variable parts of the commands.
 ;;;
 (defvar *context* nil
-  "Alist of (names . values) intialized from the environment at run-time,
+  "Alist of (names . values) initialized from the environment at run-time,
   and from a --context command line argument, then used in the commands when
   they are using the Mustache templating feature.")
 

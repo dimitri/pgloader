@@ -102,7 +102,7 @@
 
     ;; Some database sources allow the same index name being used
     ;; against several tables, so we add the PostgreSQL table OID in the
-    ;; index name, to differenciate. Set the table oids now.
+    ;; index name, to differentiate. Set the table OIDs now.
     (when (and create-tables set-table-oids)
       (with-stats-collection ("Set Table OIDs" :section :pre
                                                :use-result-as-read t
@@ -170,7 +170,7 @@
         ;; Foreign Key Constraints
         ;;
         ;; We need to have finished loading both the reference and the
-        ;; refering tables to be able to build the foreign keys, so wait
+        ;; referring tables to be able to build the foreign keys, so wait
         ;; until all tables and indexes are imported before doing that.
         ;;
         (when foreign-keys
@@ -512,7 +512,7 @@
                         (lp:end-kernel :wait nil)
                         (return worker-count))))))
 
-    (log-message :info "Done with COPYing data, waiting for indexes")
+    (log-message :info "Done with COPY-ing data, waiting for indexes")
 
     (when create-indexes
       (let ((lp:*kernel* idx-kernel))

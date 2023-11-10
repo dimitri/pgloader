@@ -76,7 +76,7 @@
     (uiop:run-program command)))
 
 (defun gunzip (archive-file expand-directory)
-  "Unzip a gzip formated archive"
+  "Unzip a gzip formatted archive"
   (let ((command (format nil "gunzip -c ~s > ~s"
                          (uiop:native-namestring archive-file)
                          (uiop:native-namestring (pathname-name archive-file))))
