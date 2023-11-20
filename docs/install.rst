@@ -59,9 +59,11 @@ __ http://sbcl.org/
 __ http://ccl.clozure.com/
 __ http://www.quicklisp.org/beta/
 
-When building from sources, you should always build from the current git
-HEAD as it's basically the only source that is managed in a way to ensure it
+When building from sources, you should always build from the current `git
+HEAD`__ as it's basically the only source that is managed in a way to ensure it
 builds aginst current set of dependencies versions.
+
+__ https://github.com/dimitri/pgloader/
 
 The build system for pgloader uses a Makefile and the Quicklisp Common Lisp
 packages distribution system.
