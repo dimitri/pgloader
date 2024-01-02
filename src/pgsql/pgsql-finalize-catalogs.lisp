@@ -126,6 +126,16 @@
                  (format nil "(~a)" *redshift-varchar-max-precision*)))
 
           ;;
+          ;; When using "json" (unbounded varchar) in MySQL, set the
+          ;; precision of the varchar to the max of what Redshift can
+          ;; handle.
+          ;;
+          ((string-equal (column-type-name column) "json")
+           (setf target-data-type "varchar")
+           (setf target-type-mod
+                 (format nil "(~a)" *redshift-varchar-max-precision*)))
+
+          ;;
           ;; when the source field is e.g. a MySQL varchar(12), we can keep
           ;; the typemod here, or maybe 3 times the typemod to take into
           ;; account Redshift encoding "properties".
