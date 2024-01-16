@@ -151,35 +151,38 @@
   `(lambda ()
      ;; now is the time to load the CFFI lib we need (freetds)
      (let (#+sbcl(sb-ext:*muffled-warnings* 'style-warning))
-       (cffi:load-foreign-library 'mssql::sybdb))
+       (cffi:load-foreign-library 'mssql::sybdb)
+       (mssql:init))
 
-     (let* ((*default-cast-rules* ',*mssql-default-cast-rules*)
-            (*cast-rules*         ',casts)
-            (*mssql-settings*     ',mssql-gucs)
-            (on-error-stop        (getf ',options :on-error-stop t))
-            ,@(pgsql-connection-bindings pg-db-conn gucs)
-            ,@(batch-control-bindings options)
-            ,@(identifier-case-binding options)
-            (source
-             (make-instance 'copy-mssql
-                            :target-db ,pg-db-conn
-                            :source-db ,ms-db-conn)))
+     (unwind-protect
+       (let* ((*default-cast-rules* ',*mssql-default-cast-rules*)
+              (*cast-rules*         ',casts)
+              (*mssql-settings*     ',mssql-gucs)
+              (on-error-stop        (getf ',options :on-error-stop t))
+              ,@(pgsql-connection-bindings pg-db-conn gucs)
+              ,@(batch-control-bindings options)
+              ,@(identifier-case-binding options)
+              (source
+               (make-instance 'copy-mssql
+                              :target-db ,pg-db-conn
+                              :source-db ,ms-db-conn)))
 
-       ,(sql-code-block pg-db-conn :pre before "before load")
+         ,(sql-code-block pg-db-conn :pre before "before load")
 
-       (copy-database source
-                      :including ',including
-                      :excluding ',excluding
-                      :alter-schema ',alter-schema
-                      :alter-table ',alter-table
-                      :after-schema ',after-schema
-                      :materialize-views ',views
-                      :distribute ',distribute
-                      :set-table-oids t
-                      :on-error-stop on-error-stop
-                      ,@(remove-batch-control-option options))
+         (copy-database source
+                        :including ',including
+                        :excluding ',excluding
+                        :alter-schema ',alter-schema
+                        :alter-table ',alter-table
+                        :after-schema ',after-schema
+                        :materialize-views ',views
+                        :distribute ',distribute
+                        :set-table-oids t
+                        :on-error-stop on-error-stop
+                        ,@(remove-batch-control-option options))
 
-       ,(sql-code-block pg-db-conn :post after "after load"))))
+         ,(sql-code-block pg-db-conn :post after "after load"))
+       (mssql:exit))))
 
 (defrule load-mssql-database load-mssql-command
   (:lambda (source)
