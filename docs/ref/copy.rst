@@ -1,13 +1,13 @@
 COPY
 ====
 
-This commands instructs pgloader to load from a file containing COPY TEXT
+This command instructs pgloader to load from a file containing COPY TEXT
 data as described in the PostgreSQL documentation.
 
 Using advanced options and a load command file
 ----------------------------------------------
 
-The command then would be:
+The command would be:
 
 ::
 
@@ -56,9 +56,9 @@ clauses.
 COPY Formatted Files Source Specification: FROM
 -----------------------------------------------
 
-Filename where to load the data from. This support local files, HTTP URLs
-and zip files containing a single dbf file of the same name. Fetch such a
-zip file from an HTTP address is of course supported.
+The filename to load data from. Supports local files, HTTP URLs
+and zip files containing a single `.dbf` file of the same name. Fetching a
+`zip` file from a HTTP address is also supported.
 
   - *inline*
 
