@@ -29,7 +29,7 @@
                          :test #'string=)
                  (progn
                    ;; we need to both downcase and quote here
-                   (when (eq :downcase *identifier-case*)
+                   (when (or (eq :downcase *identifier-case*) (eq :snake_case *identifier-case*))
                      (setf identifier lowercase-identifier))
                    :quote))
 
