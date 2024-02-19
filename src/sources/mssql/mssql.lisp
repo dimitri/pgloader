@@ -62,15 +62,23 @@
       ;; If asked to MATERIALIZE VIEWS, now is the time to create them in MS
       ;; SQL, when given definitions rather than existing view names.
       (when (and materialize-views (not (eq :all materialize-views)))
-        (create-matviews materialize-views mssql))
+        (create-matviews materialize-views mssql)
+        (format t "[fetch-metadata] Materialize Views: ~A~%" materialize-views)
+      )
 
+      (format t "[fetch-metadata] Original including: ~A~%" including)
       (fetch-columns catalog mssql
                      :including including
                      :excluding excluding)
 
       ;; fetch view (and their columns) metadata, covering comments too
-      (let* ((view-names (unless (eq :all materialize-views)
-                           (mapcar #'matview-source-name materialize-views)))
+      (let* ((view-names (progn
+                      (let ((names (unless (eq :all materialize-views)
+                                     (mapcar #'matview-source-name materialize-views))))
+                        ;; Debugging statement
+                        (format t "[fetch-metadata] Debugging view-names: ~A~%" names)
+                        ;; Return the computed value for the let* binding
+                        names))))
              (including
               (loop :for (schema-name . view-name) :in view-names
                  :do (let* ((schema-name (or schema-name "dbo"))
@@ -80,6 +88,7 @@
                                         (assoc schema-name including
                                                :test #'string=)))))
                        (push-to-end view-name (cdr schema-entry))))))
+        (format t "[fetch-metadata] New including: ~A~%" including)
         (cond (view-names
                (fetch-columns catalog mssql
                               :including including
