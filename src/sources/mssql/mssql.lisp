@@ -78,7 +78,7 @@
                         ;; Debugging statement
                         (format t "[fetch-metadata] Debugging view-names: ~A~%" names)
                         ;; Return the computed value for the let* binding
-                        names))))
+                        names)))
              (including
               (loop :for (schema-name . view-name) :in view-names
                  :do (let* ((schema-name (or schema-name "dbo"))
@@ -96,7 +96,8 @@
                               :table-type :view))
 
               ((eq :all materialize-views)
-               (fetch-columns catalog mssql :table-type :view))))
+               (fetch-columns catalog mssql :table-type :view)))
+      )
 
       (when create-indexes
         (fetch-indexes catalog mssql
