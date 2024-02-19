@@ -79,29 +79,30 @@
                         (format t "[fetch-metadata] Debugging view-names: ~A~%" names)
                         ;; Return the computed value for the let* binding
                         names)))
-             (including
-              (loop :for (schema-name . view-name) :in view-names
-                 :do (let* ((schema-name (or schema-name "dbo"))
-                            (schema-entry
-                             (or (assoc schema-name including :test #'string=)
-                                 (let (
-                                      (new-entry (cons schema-name nil)); Initially nil, intending to be a list
-                                    )
-                                    (push new-entry including)
-                                    (format t "[fetch-metadata] Debugging schema-name: ~A~%" schema-name)
-                                    new-entry
-                                  )
-                              )
-                             )
-                             (setf (cdr schema-entry) (push-to-end view-name (cdr schema-entry)))
-                            (format t "[fetch-metadata] Debugging schema-entry: ~A~%" schema-entry)
-                        ;;  (push-to-end view-name (cdr schema-entry))
+             (including nil)
+             )
+            (loop :for (schema-name . view-name) :in view-names
+                 :do (let* (
+                      (schema-name (or schema-name "dbo"))
+                      (schema-entry (or
+                        (assoc schema-name including :test #'string=)
+                        (let (
+                            (new-entry (cons schema-name nil)); Initially nil, intending to be a list
+                          )
+                          (push new-entry including)
+                          (format t "[fetch-metadata:do] Debugging schema-name: ~A~%" schema-name)
+                          new-entry
                         )
-                      )
+                      ))
                     )
-                )
+                    (push-to-end view-name (cdr schema-entry))
+                    (format t "[fetch-metadata] Debugging schema-entry: ~A~%" schema-entry)
+                    (format t "[fetch-metadata] Debugging schema-name: ~A~%" schema-name)
+                        ;;  (push-to-end view-name (cdr schema-entry))
+                  )
               )
         (format t "[fetch-metadata] New including: ~A~%" including)
+        (format t "[fetch-metadata] New view-names: ~A~%" view-names)
         (cond (view-names
                (fetch-columns catalog mssql
                               :including including
