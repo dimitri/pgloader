@@ -84,10 +84,23 @@
                  :do (let* ((schema-name (or schema-name "dbo"))
                             (schema-entry
                              (or (assoc schema-name including :test #'string=)
-                                 (progn (push (cons schema-name nil) including)
-                                        (assoc schema-name including
-                                               :test #'string=)))))
-                       (push-to-end view-name (cdr schema-entry))))))
+                                 (let (
+                                      (new-entry (cons schema-name nil)); Initially nil, intending to be a list
+                                    )
+                                    (push new-entry including)
+                                    (format t "[fetch-metadata] Debugging schema-name: ~A~%" schema-name)
+                                    new-entry
+                                  )
+                              )
+                             )
+                             (setf (cdr schema-entry) (push-to-end view-name (cdr schema-entry)))
+                            (format t "[fetch-metadata] Debugging schema-entry: ~A~%" schema-entry)
+                        ;;  (push-to-end view-name (cdr schema-entry))
+                        )
+                      )
+                    )
+                )
+              )
         (format t "[fetch-metadata] New including: ~A~%" including)
         (cond (view-names
                (fetch-columns catalog mssql
