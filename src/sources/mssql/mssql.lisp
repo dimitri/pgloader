@@ -98,8 +98,7 @@
                               :table-type :view))
 
               ((eq :all materialize-views)
-               (fetch-columns catalog mssql :table-type :view)))
-      )
+               (fetch-columns catalog mssql :table-type :view))))
 
       (when create-indexes
         (fetch-indexes catalog mssql
