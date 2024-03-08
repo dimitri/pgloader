@@ -63,10 +63,8 @@
       ;; SQL, when given definitions rather than existing view names.
       (when (and materialize-views (not (eq :all materialize-views)))
         (create-matviews materialize-views mssql)
-        (format t "[fetch-metadata] Materialize Views: ~A~%" materialize-views)
       )
 
-      (format t "[fetch-metadata] Original including: ~A~%" including)
       (fetch-columns catalog mssql
                      :including including
                      :excluding excluding)
@@ -80,7 +78,6 @@
                   (mapcar #'matview-source-name materialize-views)
                 )))
                 ;; Debugging statement
-                (format t "[fetch-metadata] Debugging view-names: ~A~%" names)
                 ;; Return the computed value for the let* binding
                 names
               )
@@ -97,19 +94,14 @@
                     (new-entry (cons schema-name nil)); Initially nil, intending to be a list
                   )
                   (push new-entry including)
-                  (format t "[fetch-metadata:do] Debugging schema-name: ~A~%" schema-name)
                   new-entry
                 )
               ))
             )
             (push-to-end view-name (cdr schema-entry))
-            (format t "[fetch-metadata] Debugging schema-entry: ~A~%" schema-entry)
-            (format t "[fetch-metadata] Debugging schema-name: ~A~%" schema-name)
             ;;  (push-to-end view-name (cdr schema-entry))
           )
         )
-        (format t "[fetch-metadata] New including: ~A~%" including)
-        (format t "[fetch-metadata] New view-names: ~A~%" view-names)
         (cond (view-names
                (fetch-columns catalog mssql
                               :including including
