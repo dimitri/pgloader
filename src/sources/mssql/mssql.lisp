@@ -62,8 +62,7 @@
       ;; If asked to MATERIALIZE VIEWS, now is the time to create them in MS
       ;; SQL, when given definitions rather than existing view names.
       (when (and materialize-views (not (eq :all materialize-views)))
-        (create-matviews materialize-views mssql)
-      )
+        (create-matviews materialize-views mssql))
 
       (fetch-columns catalog mssql
                      :including including
@@ -73,16 +72,13 @@
       (let* (
           (view-names
             (progn
-              (let ((names (unless
+              (let
+                ((names (unless
                   (eq :all materialize-views)
-                  (mapcar #'matview-source-name materialize-views)
-                )))
+                  (mapcar #'matview-source-name materialize-views))))
                 ;; Debugging statement
                 ;; Return the computed value for the let* binding
-                names
-              )
-            )
-          )
+                names)))
           (including nil)
         )
         (loop :for (schema-name . view-name) :in view-names
@@ -90,18 +86,11 @@
               (schema-name (or schema-name "dbo"))
               (schema-entry (or
                 (assoc schema-name including :test #'string=)
-                (let (
-                    (new-entry (cons schema-name nil)); Initially nil, intending to be a list
-                  )
+                (let
+                  ((new-entry (cons schema-name nil))); Initially nil, intending to be a list
                   (push new-entry including)
-                  new-entry
-                )
-              ))
-            )
-            (push-to-end view-name (cdr schema-entry))
-            ;;  (push-to-end view-name (cdr schema-entry))
-          )
-        )
+                  new-entry))))
+          (push-to-end view-name (cdr schema-entry))))
         (cond (view-names
                (fetch-columns catalog mssql
                               :including including
