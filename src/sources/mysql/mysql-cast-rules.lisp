@@ -7,7 +7,7 @@
 (defun enum-or-set-name (table-name column-name type ctype typemod)
   (declare (ignore type ctype typemod))
   (apply-identifier-case
-   (format nil "~a_~a" (unquote table-name #\") (unquote column-name #\"))))
+   (format nil "~a__~a" (unquote table-name #\") (unquote column-name #\"))))
 
 ;;;
 ;;; The default MySQL Type Casting Rules
