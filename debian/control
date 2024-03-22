@@ -62,7 +62,7 @@ Vcs-Git: https://github.com/dimitri/pgloader.git
 Vcs-Browser: https://github.com/dimitri/pgloader
 
 Package: pgloader
-Architecture: any
+Architecture: amd64 arm64 i386 ppc64el powerpc ppc64
 Depends:
  freetds-dev,
  ${misc:Depends},

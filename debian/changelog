@@ -1,3 +1,10 @@
+pgloader (3.6.10-2) unstable; urgency=medium
+
+  * Limit architectures to those that have sbcl available and working thread
+    support (notably, this excludes armel and armhf).
+
+ -- Christoph Berg <myon@debian.org>  Fri, 22 Mar 2024 14:59:27 +0100
+
 pgloader (3.6.10-1) unstable; urgency=medium
 
   * New upstream version.
