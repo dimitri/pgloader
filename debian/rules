@@ -18,6 +18,8 @@ MAKEFILE_VERSION = $(shell awk '/^VERSION/ { print $$3 }' Makefile)
 DOC_VERSION = $(shell awk '/^release/ { print $$3 }' docs/conf.py | tr -d "'")
 SPECFILE_VERSION = $(shell awk '/^Version/ { print $$2 }' pgloader.spec)
 DEBIAN_VERSION = $(shell dpkg-parsechangelog -SVersion | cut -d- -f 1)
+PGLOADER_MAJOR_VERSION = $(shell awk '/^.defparameter .major-version/ { print $$3 }' src/params.lisp | grep -Eo '[0-9.]+')
+PGLOADER_MINOR_VERSION = $(shell awk '/^.defparameter .minor-version/ { print $$3 }' src/params.lisp | grep -Eo '[0-9.]+')
 
 # buildd provides a build environment where $HOME is not writable, but the
 # CL compilers here will need to fill-in a per-user cache
@@ -30,6 +32,7 @@ override_dh_auto_clean:
 	[ "$(MAKEFILE_VERSION)" = "$(DOC_VERSION)" ] # Makefile = docs/conf.py version
 	[ "$(MAKEFILE_VERSION)" = "$(SPECFILE_VERSION)" ] # Makefile = pgloader.spec version
 	[ "$(MAKEFILE_VERSION)" = "$(DEBIAN_VERSION)" ] # Makefile = debian/changelog version
+	[ "$(MAKEFILE_VERSION)" = "$(PGLOADER_MAJOR_VERSION).$(PGLOADER_MINOR_VERSION)" ] # Makefile = src/params.lisp version
 
 override_dh_auto_build-indep:
 	# do nothing
