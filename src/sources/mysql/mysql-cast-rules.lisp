@@ -125,19 +125,19 @@
     ;; MySQL and dates...
     ;;
     (:source (:type "datetime" :default "0000-00-00 00:00:00" :not-null t)
-     :target (:type "timestamptz" :drop-default t :drop-not-null t)
+     :target (:type "timestamp" :drop-default t :drop-not-null t)
      :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "datetime" :default "0000-00-00 00:00:00")
-     :target (:type "timestamptz" :drop-default t)
+     :target (:type "timestamp" :drop-default t)
      :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "datetime" :on-update-current-timestamp t :not-null t)
-     :target (:type "timestamptz" :drop-default t :drop-not-null t)
+     :target (:type "timestamp" :drop-default t :drop-not-null t)
      :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "datetime" :on-update-current-timestamp t :not-null nil)
-     :target (:type "timestamptz" :drop-default t)
+     :target (:type "timestamp" :drop-default t)
      :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "timestamp" :default "0000-00-00 00:00:00" :not-null t)
@@ -165,7 +165,7 @@
     (:source (:type "year")      :target (:type "integer" :drop-typemod t))
 
     (:source (:type "datetime")
-     :target (:type "timestamptz")
+     :target (:type "timestamp")
      :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "timestamp")
