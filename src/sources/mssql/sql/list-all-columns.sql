@@ -44,9 +44,9 @@
               on c.TABLE_SCHEMA = t.TABLE_SCHEMA
              and c.TABLE_NAME = t.TABLE_NAME
 
-   where     c.TABLE_CATALOG = '~a'
-         and t.TABLE_TYPE = '~a'
-         ~:[~*~;and (~{~a~^~&~10t or ~})~]
-         ~:[~*~;and (~{~a~^~&~10t and ~})~]
+   where c.TABLE_CATALOG = '~a'
+    and t.TABLE_TYPE = '~a'
+    ~:[~*~;and (~{~a~^~&~10t or ~})~]
+    ~:[~*~;and (~{~a~^~&~10t and ~})~]
 
 order by c.table_schema, c.table_name, c.ordinal_position;
