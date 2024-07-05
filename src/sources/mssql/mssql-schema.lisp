@@ -120,7 +120,7 @@
 
 (defmethod fetch-foreign-keys ((catalog catalog) (mssql copy-mssql)
                                &key including excluding)
-  "Get the list of MSSQL index definitions per table."
+  "Get the list of MSSQL foreign key definitions per table."
   (loop
      :with incl-where := (filter-list-to-where-clause
                           mssql including :not nil
@@ -154,7 +154,8 @@
                             :update-rule fk-update-rule
                             :delete-rule fk-delete-rule))
                 (fkey
-                 (maybe-add-fkey table fkey-name pg-fkey :key #'fkey-name)))
+                 (maybe-add-fkey table (apply-identifier-case fkey-name) pg-fkey
+                                 :key #'fkey-name)))
            (push-to-end col-name (fkey-columns fkey))
            (push-to-end fcol-name (fkey-foreign-columns fkey)))
      :finally (return catalog)))
