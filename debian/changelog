@@ -1,3 +1,10 @@
+pgloader (3.6.10-3) unstable; urgency=medium
+
+  * Drop 32-bit architectures, cl-ironclad is reported to be unstable there.
+    (Closes: #1077220)
+
+ -- Christoph Berg <myon@debian.org>  Sat, 27 Jul 2024 10:23:33 +0300
+
 pgloader (3.6.10-2) unstable; urgency=medium
 
   * Limit architectures to those that have sbcl available and working thread

@@ -56,13 +56,13 @@ Build-Depends:
  python3-sphinx-rtd-theme,
  sbcl (>= 1.1.13),
  tzdata,
-Standards-Version: 4.6.0
+Standards-Version: 4.7.0
 Homepage: https://github.com/dimitri/pgloader
 Vcs-Git: https://github.com/dimitri/pgloader.git
 Vcs-Browser: https://github.com/dimitri/pgloader
 
 Package: pgloader
-Architecture: amd64 arm64 i386 ppc64el powerpc ppc64
+Architecture: amd64 arm64 ppc64el ppc64
 Depends:
  freetds-dev,
  ${misc:Depends},
