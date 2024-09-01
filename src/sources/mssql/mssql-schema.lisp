@@ -98,7 +98,8 @@
                             incl-where
                             excl-where  ; do we print the clause?
                             excl-where))
-     :do (let* ((schema     (find-schema catalog schema-name))
+     :do (let* ((index-name (apply-identifier-case index-name))
+                (schema     (find-schema catalog schema-name))
                 (table      (find-table schema table-name))
                 (pg-index   (make-index :name index-name
                                         :schema schema
