@@ -43,6 +43,12 @@
   catalog)
 
 ;;;
+;;; Accept that sometimes the variant hasn't been specified at all.
+;;;
+(defmethod adjust-data-types ((catalog catalog) (variant (eql nil)))
+  catalog)
+
+;;;
 ;;; The RedShift case is a little more involved, as shown in their
 ;;; documentation:
 ;;;
