@@ -120,7 +120,7 @@
 
 (defmethod fetch-foreign-keys ((catalog catalog) (mssql copy-mssql)
                                &key including excluding)
-  "Get the list of MSSQL index definitions per table."
+  "Get the list of MSSQL foreign key definitions per table."
   (loop
      :with incl-where := (filter-list-to-where-clause
                           mssql including :not nil
@@ -130,8 +130,8 @@
                           mssql excluding :not t
                           :schema-col "kcu1.table_schema"
                           :table-col "kcu1.table_name")
-     :for (fkey-name schema-name table-name col
-                     fschema-name ftable-name fcol
+     :for (fkey-name schema-name table-name cols
+                     fschema-name ftable-name fcols
                      fk-update-rule fk-delete-rule)
      :in  (mssql-query (sql "/mssql/list-all-fkeys.sql"
                             (db-name *mssql-db*) (db-name *mssql-db*)
@@ -143,20 +143,16 @@
                 (table     (find-table schema table-name))
                 (fschema   (find-schema catalog fschema-name))
                 (ftable    (find-table fschema ftable-name))
-                (col-name  (apply-identifier-case col))
-                (fcol-name (apply-identifier-case fcol))
-                (pg-fkey
-                 (make-fkey :name (apply-identifier-case fkey-name)
-                            :table table
-                            :columns nil
-                            :foreign-table ftable
-                            :foreign-columns nil
-                            :update-rule fk-update-rule
-                            :delete-rule fk-delete-rule))
-                (fkey
-                 (maybe-add-fkey table fkey-name pg-fkey :key #'fkey-name)))
-           (push-to-end col-name (fkey-columns fkey))
-           (push-to-end fcol-name (fkey-foreign-columns fkey)))
+                (fkey      (make-fkey :table table
+                                      :columns (mapcar #'apply-identifier-case
+                                                       (sq:split-sequence #\, cols))
+                                      :foreign-table ftable
+                                      :foreign-columns (mapcar
+                                                        #'apply-identifier-case
+                                                        (sq:split-sequence #\, fcols))
+                                      :update-rule fk-update-rule
+                                      :delete-rule fk-delete-rule)))
+           (add-fkey table fkey)
      :finally (return catalog)))
 
 
