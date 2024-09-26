@@ -34,6 +34,7 @@ FROM debian:bookworm-slim
 
   RUN apt-get update \
       && apt-get install -y --no-install-recommends \
+        ca-certificates \
         curl \
         freetds-dev \
         gawk \
@@ -42,6 +43,7 @@ FROM debian:bookworm-slim
         make \
         sbcl \
         unzip \
+      && update-ca-certificates \
       && rm -rf /var/lib/apt/lists/*
 
   COPY --from=builder /opt/src/pgloader/build/bin/pgloader /usr/local/bin
