@@ -21,7 +21,7 @@ You will note in particular:
                             freetds-dev
 
 We need a recent enough [SBCL](http://sbcl.org/) version and that means
-backporting the one found in `sid` rather than using the very old one found
+back-porting the one found in `sid` rather than using the very old one found
 in current *stable* debian release. See `bootstrap-debian.sh` for details
 about how to backport a recent enough SBCL here (1.2.5 or newer).
 
@@ -86,7 +86,7 @@ they can be loaded correctly.
 
 ### Compiling SBCL by yourself
 
-If you ended up building SBCL yourself or you just want to do that, you can
+If you ended up building SBCL yourself, or you just want to do that, you can
 download the source from http://www.sbcl.org/ .
 
 You will need to build SBCL with the following command and options:
@@ -98,7 +98,7 @@ NOTE: You could also remove the --compress-core option.
 
 ## Building pgloader
 
-Now that the dependences are installed, just type make.
+Now that the dependencies are installed, just type make.
 
     make
 

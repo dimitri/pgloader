@@ -114,7 +114,7 @@ Schema discovery
 
 User defined casting rules
     Some source database have ideas about their data types that might not be
-    compatible with PostgreSQL implementaion of equivalent data types.
+    compatible with PostgreSQL implementation of equivalent data types.
 
     For instance, SQLite since version 3 has a `Dynamic Type System
     <https://www.sqlite.org/datatype3.html>`_ which of course isn't
@@ -240,7 +240,7 @@ PostgreSQL <http://mysqltopgsql.com/project/>`_ webpage.
   2. Fork a Continuous Integration environment that uses PostgreSQL
   3. Migrate the data over and over again every night, from production
   4. As soon as the CI is all green using PostgreSQL, schedule the D-Day
-  5. Migrate without suprise and enjoy! 
+  5. Migrate without surprise and enjoy!
 
 In order to be able to follow this great methodology, you need tooling to
 implement the third step in a fully automated way. That's pgloader.

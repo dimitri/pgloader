@@ -175,7 +175,7 @@ the support for that Operating System:
 
 __ https://github.com/dimitri/pgloader/issues?utf8=✓&q=label%3A%22Windows%20support%22%20>
 
-If you need ``pgloader.exe`` on windows please condider contributing fixes
+If you need ``pgloader.exe`` on windows please consider contributing fixes
 for that environment and maybe longer term support then. Specifically, a CI
 integration with a windows build host would allow ensuring that we continue
 to support that target.
