@@ -1,0 +1,83 @@
+{
+  "name": "CI",
+  "on": {
+    "push": {
+      "branches": [
+        "master"
+      ]
+    },
+    "pull_request": null,
+    "schedule": [
+      {
+        "cron": "0 10 * * 1"
+      }
+    ]
+  },
+  "jobs": {
+    "linter": {
+      "runs-on": "ubuntu-latest",
+      "env": {
+        "OS": "ubuntu-latest",
+        "QUICKLISP_DIST": "quicklisp",
+        "LISP": "sbcl-bin"
+      },
+      "steps": [
+        {
+          "uses": "actions/checkout@v1"
+        },
+        {
+          "uses": "40ants/setup-lisp@v1",
+          "with": {
+            "asdf-system": "pgloader"
+          }
+        },
+        {
+          "name": "Install SBLint",
+          "run": "qlot exec ros install cxxxr/sblint",
+          "shell": "bash"
+        },
+        {
+          "name": "Run Linter",
+          "run": "qlot exec sblint pgloader.asd",
+          "shell": "bash"
+        }
+      ]
+    },
+    "run-tests": {
+      "strategy": {
+        "fail-fast": false,
+        "matrix": {
+          "os": [
+            "ubuntu-latest",
+            "macos-latest"
+          ]
+        }
+      },
+      "runs-on": "${{ matrix.os }}",
+      "env": {
+        "OS": "${{ matrix.os }}",
+        "QUICKLISP_DIST": "quicklisp",
+        "LISP": "sbcl-bin"
+      },
+      "steps": [
+        {
+          "uses": "actions/checkout@v1"
+        },
+        {
+          "uses": "40ants/setup-lisp@v1",
+          "with": {
+            "asdf-system": "pgloader",
+            "qlfile-template": "{% ifequal quicklisp_dist \"ultralisp\" %}\ndist ultralisp http://dist.ultralisp.org\n{% endifequal %}\n\ngithub mgl-pax svetlyak40wt/mgl-pax :branch mgl-pax-minimal"
+          }
+        },
+        {
+          "uses": "40ants/run-tests@v2",
+          "with": {
+            "asdf-system": "pgloader",
+            "coveralls-token": "\n${{ matrix.lisp == 'sbcl-bin' &&\n    matrix.os == 'ubuntu-latest' &&\n    matrix.quicklisp-dist == 'ultralisp' &&\n    secrets.github_token }}"
+          }
+        }
+      ]
+    }
+  }
+}
