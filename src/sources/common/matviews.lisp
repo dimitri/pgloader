@@ -2,8 +2,8 @@
 ;;; Materialized Views support is quite similar from a DB engine from another.
 ;;;
 ;; It happens that the view definition is given by the user, so pgloader is
-;; not concerned with that part of the SQL compatiblity. The common
-;; implementation uses the following two SQL comamnds:
+;; not concerned with that part of the SQL compatibility. The common
+;; implementation uses the following two SQL commands:
 ;;;
 ;;;   CREATE VIEW <schema>.<name> AS <sql>
 ;;;   DROP VIEW <schema>.<name>, <schema>.<name>, ...;

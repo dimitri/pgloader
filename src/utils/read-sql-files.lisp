@@ -57,7 +57,7 @@
   (setf (parser-state p) (if (null (parser-tags p)) :eat :eqt)))
 
 #|
-Here's a test case straigth from the PostgreSQL docs:
+Here's a test case straight from the PostgreSQL docs:
 
 (with-input-from-string (s "
 create function f(text)
@@ -101,7 +101,7 @@ Another test case for the classic quotes:
      - EQT    Eat Quoted Text
      - EDQ    Eat Double-Quoted Text (identifiers)
      - EOQ    done reading the query
-     - ESC    read espaced text (with backslash)"
+     - ESC    read escaped text (with backslash)"
   (handler-case
       (loop
          :until (eq :eoq (parser-state state))

@@ -34,7 +34,7 @@
 (defun prepare-and-format-row-for-s3 (copy nbcols row)
   "Redshift doesn't know how to parse COPY format, we need to upload CSV
    instead. That said, we don't have to be as careful with the data layout
-   and unicode representation when COPYing from a CSV file as we do when
+   and unicode representation when COPY-ing from a CSV file as we do when
    implementing the data streaming outselves."
   (declare (ignore copy nbcols))
   (let ((pg-vector-row (cl-csv:write-csv-row (coerce row 'list)
