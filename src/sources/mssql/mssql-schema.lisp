@@ -124,12 +124,12 @@
   (loop
      :with incl-where := (filter-list-to-where-clause
                           mssql including :not nil
-                          :schema-col "kcu1.table_schema"
-                          :table-col "kcu1.table_name")
+                          :schema-col "KCU1.table_schema"
+                          :table-col "KCU1.table_name")
      :with excl-where := (filter-list-to-where-clause
                           mssql excluding :not t
-                          :schema-col "kcu1.table_schema"
-                          :table-col "kcu1.table_name")
+                          :schema-col "KCU1.table_schema"
+                          :table-col "KCU1.table_name")
      :for (fkey-name schema-name table-name col
                      fschema-name ftable-name fcol
                      fk-update-rule fk-delete-rule)
