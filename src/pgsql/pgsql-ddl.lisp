@@ -144,7 +144,7 @@
   '((:null              . "NULL")
     (:current-date      . "CURRENT_DATE")
     (:current-timestamp . "CURRENT_TIMESTAMP")
-    (:generate-uuid     . "uuid_generate_v4()"))
+    (:generate-uuid     . "gen_random_uuid()"))
   "Common normalized default values and their PostgreSQL spelling.")
 
 (defmethod format-default-value ((column column) &key (stream nil))
