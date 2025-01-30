@@ -11,6 +11,10 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y make
+      - if: runner.os == 'Windows'
+        run: choco install make
       - run: make save
       - uses: actions/upload-artifact@v4
         with:
