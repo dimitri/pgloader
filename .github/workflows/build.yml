@@ -8,7 +8,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-22.04, ubuntu-20.04]
     steps:
       - uses: actions/checkout@v4
       - if: runner.os == 'Linux'
