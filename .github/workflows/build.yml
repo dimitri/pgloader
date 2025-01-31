@@ -16,5 +16,5 @@ jobs:
       - run: make save
       - uses: actions/upload-artifact@v4
         with:
-          name: package-${{ runner.os }}
+          name: pgloader-${{ matrix.os }}
           path: build/bin
