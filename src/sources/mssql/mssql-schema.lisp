@@ -145,8 +145,9 @@
                 (ftable    (find-table fschema ftable-name))
                 (col-name  (apply-identifier-case col))
                 (fcol-name (apply-identifier-case fcol))
+                (fkey-name (apply-identifier-case fkey-name)) 
                 (pg-fkey
-                 (make-fkey :name (apply-identifier-case fkey-name)
+                 (make-fkey :name fkey-name
                             :table table
                             :columns nil
                             :foreign-table ftable
