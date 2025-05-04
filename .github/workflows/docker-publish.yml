@@ -7,11 +7,11 @@ name: Docker
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
     # Publish semver tags as releases.
-    tags: [ 'v*.*.*' ]
+    tags: ["v*.*.*"]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 env:
   # Use docker.io for Docker Hub if empty
@@ -19,10 +19,8 @@ env:
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
 
-
 jobs:
   build:
-
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,18 +32,20 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-        
+
+      # Required to build arm64 image
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       # Install the cosign tool (not used on PR, still installed)
       # https://github.com/sigstore/cosign-installer
       - name: Install cosign
         uses: sigstore/cosign-installer@main
         with:
-          cosign-release: 'v2.2.3'
+          cosign-release: "v2.2.3"
 
       - name: Check cosign version
         run: cosign version
-
 
       # Workaround: https://github.com/docker/build-push-action/issues/461
       - name: Setup Docker buildx
@@ -82,6 +82,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
 
       # Sign the resulting Docker image digest except on PRs.
       # This will only write to the public Rekor transparency log when the Docker
