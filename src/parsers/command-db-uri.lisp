@@ -44,9 +44,6 @@
       ;; password looks like '(":" "password")
       (list :user username :password (cadr password)))))
 
-(defun hexdigit-char-p (character)
-  (member character #. (quote (coerce "0123456789abcdefABCDEF" 'list))))
-
 (defrule ipv4-part (and (digit-char-p character)
 			(? (digit-char-p character))
 			(? (digit-char-p character))))
@@ -55,13 +52,13 @@
   (:lambda (ipv4)
     (list :ipv4 (text ipv4))))
 
-(defrule ipv6 (and #\[ (+ (or (digit-char-p character) ":")) #\])
+(defrule ipv6 (and #\[ (+ (or (hexdigit-char-p character) ":")) #\])
   (:lambda (ipv6)
     (list :ipv6 (text ipv6))))
 
-;;; socket directory is unix only, so we can forbid ":" on the parsing
+;; socket directory is unix only, so we can forbid ":" on the parsing
 (defun socket-directory-character-p (char)
-  (or (member char #.(quote (coerce "/.-_" 'list)))
+  (or (find char "/.-_")
       (alphanumericp char)))
 
 (defrule socket-directory (and "unix:"

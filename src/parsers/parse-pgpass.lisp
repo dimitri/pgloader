@@ -15,7 +15,7 @@
   (:lambda (c) (second c)))
 
 (defrule pgpass-ipv6-hostname (and #\[
-                                   (+ (or (digit-char-p character) ":"))
+                                   (+ (or (hexdigit-char-p character) ":"))
                                    #\])
   (:lambda (ipv6) (text (second ipv6))))
 

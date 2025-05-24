@@ -65,3 +65,7 @@
 
 (defrule comma-separator (and ignore-whitespace #\, ignore-whitespace)
   (:constant ","))
+
+;; Predicates for use in rules can only be called with arity 1.
+(defun hexdigit-char-p (character)
+  (digit-char-p character 16))
