@@ -52,6 +52,21 @@ welcome external TCP/IP connection. As pgloader currently piggybacks on the
 FreeTDS driver, to change the port of the server please export the `TDSPORT`
 environment variable.
 
+Note on Passwords Containing the @ Character
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When specifying a password in the connection URL, the password appears after
+the username and before the @ symbol that separates credentials from the server
+address. If your password itself contains an @, you must escape it by replacing
+each @ in the password with @@. This ensures the connection string is parsed
+correctly.
+
+;;
+
+   load database
+      from mssql://user:password@host/dbname
+
+
 MS SQL Database Migration Options: WITH
 ---------------------------------------
 
