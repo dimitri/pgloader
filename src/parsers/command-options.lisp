@@ -73,13 +73,10 @@
     (bind (((_ _ _ val) batch-size))
       (cons :batch-size val))))
 
-;;; deprecated, but still accept it in the parsing
-(defrule option-prefetch-rows (and (or (and kw-batch kw-concurrency)
-                                       (and kw-prefetch kw-rows))
-                                   equal-sign
+(defrule option-prefetch-rows (and kw-prefetch kw-rows equal-sign
                                    (+ (digit-char-p character)))
   (:lambda (prefetch-rows)
-    (bind (((_ _ nb) prefetch-rows))
+    (bind (((_ _ _ nb) prefetch-rows))
       (cons :prefetch-rows (parse-integer (text nb))))))
 
 (defrule option-rows-per-range (and kw-rows kw-per kw-range
