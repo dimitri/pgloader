@@ -25,7 +25,7 @@
   (:documentation "Check that we can actually connect."))
 
 (defgeneric clone-connection (connection)
-  (:documentation "Instanciate a new connection object with similar properties."))
+  (:documentation "Instantiate a new connection object with similar properties."))
 
 
 ;;;

@@ -236,7 +236,7 @@
                                      (mkdir-or-die root-dir debug))))
           (setf *root-dir* (uiop:ensure-directory-pathname root-dir-truename)))
 
-	;; Set parameters that come from the environement
+	;; Set parameters that come from the environment
 	(init-params-from-environment)
 
         ;; Read the context file (if given) and the environment

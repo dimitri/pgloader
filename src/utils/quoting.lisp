@@ -67,7 +67,7 @@
       (format nil "~c~a~c" quote-char value quote-char)))
 
 (defun build-identifier (sep &rest parts)
-  "Concatenante PARTS into a PostgreSQL identifier, with SEP in between
+  "Concatenate PARTS into a PostgreSQL identifier, with SEP in between
    parts. That's useful for creating an index name from a table's oid and name."
   (apply-identifier-case
    (apply #'concatenate
