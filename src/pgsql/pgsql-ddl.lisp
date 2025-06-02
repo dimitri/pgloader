@@ -137,7 +137,7 @@
           (column-type-mod column)
           (column-type-mod column)
           (column-nullable column)
-          (column-default column)
+          (and (column-default column) (not (eq (column-default column) :NULL)))
           (format-default-value column)))
 
 (defvar *pgsql-default-values*
