@@ -241,8 +241,8 @@
                                   pg-fkey)))))
              (if (and fkey from to)
                  (progn
-                   (push-to-end from (fkey-columns fkey))
-                   (push-to-end to   (fkey-foreign-columns fkey)))
+                   (push-to-end (apply-identifier-case from) (fkey-columns fkey))
+                   (push-to-end (apply-identifier-case to)   (fkey-foreign-columns fkey)))
 
                  ;; it might be INCLUDING/EXCLUDING clauses that make it we
                  ;; don't have to care about the fkey definition, or it
