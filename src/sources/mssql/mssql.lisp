@@ -69,17 +69,28 @@
                      :excluding excluding)
 
       ;; fetch view (and their columns) metadata, covering comments too
-      (let* ((view-names (unless (eq :all materialize-views)
-                           (mapcar #'matview-source-name materialize-views)))
-             (including
-              (loop :for (schema-name . view-name) :in view-names
-                 :do (let* ((schema-name (or schema-name "dbo"))
-                            (schema-entry
-                             (or (assoc schema-name including :test #'string=)
-                                 (progn (push (cons schema-name nil) including)
-                                        (assoc schema-name including
-                                               :test #'string=)))))
-                       (push-to-end view-name (cdr schema-entry))))))
+      (let* (
+          (view-names
+            (progn
+              (let
+                ((names (unless
+                  (eq :all materialize-views)
+                  (mapcar #'matview-source-name materialize-views))))
+                ;; Debugging statement
+                ;; Return the computed value for the let* binding
+                names)))
+          (including nil)
+        )
+        (loop :for (schema-name . view-name) :in view-names
+          :do (let* (
+              (schema-name (or schema-name "dbo"))
+              (schema-entry (or
+                (assoc schema-name including :test #'string=)
+                (let
+                  ((new-entry (cons schema-name nil))); Initially nil, intending to be a list
+                  (push new-entry including)
+                  new-entry))))
+          (push-to-end view-name (cdr schema-entry))))
         (cond (view-names
                (fetch-columns catalog mssql
                               :including including
