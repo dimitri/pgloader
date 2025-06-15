@@ -212,11 +212,6 @@ supported, and the default *WITH* clause is: *no truncate*, *create schema*,
     When this option is listed pgloader only issues the `COPY` statements,
     without doing any other processing.
 
-  - *rows per range*
-  
-    How many rows are fetched per `SELECT` query when using *multiple
-    readers per thread*, see above for details.
-
 PostgreSQL Database Casting Rules
 ---------------------------------
 
