@@ -13,7 +13,7 @@
     (:source (:type "xml")       :target (:type "xml" :drop-typemod t))
 
     (:source (:type "int" :auto-increment t)
-             :target (:type "bigserial" :drop-default t))
+             :target (:type "serial" :drop-default t))
     
     (:source (:type "bigint" :auto-increment t)
              :target (:type "bigserial"))
