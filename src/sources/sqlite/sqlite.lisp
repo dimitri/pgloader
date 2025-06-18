@@ -4,6 +4,17 @@
 
 (in-package :pgloader.source.sqlite)
 
+(in-package :pgloader.source.sqlite)
+
+(declaim (inline has-base64-sequence-p))
+
+;;; Return the decoded value of a base64 string, ignoring errors.
+;;; Returns nil if the string doesn't contain a valid base64 string.
+;;;
+(defun has-base64-value-p (string)
+  (ignore-errors
+    (base64:base64-string-to-string string)))
+
 ;;; Map a function to each row extracted from SQLite
 ;;;
 (declaim (inline parse-value))
@@ -20,9 +31,15 @@
          (babel:octets-to-string value :encoding encoding))
 
         ((and (string-equal "bytea" pgsql-type)
+              (has-base64-value-p value)
               (stringp value))
-         ;; we expected bytes and got a string instead, must be base64 encoded
+         ;; we expected bytes and got a be base64 encoded, string instead
          (base64:base64-string-to-usb8-array value))
+
+        ((and (string-equal "bytea" pgsql-type)
+              (stringp value))
+         ;; we expected bytes and got a string instead, convert it to octets
+         (babel:string-to-octets value :encoding :utf-8))
 
         ;; default case, just use what's been given to us
         (t value)))
