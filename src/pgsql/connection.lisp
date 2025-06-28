@@ -224,6 +224,21 @@
            (log-message :debug "BEGIN")
            ,@forms))))
 
+(defmacro with-pgsql-transaction-read ((&key pgconn database) &body forms)
+  "Run FORMS within a PostgreSQL transaction to DBNAME, reusing DATABASE if
+   given. Uses READ COMMITTED READ ONLY isolation level"
+  (if database
+      `(let ((pomo:*database* ,database))
+     (handling-pgsql-notices
+              (pomo:with-transaction (:read-committed-ro)
+                (log-message :debug "BEGIN")
+                ,@forms)))
+      ;; no database given, create a new database connection
+      `(with-pgsql-connection (,pgconn)
+         (pomo:with-transaction (:read-committed-ro)
+           (log-message :debug "BEGIN")
+           ,@forms))))
+
 (defmacro with-pgsql-connection ((pgconn) &body forms)
   "Run FROMS within a PostgreSQL connection to DBNAME. To get the connection
    spec from the DBNAME, use `get-connection-spec'."
