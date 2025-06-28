@@ -45,7 +45,7 @@
                     ;;
                     ;; The connection facility still works with cons here,
                     ;; rather than table structure instances, because of
-                    ;; depedencies as explained in
+                    ;; dependencies as explained in
                     ;; src/parsers/command-db-uri.lisp
                     ;;
                     (cons "expected" (table-name target-table)))

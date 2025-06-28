@@ -605,7 +605,7 @@
 
 
 ;;;
-;;; The pgloader.load package implements data transfert from a pgloader
+;;; The pgloader.load package implements data transferred from a pgloader
 ;;; source to a PostgreSQL database, using the pgloader.pgcopy COPY
 ;;; implementation.
 ;;;

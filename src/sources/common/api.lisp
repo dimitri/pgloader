@@ -133,7 +133,7 @@
 ;;; The methods for those function query the source database catalogs and
 ;;; populate pgloader's internal representation of its catalog.
 ;;;
-;;; On some source systems (such as MySQL) a single schema can be adressed
+;;; On some source systems (such as MySQL) a single schema can be addressed
 ;;; at a time, and the catalog object might be a schema directly.
 ;;;
 (defgeneric filter-list-to-where-clause (db-copy filter-list

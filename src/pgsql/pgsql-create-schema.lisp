@@ -477,7 +477,7 @@ $$; " tables)))
 
 
 ;;;
-;;; Citus Disitribution support
+;;; Citus Distribution support
 ;;;
 (defun create-distributed-table (distribute-rules)
   (let ((citus-sql

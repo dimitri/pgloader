@@ -48,7 +48,7 @@
 ;;; For log messages
 ;;;
 (defun pretty-print-bytes (bytes &key (unit "B"))
-  "Return a string to reprensent bytes in human readable format, with units"
+  "Return a string to represent bytes in human readable format, with units"
   (let ((bytes (or bytes 0)))
     (loop
        :for multiple :in '("T" "G" "M" "k")

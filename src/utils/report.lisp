@@ -5,7 +5,7 @@
 (in-package :pgloader.state)
 
 ;;;
-;;; Timing Formating
+;;; Timing Formatting
 ;;;
 (defun format-interval (seconds &optional (stream t))
   "Output the number of seconds in a human friendly way"
