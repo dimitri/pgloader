@@ -19,3 +19,8 @@ web/howto/sqlite.html
 system-index.txt
 buildapp.log
 docs/_build
+
+# IDE specific ignores
+.vscode/
+.idea/
+.settings/
