@@ -3,7 +3,7 @@ Loading MaxMind Geolite Data with pgloader
 
 `MaxMind <http://www.maxmind.com/>`_ provides a free dataset for
 geolocation, which is quite popular. Using pgloader you can download the
-lastest version of it, extract the CSV files from the archive and load their
+latest version of it, extract the CSV files from the archive and load their
 content into your database directly.
 
 The Command
@@ -94,7 +94,7 @@ in some details. Here's our example for loading the Geolite data::
          $$ create index blocks_ip4r_idx on geolite.blocks using gist(iprange); $$;
 
 Note that while the *Geolite* data is using a pair of integers (*start*,
-*end*) to represent *ipv4* data, we use the very poweful `ip4r
+*end*) to represent *ipv4* data, we use the very powerful `ip4r
 <https://github.com/RhodiumToad/ip4r>`_ PostgreSQL Extension instead.
 
 The transformation from a pair of integers into an IP is done dynamically by
@@ -109,7 +109,7 @@ the fly to use the appropriate data type and its input representation.
 Loading the data
 ^^^^^^^^^^^^^^^^
 
-Here's how to start loading the data. Note that the ouput here has been
+Here's how to start loading the data. Note that the output here has been
 edited so as to facilitate its browsing online::
 
     $ pgloader archive.load

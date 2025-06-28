@@ -216,7 +216,7 @@ keys*, *downcase identifiers*, *uniquify index names*.
     index name by prefixing it with `idx_OID` where `OID` is the internal
     numeric identifier of the table the index is built against.
 
-    In somes cases like when the DDL are entirely left to a framework it
+    In some cases like when the DDL are entirely left to a framework it
     might be sensible for pgloader to refrain from handling index unique
     names, that is achieved by using the *preserve index names* option.
 
