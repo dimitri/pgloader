@@ -245,7 +245,7 @@ Where:
     *user* and *password*.
 
     The *sslmode* parameter values can be one of `disable`, `allow`,
-    `prefer` or `require`.
+    `prefer`, `require` or `verify-full`.
 
     For backward compatibility reasons, it's possible to specify the
     *tablename* option directly, without spelling out the `tablename=`

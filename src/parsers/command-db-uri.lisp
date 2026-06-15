@@ -130,11 +130,13 @@
 (defrule dsn-option-ssl-allow   "allow"   (:constant :try))
 (defrule dsn-option-ssl-prefer  "prefer"  (:constant :try))
 (defrule dsn-option-ssl-require "require" (:constant :yes))
+(defrule dsn-option-ssl-verify-full "verify-full" (:constant :full))
 
 (defrule dsn-option-ssl (and "sslmode" "=" (or dsn-option-ssl-disable
                                                dsn-option-ssl-allow
                                                dsn-option-ssl-prefer
-                                               dsn-option-ssl-require))
+                                               dsn-option-ssl-require
+                                               dsn-option-ssl-verify-full))
   (:lambda (ssl)
     (destructuring-bind (key e val) ssl
       (declare (ignore key e))
@@ -274,4 +276,3 @@
   `((*pg-settings* (pgloader.pgsql:sanitize-user-gucs ',gucs))
     (*pgsql-reserved-keywords*
      (pgloader.pgsql:list-reserved-keywords ,pg-db-uri))))
-
