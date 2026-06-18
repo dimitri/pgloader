@@ -6,7 +6,7 @@ on:
       - 'clojure/**'
       - '.github/workflows/clojure-integration-tests.yml'
   push:
-    branches: [master, main, citus-v3]
+    branches: [master, main, citus-v3, v4-clojure-rewrite]
     paths:
       - 'clojure/**'
       - '.github/workflows/clojure-integration-tests.yml'
@@ -17,7 +17,49 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache Clojure dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            ~/.clojure
+          key: clojure-${{ hashFiles('clojure/deps.edn') }}
+          restore-keys: clojure-
+
+      - name: Install Clojure CLI
+        uses: DeLaGuardo/setup-clojure@12
+        with:
+          cli: latest
+
+      - name: Run unit tests
+        working-directory: clojure
+        run: |
+          clojure -M:test -m cognitect.test-runner \
+            -n pgloader.cast-test \
+            -n pgloader.batch-test \
+            -n pgloader.ddl-test \
+            -n pgloader.ddl.citus-test \
+            -n pgloader.load-file.parser-test \
+            -n pgloader.transforms-test \
+            -n pgloader.pg-service-test \
+            -n pgloader.cli-test
+
   integration:
+    needs: unit
     name: ${{ matrix.suite }} (${{ matrix.pgloader }})
     runs-on: ubuntu-latest
 

@@ -7,8 +7,8 @@ load database
    cast column impressions.seen_at to "timestamp with time zone"
 
    distribute companies using id
-   -- distribute campaigns using company_id
-   -- distribute ads using company_id from campaigns
-   -- distribute clicks using company_id from ads, campaigns
-   -- distribute impressions using company_id from ads, campaigns
+   distribute campaigns using company_id
+   distribute ads using company_id from campaigns
+   distribute clicks using company_id from ads, campaigns
+   distribute impressions using company_id from ads, campaigns
    ;

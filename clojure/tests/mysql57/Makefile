@@ -7,12 +7,12 @@ REGRESS_FLAGS ?=
 all: my sakila f1db
 
 my:
-	-$(PGLOADER_CMD) my/my.load
-	-java -jar $(JAR) regress $(REGRESS_FLAGS) my
+	$(PGLOADER_CMD) my/my.load
+	java -jar $(JAR) regress $(REGRESS_FLAGS) my
 
 sakila:
-	-$(PGLOADER_CMD) sakila/sakila.load
-	-java -jar $(JAR) regress $(REGRESS_FLAGS) sakila
+	$(PGLOADER_CMD) sakila/sakila.load
+	java -jar $(JAR) regress $(REGRESS_FLAGS) sakila
 
 f1db:
 	$(PGLOADER_CMD) f1db/f1db.load
