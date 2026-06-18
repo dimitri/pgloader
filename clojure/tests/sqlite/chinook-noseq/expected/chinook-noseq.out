@@ -1,0 +1,15 @@
+  table_name   | table_type 
+---------------+------------
+ album         | BASE TABLE
+ artist        | BASE TABLE
+ customer      | BASE TABLE
+ employee      | BASE TABLE
+ genre         | BASE TABLE
+ invoice       | BASE TABLE
+ invoiceline   | BASE TABLE
+ mediatype     | BASE TABLE
+ playlist      | BASE TABLE
+ playlisttrack | BASE TABLE
+ track         | BASE TABLE
+(11 rows)
+

@@ -1,0 +1,17 @@
+LOAD CSV FROM '/work/datestyle-dmy/datestyle-dmy.csv'
+             (a, c, b [null if ' '], trailing)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_datestyle (a, b, c)
+
+     WITH truncate,
+          fields terminated by '|'
+
+     SET datestyle to 'European'
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_datestyle; $$,
+       $$ CREATE TABLE public.csv_datestyle (
+            a integer primary key,
+            b date,
+            c text
+          ); $$;

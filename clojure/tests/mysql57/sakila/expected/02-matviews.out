@@ -1,0 +1,10 @@
+         table_name         
+----------------------------
+ customer_list
+ film_list
+ nicer_but_slower_film_list
+ sales_by_film_category
+ sales_by_store_list
+ staff_list
+(6 rows)
+

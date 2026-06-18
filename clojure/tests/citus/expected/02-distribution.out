@@ -1,0 +1,9 @@
+ table_name  | citus_table_type | distribution_column 
+-------------+------------------+---------------------
+ ads         | distributed      | company_id
+ campaigns   | distributed      | company_id
+ clicks      | distributed      | company_id
+ companies   | distributed      | id
+ impressions | distributed      | company_id
+(5 rows)
+

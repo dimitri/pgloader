@@ -1,0 +1,18 @@
+LOAD CSV FROM '/work/projection/projection.csv'
+             (x, y, a, b, c, "camelCase")
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_projection (a, b, "camelCase", c)
+
+     WITH truncate,
+          skip header = 1,
+          fields optionally enclosed by '"',
+          fields terminated by ','
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_projection; $$,
+       $$ CREATE TABLE public.csv_projection (
+            a bigint,
+            b bigint,
+            c char(2),
+            "camelCase" text
+          ); $$;

@@ -1,0 +1,6 @@
+Manifest-Version: 1.0
+Created-By: org.clojure/tools.build
+Build-Jdk-Spec: 26
+Main-Class: pgloader.cli
+Multi-Release: true
+

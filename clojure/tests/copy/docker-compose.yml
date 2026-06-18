@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: pgloader
+      POSTGRES_PASSWORD: pgloader
+      POSTGRES_DB: target
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgloader -d target"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  test-runner:
+    image: pgloader-test-runner:latest
+    build:
+      context: ../../..
+      dockerfile: clojure/tests/Dockerfile
+    volumes:
+      - ../../target/pgloader.jar:/pgloader.jar
+      - .:/work
+    working_dir: /work
+    environment:
+      JAR: /pgloader.jar
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: target
+      PGUSER: pgloader
+      PGPASSWORD: pgloader
+    depends_on:
+      postgres: {condition: service_healthy}
+    profiles: [test]
+    command: make -k -f /work/Makefile

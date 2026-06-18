@@ -1,0 +1,47 @@
+services:
+  source:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: source
+      POSTGRES_USER: pgloader
+      POSTGRES_PASSWORD: pgloader
+    volumes:
+      - ./source.sql:/docker-entrypoint-initdb.d/source.sql
+    healthcheck:
+      test: ["CMD-SHELL", "psql -U pgloader -d source -c 'SELECT count(*) FROM companies' -t 2>/dev/null | grep -q 3"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  citus:
+    image: citusdata/citus:12.1
+    environment:
+      POSTGRES_DB: target
+      POSTGRES_USER: pgloader
+      POSTGRES_PASSWORD: pgloader
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgloader -d target"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  test-runner:
+    image: pgloader-test-runner:latest
+    build:
+      context: ../../..
+      dockerfile: clojure/tests/Dockerfile
+    volumes:
+      - .:/suite
+      - ../../target/pgloader.jar:/pgloader.jar:ro
+    environment:
+      JAR: /pgloader.jar
+      PGHOST: citus
+      PGPORT: "5432"
+      PGDATABASE: target
+      PGUSER: pgloader
+      PGPASSWORD: pgloader
+    depends_on:
+      source: {condition: service_healthy}
+      citus:  {condition: service_healthy}
+    profiles: [test]
+    command: make -C /suite

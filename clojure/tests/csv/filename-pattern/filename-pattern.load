@@ -1,0 +1,14 @@
+LOAD CSV
+     FROM ALL FILENAMES MATCHING ~/matching.*csv$/
+          IN DIRECTORY '/work/filename-pattern'
+          HAVING FIELDS (id, field)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_matching
+
+     WITH truncate,
+          fields optionally enclosed by '"',
+          fields terminated by ','
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_matching; $$,
+       $$ CREATE TABLE public.csv_matching (id int, field text); $$;

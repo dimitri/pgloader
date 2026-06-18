@@ -1,0 +1,17 @@
+LOAD CSV FROM '/work/skip-header-2/skip2header.csv'
+             (a, c, b, trailing)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_skip2 (a, b, c)
+
+     WITH truncate,
+          skip header = 2,
+          fields optionally enclosed by '"',
+          fields terminated by '|'
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_skip2; $$,
+       $$ CREATE TABLE public.csv_skip2 (
+            a integer primary key,
+            b date,
+            c text
+          ); $$;

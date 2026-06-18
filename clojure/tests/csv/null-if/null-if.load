@@ -1,0 +1,17 @@
+LOAD CSV FROM '/work/null-if/null-if.csv'
+             (id, number, data)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_null_if
+
+     WITH truncate,
+          fields terminated by ',',
+          fields enclosed by '"',
+          null if '\N'
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_null_if; $$,
+       $$ CREATE TABLE public.csv_null_if (
+            id     text,
+            number integer,
+            data   text
+          ); $$;

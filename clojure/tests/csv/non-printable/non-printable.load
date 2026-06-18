@@ -1,0 +1,19 @@
+LOAD CSV FROM '/work/non-printable/non-printable.csv'
+     WITH ENCODING latin1
+     HAVING FIELDS ("Some-Field", c2, c3)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_non_printable
+          (c1 text using "Some-Field", c2, c3)
+
+     WITH truncate,
+          skip header = 0,
+          fields terminated by ',',
+          fields optionally enclosed by '"'
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_non_printable; $$,
+       $$ CREATE TABLE public.csv_non_printable (
+            c1 varchar(100),
+            c2 varchar(100),
+            c3 varchar(100)
+          ); $$;

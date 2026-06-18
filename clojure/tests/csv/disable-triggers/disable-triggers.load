@@ -1,0 +1,15 @@
+LOAD CSV FROM '/work/disable-triggers/basic.csv'
+             (id, name, email, age)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_notrigger
+
+     WITH truncate,
+          skip header = 1,
+          disable triggers,
+          fields terminated by ','
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_notrigger; $$,
+       $$ CREATE TABLE public.csv_notrigger (
+            id integer, name text, email text, age integer
+          ); $$;

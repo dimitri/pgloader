@@ -1,0 +1,17 @@
+LOAD CSV FROM '/work/encoding/latin1.csv'
+     WITH ENCODING 'latin1'
+             (id, name, city)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_latin1
+
+     WITH truncate,
+          skip header = 1,
+          fields terminated by ','
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_latin1; $$,
+       $$ CREATE TABLE public.csv_latin1 (
+            id   integer,
+            name text,
+            city text
+          ); $$;

@@ -1,0 +1,12 @@
+LOAD DATABASE
+     FROM postgresql:///?service=source
+     INTO postgresql:///?service=target
+
+     WITH include drop, create tables, create indexes, reset sequences,
+          foreign keys
+
+     BEFORE LOAD DO $$ CREATE SCHEMA IF NOT EXISTS pgsql_migrated; $$
+
+     SET search_path TO 'pgsql_migrated'
+
+     INCLUDING ONLY TABLE NAMES MATCHING ~/artist|album/;

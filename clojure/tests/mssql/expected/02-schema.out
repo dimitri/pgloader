@@ -1,0 +1,10 @@
+ has_sequence 
+--------------
+ t
+(1 row)
+
+ fkeys 
+-------
+     1
+(1 row)
+

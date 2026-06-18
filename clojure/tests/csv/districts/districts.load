@@ -1,0 +1,21 @@
+LOAD CSV FROM '/work/districts/districts.csv'
+     HAVING FIELDS (usps, geoid, aland, awater, aland_sqmi, awater_sqmi,
+                    intptlat, intptlong)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_districts
+     TARGET COLUMNS (usps, geoid, aland, awater, aland_sqmi, awater_sqmi)
+
+     WITH truncate,
+          skip header = 1,
+          fields terminated by '\t'
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_districts; $$,
+       $$ CREATE TABLE public.csv_districts (
+            usps        char(2),
+            geoid       text,
+            aland       bigint,
+            awater      bigint,
+            aland_sqmi  numeric,
+            awater_sqmi numeric
+          ); $$;

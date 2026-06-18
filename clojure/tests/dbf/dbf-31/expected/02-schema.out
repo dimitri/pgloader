@@ -1,0 +1,14 @@
+ column_name | data_type 
+-------------+-----------
+ productid   | integer
+ productnam  | text
+ supplierid  | integer
+ categoryid  | integer
+ quantitype  | text
+ unitprice   | numeric
+ unitsinsto  | integer
+ unitsonord  | integer
+ reorderlev  | integer
+ discontinu  | boolean
+(10 rows)
+

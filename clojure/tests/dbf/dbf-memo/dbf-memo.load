@@ -1,0 +1,13 @@
+LOAD DBF
+    FROM dbf:///work/dbf-memo/DNORDOC.DBF
+    WITH ENCODING cp866
+    INTO pgsql://pgloader:pgloader@postgres/target
+    TARGET TABLE dbf.dnordoc
+
+    WITH truncate, create table, disable triggers
+
+    CAST column dnordoc.normdocid to text,
+         column dnordoc.doctype   to integer
+
+  BEFORE LOAD DO
+    $$ create schema if not exists dbf; $$;

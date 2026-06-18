@@ -1,0 +1,14 @@
+LOAD CSV FROM '/work/blanks-keep/blanks.csv'
+             (f1, f2, f3)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_blanks_keep
+
+     WITH truncate,
+          skip header = 1,
+          keep unquoted blanks,
+          fields optionally enclosed by '"',
+          fields terminated by ','
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_blanks_keep; $$,
+       $$ CREATE TABLE public.csv_blanks_keep (f1 text, f2 text, f3 text); $$;

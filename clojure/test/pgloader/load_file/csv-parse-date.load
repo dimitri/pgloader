@@ -1,0 +1,31 @@
+LOAD CSV
+     FROM inline
+          (
+            "row num",
+            ts [date format 'MM-DD-YYYY HH24-MI-SS.US'],
+            hr [date format 'HH24:MI.SS']
+          )
+     INTO postgresql:///pgloader?dateformat ("row num", ts, hr)
+
+     WITH truncate,
+          fields optionally enclosed by '"',
+          fields escaped by double-quote,
+          fields terminated by ','
+
+      SET timezone to 'Europe/Paris',
+          work_mem to '12MB',
+          standard_conforming_strings to 'on'
+
+   BEFORE LOAD DO
+    $$ drop table if exists dateformat; $$,
+    $$ create table dateformat (
+        "row num" smallint,
+        ts        timestamptz,
+        hr        time
+       );
+    $$;
+
+1,10-02-1999 00-33-12.123456,"00:05.02"
+2,10-02-2014 00-33-13.123,"18:25.52"
+3,10-02-2014 00-33-14.1234,13:14.15
+4,10-09-2018 19-24-59,19:24.59

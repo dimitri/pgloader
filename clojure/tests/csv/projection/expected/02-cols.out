@@ -1,0 +1,7 @@
+   camelCase    | c  
+----------------+----
+ United Kingdom | GB
+ United States  | US
+ Canada         | CA
+(3 rows)
+

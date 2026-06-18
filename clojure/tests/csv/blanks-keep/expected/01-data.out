@@ -1,0 +1,8 @@
+             f1              | f2 | f2_null 
+-----------------------------+----+---------
+ no value between separators |    | t
+ quoted empty string         |    | f
+ trimmed spaces              |    | f
+ unquoted spaces             |    | f
+(4 rows)
+

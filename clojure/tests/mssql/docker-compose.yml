@@ -1,0 +1,54 @@
+services:
+  mssql:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "pgloaderTest1!"
+      MSSQL_PID: "Developer"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/1433 2>/dev/null && exec 3<&- || exit 1"]
+      interval: 10s
+      retries: 20
+      start_period: 30s
+
+  mssql-init:
+    image: mcr.microsoft.com/mssql-tools:latest
+    depends_on:
+      mssql: {condition: service_healthy}
+    volumes:
+      - ./init.sql:/init.sql
+    command: /opt/mssql-tools/bin/sqlcmd -S mssql -U sa -P "pgloaderTest1!" -i /init.sql
+    restart: "no"
+
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: pgloader
+      POSTGRES_PASSWORD: pgloader
+      POSTGRES_DB: target
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgloader -d target"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  test-runner:
+    image: pgloader-test-runner:latest
+    build:
+      context: ../../..
+      dockerfile: clojure/tests/Dockerfile
+    volumes:
+      - .:/suite
+      - ../../target/pgloader.jar:/pgloader.jar:ro
+    environment:
+      JAR: /pgloader.jar
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: target
+      PGUSER: pgloader
+      PGPASSWORD: pgloader
+    depends_on:
+      postgres:   {condition: service_healthy}
+      mssql-init: {condition: service_completed_successfully}
+    profiles: [test]
+    command: make -C /suite

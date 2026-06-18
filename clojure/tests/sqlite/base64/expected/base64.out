@@ -1,0 +1,13 @@
+   table_name    
+-----------------
+ auth_cas
+ auth_event
+ auth_group
+ auth_membership
+ auth_permission
+ auth_user
+ config
+ config_category
+ files
+(9 rows)
+

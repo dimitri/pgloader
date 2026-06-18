@@ -1,0 +1,12 @@
+ column_name |       data_type        
+-------------+------------------------
+ raceId      | bigint
+ year        | bigint
+ round       | bigint
+ circuitId   | bigint
+ name        | character varying
+ date        | date
+ time        | time without time zone
+ url         | character varying
+(8 rows)
+

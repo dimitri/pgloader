@@ -1,0 +1,4 @@
+id,name,description
+1,simple,no escaping needed
+2,with comma,"a,b,c"
+3,with quote,"say ""hello"""

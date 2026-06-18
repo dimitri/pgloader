@@ -1,0 +1,3 @@
+SELECT "CHARS.LETTERS", "CHARS.NUMBERS"
+FROM   public.fixed_periods
+ORDER  BY "CHARS.LETTERS";

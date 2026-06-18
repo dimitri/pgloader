@@ -1,0 +1,17 @@
+LOAD CSV FROM '/work/basic/sample.csv'
+             (id, name, email, age)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_basic
+
+     WITH truncate,
+          skip header = 1,
+          fields terminated by ','
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_basic; $$,
+       $$ CREATE TABLE public.csv_basic (
+            id    integer,
+            name  text,
+            email text,
+            age   integer
+          ); $$;

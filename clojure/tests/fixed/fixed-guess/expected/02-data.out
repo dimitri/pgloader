@@ -1,0 +1,7 @@
+ qecdpo | qecsem |             qelsem             
+--------+--------+--------------------------------
+ ACT    | INV    | Inventaire par niveau
+ ACT    | IPI    | Inventaire pickings / colonnes
+ ACT    | STB    | SEQUENCE STANDARD BACKUP
+(3 rows)
+

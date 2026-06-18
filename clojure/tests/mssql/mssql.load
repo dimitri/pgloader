@@ -1,0 +1,8 @@
+LOAD DATABASE
+     FROM mssql://sa:pgloaderTest1!@mssql:1433/testdb
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+
+     WITH include drop, create tables, create indexes, reset sequences,
+          foreign keys
+
+     ALTER SCHEMA 'dbo' RENAME TO 'public';

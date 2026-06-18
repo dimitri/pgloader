@@ -1,0 +1,15 @@
+-- Original source (INSEE — French National Institute of Statistics and Economic Studies):
+--   https://www.insee.fr/fr/statistiques/fichier/2114819/france2016-dbf.zip
+-- The file is mirrored locally in tests/fixtures/http/ and served by the
+-- 'fileserver' Docker Compose service so the test needs no internet access.
+
+LOAD DBF
+    FROM http://fileserver/france2016-dbf.zip
+    WITH ENCODING cp850
+    INTO pgsql://pgloader:pgloader@postgres/target
+    TARGET TABLE dbf.france2016
+
+    WITH truncate, create table
+
+  BEFORE LOAD DO
+    $$ create schema if not exists dbf; $$;

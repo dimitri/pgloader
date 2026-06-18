@@ -1,0 +1,10 @@
+LOAD DATABASE
+     FROM sqlite:///work/test-pk/test_pk.db
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+
+     WITH include drop, create tables, create indexes, reset sequences
+
+     ALTER SCHEMA 'main' RENAME TO 'sqlite_pk'
+
+     BEFORE LOAD DO
+       $$ CREATE SCHEMA IF NOT EXISTS sqlite_pk; $$;

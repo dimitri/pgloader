@@ -1,0 +1,18 @@
+LOAD CSV FROM '/work/batch-rows/track.csv'
+             (trackid, track, album, media, genre, composer,
+              milliseconds, bytes, unitprice)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_batch
+
+     WITH truncate,
+          batch rows = 50,
+          fields optionally enclosed by '"',
+          fields terminated by ','
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_batch; $$,
+       $$ CREATE TABLE public.csv_batch (
+            trackid bigint, track text, album text, media text,
+            genre text, composer text, milliseconds bigint,
+            bytes bigint, unitprice numeric
+          ); $$;

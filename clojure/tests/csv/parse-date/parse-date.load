@@ -1,0 +1,23 @@
+LOAD CSV FROM '/work/parse-date/parse-date.csv'
+             (
+               "row_num",
+               ts [date format 'MM-DD-YYYY HH24-MI-SS.US'],
+               hr [date format 'HH24:MI.SS']
+             )
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_parse_date
+
+     WITH truncate,
+          skip header = 1,
+          fields optionally enclosed by '"',
+          fields terminated by ','
+
+     SET timezone to 'UTC'
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_parse_date; $$,
+       $$ CREATE TABLE public.csv_parse_date (
+            row_num  smallint,
+            ts       timestamptz,
+            hr       time
+          ); $$;

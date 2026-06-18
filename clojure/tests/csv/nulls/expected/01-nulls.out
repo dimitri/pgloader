@@ -1,0 +1,10 @@
+             f1              | f2_null |           f3           
+-----------------------------+---------+------------------------
+ no value between separators | t       | should be null
+ quoted blanks               | f       | should be blanks
+ quoted empty string         | t       | should be empty string
+ quoted separator            | f       | should be 'a,b,c'
+ unquoted blanks             | t       | should be null
+ unquoted string             | f       | should be 'no quote'
+(6 rows)
+

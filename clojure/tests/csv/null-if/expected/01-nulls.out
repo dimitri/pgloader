@@ -1,0 +1,6 @@
+ id | num_null |     data      
+----+----------+---------------
+ 1  | t        | testing nulls
+ 2  | f        | another test
+(2 rows)
+

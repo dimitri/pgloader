@@ -1,0 +1,17 @@
+LOAD CSV FROM '/work/csv-escape-mode/csv-escape-mode.csv'
+             (id, name, description)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_escape_mode
+
+     WITH truncate,
+          skip header = 1,
+          fields terminated by ',',
+          csv escape mode following
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_escape_mode; $$,
+       $$ CREATE TABLE public.csv_escape_mode (
+            id          integer,
+            name        text,
+            description text
+          ); $$;

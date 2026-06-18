@@ -1,0 +1,186 @@
+name: pgloader v4 Integration Tests
+
+on:
+  pull_request:
+    paths:
+      - 'clojure/**'
+      - '.github/workflows/clojure-integration-tests.yml'
+  push:
+    branches: [master, main, citus-v3]
+    paths:
+      - 'clojure/**'
+      - '.github/workflows/clojure-integration-tests.yml'
+
+# Cancel in-progress runs for the same branch/PR on new pushes
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    name: ${{ matrix.suite }} (${{ matrix.pgloader }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ── CSV ────────────────────────────────────────────────────────────
+          - suite: csv
+            pgloader: v4
+            make_target: csv
+          - suite: csv
+            pgloader: v3
+            make_target: csv-v3
+
+          # ── COPY ───────────────────────────────────────────────────────────
+          - suite: copy
+            pgloader: v4
+            make_target: copy
+          - suite: copy
+            pgloader: v3
+            make_target: copy-v3
+
+          # ── FIXED ──────────────────────────────────────────────────────────
+          - suite: fixed
+            pgloader: v4
+            make_target: fixed
+          - suite: fixed
+            pgloader: v3
+            make_target: fixed-v3
+
+          # ── DBF ────────────────────────────────────────────────────────────
+          - suite: dbf
+            pgloader: v4
+            make_target: dbf
+          - suite: dbf
+            pgloader: v3
+            make_target: dbf-v3
+
+          # ── SQLite ─────────────────────────────────────────────────────────
+          - suite: sqlite
+            pgloader: v4
+            make_target: sqlite
+          - suite: sqlite
+            pgloader: v3
+            make_target: sqlite-v3
+
+          # ── MySQL 8.0 ──────────────────────────────────────────────────────
+          - suite: mysql
+            pgloader: v4
+            make_target: mysql
+            needs_f1db: true
+          - suite: mysql
+            pgloader: v3
+            make_target: mysql-v3
+            needs_f1db: true
+
+          # ── MySQL 5.7 (amd64 only via Rosetta emulation) ───────────────────
+          # mysql57 uses --platform linux/amd64 which works on GH Actions (x86_64 runners)
+          - suite: mysql57
+            pgloader: v4
+            make_target: mysql57
+            needs_f1db: true
+          - suite: mysql57
+            pgloader: v3
+            make_target: mysql57-v3
+            needs_f1db: true
+
+          # ── MariaDB ────────────────────────────────────────────────────────
+          - suite: mariadb
+            pgloader: v4
+            make_target: mariadb
+            needs_f1db: true
+          - suite: mariadb
+            pgloader: v3
+            make_target: mariadb-v3
+            needs_f1db: true
+
+          # ── PostgreSQL → PostgreSQL ─────────────────────────────────────────
+          - suite: pgsql
+            pgloader: v4
+            make_target: pgsql
+          - suite: pgsql
+            pgloader: v3
+            make_target: pgsql-v3
+
+          # ── SQL Server ─────────────────────────────────────────────────────
+          - suite: mssql
+            pgloader: v4
+            make_target: mssql
+          - suite: mssql
+            pgloader: v3
+            make_target: mssql-v3
+
+          # ── Citus (distributed PostgreSQL) ─────────────────────────────────
+          - suite: citus
+            pgloader: v4
+            make_target: citus
+          - suite: citus
+            pgloader: v3
+            make_target: citus-v3
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache Clojure dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            ~/.clojure
+          key: clojure-${{ hashFiles('clojure/deps.edn') }}
+          restore-keys: clojure-
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker test-runner image layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.docker-cache
+          key: docker-test-runner-${{ hashFiles('clojure/tests/Dockerfile') }}
+          restore-keys: docker-test-runner-
+
+      - name: Pre-build test-runner Docker image
+        working-directory: clojure
+        run: |
+          docker buildx build \
+            --cache-from type=local,src=/tmp/.docker-cache \
+            --cache-to   type=local,dest=/tmp/.docker-cache,mode=max \
+            --load \
+            -t pgloader-test-runner:latest \
+            -f tests/Dockerfile .
+
+      - name: Install Clojure CLI
+        uses: DeLaGuardo/setup-clojure@12
+        with:
+          cli: latest
+
+      - name: Build pgloader v4 JAR
+        working-directory: clojure
+        run: |
+          clojure -T:build uber
+          # Symlink latest jar so tests can find it at a fixed path
+          ls target/pgloader*.jar | head -1 | xargs -I{} ln -sf {} target/pgloader.jar
+
+      - name: Download F1DB dataset
+        if: ${{ matrix.needs_f1db }}
+        run: bash test/mysql/download-f1db.sh
+
+      - name: Run ${{ matrix.suite }} tests (${{ matrix.pgloader }})
+        working-directory: clojure/tests
+        run: make ${{ matrix.make_target }}
+
+      - name: Tear down Docker Compose stacks
+        if: always()
+        working-directory: clojure/tests
+        run: make down || true

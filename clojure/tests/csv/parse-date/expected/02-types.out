@@ -1,0 +1,7 @@
+ column_name |        data_type         
+-------------+--------------------------
+ row_num     | smallint
+ ts          | timestamp with time zone
+ hr          | time without time zone
+(3 rows)
+

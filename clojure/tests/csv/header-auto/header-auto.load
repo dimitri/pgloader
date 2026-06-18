@@ -1,0 +1,18 @@
+LOAD CSV FROM '/work/header-auto/header.csv'
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_header_auto
+
+     WITH truncate,
+          csv header,
+          fields terminated by ','
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_header_auto; $$,
+       $$ CREATE TABLE public.csv_header_auto (
+            somefields   text,
+            rekplcode     text,
+            "repl$grpid" text,
+            "repl$id"    text,
+            fields        integer,
+            another       text
+          ); $$;

@@ -1,0 +1,11 @@
+             f1              |        f2         | f2_null 
+-----------------------------+-------------------+---------
+ embedded comma              | a,b,c             | f
+ no quote                    | no quote          | f
+ no value between separators |                   | t
+ quoted empty string         |                   | f
+    test string              |    test string    | f
+ trimmed spaces              |                   | t
+ unquoted spaces             |                   | f
+(7 rows)
+

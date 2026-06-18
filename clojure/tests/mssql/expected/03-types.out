@@ -1,0 +1,13 @@
+ column_name |    data_type     
+-------------+------------------
+ balance     | numeric
+ guid        | uuid
+ score       | double precision
+(3 rows)
+
+ column_name | data_type 
+-------------+-----------
+ metadata    | xml
+ notes       | text
+(2 rows)
+

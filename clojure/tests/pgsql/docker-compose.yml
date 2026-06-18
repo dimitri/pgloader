@@ -1,0 +1,49 @@
+services:
+  source:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: pgloader
+      POSTGRES_PASSWORD: pgloader
+      POSTGRES_DB: source
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgloader -d source"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  target:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: pgloader
+      POSTGRES_PASSWORD: pgloader
+      POSTGRES_DB: target
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgloader -d target"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  test-runner:
+    image: pgloader-test-runner:latest
+    build:
+      context: ../../..
+      dockerfile: clojure/tests/Dockerfile
+    volumes:
+      - .:/suite
+      - ../../target/pgloader.jar:/pgloader.jar:ro
+      - ./pg_service.conf:/etc/pg_service.conf:ro
+    environment:
+      JAR: /pgloader.jar
+      PGHOST: target
+      PGPORT: "5432"
+      PGDATABASE: target
+      PGUSER: pgloader
+      PGPASSWORD: pgloader
+      PGSERVICEFILE: /etc/pg_service.conf
+    depends_on:
+      source: {condition: service_healthy}
+      target: {condition: service_healthy}
+    profiles: [test]
+    command: make -C /suite
