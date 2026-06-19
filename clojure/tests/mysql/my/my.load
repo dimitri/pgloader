@@ -15,6 +15,8 @@ load database
  CAST column utilisateurs__Yvelines2013-06-28.sexe
           to text drop not null using empty-string-to-null,
 
+      column funny_string.s to text drop not null,
+
       column base64.id to uuid drop typemod,
       column base64.data to jsonb using base64-decode,
 

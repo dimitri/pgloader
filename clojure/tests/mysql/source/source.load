@@ -5,4 +5,4 @@ load database
  WITH concurrency = 1,
       quote identifiers
 
- ALTER SCHEMA 'source' RENAME TO 'public'
+ ALTER SCHEMA 'source' RENAME TO 'public';

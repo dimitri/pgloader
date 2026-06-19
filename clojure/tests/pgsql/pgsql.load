@@ -9,4 +9,4 @@ LOAD DATABASE
 
      SET search_path TO 'pgsql_migrated'
 
-     INCLUDING ONLY TABLE NAMES MATCHING ~/artist|album/;
+     INCLUDING ONLY TABLE NAMES MATCHING ~/artist|album/ IN SCHEMA 'pgsql_source';

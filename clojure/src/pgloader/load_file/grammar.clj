@@ -301,8 +301,8 @@
     matview-def = matview-name (<ws> <'as'> <ws> quoted-command)?
     matview-name = #'[a-zA-Z_][a-zA-Z0-9_]*'
 
-    including-only = <'INCLUDING'> <ws> <'ONLY'> <ws> <'TABLE'> <ws> <'NAMES'> <ws> <'MATCHING'> <ws> table-name-pattern
-    excluding-only = <'EXCLUDING'> <ws> <'TABLE'> <ws> <'NAMES'> <ws> <'MATCHING'> <ws> table-name-pattern
+    including-only = <'INCLUDING'> <ws> <'ONLY'> <ws> <'TABLE'> <ws> <'NAMES'> <ws> <'MATCHING'> <ws> table-name-pattern (<ws> <'IN'> <ws> <'SCHEMA'> <ws> quoted-string)?
+    excluding-only = <'EXCLUDING'> <ws> <'TABLE'> <ws> <'NAMES'> <ws> <'MATCHING'> <ws> table-name-pattern (<ws> <'IN'> <ws> <'SCHEMA'> <ws> quoted-string)?
 
     decoding-as-clause = <'DECODING'> <ws> <'TABLE'> <ws> <'NAMES'> <ws> <'MATCHING'> <ws>
                          decoding-pattern-list <ws> <'AS'> <ws> (quoted-string | bare-encoding)
