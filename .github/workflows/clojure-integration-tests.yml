@@ -193,14 +193,13 @@ jobs:
           restore-keys: docker-test-runner-
 
       - name: Pre-build test-runner Docker image
-        working-directory: clojure
         run: |
           docker buildx build \
             --cache-from type=local,src=/tmp/.docker-cache \
             --cache-to   type=local,dest=/tmp/.docker-cache,mode=max \
             --load \
             -t pgloader-test-runner:latest \
-            -f tests/Dockerfile .
+            -f clojure/tests/Dockerfile .
 
       - name: Install Clojure CLI
         uses: DeLaGuardo/setup-clojure@13
