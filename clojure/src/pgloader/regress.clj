@@ -31,15 +31,25 @@
   "Execute psql -f sql-file, capturing combined stdout+stderr into out-file.
    Returns the psql process exit code."
   [^File sql-file ^File out-file]
-  (let [args ^"[Ljava.lang.String;" (into-array String
+  (let [tmp  (File/createTempFile "pgloader-regress" ".out")
+        args ^"[Ljava.lang.String;" (into-array String
               ["psql" "-X" "-P" "pager=off"
                "-v" "ON_ERROR_STOP=1"
-               "-f" (.getAbsolutePath sql-file)])]
-    (-> (doto (ProcessBuilder. args)
-          (.redirectErrorStream true)
-          (.redirectOutput out-file))
-        .start
-        .waitFor)))
+               "-f" (.getAbsolutePath sql-file)])
+        exit (-> (doto (ProcessBuilder. args)
+                   (.redirectErrorStream true)
+                   (.redirectOutput tmp))
+                 .start
+                 .waitFor)]
+    ;; Strip trailing whitespace from every line so psql alignment
+    ;; differences across versions don't cause spurious failures.
+    (spit out-file
+          (str/join "\n"
+                    (map #(str/trimr %)
+                         (str/split-lines (slurp tmp))))
+          :append false)
+    (.delete tmp)
+    exit))
 
 (defn- diff-files
   "Unified diff of expected vs actual. Returns true when identical."

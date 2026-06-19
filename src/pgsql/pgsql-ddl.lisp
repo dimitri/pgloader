@@ -269,7 +269,8 @@
                                  :for col := (find idx-col tbl-cols
                                                    :test #'string-equal
                                                    :key #'column-name)
-                                 :collect (when col (column-type-name col))))
+                                 :when col
+                                 :collect (column-type-name col)))
                   (nobtree (catalog-types-without-btree
                             (schema-catalog (table-schema (index-table index))))))
              (let* ((idx-type (first idx-types))

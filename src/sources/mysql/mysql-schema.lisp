@@ -105,9 +105,18 @@
                              :type index-type
                              :primary (string= name "PRIMARY")
                              :unique (string= "0" non-unique)
-                             :columns (mapcar
-                                       #'apply-identifier-case
-                                       (sq:split-sequence #\, cols)))))
+                             :columns (when cols
+                                        (mapcar
+                                         (lambda (col)
+                                           ;; MySQL expression cols look like
+                                           ;; (lower(`email`)) — translate backtick
+                                           ;; quoting to double-quote for PostgreSQL.
+                                           (if (and (> (length col) 0)
+                                                    (char= (char col 0) #\())
+                                               (cl-ppcre:regex-replace-all
+                                                "`([^`]*)`" col "\"\\1\"")
+                                               (apply-identifier-case col)))
+                                         (sq:split-sequence #\, cols))))))
            (add-index table index))
      :finally
      (return schema)))
