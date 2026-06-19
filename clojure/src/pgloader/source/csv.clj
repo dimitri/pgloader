@@ -438,7 +438,7 @@
                                        separator quote-char escape-char
                                        column-names nullif keep-unquoted-blanks
                                        trim-unquoted-blanks nil projections
-                                       nil nil nil nil)
+                                       nil nil nil nil false)
                       rows (vec (read-rows csv table-spec))]
                   rows))
               files))))
@@ -457,7 +457,7 @@
           qc (when (some? quote-char) (char quote-char))]
       (->GlobCSVSource directory glob-pattern enc
                        (long (or skip-header 0))
-                       (or delimiter \,) qc
+                       delimiter qc
                        (if (and qc escape-char (= (char qc) (char escape-char))) (char 0) (or escape-char \\))
                        col-names nullif keep-unquoted-blanks trim-unquoted-blanks
                        projections))
@@ -476,7 +476,7 @@
                                 (mapv (fn [tc] {:column-name tc :using tc}) target-columns)))]
       (->CSVSource filepath enc
                    (long (or skip-header 0))
-                   (or delimiter \,) qc
+                   delimiter qc
                    (if (and qc escape-char (= (char qc) (char escape-char))) (char 0) (or escape-char qc))
                    col-names nullif keep-unquoted-blanks trim-unquoted-blanks
                    inline-data eff-projections

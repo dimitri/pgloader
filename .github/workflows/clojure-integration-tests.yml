@@ -266,10 +266,6 @@ jobs:
           name: pgloader-v4-jar
           path: clojure/target/
 
-      - name: Download F1DB dataset
-        if: ${{ matrix.needs_f1db }}
-        run: bash clojure/tests/mysql/download-f1db.sh
-
       - name: Run ${{ matrix.suite }} tests (${{ matrix.pgloader }})
         working-directory: clojure/tests
         run: make ${{ matrix.make_target }}

@@ -403,7 +403,22 @@
                                                 (cast/apply-type-overrides tagged cast-rule-maps)))))
                                   c))
                           (ddl/apply-identifier-case with-options)
-                          (ddl/apply-alter-schema (:alter-schema cmd))
+                          (as-> c
+                            ;; When SET search_path is present and no explicit ALTER SCHEMA rules
+                            ;; are given, treat the search_path as an implicit schema remap for
+                            ;; every schema in the catalog (mirrors v3 behaviour).
+                            (let [explicit (seq (:alter-schema cmd))
+                                  sp-param (when-not explicit
+                                             (->> (:set-parameters cmd)
+                                                  (filter #(= "search_path" (:var %)))
+                                                  first))
+                                  sp-target (when sp-param (:value sp-param))]
+                              (if sp-target
+                                (let [catalog-schemas (distinct (map :schema c))
+                                      implicit-rules  (map #(hash-map :source-name % :target-name sp-target)
+                                                           catalog-schemas)]
+                                  (ddl/apply-alter-schema c implicit-rules))
+                                (ddl/apply-alter-schema c explicit))))
                           (ddl/apply-alter-table (:alter-table cmd))
                            (as-> c
                              (if cmd-target-table

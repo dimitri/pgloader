@@ -1,9 +1,9 @@
- count
+ count 
 -------
      3
 (1 row)
 
- id |   name    |    description
+ id |   name    |    description     
 ----+-----------+--------------------
   1 | simple    | no escaping needed
   2 | with comma | a,b,c

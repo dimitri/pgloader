@@ -130,9 +130,11 @@
       :else (str "'" (str/replace val "'" "''") "'"))))
 
 (defn- strip-quotes
-  "Strip surrounding single quotes from a string if present (MariaDB returns defaults quoted)."
+  "Strip surrounding single or double quotes from a string if present."
   [^String s]
-  (if (and (str/starts-with? s "'") (str/ends-with? s "'"))
+  (if (and (>= (count s) 2)
+           (or (and (str/starts-with? s "'") (str/ends-with? s "'"))
+               (and (str/starts-with? s "\"") (str/ends-with? s "\""))))
     (subs s 1 (dec (count s)))
     s))
 
@@ -161,10 +163,14 @@
                           (when column-default (strip-quotes (str column-default)))
                           pg-type
                           (:cast-fn col))
+        temporal-int-default? (and coerced-default
+                                    (re-find #"(?i)^(timestamp|date|time)" (or pg-type ""))
+                                    (re-matches #"^-?\d+$" (str coerced-default)))
         default-str (when (and coerced-default
                                (not= "NULL" (str coerced-default))
                                (not= "" (str coerced-default))
-                               (not zero?))
+                               (not zero?)
+                               (not temporal-int-default?))
                       (str " DEFAULT " (format-default coerced-default)))]
     (str "  " quoted-name " " pg-type
          (when (and (false? is-nullable)
