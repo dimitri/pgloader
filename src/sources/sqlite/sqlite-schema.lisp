@@ -112,7 +112,11 @@
                                       dtype
                                       ctype
                                       (= 1 nullable)
-                                      (unquote default)
+                                      ;; SQLite may store defaults with nested quotes, e.g.
+                                      ;; '"0"' (the pragma result for DEFAULT "0").
+                                      ;; Strip the outer single-quote layer, then any
+                                      ;; remaining double-quote layer.
+                                      (unquote (unquote default) #\")
                                       pk-id)))
              (when (and db-has-sequences
                         (not (zerop pk-id))

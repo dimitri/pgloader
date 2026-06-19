@@ -254,11 +254,20 @@
         ;; need to create per-schema user defined data types that match the
         ;; column local definition here.
         ;;
-        (let ((sqltype-name (enum-or-set-name table-name
-                                              (column-name pgcol)
-                                              dtype
-                                              ctype
-                                              nil)))
+        (let* ((sqltype-name (enum-or-set-name table-name
+                                               (column-name pgcol)
+                                               dtype
+                                               ctype
+                                               nil))
+               (schema   (table-schema table))
+               ;; MySQL ENUM/SET definitions are inline per column, so two
+               ;; columns with identical values (e.g. film.rating and
+               ;; film_list.rating in a materialized view) map to the same
+               ;; PostgreSQL type. Reuse an already-registered type with the
+               ;; same source-def rather than creating a second one under a
+               ;; different name.
+               (existing (find ctype (schema-sqltype-list schema)
+                               :key #'sqltype-source-def :test #'string=)))
           ;;
           ;; We might have user-defined cast rules e.g. converting an ENUM
           ;; to text, in which case we have nothing to do here. We set a
@@ -270,12 +279,16 @@
           ;;
           (when (string= sqltype-name (column-type-name pgcol))
             (setf (column-type-name pgcol)
-                  (make-sqltype :name sqltype-name
-                                :schema (table-schema table)
-                                :type (intern (string-upcase dtype)
-                                              (find-package "KEYWORD"))
-                                :source-def ctype
-                                :extra (explode-mysql-enum ctype))))))
+                  (or existing
+                      (let ((sqltype (make-sqltype
+                                      :name sqltype-name
+                                      :schema schema
+                                      :type (intern (string-upcase dtype)
+                                                    (find-package "KEYWORD"))
+                                      :source-def ctype
+                                      :extra (explode-mysql-enum ctype))))
+                        (add-sqltype schema sqltype)
+                        sqltype))))))
 
       ;; extra triggers
       ;;

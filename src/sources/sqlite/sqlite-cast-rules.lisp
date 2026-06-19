@@ -54,7 +54,10 @@
              :using pgloader.transforms::sqlite-timestamp-to-timestamp)
 
     (:source (:type "timestamptz") :target (:type "timestamptz")
-             :using pgloader.transforms::sqlite-timestamp-to-timestamp))
+             :using pgloader.transforms::sqlite-timestamp-to-timestamp)
+
+    ;; Catch-all: any unrecognized SQLite type maps to text (matches v4 behavior)
+    (:source (:type t) :target (:type "text" :drop-typemod t)))
   "Data Type Casting to migrate from SQLite to PostgreSQL")
 
 (defstruct (coldef

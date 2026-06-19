@@ -58,7 +58,8 @@
 
              ;; otherwide, we do the full dance
              (and
-              (or (and t-s-p (string-equal type rule-source-type)))
+              (or (and t-s-p (or (eq t rule-source-type)
+                                  (string-equal type rule-source-type))))
               (or (null tm-s-p) (when typemod
                                   (typemod-expr-matches-p typemod-expr typemod)))
               (or (null d-s-p)  (string-equal default rule-source-default))

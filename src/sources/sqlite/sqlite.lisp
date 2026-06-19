@@ -79,7 +79,7 @@
                              excluding)
   "SQLite introspection to prepare the migration."
   (declare (ignore materialize-views only-tables))
-  (let ((schema (add-schema catalog nil)))
+  (let ((schema (add-schema catalog "public")))
     (with-stats-collection ("fetch meta data"
                             :use-result-as-rows t
                             :use-result-as-read t

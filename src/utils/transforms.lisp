@@ -273,18 +273,24 @@
 (defun integer-to-string (integer-string)
   "Transform INTEGER-STRING parameter into a proper string representation of
    it. In particular be careful of quoted-integers, thanks to SQLite default
-   values."
+   values. SQLite may store defaults with multiple layers of quoting, e.g.
+   '\"0\"' (the stored form of DEFAULT \"0\"), so we count all leading and
+   trailing quote characters and strip them all before parsing."
   (declare (type (or null string fixnum) integer-string))
   (when integer-string
     (princ-to-string
      (typecase integer-string
        (integer integer-string)
-       (string  (handler-case
-                    (parse-integer integer-string :start 0)
-                  (condition (c)
-                    (declare (ignore c))
-                    (parse-integer integer-string :start 1
-                                   :end (- (length integer-string) 1)))))))))
+       (string
+        (let* ((s     integer-string)
+               (len   (length s))
+               (start (loop :for i :from 0 :below len
+                         :while (member (char s i) '(#\' #\"))
+                         :count 1))
+               (end   (loop :for i :from (1- len) :downto 0
+                         :while (member (char s i) '(#\' #\"))
+                         :count 1)))
+          (parse-integer s :start start :end (- len end))))))))
 
 (defun float-to-string (float)
   "Transform a Common Lisp float value into its string representation as
