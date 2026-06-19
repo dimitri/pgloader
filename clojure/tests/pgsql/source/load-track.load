@@ -1,0 +1,24 @@
+LOAD CSV FROM '/work/csv/track/track.csv'
+             (trackid, track, album, media, genre, composer,
+              milliseconds, bytes, unitprice)
+     INTO postgresql://pgloader:pgloader@source:5432/source
+     TARGET TABLE track.track
+
+     WITH truncate,
+          fields optionally enclosed by '"',
+          fields terminated by ','
+
+     BEFORE LOAD DO
+       $$ CREATE SCHEMA IF NOT EXISTS track; $$,
+       $$ DROP TABLE IF EXISTS track.track; $$,
+       $$ CREATE TABLE track.track (
+            trackid      bigint primary key,
+            track        text,
+            album        text,
+            media        text,
+            genre        text,
+            composer     text,
+            milliseconds bigint,
+            bytes        bigint,
+            unitprice    numeric
+          ); $$;

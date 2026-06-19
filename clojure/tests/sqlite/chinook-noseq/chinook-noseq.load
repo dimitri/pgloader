@@ -2,9 +2,10 @@ LOAD DATABASE
     FROM sqlite:///work/chinook-noseq/Chinook_Sqlite.sqlite
     INTO pgsql://pgloader:pgloader@postgres/target
 
+    ALTER SCHEMA 'public' RENAME TO 'chinook'
+
     SET work_mem             to '16MB',
-        maintenance_work_mem to '512 MB',
-        search_path          to 'chinook'
+        maintenance_work_mem to '512 MB'
 
   BEFORE LOAD DO
     $$ create schema if not exists chinook; $$;

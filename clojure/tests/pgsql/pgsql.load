@@ -3,12 +3,4 @@ LOAD DATABASE
      INTO postgresql://pgloader:pgloader@target:5432/target
 
      WITH include drop, create tables, create indexes, reset sequences,
-          foreign keys
-
-     BEFORE LOAD DO $$ CREATE SCHEMA IF NOT EXISTS pgsql_migrated; $$
-
-     SET search_path TO 'pgsql_migrated'
-
-     ALTER SCHEMA 'pgsql_source' RENAME TO 'pgsql_migrated'
-
-     INCLUDING ONLY TABLE NAMES MATCHING ~/artist|album/ IN SCHEMA 'pgsql_source';
+          foreign keys;

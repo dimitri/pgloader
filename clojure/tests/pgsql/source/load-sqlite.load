@@ -1,0 +1,17 @@
+LOAD DATABASE
+     FROM sqlite:///work/sqlite/sqlite/sqlite.db
+     INTO postgresql://pgloader:pgloader@source:5432/source
+
+     WITH include drop, create tables, create indexes, reset sequences,
+          snake_case identifiers
+
+     CAST column character.f1 to text drop typemod,
+          column appointments.time to timestamptz drop default,
+          type integer to integer,
+          type character to varchar keep typemod
+
+     ALTER SCHEMA 'public' RENAME TO 'sqlite'
+
+     BEFORE LOAD DO
+       $$ DROP SCHEMA IF EXISTS sqlite CASCADE; $$,
+       $$ CREATE SCHEMA IF NOT EXISTS sqlite; $$;

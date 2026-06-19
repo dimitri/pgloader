@@ -13,8 +13,7 @@ LOAD DATABASE
     ALTER SCHEMA 'public' RENAME TO 'sqlite'
 
     SET work_mem             to '16MB',
-        maintenance_work_mem to '512 MB',
-        search_path          to 'sqlite'
+        maintenance_work_mem to '512 MB'
 
   BEFORE LOAD DO
     $$ drop schema if exists sqlite cascade; $$,
