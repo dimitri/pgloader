@@ -4,7 +4,6 @@ LOAD CSV FROM '/work/blanks-keep/blanks.csv'
      TARGET TABLE public.csv_blanks_keep
 
      WITH truncate,
-          skip header = 1,
           keep unquoted blanks,
           fields optionally enclosed by '"',
           fields terminated by ','

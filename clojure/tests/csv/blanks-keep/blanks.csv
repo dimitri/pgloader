@@ -1,5 +1,7 @@
-f1,f2,f3
 "quoted empty string","","should be empty string"
 "no value between separators",,"should be null"
-"unquoted spaces","  ","should have spaces"
-"trimmed spaces",  ,"leading/trailing trimmed"
+"quoted blanks","    ","should be blanks"
+"unquoted blanks",    ,"should be null"
+"unquoted string",no quote,"should be 'no quote'"
+"quoted separator","a,b,c","should be 'a,b,c'"
+"keep extra blanks",  test string  , "should be an error"
