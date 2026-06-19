@@ -17,6 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ── Unit tests ─────────────────────────────────────────────────────────────
   unit:
     name: Unit tests
     runs-on: ubuntu-latest
@@ -58,8 +59,92 @@ jobs:
             -n pgloader.pg-service-test \
             -n pgloader.cli-test
 
+  # ── Build test-runner Docker image (contains v3 pgloader binary) ───────────
+  # Built once and shared with all integration jobs via artifact.
+  # The image is also cached across runs keyed on the Dockerfile + v3 source,
+  # so it's only rebuilt when those change.
+  build-test-runner:
+    name: Build test-runner image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore image from cross-run cache
+        id: img-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/test-runner.tar.gz
+          key: test-runner-${{ hashFiles('clojure/tests/Dockerfile', 'src/**', 'pgloader.asd', 'Makefile', 'conf/**') }}
+
+      - name: Set up Docker Buildx
+        if: steps.img-cache.outputs.cache-hit != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (skipped on cache hit)
+        if: steps.img-cache.outputs.cache-hit != 'true'
+        run: |
+          docker buildx build \
+            --load \
+            -t pgloader-test-runner:latest \
+            -f clojure/tests/Dockerfile .
+          docker save pgloader-test-runner:latest | gzip > /tmp/test-runner.tar.gz
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-runner-image
+          path: /tmp/test-runner.tar.gz
+          retention-days: 1
+
+  # ── Build pgloader v4 JAR ──────────────────────────────────────────────────
+  # Built once and shared with all integration jobs via artifact.
+  # All jobs (including v3-* targets) need the JAR for the regression runner.
+  build-jar:
+    name: Build pgloader v4 JAR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache Clojure dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            ~/.clojure
+          key: clojure-${{ hashFiles('clojure/deps.edn') }}
+          restore-keys: clojure-
+
+      - name: Install Clojure CLI
+        uses: DeLaGuardo/setup-clojure@13
+        with:
+          cli: latest
+
+      - name: Build JAR
+        working-directory: clojure
+        run: |
+          clojure -T:build uber
+          # Copy to fixed name — Docker bind-mounts need a real file, not a relative symlink
+          ls target/pgloader-v4-*.jar | head -1 | xargs -I{} cp {} target/pgloader.jar
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pgloader-v4-jar
+          path: clojure/target/pgloader.jar
+          retention-days: 1
+
+  # ── Integration test matrix ────────────────────────────────────────────────
   integration:
-    needs: unit
+    needs: [unit, build-test-runner, build-jar]
     name: ${{ matrix.suite }} (${{ matrix.pgloader }})
     runs-on: ubuntu-latest
 
@@ -118,7 +203,6 @@ jobs:
             needs_f1db: true
 
           # ── MySQL 5.7 (amd64 only via Rosetta emulation) ───────────────────
-          # mysql57 uses --platform linux/amd64 which works on GH Actions (x86_64 runners)
           - suite: mysql57
             pgloader: v4
             make_target: mysql57
@@ -166,56 +250,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Java 21
-        uses: actions/setup-java@v4
+      - name: Download test-runner image
+        uses: actions/download-artifact@v4
         with:
-          distribution: temurin
-          java-version: '21'
+          name: test-runner-image
+          path: /tmp/
 
-      - name: Cache Clojure dependencies
-        uses: actions/cache@v4
+      - name: Load Docker image
+        run: docker load < /tmp/test-runner.tar.gz
+
+      - name: Download pgloader v4 JAR
+        uses: actions/download-artifact@v4
         with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-            ~/.clojure
-          key: clojure-${{ hashFiles('clojure/deps.edn') }}
-          restore-keys: clojure-
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Cache Docker test-runner image layers
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.docker-cache
-          key: docker-test-runner-${{ hashFiles('clojure/tests/Dockerfile') }}
-          restore-keys: docker-test-runner-
-
-      - name: Pre-build test-runner Docker image
-        run: |
-          docker buildx build \
-            --cache-from type=local,src=/tmp/.docker-cache \
-            --cache-to   type=local,dest=/tmp/.docker-cache,mode=max \
-            --load \
-            -t pgloader-test-runner:latest \
-            -f clojure/tests/Dockerfile .
-
-      - name: Install Clojure CLI
-        uses: DeLaGuardo/setup-clojure@13
-        with:
-          cli: latest
-
-      - name: Build pgloader v4 JAR
-        working-directory: clojure
-        run: |
-          clojure -T:build uber
-          # Copy to fixed name so Docker bind-mount gets a real file (not a relative symlink)
-          ls target/pgloader-v4-*.jar | head -1 | xargs -I{} cp {} target/pgloader.jar
+          name: pgloader-v4-jar
+          path: clojure/target/
 
       - name: Download F1DB dataset
         if: ${{ matrix.needs_f1db }}
-        run: bash test/mysql/download-f1db.sh
+        run: bash clojure/tests/mysql/download-f1db.sh
 
       - name: Run ${{ matrix.suite }} tests (${{ matrix.pgloader }})
         working-directory: clojure/tests
