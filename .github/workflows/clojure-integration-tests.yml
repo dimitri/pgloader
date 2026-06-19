@@ -41,7 +41,7 @@ jobs:
           restore-keys: clojure-
 
       - name: Install Clojure CLI
-        uses: DeLaGuardo/setup-clojure@12
+        uses: DeLaGuardo/setup-clojure@13
         with:
           cli: latest
 
@@ -203,7 +203,7 @@ jobs:
             -f tests/Dockerfile .
 
       - name: Install Clojure CLI
-        uses: DeLaGuardo/setup-clojure@12
+        uses: DeLaGuardo/setup-clojure@13
         with:
           cli: latest
 
