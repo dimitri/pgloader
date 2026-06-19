@@ -43,10 +43,9 @@
                  .waitFor)]
     ;; Strip trailing whitespace from every line so psql alignment
     ;; differences across versions don't cause spurious failures.
+    ;; Use regex replace to preserve exact line endings and trailing newlines.
     (spit out-file
-          (str/join "\n"
-                    (map #(str/trimr %)
-                         (str/split-lines (slurp tmp))))
+          (str/replace (slurp tmp) #"[ \t]+((\r?\n)|\z)" "$1")
           :append false)
     (.delete tmp)
     exit))
