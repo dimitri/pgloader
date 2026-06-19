@@ -210,8 +210,8 @@ jobs:
         working-directory: clojure
         run: |
           clojure -T:build uber
-          # Symlink latest jar so tests can find it at a fixed path
-          ls target/pgloader*.jar | head -1 | xargs -I{} ln -sf {} target/pgloader.jar
+          # Copy to fixed name so Docker bind-mount gets a real file (not a relative symlink)
+          ls target/pgloader-v4-*.jar | head -1 | xargs -I{} cp {} target/pgloader.jar
 
       - name: Download F1DB dataset
         if: ${{ matrix.needs_f1db }}
