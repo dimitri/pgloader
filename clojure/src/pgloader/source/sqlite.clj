@@ -78,11 +78,14 @@
         "text")))
 
 (defn- apply-sqlite-identifier-case
-  "Apply identifier case to a SQLite name.
-   v3 lowercases table/column names by default; snake_case also just lowercases
-   (v3 does not split CamelCase for SQLite — only MySQL does)."
-  [name _id-case]
-  (str/lower-case name))
+  "Apply identifier case to a SQLite name, matching v3 behavior."
+  [^String name id-case]
+  (case id-case
+    :snake-case-ids (-> name
+                        (str/replace #"([a-z])([A-Z])" "$1_$2")
+                        (str/replace #"([A-Z]+)([A-Z][a-z])" "$1_$2")
+                        str/lower-case)
+    (str/lower-case name)))
 
 (deftype SQLiteSource
   [^java.sql.Connection conn
