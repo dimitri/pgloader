@@ -114,7 +114,7 @@
                          fks (list-fkeys conn src-table-name)]
                      {:table-name table-name
                       :source-table-name src-table-name
-                      :schema "main"  ; SQLite default schema is "main" (matches v3 behavior for ALTER SCHEMA)
+                      :schema "public"  ; match v3 behavior: SQLite tables land in "public" schema
                        :columns (mapv (fn [c]
                                         (let [col-type (:type c)
                                               is-pk (pos? (:pk c))

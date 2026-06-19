@@ -4,7 +4,7 @@ LOAD DATABASE
 
      WITH include drop, create tables, create indexes, reset sequences
 
-     ALTER SCHEMA 'main' RENAME TO 'sqlite_pk'
+     ALTER SCHEMA 'public' RENAME TO 'sqlite_pk'
 
      BEFORE LOAD DO
        $$ CREATE SCHEMA IF NOT EXISTS sqlite_pk; $$;

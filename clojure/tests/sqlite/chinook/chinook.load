@@ -5,7 +5,7 @@ LOAD DATABASE
      WITH include drop, create tables, create indexes, foreign keys,
           reset sequences
 
-     ALTER SCHEMA 'main' RENAME TO 'chinook'
+     ALTER SCHEMA 'public' RENAME TO 'chinook'
 
      BEFORE LOAD DO
        $$ CREATE SCHEMA IF NOT EXISTS chinook; $$;
