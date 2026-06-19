@@ -6,6 +6,8 @@ LOAD CSV
      TARGET TABLE public.csv_matching
 
      WITH truncate,
+          disable triggers,
+          drop indexes,
           fields optionally enclosed by '"',
           fields terminated by ','
 

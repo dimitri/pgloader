@@ -277,6 +277,14 @@
                         (into {}
                               (map (fn [cn] [(:name cn) (:nullif cn)])
                                    column-nullifs)))
+          ;; When opencsv strips backslash escapes, per-column "\N" becomes "N";
+          ;; build nullif-value→alt map so [null if '\N'] still matches in backslash-quote mode.
+          col-nil-val-alt (when (and col-nil-map (= eff-esc \\))
+                            (into {}
+                                  (keep (fn [[_ v]]
+                                          (when (and v (str/starts-with? v "\\"))
+                                            [v (subs v 1)]))
+                                        col-nil-map)))
           trim-blanks trim-unquoted-blanks
           ;; Open a second reader to detect per-field quoted status.
           ;; Used for trim-unquoted-blanks AND for null-if comparison (unquoted fields
@@ -314,9 +322,11 @@
                                              (when (and v target)
                                                (or (= v target)
                                                    (when unquoted? (= (str/trim v) target)))))
+                                  col-nil-alt (when col-nil-val-alt (get col-nil-val-alt col-nil))
                                   v (if (or (matches? nil-str)
                                             (when nil-str-alt (matches? nil-str-alt))
-                                            (matches? col-nil))
+                                            (matches? col-nil)
+                                            (when col-nil-alt (matches? col-nil-alt)))
                                       nil v)]
                               ;; trim-unquoted-blanks: unquoted only; trim and blank → nil
                               (if (and trim-blanks (not is-quoted))
@@ -345,7 +355,7 @@
                                         projections (range (count projections)))]
                       (fn [^"[Ljava.lang.String;" line quoted-flags]
                         (mapv (fn [[idx xfn]]
-                                (when idx
+                                (when (and idx (< idx (alength line)))
                                   (let [v     (aget line idx)
                                         is-q  (when (and needs-quot quoted-flags)
                                                 (nth quoted-flags idx false))
@@ -434,11 +444,23 @@
   (read-rows [_ table-spec]
     (let [files (matching-files directory pattern)]
       (mapcat (fn [f]
-                (let [csv (->CSVSource (.getPath ^File f) encoding skip-lines
-                                       separator quote-char escape-char
-                                       column-names nullif keep-unquoted-blanks
-                                       trim-unquoted-blanks nil projections
-                                       nil nil nil nil false)
+                (let [csv (map->CSVSource {:filepath (.getPath ^File f)
+                                           :encoding encoding
+                                           :skip-lines skip-lines
+                                           :separator separator
+                                           :quote-char quote-char
+                                           :escape-char escape-char
+                                           :column-names column-names
+                                           :nullif nullif
+                                           :keep-unquoted-blanks keep-unquoted-blanks
+                                           :trim-unquoted-blanks trim-unquoted-blanks
+                                           :inline-data nil
+                                           :projections projections
+                                           :csv-header nil
+                                           :lines-terminator nil
+                                           :column-formats nil
+                                           :column-nullifs nil
+                                           :stdin? false})
                       rows (vec (read-rows csv table-spec))]
                   rows))
               files))))

@@ -13,6 +13,6 @@ LOAD CSV FROM '/work/header-auto/header.csv'
             rekplcode     text,
             "repl$grpid" text,
             "repl$id"    text,
-            fields        integer,
-            another       text
+            another       text,
+            fields        integer
           ); $$;

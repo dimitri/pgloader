@@ -1,19 +1,19 @@
-LOAD CSV FROM '/work/guess-csv/guess-csv.csv'
-             (trackid, track, album, mediatype, genre, composer,
+LOAD CSV FROM '/work/guess-csv/track.csv'
+             (trackid, track, album, media, genre, composer,
               milliseconds, bytes, unitprice)
      INTO postgresql://pgloader:pgloader@postgres:5432/target
      TARGET TABLE csv.guess_csv
 
-     WITH truncate, skip header = 1
+     WITH truncate
 
      BEFORE LOAD DO
        $$ CREATE SCHEMA IF NOT EXISTS csv; $$,
        $$ DROP TABLE IF EXISTS csv.guess_csv; $$,
        $$ CREATE TABLE csv.guess_csv (
-            trackid      bigint primary key,
+            trackid      bigserial primary key,
             track        text,
             album        text,
-            mediatype    text,
+            media        text,
             genre        text,
             composer     text,
             milliseconds bigint,

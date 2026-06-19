@@ -6,6 +6,7 @@ LOAD CSV FROM '/work/blanks-trim/trim-blanks.csv'
      WITH truncate,
           trim unquoted blanks,
           fields optionally enclosed by '"',
+          fields escaped by double-quote,
           fields terminated by ','
 
      BEFORE LOAD DO

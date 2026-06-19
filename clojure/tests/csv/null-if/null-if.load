@@ -4,14 +4,15 @@ LOAD CSV FROM '/work/null-if/null-if.csv'
      TARGET TABLE public.csv_null_if
 
      WITH truncate,
+          null if '\N',
           fields terminated by ',',
           fields enclosed by '"',
-          null if '\N'
+          fields escaped by backslash-quote
 
      BEFORE LOAD DO
        $$ DROP TABLE IF EXISTS public.csv_null_if; $$,
        $$ CREATE TABLE public.csv_null_if (
-            id     text,
+            id     integer,
             number integer,
             data   text
           ); $$;

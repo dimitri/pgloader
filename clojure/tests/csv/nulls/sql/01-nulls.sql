@@ -1,3 +1,3 @@
-SELECT f1, (f2 IS NULL) AS f2_null, f3
+SELECT id, (number IS NULL) AS number_null, data
 FROM   public.csv_nulls
-ORDER  BY f1;
+ORDER  BY id;

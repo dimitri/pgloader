@@ -34,11 +34,12 @@
                    (AtomicLong. 0))))
 
 (defn- reader-loop
-  [source table-spec ^CopyPipeline pipeline cast-specs max-rows max-bytes start]
+  [source table-spec ^CopyPipeline pipeline cast-specs max-rows max-bytes start row-filter-fn]
   (loop [batch (batch/make-batch max-rows max-bytes)
          rows  (read-rows source table-spec)]
     (if-let [row (first rows)]
-          (let [row-bytes (copy/format-row-bytes row cast-specs)]
+          (let [row      (if row-filter-fn (row-filter-fn row) row)
+                row-bytes (copy/format-row-bytes row cast-specs)]
             (if (batch/batch-full? batch)
           (do (.put ^BlockingQueue (.queue pipeline) batch)
               (recur (batch/batch-add-row! (batch/make-batch max-rows max-bytes)
@@ -56,12 +57,12 @@
   "Virtual thread task that reads rows from source and fills batches.
    Pushes full batches onto the pipeline queue.
    Returns total nanoseconds spent reading."
-  [source table-spec ^CopyPipeline pipeline cast-specs]
+  [source table-spec ^CopyPipeline pipeline cast-specs & [row-filter-fn]]
   (let [max-rows  (.batch-rows pipeline)
         max-bytes (.batch-bytes pipeline)
         start (System/nanoTime)]
     (try
-      (reader-loop source table-spec pipeline cast-specs max-rows max-bytes start)
+      (reader-loop source table-spec pipeline cast-specs max-rows max-bytes start row-filter-fn)
       (catch Exception e
         (.set ^AtomicBoolean (.done pipeline) true)
         (throw e)))))
@@ -136,7 +137,7 @@
   "Orchestrate the full copy of a single table.
    Spawns reader and writer virtual threads.
    Returns {:rows-ok n :rows-bad n :rs-nanos n :ws-nanos n :bytes n :reject-paths {...}}."
-  [source table-spec ^PGConnection pg-conn cast-specs]
+  [source table-spec ^PGConnection pg-conn cast-specs & [row-filter-fn]]
   (let [table-name (:target-table table-spec)
         ^CopyPipeline pipeline (make-pipeline)
         exc-holder (atom nil)
@@ -146,7 +147,7 @@
                    (log/debug (str "Reader started for " table-name))
                    (try
                      (reset! rs-nanos-holder
-                       (reader-task source table-spec pipeline cast-specs))
+                       (reader-task source table-spec pipeline cast-specs row-filter-fn))
                      (log/debug (str "Reader for " table-name " is done in "
                                      (pgloader.log/fmt-duration @rs-nanos-holder)))
                      (catch Exception e

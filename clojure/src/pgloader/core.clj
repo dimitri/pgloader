@@ -22,6 +22,7 @@
             [pgloader.summary :as summary]
             [clojure.string :as str]
             [next.jdbc :as jdbc]
+            [next.jdbc.result-set :as rs]
             [hugsql.core :as hugsql]
             [hugsql.adapter.next-jdbc :as hugsql-adapter])
   (:import [org.postgresql PGConnection]
@@ -157,13 +158,45 @@
               (vec cast-specs)
               projections))))
 
+(defn- actual-table-columns
+  "Query PostgreSQL for the actual column names of the target table."
+  [^java.sql.Connection pg-conn schema table]
+  (try
+    (into #{}
+          (map :column_name)
+          (jdbc/execute! pg-conn
+            ["SELECT column_name FROM information_schema.columns
+              WHERE table_schema = ? AND table_name = ?
+              ORDER BY ordinal_position" schema table]
+            {:builder-fn rs/as-unqualified-lower-maps}))
+    (catch Exception _ #{})))
+
 (defn- copy-table
   [source table-spec pg-conn cast-rule-maps projections]
   (let [ts (normalize-table-spec table-spec)
-        cast-specs (cast/resolve-specs cast-rule-maps (:columns ts))
-        cast-specs (apply-projection-using cast-specs (:columns ts) projections)
+        ;; Filter declared columns to only those that actually exist in the target table.
+        ;; This matches v3 behavior: columns listed in the load file that don't exist in
+        ;; the table are silently skipped (data for those positions is dropped).
+        actual-cols (actual-table-columns pg-conn (:target-schema ts) (:target-table ts))
+        source-cols (:columns ts)
+        [kept-cols kept-indices]
+        (if (seq actual-cols)
+          (let [pairs (keep-indexed
+                        (fn [i c]
+                          (let [n (or (:column-name c) (:name c))]
+                            (when (contains? actual-cols n) [c i])))
+                        source-cols)]
+            [(mapv first pairs) (mapv second pairs)])
+          [source-cols (vec (range (count source-cols)))])
+        ts           (assoc ts :columns kept-cols)
+        row-filter-fn (when (< (count kept-cols) (count source-cols))
+                        (let [^ints idx-arr (int-array kept-indices)]
+                          (fn [row]
+                            (mapv #(nth row % nil) idx-arr))))
+        cast-specs   (cast/resolve-specs cast-rule-maps kept-cols)
+        cast-specs   (apply-projection-using cast-specs kept-cols projections)
         start (System/nanoTime)
-        result (prefetch/copy-table! source ts pg-conn cast-specs)
+        result (prefetch/copy-table! source ts pg-conn cast-specs row-filter-fn)
         elapsed (- (System/nanoTime) start)]
     (assoc result
            :table-name (:target-table ts)

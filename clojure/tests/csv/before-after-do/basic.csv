@@ -1,4 +1,4 @@
-header,a,b,c
-"2.6.190.56","33996344","GB","United Kingdom"
-"3.0.0.0","50331648","US","United States"
-"4.17.135.32","68257568","CA","Canada"
+id,name,email,age
+1,Alice,alice@example.com,30
+2,Bob,bob@example.com,25
+3,Carol,carol@example.com,35
