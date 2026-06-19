@@ -1,6 +1,6 @@
 services:
   source:
-    image: postgis/postgis:16-3.4
+    image: postgres:16
     environment:
       POSTGRES_USER: pgloader
       POSTGRES_PASSWORD: pgloader
@@ -12,7 +12,7 @@ services:
       retries: 10
 
   target:
-    image: postgis/postgis:16-3.4
+    image: postgres:16
     environment:
       POSTGRES_USER: pgloader
       POSTGRES_PASSWORD: pgloader
