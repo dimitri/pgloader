@@ -258,17 +258,22 @@
                   idx-name  (if oid
                               (identifier-quote (str "idx_" oid "_" raw-name))
                               (identifier-quote raw-name))
-                  uniq-str  (if (:unique idx) " UNIQUE" "")
+                  fulltext? (= "FULLTEXT" (:index-type idx))
+                  uniq-str  (if (and (:unique idx) (not fulltext?)) " UNIQUE" "")
                   quoted-cols (str/join ", "
                                (map (fn [col]
                                       (if (str/starts-with? col "(")
                                         col
                                         (identifier-quote col)))
                                     (:columns idx)))]
-              (str "CREATE" uniq-str " INDEX IF NOT EXISTS "
-                   idx-name " ON " quoted-table " (" quoted-cols ")"
-                   (when-let [w (:where idx)] (str " WHERE " w))
-                   ";\n")))
+              (if fulltext?
+                (str "CREATE INDEX IF NOT EXISTS "
+                     idx-name " ON " quoted-table
+                     " USING gin(to_tsvector('simple', " quoted-cols "));\n")
+                (str "CREATE" uniq-str " INDEX IF NOT EXISTS "
+                     idx-name " ON " quoted-table " (" quoted-cols ")"
+                     (when-let [w (:where idx)] (str " WHERE " w))
+                     ";\n"))))
           indexes)))
 
 (defn create-fkeys-sql

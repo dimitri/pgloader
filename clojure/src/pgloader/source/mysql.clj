@@ -161,13 +161,14 @@
                                         cols)
                      :primary-key (mapv #(apply-identifier-case % id-case) (mapv :column_name pkeys))
                      :indexes    (mapv (fn [idx]
-                                         {:name    (:index_name idx)
-                                          :unique  (zero? (:non_unique idx))
-                                          :columns (mapv (fn [col]
-                                                           (if (str/starts-with? col "(")
-                                                             (translate-mysql-expression col)
-                                                             (apply-identifier-case col id-case)))
-                                                         (split-index-columns (:columns idx)))})
+                                         {:name       (:index_name idx)
+                                          :unique     (zero? (:non_unique idx))
+                                          :index-type (:index_type idx)
+                                          :columns    (mapv (fn [col]
+                                                              (if (str/starts-with? col "(")
+                                                                (translate-mysql-expression col)
+                                                                (apply-identifier-case col id-case)))
+                                                            (split-index-columns (:columns idx)))})
                                        idxes)
                      :fkeys      (mapv (fn [fk]
                                          {:name      (:constraint_name fk)
