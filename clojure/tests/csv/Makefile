@@ -15,7 +15,7 @@ CSV_TESTS = allcols basic batch-rows before-after-do blanks-keep blanks-trim \
 # target-columns uses HAVING FIELDS + TARGET COLUMNS renaming, which v3 supports.
 # stdin is v4-only (piped input) and runs in a separate step, not the batch.
 # csv-escape-mode: v3 parses "csv escape mode following" differently; exclude from v3.
-CSV_TESTS_V3 = $(filter-out constant csv-escape-mode target-columns,$(CSV_TESTS))
+CSV_TESTS_V3 = $(filter-out constant csv-escape-mode,$(CSV_TESTS))
 
 # Auto-detect v3 run: PGLOADER_CMD starts with "pgloader" (the CL binary),
 # not "java" (the v4 JAR). This covers both the %-v3 pattern and Docker runs

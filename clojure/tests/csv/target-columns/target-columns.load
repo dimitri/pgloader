@@ -1,6 +1,6 @@
 LOAD CSV FROM '/work/target-columns/districts.csv'
-     HAVING FIELDS (usps, geoid, aland, awater, aland_sqmi, awater_sqmi,
-                    intptlat, intptlong)
+     HAVING FIELDS (state_code, geo_id, land_area, water_area,
+                    aland_sqmi, awater_sqmi, intptlat, intptlong)
      INTO postgresql://pgloader:pgloader@postgres:5432/target
      TARGET TABLE public.csv_target_cols
      TARGET COLUMNS (state_code, geo_id, land_area, water_area)
