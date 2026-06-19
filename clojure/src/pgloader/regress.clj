@@ -50,6 +50,9 @@
     (.delete tmp)
     exit))
 
+(defn- normalize-whitespace [s]
+  (str/replace s #"[ \t]+((\r?\n)|\z)" "$1"))
+
 (defn- diff-files
   "Unified diff of expected vs actual. Returns true when identical."
   [^File exp-file ^File out-file test-name]
@@ -60,14 +63,23 @@
         false)
 
     :else
-    (let [{:keys [exit out]} (shell/sh "diff" "-u"
-                                       (.getAbsolutePath exp-file)
-                                       (.getAbsolutePath out-file))]
-      (if (zero? exit)
-        (do (println (str "  ok       " test-name)) true)
-        (do (println (str "  FAIL     " test-name))
-            (print out)
-            false)))))
+    ;; Normalize trailing whitespace in both files before diffing so psql
+    ;; alignment padding differences across versions don't cause spurious
+    ;; failures.  The out-file is already normalized by run-psql; we also
+    ;; normalize the expected file in-place into a temp file so we can
+    ;; produce a clean diff without permanently rewriting expected/.
+    (let [norm-exp (File/createTempFile "pgloader-exp" ".out")]
+      (try
+        (spit norm-exp (normalize-whitespace (slurp exp-file)))
+        (let [{:keys [exit out]} (shell/sh "diff" "-u"
+                                           (.getAbsolutePath norm-exp)
+                                           (.getAbsolutePath out-file))]
+          (if (zero? exit)
+            (do (println (str "  ok       " test-name)) true)
+            (do (println (str "  FAIL     " test-name))
+                (print out)
+                false)))
+        (finally (.delete norm-exp))))))
 
 (defn run
   "Entry point called from cli/run when first arg is 'regress'."
