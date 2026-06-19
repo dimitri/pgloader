@@ -130,13 +130,15 @@
       :else (str "'" (str/replace val "'" "''") "'"))))
 
 (defn- strip-quotes
-  "Strip surrounding single or double quotes from a string if present."
+  "Strip surrounding single or double quotes, repeatedly, until stable."
   [^String s]
-  (if (and (>= (count s) 2)
-           (or (and (str/starts-with? s "'") (str/ends-with? s "'"))
-               (and (str/starts-with? s "\"") (str/ends-with? s "\""))))
-    (subs s 1 (dec (count s)))
-    s))
+  (loop [s s]
+    (let [stripped (if (and (>= (count s) 2)
+                            (or (and (str/starts-with? s "'") (str/ends-with? s "'"))
+                                (and (str/starts-with? s "\"") (str/ends-with? s "\""))))
+                     (subs s 1 (dec (count s)))
+                     s)]
+      (if (= stripped s) s (recur stripped)))))
 
 (defn- zero-date?
   "Check if a column default is a MySQL zero-date/zero-datetime value."

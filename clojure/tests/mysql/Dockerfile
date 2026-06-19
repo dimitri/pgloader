@@ -28,34 +28,7 @@ COPY clojure/tests/mysql/data/seed.sql /docker-entrypoint-initdb.d/seed.sql
 # === Init script ===
 # .sql files renamed to .tmpl to prevent MySQL auto-running them.
 # Our shell script creates the correct databases first, then sources the .tmpl files.
-RUN cat > /docker-entrypoint-initdb.d/load-datasets.sh << 'SCRIPT'
-#!/bin/bash
-set -e
-
-echo "=== Loading Sakila dataset ==="
-mysql -u root -p"$MYSQL_ROOT_PASSWORD" < /docker-entrypoint-initdb.d/sakila-schema.tmpl
-mysql -u root -p"$MYSQL_ROOT_PASSWORD" < /docker-entrypoint-initdb.d/sakila-data.tmpl
-echo "Sakila loaded successfully"
-
-echo "=== Loading F1DB dataset (14 tables) ==="
-mysql -u root -p"$MYSQL_ROOT_PASSWORD" < /docker-entrypoint-initdb.d/f1db.tmpl
-echo "F1DB loaded successfully"
-
-echo "=== Loading pgloader test schemas (my, history) ==="
-mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS pgloader"
-mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "SET GLOBAL sql_mode=''" pgloader
-mysql -u root -p"$MYSQL_ROOT_PASSWORD" pgloader < /docker-entrypoint-initdb.d/my.tmpl
-mysql -u root -p"$MYSQL_ROOT_PASSWORD" pgloader < /docker-entrypoint-initdb.d/history.tmpl
-echo "pgloader test schemas loaded successfully"
-
-echo "=== Loading db789 materialized views schema ==="
-mysql -u root -p"$MYSQL_ROOT_PASSWORD" < /docker-entrypoint-initdb.d/db789.tmpl
-echo "db789 loaded successfully"
-
-echo "=== Loading pgloader integration seed (source, source2) ==="
-mysql -u root -p"$MYSQL_ROOT_PASSWORD" < /docker-entrypoint-initdb.d/seed.tmpl
-echo "Seed loaded successfully"
-SCRIPT
+COPY clojure/tests/mysql/data/load-datasets.sh /docker-entrypoint-initdb.d/load-datasets.sh
 
 RUN chmod +x /docker-entrypoint-initdb.d/load-datasets.sh \
   && mv /docker-entrypoint-initdb.d/sakila-schema.sql /docker-entrypoint-initdb.d/sakila-schema.tmpl \

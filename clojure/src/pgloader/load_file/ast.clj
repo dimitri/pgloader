@@ -581,7 +581,6 @@
                :schema (or (:schema tt-table) target-schema)
                :table (or (:table tt-table) target-table)}
                (merge {:skip-header 0
-                        :delimiter \,
                         :quote-char \"}
                        (when (and target-schema target-table)
                          {:target-schema target-schema
