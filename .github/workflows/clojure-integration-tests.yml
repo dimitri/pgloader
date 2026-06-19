@@ -132,10 +132,9 @@ jobs:
         working-directory: clojure
         run: |
           clojure -T:build uber
-          # The build tool creates a relative symlink target/pgloader.jar -> pgloader-v4-*.jar.
-          # Docker bind-mounts can't follow relative symlinks, so replace it with a real file.
-          rm -f target/pgloader.jar
-          ls target/pgloader-v4-*.jar | head -1 | xargs -I{} cp {} target/pgloader.jar
+          # The build tool creates target/pgloader.jar as a relative symlink.
+          # Replace it with a hard link so Docker bind-mounts get a real inode.
+          ls target/pgloader-v4-*.jar | head -1 | xargs -I{} ln -f {} target/pgloader.jar
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
