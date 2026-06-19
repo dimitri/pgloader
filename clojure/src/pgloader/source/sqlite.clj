@@ -77,9 +77,17 @@
     (or (some (fn [[k v]] (when (str/starts-with? lower k) v)) sqlite-type-map)
         "text")))
 
+(defn- apply-sqlite-identifier-case
+  "Apply identifier case to a SQLite name.
+   v3 lowercases table/column names by default; snake_case also just lowercases
+   (v3 does not split CamelCase for SQLite — only MySQL does)."
+  [name _id-case]
+  (str/lower-case name))
+
 (deftype SQLiteSource
   [^java.sql.Connection conn
-   ^String db-path]
+   ^String db-path
+   id-case]  ; :snake-case-ids or nil (defaults to downcase)
 
   Source
   (source-name [_] (str "sqlite:" db-path))
@@ -89,26 +97,28 @@
     (let [tables (list-tables conn)]
       (->> tables
            (mapv (fn [t]
-                   (let [table-name (:table_name t)
-                         cols (list-columns conn table-name)
+                   (let [src-table-name (:table_name t)
+                         table-name (apply-sqlite-identifier-case src-table-name id-case)
+                         cols (list-columns conn src-table-name)
                          pk-cids (set (keep (fn [c]
                                               (when (pos? (:pk c)) (:cid c)))
                                             cols))
                          pkey-cols (mapv :name (filter #(pos? (:pk %)) cols))
-                         raw-idx (list-table-indexes conn table-name)
+                         raw-idx (list-table-indexes conn src-table-name)
                          idxes (mapv (fn [idx]
                                        (let [idx-cols (list-index-cols conn (:name idx))]
                                          {:name (:name idx)
                                           :unique (= 1 (:unique idx))
                                           :columns (mapv :name idx-cols)}))
                                      raw-idx)
-                         fks (list-fkeys conn table-name)]
+                         fks (list-fkeys conn src-table-name)]
                      {:table-name table-name
-                      :schema "public"
+                      :source-table-name src-table-name
+                      :schema "main"  ; SQLite default schema is "main" (matches v3 behavior for ALTER SCHEMA)
                        :columns (mapv (fn [c]
                                         (let [col-type (:type c)
                                               is-pk (pos? (:pk c))
-                                              ai (detect-autoincrement conn table-name (:name c) (:pk c))
+                                              ai (detect-autoincrement conn src-table-name (:name c) (:pk c))
                                               pg-type (if (and ai is-pk)
                                                         "bigserial"
                                                         (sqlite-type->pg col-type))
@@ -123,9 +133,9 @@
                       :primary-key pkey-cols
                       :indexes idxes
                       :fkeys (mapv (fn [fk]
-                                     {:name (str "fk_" table-name "_" (:from fk))
+                                     {:name (str "fk_" src-table-name "_" (:from fk))
                                       :columns [(:from fk)]
-                                      :ftable (:table fk)
+                                      :ftable (apply-sqlite-identifier-case (:table fk) id-case)
                                       :fcols [(:to fk)]
                                       :on-delete (:on_delete fk)
                                       :on-update (:on_update fk)})
@@ -133,10 +143,11 @@
            (sort-by :table-name))))
 
   (read-rows [_ table-spec-entry]
-    (let [{:keys [table-name columns]} table-spec-entry
+    (let [{:keys [table-name source-table-name columns]} table-spec-entry
+          src-tbl (or source-table-name table-name)
           col-list (str/join ", " (map #(str "\"" (:column-name %) "\"") columns))
           col-names (mapv #(str/lower-case (:column-name %)) columns)
-          sql (str "SELECT " col-list " FROM \"" table-name "\"")
+          sql (str "SELECT " col-list " FROM \"" src-tbl "\"")
           _ (log/debug (str "SQLite read-rows: " sql))
           rs (jdbc/execute! conn [sql])]
       (map (fn [row]
@@ -175,6 +186,10 @@
     (try (.close conn) (catch Exception _))))
 
 (defn create-source
-  [uri-map table-spec]
-  (let [conn (sqlite-connection (:path uri-map))]
-    (->SQLiteSource conn (:path uri-map))))
+  [uri-map table-spec with-options]
+  (let [conn (sqlite-connection (:path uri-map))
+        id-case (cond
+                  (:snake-case-ids with-options) :snake-case-ids
+                  (:downcase-ids with-options)   :downcase-ids
+                  :else                           :downcase-ids)]  ; v3 default: lowercase
+    (->SQLiteSource conn (:path uri-map) id-case)))

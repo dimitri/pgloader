@@ -124,7 +124,10 @@
                (catch Exception _ []))
           id-case (identifier-case-option table-spec)]
       (log/debug (str "Fetched schema for " (count ts) " tables"))
-      (let [mariadb? (= :mariadb (:variant server-variant))]
+      (let [;; expression column in information_schema.statistics is MySQL 8.0+ only;
+            ;; MariaDB and MySQL 5.x must use the simpler query without it.
+            use-simple-index-query? (or (= :mariadb (:variant server-variant))
+                                        (< (:major-version server-variant) 8))]
       (->> ts
            (map (fn [t]
                   (let [table-name (apply-identifier-case (:table_name t) id-case)
@@ -134,7 +137,7 @@
                         pkeys (table-pkeys conn
                                            {:schema schema-name
                                             :table (:table_name t)})
-                        idxes (if mariadb?
+                        idxes (if use-simple-index-query?
                                 (table-indexes-mariadb conn {:schema schema-name
                                                              :table (:table_name t)})
                                 (table-indexes conn {:schema schema-name

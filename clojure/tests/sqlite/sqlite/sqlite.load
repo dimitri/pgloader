@@ -10,7 +10,7 @@ LOAD DATABASE
          type integer to integer,
          type character to varchar keep typemod
 
-    ALTER SCHEMA 'public' RENAME TO 'sqlite'
+    ALTER SCHEMA 'main' RENAME TO 'sqlite'
 
     SET work_mem             to '16MB',
         maintenance_work_mem to '512 MB',

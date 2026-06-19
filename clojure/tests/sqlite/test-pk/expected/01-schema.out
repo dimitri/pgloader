@@ -1,4 +1,6 @@
- table_name 
-------------
-(0 rows)
+  table_name   
+---------------
+ division
+ division_kind
+(2 rows)
 

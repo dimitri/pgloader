@@ -14,9 +14,11 @@
  long
  reals
  references
+ stamps
  t548
  tablename
+ typenames
  unsigned
  user
-(18 rows)
+(20 rows)
 

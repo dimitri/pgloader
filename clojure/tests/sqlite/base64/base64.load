@@ -4,7 +4,7 @@ LOAD DATABASE
 
     WITH include drop, create tables, create indexes, reset sequences
 
-    ALTER SCHEMA 'public' RENAME TO 'storage'
+    ALTER SCHEMA 'main' RENAME TO 'storage'
 
     SET work_mem             to '16MB',
         maintenance_work_mem to '512 MB',

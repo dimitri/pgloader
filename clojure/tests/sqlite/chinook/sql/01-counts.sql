@@ -1,3 +1,3 @@
-SELECT count(*) AS tracks     FROM public."Track";
-SELECT count(*) AS albums     FROM public."Album";
-SELECT count(*) AS customers  FROM public."Customer";
+SELECT count(*) AS tracks     FROM chinook.track;
+SELECT count(*) AS albums     FROM chinook.album;
+SELECT count(*) AS customers  FROM chinook.customer;
