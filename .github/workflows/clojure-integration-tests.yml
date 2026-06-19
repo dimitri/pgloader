@@ -132,7 +132,9 @@ jobs:
         working-directory: clojure
         run: |
           clojure -T:build uber
-          # Copy to fixed name — Docker bind-mounts need a real file, not a relative symlink
+          # The build tool creates a relative symlink target/pgloader.jar -> pgloader-v4-*.jar.
+          # Docker bind-mounts can't follow relative symlinks, so replace it with a real file.
+          rm -f target/pgloader.jar
           ls target/pgloader-v4-*.jar | head -1 | xargs -I{} cp {} target/pgloader.jar
 
       - name: Upload JAR artifact
