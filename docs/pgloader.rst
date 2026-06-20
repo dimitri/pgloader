@@ -188,9 +188,9 @@ Those options are meant to tweak pgloader behavior when loading data.
     It's useful to debug it until it's ok, in particular to fix connection
     strings.
 
-    .. note:: **v4 behaviour:** DDL (``CREATE TABLE``, indexes) still runs
-       so the schema is validated; only the ``COPY`` phase is skipped. The
-       summary is printed normally showing what *would* have been loaded.
+    .. note:: **v4 behaviour:** only the source and target connections are
+       opened and verified, then pgloader exits. No catalog is fetched, no
+       DDL is run, and no data is copied. This matches v3.
 
 --on-error-stop
 

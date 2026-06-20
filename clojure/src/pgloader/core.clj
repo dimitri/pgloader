@@ -355,7 +355,14 @@
     (log/info "pgloader v4")
     (log/info "Source:" (source-name source))
     (log/info "Target:" (:raw target-uri))
-    (let [opts-batch-rows (some-> (get (:with-options cmd) :batch-rows) (long))
+    (if copy/*dry-run*
+      ;; Dry run: verify both connections are reachable, then stop.
+      ;; Mirrors v3 behaviour: no catalog fetch, no DDL, no COPY.
+      (do (log/info "DRY RUN — checking connections only")
+          (close! source)
+          (.close ^java.sql.Connection pg-conn)
+          (log/info "DRY RUN — connections OK"))
+      (let [opts-batch-rows (some-> (get (:with-options cmd) :batch-rows) (long))
           opts-batch-size (some-> (get (:with-options cmd) :batch-size) (Long/parseLong))
           opts-prefetch-rows (some-> (get (:with-options cmd) :prefetch-rows) (long))]
       (binding [copy/*batch-rows* (or opts-batch-rows copy/*batch-rows*)
@@ -602,9 +609,7 @@
           ;; Phase 2: COPY data only for tables whose DDL succeeded, using worker threads.
           ;; Each worker gets its own source connection and PostgreSQL connection so that
           ;; up to `workers` tables can be copied simultaneously (v3 workers= behavior).
-          (when copy/*dry-run*
-            (log/info (str "DRY RUN — skipping COPY for " (count cat) " tables")))
-          (when (and (not schema-only?) (not copy/*dry-run*))
+          (when (not schema-only?)
           ;; Pre-create all per-table stats entries before spawning workers (prevents races).
           (doseq [t cat]
             (let [tl (table-stats-label (or (:schema t) "public") (:table-name t))]
@@ -863,7 +868,7 @@
 
       (finally
         (close! source)
-        (.close pg-conn)))))
+        (.close pg-conn))))))
       (when-not (:sub-command? opts)
         (summary/print-summary verbose)
         (when-let [summary-path (:summary opts)]

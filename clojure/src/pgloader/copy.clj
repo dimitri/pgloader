@@ -22,7 +22,7 @@
   false)
 
 (def ^:dynamic *dry-run*
-  "If true, connect and plan but skip all COPY execution"
+  "If true, check connections only — no catalog fetch, no DDL, no COPY"
   false)
 
 (def ^:dynamic *root-dir*
