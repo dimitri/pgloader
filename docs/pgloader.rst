@@ -82,14 +82,9 @@ those options will cause pgloader not to load any data.
 
     Show pgloader version string and exit.
 
---with-encodings
+--list-encodings
 
     List known encodings in this version of pgloader.
-
-    .. note:: **v4 change:** the flag is ``--list-encodings`` (without
-       ``with-``). It lists all character set names available on the JVM
-       (``java.nio.charset.Charset``), which is a superset of what v3
-       listed. ``--with-encodings`` is not recognised in v4.
 
 --upgrade-config
 
@@ -188,9 +183,6 @@ Those options are meant to tweak pgloader behavior when loading data.
     It's useful to debug it until it's ok, in particular to fix connection
     strings.
 
-    .. note:: **v4 behaviour:** only the source and target connections are
-       opened and verified, then pgloader exits. No catalog is fetched, no
-       DDL is run, and no data is copied. This matches v3.
 
 --on-error-stop
 
