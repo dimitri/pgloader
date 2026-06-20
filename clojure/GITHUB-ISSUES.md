@@ -165,7 +165,10 @@ Legend:
 | #1507 | Ubuntu 22: `libcrypto.so.1.1` not found | ✅ | v4 uses JDBC; no OpenSSL native library dependency |
 | #1562 | `trivial-utf-8` invalid byte error | ✅ | v4 uses Java's standard UTF-8 codec via JDBC |
 | #1579 | Underscore in hostname not parsed correctly | ✅ | v4 URI parser accepts underscores in hostnames |
+| #1584 | MSSQL `host\instance,port` connection string format | ✅ | Use `jdbc:sqlserver://host\instance;port=1436;user=...;password=...` — passed directly to the MSSQL JDBC driver without pgloader-side parsing |
 | #1636 | pgsql and SSL | ✅ | sslmode supported: `disable`, `allow`, `prefer`, `require` |
+| #1675 | Arabic/Unicode text converted to `?` during SQL Server migration | ✅ | v4 uses JDBC; `nvarchar` columns are read as Java `String` (UTF-16 internally) and written as UTF-8 to PostgreSQL; no encoding loss |
+| #1678 | URL-encoded connection string with `&` breaks parser | ✅ | v4 accepts full JDBC URLs (`jdbc:postgresql://host/db?foo=a&bar=b`) passed directly to the driver; ESRAP parser not involved |
 | #1685 | Parse error with double dashes/hyphens in hostname | ✅ | Hostname parsed as opaque string; `--` not special |
 
 ## Summary output
