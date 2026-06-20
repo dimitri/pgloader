@@ -1,0 +1,10 @@
+LOAD DATABASE
+     FROM sqlite://{{CHINOOK_SQLITE}}
+     INTO postgresql://pgloader:pgloader@localhost:5432/smoke
+
+     WITH include drop, create tables, create indexes, foreign keys,
+          reset sequences
+
+     BEFORE LOAD DO
+       $$ DROP SCHEMA IF EXISTS public CASCADE; $$,
+       $$ CREATE SCHEMA public; $$;
