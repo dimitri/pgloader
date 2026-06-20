@@ -37,6 +37,14 @@
   [^String s]
   (str/replace s "`" ""))
 
+(defn- mysql-gen-expr->pg
+  "Convert a MySQL GENERATION_EXPRESSION to PostgreSQL syntax.
+   Replaces backtick-quoted identifiers with double-quoted identifiers.
+   Returns nil for empty/blank expressions."
+  [^String expr]
+  (when-not (str/blank? expr)
+    (str/replace expr #"`([^`]+)`" "\"$1\"")))
+
 (defn- apply-identifier-case
   "Apply identifier case transformation to a name string.
    option is one of :quote-ids, :downcase-ids, :snake-case-ids."
@@ -256,22 +264,19 @@
                      :source-table-name (:table_name t)
                      :schema            schema-name
                      :table-comment     (not-empty (:table_comment t))
-                    :columns    (into []
-                                      (keep (fn [c]
-                                              ;; Skip generated/computed columns — they cannot be
-                                              ;; written to via INSERT/COPY and have no source data.
-                                              (when-not (str/includes?
-                                                          (str/lower-case (or (:extra c) ""))
-                                                          "generated")
-                                                {:column-name      (apply-identifier-case (:column_name c) id-case)
-                                                 :column-type      (:column_type c)
-                                                 :is-nullable      (= "YES" (:is_nullable c))
-                                                 :column-default   (:column_default c)
-                                                 :extra            (:extra c)
-                                                 :column-key       (:column_key c)
-                                                 :ordinal-position (:ordinal_position c)
-                                                 :column-comment   (:column_comment c)})))
-                                      cols)
+                    :columns    (mapv (fn [c]
+                                          (let [gen-expr (mysql-gen-expr->pg
+                                                           (:generation_expression c))]
+                                            (cond-> {:column-name      (apply-identifier-case (:column_name c) id-case)
+                                                     :column-type      (:column_type c)
+                                                     :is-nullable      (= "YES" (:is_nullable c))
+                                                     :column-default   (:column_default c)
+                                                     :extra            (:extra c)
+                                                     :column-key       (:column_key c)
+                                                     :ordinal-position (:ordinal_position c)
+                                                     :column-comment   (:column_comment c)}
+                                              gen-expr (assoc :generated-expression gen-expr))))
+                                        cols)
                      :primary-key (mapv #(apply-identifier-case % id-case) (mapv :column_name pkeys))
                      :indexes    (mapv (fn [idx]
                                          {:name       (:index_name idx)

@@ -17,7 +17,8 @@ SELECT COLUMN_NAME             AS column_name,
        EXTRA                   AS extra,
        COLUMN_KEY              AS column_key,
        ORDINAL_POSITION        AS ordinal_position,
-       COLUMN_COMMENT          AS column_comment
+       COLUMN_COMMENT          AS column_comment,
+       GENERATION_EXPRESSION   AS generation_expression
   FROM information_schema.columns
  WHERE table_schema = :schema
    AND table_name   = :table

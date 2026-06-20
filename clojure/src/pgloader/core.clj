@@ -638,7 +638,11 @@
                                   cols        (:columns t)
                                   table-label (table-stats-label schema table)]
                               (when-not (@failed-tables table)
-                                (let [ts (cond-> {:schema schema :table-name table :columns cols
+                                (let [;; Generated columns exist on the target (DDL emits
+                                      ;; GENERATED ALWAYS AS) but must be excluded from COPY
+                                      ;; since PostgreSQL cannot accept values for them.
+                                      copy-cols (remove :generated-expression cols)
+                                      ts (cond-> {:schema schema :table-name table :columns copy-cols
                                                   :source-schema (:source-schema t)
                                                   :source-table-name (:source-table-name t)}
                                            (:citus-read-sql t) (assoc :citus-read-sql (:citus-read-sql t)))

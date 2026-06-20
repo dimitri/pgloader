@@ -36,14 +36,32 @@
     (re-find #"(?i)\b(strftime|datetime|julianday|unixepoch)\s*\("
              (str default))))
 
-(defn- generated-column-names
-  "Return the set of column names that are GENERATED ALWAYS AS columns by
-   parsing the raw CREATE TABLE SQL from sqlite_master."
+(defn- extract-balanced [^String s start]
+  "Extract the content between balanced parentheses starting at index `start`
+   (which must point at the opening '('). Returns the inner string or nil."
+  (loop [i (inc start) depth 1 ^StringBuilder buf (StringBuilder.)]
+    (cond
+      (>= i (count s))        nil
+      (= (.charAt s i) \()    (recur (inc i) (inc depth) (.append buf (.charAt s i)))
+      (= (.charAt s i) \))    (if (= depth 1)
+                                (str buf)
+                                (recur (inc i) (dec depth) (.append buf (.charAt s i))))
+      :else                   (recur (inc i) depth (.append buf (.charAt s i))))))
+
+(defn- generated-column-expressions
+  "Return a map of {column-name → expression} for GENERATED ALWAYS AS columns
+   by parsing the raw CREATE TABLE SQL from sqlite_master."
   [^java.sql.Connection conn table-name]
-  (when-let [sql (:sql (get-create-table conn {:table table-name}))]
-    (into #{}
-          (map second)
-          (re-seq #"(?i)\b(\w+)\b[^,\n]*GENERATED\s+ALWAYS\s+AS" sql))))
+  (if-let [sql (:sql (get-create-table conn {:table table-name}))]
+    (let [pattern (re-pattern "(?i)\\b(\\w+)\\b[^,\\n]*GENERATED\\s+ALWAYS\\s+AS\\s*\\(")]
+      (into {}
+            (keep (fn [[match col-name]]
+                    (let [paren-pos (+ (.indexOf ^String sql match)
+                                      (- (count match) 1))] ; position of '('
+                      (when-let [expr (extract-balanced sql paren-pos)]
+                        [col-name (str/trim expr)])))
+                  (re-seq pattern sql))))
+    {}))
 
 (defn- detect-autoincrement
   [^java.sql.Connection conn table-name col-name pk-id]
@@ -112,8 +130,7 @@
                    (let [src-table-name (:table_name t)
                          table-name (apply-sqlite-identifier-case src-table-name id-case)
                          cols (list-columns conn src-table-name)
-                         gen-cols (generated-column-names conn src-table-name)
-                         cols (remove #(contains? gen-cols (:name %)) cols)
+                         gen-exprs (generated-column-expressions conn src-table-name)
                          pk-cids (set (keep (fn [c]
                                               (when (pos? (:pk c)) (:cid c)))
                                             cols))
@@ -136,13 +153,15 @@
                                               pg-type (if (and ai is-pk)
                                                         "bigserial"
                                                         (sqlite-type->pg col-type))
-                                              dflt (:dflt_value c)]
-                                          {:column-name (:name c)
-                                           :column-type pg-type
-                                           :is-nullable (zero? (:notnull c))
-                                           :column-default (when-not (sqlite-function-default? dflt) dflt)
-                                           :key is-pk
-                                           :extra (when ai "auto_increment")}))
+                                              dflt (:dflt_value c)
+                                              gen-expr (get gen-exprs (:name c))]
+                                          (cond-> {:column-name (:name c)
+                                                   :column-type pg-type
+                                                   :is-nullable (zero? (:notnull c))
+                                                   :column-default (when-not (sqlite-function-default? dflt) dflt)
+                                                   :key is-pk
+                                                   :extra (when ai "auto_increment")}
+                                            gen-expr (assoc :generated-expression gen-expr))))
                                       cols)
                       :primary-key pkey-cols
                       :indexes idxes

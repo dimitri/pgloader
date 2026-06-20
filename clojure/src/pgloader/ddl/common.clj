@@ -148,9 +148,11 @@
 
 (defn column-def
   "Generate a PostgreSQL column definition string.
-   Omits NOT NULL for columns with auto_increment or default NULL."
+   Omits NOT NULL for columns with auto_increment or default NULL.
+   Emits GENERATED ALWAYS AS (expr) STORED for columns with :generated-expression."
   [col]
-  (let [{:keys [column-name column-type column-default is-nullable extra]} col
+  (let [{:keys [column-name column-type column-default is-nullable extra
+                generated-expression]} col
         ;; Use column-type directly only when a cast rule actually changed the type
         ;; (i.e., :source-column-type differs from :column-type, meaning :target-type
         ;; was applied). When source equals column-type, no target was set; still call
@@ -159,28 +161,33 @@
         pg-type (if (and src-type (not= src-type column-type))
                   column-type
                   (pg-type-for (or src-type column-type) extra))
-        quoted-name (identifier-quote column-name)
-        zero? (zero-date? col)
-        coerced-default (coerce-default-for-type
-                          (when column-default (strip-quotes (str column-default)))
-                          pg-type
-                          (:cast-fn col))
-        temporal-int-default? (and coerced-default
-                                    (re-find #"(?i)^(timestamp|date|time)" (or pg-type ""))
-                                    (re-matches #"^-?\d+$" (str coerced-default)))
-        default-str (when (and coerced-default
-                               (not= "NULL" (str coerced-default))
-                               (not= "" (str coerced-default))
-                               (not zero?)
-                               (not temporal-int-default?))
-                      (str " DEFAULT " (format-default coerced-default)))]
-    (str "  " quoted-name " " pg-type
-         (when (and (false? is-nullable)
-                    (not (str/includes? (str extra) "auto_increment"))
-                    (not= "NULL" (str column-default))
-                    (not zero?))
-           " NOT NULL")
-         default-str)))
+        quoted-name (identifier-quote column-name)]
+    (if generated-expression
+      ;; PostgreSQL only supports STORED generated columns (no VIRTUAL).
+      ;; Both MySQL VIRTUAL and STORED generated columns become STORED here.
+      (str "  " quoted-name " " pg-type
+           " GENERATED ALWAYS AS (" generated-expression ") STORED")
+      (let [zero? (zero-date? col)
+            coerced-default (coerce-default-for-type
+                              (when column-default (strip-quotes (str column-default)))
+                              pg-type
+                              (:cast-fn col))
+            temporal-int-default? (and coerced-default
+                                       (re-find #"(?i)^(timestamp|date|time)" (or pg-type ""))
+                                       (re-matches #"^-?\d+$" (str coerced-default)))
+            default-str (when (and coerced-default
+                                   (not= "NULL" (str coerced-default))
+                                   (not= "" (str coerced-default))
+                                   (not zero?)
+                                   (not temporal-int-default?))
+                          (str " DEFAULT " (format-default coerced-default)))]
+        (str "  " quoted-name " " pg-type
+             (when (and (false? is-nullable)
+                        (not (str/includes? (str extra) "auto_increment"))
+                        (not= "NULL" (str column-default))
+                        (not zero?))
+               " NOT NULL")
+             default-str)))))
 
 (defn table-not-null-check
   "Check if we should include a WHEN condition for NOT NULL validation."

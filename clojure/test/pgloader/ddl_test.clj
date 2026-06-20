@@ -124,3 +124,27 @@
          (#'pgloader.source.mysql/translate-mysql-expression "(lower(`email`))")))
   (is (= "(concat(first_name,last_name))"
          (#'pgloader.source.mysql/translate-mysql-expression "(concat(`first_name`,`last_name`))"))))
+
+(deftest test-column-def-generated
+  (testing "STORED generated column emits GENERATED ALWAYS AS ... STORED"
+    (let [col {:column-name "full_name"
+               :column-type "text"
+               :is-nullable true
+               :extra "STORED GENERATED"
+               :column-default nil
+               :generated-expression "first_name || ' ' || last_name"}]
+      (is (= "  \"full_name\" text GENERATED ALWAYS AS (first_name || ' ' || last_name) STORED"
+             (ddl/column-def col)))))
+  (testing "VIRTUAL generated column also becomes STORED in PostgreSQL"
+    (let [col {:column-name "initials"
+               :column-type "varchar"
+               :is-nullable true
+               :extra "VIRTUAL GENERATED"
+               :column-default nil
+               :generated-expression "UPPER(LEFT(first_name, 1))"}]
+      (is (str/includes? (ddl/column-def col) "GENERATED ALWAYS AS (UPPER(LEFT(first_name, 1))) STORED"))))
+  (testing "mysql-gen-expr->pg replaces backtick-quoted identifiers"
+    (let [result (#'pgloader.source.mysql/mysql-gen-expr->pg "`first_name` || ' ' || `last_name`")]
+      (is (= "\"first_name\" || ' ' || \"last_name\"" result))))
+  (testing "mysql-gen-expr->pg returns nil for blank expression"
+    (is (nil? (#'pgloader.source.mysql/mysql-gen-expr->pg "")))))
