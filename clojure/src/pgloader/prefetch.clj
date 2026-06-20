@@ -63,6 +63,11 @@
         start (System/nanoTime)]
     (try
       (reader-loop source table-spec pipeline cast-specs max-rows max-bytes start row-filter-fn)
+      (catch InterruptedException _
+        ;; Writer failed and interrupted us to break the .put deadlock — stop quietly.
+        ;; Restore the interrupted flag so callers see the thread was interrupted.
+        (.interrupt (Thread/currentThread))
+        (.set ^AtomicBoolean (.done pipeline) true))
       (catch Exception e
         (.set ^AtomicBoolean (.done pipeline) true)
         (throw e)))))
@@ -160,6 +165,8 @@
             (writer-task pg-conn table-spec pipeline)
             (catch Exception e
               (reset! exc-holder e)
+              ;; Unblock the reader: it may be parked on .put with nobody draining the queue.
+              (.interrupt ^Thread reader)
               {:rows-ok 0 :rows-bad 0 :ws-nanos 0 :bytes 0 :reject-paths nil}))]
       (log/debug (str "Writer for " table-name " is done in "
                       (pgloader.log/fmt-duration ws-nanos)))
