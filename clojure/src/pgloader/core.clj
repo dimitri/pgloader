@@ -27,7 +27,8 @@
             [hugsql.adapter.next-jdbc :as hugsql-adapter])
   (:import [org.postgresql PGConnection]
            [java.sql Connection DriverManager]
-           [java.io File])
+           [java.io File]
+           [java.util.concurrent Executors ExecutorService Future TimeUnit])
   (:require [clojure.tools.logging :as log]))
 
 (set! *warn-on-reflection* true)
@@ -482,7 +483,19 @@
           (log/info "Preparing target PostgreSQL schema")
           (let [failed-tables (atom #{})
                 table-oids    (atom {})
-                preserve-index-names? (get with-options :preserve-index-names false)]
+                preserve-index-names? (get with-options :preserve-index-names false)
+                create-indexes? (or (get with-options :create-indexes false)
+                                    (get with-options :reindex false))
+                schema-only?  (get with-options :schema-only false)
+                all-idx-count (int (transduce (map #(count (:indexes %))) + 0 cat))
+                max-par-idx   (int (max 1 (or (get with-options :max-parallel-create-index)
+                                               all-idx-count)))
+                ;; Index executor: each table's indexes are submitted as soon as that
+                ;; table's COPY finishes, so index builds overlap with subsequent copies.
+                idx-executor  (when (and create-indexes? (pos? all-idx-count))
+                                (Executors/newFixedThreadPool max-par-idx))
+                idx-futures   (atom [])
+                idx-wall-t0   (atom nil)]
           ;; drop schema — executed once per schema before per-table DDL
           (when (and (get with-options :drop-schema false)
                      (not (get with-options :data-only false)))
@@ -564,8 +577,11 @@
             (stats/update-entry! :pre "Create tables"
               :rows (count cat)
               :total-nanos (- (System/nanoTime) ddl-phase-start))))
+          ;; Create the index stats entry before Phase 2 so futures can update it.
+          (when create-indexes?
+            (stats/new-entry! :post "Create Indexes"))
           ;; Phase 2: COPY data only for tables whose DDL succeeded
-          (when (not (get with-options :schema-only false))
+          (when (not schema-only?)
           (stats/new-entry! :post "COPY Wall-Clock Time")
           (let [copy-wall-t0 (System/nanoTime)]
           (doseq [[i t] (map-indexed vector cat)]
@@ -620,28 +636,57 @@
                             (.commit pg-conn)
                             (catch Exception e2
                               (.rollback pg-conn)
-                               (log/warn (str "Failed to re-enable triggers: " (.getMessage e2))))))))))))
+                               (log/warn (str "Failed to re-enable triggers: " (.getMessage e2)))))))))
+                  ;; Submit this table's indexes to the parallel executor right after copy.
+                  ;; They build concurrently with subsequent table copies (v3 behavior).
+                  (when (and idx-executor (seq (:indexes t)))
+                    (when (nil? @idx-wall-t0)
+                      (reset! idx-wall-t0 (System/nanoTime)))
+                    (let [oid  (when-not preserve-index-names?
+                                 (get @table-oids (str schema "." table)))
+                          sqls (ddl/create-indexes-sql schema table (:indexes t) oid)]
+                      (doseq [sql sqls]
+                        (swap! idx-futures conj
+                          (.submit ^ExecutorService idx-executor
+                            ^java.util.concurrent.Callable
+                            (fn []
+                              (let [conn (postgres-connection target-uri)]
+                                (try
+                                  (exec-post-ddl! conn [sql] (str "INDEX on " table))
+                                  (finally (.close ^Connection conn)))))))))))))
           (stats/update-entry! :post "COPY Wall-Clock Time"
             :total-nanos (- (System/nanoTime) copy-wall-t0))))
-          ;; Phase 3: Post-load DDL — indexes, foreign keys, sequences
-          (when (or (get with-options :create-indexes false)
-                    (get with-options :reindex false))
-            (log/info "Creating indexes")
-            (stats/new-entry! :post "Create Indexes")
-            (let [start (System/nanoTime)
-                  n     (atom 0)]
-              (doseq [t cat]
-                (let [schema (or (:schema t) "public")
-                      table  (:table-name t)]
-                  (when-let [idxs (seq (:indexes t))]
-                    (let [oid (when-not preserve-index-names?
-                                (get @table-oids (str schema "." table)))]
-                      (exec-post-ddl! pg-conn
-                                      (ddl/create-indexes-sql schema table idxs oid)
-                                      (str "INDEX on " table))
-                      (swap! n + (count idxs))))))
-              (stats/update-entry! :post "Create Indexes"
-                :rows @n :total-nanos (- (System/nanoTime) start))))
+          ;; Schema-only: no COPY phase ran, so submit all indexes now.
+          (when (and create-indexes? schema-only? idx-executor)
+            (when (nil? @idx-wall-t0)
+              (reset! idx-wall-t0 (System/nanoTime)))
+            (doseq [t cat]
+              (let [schema (or (:schema t) "public")
+                    table  (:table-name t)]
+                (when-let [idxs (seq (:indexes t))]
+                  (let [oid  (when-not preserve-index-names?
+                               (get @table-oids (str schema "." table)))
+                        sqls (ddl/create-indexes-sql schema table idxs oid)]
+                    (doseq [sql sqls]
+                      (swap! idx-futures conj
+                        (.submit ^ExecutorService idx-executor
+                          ^java.util.concurrent.Callable
+                          (fn []
+                            (let [conn (postgres-connection target-uri)]
+                              (try
+                                (exec-post-ddl! conn [sql] (str "INDEX on " table))
+                                (finally (.close ^Connection conn)))))))))))))
+          ;; Await completion of all parallel index builds (overlapped with copy above).
+          (when create-indexes?
+            (when idx-executor
+              (log/info "Waiting for parallel index builds to complete")
+              (.shutdown ^ExecutorService idx-executor)
+              (.awaitTermination ^ExecutorService idx-executor Long/MAX_VALUE TimeUnit/NANOSECONDS)
+              (doseq [^Future f @idx-futures]
+                (try (.get f) (catch Exception _))))
+            (stats/update-entry! :post "Create Indexes"
+              :rows (count @idx-futures)
+              :total-nanos (- (System/nanoTime) (or @idx-wall-t0 (System/nanoTime)))))
           (when (get with-options :foreign-keys false)
             (log/info "Creating foreign keys")
             (stats/new-entry! :post "Create Foreign Keys")
