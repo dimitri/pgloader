@@ -104,3 +104,8 @@ SELECT c.relpages AS relpages
 -- :name server-version-num :? :1
 -- :doc PostgreSQL server_version_num (e.g. 140005 for PG 14.5); used to gate ctid range scans (PG >= 14)
 SELECT current_setting('server_version_num')::integer AS version_num
+
+-- :name ctid-where :snip
+-- :doc WHERE clause fragment for ctid block-range scans (PostgreSQL 14+).
+--      :sql:lo and :sql:hi are substituted as raw SQL tid literals e.g. '(0,0)'::tid
+WHERE ctid >= :sql:lo AND ctid < :sql:hi

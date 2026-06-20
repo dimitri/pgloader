@@ -9,6 +9,7 @@
 (set! *warn-on-reflection* true)
 
 (hugsql/def-db-fns "pgloader/source/pgsql.sql")
+(hugsql/def-sqlvec-fns "pgloader/source/pgsql.sql")
 
 (defn- connection
   [uri-map]
@@ -197,9 +198,8 @@
                              col-list (str/join ", " (map #(str "\"" % "\"") col-names))]
                          (str "SELECT " col-list " FROM \"" source-schema "\".\"" table-name "\"")))
           sql (if (and ctid-lo ctid-hi)
-                (str base-sql
-                     " WHERE ctid >= '(" ctid-lo ",0)'::tid"
-                     " AND ctid < '(" ctid-hi ",0)'::tid")
+                (str base-sql " " (first (ctid-where-sqlvec {:lo (str "'(" ctid-lo ",0)'::tid")
+                                                              :hi (str "'(" ctid-hi ",0)'::tid")})))
                 base-sql)
           _ (log/debug (str "PGSQL read-rows: " sql))
           stmt (.prepareStatement conn sql)]

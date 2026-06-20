@@ -1,22 +1,22 @@
 (ns pgloader.ddl.citus
   (:require [clojure.string :as str]
             [clojure.tools.logging :as log]
+            [hugsql.core :as hugsql]
             [pgloader.ddl.common :refer [identifier-quote]]))
+
+(hugsql/def-db-fns "pgloader/ddl/citus.sql")
 
 (set! *warn-on-reflection* true)
 
-(defn distribute-sql
-  "Return the SQL statement to distribute TABLE-NAME in Citus.
-   rule is a map with :type, :table, :using, :schema.
-   :distributed-from is handled same as :distributed after backfill
-   augmentation has added the distribution column."
-  [{:keys [type table using schema]}]
+(defn execute-distribute!
+  "Execute the Citus distribution call for one rule against CONN.
+   rule is a map with :type, :table, :using, :schema."
+  [conn {:keys [type table using schema]}]
   (let [schema (or schema "public")
         fqn    (str "\"" schema "\".\"" table "\"")]
     (case type
-      :reference   (str "SELECT create_reference_table('" fqn "');")
-      (:distributed :distributed-from)
-      (str "SELECT create_distributed_table('" fqn "', '" using "');"))))
+      :reference (exec-create-reference-table conn {:fqn fqn})
+      (:distributed :distributed-from) (exec-create-distributed-table conn {:fqn fqn :col using}))))
 
 (defn- prepend-if-absent
   "Prepend ITEM to vector COLL if not already present."

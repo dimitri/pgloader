@@ -108,3 +108,8 @@ SELECT COALESCE(AVG_ROW_LENGTH, 0) AS avg_row_length
   FROM information_schema.TABLES
  WHERE table_schema = :schema
    AND table_name   = :table
+
+-- :name table-pk-min-max :? :1
+-- :doc MIN and MAX of the integer primary key column; used to compute range partitions for multiple readers.
+--      :sql:pk-col and :sql:table are substituted as raw SQL (backtick-quoted identifiers).
+SELECT MIN(:sql:pk-col) AS lo, MAX(:sql:pk-col) AS hi FROM :sql:table

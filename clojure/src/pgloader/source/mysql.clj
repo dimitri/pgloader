@@ -461,8 +461,10 @@
                                 (table-avg-row-length conn {:schema schema-name :table mysql-table}))
                               0)
                   rows-per-chunk (max 1000 (long (/ chunk-bytes (max 1 avg-row))))
-                  min-row (:lo (jdbc/execute-one! conn [(str "SELECT MIN(`" pk-col "`) AS lo FROM `" mysql-table "`")]))
-                  max-row (:hi (jdbc/execute-one! conn [(str "SELECT MAX(`" pk-col "`) AS hi FROM `" mysql-table "`")]))]
+                  pk-range  (table-pk-min-max conn {:pk-col (str "`" pk-col "`")
+                                                    :table  (str "`" mysql-table "`")})
+                  min-row   (:lo pk-range)
+                  max-row   (:hi pk-range)]
               (when (and min-row max-row)
                 (let [lo   (long min-row)
                       hi   (inc (long max-row))

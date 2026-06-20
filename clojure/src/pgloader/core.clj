@@ -22,7 +22,6 @@
             [pgloader.summary :as summary]
             [clojure.string :as str]
             [next.jdbc :as jdbc]
-            [next.jdbc.result-set :as rs]
             [hugsql.core :as hugsql]
             [hugsql.adapter.next-jdbc :as hugsql-adapter])
   (:import [org.postgresql PGConnection]
@@ -35,13 +34,12 @@
 
 (hugsql/set-adapter! (hugsql-adapter/hugsql-adapter-next-jdbc))
 
+(hugsql/def-db-fns "pgloader/target/pgsql.sql")
+
 (defn- table-exists?
   "Check if a PostgreSQL table already exists."
   [^Connection pg-conn schema table]
-  (let [sql "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = ? AND table_name = ?)"]
-    (-> (jdbc/execute-one! pg-conn [sql schema table])
-        :exists
-        boolean)))
+  (boolean (:exists (table-exists pg-conn {:schema schema :table table}))))
 
 (defn postgres-connection
   [uri-map]
@@ -164,13 +162,7 @@
   "Query PostgreSQL for the actual column names of the target table."
   [^java.sql.Connection pg-conn schema table]
   (try
-    (into #{}
-          (map :column_name)
-          (jdbc/execute! pg-conn
-            ["SELECT column_name FROM information_schema.columns
-              WHERE table_schema = ? AND table_name = ?
-              ORDER BY ordinal_position" schema table]
-            {:builder-fn rs/as-unqualified-lower-maps}))
+    (into #{} (map :column_name) (table-columns pg-conn {:schema schema :table table}))
     (catch Exception _ #{})))
 
 (defn- copy-table
@@ -564,11 +556,8 @@
                   (run-ddl-tx pg-conn ddl-sqls)
                   ;; Query table OID and create primary-key index with idx_{oid}_PRIMARY naming.
                   (when (seq pk)
-                    (let [oid-row (jdbc/execute-one! pg-conn
-                                          ["SELECT c.oid FROM pg_class c
-                                            JOIN pg_namespace n ON n.oid = c.relnamespace
-                                            WHERE n.nspname = ? AND c.relname = ?" schema table])
-                          oid (:pg_class/oid oid-row)]
+                    (let [oid-row (table-oid pg-conn {:schema schema :table table})
+                          oid     (:oid oid-row)]
                       (when oid
                         (swap! table-oids assoc (str schema "." table) oid)
                         (when-let [pk-sqls (ddl/create-primary-key-sql schema table pk oid)]
@@ -826,12 +815,9 @@
             (doseq [rule rules]
               (let [tgt-schema (or (get schema-by-table (:table rule))
                                    (get-in cmd [:target :schema])
-                                   "public")
-                    sql (citus/distribute-sql (assoc rule :schema tgt-schema))]
-              (when sql
-                (log/debug sql)
+                                   "public")]
                 (try
-                  (jdbc/execute! pg-conn [sql])
+                  (citus/execute-distribute! pg-conn (assoc rule :schema tgt-schema))
                   (.commit pg-conn)
                   (log/info (str "  " (:table rule)
                                  (if (= :reference (:type rule))
@@ -840,7 +826,7 @@
                   (catch Exception e
                     (log/error e (str "Failed to distribute " (:table rule)
                                       ": " (.getMessage e)))
-                    (.rollback pg-conn))))))))
+                    (.rollback pg-conn)))))))
         (log/info "Done copying all tables")))
 
       (finally
