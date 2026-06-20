@@ -188,10 +188,9 @@ Those options are meant to tweak pgloader behavior when loading data.
     It's useful to debug it until it's ok, in particular to fix connection
     strings.
 
-    .. note:: **v4:** fully implemented. In v4, ``--dry-run`` runs the DDL
-       phase (``CREATE TABLE``, indexes) so the schema can be validated, but
-       skips all ``COPY`` execution. The summary is printed normally so you
-       can see what *would* have been loaded.
+    .. note:: **v4 behaviour:** DDL (``CREATE TABLE``, indexes) still runs
+       so the schema is validated; only the ``COPY`` phase is skipped. The
+       summary is printed normally showing what *would* have been loaded.
 
 --on-error-stop
 
@@ -200,11 +199,6 @@ Those options are meant to tweak pgloader behavior when loading data.
     just stop as soon as PostgreSQL refuses anything sent to it. Useful to
     debug data processing, transformation function and specific type
     casting.
-
-    .. note:: **v4:** fully implemented. When a table copy fails and
-       ``--on-error-stop`` is set, the error is re-raised out of the worker
-       thread, which causes the worker pool to propagate the exception and
-       abort any remaining tables that have not yet started.
 
 --self-upgrade <directory>
 
