@@ -82,42 +82,37 @@ A Note About Parallelism
 pgloader uses several concurrent tasks to process the data being loaded:
 
   - a reader task reads the data in and pushes it to a queue,
-  
-  - at last one write task feeds from the queue and formats the raw into the
+
+  - at least one write task feeds from the queue, formats the data into the
     PostgreSQL COPY format in batches (so that it's possible to then retry a
     failed batch without reading the data from source again), and then sends
     the data to PostgreSQL using the COPY protocol.
 
-The parameter *workers* allows to control how many worker threads are
-allowed to be active at any time (that's the parallelism level); and the
-parameter *concurrency* allows to control how many tasks are started to
-handle the data (they may not all run at the same time, depending on the
-*workers* setting).
+The parameter *workers* controls how many tables are copied simultaneously.
+The defaults are `workers = 4` when loading from a database source and
+`workers = 8` when loading from a file source. Those defaults are arbitrary
+and waiting for feedback from users, so please consider providing feedback if
+you play with the settings.
 
-We allow *workers* simultaneous workers to be active at the same time in the
-context of a single table. A single unit of work consist of several kinds of
-workers:
+The parameter *concurrency* controls intra-table parallelism: how many
+independent reader threads are started per table when *multiple readers per
+thread* is active. It requires *concurrency* to be greater than 1 and the
+source must support range partitioning (MySQL via primary-key ranges, or
+PostgreSQL 14+ via ``ctid`` block ranges). The default is `concurrency = 1`
+(a single reader per table).
 
-  - a reader getting raw data from the source,
-  - N writers preparing and sending the data down to PostgreSQL.
-
-The N here is setup to the *concurrency* parameter: with a *CONCURRENCY* of
-2, we start (+ 1 2) = 3 concurrent tasks, with a *concurrency* of 4 we start
-(+ 1 4) = 5 concurrent tasks, of which only *workers* may be active
-simultaneously.
-
-The defaults are `workers = 4, concurrency = 1` when loading from a database
-source, and `workers = 8, concurrency = 2` when loading from something else
-(currently, a file). Those defaults are arbitrary and waiting for feedback
-from users, so please consider providing feedback if you play with the
-settings.
+Each parallel reader is paired with its own dedicated writer, so with
+`concurrency = 4` pgloader runs 4 independent reader→writer pipelines for
+that table simultaneously. Each pipeline reads a disjoint range of the
+source table determined by the *chunk size* option (default 50 MB, converted
+to rows or blocks depending on the source).
 
 As the `CREATE INDEX` threads started by pgloader are only waiting until
 PostgreSQL is done with the real work, those threads are *NOT* counted into
-the concurrency levels as detailed here.
+the worker or concurrency levels as detailed here.
 
 By default, as many `CREATE INDEX` threads as the maximum number of indexes
 per table are found in your source schema. It is possible to set the `max
-parallel create index` *WITH* option to another number in case there's just
-too many of them to create.
+parallel create index` *WITH* option to another number in case there are
+just too many of them to create.
 

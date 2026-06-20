@@ -98,6 +98,7 @@ In addition, the following settings are available:
    - *workers = W*
    - *concurrency = C*
    - *max parallel create index = I*
+   - *chunk size = N MB*
 
 See section A NOTE ABOUT PARALLELISM for more details.
 

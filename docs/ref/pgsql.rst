@@ -212,10 +212,40 @@ supported, and the default *WITH* clause is: *no truncate*, *create schema*,
     When this option is listed pgloader only issues the `COPY` statements,
     without doing any other processing.
 
+  - *single reader per thread*, *multiple readers per thread*
+
+    The default is *single reader per thread*, meaning each PostgreSQL table
+    is read with a single ``SELECT`` statement and no ``WHERE`` clause.
+
+    When *multiple readers per thread* is set and *concurrency* is greater
+    than 1, pgloader splits each table into disjoint block ranges using
+    PostgreSQL ``ctid`` scans (requires PostgreSQL 14 or later on the
+    source) and assigns each range to an independent reader thread, each
+    paired with its own writer.
+
+    For each table pgloader queries ``pg_class.relpages`` to determine the
+    number of 8 kB disk pages, divides that by the *chunk size* setting to
+    obtain the number of ranges, and distributes those ranges across the
+    available reader threads.
+
+    Tables on a PostgreSQL source older than version 14, or tables where the
+    page count cannot be determined, are read with a single reader regardless
+    of this setting.
+
   - *rows per range*
-  
-    How many rows are fetched per `SELECT` query when using *multiple
-    readers per thread*, see above for details.
+
+    Accepted for compatibility but not the primary sizing method. Prefer
+    *chunk size* instead.
+
+  - *chunk size*
+
+    Controls the target size of each parallel read range when using
+    *multiple readers per thread*. The value is a byte size with an optional
+    unit suffix (``KB``, ``MB``, ``GB``). The default is ``50 MB``.
+
+    For a PostgreSQL source pgloader divides the chunk size by 8192 to
+    obtain a target number of 8 kB disk pages per range, then splits the
+    table's ``relpages`` estimate accordingly.
 
 PostgreSQL Database Casting Rules
 ---------------------------------
