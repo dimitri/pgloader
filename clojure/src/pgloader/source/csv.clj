@@ -228,6 +228,8 @@
                      :is-nullable true
                      :extra nil}])}]))
 
+  (partition-source [_ _ _ _] nil)
+
   (close! [_])
 
   (read-query [_ _sql]
@@ -435,6 +437,8 @@
                      :column-type "text"
                      :is-nullable true
                      :extra nil}])}]))
+
+  (partition-source [_ _ _ _] nil)
 
   (close! [_])
 

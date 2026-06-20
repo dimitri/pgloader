@@ -101,3 +101,10 @@ SELECT tc.constraint_name                 AS constraint_name,
    AND tc.constraint_type        = 'FOREIGN KEY'
    AND k.referenced_table_schema = :schema
  GROUP BY tc.constraint_name, k.referenced_table_name, rc.update_rule, rc.delete_rule
+
+-- :name table-avg-row-length :? :1
+-- :doc AVG_ROW_LENGTH estimate from information_schema for chunk-size calculation
+SELECT COALESCE(AVG_ROW_LENGTH, 0) AS avg_row_length
+  FROM information_schema.TABLES
+ WHERE table_schema = :schema
+   AND table_name   = :table

@@ -190,7 +190,7 @@
     db-option   = include-drop | create-tables | create-indexes | create-no-tables
                 | workers | concurrency | batch-rows | batch-size | prefetch-rows
                 | on-error-stop | on-error-resume | identifier-case
-                | multiple-readers | single-reader | rows-per-range
+                | multiple-readers | single-reader | rows-per-range | chunk-size
                 | include-no-drop | truncate | disable-triggers
                 | data-only | schema-only | foreign-keys | reset-sequences | no-reset-sequences
                 | max-parallel-create-index
@@ -204,6 +204,9 @@
     on-error-resume = <'on'> <ws> <'error'> <ws> <'resume'> <ws> <'next'>
     multiple-readers = <'multiple'> <ws> <'readers'> <ws> <'per'> <ws> <'thread'>
     single-reader    = <'single'> <ws> <'reader'>
+    chunk-size       = <'chunk'> <ws> <'size'> <opt-ws> <'='> <opt-ws> data-size
+    data-size        = integer (<opt-ws> data-unit)?
+    data-unit        = 'MB' | 'GB' | 'KB' | 'B'
     identifier-case  = quote-ids | downcase-ids | snake-case-ids
     quote-ids    = <'quote'> <ws> <'identifiers'>
     downcase-ids = <'downcase'> <ws> <'identifiers'>

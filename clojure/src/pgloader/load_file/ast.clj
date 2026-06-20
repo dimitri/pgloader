@@ -279,6 +279,12 @@
             :workers             [tag (Integer/parseInt (second (second inner)))]
             :concurrency         [tag (Integer/parseInt (second (second inner)))]
             :max-parallel-create-index [tag (Integer/parseInt (second (second inner)))]
+            :chunk-size          [tag (let [ds (second inner)
+                                           n  (Long/parseLong (second (second ds)))
+                                           u  (if (> (count ds) 2) (second (nth ds 2)) "B")]
+                                       (* n (case u "KB" 1024 "MB" (* 1024 1024) "GB" (* 1024 1024 1024) 1)))]
+            :multiple-readers    [:multiple-readers true]
+            :single-reader       [:multiple-readers false]
             :identifier-case     (first (second inner))
             :no-reset-sequences  [:reset-sequences false]
             :drop-schema         [:drop-schema true]

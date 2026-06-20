@@ -1,5 +1,5 @@
 (ns pgloader.core
-  (:require [pgloader.source.protocol :refer [Source source-name catalog close! read-query]]
+  (:require [pgloader.source.protocol :refer [Source source-name catalog close! read-query partition-source]]
             [pgloader.source.mysql   :as mysql-source]
             [pgloader.source.csv    :as csv-source]
             [pgloader.source.copy   :as copy-source]
@@ -490,6 +490,10 @@
                 ;; workers: parallel table copies; default 4 for DB sources, 8 for file sources (v3 defaults)
                 workers       (or (get with-options :workers)
                                   (if (#{:mysql :mariadb :pgsql :mssql :sqlite} (:type source-uri)) 4 8))
+                ;; multiple readers per table: opt-in; concurrency = N readers per table
+                multiple-readers? (get with-options :multiple-readers false)
+                concurrency   (long (or (get with-options :concurrency) 1))
+                chunk-bytes   (long (or (get with-options :chunk-size) (* 50 1024 1024)))
                 all-idx-count (int (transduce (map #(count (:indexes %))) + 0 cat))
                 max-par-idx   (int (max 1 (or (get with-options :max-parallel-create-index)
                                                all-idx-count)))
@@ -636,7 +640,58 @@
                                         (.rollback worker-pg)
                                         (log/warn (str "Failed to disable triggers: " (.getMessage e))))))
                                   (try
-                                    (let [result (copy-table worker-src ts worker-pg (:cast-rules cmd) (get with-options :projections []))]
+                                    (let [parts (when (and multiple-readers? (> concurrency 1))
+                                                  (seq (partition-source worker-src ts concurrency chunk-bytes)))
+                                          result
+                                          (if parts
+                                            (do
+                                              (log/info (str "COPY " table " using " (count parts) " parallel readers"))
+                                              (let [part-exec (Executors/newVirtualThreadPerTaskExecutor)
+                                                    part-futs
+                                                    (mapv (fn [part-src]
+                                                            (.submit ^ExecutorService part-exec
+                                                              ^java.util.concurrent.Callable
+                                                              (fn []
+                                                                (let [part-pg (postgres-connection target-uri)]
+                                                                  (when pg-params
+                                                                    (doseq [param pg-params]
+                                                                      (try
+                                                                        (jdbc/execute! part-pg [(str "SET " (:var param) " TO '" (:value param) "'")])
+                                                                        (.commit part-pg)
+                                                                        (catch Exception _ (.rollback part-pg)))))
+                                                                  (when disable-triggers?
+                                                                    (try
+                                                                      (jdbc/execute! part-pg ["SET session_replication_role = replica"])
+                                                                      (.commit part-pg)
+                                                                      (catch Exception _ (.rollback part-pg))))
+                                                                  (try
+                                                                    (copy-table part-src ts part-pg (:cast-rules cmd) (get with-options :projections []))
+                                                                    (finally
+                                                                      (close! part-src)
+                                                                      (when disable-triggers?
+                                                                        (try
+                                                                          (jdbc/execute! part-pg ["SET session_replication_role = origin"])
+                                                                          (.commit part-pg)
+                                                                          (catch Exception _ (.rollback part-pg))))
+                                                                      (.close ^java.sql.Connection part-pg)))))))
+                                                          parts)]
+                                                (try
+                                                  (reduce
+                                                    (fn [acc ^java.util.concurrent.Future f]
+                                                      (let [r (.get f)]
+                                                        {:rows-ok     (+ (:rows-ok acc) (:rows-ok r))
+                                                         :rows-bad    (+ (:rows-bad acc) (:rows-bad r))
+                                                         :bytes       (+ (:bytes acc) (:bytes r))
+                                                         :rs-nanos    (max (:rs-nanos acc) (:rs-nanos r))
+                                                         :ws-nanos    (max (:ws-nanos acc) (:ws-nanos r))
+                                                         :total-nanos (max (:total-nanos acc) (:total-nanos r))
+                                                         :reject-paths (:reject-paths r)}))
+                                                    {:rows-ok 0 :rows-bad 0 :bytes 0 :rs-nanos 0 :ws-nanos 0 :total-nanos 0 :reject-paths nil}
+                                                    part-futs)
+                                                  (finally
+                                                    (.shutdown ^ExecutorService part-exec)
+                                                    (.awaitTermination ^ExecutorService part-exec Long/MAX_VALUE TimeUnit/NANOSECONDS)))))
+                                            (copy-table worker-src ts worker-pg (:cast-rules cmd) (get with-options :projections [])))]
                                       (log/info (str "COPY " table " done: "
                                                      (:rows-ok result) " rows in "
                                                      (plog/fmt-duration (:total-nanos result))))
@@ -659,6 +714,7 @@
                                       (log/error e (str "Failed to copy table " schema "." table ": " (.getMessage e)))
                                       (stats/update-entry! :data table-label :errs 1))
                                     (finally
+                                      ;; Reset triggers on worker-pg when single-reader path used it
                                       (when disable-triggers?
                                         (try
                                           (jdbc/execute! worker-pg ["SET session_replication_role = origin"])
@@ -666,8 +722,7 @@
                                           (catch Exception e2
                                             (.rollback worker-pg)
                                             (log/warn (str "Failed to re-enable triggers: " (.getMessage e2))))))))
-                                  ;; Submit this table's indexes to the parallel executor right after copy.
-                                  ;; They build concurrently with subsequent table copies (v3 behavior).
+                                  ;; Submit indexes after all readers for this table are done.
                                   (when (and idx-executor (seq (:indexes t)))
                                     (when (nil? @idx-wall-t0)
                                       (reset! idx-wall-t0 (System/nanoTime)))
@@ -683,7 +738,7 @@
                                                 (try
                                                   (exec-post-ddl! conn [sql] (str "INDEX on " table))
                                                   (finally (.close ^Connection conn))))))))))
-                                    )))
+                                  )))
                             (finally
                               (close! worker-src)
                               (.close ^Connection worker-pg)))))))

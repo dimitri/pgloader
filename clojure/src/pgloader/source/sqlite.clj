@@ -185,6 +185,8 @@
           (log/error (str "Query failed: " sql " - " (.getMessage e)))
           (throw e)))))
 
+  (partition-source [_ _ _ _] nil)
+
   (close! [this]
     (try (.close conn) (catch Exception _))))
 

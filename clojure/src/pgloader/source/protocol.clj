@@ -27,6 +27,14 @@
      Rows are vectors of String-or-nil values.
      Throws UnsupportedOperationException for sources that don't support arbitrary queries.")
 
+  (partition-source [this table-spec n chunk-bytes]
+    "Return a seq of n Source instances that together cover all rows of table-spec
+     as disjoint, independently readable partitions, or nil if partitioning is not
+     applicable (small table, no eligible PK, unsupported source type, etc.).
+     chunk-bytes controls partition granularity (target bytes per chunk before
+     distributing across n readers).
+     Each returned source has its own DB connection and reads only its portion.")
+
   (close! [this]
     "Release all resources held by this source.
      Called once after all tables are copied or on error."))

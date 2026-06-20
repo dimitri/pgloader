@@ -1,5 +1,5 @@
 (ns pgloader.source.pgsql
-  (:require [pgloader.source.protocol :refer [Source]]
+  (:require [pgloader.source.protocol :refer [Source partition-source]]
             [hugsql.core :as hugsql]
             [clojure.string :as str]
             [next.jdbc :as jdbc]
@@ -118,9 +118,30 @@
     (catch Exception _
       [])))
 
+(declare pgsql-partition-source)
+
+(defn- split-range-pg
+  "Divide [lo, hi) into chunks of size chunk-size. Returns seq of [lo hi] pairs."
+  [lo hi chunk-size]
+  (when (and lo hi (< lo hi) (pos? chunk-size))
+    (take-while (fn [[a _]] (< a hi))
+      (iterate (fn [[_ b]] [b (min hi (+ b chunk-size))])
+               [lo (min hi (+ lo chunk-size))]))))
+
+(defn- distribute-pg
+  "Round-robin distribute coll across n buckets. Returns vector of n vectors."
+  [coll n]
+  (let [buckets (mapv (fn [_] (transient [])) (range n))]
+    (doseq [[i item] (map-indexed vector coll)]
+      (conj! (nth buckets (mod i n)) item))
+    (mapv persistent! buckets)))
+
 (deftype PGSQLSource
   [^Connection conn
-   ^String source-name-str]
+   ^String source-name-str
+   uri-map   ; connection parameters, used by partition-source to clone connections
+   ctid-lo   ; Long block number (inclusive) for ctid range scan, or nil
+   ctid-hi]  ; Long block number (exclusive) for ctid range scan, or nil
 
   Source
   (source-name [_] source-name-str)
@@ -171,10 +192,15 @@
   (read-rows [_ table-spec-entry]
     (let [{:keys [table-name columns schema citus-read-sql]} table-spec-entry
           source-schema (or (:source-schema table-spec-entry) schema)
-          sql (or citus-read-sql
-                  (let [col-names (mapv :column-name columns)
-                        col-list (str/join ", " (map #(str "\"" % "\"") col-names))]
-                    (str "SELECT " col-list " FROM \"" source-schema "\".\"" table-name "\"")))
+          base-sql (or citus-read-sql
+                       (let [col-names (mapv :column-name columns)
+                             col-list (str/join ", " (map #(str "\"" % "\"") col-names))]
+                         (str "SELECT " col-list " FROM \"" source-schema "\".\"" table-name "\"")))
+          sql (if (and ctid-lo ctid-hi)
+                (str base-sql
+                     " WHERE ctid >= '(" ctid-lo ",0)'::tid"
+                     " AND ctid < '(" ctid-hi ",0)'::tid")
+                base-sql)
           _ (log/debug (str "PGSQL read-rows: " sql))
           stmt (.prepareStatement conn sql)]
       (try
@@ -228,10 +254,46 @@
           (log/error (str "Query failed: " sql " - " (.getMessage e)))
           (throw e)))))
 
+  (partition-source [this table-spec-entry n chunk-bytes]
+    (pgsql-partition-source this table-spec-entry n chunk-bytes))
+
   (close! [this]
     (try (.close conn) (catch Exception _))))
 
 (defn create-source
   [uri-map _table-spec]
   (let [conn (connection uri-map)]
-    (->PGSQLSource conn (:raw uri-map))))
+    (->PGSQLSource conn (:raw uri-map) uri-map nil nil)))
+
+(defn pgsql-partition-source
+  [^PGSQLSource src table-spec-entry n chunk-bytes]
+  (let [conn           (.-conn src)
+        source-name-str (.-source_name_str src)
+        uri-map        (.-uri_map src)]
+    (when (and uri-map (pos? n) (pos? chunk-bytes))
+      (let [schema     (or (:source-schema table-spec-entry) (:schema table-spec-entry))
+            table-name (:table-name table-spec-entry)]
+        (try
+          (let [ver-num  (:version_num (server-version-num conn))
+                _        (when (< ver-num 140000)
+                           (log/debug (str "PG " (quot ver-num 10000) " < 14; skipping ctid partition for " table-name))
+                           (throw (ex-info "PG < 14" {:skip true})))
+                relpages (some-> (table-relpages conn {:schema schema :table table-name}) :relpages long)]
+            (when (and relpages (> relpages 0))
+              (let [pages-per-chunk (max 10 (long (/ chunk-bytes 8192)))
+                    ranges          (vec (split-range-pg 0 relpages pages-per-chunk))]
+                (when (>= (count ranges) 2)
+                  (let [buckets (distribute-pg ranges n)]
+                    (keep-indexed
+                      (fn [_i bucket]
+                        (when (seq bucket)
+                          (let [lo (ffirst bucket)
+                                hi (second (last bucket))]
+                            (->PGSQLSource (connection uri-map) source-name-str uri-map lo hi))))
+                      buckets))))))
+          (catch clojure.lang.ExceptionInfo e
+            (when-not (:skip (ex-data e)) (log/warn (str "partition-source PG: " (.getMessage e))))
+            nil)
+          (catch Exception e
+            (log/warn (str "partition-source PG: could not partition " table-name ": " (.getMessage e)))
+            nil))))))

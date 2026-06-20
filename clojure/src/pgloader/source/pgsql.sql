@@ -91,3 +91,16 @@ SELECT tc.constraint_name,
    AND tc.table_schema     = :schema
    AND tc.table_name       = :table
  ORDER BY tc.constraint_name, kcu.ordinal_position
+
+-- :name table-relpages :? :1
+-- :doc Number of 8kB disk pages in a table (pg_class.relpages); used to compute ctid ranges
+SELECT c.relpages AS relpages
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+ WHERE n.nspname = :schema
+   AND c.relname = :table
+   AND c.relkind = 'r'
+
+-- :name server-version-num :? :1
+-- :doc PostgreSQL server_version_num (e.g. 140005 for PG 14.5); used to gate ctid range scans (PG >= 14)
+SELECT current_setting('server_version_num')::integer AS version_num

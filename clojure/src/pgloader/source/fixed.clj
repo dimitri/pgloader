@@ -169,6 +169,8 @@
         :indexes     []
         :fkeys       []}]))
 
+  (partition-source [_ _ _ _] nil)
+
   (close! [_])
 
   (read-query [_ _sql]

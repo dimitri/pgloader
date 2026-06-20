@@ -1,5 +1,5 @@
 (ns pgloader.source.mysql
-  (:require [pgloader.source.protocol :refer [Source read-rows source-name]]
+  (:require [pgloader.source.protocol :refer [Source read-rows source-name partition-source]]
             [hugsql.core :as hugsql]
             [clojure.string :as str]
             [next.jdbc :as jdbc]
@@ -103,6 +103,110 @@
               encoding))
           decoding-as-rules)))
 
+(declare mysql-partition-source)
+
+(defn- split-range
+  "Divide [lo, hi) into chunks of size chunk-size.
+   Returns a seq of [chunk-lo chunk-hi] pairs."
+  [lo hi chunk-size]
+  (when (and lo hi (< lo hi) (pos? chunk-size))
+    (take-while (fn [[a _]] (< a hi))
+      (iterate (fn [[_ b]] [b (min hi (+ b chunk-size))])
+               [lo (min hi (+ lo chunk-size))]))))
+
+(defn- distribute
+  "Round-robin distribute coll across n buckets.
+   Returns a vector of n vectors (some may be empty)."
+  [coll n]
+  (let [buckets (mapv (fn [_] (transient [])) (range n))]
+    (doseq [[i item] (map-indexed vector coll)]
+      (conj! (nth buckets (mod i n)) item))
+    (mapv persistent! buckets)))
+
+(defn- convert-mysql-value
+  "Convert a raw JDBC value from MySQL to a String suitable for COPY TEXT."
+  [v jdbc-type col]
+  (when (some? v)
+    (let [raw-col-type (:column-type col)]
+      (cond
+        (instance? Boolean v)    (if v "1" "0")
+        (= "YEAR" jdbc-type)     (str (if (instance? java.sql.Date v)
+                                        (+ 1900 (.getYear ^java.sql.Date v))
+                                        v))
+        (instance? java.sql.Timestamp v) (str/replace (str v) #"\.0$" "")
+        (instance? java.sql.Date v)      (let [s (str v)]
+                                           (when-not (re-matches #"0000[-/]00[-/]00.*" s) s))
+        (and raw-col-type
+             (str/starts-with? (str/lower-case raw-col-type) "set("))
+        (str "{" v "}")
+        (instance? (class (byte-array 0)) v)
+        (let [ba ^bytes v
+              sb (StringBuilder. (inc (* 2 (alength ba))))]
+          (.append sb \X)
+          (doseq [b ba] (.append sb (format "%02x" (bit-and (int b) 0xff))))
+          (.toString sb))
+        :else (str v)))))
+
+(defn- mysql-select-sql
+  "Build base SELECT SQL for a table given its column metadata and MySQL table name."
+  [columns mysql-table]
+  (let [col-list (if (seq columns)
+                   (str/join ", "
+                     (mapv (fn [col]
+                             (let [cn (:column-name col)
+                                   ct (or (:source-column-type col) (:column-type col))]
+                               (if (geometry-type? ct)
+                                 (str "ST_AsText(`" cn "`) AS `" cn "`")
+                                 (str "`" cn "`"))))
+                           columns))
+                   "*")]
+    (str "SELECT " col-list " FROM `" mysql-table "`")))
+
+(defn- stream-ranges!
+  "Execute sqls sequentially on conn, closing each RS/stmt before the next.
+   Returns a lazy seq of all rows across all range queries."
+  [^Connection conn active-stmt active-rs sqls columns]
+  (when (seq sqls)
+    (let [sql      (first sqls)
+          rest-sql (rest sqls)]
+      (try (when-let [rs @active-rs]   (.close ^ResultSet rs))   (catch Exception _))
+      (try (when-let [st @active-stmt] (.close ^PreparedStatement st)) (catch Exception _))
+      (vreset! active-rs nil)
+      (vreset! active-stmt nil)
+      (let [stmt (.prepareStatement ^Connection conn sql)
+            _ (doto ^PreparedStatement stmt
+                (.setFetchSize Integer/MIN_VALUE)
+                (.setFetchDirection ResultSet/FETCH_FORWARD))
+            _ (vreset! active-stmt stmt)
+            rs (.executeQuery ^PreparedStatement stmt)
+            _ (vreset! active-rs rs)
+            meta (.getMetaData rs)
+            n (.getColumnCount meta)
+            jtypes (vec (map #(.getColumnTypeName meta %) (range 1 (inc n))))]
+        (letfn [(next-row []
+                  (let [has-next (try (.next rs)
+                                      (catch Exception e
+                                        (try (.close rs) (catch Exception _))
+                                        (try (.close stmt) (catch Exception _))
+                                        (vreset! active-rs nil)
+                                        (vreset! active-stmt nil)
+                                        (throw e)))]
+                    (if has-next
+                      (lazy-seq
+                        (cons (loop [i 1 result (transient [])]
+                                (if (<= i n)
+                                  (recur (inc i)
+                                         (conj! result
+                                           (convert-mysql-value
+                                             (.getObject rs i)
+                                             (nth jtypes (dec i))
+                                             (nth columns (dec i) nil))))
+                                  (persistent! result)))
+                              (next-row)))
+                      ;; RS exhausted — open next range
+                      (stream-ranges! conn active-stmt active-rs rest-sql columns))))]
+          (next-row))))))
+
 (deftype MySQLSource
   [^Connection conn
    ^String database
@@ -111,7 +215,10 @@
    decoding-rules  ; seq of {:patterns [...] :encoding charset} or nil
    server-variant  ; {:variant :mysql/:mariadb :major-version N :version-string "..."}
    active-stmt     ; volatile! — current streaming PreparedStatement, or nil
-   active-rs]      ; volatile! — current streaming ResultSet, or nil
+   active-rs       ; volatile! — current streaming ResultSet, or nil
+   uri-map         ; connection parameters map, used by partition-source to clone connections
+   range-col       ; String pk column for range queries, or nil (no partitioning)
+   ranges]         ; seq of [lo hi] Long pairs (one per partition range), or nil
 
   Source
   (source-name [_] (str "mysql://" database "/" (:table-name table-spec)))
@@ -188,94 +295,22 @@
 
   (read-rows [_ table-spec-entry]
     (let [{:keys [table-name source-table-name columns citus-read-sql]} table-spec-entry
-          ;; Apply per-table charset override if a DECODING rule matches.
-          _ (when-let [charset (decoding-as-charset (or source-table-name table-name) decoding-rules)]
-              (try
-                (jdbc/execute! conn [(str "SET NAMES '" charset "'")])
-                (log/info (str "SET NAMES '" charset "' for table " (or source-table-name table-name)))
-                (catch Exception e
-                  (log/warn (str "SET NAMES failed for " table-name ": " (.getMessage e))))))
-          ;; Use source-table-name (original MySQL name) for the FROM clause —
-          ;; MySQL on Linux is case-sensitive for table names.
-          mysql-table (or source-table-name table-name)
-          sql       (or citus-read-sql
-                        (let [col-list  (if (seq columns)
-                                          (str/join ", "
-                                            (mapv (fn [col]
-                                                    (let [cn (:column-name col)
-                                                          ;; Use source-column-type (pre-cast) for geometry detection
-                                                          ct (or (:source-column-type col) (:column-type col))]
-                                                      (if (geometry-type? ct)
-                                                        (str "ST_AsText(`" cn "`) AS `" cn "`")
-                                                        (str "`" cn "`"))))
-                                                  columns))
-                                          "*")]
-                          (str "SELECT " col-list " FROM `" mysql-table "`")))
-          stmt      (.prepareStatement ^Connection conn sql)
-          _         (doto ^PreparedStatement stmt
-                      (.setFetchSize Integer/MIN_VALUE)
-                      (.setFetchDirection ResultSet/FETCH_FORWARD))
-          _         (vreset! active-stmt stmt)
-          rs        (.executeQuery ^PreparedStatement stmt)
-          _         (vreset! active-rs rs)
-          meta      (.getMetaData rs)
-          n         (.getColumnCount meta)
-          ;; Pre-compute column type names from JDBC metadata
-          jdbc-types (vec (map (fn [i]
-                                (.getColumnTypeName meta i))
-                              (range 1 (inc n))))]
-      ((fn thisfn []
-         (let [has-next (try (.next rs)
-                             (catch Exception e
-                               ;; MySQL threw during row streaming (e.g. data conversion error).
-                               ;; Close the RS/stmt now so the connection is usable for next table.
-                               (try (.close rs) (catch Exception _))
-                               (try (.close stmt) (catch Exception _))
-                               (vreset! active-rs nil)
-                               (vreset! active-stmt nil)
-                               (throw e)))]
-         (when has-next
-           (lazy-seq
-             (cons (loop [i 1
-                          result (transient [])]
-                     (if (<= i n)
-                       (recur (inc i)
-                              (conj! result
-                                (let [v (.getObject rs i)
-                                      jdbc-type (nth jdbc-types (dec i))
-                                      col-type (nth columns (dec i) nil)
-                                      raw-col-type (:column-type col-type)]
-                                  (if (nil? v)
-                                    nil
-                                    (cond
-                                      (instance? Boolean v) (if v "1" "0")
-                                      (= "YEAR" jdbc-type)
-                                      (str (if (instance? java.sql.Date v)
-                                             (+ 1900 (.getYear ^java.sql.Date v))
-                                             v))
-                                      (instance? java.sql.Timestamp v)
-                                      (str/replace (str v) #"\.0$" "")
-                                      (= "YEAR" jdbc-type)
-                                      (str (if (instance? java.sql.Date v)
-                                             (+ 1900 (.getYear ^java.sql.Date v))
-                                             v))
-                                      (instance? java.sql.Date v)
-                                      (let [s (str v)]
-                                        (if (re-matches #"0000[-/]00[-/]00.*" s) nil s))
-                                      (and raw-col-type
-                                           (str/starts-with? (str/lower-case raw-col-type) "set("))
-                                      (str "{" v "}")
-                                      (instance? (class (byte-array 0)) v)
-                                      (let [ba ^bytes v
-                                            sb (StringBuilder. (inc (* 2 (alength ba))))]
-                                        (.append sb \X)
-                                        (doseq [b ba]
-                                          (.append sb (format "%02x" (bit-and (int b) 0xff))))
-                                        (.toString sb))
-                                      :else (str v))))))
-                       (persistent! result)))
-                   (thisfn)))))))))
-
+          mysql-table (or source-table-name table-name)]
+      (when-let [charset (decoding-as-charset mysql-table decoding-rules)]
+        (try
+          (jdbc/execute! conn [(str "SET NAMES '" charset "'")])
+          (log/info (str "SET NAMES '" charset "' for table " mysql-table))
+          (catch Exception e
+            (log/warn (str "SET NAMES failed for " mysql-table ": " (.getMessage e))))))
+      (let [base-sql (or citus-read-sql (mysql-select-sql columns mysql-table))
+            sqls     (if (seq ranges)
+                       (mapv (fn [[lo hi]]
+                               (str base-sql
+                                    " WHERE `" range-col "` >= " lo
+                                    " AND `" range-col "` < " hi))
+                             ranges)
+                       [base-sql])]
+        (stream-ranges! conn active-stmt active-rs sqls columns))))
   (read-query [_ sql]
     (let [stmt (.prepareStatement conn sql)
           _    (doto stmt
@@ -302,6 +337,9 @@
                         (persistent! result)))
                     (thisfn))))))}))
 
+  (partition-source [this table-spec-entry n chunk-bytes]
+    (mysql-partition-source this table-spec-entry n chunk-bytes))
+
   (close! [_]
     ;; Close any open streaming ResultSet and PreparedStatement first.
     ;; This is critical: if a table load fails mid-stream, the MySQL
@@ -317,6 +355,7 @@
         (.close s))
       (catch Exception _))
     (try (.close ^Connection conn) (catch Exception _))))
+
 
 (defn connection
   "Create a MySQL JDBC connection."
@@ -397,4 +436,49 @@
                            (let [re (re-pattern pat)]
                              #(re-find re %)))))
              table-spec)]
-    (->MySQLSource conn (:db uri-map) (:db uri-map) ts decoding-as-rules sv (volatile! nil) (volatile! nil))))
+    (->MySQLSource conn (:db uri-map) (:db uri-map) ts decoding-as-rules sv (volatile! nil) (volatile! nil) uri-map nil nil)))
+
+(defn mysql-partition-source
+  [^MySQLSource src table-spec-entry n chunk-bytes]
+  (let [conn        (.-conn src)
+        database    (.-database src)
+        schema-name (.-schema_name src)
+        table-spec  (.-table_spec src)
+        decoding-rules (.-decoding_rules src)
+        server-variant (.-server_variant src)
+        uri-map     (.-uri_map src)]
+    (when (and uri-map (pos? n) (pos? chunk-bytes))
+      (let [mysql-table (or (:source-table-name table-spec-entry) (:table-name table-spec-entry))
+            pkeys       (:primary-key table-spec-entry)
+            pk-col      (when (= 1 (count pkeys)) (first pkeys))
+            pk-int?     (when pk-col
+                          (let [col-info (first (filter #(= pk-col (:column-name %)) (:columns table-spec-entry)))]
+                            (some #(str/starts-with? (str/lower-case (or (:column-type col-info) "")) %)
+                                  ["int" "bigint" "smallint" "tinyint" "mediumint"])))]
+        (when pk-int?
+          (try
+            (let [avg-row (or (:avg_row_length
+                                (table-avg-row-length conn {:schema schema-name :table mysql-table}))
+                              0)
+                  rows-per-chunk (max 1000 (long (/ chunk-bytes (max 1 avg-row))))
+                  min-row (:lo (jdbc/execute-one! conn [(str "SELECT MIN(`" pk-col "`) AS lo FROM `" mysql-table "`")]))
+                  max-row (:hi (jdbc/execute-one! conn [(str "SELECT MAX(`" pk-col "`) AS hi FROM `" mysql-table "`")]))]
+              (when (and min-row max-row)
+                (let [lo   (long min-row)
+                      hi   (inc (long max-row))
+                      rngs (vec (split-range lo hi rows-per-chunk))]
+                  (when (>= (count rngs) 2)
+                    (let [buckets (distribute rngs n)]
+                      (keep-indexed
+                        (fn [_i bucket]
+                          (when (seq bucket)
+                            (->MySQLSource
+                              (connection uri-map)
+                              database schema-name table-spec
+                              decoding-rules server-variant
+                              (volatile! nil) (volatile! nil)
+                              uri-map pk-col (vec bucket))))
+                        buckets))))))
+            (catch Exception e
+              (log/warn (str "partition-source: could not partition " mysql-table ": " (.getMessage e)))
+              nil)))))))
