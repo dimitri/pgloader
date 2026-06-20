@@ -47,6 +47,18 @@ from csv.
 For more complex loading scenarios, you will need to write a full fledge
 load command in the syntax described later in this document.
 
+.. note:: **pgloader v4 (Clojure/JVM)** also accepts standard JDBC URLs
+   wherever a source connection string is expected::
+
+       jdbc:mysql://host:port/db?useSSL=false&allowPublicKeyRetrieval=true
+       jdbc:postgresql://host:port/db?sslmode=require
+       jdbc:sqlserver://host:port;databaseName=db;encrypt=true;trustServerCertificate=false
+
+   JDBC URLs are passed directly to the JDBC driver so all
+   driver-specific connection properties are honoured without any
+   pgloader-side interpretation. See :ref:`connection_string` for
+   details.
+
 Target Connection String
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -74,11 +86,21 @@ those options will cause pgloader not to load any data.
 
     List known encodings in this version of pgloader.
 
+    .. note:: **v4 change:** the flag is ``--list-encodings`` (without
+       ``with-``). It lists all character set names available on the JVM
+       (``java.nio.charset.Charset``), which is a superset of what v3
+       listed. ``--with-encodings`` is not recognised in v4.
+
 --upgrade-config
-    
+
     Parse given files in the command line as ``pgloader.conf`` files with
     the INI syntax that was in use in pgloader versions 2.x, and output the
     new command syntax for pgloader on standard output.
+
+    .. note:: **v4: removed.** INI configuration files are not supported in
+       pgloader v4. If you have a v2-era ``pgloader.conf`` file, convert it
+       manually using the v3 ``--upgrade-config`` output as a starting
+       point, then adapt the resulting ``.load`` file for v4.
 
 
 General Options
@@ -87,37 +109,55 @@ General Options
 Those options are meant to tweak pgloader behavior when loading data.
 
 --verbose
-    
+
     Be verbose.
 
 --quiet
-    
+
     Be quiet.
 
 --debug
-    
+
     Show debug level information messages.
 
 --root-dir
-    
+
     Set the root working directory (defaults to ``/tmp/pgloader``).
 
 --logfile
-    
+
     Set the pgloader log file (defaults to ``/tmp/pgloader/pgloader.log``).
 
+    .. note:: **v4 change:** ``--logfile`` adds a *second* log destination
+       (in addition to the console) rather than replacing it. The root
+       Logback appender writes to both simultaneously. If only file output is
+       desired, combine with ``--client-min-messages error``.
+
 --log-min-messages
-    
+
     Minimum level of verbosity needed for log message to make it to the
     logfile. One of critical, log, error, warning, notice, info or debug.
 
+    .. note:: **v4 change:** accepted level names are the standard Logback
+       names: ``trace``, ``debug``, ``info``, ``warn``, ``error``
+       (case-insensitive). The v3 names ``critical``, ``log``, ``notice``
+       and ``data`` are not recognised; use ``error``, ``debug``, ``info``
+       and ``trace`` respectively.
+
 --client-min-messages
-    
+
     Minimum level of verbosity needed for log message to make it to the
     console. One of critical, log, error, warning, notice, info or debug.
 
+    .. note:: **v4 change:** same level-name mapping as ``--log-min-messages``
+       above. In v4 this sets a ``ThresholdFilter`` on the console Logback
+       appender, so it can be used to quiet the console independently of the
+       root log level (e.g. ``--client-min-messages warn --logfile pgloader.log``
+       keeps the logfile at INFO while only warnings and above reach the
+       terminal).
+
 --summary
-    
+
     A filename where to copy the summary output. When relative, the filename
     is expanded into ``*root-dir*``.
 
@@ -128,17 +168,30 @@ Those options are meant to tweak pgloader behavior when loading data.
     with the extension resp. ``.csv``, ``.copy`` or ``.json``.
 
 --load-lisp-file <file>
-    
+
     Specify a lisp <file> to compile and load into the pgloader image before
     reading the commands, allowing to define extra transformation function.
     Those functions should be defined in the ``pgloader.transforms``
     package. This option can appear more than once in the command line.
+
+    .. note:: **v4: deprecated.** pgloader v4 does not load Lisp source
+       files. The built-in transform functions (``zero-dates-to-null``,
+       ``empty-string-to-null``, ``right-trim``, ``byte-vector-to-hex``,
+       ``mysql-day-of-week``, and others) are all available without any
+       extra files. If you rely on custom transforms defined in a Lisp file,
+       contact the pgloader maintainers — a Clojure-based extension
+       mechanism may be considered if there is demand.
 
 --dry-run
 
     Allow testing a ``.load`` file without actually trying to load any data.
     It's useful to debug it until it's ok, in particular to fix connection
     strings.
+
+    .. note:: **v4:** fully implemented. In v4, ``--dry-run`` runs the DDL
+       phase (``CREATE TABLE``, indexes) so the schema can be validated, but
+       skips all ``COPY`` execution. The summary is printed normally so you
+       can see what *would* have been loaded.
 
 --on-error-stop
 
@@ -148,12 +201,22 @@ Those options are meant to tweak pgloader behavior when loading data.
     debug data processing, transformation function and specific type
     casting.
 
+    .. note:: **v4:** fully implemented. When a table copy fails and
+       ``--on-error-stop`` is set, the error is re-raised out of the worker
+       thread, which causes the worker pool to propagate the exception and
+       abort any remaining tables that have not yet started.
+
 --self-upgrade <directory>
 
     Specify a <directory> where to find pgloader sources so that one of the
     very first things it does is dynamically loading-in (and compiling to
     machine code) another version of itself, usually a newer one like a very
     recent git checkout.
+
+    .. note:: **v4: removed.** pgloader v4 is distributed as a single
+       self-contained JAR. There is no Lisp runtime to reload sources into.
+       To upgrade, replace the JAR file. The ``--self-upgrade`` flag exits
+       with an error in v4.
 
 --no-ssl-cert-verification
 
@@ -166,6 +229,12 @@ Those options are meant to tweak pgloader behavior when loading data.
     course. Sometimes though it's useful to make progress with the pgloader
     setup while the certificate chain of trust is being fixed, maybe by
     another team. That's when this option is useful.
+
+    .. note:: **v4: removed.** SSL behaviour is controlled entirely through
+       the JDBC connection URL. Use ``?sslmode=disable`` to skip certificate
+       verification, or ``?sslmode=require`` / ``?sslmode=verify-full`` for
+       stricter modes. The ``--no-ssl-cert-verification`` flag exits with an
+       error in v4.
 
 Command Line Only Operations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -232,4 +301,3 @@ To get the maximum amount of debug information, you can use both the
 to saying `--client-min-messages data`. Then the log messages will show the
 data being processed, in the cases where the code has explicit support for
 it.
-
