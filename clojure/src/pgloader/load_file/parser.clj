@@ -1,5 +1,6 @@
 (ns pgloader.load-file.parser
-  (:require [instaparse.core :as insta]
+  (:require [clojure.string :as str]
+            [instaparse.core :as insta]
             [pgloader.load-file.grammar :refer [grammar]]
             [pgloader.load-file.ast :as ast]))
 
@@ -73,13 +74,26 @@
         (catch Exception e
           {:error (str "AST transformation failed: " (.getMessage e))})))))
 
+(defn- expand-env
+  "Replace {{VAR}} placeholders with the value of the OS environment variable
+   VAR. Throws if a referenced variable is not set."
+  [s]
+  (str/replace s #"\{\{(\w+)\}\}"
+               (fn [[_ k]]
+                 (or (System/getenv k)
+                     (throw (ex-info (str "Undefined template variable: " k)
+                                     {:var k}))))))
+
 (defn parse-file
-  "Parse a .load file. Returns {:ok command-tree} or {:error message}."
+  "Parse a .load file. Expands {{VAR}} placeholders from the OS environment
+   before parsing. Returns {:ok command-tree} or {:error message}."
   [path]
   (try
-    (let [content (slurp path)]
+    (let [content (-> (slurp path) expand-env)]
       (parse-string content))
     (catch java.io.FileNotFoundException e
       {:error (str "File not found: " path)})
+    (catch clojure.lang.ExceptionInfo e
+      {:error (str "Template error: " (ex-message e))})
     (catch Exception e
       {:error (str "Error reading file: " (.getMessage e))})))

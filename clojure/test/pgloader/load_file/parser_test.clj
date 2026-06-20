@@ -227,6 +227,23 @@
       (is (:ok result))
       (is (true? (get-in result [:ok :with-options :reindex]))))))
 
+(deftest test-expand-env
+  (testing "{{VAR}} is replaced with the OS environment variable value"
+    (let [home (System/getenv "HOME")]
+      (is (= (str "path=" home)
+             (#'parser/expand-env "path={{HOME}}")))))
+  (testing "multiple placeholders expanded in one pass"
+    (let [home (System/getenv "HOME")
+          user (System/getenv "USER")]
+      (is (= (str home ":" user)
+             (#'parser/expand-env "{{HOME}}:{{USER}}")))))
+  (testing "undefined {{VAR}} throws with informative message"
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                          #"Undefined template variable: PGLOADER_NO_SUCH_VAR_XYZ"
+                          (#'parser/expand-env "{{PGLOADER_NO_SUCH_VAR_XYZ}}"))))
+  (testing "no placeholders passes through unchanged"
+    (is (= "plain string" (#'parser/expand-env "plain string")))))
+
 (deftest test-with-preserve-index-names
   (testing "WITH preserve index names sets :preserve-index-names"
     (let [result (parser/parse-string
