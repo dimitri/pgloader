@@ -48,10 +48,8 @@ jobs:
         run: |
           java -jar pgloader.jar \
             --logfile /tmp/pgloader.log \
-            clojure/tests/sqlite/smoke/chinook.load
-        env:
-          # The load file uses {{CHINOOK_SQLITE}} via pgloader's Mustache support.
-          CHINOOK_SQLITE: ${{ github.workspace }}/clojure/tests/sqlite/chinook/chinook.sqlite
+            "sqlite://${{ github.workspace }}/clojure/tests/sqlite/chinook/chinook.sqlite" \
+            "postgresql://pgloader:pgloader@localhost/smoke"
 
       - name: Validate — row counts match known Chinook values
         run: |
