@@ -1,0 +1,6 @@
+LOAD DATABASE
+     FROM postgresql://pgloader:pgloader@source:5432/source
+     INTO postgresql://pgloader:pgloader@target:5432/target
+
+     WITH include drop, create tables, create indexes, reset sequences,
+          foreign keys;

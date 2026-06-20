@@ -1,0 +1,30 @@
+ chinook_tracks 
+----------------
+           3503
+(1 row)
+
+ chinook_albums 
+----------------
+            347
+(1 row)
+
+ chinook_customers 
+-------------------
+                59
+(1 row)
+
+ dbf_rows 
+----------
+       10
+(1 row)
+
+ track_rows 
+------------
+          3
+(1 row)
+
+ places_rows 
+-------------
+       25375
+(1 row)
+

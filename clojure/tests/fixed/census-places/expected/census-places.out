@@ -1,0 +1,14 @@
+ count 
+-------
+ 25375
+(1 row)
+
+ usps | fips | fips_code | LocationName 
+------+------+-----------+--------------
+ AK   | 02   | 00065     | Adak CDP
+ AK   | 02   | 00650     | Akhiok city
+ AK   | 02   | 00760     | Akiachak CDP
+ AK   | 02   | 00870     | Akiak city
+ AK   | 02   | 01090     | Akutan city
+(5 rows)
+

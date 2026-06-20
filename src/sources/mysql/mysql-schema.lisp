@@ -105,9 +105,42 @@
                              :type index-type
                              :primary (string= name "PRIMARY")
                              :unique (string= "0" non-unique)
-                             :columns (mapcar
-                                       #'apply-identifier-case
-                                       (sq:split-sequence #\, cols)))))
+                             :columns (if cols
+                                        (mapcar
+                                         (lambda (col)
+                                           ;; MySQL backtick-quotes identifiers inside
+                                           ;; functional index expressions, e.g.
+                                           ;; lower(`email`). Translate to double-quotes
+                                           ;; for PostgreSQL. For plain column names
+                                           ;; there are no backticks so the replace is a
+                                           ;; no-op; then apply-identifier-case as usual.
+                                           (let ((unquoted (cl-ppcre:regex-replace-all
+                                                            "`([^`]*)`" col "\"\\1\"")))
+                                             (if (position #\( unquoted)
+                                                 unquoted
+                                                 (apply-identifier-case unquoted))))
+                                         (sq:split-sequence #\, cols))
+                                        ;; cols is NULL: functional/expression index
+                                        ;; (MySQL 8.0+). Fetch expression from
+                                        ;; information_schema. Skip on older MySQL or
+                                        ;; MariaDB that lack the EXPRESSION column.
+                                        (handler-case
+                                          (let* ((expr-rows
+                                                  (mysql-query
+                                                   (format nil
+                                                    "SELECT expression
+                                                       FROM information_schema.statistics
+                                                      WHERE table_schema = '~a'
+                                                        AND table_name   = '~a'
+                                                        AND index_name   = '~a'
+                                                        AND seq_in_index = 1"
+                                                    (db-name *connection*)
+                                                    table-name name)))
+                                                 (expr (caar expr-rows)))
+                                            (when expr
+                                              (list (cl-ppcre:regex-replace-all
+                                                     "`([^`]*)`" expr "\"\\1\""))))
+                                          (condition () nil))))))
            (add-index table index))
      :finally
      (return schema)))

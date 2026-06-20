@@ -1,0 +1,25 @@
+ companies 
+-----------
+         3
+(1 row)
+
+ campaigns 
+-----------
+         4
+(1 row)
+
+ ads 
+-----
+   5
+(1 row)
+
+ clicks 
+--------
+      4
+(1 row)
+
+ impressions 
+-------------
+           5
+(1 row)
+

@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: pgloader
+      POSTGRES_PASSWORD: pgloader
+      POSTGRES_DB: target
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgloader -d target"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mysql:
+    build:
+      context: ../../..
+      dockerfile: clojure/tests/mysql/Dockerfile
+    # Force mysql_native_password so CL pgloader (qmynd) can authenticate.
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_USER: pgloader
+      MYSQL_PASSWORD: pgloader
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -u root -prootpassword -e 'USE source; SELECT COUNT(*) FROM users' 2>/dev/null && mysql -u root -prootpassword -e 'USE sakila; SELECT COUNT(*) FROM actor' 2>/dev/null && mysql -u root -prootpassword -e 'USE f1db; SELECT COUNT(*) FROM circuits' 2>/dev/null"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+  test-runner:
+    image: pgloader-test-runner:latest
+    build:
+      context: ../../..
+      dockerfile: clojure/tests/Dockerfile
+    volumes:
+      - .:/suite
+      - ../../target/pgloader.jar:/pgloader.jar:ro
+    environment:
+      JAR: /pgloader.jar
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: target
+      PGUSER: pgloader
+      PGPASSWORD: pgloader
+    depends_on:
+      postgres: {condition: service_healthy}
+      mysql:    {condition: service_healthy}
+    profiles: [test]
+    command: make -C /suite

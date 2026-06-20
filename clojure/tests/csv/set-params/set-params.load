@@ -1,0 +1,17 @@
+LOAD CSV FROM '/work/set-params/basic.csv'
+             (id, name, email, age)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_set_params
+
+     WITH truncate,
+          skip header = 1,
+          fields terminated by ','
+
+     SET work_mem to '12MB',
+         standard_conforming_strings to 'on'
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_set_params; $$,
+       $$ CREATE TABLE public.csv_set_params (
+            id integer, name text, email text, age integer
+          ); $$;

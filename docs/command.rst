@@ -98,6 +98,7 @@ In addition, the following settings are available:
    - *workers = W*
    - *concurrency = C*
    - *max parallel create index = I*
+   - *chunk size = N MB*
 
 See section A NOTE ABOUT PARALLELISM for more details.
 
@@ -164,8 +165,40 @@ mode (where they are the same thing).
 Connection String
 -----------------
 
-The `<postgresql-url>` parameter is expected to be given as a *Connection URI*
-as documented in the PostgreSQL documentation at
+pgloader accepts two URI formats wherever a connection string is required:
+
+**pgloader-native URIs** (recommended for most use cases)::
+
+    postgresql://[user[:password]@][netloc][:port][/dbname][?option=value&...]
+
+**JDBC URLs** (useful when you need driver-specific parameters or have an
+existing JDBC connection string)::
+
+    jdbc:postgresql://[user:password@]host[:port]/dbname[?param=value&...]
+    jdbc:mysql://[user:password@]host[:port]/dbname[?param=value&...]
+    jdbc:mariadb://[user:password@]host[:port]/dbname[?param=value&...]
+    jdbc:sqlserver://host[:port][;param=value;...]
+    jdbc:sqlite:/path/to/file.db
+
+JDBC URL query parameters are passed directly to the JDBC driver without
+interpretation, so any driver-specific parameter is supported:
+
+.. code-block:: sql
+
+    LOAD DATABASE
+      FROM jdbc:mysql://db:3306/myapp?useSSL=false&allowPublicKeyRetrieval=true
+      INTO postgresql://pg/target;
+
+    LOAD DATABASE
+      FROM jdbc:postgresql://pg:5432/source?sslmode=require
+      INTO postgresql://pg/target;
+
+    LOAD DATABASE
+      FROM jdbc:sqlserver://sql:1433;databaseName=mydb;encrypt=true;trustServerCertificate=false
+      INTO postgresql://pg/target;
+
+The `<postgresql-url>` parameter for the *target* database is expected to be
+given as a *Connection URI* as documented in the PostgreSQL documentation at
 http://www.postgresql.org/docs/9.3/static/libpq-connect.html#LIBPQ-CONNSTRING.
 
 ::

@@ -1,0 +1,41 @@
+-- Original source (US Census Bureau — Census 2000 Gazetteer Places):
+--   https://www2.census.gov/geo/docs/maps-data/data/gazetteer/places2k.zip
+-- The file is mirrored locally in tests/fixtures/http/ and served by the
+-- 'fileserver' Docker Compose service so the test needs no internet access.
+
+LOAD ARCHIVE
+   FROM http://fileserver/places2k.zip
+   INTO pgsql://pgloader:pgloader@postgres/target
+
+   BEFORE LOAD DO
+     $$ drop table if exists places; $$,
+     $$ create table places
+       (
+          usps            char(2)  not null,
+          fips            char(2)  not null,
+          fips_code       char(5),
+          "LocationName"  varchar(64)
+       );
+     $$
+
+   LOAD FIXED
+        FROM FILENAME MATCHING ~/places2k.txt/
+             WITH ENCODING latin1
+             (
+                usps           from   0 for  2,
+                fips           from   2 for  2,
+                fips_code      from   4 for  5,
+                "LocationName" from   9 for 64 [trim right whitespace],
+                p              from  73 for  9,
+                h              from  82 for  9,
+                land           from  91 for 14,
+                water          from 105 for 14,
+                ldm            from 119 for 14,
+                wtm            from 131 for 14,
+                lat            from 143 for 10,
+                long           from 153 for 11
+             )
+        INTO pgsql://pgloader:pgloader@postgres/target?places
+             (
+                usps, fips, fips_code, "LocationName"
+             );

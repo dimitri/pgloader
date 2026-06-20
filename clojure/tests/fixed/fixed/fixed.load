@@ -1,0 +1,26 @@
+LOAD FIXED
+     FROM fixed:///work/fixed/fixed.dat
+          (
+           a from  0 for 10,
+           b from 10 for  8,
+           c from 18 for  8,
+           d from 26 for 17 [null if blanks, trim right whitespace]
+          )
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.fixed_basic
+          (
+             a, b,
+             c time using (fn [v] (pgloader.transforms/time-with-no-separator v)),
+             d
+          )
+
+     WITH truncate, drop indexes
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.fixed_basic; $$,
+       $$ CREATE TABLE public.fixed_basic (
+            a integer,
+            b date,
+            c time,
+            d text
+          ); $$;

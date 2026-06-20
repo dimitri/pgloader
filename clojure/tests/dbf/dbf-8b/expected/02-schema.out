@@ -1,0 +1,10 @@
+ column_name |    data_type     
+-------------+------------------
+ character   | text
+ numerical   | numeric
+ date        | date
+ logical     | boolean
+ float       | double precision
+ memo        | text
+(6 rows)
+

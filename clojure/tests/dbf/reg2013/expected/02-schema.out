@@ -1,0 +1,9 @@
+ column_name | data_type 
+-------------+-----------
+ region      | integer
+ cheflieu    | text
+ tncc        | smallint
+ ncc         | text
+ nccenr      | text
+(5 rows)
+

@@ -1,0 +1,12 @@
+LOAD CSV FROM '/work/overflow/overflow.csv'
+             (id, f1)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_overflow
+
+     WITH truncate,
+          fields not enclosed,
+          fields terminated by ','
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_overflow; $$,
+       $$ CREATE TABLE public.csv_overflow (id text, f1 text); $$;

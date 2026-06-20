@@ -1,0 +1,15 @@
+ count 
+-------
+   108
+(1 row)
+
+ column_name | data_type 
+-------------+-----------
+ normdocid   | text
+ docname     | text
+ docdate     | date
+ docnum      | text
+ doctype     | integer
+ docimgid    | text
+(6 rows)
+

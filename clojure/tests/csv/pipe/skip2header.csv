@@ -1,0 +1,10 @@
+This is a stupid useless header
+id|data|date|
+1|some first row text|2006-11-11|
+2|some second row text|2006-11-13|
+3|some third row text|2006-10-12|
+4||2006-10-04|
+5|some fifth row text|2006-05-12|
+6|some sixth row text|2006-07-10|
+7|some null date to play with||
+8|"with embedded""quote"||

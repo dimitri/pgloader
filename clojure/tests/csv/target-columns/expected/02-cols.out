@@ -1,0 +1,8 @@
+ column_name 
+-------------
+ state_code
+ geo_id
+ land_area
+ water_area
+(4 rows)
+

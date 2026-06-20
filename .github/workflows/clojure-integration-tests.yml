@@ -1,0 +1,365 @@
+name: pgloader v4 Integration Tests
+
+on:
+  pull_request:
+    paths:
+      - 'clojure/**'
+      - '.github/workflows/clojure-integration-tests.yml'
+  push:
+    branches: [master, main, citus-v3, v4-clojure-rewrite]
+    paths:
+      - 'clojure/**'
+      - '.github/workflows/clojure-integration-tests.yml'
+
+# Cancel in-progress runs for the same branch/PR on new pushes
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Unit tests ─────────────────────────────────────────────────────────────
+  format:
+    name: Code formatting (cljfmt)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache Clojure dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            ~/.clojure
+          key: clojure-${{ hashFiles('clojure/deps.edn') }}
+          restore-keys: clojure-
+
+      - name: Install Clojure CLI
+        uses: DeLaGuardo/setup-clojure@13
+        with:
+          cli: latest
+
+      - name: Check formatting
+        working-directory: clojure
+        run: clojure -M:cljfmt check src test
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    needs: [format]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache Clojure dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            ~/.clojure
+          key: clojure-${{ hashFiles('clojure/deps.edn') }}
+          restore-keys: clojure-
+
+      - name: Install Clojure CLI
+        uses: DeLaGuardo/setup-clojure@13
+        with:
+          cli: latest
+
+      - name: Run unit tests
+        working-directory: clojure
+        run: |
+          clojure -M:test -m cognitect.test-runner \
+            -n pgloader.cast-test \
+            -n pgloader.batch-test \
+            -n pgloader.ddl-test \
+            -n pgloader.ddl.citus-test \
+            -n pgloader.load-file.parser-test \
+            -n pgloader.transforms-test \
+            -n pgloader.pg-service-test \
+            -n pgloader.cli-test
+
+  # ── Build test-runner Docker image (contains v3 pgloader binary) ───────────
+  # Built once and shared with all integration jobs via artifact.
+  # The image is also cached across runs keyed on the Dockerfile + v3 source,
+  # so it's only rebuilt when those change.
+  build-test-runner:
+    name: Build test-runner image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore image from cross-run cache
+        id: img-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/test-runner.tar.gz
+          key: test-runner-${{ hashFiles('clojure/tests/Dockerfile', 'src/**', 'pgloader.asd', 'Makefile', 'conf/**') }}
+
+      - name: Set up Docker Buildx
+        if: steps.img-cache.outputs.cache-hit != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (skipped on cache hit)
+        if: steps.img-cache.outputs.cache-hit != 'true'
+        run: |
+          docker buildx build \
+            --load \
+            -t pgloader-test-runner:latest \
+            -f clojure/tests/Dockerfile .
+          docker save pgloader-test-runner:latest | gzip > /tmp/test-runner.tar.gz
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-runner-image
+          path: /tmp/test-runner.tar.gz
+          retention-days: 1
+
+  # ── Build pgloader v4 JAR ──────────────────────────────────────────────────
+  # Built once and shared with all integration jobs via artifact.
+  # All jobs (including v3-* targets) need the JAR for the regression runner.
+  build-jar:
+    name: Build pgloader v4 JAR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache Clojure dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            ~/.clojure
+          key: clojure-${{ hashFiles('clojure/deps.edn') }}
+          restore-keys: clojure-
+
+      - name: Install Clojure CLI
+        uses: DeLaGuardo/setup-clojure@13
+        with:
+          cli: latest
+
+      - name: Build JAR
+        working-directory: clojure
+        run: |
+          clojure -T:build uber
+          # The build tool creates target/pgloader.jar as a relative symlink.
+          # Replace it with a hard link so Docker bind-mounts get a real inode.
+          ls target/pgloader-v4-*.jar | head -1 | xargs -I{} ln -f {} target/pgloader.jar
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pgloader-v4-jar
+          path: clojure/target/pgloader.jar
+          retention-days: 1
+
+  # ── Integration test matrix ────────────────────────────────────────────────
+  integration:
+    needs: [unit, build-test-runner, build-jar]
+    name: ${{ matrix.suite }} (${{ matrix.pgloader }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ── CSV ────────────────────────────────────────────────────────────
+          - suite: csv
+            pgloader: v4
+            make_target: csv
+          - suite: csv
+            pgloader: v3
+            make_target: csv-v3
+
+          # ── COPY ───────────────────────────────────────────────────────────
+          - suite: copy
+            pgloader: v4
+            make_target: copy
+          - suite: copy
+            pgloader: v3
+            make_target: copy-v3
+
+          # ── FIXED ──────────────────────────────────────────────────────────
+          - suite: fixed
+            pgloader: v4
+            make_target: fixed
+          - suite: fixed
+            pgloader: v3
+            make_target: fixed-v3
+
+          # ── DBF ────────────────────────────────────────────────────────────
+          - suite: dbf
+            pgloader: v4
+            make_target: dbf
+          - suite: dbf
+            pgloader: v3
+            make_target: dbf-v3
+
+          # ── SQLite ─────────────────────────────────────────────────────────
+          - suite: sqlite
+            pgloader: v4
+            make_target: sqlite
+          - suite: sqlite
+            pgloader: v3
+            make_target: sqlite-v3
+
+          # ── MySQL 8.0 ──────────────────────────────────────────────────────
+          - suite: mysql
+            pgloader: v4
+            make_target: mysql
+            needs_f1db: true
+          - suite: mysql
+            pgloader: v3
+            make_target: mysql-v3
+            needs_f1db: true
+
+          # ── MySQL 5.7 (amd64 only via Rosetta emulation) ───────────────────
+          - suite: mysql57
+            pgloader: v4
+            make_target: mysql57
+            needs_f1db: true
+          - suite: mysql57
+            pgloader: v3
+            make_target: mysql57-v3
+            needs_f1db: true
+
+          # ── MariaDB ────────────────────────────────────────────────────────
+          - suite: mariadb
+            pgloader: v4
+            make_target: mariadb
+            needs_f1db: true
+          - suite: mariadb
+            pgloader: v3
+            make_target: mariadb-v3
+            needs_f1db: true
+
+          # ── PostgreSQL → PostgreSQL ─────────────────────────────────────────
+          - suite: pgsql
+            pgloader: v4
+            make_target: pgsql
+          - suite: pgsql
+            pgloader: v3
+            make_target: pgsql-v3
+
+          # ── SQL Server ─────────────────────────────────────────────────────
+          - suite: mssql
+            pgloader: v4
+            make_target: mssql
+          - suite: mssql
+            pgloader: v3
+            make_target: mssql-v3
+
+          # ── Citus (distributed PostgreSQL) ─────────────────────────────────
+          - suite: citus
+            pgloader: v4
+            make_target: citus
+          - suite: citus
+            pgloader: v3
+            make_target: citus-v3
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download test-runner image
+        uses: actions/download-artifact@v4
+        with:
+          name: test-runner-image
+          path: /tmp/
+
+      - name: Load Docker image
+        run: docker load < /tmp/test-runner.tar.gz
+
+      - name: Download pgloader v4 JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: pgloader-v4-jar
+          path: clojure/target/
+
+      - name: Run ${{ matrix.suite }} tests (${{ matrix.pgloader }})
+        working-directory: clojure/tests
+        run: make ${{ matrix.make_target }}
+
+      - name: Tear down Docker Compose stacks
+        if: always()
+        working-directory: clojure/tests
+        run: make down || true
+
+  # ── Publish evergreen dev release ─────────────────────────────────────────
+  # Runs only on push (not PRs), only after all tests pass.
+  # Overwrites the assets on the fixed `v4-dev` pre-release tag so that
+  # https://github.com/dimitri/pgloader/releases/download/v4-dev/pgloader.jar
+  # always points to the latest green HEAD JAR.
+  publish-dev:
+    name: Publish dev release
+    needs: [unit, integration]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pgloader-v4-jar
+          path: clojure/target/
+
+      - name: Name versioned copy of JAR
+        id: ver
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          VERSION="4.0.0-${SHA}"
+          cp clojure/target/pgloader.jar "clojure/target/pgloader-${VERSION}.jar"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "sha=${SHA}"         >> "$GITHUB_OUTPUT"
+
+      - name: Update v4-dev release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v4-dev
+          name: "pgloader v4 — development build"
+          prerelease: true
+          body: |
+            Automated build from `${{ github.ref_name }}` at commit `${{ github.sha }}`.
+
+            All CI tests passed. Requires **Java 21+**, no other dependencies.
+
+            **Stable URL (always latest green HEAD):**
+            ```
+            curl -L -o pgloader.jar \
+              https://github.com/dimitri/pgloader/releases/download/v4-dev/pgloader.jar
+            java -jar pgloader.jar SOURCE TARGET
+            ```
+
+            This build: `${{ steps.ver.outputs.version }}`
+          files: |
+            clojure/target/pgloader.jar
+            clojure/target/pgloader-${{ steps.ver.outputs.version }}.jar

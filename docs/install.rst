@@ -1,23 +1,67 @@
 Installing pgloader
 ===================
 
-Several distributions are available for pgcopydb.
+pgloader is available in two implementations: **v4** (Clojure/JVM, recommended
+for new deployments) and **v3** (Common Lisp, the original). Both speak the
+same command-file syntax.
+
+.. _install_v4:
+
+pgloader v4 — Clojure/JVM (recommended)
+-----------------------------------------
+
+pgloader v4 is a complete rewrite in Clojure running on the JVM. It requires
+only **Java 21 or later** — no Common Lisp toolchain, no system libraries, no
+package manager.
+
+Download the latest development build (rebuilt and republished automatically
+after every green CI push)::
+
+    curl -L -o pgloader.jar \
+        https://github.com/dimitri/pgloader/releases/download/v4-dev/pgloader.jar
+
+Run it::
+
+    java -jar pgloader.jar --version
+    java -jar pgloader.jar SOURCE TARGET
+    java -jar pgloader.jar my.load
+
+The JAR is a universal binary: the same file runs on Linux, macOS, and Windows
+on any CPU architecture supported by Java 21 (x86-64, arm64, …).
+
+.. note::
+
+   Versioned release JARs (e.g. ``pgloader-4.0.0.jar``) will be published on
+   the `GitHub Releases page`__ once v4 reaches general availability. The
+   ``v4-dev`` build above always reflects the latest passing commit on the
+   development branch.
+
+__ https://github.com/dimitri/pgloader/releases
+
+.. _install_v3:
+
+pgloader v3 — Common Lisp
+--------------------------
+
+The sections below describe the v3 distribution options (Debian packages, RPM,
+Docker, and building from source with SBCL/CCL). If you are starting a new
+project, consider v4 above instead.
 
 debian packages
----------------
+^^^^^^^^^^^^^^^
 
 You can install pgloader directly from `apt.postgresql.org`__ and from
 official debian repositories, see `packages.debian.org/pgloader`__.
 
 ::
-   
+
     $ apt-get install pgloader
 
 __ https://wiki.postgresql.org/wiki/Apt
 __ https://packages.debian.org/search?keywords=pgloader
 
 RPM packages
-------------
+^^^^^^^^^^^^
 
 The Postgres community repository for RPM packages is `yum.postgresql.org`__
 and does include binary packages for pgloader.
@@ -25,7 +69,7 @@ and does include binary packages for pgloader.
 __ https://yum.postgresql.org
 
 Docker Images
--------------
+^^^^^^^^^^^^^
 
 Docker images are maintained for each tagged release at dockerhub, and also
 built from the CI/CD integration on GitHub at each commit to the `main`
@@ -47,11 +91,11 @@ branch to the GitHub docker repository::
   $ docker pull ghcr.io/dimitri/pgloader:latest
   $ docker run --rm -it ghcr.io/dimitri/pgloader:latest pgloader --version
   $ docker run --rm -it ghcr.io/dimitri/pgloader:latest pgloader --help
-    
-Build from sources
-------------------
 
-pgloader is a Common Lisp program, tested using the `SBCL`__ (>= 1.2.5) and
+Build from sources (v3)
+^^^^^^^^^^^^^^^^^^^^^^^
+
+pgloader v3 is a Common Lisp program, tested using the `SBCL`__ (>= 1.2.5) and
 `Clozure CL`__ implementations and with `Quicklisp`__ to fetch build
 dependencies.
 
@@ -81,7 +125,7 @@ The legacy build system also uses Buildapp and can be used that way:
    $ make pgloader
 
 Building from sources on debian
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""""""""
 
 Install the build dependencies first, then use the Makefile::
 
@@ -92,7 +136,7 @@ Install the build dependencies first, then use the Makefile::
     $ ./build/bin/pgloader --help
 
 Building from sources on RedHat/CentOS
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""""""""""""""
 
 To build and install pgloader the Steel Bank Common Lisp package (sbcl) from
 EPEL, and the freetds packages are required.
@@ -105,7 +149,7 @@ To do an adhoc build and install run ``boostrap-centos.sh`` for CentOS 6 or
 ``bootstrap-centos7.sh`` for CentOS 7 to install the required dependencies.
 
 Building a pgloader RPM from sources
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""""""""""""
 
 The spec file in the root of the pgloader repository can be used to build your
 own RPM. For production deployments it is recommended that you build this RPM on
@@ -133,7 +177,7 @@ production environments.
         rpmbuild -ba pgloader.spec
 
 Building from sources on macOS
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""""""
 
 We suppose you already have ``git`` and ``make`` available, if that's not
 the case now is the time to install those tools. The SQLite lib that comes
@@ -162,7 +206,7 @@ Then use the normal build system for pgloader:
    $ ./build/bin/pgloader --version
 
 Building from sources on Windows
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""""""""
 
 Building pgloader on Windows is supported (in theory), thanks to Common Lisp
 implementations being available on that platform, and to the Common Lisp
@@ -181,7 +225,7 @@ integration with a windows build host would allow ensuring that we continue
 to support that target.
 
 Building Docker image from sources
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""""""""""
 
 You can build a Docker image from source using SBCL by default::
 
@@ -192,7 +236,7 @@ Or Clozure CL (CCL)::
   $ docker build -f Dockerfile.ccl .
 
 More options when building from source
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""""""""""""""
 
 The ``Makefile`` target ``save`` knows how to produce a Self Contained
 Binary file for pgloader, found at ``./build/bin/pgloader``::

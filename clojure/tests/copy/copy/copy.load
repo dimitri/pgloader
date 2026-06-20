@@ -1,0 +1,22 @@
+LOAD COPY
+     FROM copy:///work/copy/track.copy
+          (trackid, track, album, media, genre, composer,
+           milliseconds, bytes, unitprice)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.track_copy
+
+     WITH truncate, drop indexes
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.track_copy; $$,
+       $$ CREATE TABLE public.track_copy (
+            trackid      bigint primary key,
+            track        text,
+            album        text,
+            media        text,
+            genre        text,
+            composer     text,
+            milliseconds bigint,
+            bytes        bigint,
+            unitprice    numeric
+          ); $$;

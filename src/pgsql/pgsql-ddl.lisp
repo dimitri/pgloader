@@ -266,10 +266,11 @@
            (let* ((idx-cols   (index-columns index))
                   (tbl-cols   (table-column-list (index-table index)))
                   (idx-types  (loop :for idx-col :in idx-cols
-                                 :collect (column-type-name
-                                           (find idx-col tbl-cols
-                                                 :test #'string-equal
-                                                 :key #'column-name))))
+                                 :for col := (find idx-col tbl-cols
+                                                   :test #'string-equal
+                                                   :key #'column-name)
+                                 :when col
+                                 :collect (column-type-name col)))
                   (nobtree (catalog-types-without-btree
                             (schema-catalog (table-schema (index-table index))))))
              (let* ((idx-type (first idx-types))

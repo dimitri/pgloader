@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: pgloader
+      POSTGRES_PASSWORD: pgloader
+      POSTGRES_DB: target
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgloader"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: source
+      MYSQL_USER: pgloader
+      MYSQL_PASSWORD: pgloader
+    command: >
+      --default-authentication-plugin=caching_sha2_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --sql-mode=STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost",
+             "-u", "pgloader", "-ppgloader"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    volumes:
+      - ./test/fixtures/mysql_seed.sql:/docker-entrypoint-initdb.d/seed.sql
+
+  test-runner:
+    image: clojure:temurin-21-tools-deps-jammy
+    working_dir: /app
+    volumes:
+      - .:/app
+      - maven-cache:/root/.m2
+      - clojure-cache:/root/.clojure/.cpcache
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: target
+      PGUSER: pgloader
+      PGPASSWORD: pgloader
+      MYSQL_HOST: mysql
+      MYSQL_TCP_PORT: "3306"
+      MYSQL_USER: pgloader
+      MYSQL_PWD: pgloader
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+    profiles: [test]
+    command: >
+      clojure -M:test -m cognitect.test-runner
+        -n pgloader.integration.csv-pg-test
+        -n pgloader.integration.mysql-pg-test
+
+volumes:
+  maven-cache:
+  clojure-cache:

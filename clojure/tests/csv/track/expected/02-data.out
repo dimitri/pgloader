@@ -1,0 +1,7 @@
+ trackid |                  track                  | genre 
+---------+-----------------------------------------+-------
+       1 | For Those About To Rock (We Salute You) | Rock
+       2 | Balls to the Wall                       | Rock
+       3 | Fast As a Shark                         | Rock
+(3 rows)
+

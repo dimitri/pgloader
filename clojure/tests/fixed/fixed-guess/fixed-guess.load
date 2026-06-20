@@ -1,0 +1,30 @@
+LOAD FIXED
+     FROM fixed:///work/fixed-guess/fixed-guess.dat
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE fixed_schema.guess
+
+     WITH fixed header
+
+     BEFORE LOAD DO
+       $$ CREATE SCHEMA IF NOT EXISTS fixed_schema; $$,
+       $$ DROP TABLE IF EXISTS fixed_schema.guess; $$,
+       $$ CREATE TABLE fixed_schema.guess (
+            QECDPO character varying(3),
+            QECSEM character varying(3),
+            QELSEM character varying(30),
+            QERSEM character varying(15),
+            QENCOM integer,
+            QESCRE smallint,
+            QEACRE smallint,
+            QEMCRE smallint,
+            QEJCRE smallint,
+            QEHCRE integer,
+            QECUCR character varying(10),
+            QESMAJ smallint,
+            QEAMAJ smallint,
+            QEMMAJ smallint,
+            QEJMAJ smallint,
+            QEHMAJ integer,
+            QECUMJ character varying(10),
+            QETOPD character varying(1)
+          ); $$;

@@ -1,0 +1,18 @@
+LOAD CSV FROM '/work/escape-backslash/null-if.csv'
+             (id, number, data)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_escape_bs
+
+     WITH truncate,
+          fields terminated by ',',
+          fields enclosed by '"',
+          fields escaped by backslash-quote,
+          null if '\N'
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_escape_bs; $$,
+       $$ CREATE TABLE public.csv_escape_bs (
+            id     text,
+            number integer,
+            data   text
+          ); $$;

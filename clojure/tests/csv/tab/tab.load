@@ -1,0 +1,17 @@
+LOAD CSV FROM '/work/tab/tab.csv'
+             (usps, geoid, aland, awater)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_tab
+
+     WITH truncate,
+          skip header = 1,
+          fields terminated by '\t'
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_tab; $$,
+       $$ CREATE TABLE public.csv_tab (
+            usps   text,
+            geoid  text,
+            aland  bigint,
+            awater bigint
+          ); $$;

@@ -1,0 +1,24 @@
+    table_name    
+------------------
+ appointments
+ autoinc
+ blobs
+ character
+ currentdate
+ datetime_default
+ def
+ double
+ intege
+ ints
+ item
+ long
+ reals
+ references
+ stamps
+ t548
+ table_name
+ typenames
+ unsigned
+ user
+(20 rows)
+

@@ -1,0 +1,12 @@
+LOAD DATABASE
+     FROM sqlite:///work/sqlite/chinook/chinook.sqlite
+     INTO postgresql://pgloader:pgloader@source:5432/source
+
+     WITH include drop, create tables, create indexes, foreign keys,
+          reset sequences
+
+     ALTER SCHEMA 'public' RENAME TO 'chinook'
+
+     BEFORE LOAD DO
+       $$ DROP SCHEMA IF EXISTS chinook CASCADE; $$,
+       $$ CREATE SCHEMA IF NOT EXISTS chinook; $$;

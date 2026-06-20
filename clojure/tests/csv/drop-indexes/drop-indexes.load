@@ -1,0 +1,17 @@
+LOAD CSV FROM '/work/drop-indexes/column-subset.csv'
+             (a, b, c, d, e)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_drop_idx (a, b, c, e)
+
+     WITH drop indexes,
+          fields terminated by '%'
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_drop_idx; $$,
+       $$ CREATE TABLE public.csv_drop_idx (
+            a integer unique,
+            b text,
+            c text,
+            e text
+          ); $$,
+       $$ CREATE INDEX csv_drop_idx_b ON public.csv_drop_idx (b); $$;

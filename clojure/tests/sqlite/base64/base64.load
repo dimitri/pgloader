@@ -1,0 +1,13 @@
+LOAD DATABASE
+    FROM sqlite:///work/base64/storage.sqlite
+    INTO pgsql://pgloader:pgloader@postgres/target
+
+    WITH include drop, create tables, create indexes, reset sequences
+
+    ALTER SCHEMA 'public' RENAME TO 'storage'
+
+    SET work_mem             to '16MB',
+        maintenance_work_mem to '512 MB'
+
+  BEFORE LOAD DO
+    $$ create schema if not exists storage; $$;

@@ -1,0 +1,27 @@
+ count 
+-------
+ 39837
+(1 row)
+
+ column_name | data_type 
+-------------+-----------
+ actual      | text
+ cheflieu    | text
+ cdc         | text
+ rang        | text
+ reg         | text
+ dep         | text
+ com         | text
+ ar          | text
+ ct          | text
+ modif       | text
+ pole        | text
+ tncc        | text
+ artmaj      | text
+ ncc         | text
+ artmin      | text
+ nccenr      | text
+ articlct    | text
+ nccct       | text
+(18 rows)
+

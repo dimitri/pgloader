@@ -1,0 +1,21 @@
+            table_name            
+----------------------------------
+ CamelCase
+ base64
+ bits
+ countdata_template
+ domain_filter
+ empty
+ encryption_key_canary
+ fcm_batches
+ funny_string
+ geom
+ history
+ onupdate
+ pgloader_test_unsigned
+ propertydecimal
+ races
+ utilisateurs__Yvelines2013-06-28
+ uw_defined_meaning
+(17 rows)
+

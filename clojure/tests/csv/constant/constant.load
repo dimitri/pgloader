@@ -1,0 +1,15 @@
+LOAD CSV FROM '/work/constant/constant.csv'
+             (d, b, x, y)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_constant (b, c, d)
+
+     WITH truncate,
+          fields terminated by '%'
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_constant; $$,
+       $$ CREATE TABLE public.csv_constant (
+            b integer primary key,
+            c text,
+            d integer
+          ); $$;

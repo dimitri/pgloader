@@ -1,0 +1,62 @@
+services:
+  source:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: pgloader
+      POSTGRES_PASSWORD: pgloader
+      POSTGRES_DB: source
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgloader -d source"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  target:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: pgloader
+      POSTGRES_PASSWORD: pgloader
+      POSTGRES_DB: target
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgloader -d target"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  fileserver:
+    image: joseluisq/static-web-server:2
+    environment:
+      SERVER_PORT: "80"
+      SERVER_ROOT: /public
+    volumes:
+      - ../fixtures/http:/public
+    healthcheck:
+      test: ["CMD", "/static-web-server", "--version"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  test-runner:
+    image: pgloader-test-runner:latest
+    build:
+      context: ../../..
+      dockerfile: clojure/tests/Dockerfile
+    volumes:
+      - ../../target/pgloader.jar:/pgloader.jar:ro
+      - .:/suite
+      - ../sqlite:/work/sqlite:ro
+      - ../dbf:/work/dbf:ro
+      - ../csv:/work/csv:ro
+    environment:
+      JAR: /pgloader.jar
+      PGHOST: target
+      PGPORT: "5432"
+      PGDATABASE: target
+      PGUSER: pgloader
+      PGPASSWORD: pgloader
+    depends_on:
+      source:     {condition: service_healthy}
+      target:     {condition: service_healthy}
+      fileserver: {condition: service_healthy}
+    profiles: [test]
+    command: make -C /suite

@@ -1,0 +1,7 @@
+ CHARS.LETTERS | CHARS.NUMBERS 
+---------------+---------------
+ abc           | 123
+ def           | 456
+ ghi           | 789
+(3 rows)
+

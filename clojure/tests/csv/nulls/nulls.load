@@ -1,0 +1,16 @@
+LOAD CSV FROM '/work/nulls/nulls.csv'
+             (id, number [null if '\N'], data)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_nulls
+
+     WITH fields terminated by ',',
+          fields enclosed by '"',
+          fields escaped by backslash-quote
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_nulls; $$,
+       $$ CREATE TABLE public.csv_nulls (
+            id     integer,
+            number integer,
+            data   text
+          ); $$;

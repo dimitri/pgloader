@@ -1,0 +1,11 @@
+             f1              |       f2        | f2_null 
+-----------------------------+-----------------+---------
+ keep extra blanks           |   test string   | f
+ no value between separators |                 | t
+ quoted blanks               |                 | f
+ quoted empty string         |                 | f
+ quoted separator            | a,b,c           | f
+ unquoted blanks             |                 | f
+ unquoted string             | no quote        | f
+(7 rows)
+

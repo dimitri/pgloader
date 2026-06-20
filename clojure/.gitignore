@@ -1,0 +1,11 @@
+/target/
+.cpcache/
+.clj-kondo/
+.lsp/
+
+# E2E test runtime output (captured psql results, not committed)
+# Commit only expected/ — never out/
+tests/*/out/
+tests/*/*/out/
+tests/*/*/*/out/
+tests/*/*/*/*/out/

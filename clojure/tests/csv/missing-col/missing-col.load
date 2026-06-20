@@ -1,0 +1,17 @@
+LOAD CSV FROM '/work/missing-col/projection.csv'
+             (x, y, a, b, c, "camelCase")
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_missing_col (a, b, c)
+
+     WITH truncate,
+          skip header = 1,
+          fields optionally enclosed by '"',
+          fields terminated by ','
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_missing_col; $$,
+       $$ CREATE TABLE public.csv_missing_col (
+            a text,
+            b text,
+            c text
+          ); $$;

@@ -1,0 +1,79 @@
+name: Smoke test — published JAR
+
+# Runs whenever the v4-dev pre-release is updated (i.e. after every green CI
+# push that publishes a new JAR), and can also be triggered manually.
+on:
+  release:
+    types: [prereleased]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: Download JAR & migrate Chinook SQLite → PostgreSQL
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: smoke
+          POSTGRES_USER: pgloader
+          POSTGRES_PASSWORD: pgloader
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout (for fixture files)
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Download published JAR
+        run: |
+          curl -fL -o pgloader.jar \
+            https://github.com/dimitri/pgloader/releases/download/v4-dev/pgloader.jar
+          echo "Downloaded $(du -sh pgloader.jar | cut -f1) JAR"
+
+      - name: Verify JAR starts
+        run: java -jar pgloader.jar --version
+
+      - name: Run Chinook SQLite → PostgreSQL migration
+        run: |
+          java -jar pgloader.jar \
+            --logfile /tmp/pgloader.log \
+            "sqlite://${{ github.workspace }}/clojure/tests/sqlite/chinook/chinook.sqlite" \
+            "postgresql://pgloader:pgloader@localhost/smoke"
+
+      - name: Validate — row counts match known Chinook values
+        run: |
+          psql postgresql://pgloader:pgloader@localhost/smoke <<'SQL'
+            \set ON_ERROR_STOP on
+            SELECT count(*) AS tracks    FROM track;
+            SELECT count(*) AS albums    FROM album;
+            SELECT count(*) AS customers FROM customer;
+            SELECT count(*) AS invoices  FROM invoice;
+            -- Chinook has exactly 3503 tracks, 347 albums, 59 customers, 412 invoices
+            DO $$
+            BEGIN
+              ASSERT (SELECT count(*) FROM track)    = 3503, 'track count mismatch';
+              ASSERT (SELECT count(*) FROM album)    = 347,  'album count mismatch';
+              ASSERT (SELECT count(*) FROM customer) = 59,   'customer count mismatch';
+              ASSERT (SELECT count(*) FROM invoice)  = 412,  'invoice count mismatch';
+            END $$;
+            SELECT 'All counts correct' AS result;
+          SQL
+
+      - name: Upload pgloader log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pgloader-smoke-log
+          path: /tmp/pgloader.log
+          retention-days: 7
