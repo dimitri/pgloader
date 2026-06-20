@@ -21,6 +21,10 @@
   "If true, abort on first error instead of continuing"
   false)
 
+(def ^:dynamic *dry-run*
+  "If true, connect and plan but skip all COPY execution"
+  false)
+
 (def ^:dynamic *root-dir*
   "Root directory for reject files and logs"
   "/tmp/pgloader/")

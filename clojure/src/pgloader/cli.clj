@@ -7,10 +7,12 @@
             [pgloader.copy :as copy]
             [pgloader.regress :as regress])
   (:import [java.net URI]
+           [java.nio.charset Charset]
            [org.slf4j LoggerFactory]
            [ch.qos.logback.classic Level Logger]
            [ch.qos.logback.classic.encoder PatternLayoutEncoder]
-           [ch.qos.logback.core FileAppender])
+           [ch.qos.logback.core FileAppender]
+           [ch.qos.logback.core.spi AppenderAttachable])
   (:gen-class))
 
 (set! *warn-on-reflection* true)
@@ -20,6 +22,18 @@
   (let [^Logger root (.getLogger (LoggerFactory/getILoggerFactory) "ROOT")
         level (Level/valueOf level-str)]
     (.setLevel root level)))
+
+(defn- set-appender-level!
+  "Set the threshold level on a named appender attached to the root logger."
+  [^String appender-name ^String level-str]
+  (let [^Logger root (.getLogger (LoggerFactory/getILoggerFactory) "ROOT")
+        app          (.getAppender ^AppenderAttachable root appender-name)]
+    (when app
+      (let [filter (doto (ch.qos.logback.classic.filter.ThresholdFilter.)
+                     (.setLevel level-str)
+                     (.start))]
+        (.clearAllFilters app)
+        (.addFilter app filter)))))
 
 (defn- add-file-appender!
   "Add a plain FileAppender writing to path, attached to the root logger."
@@ -47,7 +61,14 @@
     (:quiet opts)   (set-log-level! "ERROR")
     :else           (set-log-level! "INFO"))
   (when-let [f (:logfile opts)]
-    (add-file-appender! f)))
+    (add-file-appender! f))
+  ;; Per-destination log thresholds (override root level for a specific appender).
+  ;; --client-min-messages controls the CONSOLE appender.
+  ;; --log-min-messages    controls the FILE appender (logback.xml "FILE" appender).
+  (when-let [lvl (:client-min-messages opts)]
+    (set-appender-level! "CONSOLE" (str/upper-case lvl)))
+  (when-let [lvl (:log-min-messages opts)]
+    (set-appender-level! "FILE" (str/upper-case lvl))))
 
 (defn- print-usage
   "Print help text and exit."
@@ -59,32 +80,52 @@
   (println "  pgloader [options] <source-uri> <target-uri>")
   (println)
   (println "Options:")
-  (println "  --help              Show this help")
-  (println "  --version           Show version")
-  (println "  --verbose           Enable verbose (DEBUG) logging")
-  (println "  --debug             Enable debug logging and extended summary output")
-  (println "  --quiet             Minimal output")
-  (println "  --root-dir DIR      Root directory for relative paths")
-  (println "  --summary FILE      Write summary to CSV or JSON file")
-  (println "  --type TYPE         Force source type (csv, mysql, pgsql, mssql, sqlite, dbf)")
-  (println "  --encoding ENC      Source encoding (e.g. latin-1)")
-  (println "  --with OPTION       Add a WITH option (may be repeated)")
-  (println "  --set VAR TO VAL    Add a SET parameter (may be repeated)")
-  (println "  --cast CAST         Add a CAST rule (may be repeated)")
-  (println "  --field FIELD       Add a FIELD definition (may be repeated)")
-  (println "  --before FILE       SQL file to execute before load")
-  (println "  --after FILE        SQL file to execute after load")
-  (println "  --logfile FILE      Write log output to FILE in addition to stdout")
+  (println "  --help                      Show this help")
+  (println "  --version                   Show version")
+  (println "  --list-encodings            List all supported character encodings and exit")
+  (println "  --verbose                   Enable verbose (DEBUG) logging")
+  (println "  --debug                     Enable debug (TRACE) logging and extended summary")
+  (println "  --quiet                     Minimal output (ERROR level only)")
+  (println "  --client-min-messages LVL   Minimum log level for console (trace/debug/info/warn/error)")
+  (println "  --log-min-messages LVL      Minimum log level for logfile (trace/debug/info/warn/error)")
+  (println "  --root-dir DIR              Root directory for reject files (default: /tmp/pgloader)")
+  (println "  --logfile FILE              Write log output to FILE in addition to stdout")
+  (println "  --summary FILE              Write summary to CSV or JSON file")
+  (println "  --on-error-stop             Stop on first copy error instead of continuing")
+  (println "  --dry-run                   Connect and plan but do not copy any data")
+  (println "  --type TYPE                 Force source type (csv, mysql, pgsql, mssql, sqlite, dbf)")
+  (println "  --encoding ENC              Source file encoding (e.g. latin-1)")
+  (println "  --with OPTION               Add a WITH option (may be repeated)")
+  (println "  --set VAR TO VAL            Add a SET parameter (may be repeated)")
+  (println "  --cast CAST                 Add a CAST rule (may be repeated)")
+  (println "  --field FIELD               Add a FIELD definition (may be repeated)")
+  (println "  --before FILE               SQL file to execute before load")
+  (println "  --after FILE                SQL file to execute after load")
+  (println)
+  (println "Deprecated / removed options (not available in v4):")
+  (println "  --upgrade-config            (v2 INI → v3 .load converter; INI files removed in v4)")
+  (println "  --self-upgrade              (Lisp source hot-reload; not applicable to JAR distribution)")
+  (println "  --load-lisp-file / -l       (Lisp extension files; contact maintainers if needed)")
+  (println "  --context / -C              (INI variable file; use environment variables instead)")
+  (println "  --no-ssl-cert-verification  (use ?sslmode=disable in the connection URI instead)")
   (println)
   (println "Sources:")
-  (println "  FILE.csv     CSV file")
-  (println "  mysql://...  MySQL database")
+  (println "  FILE.load          load file (pgloader DSL)")
+  (println "  FILE.csv           CSV file (requires --type csv or .csv suffix)")
+  (println "  mysql://...        MySQL / MariaDB database")
+  (println "  postgresql://...   PostgreSQL database (source)")
+  (println "  mssql://...        MS SQL Server database")
+  (println "  sqlite://...       SQLite database")
+  (println "  jdbc:mysql://...   JDBC URL (all driver-specific params passed through)")
+  (println "  jdbc:sqlserver://... JDBC URL for MS SQL Server")
+  (println "  jdbc:postgresql://... JDBC URL for PostgreSQL")
   (println)
   (println "Examples:")
   (println "  pgloader myfile.load")
-  (println "  pgloader mysql://user@localhost/mydb postgresql:///target")
-  (println "  pgloader --with 'create tables' --with 'reset sequences' \\")
-  (println "           mysql://user@localhost/mydb postgresql:///target")
+  (println "  pgloader sqlite:///app.db postgresql:///target")
+  (println "  pgloader --on-error-stop mysql://user@localhost/mydb postgresql:///target")
+  (println "  pgloader --dry-run --with 'create tables' mysql://user@localhost/mydb postgresql:///target")
+  (println "  pgloader --client-min-messages warn --logfile /tmp/load.log myfile.load")
   (System/exit 0))
 
 (defn- print-version
@@ -92,9 +133,15 @@
   (println "pgloader v4.0.0")
   (System/exit 0))
 
+(defn- print-encodings
+  []
+  (doseq [name (sort (keys (Charset/availableCharsets)))]
+    (println name))
+  (System/exit 0))
+
 (defrecord CLIOptions
-  [load-files   ; vector of .load file paths
-   load-file    ; single load file (kept for compat)
+  [load-files           ; vector of .load file paths
+   load-file            ; single load file (kept for compat)
    source-uri
    target-uri
    verbose
@@ -102,55 +149,83 @@
    quiet
    root-dir
    summary
+   on-error-stop        ; --on-error-stop
+   dry-run              ; --dry-run
+   client-min-messages  ; --client-min-messages
+   log-min-messages     ; --log-min-messages
    ;; URI-pair mode overrides
-   source-type  ; --type
-   encoding     ; --encoding
-   with-opts    ; --with (vector of strings)
-   set-params   ; --set (vector of [var val] pairs)
-   cast-rules   ; --cast (vector of strings)
-   field-defs   ; --field (vector of strings)
-   before-file  ; --before
-   after-file   ; --after
-   logfile      ; --logfile
+   source-type          ; --type
+   encoding             ; --encoding
+   with-opts            ; --with (vector of strings)
+   set-params           ; --set (vector of [var val] pairs)
+   cast-rules           ; --cast (vector of strings)
+   field-defs           ; --field (vector of strings)
+   before-file          ; --before
+   after-file           ; --after
+   logfile              ; --logfile
    ])
+
+(defn- deprecated-flag!
+  "Warn and exit when the user passes a flag that was removed in v4."
+  [flag suggestion]
+  (println (str "Error: " flag " is not supported in pgloader v4."))
+  (when suggestion (println suggestion))
+  (System/exit 1))
 
 (defn parse-args
   "Parse command-line arguments. Returns CLIOptions."
   [args]
-  (loop [opts (->CLIOptions [] nil nil nil false false false nil nil nil nil [] [] [] [] nil nil nil)
+  (loop [opts (->CLIOptions [] nil nil nil false false false nil nil false false nil nil nil nil [] [] [] [] nil nil nil)
          remaining args]
     (if-let [arg (first remaining)]
       (case arg
-        "--help"     (print-usage)
-        "--version"  (print-version)
-        "--verbose"  (recur (assoc opts :verbose true) (rest remaining))
-        "--debug"    (recur (assoc opts :debug true) (rest remaining))
-        "--quiet"    (recur (assoc opts :quiet true) (rest remaining))
-        "--root-dir" (recur (assoc opts :root-dir (second remaining))
-                            (drop 2 remaining))
-        "--summary"  (recur (assoc opts :summary (second remaining))
-                            (drop 2 remaining))
-        "--type"     (recur (assoc opts :source-type (second remaining))
-                            (drop 2 remaining))
-        "--encoding" (recur (assoc opts :encoding (second remaining))
-                            (drop 2 remaining))
-        "--with"     (recur (update opts :with-opts conj (second remaining))
-                            (drop 2 remaining))
-        "--cast"     (recur (update opts :cast-rules conj (second remaining))
-                            (drop 2 remaining))
-        "--field"    (recur (update opts :field-defs conj (second remaining))
-                            (drop 2 remaining))
-        "--before"   (recur (assoc opts :before-file (second remaining))
-                            (drop 2 remaining))
-        "--after"    (recur (assoc opts :after-file (second remaining))
-                            (drop 2 remaining))
-        "--logfile"  (recur (assoc opts :logfile (second remaining))
-                            (drop 2 remaining))
-        "--set"      ;; --set var to val (3 tokens: var "to" val)
-        (let [var-name (second remaining)
-              val      (nth remaining 3 nil)
-              rest-r   (drop 4 remaining)]
-          (recur (update opts :set-params conj [var-name val]) rest-r))
+        "--help"                  (print-usage)
+        "--version"               (print-version)
+        "--list-encodings"        (print-encodings)
+        "--verbose"               (recur (assoc opts :verbose true) (rest remaining))
+        "--debug"                 (recur (assoc opts :debug true) (rest remaining))
+        "--quiet"                 (recur (assoc opts :quiet true) (rest remaining))
+        "--on-error-stop"         (recur (assoc opts :on-error-stop true) (rest remaining))
+        "--dry-run"               (recur (assoc opts :dry-run true) (rest remaining))
+        "--root-dir"              (recur (assoc opts :root-dir (second remaining))
+                                        (drop 2 remaining))
+        "--summary"               (recur (assoc opts :summary (second remaining))
+                                        (drop 2 remaining))
+        "--logfile"               (recur (assoc opts :logfile (second remaining))
+                                        (drop 2 remaining))
+        "--client-min-messages"   (recur (assoc opts :client-min-messages (second remaining))
+                                        (drop 2 remaining))
+        "--log-min-messages"      (recur (assoc opts :log-min-messages (second remaining))
+                                        (drop 2 remaining))
+        "--type"                  (recur (assoc opts :source-type (second remaining))
+                                        (drop 2 remaining))
+        "--encoding"              (recur (assoc opts :encoding (second remaining))
+                                        (drop 2 remaining))
+        "--with"                  (recur (update opts :with-opts conj (second remaining))
+                                        (drop 2 remaining))
+        "--cast"                  (recur (update opts :cast-rules conj (second remaining))
+                                        (drop 2 remaining))
+        "--field"                 (recur (update opts :field-defs conj (second remaining))
+                                        (drop 2 remaining))
+        "--before"                (recur (assoc opts :before-file (second remaining))
+                                        (drop 2 remaining))
+        "--after"                 (recur (assoc opts :after-file (second remaining))
+                                        (drop 2 remaining))
+        "--set"                   (let [var-name (second remaining)
+                                        val      (nth remaining 3 nil)
+                                        rest-r   (drop 4 remaining)]
+                                    (recur (update opts :set-params conj [var-name val]) rest-r))
+        ;; Deprecated flags — exit with a clear message rather than silently ignoring.
+        "--upgrade-config"        (deprecated-flag! "--upgrade-config"
+                                    "v4 does not support INI config files. Use .load files instead.")
+        "--self-upgrade"          (deprecated-flag! "--self-upgrade"
+                                    "v4 is distributed as a self-contained JAR; use package/container updates.")
+        ("--load-lisp-file" "-l") (deprecated-flag! "--load-lisp-file"
+                                    "Lisp extension files are not supported in v4. Contact the maintainers if you need runtime transform extensions.")
+        ("--context" "-C")        (deprecated-flag! "--context"
+                                    "Use environment variables for configuration in v4: {{VAR}} in load files expands $VAR.")
+        "--no-ssl-cert-verification" (deprecated-flag! "--no-ssl-cert-verification"
+                                       "Use ?sslmode=disable in the connection URI instead, e.g. postgresql://host/db?sslmode=disable")
         ;; positional
         (if (str/ends-with? arg ".load")
           (recur (update opts :load-files conj arg) (rest remaining))
@@ -249,7 +324,11 @@
     (regress/run (rest args))
     (let [opts (parse-args args)]
     (configure-logging opts)
-    (binding [copy/*root-dir* (or (:root-dir opts) copy/*root-dir*)]
+    (binding [copy/*root-dir*        (or (:root-dir opts) copy/*root-dir*)
+              copy/*on-error-stop*   (:on-error-stop opts)
+              copy/*dry-run*         (:dry-run opts)]
+      (when (:dry-run opts)
+        (log/info "DRY RUN — no data will be copied"))
       (if (seq (:load-files opts))
         (do
           ;; Warn if URI-mode-only flags are provided with .load files

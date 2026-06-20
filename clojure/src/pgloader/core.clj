@@ -602,7 +602,9 @@
           ;; Phase 2: COPY data only for tables whose DDL succeeded, using worker threads.
           ;; Each worker gets its own source connection and PostgreSQL connection so that
           ;; up to `workers` tables can be copied simultaneously (v3 workers= behavior).
-          (when (not schema-only?)
+          (when copy/*dry-run*
+            (log/info (str "DRY RUN — skipping COPY for " (count cat) " tables")))
+          (when (and (not schema-only?) (not copy/*dry-run*))
           ;; Pre-create all per-table stats entries before spawning workers (prevents races).
           (doseq [t cat]
             (let [tl (table-stats-label (or (:schema t) "public") (:table-name t))]
@@ -728,7 +730,10 @@
                                           :reject-log (:reject-log reject-paths))))
                                     (catch Exception e
                                       (log/error e (str "Failed to copy table " schema "." table ": " (.getMessage e)))
-                                      (stats/update-entry! :data table-label :errs 1))
+                                      (stats/update-entry! :data table-label :errs 1)
+                                      (when copy/*on-error-stop*
+                                        (log/error "ON ERROR STOP — aborting remaining tables")
+                                        (throw e)))
                                     (finally
                                       ;; Reset triggers on worker-pg when single-reader path used it
                                       (when disable-triggers?
