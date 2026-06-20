@@ -32,7 +32,7 @@ Legend:
 | #1352 | `auto_increment` sequence reset | 🔧 | Reset implemented; `bigserial` columns included in guard; edge cases may remain |
 | #1378 | LOAD DATABASE with no trailing semicolon fails | ✅ | Grammar accepts optional trailing semicolon |
 | #1401 | CamelCase table/column names with `quote identifiers` | ✅ | Original case preserved; COPY uses `quote-id` |
-| #1442 | MySQL → Postgres: Skip COPY for generated columns | ✅ | Columns with EXTRA containing `VIRTUAL GENERATED` / `STORED GENERATED` are filtered out of catalog and DDL |
+| #1442 | MySQL → Postgres: Skip COPY for generated columns | ✅ | Generated columns recreated as `GENERATED ALWAYS AS (expr) STORED` on target; excluded from COPY column list. Expression fetched from `GENERATION_EXPRESSION`. v3 did not detect them and failed on COPY. |
 | #1539 | MySQL connection recognition failed | ✅ | URI scheme `mysql://` and `mysql:///` both handled |
 | #1570 | `:` in the connection string | ✅ | URI parser doubles colons in user/password per spec |
 | #1572 | Backslashes in Enum values not possible | ✅ | No special treatment of backslash in ENUM values in v4 |
@@ -94,7 +94,7 @@ Legend:
 | #1607 | SQLite JSONB to Postgres JSONB cast error | ✅ | JSON/JSONB column types mapped and passed through |
 | #1631 | `STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')` default causes timestamp error | ✅ | SQLite `strftime` defaults stripped before DDL |
 | #1665 | SQLite to PostgreSQL default `'null'` | ✅ | String literal `'null'` in defaults normalized to SQL NULL |
-| #1687 | SQLite ignores generated columns | ✅ | `GENERATED ALWAYS AS` columns detected by parsing `sqlite_master` CREATE TABLE; excluded from catalog |
+| #1687 | SQLite ignores generated columns | ✅ | `GENERATED ALWAYS AS` columns detected and expression extracted from `sqlite_master`; recreated as `GENERATED ALWAYS AS (expr) STORED` on target |
 
 ## File sources (CSV / COPY / Fixed-width / DBF)
 
