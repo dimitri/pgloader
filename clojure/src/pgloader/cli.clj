@@ -8,7 +8,9 @@
             [pgloader.regress :as regress])
   (:import [java.net URI]
            [org.slf4j LoggerFactory]
-           [ch.qos.logback.classic Level Logger])
+           [ch.qos.logback.classic Level Logger]
+           [ch.qos.logback.classic.encoder PatternLayoutEncoder]
+           [ch.qos.logback.core FileAppender])
   (:gen-class))
 
 (set! *warn-on-reflection* true)
@@ -19,6 +21,23 @@
         level (Level/valueOf level-str)]
     (.setLevel root level)))
 
+(defn- add-file-appender!
+  "Add a plain FileAppender writing to path, attached to the root logger."
+  [^String path]
+  (let [ctx     (LoggerFactory/getILoggerFactory)
+        ^Logger root (.getLogger ctx "ROOT")
+        enc     (doto (PatternLayoutEncoder.)
+                  (.setContext ctx)
+                  (.setPattern "%d{HH:mm:ss.SSS} %-5level [%thread] %logger{20} - %msg%n")
+                  (.start))
+        app     (doto (FileAppender.)
+                  (.setContext ctx)
+                  (.setFile path)
+                  (.setAppend false)
+                  (.setEncoder enc)
+                  (.start))]
+    (.addAppender root app)))
+
 (defn- configure-logging
   "Configure logging based on CLI options."
   [opts]
@@ -26,7 +45,9 @@
     (:debug opts)   (set-log-level! "TRACE")
     (:verbose opts) (set-log-level! "DEBUG")
     (:quiet opts)   (set-log-level! "ERROR")
-    :else           (set-log-level! "INFO")))
+    :else           (set-log-level! "INFO"))
+  (when-let [f (:logfile opts)]
+    (add-file-appender! f)))
 
 (defn- print-usage
   "Print help text and exit."
@@ -53,6 +74,7 @@
   (println "  --field FIELD       Add a FIELD definition (may be repeated)")
   (println "  --before FILE       SQL file to execute before load")
   (println "  --after FILE        SQL file to execute after load")
+  (println "  --logfile FILE      Write log output to FILE in addition to stdout")
   (println)
   (println "Sources:")
   (println "  FILE.csv     CSV file")
@@ -89,12 +111,13 @@
    field-defs   ; --field (vector of strings)
    before-file  ; --before
    after-file   ; --after
+   logfile      ; --logfile
    ])
 
 (defn parse-args
   "Parse command-line arguments. Returns CLIOptions."
   [args]
-  (loop [opts (->CLIOptions [] nil nil nil false false false nil nil nil nil [] [] [] [] nil nil)
+  (loop [opts (->CLIOptions [] nil nil nil false false false nil nil nil nil [] [] [] [] nil nil nil)
          remaining args]
     (if-let [arg (first remaining)]
       (case arg
@@ -120,6 +143,8 @@
         "--before"   (recur (assoc opts :before-file (second remaining))
                             (drop 2 remaining))
         "--after"    (recur (assoc opts :after-file (second remaining))
+                            (drop 2 remaining))
+        "--logfile"  (recur (assoc opts :logfile (second remaining))
                             (drop 2 remaining))
         "--set"      ;; --set var to val (3 tokens: var "to" val)
         (let [var-name (second remaining)
