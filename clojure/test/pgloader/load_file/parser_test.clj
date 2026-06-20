@@ -7,7 +7,7 @@
 
 (deftest test-parse-simple-csv
   (let [result (parser/parse-string
-                 "LOAD CSV FROM '/data/sample.csv' INTO postgresql:///target;")]
+                "LOAD CSV FROM '/data/sample.csv' INTO postgresql:///target;")]
     (is (:ok result))
     (let [cmd (:ok result)]
       (is (instance? LoadCommand cmd))
@@ -15,7 +15,7 @@
 
 (deftest test-parse-csv-with-options
   (let [result (parser/parse-string
-                 "LOAD CSV FROM '/data/sample.csv'
+                "LOAD CSV FROM '/data/sample.csv'
                   INTO postgresql://user@localhost/db
                   WITH skip header = 1,
                        fields terminated by ',',
@@ -30,7 +30,7 @@
 
 (deftest test-parse-csv-into-table
   (let [result (parser/parse-string
-                 "LOAD CSV FROM '/data/users.csv'
+                "LOAD CSV FROM '/data/users.csv'
                   INTO postgresql:///target INTO public.users
                   (id, name, email);")]
     (is (:ok result))
@@ -40,7 +40,7 @@
 
 (deftest test-parse-mysql-database
   (let [result (parser/parse-string
-                 "LOAD DATABASE FROM mysql://user@localhost/mydb
+                "LOAD DATABASE FROM mysql://user@localhost/mydb
                   INTO postgresql:///target
                   WITH create tables, create indexes, include drop;")]
     (is (:ok result))
@@ -52,7 +52,7 @@
 
 (deftest test-parse-mysql-with-cast
   (let [result (parser/parse-string
-                 "LOAD DATABASE FROM mysql://user@localhost/mydb
+                "LOAD DATABASE FROM mysql://user@localhost/mydb
                   INTO postgresql:///target
                   WITH create tables, include drop
                   SET maintenance_work_mem to '128MB',
@@ -74,14 +74,14 @@
 
 (deftest test-comments
   (let [result (parser/parse-string
-                 "-- This is a comment
+                "-- This is a comment
                   LOAD CSV FROM '/data/sample.csv'
                   INTO postgresql:///target;")]
     (is (:ok result))))
 
 (deftest test-parse-csv-nullif
   (let [result (parser/parse-string
-                 "LOAD CSV FROM '/data/nullif.csv'
+                "LOAD CSV FROM '/data/nullif.csv'
                   INTO postgresql:///target INTO public.nullif
                   WITH null if '\\N';")]
     (is (:ok result))
@@ -90,7 +90,7 @@
 
 (deftest test-parse-csv-keep-unquoted-blanks
   (let [result (parser/parse-string
-                 "LOAD CSV FROM '/data/blanks.csv'
+                "LOAD CSV FROM '/data/blanks.csv'
                   INTO postgresql:///target
                   WITH keep unquoted blanks;")]
     (is (:ok result))
@@ -99,7 +99,7 @@
 
 (deftest test-parse-csv-trim-unquoted-blanks
   (let [result (parser/parse-string
-                 "LOAD CSV FROM '/data/blanks.csv'
+                "LOAD CSV FROM '/data/blanks.csv'
                   INTO postgresql:///target
                   WITH trim unquoted blanks;")]
     (is (:ok result))
@@ -108,7 +108,7 @@
 
 (deftest test-parse-csv-create-no-tables
   (let [result (parser/parse-string
-                 "LOAD CSV FROM '/data/sample.csv'
+                "LOAD CSV FROM '/data/sample.csv'
                   INTO postgresql:///target
                   WITH create no tables;")]
     (is (:ok result))
@@ -144,7 +144,7 @@
 (deftest test-distribute-reference-parse
   (testing "DISTRIBUTE AS REFERENCE TABLE is parsed correctly"
     (let [result (parser/parse-string
-                   "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
                     DISTRIBUTE mytable AS REFERENCE TABLE;")]
       (is (:ok result))
       (let [cmd (:ok result)]
@@ -154,7 +154,7 @@
 (deftest test-distribute-using-parse
   (testing "DISTRIBUTE USING column is parsed correctly"
     (let [result (parser/parse-string
-                   "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
                     DISTRIBUTE orders USING customer_id;")]
       (is (:ok result))
       (let [cmd (:ok result)]
@@ -164,7 +164,7 @@
 (deftest test-distribute-multiple-rules
   (testing "Multiple DISTRIBUTE clauses are all captured"
     (let [result (parser/parse-string
-                   "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
                     DISTRIBUTE ref_table AS REFERENCE TABLE
                     DISTRIBUTE fact_table USING dim_id;")]
       (is (:ok result))
@@ -176,7 +176,7 @@
 (deftest test-no-distribute-rules-default
   (testing "LoadCommand without DISTRIBUTE section has empty distribute-rules"
     (let [result (parser/parse-string
-                   "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t;")]
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t;")]
       (is (:ok result))
       (let [cmd (:ok result)]
         (is (= [] (:distribute-rules cmd)))))))
@@ -184,7 +184,7 @@
 (deftest test-decoding-as-regex-parse
   (testing "DECODING TABLE NAMES MATCHING ~/pattern/ AS charset is parsed"
     (let [result (parser/parse-string
-                   "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
                     DECODING TABLE NAMES MATCHING ~/encoding/ AS utf-8;")]
       (is (:ok result))
       (let [cmd (:ok result)]
@@ -198,7 +198,7 @@
 (deftest test-decoding-as-multiple-patterns
   (testing "DECODING TABLE NAMES MATCHING with multiple patterns"
     (let [result (parser/parse-string
-                   "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
                     DECODING TABLE NAMES MATCHING ~/messed/, ~/encoding/ AS utf8;")]
       (is (:ok result))
       (let [cmd (:ok result)]
@@ -208,7 +208,7 @@
 (deftest test-with-drop-schema
   (testing "WITH drop schema sets :drop-schema in with-options"
     (let [result (parser/parse-string
-                   "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
                     WITH drop schema;")]
       (is (:ok result))
       (is (true? (get-in result [:ok :with-options :drop-schema]))))))
@@ -216,13 +216,13 @@
 (deftest test-with-reindex
   (testing "WITH reindex sets :reindex in with-options"
     (let [result (parser/parse-string
-                   "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
                     WITH reindex;")]
       (is (:ok result))
       (is (true? (get-in result [:ok :with-options :reindex])))))
   (testing "WITH drop indexes also sets :reindex"
     (let [result (parser/parse-string
-                   "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
                     WITH drop indexes;")]
       (is (:ok result))
       (is (true? (get-in result [:ok :with-options :reindex]))))))
@@ -247,13 +247,13 @@
 (deftest test-with-preserve-index-names
   (testing "WITH preserve index names sets :preserve-index-names"
     (let [result (parser/parse-string
-                   "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
                     WITH preserve index names;")]
       (is (:ok result))
       (is (true? (get-in result [:ok :with-options :preserve-index-names])))))
   (testing "WITH uniquify index names sets :uniquify-index-names"
     (let [result (parser/parse-string
-                   "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
                     WITH uniquify index names;")]
       (is (:ok result))
       (is (true? (get-in result [:ok :with-options :uniquify-index-names]))))))

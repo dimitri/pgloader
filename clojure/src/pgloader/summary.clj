@@ -110,38 +110,38 @@
                       (log/fmt-duration (:total-nanos e))]]
             (.write w (str/join ";" (if verbose
                                       (conj vals
-                                        (log/fmt-duration (:rs-nanos e))
-                                        (log/fmt-duration (:ws-nanos e)))
+                                            (log/fmt-duration (:rs-nanos e))
+                                            (log/fmt-duration (:ws-nanos e)))
                                       vals)))
             (.write w "\n"))))
       (let [g (stats/grand-totals)]
         (.write w (str/join ";" ["GRAND TOTAL"
-                                  (str (:errs g))
-                                  (str (:rows g))
-                                  (str (:bytes g))
-                                  (log/fmt-duration (:total-nanos g))]))
+                                 (str (:errs g))
+                                 (str (:rows g))
+                                 (str (:bytes g))
+                                 (log/fmt-duration (:total-nanos g))]))
         (.write w "\n")))))
 
 (defn write-summary-json
   [^String path verbose]
   (let [data (reduce
-               (fn [acc phase-key]
-                 (let [entries (stats/entries phase-key)]
-                   (assoc acc (name phase-key)
-                     {:tables (mapv
-                                (fn [e]
-                                  (merge
-                                    {:label (:label e)
-                                     :errors (:errs e)
-                                     :rows (:rows e)
-                                     :bytes (:bytes e)
-                                     :total-time (:total-nanos e)}
-                                    (when verbose
-                                      {:read-time (:rs-nanos e)
-                                       :write-time (:ws-nanos e)})))
-                                entries)
-                      :total (stats/get-totals phase-key)})))
-               {} [:pre :data :post])
+              (fn [acc phase-key]
+                (let [entries (stats/entries phase-key)]
+                  (assoc acc (name phase-key)
+                         {:tables (mapv
+                                   (fn [e]
+                                     (merge
+                                      {:label (:label e)
+                                       :errors (:errs e)
+                                       :rows (:rows e)
+                                       :bytes (:bytes e)
+                                       :total-time (:total-nanos e)}
+                                      (when verbose
+                                        {:read-time (:rs-nanos e)
+                                         :write-time (:ws-nanos e)})))
+                                   entries)
+                          :total (stats/get-totals phase-key)})))
+              {} [:pre :data :post])
         full {:phases data
               :grand-total (stats/grand-totals)}]
     (spit path (pr-str full))))

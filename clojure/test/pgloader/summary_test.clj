@@ -33,18 +33,18 @@
   (testing "stats create, update, and clear"
     (stats/clear!)
     (is (empty? (stats/entries :data)))
-    
+
     (stats/new-entry! :data "test_table")
     (is (= 1 (count (stats/entries :data))))
     (is (= "test_table" (:label (first (stats/entries :data)))))
-    
+
     (stats/update-entry! :data "test_table" :rows 100 :errs 2 :bytes 1024 :total-nanos 5000000000)
     (let [e (first (stats/entries :data))]
       (is (= 100 (:rows e)))
       (is (= 2 (:errs e)))
       (is (= 1024 (:bytes e)))
       (is (= 5000000000 (:total-nanos e))))
-    
+
     (stats/clear!)
     (is (empty? (stats/entries :data)))))
 
@@ -55,7 +55,7 @@
     (stats/update-entry! :data "a" :rows 10 :errs 1 :bytes 100 :total-nanos 1000)
     (stats/new-entry! :data "b")
     (stats/update-entry! :data "b" :rows 20 :errs 2 :bytes 200 :total-nanos 2000)
-    
+
     (let [g (stats/grand-totals)]
       (is (= 30 (:rows g)))
       (is (= 3 (:errs g)))
@@ -69,7 +69,7 @@
     (stats/update-entry! :data "users" :rows 1000 :errs 0 :bytes 12345 :total-nanos 5000000000)
     (stats/new-entry! :data "orders")
     (stats/update-entry! :data "orders" :rows 500 :errs 0 :bytes 67890 :total-nanos 3000000000)
-    
+
     (let [sw (StringWriter.)]
       (binding [*out* sw]
         (summary/print-summary false))

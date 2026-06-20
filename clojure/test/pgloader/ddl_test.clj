@@ -33,7 +33,7 @@
              :extra ""
              :column-default "NULL"}]
     (is (= "  \"nickname\" varchar" (ddl/column-def col))))
-  
+
   (let [col {:column-name "created_at"
              :column-type "datetime"
              :is-nullable false

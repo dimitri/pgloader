@@ -32,9 +32,9 @@
    Returns the psql process exit code."
   [^File sql-file ^File out-file]
   (let [args ^"[Ljava.lang.String;" (into-array String
-              ["psql" "-X" "-P" "pager=off"
-               "-v" "ON_ERROR_STOP=1"
-               "-f" (.getAbsolutePath sql-file)])]
+                                                ["psql" "-X" "-P" "pager=off"
+                                                 "-v" "ON_ERROR_STOP=1"
+                                                 "-f" (.getAbsolutePath sql-file)])]
     (-> (doto (ProcessBuilder. args)
           (.redirectErrorStream true)
           (.redirectOutput out-file))
@@ -85,22 +85,22 @@
         (System/exit 1))
       (let [results
             (mapv
-              (fn [^File sql-file]
-                (let [s        (stem sql-file)
-                      out-file (io/file out-dir (str s ".out"))
-                      exp-file (io/file exp-dir (str s ".out"))]
-                  (let [exit (run-psql sql-file out-file)]
-                    (if (pos? exit)
-                      (do (println (str "  ERROR    " s
-                                        "  (psql exited " exit ")"))
-                          (when (.exists out-file) (print (slurp out-file)))
-                          false)
-                      (if update?
-                        (do (io/copy out-file exp-file)
-                            (println (str "  updated  " s))
-                            true)
-                        (diff-files exp-file out-file s))))))
-              files)]
+             (fn [^File sql-file]
+               (let [s        (stem sql-file)
+                     out-file (io/file out-dir (str s ".out"))
+                     exp-file (io/file exp-dir (str s ".out"))]
+                 (let [exit (run-psql sql-file out-file)]
+                   (if (pos? exit)
+                     (do (println (str "  ERROR    " s
+                                       "  (psql exited " exit ")"))
+                         (when (.exists out-file) (print (slurp out-file)))
+                         false)
+                     (if update?
+                       (do (io/copy out-file exp-file)
+                           (println (str "  updated  " s))
+                           true)
+                       (diff-files exp-file out-file s))))))
+             files)]
         (println)
         (if (every? true? results)
           (do (println "All tests passed.") (System/exit 0))

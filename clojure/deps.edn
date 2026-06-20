@@ -36,4 +36,8 @@
    :ns-default build}
 
   :native
-  {:jvm-opts ["-agentlib:native-image-agent=config-output-dir=graalvm-config"]}}}
+  {:jvm-opts ["-agentlib:native-image-agent=config-output-dir=graalvm-config"]}
+
+  :cljfmt
+  {:extra-deps {dev.weavejester/cljfmt {:mvn/version "0.13.1"}}
+   :main-opts  ["-m" "cljfmt.main"]}}}

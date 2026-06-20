@@ -15,20 +15,20 @@
   [^Connection conn]
   (let [tables (tables conn)]
     (mapcat
-      (fn [t]
-        (let [table-name (:table-name t)
-              schema (:table-schema t)
-              cols (try
-                     (columns conn {:schema schema :table table-name})
-                     (catch Exception _ []))]
-          (map #(assoc % :table-name table-name :table-schema schema) cols)))
-      tables)))
+     (fn [t]
+       (let [table-name (:table-name t)
+             schema (:table-schema t)
+             cols (try
+                    (columns conn {:schema schema :table table-name})
+                    (catch Exception _ []))]
+         (map #(assoc % :table-name table-name :table-schema schema) cols)))
+     tables)))
 
 (defn generate-ddl
   "Generate full DDL for a MySQL source.
    Returns {:create-sql [...] :index-sql [...] :drop-sql [...]}"
   [^Connection conn {:keys [schema target-schema table-filter]
-                      :or {target-schema "public"}}]
+                     :or {target-schema "public"}}]
   (let [all-columns (fetch-columns conn)
         groups (group-by :table-name all-columns)
         ;; apply cast transforms to column definitions
@@ -36,8 +36,8 @@
                       (mapv #(cast/apply-cast %) cols))
         create-sqls (mapv (fn [[table-name cols]]
                             (ddl/create-table-sql
-                              target-schema table-name
-                              (cast/apply-cast cols)))
+                             target-schema table-name
+                             (cast/apply-cast cols)))
                           groups)
         drop-sqls (mapv (fn [[table-name _]]
                           (ddl/drop-table-if-exists-sql target-schema table-name))

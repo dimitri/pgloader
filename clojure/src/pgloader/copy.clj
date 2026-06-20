@@ -82,6 +82,6 @@
           (quote-id target-schema)
           (quote-id target-table)
           (str/join ", "
-            (map (comp quote-id
-                       #(or (:column-name %) (:name %)))
-                 columns))))
+                    (map (comp quote-id
+                               #(or (:column-name %) (:name %)))
+                         columns))))

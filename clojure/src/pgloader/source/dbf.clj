@@ -71,11 +71,11 @@
         ((fn thisfn []
            (when-let [record (.nextRecord reader)]
              (lazy-seq
-               (cons (mapv (fn [i]
-                              (let [v (aget record i)]
-                                (when (some? v) (str v))))
-                            (range n))
-                     (thisfn))))))))))
+              (cons (mapv (fn [i]
+                            (let [v (aget record i)]
+                              (when (some? v) (str v))))
+                          (range n))
+                    (thisfn))))))))))
 
 (defn create-source [{:keys [path encoding]}]
   (->DBFSource path

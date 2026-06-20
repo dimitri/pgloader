@@ -90,8 +90,8 @@
   (if (:password uri-map)
     uri-map
     (let [pw (pgpass-lookup
-               (or (:host uri-map) "localhost")
-               (or (:port uri-map) 5432)
-               (or (:db uri-map) "")
-               (:user uri-map))]
+              (or (:host uri-map) "localhost")
+              (or (:port uri-map) 5432)
+              (or (:db uri-map) "")
+              (:user uri-map))]
       (if pw (assoc uri-map :password pw) uri-map))))

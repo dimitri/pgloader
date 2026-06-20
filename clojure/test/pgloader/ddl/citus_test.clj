@@ -100,15 +100,15 @@
 (deftest test-augment-catalog-from-chain
   (testing "Two-hop FROM chain traverses correctly"
     (let [two-hop-catalog (conj sample-catalog
-                           {:table-name "deep_table"
-                            :schema "public"
-                            :columns [{:column-name "id" :column-type "integer" :is-nullable false}
-                                      {:column-name "split_id" :column-type "integer" :is-nullable false}]
-                            :primary-key ["id"]
-                            :indexes []
-                            :fkeys [{:name "fk_deep_split" :columns ["split_id"]
-                                     :ftable "splits" :fcols ["id"]
-                                     :on-delete "NO ACTION" :on-update "NO ACTION"}]})
+                                {:table-name "deep_table"
+                                 :schema "public"
+                                 :columns [{:column-name "id" :column-type "integer" :is-nullable false}
+                                           {:column-name "split_id" :column-type "integer" :is-nullable false}]
+                                 :primary-key ["id"]
+                                 :indexes []
+                                 :fkeys [{:name "fk_deep_split" :columns ["split_id"]
+                                          :ftable "splits" :fcols ["id"]
+                                          :on-delete "NO ACTION" :on-update "NO ACTION"}]})
           rules [{:type :distributed-from :table "deep_table"
                   :using "biller_id" :from ["splits" "receivable_accounts"]}]
           ;; This should fail because deep_table's FK goes to splits,

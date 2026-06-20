@@ -7,23 +7,22 @@
 (set! *warn-on-reflection* true)
 
 (defrecord LoadCommand
-  [load-type
-   source
-   target
-   with-options
-   set-parameters
-   cast-rules
-   filters
-   alter-schema
-   alter-table
-   before-load
-   after-load
-   materialize-views
-   distribute-rules
-   decoding-as
+           [load-type
+            source
+            target
+            with-options
+            set-parameters
+            cast-rules
+            filters
+            alter-schema
+            alter-table
+            before-load
+            after-load
+            materialize-views
+            distribute-rules
+            decoding-as
    ;; For :archive load-type: ordered list of sub-LoadCommand records.
-   commands])
-
+            commands])
 
 (defn parse-uri
   "Parse a connection URI string into a structured map.
@@ -270,38 +269,38 @@
                      (if (= :dq-string (first target-inner))
                        (second target-inner)
                        (clojure.string/join " " (map second (filter #(= :word-part (first %)) (rest target-inner)))))))
-           using-fn (some (fn [n]
-                            (when (and (vector? n) (= :using-fn (first n)))
-                              (keyword (second (some #(when (and (vector? %) (= :fn-name (first %))) %)
-                                                     (rest n))))))
-                          inner-children)
-           when-node (first (filter #(= :when-or-unsigned (first %)) inner-children))
-           when-cond (when when-node
-                       (let [wc (vec (rest when-node))]
-                         (cond
-                           (empty? wc) {:when-unsigned true}
-                           (some #(= :when-default-val (first %)) wc)
-                           (let [dv (first (filter #(= :when-default-val (first %)) wc))
-                                 vi (second dv)]
-                             {:when-default (if (= :dq-string (first vi))
-                                              (second vi)
-                                              (clojure.string/join " " (map second (filter #(= :word-part (first %)) (rest vi)))))})
-                           (some #(= :when-expr (first %)) wc)
-                            (let [we (first (filter #(= :when-expr (first %)) wc))
-                                  parts (map (fn [c]
-                                              (cond
-                                                (= :when-expr (first c))
-                                                (str "(" (reconstruct-when-expr c) ")")
-                                                (and (= :when-inner (first c))
-                                                     (= 2 (count c))
-                                                     (vector? (second c))
-                                                     (= :when-expr (first (second c))))
-                                                (str "(" (reconstruct-when-expr (second c)) ")")
-                                                :else
-                                                (second c)))
-                                            (rest we))]
-                             {:when-extra (clojure.string/join "" parts)}))))
-           drop-opts (parse-cast-options inner-children)]
+          using-fn (some (fn [n]
+                           (when (and (vector? n) (= :using-fn (first n)))
+                             (keyword (second (some #(when (and (vector? %) (= :fn-name (first %))) %)
+                                                    (rest n))))))
+                         inner-children)
+          when-node (first (filter #(= :when-or-unsigned (first %)) inner-children))
+          when-cond (when when-node
+                      (let [wc (vec (rest when-node))]
+                        (cond
+                          (empty? wc) {:when-unsigned true}
+                          (some #(= :when-default-val (first %)) wc)
+                          (let [dv (first (filter #(= :when-default-val (first %)) wc))
+                                vi (second dv)]
+                            {:when-default (if (= :dq-string (first vi))
+                                             (second vi)
+                                             (clojure.string/join " " (map second (filter #(= :word-part (first %)) (rest vi)))))})
+                          (some #(= :when-expr (first %)) wc)
+                          (let [we (first (filter #(= :when-expr (first %)) wc))
+                                parts (map (fn [c]
+                                             (cond
+                                               (= :when-expr (first c))
+                                               (str "(" (reconstruct-when-expr c) ")")
+                                               (and (= :when-inner (first c))
+                                                    (= 2 (count c))
+                                                    (vector? (second c))
+                                                    (= :when-expr (first (second c))))
+                                               (str "(" (reconstruct-when-expr (second c)) ")")
+                                               :else
+                                               (second c)))
+                                           (rest we))]
+                            {:when-extra (clojure.string/join "" parts)}))))
+          drop-opts (parse-cast-options inner-children)]
       (cond-> {:target-type target}
         source (assoc :source source)
         (seq drop-opts) (assoc :options drop-opts)
@@ -325,9 +324,9 @@
             :concurrency         [tag (Integer/parseInt (second (second inner)))]
             :max-parallel-create-index [tag (Integer/parseInt (second (second inner)))]
             :chunk-size          [tag (let [ds (second inner)
-                                           n  (Long/parseLong (second (second ds)))
-                                           u  (if (> (count ds) 2) (second (nth ds 2)) "B")]
-                                       (* n (case u "KB" 1024 "MB" (* 1024 1024) "GB" (* 1024 1024 1024) 1)))]
+                                            n  (Long/parseLong (second (second ds)))
+                                            u  (if (> (count ds) 2) (second (nth ds 2)) "B")]
+                                        (* n (case u "KB" 1024 "MB" (* 1024 1024) "GB" (* 1024 1024 1024) 1)))]
             :multiple-readers    [:multiple-readers true]
             :single-reader       [:multiple-readers false]
             :identifier-case     (first (second inner))
@@ -520,35 +519,35 @@
         :load-csv
         (let [children (mapcat (fn [c] (if (= :load-csv-clause (first c)) (rest c) [c])) (rest tree))
               from-node (first (filter #(= :from-source (first %)) children))
-               source-enc (some #(when (= :source-encoding (first %))
-                                   (let [v (second %)]
-                                     (if (string? v) v (second v))))
-                             children)
-               from-source (when from-node
-                               (let [inner (second from-node)]
-                                 (case (first inner)
-                                   :filepath {:type :csv :path (second inner) :encoding source-enc}
-                                   :stdin-source {:type :csv :stdin true :encoding source-enc}
-                                   :inline-source {:type :csv :inline true :encoding source-enc}
-                                   :glob-source
-                                   (let [gchildren (rest inner)
-                                         pattern (second (first (filter #(= :file-pattern (first %)) gchildren)))
-                                         dir-path (second (first (filter #(= :filepath (first %)) gchildren)))]
-                                     {:type :csv :glob-pattern pattern :directory dir-path :encoding source-enc})
-                                   :copy-source {:type :copy :path (second inner) :encoding source-enc}
-                                   :dbf-source {:type :dbf :path (second inner) :encoding source-enc}
-                                   {:type :csv :path nil})))
+              source-enc (some #(when (= :source-encoding (first %))
+                                  (let [v (second %)]
+                                    (if (string? v) v (second v))))
+                               children)
+              from-source (when from-node
+                            (let [inner (second from-node)]
+                              (case (first inner)
+                                :filepath {:type :csv :path (second inner) :encoding source-enc}
+                                :stdin-source {:type :csv :stdin true :encoding source-enc}
+                                :inline-source {:type :csv :inline true :encoding source-enc}
+                                :glob-source
+                                (let [gchildren (rest inner)
+                                      pattern (second (first (filter #(= :file-pattern (first %)) gchildren)))
+                                      dir-path (second (first (filter #(= :filepath (first %)) gchildren)))]
+                                  {:type :csv :glob-pattern pattern :directory dir-path :encoding source-enc})
+                                :copy-source {:type :copy :path (second inner) :encoding source-enc}
+                                :dbf-source {:type :dbf :path (second inner) :encoding source-enc}
+                                {:type :csv :path nil})))
               pg-uris  (filter #(= :pg-uri (first %)) children)
               pg-uri   (parse-uri (second (first pg-uris)))
               qualified (first (filter #(= :qualified-name (first %)) children))
-               with-clause (first (filter #(= :with-csv-clause (first %)) children))
-               pg-uri-pos (first (keep-indexed #(when (= :pg-uri (first %2)) %1) children))
-               source-col-list (when pg-uri-pos
-                                 (some #(when (= :column-list (first %)) %)
-                                       (take pg-uri-pos children)))
-               target-col-lists (when pg-uri-pos
-                                  (filter #(= :column-list (first %))
-                                          (drop (inc pg-uri-pos) children)))
+              with-clause (first (filter #(= :with-csv-clause (first %)) children))
+              pg-uri-pos (first (keep-indexed #(when (= :pg-uri (first %2)) %1) children))
+              source-col-list (when pg-uri-pos
+                                (some #(when (= :column-list (first %)) %)
+                                      (take pg-uri-pos children)))
+              target-col-lists (when pg-uri-pos
+                                 (filter #(= :column-list (first %))
+                                         (drop (inc pg-uri-pos) children)))
               csv-options (when with-clause
                             (let [opts (rest with-clause)]
                               (reduce merge {}
@@ -561,97 +560,97 @@
               before-load-node (first (filter #(= :before-load-do (first %)) children))
               before-load (when before-load-node
                             (let [commands (rest (second before-load-node))]
-                             (mapv #(second %) (filter vector? commands))))]
+                              (mapv #(second %) (filter vector? commands))))]
           (let [target-table (when qualified
                                (let [parts (vec (rest qualified))]
                                  (second (if (= 2 (count parts))
                                            (nth parts 1)
                                            (nth parts 0)))))
-                 target-schema (when (and qualified
-                                          (= 2 (count (vec (rest qualified)))))
-                                 (-> qualified rest vec first second))
-                  target-table-clause (first (filter #(= :target-table-clause (first %)) children))
-                   tt-table (when target-table-clause
-                              (let [parts (vec (rest target-table-clause))
-                                    table-ref-node (first (filter #(= :table-ref (first %)) parts))
-                                    col-list (first (filter #(= :target-column-def-list (first %)) parts))
-                                    table-info (when table-ref-node
-                                                 (let [inner (second table-ref-node)]
-                                                   (if (= :qualified-name (first inner))
-                                                     (let [qparts (vec (rest inner))]
-                                                       (if (= 2 (count qparts))
-                                                         {:schema (second (first qparts)) :table (second (second qparts))}
-                                                         {:table (second (first qparts))}))
-                                                     {:table (second inner)})))
-                                    proj (when col-list
-                                           {:projections (vec (keep :projection (map parse-target-column-def (rest col-list))))})]
-                                (merge table-info proj)))
-                  target-columns-clause (first (filter #(= :target-columns-clause (first %)) children))
-                   tt-columns (when target-columns-clause
-                               (mapv #(second %) (rest (first (filter #(= :column-list (first %)) (rest target-columns-clause))))))
-                  tt-projections (when target-columns-clause
-                                   (vec (keep :projection (map parse-target-column-def (rest (first (filter #(= :target-column-def-list (first %)) (rest target-columns-clause))))))))
-                 having-node (first (filter #(= :having-fields (first %)) children))
-                 having-columns (when having-node
+                target-schema (when (and qualified
+                                         (= 2 (count (vec (rest qualified)))))
+                                (-> qualified rest vec first second))
+                target-table-clause (first (filter #(= :target-table-clause (first %)) children))
+                tt-table (when target-table-clause
+                           (let [parts (vec (rest target-table-clause))
+                                 table-ref-node (first (filter #(= :table-ref (first %)) parts))
+                                 col-list (first (filter #(= :target-column-def-list (first %)) parts))
+                                 table-info (when table-ref-node
+                                              (let [inner (second table-ref-node)]
+                                                (if (= :qualified-name (first inner))
+                                                  (let [qparts (vec (rest inner))]
+                                                    (if (= 2 (count qparts))
+                                                      {:schema (second (first qparts)) :table (second (second qparts))}
+                                                      {:table (second (first qparts))}))
+                                                  {:table (second inner)})))
+                                 proj (when col-list
+                                        {:projections (vec (keep :projection (map parse-target-column-def (rest col-list))))})]
+                             (merge table-info proj)))
+                target-columns-clause (first (filter #(= :target-columns-clause (first %)) children))
+                tt-columns (when target-columns-clause
+                             (mapv #(second %) (rest (first (filter #(= :column-list (first %)) (rest target-columns-clause))))))
+                tt-projections (when target-columns-clause
+                                 (vec (keep :projection (map parse-target-column-def (rest (first (filter #(= :target-column-def-list (first %)) (rest target-columns-clause))))))))
+                having-node (first (filter #(= :having-fields (first %)) children))
+                having-columns (when having-node
+                                 (mapv :name (map parse-column-item
+                                                  (filter #(= :column-item (first %))
+                                                          (rest (first (filter #(= :column-list (first %)) (rest having-node))))))))
+                after-load-node (first (filter #(= :after-load-do (first %)) children))
+                after-load (when after-load-node
+                             (let [commands (rest (second after-load-node))]
+                               (mapv #(second %) (filter vector? commands))))
+                cols (when source-col-list
+                       (mapv :name (map parse-column-item
+                                        (filter #(= :column-item (first %))
+                                                (rest source-col-list)))))
+                col-formats (when source-col-list
+                              (seq (filter :date-format
+                                           (map parse-column-item
+                                                (filter #(= :column-item (first %))
+                                                        (rest source-col-list))))))
+                col-nullifs (when source-col-list
+                              (seq (filter :nullif
+                                           (map parse-column-item
+                                                (filter #(= :column-item (first %))
+                                                        (rest source-col-list))))))
+                bare-target-cols (when (seq target-col-lists)
                                    (mapv :name (map parse-column-item
                                                     (filter #(= :column-item (first %))
-                                                            (rest (first (filter #(= :column-list (first %)) (rest having-node))))))))
-                 after-load-node (first (filter #(= :after-load-do (first %)) children))
-                 after-load (when after-load-node
-                              (let [commands (rest (second after-load-node))]
-                               (mapv #(second %) (filter vector? commands))))
-                  cols (when source-col-list
-                           (mapv :name (map parse-column-item
-                                           (filter #(= :column-item (first %))
-                                                   (rest source-col-list)))))
-                  col-formats (when source-col-list
-                                (seq (filter :date-format
-                                             (map parse-column-item
-                                                  (filter #(= :column-item (first %))
-                                                          (rest source-col-list))))))
-                  col-nullifs (when source-col-list
-                                (seq (filter :nullif
-                                             (map parse-column-item
-                                                  (filter #(= :column-item (first %))
-                                                          (rest source-col-list))))))
-                  bare-target-cols (when (seq target-col-lists)
-                                     (mapv :name (map parse-column-item
-                                                     (filter #(= :column-item (first %))
-                                                             (rest (first target-col-lists))))))]
+                                                            (rest (first target-col-lists))))))]
             (->LoadCommand
-              :csv
-              (merge from-source
-                      {:columns (or having-columns cols)}
-                      (when (and inline-data (:inline from-source))
-                        {:inline-data inline-data})
-                      (when col-formats
-                         {:column-formats col-formats})
-                      (when col-nullifs
-                         {:column-nullifs col-nullifs}))
-              {:type :pgsql :target-uri pg-uri
-               :schema (or (:schema tt-table) target-schema)
-               :table (or (:table tt-table) target-table)}
-               (merge {:skip-header 0
-                        :quote-char \"}
-                       (when (and target-schema target-table)
-                         {:target-schema target-schema
-                          :target-table target-table})
-                       (when (and (nil? target-table) (:table pg-uri))
-                         {:target-schema (or (:schema pg-uri) "public")
-                          :target-table (:table pg-uri)})
-                       (when tt-table
-                        (merge {:target-schema (:schema tt-table)
-                                :target-table (:table tt-table)}
-                               (when (:projections tt-table)
-                                 {:projections (:projections tt-table)})))
-                      (when (seq bare-target-cols)
-                         {:target-columns bare-target-cols})
-                      (when (seq tt-columns)
-                         {:target-columns tt-columns})
-                      (when (seq tt-projections)
-                        {:projections tt-projections})
-                      csv-options)
-               (seq set-params) nil nil nil nil (seq before-load) (seq after-load) nil nil nil nil)))
+             :csv
+             (merge from-source
+                    {:columns (or having-columns cols)}
+                    (when (and inline-data (:inline from-source))
+                      {:inline-data inline-data})
+                    (when col-formats
+                      {:column-formats col-formats})
+                    (when col-nullifs
+                      {:column-nullifs col-nullifs}))
+             {:type :pgsql :target-uri pg-uri
+              :schema (or (:schema tt-table) target-schema)
+              :table (or (:table tt-table) target-table)}
+             (merge {:skip-header 0
+                     :quote-char \"}
+                    (when (and target-schema target-table)
+                      {:target-schema target-schema
+                       :target-table target-table})
+                    (when (and (nil? target-table) (:table pg-uri))
+                      {:target-schema (or (:schema pg-uri) "public")
+                       :target-table (:table pg-uri)})
+                    (when tt-table
+                      (merge {:target-schema (:schema tt-table)
+                              :target-table (:table tt-table)}
+                             (when (:projections tt-table)
+                               {:projections (:projections tt-table)})))
+                    (when (seq bare-target-cols)
+                      {:target-columns bare-target-cols})
+                    (when (seq tt-columns)
+                      {:target-columns tt-columns})
+                    (when (seq tt-projections)
+                      {:projections tt-projections})
+                    csv-options)
+             (seq set-params) nil nil nil nil (seq before-load) (seq after-load) nil nil nil nil)))
 
         :load-copy
         (let [children (mapcat (fn [c] (if (= :load-copy-clause (first c)) (rest c) [c])) (rest tree))
@@ -659,7 +658,7 @@
               source-enc (some #(when (= :source-encoding (first %))
                                   (let [v (second %)]
                                     (if (string? v) v (second v))))
-                            children)
+                               children)
               source (when copy-node
                        {:type :copy :path (second copy-node) :encoding source-enc})
               pg-uris  (filter #(= :pg-uri (first %)) children)
@@ -682,7 +681,7 @@
               before-load-node (first (filter #(= :before-load-do (first %)) children))
               before-load (when before-load-node
                             (let [commands (rest (second before-load-node))]
-                             (mapv #(second %) (filter vector? commands))))
+                              (mapv #(second %) (filter vector? commands))))
               target-table (when qualified
                              (let [parts (vec (rest qualified))]
                                (second (if (= 2 (count parts))
@@ -707,30 +706,30 @@
               after-load-node (first (filter #(= :after-load-do (first %)) children))
               after-load (when after-load-node
                            (let [commands (rest (second after-load-node))]
-                            (mapv #(second %) (filter vector? commands))))
+                             (mapv #(second %) (filter vector? commands))))
               cols (when source-col-list
                      (mapv :name (map parse-column-item
-                                     (filter #(= :column-item (first %))
-                                             (rest source-col-list)))))]
+                                      (filter #(= :column-item (first %))
+                                              (rest source-col-list)))))]
           (->LoadCommand
-            :copy
-            (merge source
-                   {:columns (or cols [])})
-            {:type :pgsql :target-uri pg-uri
-             :schema (or (:schema tt-table) target-schema)
-             :table (or (:table tt-table) target-table)}
-            (merge {:truncate false}
-                   (when (and target-schema target-table)
-                     {:target-schema target-schema
-                      :target-table target-table})
-                   (when (and (nil? target-table) (:table pg-uri))
-                     {:target-schema (or (:schema pg-uri) "public")
-                      :target-table (:table pg-uri)})
-                   (when tt-table
-                     {:target-schema (:schema tt-table)
-                      :target-table (:table tt-table)})
-                   copy-options)
-             (seq set-params) nil nil nil nil (seq before-load) (seq after-load) nil nil nil nil))
+           :copy
+           (merge source
+                  {:columns (or cols [])})
+           {:type :pgsql :target-uri pg-uri
+            :schema (or (:schema tt-table) target-schema)
+            :table (or (:table tt-table) target-table)}
+           (merge {:truncate false}
+                  (when (and target-schema target-table)
+                    {:target-schema target-schema
+                     :target-table target-table})
+                  (when (and (nil? target-table) (:table pg-uri))
+                    {:target-schema (or (:schema pg-uri) "public")
+                     :target-table (:table pg-uri)})
+                  (when tt-table
+                    {:target-schema (:schema tt-table)
+                     :target-table (:table tt-table)})
+                  copy-options)
+           (seq set-params) nil nil nil nil (seq before-load) (seq after-load) nil nil nil nil))
 
         :load-dbf
         (let [children (mapcat (fn [c] (if (= :load-dbf-clause (first c)) (rest c) [c])) (rest tree))
@@ -738,7 +737,7 @@
               source-enc (some #(when (= :source-encoding (first %))
                                   (let [v (second %)]
                                     (if (string? v) v (second v))))
-                            children)
+                               children)
               source (when dbf-node
                        ;; dbf-source now wraps either dbf-filepath or http-source
                        (let [inner (second dbf-node)]
@@ -771,7 +770,7 @@
               before-load-node (first (filter #(= :before-load-do (first %)) children))
               before-load (when before-load-node
                             (let [commands (rest (second before-load-node))]
-                             (mapv #(second %) (filter vector? commands))))
+                              (mapv #(second %) (filter vector? commands))))
               target-table (when qualified
                              (let [parts (vec (rest qualified))]
                                (second (if (= 2 (count parts))
@@ -795,31 +794,31 @@
                            table-info))
               after-load-node (first (filter #(= :after-load-do (first %)) children))
               after-load (when after-load-node
-                            (let [commands (rest (second after-load-node))]
+                           (let [commands (rest (second after-load-node))]
                              (mapv #(second %) (filter vector? commands))))
               cols (when source-col-list
                      (mapv :name (map parse-column-item
-                                     (filter #(= :column-item (first %))
-                                             (rest source-col-list)))))]
+                                      (filter #(= :column-item (first %))
+                                              (rest source-col-list)))))]
           (->LoadCommand
-            :dbf
-            (merge source
-                   {:columns (or cols [])})
-            {:type :pgsql :target-uri pg-uri
-             :schema (or (:schema tt-table) target-schema)
-             :table (or (:table tt-table) target-table)}
-            (merge {:truncate false}
-                   (when (and target-schema target-table)
-                     {:target-schema target-schema
-                      :target-table target-table})
-                   (when (and (nil? target-table) (:table pg-uri))
-                     {:target-schema (or (:schema pg-uri) "public")
-                      :target-table (:table pg-uri)})
-                   (when tt-table
-                     {:target-schema (:schema tt-table)
-                      :target-table (:table tt-table)})
-                   dbf-options)
-             (seq set-params) (seq cast-rules) nil nil nil (seq before-load) (seq after-load) nil nil nil nil))
+           :dbf
+           (merge source
+                  {:columns (or cols [])})
+           {:type :pgsql :target-uri pg-uri
+            :schema (or (:schema tt-table) target-schema)
+            :table (or (:table tt-table) target-table)}
+           (merge {:truncate false}
+                  (when (and target-schema target-table)
+                    {:target-schema target-schema
+                     :target-table target-table})
+                  (when (and (nil? target-table) (:table pg-uri))
+                    {:target-schema (or (:schema pg-uri) "public")
+                     :target-table (:table pg-uri)})
+                  (when tt-table
+                    {:target-schema (:schema tt-table)
+                     :target-table (:table tt-table)})
+                  dbf-options)
+           (seq set-params) (seq cast-rules) nil nil nil (seq before-load) (seq after-load) nil nil nil nil))
 
         :load-database
         (let [children (mapcat (fn [c] (if (= :load-database-clause (first c)) (rest c) [c])) (rest tree))
@@ -829,110 +828,110 @@
                                    (when (and (vector? c) (= :with-db-clause (first c)))
                                      (map hiccup->option-keyword (rest c))))
                                  children)
-               set-params (mapcat (fn [c]
-                                    (when (and (vector? c) (= :set-clause (first c)))
-                                      (keep hiccup->set-option (rest c))))
-                                  children)
-               cast-rules (mapcat (fn [c]
-                                    (when (and (vector? c) (= :cast-clause (first c)))
-                                      (keep hiccup->cast-rule (rest c))))
-                                  children)
-               alter-schema-nodes (filter #(= :alter-schema-clause (first %)) children)
-                alter-schemas (seq (map (fn [node]
-                                         (let [parts (rest node)
-                                               from-inner (second (first parts))
-                                               to-inner (second (second parts))]
-                                            {:source-name (if (vector? from-inner) (second from-inner) from-inner)
-                                             :target-name   (if (vector? to-inner) (second to-inner) to-inner)}))
+              set-params (mapcat (fn [c]
+                                   (when (and (vector? c) (= :set-clause (first c)))
+                                     (keep hiccup->set-option (rest c))))
+                                 children)
+              cast-rules (mapcat (fn [c]
+                                   (when (and (vector? c) (= :cast-clause (first c)))
+                                     (keep hiccup->cast-rule (rest c))))
+                                 children)
+              alter-schema-nodes (filter #(= :alter-schema-clause (first %)) children)
+              alter-schemas (seq (map (fn [node]
+                                        (let [parts (rest node)
+                                              from-inner (second (first parts))
+                                              to-inner (second (second parts))]
+                                          {:source-name (if (vector? from-inner) (second from-inner) from-inner)
+                                           :target-name   (if (vector? to-inner) (second to-inner) to-inner)}))
                                       alter-schema-nodes))
-                parse-pattern (fn [node]
-                                (let [pat-node (first (filter #(= :table-name-pattern (first %)) (rest node)))]
-                                  (when pat-node
-                                    (let [child (second pat-node)]
-                                      (if (string? child)
+              parse-pattern (fn [node]
+                              (let [pat-node (first (filter #(= :table-name-pattern (first %)) (rest node)))]
+                                (when pat-node
+                                  (let [child (second pat-node)]
+                                    (if (string? child)
                                         ;; Regex pattern: ~/pattern/
-                                        (str/replace child #"^/(.*)/$" "$1")
+                                      (str/replace child #"^/(.*)/$" "$1")
                                         ;; Quoted-string pattern: 'pattern'
-                                        (let [raw (second child)]
-                                          (-> raw
-                                              (str/replace "%" ".*")
-                                              (str/replace "_" "."))))))))
-                including-node (first (filter #(= :including-only (first %)) children))
-                table-pattern (when including-node (parse-pattern including-node))
-                excluding-node (first (filter #(= :excluding-only (first %)) children))
-                excluding-pattern (when excluding-node (parse-pattern excluding-node))
-                filters (cond-> {}
-                          table-pattern (assoc :including [table-pattern])
-                          excluding-pattern (assoc :excluding [excluding-pattern]))
-                before-load-node (first (filter #(= :before-load-do (first %)) children))
-                before-load (when before-load-node
-                               (let [commands (rest (second before-load-node))]
-                                (mapv #(second %) (filter vector? commands))))
-                after-load-node (first (filter #(= :after-load-do (first %)) children))
-                after-load (when after-load-node
-                              (let [commands (rest (second after-load-node))]
-                               (mapv #(second %) (filter vector? commands))))
-                matview-node (first (filter #(= :materialize-views (first %)) children))
-               materialize-views (when matview-node
-                                    (let [inner (second matview-node)]
-                                      (case (first inner)
-                                        :materialize-all-views :all
-                                        :materialize-named-views
-                                        (let [defs (rest (second inner))]
-                                          (mapv (fn [d]
-                                                  (let [parts (rest d)
-                                                        name (second (first parts))
-                                                        query (when (> (count parts) 2)
-                                                                (second (nth parts 2)))]
-                                                    (if query
-                                                      {:name name :query query}
-                                                      {:name name})))
-                                                (filter vector? defs))))))
-                alter-table-nodes (filter #(= :alter-table-clause (first %)) children)
-                alter-table-rules (when (seq alter-table-nodes)
-                                    (mapv (fn [node]
-                                            (let [parts (rest node)
-                                                  pat-list (second (first parts))
-                                                  patterns (mapv (fn [p]
-                                                                   (let [v (second p)]
-                                                                     (if (string? v)
+                                      (let [raw (second child)]
+                                        (-> raw
+                                            (str/replace "%" ".*")
+                                            (str/replace "_" "."))))))))
+              including-node (first (filter #(= :including-only (first %)) children))
+              table-pattern (when including-node (parse-pattern including-node))
+              excluding-node (first (filter #(= :excluding-only (first %)) children))
+              excluding-pattern (when excluding-node (parse-pattern excluding-node))
+              filters (cond-> {}
+                        table-pattern (assoc :including [table-pattern])
+                        excluding-pattern (assoc :excluding [excluding-pattern]))
+              before-load-node (first (filter #(= :before-load-do (first %)) children))
+              before-load (when before-load-node
+                            (let [commands (rest (second before-load-node))]
+                              (mapv #(second %) (filter vector? commands))))
+              after-load-node (first (filter #(= :after-load-do (first %)) children))
+              after-load (when after-load-node
+                           (let [commands (rest (second after-load-node))]
+                             (mapv #(second %) (filter vector? commands))))
+              matview-node (first (filter #(= :materialize-views (first %)) children))
+              materialize-views (when matview-node
+                                  (let [inner (second matview-node)]
+                                    (case (first inner)
+                                      :materialize-all-views :all
+                                      :materialize-named-views
+                                      (let [defs (rest (second inner))]
+                                        (mapv (fn [d]
+                                                (let [parts (rest d)
+                                                      name (second (first parts))
+                                                      query (when (> (count parts) 2)
+                                                              (second (nth parts 2)))]
+                                                  (if query
+                                                    {:name name :query query}
+                                                    {:name name})))
+                                              (filter vector? defs))))))
+              alter-table-nodes (filter #(= :alter-table-clause (first %)) children)
+              alter-table-rules (when (seq alter-table-nodes)
+                                  (mapv (fn [node]
+                                          (let [parts (rest node)
+                                                pat-list (second (first parts))
+                                                patterns (mapv (fn [p]
+                                                                 (let [v (second p)]
+                                                                   (if (string? v)
                                                                        ;; regex ~/pattern/: captured as bare string "/pat/"
-                                                                       {:type :regex :value (str/replace v #"^/(.*)/$" "$1")}
+                                                                     {:type :regex :value (str/replace v #"^/(.*)/$" "$1")}
                                                                        ;; 'quoted-string': captured as [:quoted-string "val"]
-                                                                       {:type :exact :value (second v)})))
-                                                                 (filter #(= :table-name-pattern (first %)) (rest (first parts))))
-                                                  action-node (second (second parts))]
-                                              {:patterns patterns
-                                               :action
-                                               (case (first action-node)
-                                                 :alter-table-set-schema  {:type :set-schema  :schema (second (second action-node))}
-                                                 :alter-table-rename      (let [v (second action-node)]
-                                                                            {:type :rename :to (if (string? v) v (second v))})
-                                                 :alter-table-set-params  {:type :set-params  :params (second action-node)}
-                                                 :alter-table-set-tablespace {:type :set-tablespace :tablespace (second (second action-node))}
-                                                 {:type :unknown})}))
-                                          alter-table-nodes))
-                distribute-section-nodes (filter #(= :distribute-section (first %)) children)
-                distribute-rules (or (seq (mapcat hiccup->distribute-rules distribute-section-nodes))
-                                     [])
-                decoding-as-nodes (filter #(= :decoding-as-clause (first %)) children)
-                decoding-as (seq (keep hiccup->decoding-as decoding-as-nodes))]
-             (->LoadCommand
-              :database
-              (cond-> source-uri
-                table-pattern (assoc :table-pattern table-pattern))
-              {:type :pgsql :target-uri pg-uri}
-              (into {} (keep (fn [k]
-                               (cond
-                                 (keyword? k) [k true]
-                                 (vector? k)  k
-                                 :else nil))
-                             db-options))
-              (seq set-params)
-              (seq cast-rules)
-               (not-empty filters) alter-schemas (seq alter-table-rules) (seq before-load) (seq after-load)
-               (if (= :all materialize-views) :all (seq materialize-views))
-               distribute-rules decoding-as nil))
+                                                                     {:type :exact :value (second v)})))
+                                                               (filter #(= :table-name-pattern (first %)) (rest (first parts))))
+                                                action-node (second (second parts))]
+                                            {:patterns patterns
+                                             :action
+                                             (case (first action-node)
+                                               :alter-table-set-schema  {:type :set-schema  :schema (second (second action-node))}
+                                               :alter-table-rename      (let [v (second action-node)]
+                                                                          {:type :rename :to (if (string? v) v (second v))})
+                                               :alter-table-set-params  {:type :set-params  :params (second action-node)}
+                                               :alter-table-set-tablespace {:type :set-tablespace :tablespace (second (second action-node))}
+                                               {:type :unknown})}))
+                                        alter-table-nodes))
+              distribute-section-nodes (filter #(= :distribute-section (first %)) children)
+              distribute-rules (or (seq (mapcat hiccup->distribute-rules distribute-section-nodes))
+                                   [])
+              decoding-as-nodes (filter #(= :decoding-as-clause (first %)) children)
+              decoding-as (seq (keep hiccup->decoding-as decoding-as-nodes))]
+          (->LoadCommand
+           :database
+           (cond-> source-uri
+             table-pattern (assoc :table-pattern table-pattern))
+           {:type :pgsql :target-uri pg-uri}
+           (into {} (keep (fn [k]
+                            (cond
+                              (keyword? k) [k true]
+                              (vector? k)  k
+                              :else nil))
+                          db-options))
+           (seq set-params)
+           (seq cast-rules)
+           (not-empty filters) alter-schemas (seq alter-table-rules) (seq before-load) (seq after-load)
+           (if (= :all materialize-views) :all (seq materialize-views))
+           distribute-rules decoding-as nil))
 
         :load-fixed
         (let [children   (mapcat (fn [c] (if (= :load-fixed-clause (first c)) (rest c) [c])) (rest tree))
@@ -1044,30 +1043,30 @@
               after-load  (when after-load-node
                             (mapv #(second %) (filter vector? (rest (second after-load-node)))))]
           (->LoadCommand
-            :fixed
-            (merge from-source
-                   {:fields fields}
-                   (when (and inline-data (:inline from-source))
-                     {:inline-data inline-data}))
-            {:type :pgsql :target-uri pg-uri
-             :schema target-schema
-             :table  target-table}
-            (merge {:create-tables false :truncate false}
-                   (when target-table
-                     {:target-schema (or target-schema "public")
-                      :target-table  target-table})
-                   (when (and (nil? target-table) pg-uri (:table pg-uri))
-                     {:target-schema (or (:schema pg-uri) "public")
-                      :target-table  (:table pg-uri)})
-                   (when tt-table
-                     (merge {:target-schema (or (:schema tt-table) "public")
-                             :target-table  (:table tt-table)}
-                            (when (:projections tt-table)
-                              {:projections (:projections tt-table)})))
-                   (when (seq select-columns)
-                     {:select-columns select-columns})
-                   fixed-options)
-            (seq set-params) nil nil nil nil (seq before-load) (seq after-load) nil nil nil nil))
+           :fixed
+           (merge from-source
+                  {:fields fields}
+                  (when (and inline-data (:inline from-source))
+                    {:inline-data inline-data}))
+           {:type :pgsql :target-uri pg-uri
+            :schema target-schema
+            :table  target-table}
+           (merge {:create-tables false :truncate false}
+                  (when target-table
+                    {:target-schema (or target-schema "public")
+                     :target-table  target-table})
+                  (when (and (nil? target-table) pg-uri (:table pg-uri))
+                    {:target-schema (or (:schema pg-uri) "public")
+                     :target-table  (:table pg-uri)})
+                  (when tt-table
+                    (merge {:target-schema (or (:schema tt-table) "public")
+                            :target-table  (:table tt-table)}
+                           (when (:projections tt-table)
+                             {:projections (:projections tt-table)})))
+                  (when (seq select-columns)
+                    {:select-columns select-columns})
+                  fixed-options)
+           (seq set-params) nil nil nil nil (seq before-load) (seq after-load) nil nil nil nil))
 
         :load-archive
         (let [children      (rest tree)
@@ -1098,13 +1097,13 @@
                                            (transform inner inline-data)))
                                        sub-nodes))]
           (->LoadCommand
-            :archive
-            archive-source
-            (when pg-uri {:type :pgsql :target-uri pg-uri})
-            {}
-            nil nil nil nil nil
-            (seq before-load) (seq after-load)
-            nil nil nil commands))
+           :archive
+           archive-source
+           (when pg-uri {:type :pgsql :target-uri pg-uri})
+           {}
+           nil nil nil nil nil
+           (seq before-load) (seq after-load)
+           nil nil nil commands))
 
         ;; Default: try to transform the first child if this is a wrapper
         (if (seq (rest tree))

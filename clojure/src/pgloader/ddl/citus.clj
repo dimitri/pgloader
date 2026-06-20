@@ -28,40 +28,40 @@
    Uses :fkeys already present in each catalog entry — no new DB queries."
   [table-entry from-chain catalog-index]
   (str/join " "
-    (loop [current table-entry
-           remaining from-chain
-           clauses []]
-      (if (empty? remaining)
-        clauses
-        (let [next-table-name (first remaining)
-              next-entry      (get catalog-index next-table-name)
-              schema          (or (:schema next-entry) "public")
-              fkey (or (some #(when (= next-table-name (:ftable %)) %) (:fkeys current))
-                       (throw (ex-info
-                               (str "Citus: No FK from '" (:table-name current)
-                                    "' to '" next-table-name "' found in catalog. "
-                                    "Available fkeys on '" (:table-name current) "': "
-                                    (pr-str (mapv :ftable (:fkeys current)))
-                                    ". Cannot build backfill JOIN for: "
-                                    "DISTRIBUTE " (:table-name table-entry) " USING "
-                                    (:column-name (first (:columns table-entry)))
-                                    " FROM " (str/join ", " from-chain)
-                                    ". Hint: add a foreign key in the source database, "
-                                    "or specify an explicit JOIN in the FROM clause.")
-                               {:current (:table-name current)
-                                :target  next-table-name
-                                :rule    {:table (:table-name table-entry)
-                                         :from  from-chain}})))
-              on-clause (str/join " AND "
-                          (map (fn [lc rc]
-                                 (str (:table-name current) "." lc
-                                      " = " next-table-name "." rc))
-                               (:columns fkey)
-                               (:fcols fkey)))
-              clause (str "JOIN " (identifier-quote schema) "."
-                          (identifier-quote next-table-name)
-                          " ON " on-clause)]
-          (recur next-entry (rest remaining) (conj clauses clause)))))))
+            (loop [current table-entry
+                   remaining from-chain
+                   clauses []]
+              (if (empty? remaining)
+                clauses
+                (let [next-table-name (first remaining)
+                      next-entry      (get catalog-index next-table-name)
+                      schema          (or (:schema next-entry) "public")
+                      fkey (or (some #(when (= next-table-name (:ftable %)) %) (:fkeys current))
+                               (throw (ex-info
+                                       (str "Citus: No FK from '" (:table-name current)
+                                            "' to '" next-table-name "' found in catalog. "
+                                            "Available fkeys on '" (:table-name current) "': "
+                                            (pr-str (mapv :ftable (:fkeys current)))
+                                            ". Cannot build backfill JOIN for: "
+                                            "DISTRIBUTE " (:table-name table-entry) " USING "
+                                            (:column-name (first (:columns table-entry)))
+                                            " FROM " (str/join ", " from-chain)
+                                            ". Hint: add a foreign key in the source database, "
+                                            "or specify an explicit JOIN in the FROM clause.")
+                                       {:current (:table-name current)
+                                        :target  next-table-name
+                                        :rule    {:table (:table-name table-entry)
+                                                  :from  from-chain}})))
+                      on-clause (str/join " AND "
+                                          (map (fn [lc rc]
+                                                 (str (:table-name current) "." lc
+                                                      " = " next-table-name "." rc))
+                                               (:columns fkey)
+                                               (:fcols fkey)))
+                      clause (str "JOIN " (identifier-quote schema) "."
+                                  (identifier-quote next-table-name)
+                                  " ON " on-clause)]
+                  (recur next-entry (rest remaining) (conj clauses clause)))))))
 
 (defn- build-backfill-select
   "Build the full SELECT … FROM … JOIN … query for backfilling the distribution key.
@@ -78,8 +78,8 @@
         fmt-col    (fn [tbl col]
                      (str tbl "." col (when cast-text? "::text")))
         col-list   (str/join ", "
-                     (concat [(fmt-col from-table-name dist-col-name)]
-                             (map #(fmt-col tname %) own-cols)))]
+                             (concat [(fmt-col from-table-name dist-col-name)]
+                                     (map #(fmt-col tname %) own-cols)))]
     (str "SELECT " col-list
          " FROM " (identifier-quote schema) "." (identifier-quote tname)
          " " join-sql)))
@@ -136,26 +136,26 @@
                 (when (contains? pk-set using)
                   (let [visited' (conj visited tname)]
                     (mapcat
-                      (fn [{:keys [source fkey]}]
-                        (when-not (contains? visited' source)
-                          (let [new-chain   (conj fkey-chain fkey)
-                                root-fk     (first new-chain)
-                                dist-pos    (first (keep-indexed #(when (= using %2) %1)
-                                                                 (:fcols root-fk)))
-                                local-col   (when dist-pos (nth (:columns root-fk) dist-pos))
+                     (fn [{:keys [source fkey]}]
+                       (when-not (contains? visited' source)
+                         (let [new-chain   (conj fkey-chain fkey)
+                               root-fk     (first new-chain)
+                               dist-pos    (first (keep-indexed #(when (= using %2) %1)
+                                                                (:fcols root-fk)))
+                               local-col   (when dist-pos (nth (:columns root-fk) dist-pos))
                                 ;; from-tables: intermediate hops in source→…→root order
                                 ;; = ftables of all FKs after the root, reversed
-                                from-tables (when (> (count new-chain) 1)
-                                              (vec (reverse (mapv :ftable (rest new-chain)))))]
-                            (when local-col
-                              (let [new-rule (if (seq from-tables)
-                                               {:type :distributed-from :table source
-                                                :using local-col :from from-tables}
-                                               {:type :distributed :table source
-                                                :using local-col})]
-                                (cons new-rule
-                                      (walk source new-chain visited')))))))
-                      (get reverse-fks tname []))))))]
+                               from-tables (when (> (count new-chain) 1)
+                                             (vec (reverse (mapv :ftable (rest new-chain)))))]
+                           (when local-col
+                             (let [new-rule (if (seq from-tables)
+                                              {:type :distributed-from :table source
+                                               :using local-col :from from-tables}
+                                              {:type :distributed :table source
+                                               :using local-col})]
+                               (cons new-rule
+                                     (walk source new-chain visited')))))))
+                     (get reverse-fks tname []))))))]
       (walk table [] #{}))))
 
 (defn expand-distribute-rules
@@ -187,44 +187,44 @@
                                      (count distribute-rules) " explicit rule(s)")))
         table-index (into {} (map (juxt :table-name identity) catalog))]
     (reduce
-      (fn [cat rule]
-        (if (= :reference (:type rule))
-          cat
-          (let [{:keys [table using from type]} rule
-                from-chain (vec from)
-                entry   (or (get table-index table)
-                            (throw (ex-info (str "Citus: table not found in catalog: " table)
-                                            {:rule rule})))
-                col-exists? (some #(= using (:column-name %)) (:columns entry))]
-            (if col-exists?
-              ;; Column exists — just update primary key, no read override needed
-              (mapv (fn [e]
-                      (if (= table (:table-name e))
-                        (update e :primary-key prepend-if-absent using)
-                        e))
-                    cat)
-              ;; Column does not exist — find it in the last FROM table
-              (let [from-table-name (last from-chain)
-                    from-entry (or (get table-index from-table-name)
-                                   (throw (ex-info
-                                           (str "Citus: FROM table not found in catalog: "
-                                                from-table-name)
+     (fn [cat rule]
+       (if (= :reference (:type rule))
+         cat
+         (let [{:keys [table using from type]} rule
+               from-chain (vec from)
+               entry   (or (get table-index table)
+                           (throw (ex-info (str "Citus: table not found in catalog: " table)
                                            {:rule rule})))
-                    dist-col-def (or (some #(when (= using (:column-name %)) %) (:columns from-entry))
-                                     (throw (ex-info
-                                             (str "Citus: distribution column '" using
-                                                  "' not found in FROM table " from-table-name)
-                                             {:rule rule})))
-                    _ (check-fkeys-present catalog from-chain table rule table-index)
-                    join-sql  (build-join-clause entry from-chain table-index)
-                    read-sql  (build-backfill-select entry using from-table-name join-sql source-type)]
-                (mapv (fn [e]
-                        (if (= table (:table-name e))
-                          (-> e
-                              (update :columns #(vec (cons dist-col-def %)))
-                              (update :primary-key prepend-if-absent using)
-                              (assoc :citus-read-sql read-sql))
-                          e))
-                      cat))))))
-      catalog
-      all-rules)))
+               col-exists? (some #(= using (:column-name %)) (:columns entry))]
+           (if col-exists?
+              ;; Column exists — just update primary key, no read override needed
+             (mapv (fn [e]
+                     (if (= table (:table-name e))
+                       (update e :primary-key prepend-if-absent using)
+                       e))
+                   cat)
+              ;; Column does not exist — find it in the last FROM table
+             (let [from-table-name (last from-chain)
+                   from-entry (or (get table-index from-table-name)
+                                  (throw (ex-info
+                                          (str "Citus: FROM table not found in catalog: "
+                                               from-table-name)
+                                          {:rule rule})))
+                   dist-col-def (or (some #(when (= using (:column-name %)) %) (:columns from-entry))
+                                    (throw (ex-info
+                                            (str "Citus: distribution column '" using
+                                                 "' not found in FROM table " from-table-name)
+                                            {:rule rule})))
+                   _ (check-fkeys-present catalog from-chain table rule table-index)
+                   join-sql  (build-join-clause entry from-chain table-index)
+                   read-sql  (build-backfill-select entry using from-table-name join-sql source-type)]
+               (mapv (fn [e]
+                       (if (= table (:table-name e))
+                         (-> e
+                             (update :columns #(vec (cons dist-col-def %)))
+                             (update :primary-key prepend-if-absent using)
+                             (assoc :citus-read-sql read-sql))
+                         e))
+                     cat))))))
+     catalog
+     all-rules)))

@@ -53,11 +53,11 @@
         (when-let [sep (first seps)]
           (or (when (try-csv-params sample n-cols sep \" \\)
                 (log/info (str "Guessed CSV params: fields terminated by '"
-                                 sep "', fields optionally enclosed by '\"', fields escaped by '\\'"))
+                               sep "', fields optionally enclosed by '\"', fields escaped by '\\'"))
                 {:separator sep :quote-char \" :escape-char \\})
               (when (try-csv-params sample n-cols sep \" \")
                 (log/info (str "Guessed CSV params: fields terminated by '"
-                                 sep "', fields optionally enclosed by '\"', fields escaped by '\"'"))
+                               sep "', fields optionally enclosed by '\"', fields escaped by '\"'"))
                 {:separator sep :quote-char \" :escape-char \"})
               (recur (rest seps))))))))
 
@@ -152,7 +152,7 @@
         micros (/ nano 1000)
         base (str (.format dt
                            (java.time.format.DateTimeFormatter/ofPattern
-                             "yyyy-MM-dd HH:mm:ss")))]
+                            "yyyy-MM-dd HH:mm:ss")))]
     (if (zero? micros)
       (str base ".000000")
       (format "%s.%06d" base micros))))
@@ -170,23 +170,23 @@
             (.format java.time.format.DateTimeFormatter/ISO_LOCAL_TIME))))))
 
 (defrecord CSVSource
-  [^String filepath
-   ^Charset encoding
-   ^long skip-lines
-   ^Character separator
-   ^Character quote-char
-   ^Character escape-char
-   column-names
-   nullif
-   keep-unquoted-blanks
-   trim-unquoted-blanks
-   inline-data
-   projections
-   csv-header
-   lines-terminator
-   column-formats
-   column-nullifs
-   stdin?]
+           [^String filepath
+            ^Charset encoding
+            ^long skip-lines
+            ^Character separator
+            ^Character quote-char
+            ^Character escape-char
+            column-names
+            nullif
+            keep-unquoted-blanks
+            trim-unquoted-blanks
+            inline-data
+            projections
+            csv-header
+            lines-terminator
+            column-formats
+            column-nullifs
+            stdin?]
 
   Source
   (source-name [_] (cond stdin? "csv:stdin"
@@ -250,11 +250,11 @@
                       (char 0)
                       (or raw-esc \\))
           parser (.build
-                   (doto (CSVParserBuilder.)
-                     (.withSeparator (char sep))
-                     (.withQuoteChar (if qc (char qc) (char 0)))
-                     (.withEscapeChar (char eff-esc))
-                     (.withFieldAsNull com.opencsv.enums.CSVReaderNullFieldIndicator/EMPTY_SEPARATORS)))
+                  (doto (CSVParserBuilder.)
+                    (.withSeparator (char sep))
+                    (.withQuoteChar (if qc (char qc) (char 0)))
+                    (.withEscapeChar (char eff-esc))
+                    (.withFieldAsNull com.opencsv.enums.CSVReaderNullFieldIndicator/EMPTY_SEPARATORS)))
           raw-input (cond
                       inline-data
                       (StringReader. (if (and lines-terminator
@@ -266,9 +266,9 @@
                       :else
                       (io/reader filepath :encoding (.name encoding)))
           reader (.build
-                   (doto (CSVReaderBuilder. raw-input)
-                     (.withCSVParser parser)
-                     (.withSkipLines (int (if csv-header 0 skip-lines)))))
+                  (doto (CSVReaderBuilder. raw-input)
+                    (.withCSVParser parser)
+                    (.withSkipLines (int (if csv-header 0 skip-lines)))))
           header-row (when csv-header (.readNext reader))
           cols (or (when csv-header (vec header-row)) column-names)
           nil-str nullif
@@ -294,9 +294,9 @@
           needs-quot (or trim-blanks nil-str (seq col-nil-map))
           trim-reader (when (and needs-quot filepath (not inline-data) (not stdin?))
                         (let [rdr (BufferedReader.
-                                    (InputStreamReader.
-                                      (io/input-stream filepath)
-                                      (.name encoding)))
+                                   (InputStreamReader.
+                                    (io/input-stream filepath)
+                                    (.name encoding)))
                               skip-n (+ (if csv-header 1 0)
                                         (if csv-header 0 (int skip-lines)))]
                           (dotimes [_ skip-n] (.readLine ^BufferedReader rdr))
@@ -340,21 +340,21 @@
           ;; Build projection: each entry is [source-idx transform-fn-or-nil]
           proj-fn (when source-idx
                     (let [mappings (mapv (fn [p i]
-                                          (let [using (:using p)]
-                                            (if using
+                                           (let [using (:using p)]
+                                             (if using
                                               ;; Check if it's a compilable Clojure fn form
-                                              (let [xfn (transforms/compile-using-expr using)]
-                                                (if xfn
+                                               (let [xfn (transforms/compile-using-expr using)]
+                                                 (if xfn
                                                   ;; fn transform — read this col by position
-                                                  [(when (< i (count cols)) i) xfn]
+                                                   [(when (< i (count cols)) i) xfn]
                                                   ;; Column reference — extract name, strip parens
-                                                  (let [src-name (if (= \" (first using))
-                                                                   (str/replace using #"^\"|\"$" "")
-                                                                   (-> (last (str/split using #"\s+"))
-                                                                       (str/replace #"[()]" "")))]
-                                                    [(get source-idx src-name) nil])))
-                                              [(when (< i (count cols)) i) nil])))
-                                        projections (range (count projections)))]
+                                                   (let [src-name (if (= \" (first using))
+                                                                    (str/replace using #"^\"|\"$" "")
+                                                                    (-> (last (str/split using #"\s+"))
+                                                                        (str/replace #"[()]" "")))]
+                                                     [(get source-idx src-name) nil])))
+                                               [(when (< i (count cols)) i) nil])))
+                                         projections (range (count projections)))]
                       (fn [^"[Ljava.lang.String;" line quoted-flags]
                         (mapv (fn [[idx xfn]]
                                 (when (and idx (< idx (alength line)))
@@ -377,9 +377,9 @@
                                 (let [det-esc (when (and raw-esc (not= (char 0) (char raw-esc)))
                                                 (char raw-esc))]
                                   (second (csv-parse-line-with-flags
-                                            raw-line (char sep)
-                                            (when qc (char qc))
-                                            det-esc))))]
+                                           raw-line (char sep)
+                                           (when qc (char qc))
+                                           det-esc))))]
              (if (or (and (= 1 (alength line)) (str/blank? (aget line 0)))
                      (and cols (every? true? (map = cols (seq line)))))
                (thisfn)
@@ -397,24 +397,24 @@
                                         (recur (inc i)
                                                (conj! result (apply-null-trim v cnil is-q))))
                                       (persistent! result))))]
-                       (if date-transform-fn
-                         (date-transform-fn raw)
-                         raw))
+                        (if date-transform-fn
+                          (date-transform-fn raw)
+                          raw))
                       (thisfn)))))))))))
 
 (defrecord GlobCSVSource
-  [^String directory
-   ^String pattern
-   ^Charset encoding
-   ^long skip-lines
-   ^Character separator
-   ^Character quote-char
-   ^Character escape-char
-   column-names
-   nullif
-   keep-unquoted-blanks
-   trim-unquoted-blanks
-   projections]
+           [^String directory
+            ^String pattern
+            ^Charset encoding
+            ^long skip-lines
+            ^Character separator
+            ^Character quote-char
+            ^Character escape-char
+            column-names
+            nullif
+            keep-unquoted-blanks
+            trim-unquoted-blanks
+            projections]
 
   Source
   (source-name [_] (str "csv-glob:" directory "/" pattern))

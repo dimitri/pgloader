@@ -127,8 +127,8 @@
   [lo hi chunk-size]
   (when (and lo hi (< lo hi) (pos? chunk-size))
     (take-while (fn [[a _]] (< a hi))
-      (iterate (fn [[_ b]] [b (min hi (+ b chunk-size))])
-               [lo (min hi (+ lo chunk-size))]))))
+                (iterate (fn [[_ b]] [b (min hi (+ b chunk-size))])
+                         [lo (min hi (+ lo chunk-size))]))))
 
 (defn- distribute-pg
   "Round-robin distribute coll across n buckets. Returns vector of n vectors."
@@ -139,11 +139,11 @@
     (mapv persistent! buckets)))
 
 (deftype PGSQLSource
-  [^Connection conn
-   ^String source-name-str
-   uri-map   ; connection parameters, used by partition-source to clone connections
-   ctid-lo   ; Long block number (inclusive) for ctid range scan, or nil
-   ctid-hi]  ; Long block number (exclusive) for ctid range scan, or nil
+         [^Connection conn
+          ^String source-name-str
+          uri-map   ; connection parameters, used by partition-source to clone connections
+          ctid-lo   ; Long block number (inclusive) for ctid range scan, or nil
+          ctid-hi]  ; Long block number (exclusive) for ctid range scan, or nil
 
   Source
   (source-name [_] source-name-str)
@@ -164,10 +164,10 @@
                          pkeys (table-pkeys conn {:schema schema :table table-name})
                          idxes (table-indexes conn {:schema schema :table table-name})
                          fks   (table-fkeys conn {:schema schema :table table-name})]
-                      {:table-name table-name
-                       :schema schema
-                       :source-schema schema
-                       :columns (mapv (fn [c]
+                     {:table-name table-name
+                      :schema schema
+                      :source-schema schema
+                      :columns (mapv (fn [c]
                                        (let [col-type (:data_type c)
                                              is-pk (some #(= (:column_name c) %) (mapv :column_name pkeys))
                                              ai (detect-autoincrement (:column_default c) (:column_name c) col-type)]
@@ -178,16 +178,16 @@
                                                            (or (pg-array-type->pg (:udt_name c)) "text[]")
                                                            (pg-type->pg col-type)))
                                           :is-nullable (= "YES" (:is_nullable c))
-                                           :column-default (when-not ai (:column_default c))
+                                          :column-default (when-not ai (:column_default c))
                                           :extra (when ai "auto_increment")}))
                                      cols)
                       :primary-key (mapv :column_name pkeys)
                       :indexes (->> idxes
-                                   (mapv (fn [idx]
-                                           {:name (:index_name idx)
-                                            :unique (str/includes? (str/upper-case (:index_def idx)) "UNIQUE")
-                                            :columns (build-index-cols conn (:index_name idx))}))
-                                   (filterv #(seq (:columns %))))
+                                    (mapv (fn [idx]
+                                            {:name (:index_name idx)
+                                             :unique (str/includes? (str/upper-case (:index_def idx)) "UNIQUE")
+                                             :columns (build-index-cols conn (:index_name idx))}))
+                                    (filterv #(seq (:columns %))))
                       :fkeys (parse-fk-rules fks)})))
            (sort-by :table-name))))
 
@@ -200,7 +200,7 @@
                          (str "SELECT " col-list " FROM \"" source-schema "\".\"" table-name "\"")))
           sql (if (and ctid-lo ctid-hi)
                 (str base-sql " " (first (ctid-where-sqlvec {:lo (str "'(" ctid-lo ",0)'::tid")
-                                                              :hi (str "'(" ctid-hi ",0)'::tid")})))
+                                                             :hi (str "'(" ctid-hi ",0)'::tid")})))
                 base-sql)
           _ (log/debug (str "PGSQL read-rows: " sql))
           stmt (.prepareStatement conn sql)]
@@ -213,15 +213,15 @@
           ((fn thisfn []
              (when (.next rs)
                (lazy-seq
-                 (cons (loop [i 1
-                              result (transient [])]
-                         (if (<= i n)
-                           (recur (inc i)
-                                  (conj! result
-                                    (let [v (.getObject rs i)]
-                                      (when v (str v)))))
-                           (persistent! result)))
-                       (thisfn)))))))
+                (cons (loop [i 1
+                             result (transient [])]
+                        (if (<= i n)
+                          (recur (inc i)
+                                 (conj! result
+                                        (let [v (.getObject rs i)]
+                                          (when v (str v)))))
+                          (persistent! result)))
+                      (thisfn)))))))
         (catch Exception e
           (log/error (str "Query failed: " sql " - " (.getMessage e)))
           (throw e)))))
@@ -243,14 +243,14 @@
            ((fn thisfn []
               (when (.next rs)
                 (lazy-seq
-                  (cons (loop [i 1 result (transient [])]
-                          (if (<= i n)
-                            (recur (inc i)
-                                   (conj! result
-                                     (let [v (.getObject rs i)]
-                                       (when v (str v)))))
-                            (persistent! result)))
-                        (thisfn))))))})
+                 (cons (loop [i 1 result (transient [])]
+                         (if (<= i n)
+                           (recur (inc i)
+                                  (conj! result
+                                         (let [v (.getObject rs i)]
+                                           (when v (str v)))))
+                           (persistent! result)))
+                       (thisfn))))))})
         (catch Exception e
           (log/error (str "Query failed: " sql " - " (.getMessage e)))
           (throw e)))))
@@ -286,12 +286,12 @@
                 (when (>= (count ranges) 2)
                   (let [buckets (distribute-pg ranges n)]
                     (keep-indexed
-                      (fn [_i bucket]
-                        (when (seq bucket)
-                          (let [lo (ffirst bucket)
-                                hi (second (last bucket))]
-                            (->PGSQLSource (connection uri-map) source-name-str uri-map lo hi))))
-                      buckets))))))
+                     (fn [_i bucket]
+                       (when (seq bucket)
+                         (let [lo (ffirst bucket)
+                               hi (second (last bucket))]
+                           (->PGSQLSource (connection uri-map) source-name-str uri-map lo hi))))
+                     buckets))))))
           (catch clojure.lang.ExceptionInfo e
             (when-not (:skip (ex-data e)) (log/warn (str "partition-source PG: " (.getMessage e))))
             nil)

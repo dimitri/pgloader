@@ -11,12 +11,12 @@
 (set! *warn-on-reflection* true)
 
 (defrecord Batch
-  [start-time
-   row-count
-   byte-count
-   rows
-   max-rows
-   max-bytes])
+           [start-time
+            row-count
+            byte-count
+            rows
+            max-rows
+            max-bytes])
 
 (defn make-batch
   "Create a new Batch with randomized row capacity (0.7x-1.3x of base-rows)."
@@ -136,12 +136,12 @@
                         (.rollback ^Connection pg-conn)
                         (let [inner-err-line (parse-copy-line inner-e)
                               inner-bad-idx (if (and inner-err-line
-                                                      (< (+ pos inner-err-line) bad-idx)
-                                                      (>= (+ pos inner-err-line) pos))
+                                                     (< (+ pos inner-err-line) bad-idx)
+                                                     (>= (+ pos inner-err-line) pos))
                                               (+ pos inner-err-line)
                                               pos)]
                           (let [paths (write-reject-row! batch inner-bad-idx
-                                                        table-spec inner-e)]
+                                                         table-spec inner-e)]
                             (log/warn (str "Row permanently rejected for "
                                            (:target-table table-spec)))
                             {:sub-error true

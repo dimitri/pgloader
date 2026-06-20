@@ -169,9 +169,9 @@
            " GENERATED ALWAYS AS (" generated-expression ") STORED")
       (let [zero? (zero-date? col)
             coerced-default (coerce-default-for-type
-                              (when column-default (strip-quotes (str column-default)))
-                              pg-type
-                              (:cast-fn col))
+                             (when column-default (strip-quotes (str column-default)))
+                             pg-type
+                             (:cast-fn col))
             temporal-int-default? (and coerced-default
                                        (re-find #"(?i)^(timestamp|date|time)" (or pg-type ""))
                                        (re-matches #"^-?\d+$" (str coerced-default)))
@@ -211,12 +211,12 @@
                        (str "COMMENT ON TABLE " quoted-name
                             " IS '" (str/replace table-comment "'" "''") "';"))
          col-comments (str/join "\n"
-                        (keep (fn [col]
-                                (when-let [c (not-empty (:column-comment col))]
-                                  (str "COMMENT ON COLUMN " quoted-name "."
-                                       (identifier-quote (:column-name col))
-                                       " IS '" (str/replace c "'" "''") "';")))
-                              columns))
+                                (keep (fn [col]
+                                        (when-let [c (not-empty (:column-comment col))]
+                                          (str "COMMENT ON COLUMN " quoted-name "."
+                                               (identifier-quote (:column-name col))
+                                               " IS '" (str/replace c "'" "''") "';")))
+                                      columns))
          comments (str/join "\n" (filter not-empty [tbl-comment col-comments]))]
      (str "CREATE TABLE IF NOT EXISTS " quoted-name " (\n" col-defs "\n);\n"
           (when (seq comments) (str comments "\n"))))))
@@ -243,14 +243,14 @@
   [schema table-name columns]
   (let [quoted-table (quote-fqname schema table-name)]
     (str/join "\n"
-      (keep (fn [col]
-              (when (:key col)
-                (let [idx-name (str table-name "_" (:column-name col) "_idx")
-                      quoted-col (identifier-quote (:column-name col))]
-                  (str "CREATE INDEX IF NOT EXISTS "
-                       (identifier-quote idx-name)
-                       " ON " quoted-table " (" quoted-col ");\n"))))
-            columns))))
+              (keep (fn [col]
+                      (when (:key col)
+                        (let [idx-name (str table-name "_" (:column-name col) "_idx")
+                              quoted-col (identifier-quote (:column-name col))]
+                          (str "CREATE INDEX IF NOT EXISTS "
+                               (identifier-quote idx-name)
+                               " ON " quoted-table " (" quoted-col ");\n"))))
+                    columns))))
 
 (defn create-indexes-sql
   "Generate CREATE INDEX statements from the catalog :indexes vector.
@@ -268,11 +268,11 @@
                   fulltext? (= "FULLTEXT" (:index-type idx))
                   uniq-str  (if (and (:unique idx) (not fulltext?)) " UNIQUE" "")
                   quoted-cols (str/join ", "
-                               (map (fn [col]
-                                      (if (str/starts-with? col "(")
-                                        col
-                                        (identifier-quote col)))
-                                    (:columns idx)))]
+                                        (map (fn [col]
+                                               (if (str/starts-with? col "(")
+                                                 col
+                                                 (identifier-quote col)))
+                                             (:columns idx)))]
               (if fulltext?
                 (str "CREATE INDEX IF NOT EXISTS "
                      idx-name " ON " quoted-table
@@ -352,7 +352,7 @@
   [catalog alter-schema-rules]
   (if (seq alter-schema-rules)
     (let [rename-map (into {} (map (juxt :source-name :target-name))
-                          alter-schema-rules)]
+                           alter-schema-rules)]
       (mapv (fn [t]
               (assoc t :schema (get rename-map (:schema t) (:schema t))))
             catalog))
@@ -414,7 +414,7 @@
                                     pg-ref    (str (identifier-quote sch) "." (identifier-quote type-name))
                                     pg-type   (if is-st (str pg-ref "[]") pg-ref)]
                                 [(conj cols (assoc col :column-type pg-type
-                                                       :source-column-type (:column-type col)))
+                                                   :source-column-type (:column-type col)))
                                  (conj types {:type-name type-name
                                               :schema    sch
                                               :values    values
@@ -429,14 +429,14 @@
   "Generate DROP TYPE IF EXISTS + CREATE TYPE statements for ENUM/SET columns."
   [enum-types]
   (vec
-    (mapcat (fn [et]
-              (let [quoted (quote-fqname (:schema et) (:type-name et))
-                    values (str/join ", "
-                             (map #(str "'" (str/replace % "'" "''") "'")
-                                  (:values et)))]
-                [(str "DROP TYPE IF EXISTS " quoted " CASCADE;")
-                 (str "CREATE TYPE " quoted " AS ENUM (" values ");")]))
-            enum-types)))
+   (mapcat (fn [et]
+             (let [quoted (quote-fqname (:schema et) (:type-name et))
+                   values (str/join ", "
+                                    (map #(str "'" (str/replace % "'" "''") "'")
+                                         (:values et)))]
+               [(str "DROP TYPE IF EXISTS " quoted " CASCADE;")
+                (str "CREATE TYPE " quoted " AS ENUM (" values ");")]))
+           enum-types)))
 
 (defn- on-update-current-timestamp?
   "Return truthy if the column has an ON UPDATE CURRENT_TIMESTAMP extra."
@@ -456,8 +456,8 @@
             quoted-fn     (identifier-quote fn-name)
             trigger-name  (identifier-quote (str "trg_" table-name "_ts"))
             assignments   (str/join "\n    "
-                            (map #(str "NEW." (identifier-quote (:column-name %)) " = now();")
-                                 ts-cols))
+                                    (map #(str "NEW." (identifier-quote (:column-name %)) " = now();")
+                                         ts-cols))
             fn-sql  (str "CREATE OR REPLACE FUNCTION "
                          quoted-schema "." quoted-fn "() RETURNS trigger AS $$\n"
                          "BEGIN\n"
@@ -499,6 +499,6 @@
                          quoted-col (identifier-quote col-name)]
                      (str "SELECT pg_catalog.setval("
                           "pg_get_serial_sequence('" quoted-fqname "', '" col-name "')"
-                           ", COALESCE(MAX(" quoted-col "), 1), false)"
+                          ", COALESCE(MAX(" quoted-col "), 1), false)"
                           " FROM " quoted-fqname ";\n"))))
                columns))))

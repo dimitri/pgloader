@@ -66,10 +66,10 @@
 
 (deftest test-copy-sql
   (let [sql (copy/copy-sql
-              {:target-schema "public"
-               :target-table "users"
-               :columns [{:column-name "id"}
-                         {:column-name "name"}
-                         {:column-name "email"}]})]
+             {:target-schema "public"
+              :target-table "users"
+              :columns [{:column-name "id"}
+                        {:column-name "name"}
+                        {:column-name "email"}]})]
     (is (= "COPY \"public\".\"users\" (\"id\", \"name\", \"email\") FROM STDIN WITH (FORMAT TEXT)"
            sql))))

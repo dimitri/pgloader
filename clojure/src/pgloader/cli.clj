@@ -140,30 +140,30 @@
   (System/exit 0))
 
 (defrecord CLIOptions
-  [load-files           ; vector of .load file paths
-   load-file            ; single load file (kept for compat)
-   source-uri
-   target-uri
-   verbose
-   debug
-   quiet
-   root-dir
-   summary
-   on-error-stop        ; --on-error-stop
-   dry-run              ; --dry-run
-   client-min-messages  ; --client-min-messages
-   log-min-messages     ; --log-min-messages
+           [load-files           ; vector of .load file paths
+            load-file            ; single load file (kept for compat)
+            source-uri
+            target-uri
+            verbose
+            debug
+            quiet
+            root-dir
+            summary
+            on-error-stop        ; --on-error-stop
+            dry-run              ; --dry-run
+            client-min-messages  ; --client-min-messages
+            log-min-messages     ; --log-min-messages
    ;; URI-pair mode overrides
-   source-type          ; --type
-   encoding             ; --encoding
-   with-opts            ; --with (vector of strings)
-   set-params           ; --set (vector of [var val] pairs)
-   cast-rules           ; --cast (vector of strings)
-   field-defs           ; --field (vector of strings)
-   before-file          ; --before
-   after-file           ; --after
-   logfile              ; --logfile
-   ])
+            source-type          ; --type
+            encoding             ; --encoding
+            with-opts            ; --with (vector of strings)
+            set-params           ; --set (vector of [var val] pairs)
+            cast-rules           ; --cast (vector of strings)
+            field-defs           ; --field (vector of strings)
+            before-file          ; --before
+            after-file           ; --after
+            logfile              ; --logfile
+            ])
 
 (defn- deprecated-flag!
   "Warn and exit when the user passes a flag that was removed in v4."
@@ -188,44 +188,44 @@
         "--on-error-stop"         (recur (assoc opts :on-error-stop true) (rest remaining))
         "--dry-run"               (recur (assoc opts :dry-run true) (rest remaining))
         "--root-dir"              (recur (assoc opts :root-dir (second remaining))
-                                        (drop 2 remaining))
+                                         (drop 2 remaining))
         "--summary"               (recur (assoc opts :summary (second remaining))
-                                        (drop 2 remaining))
+                                         (drop 2 remaining))
         "--logfile"               (recur (assoc opts :logfile (second remaining))
-                                        (drop 2 remaining))
+                                         (drop 2 remaining))
         "--client-min-messages"   (recur (assoc opts :client-min-messages (second remaining))
-                                        (drop 2 remaining))
+                                         (drop 2 remaining))
         "--log-min-messages"      (recur (assoc opts :log-min-messages (second remaining))
-                                        (drop 2 remaining))
+                                         (drop 2 remaining))
         "--type"                  (recur (assoc opts :source-type (second remaining))
-                                        (drop 2 remaining))
+                                         (drop 2 remaining))
         "--encoding"              (recur (assoc opts :encoding (second remaining))
-                                        (drop 2 remaining))
+                                         (drop 2 remaining))
         "--with"                  (recur (update opts :with-opts conj (second remaining))
-                                        (drop 2 remaining))
+                                         (drop 2 remaining))
         "--cast"                  (recur (update opts :cast-rules conj (second remaining))
-                                        (drop 2 remaining))
+                                         (drop 2 remaining))
         "--field"                 (recur (update opts :field-defs conj (second remaining))
-                                        (drop 2 remaining))
+                                         (drop 2 remaining))
         "--before"                (recur (assoc opts :before-file (second remaining))
-                                        (drop 2 remaining))
+                                         (drop 2 remaining))
         "--after"                 (recur (assoc opts :after-file (second remaining))
-                                        (drop 2 remaining))
+                                         (drop 2 remaining))
         "--set"                   (let [var-name (second remaining)
                                         val      (nth remaining 3 nil)
                                         rest-r   (drop 4 remaining)]
                                     (recur (update opts :set-params conj [var-name val]) rest-r))
         ;; Deprecated flags — exit with a clear message rather than silently ignoring.
         "--upgrade-config"        (deprecated-flag! "--upgrade-config"
-                                    "v4 does not support INI config files. Use .load files instead.")
+                                                    "v4 does not support INI config files. Use .load files instead.")
         "--self-upgrade"          (deprecated-flag! "--self-upgrade"
-                                    "v4 is distributed as a self-contained JAR; use package/container updates.")
+                                                    "v4 is distributed as a self-contained JAR; use package/container updates.")
         ("--load-lisp-file" "-l") (deprecated-flag! "--load-lisp-file"
-                                    "Lisp extension files are not supported in v4. Contact the maintainers if you need runtime transform extensions.")
+                                                    "Lisp extension files are not supported in v4. Contact the maintainers if you need runtime transform extensions.")
         ("--context" "-C")        (deprecated-flag! "--context"
-                                    "Use environment variables for configuration in v4: {{VAR}} in load files expands $VAR.")
+                                                    "Use environment variables for configuration in v4: {{VAR}} in load files expands $VAR.")
         "--no-ssl-cert-verification" (deprecated-flag! "--no-ssl-cert-verification"
-                                       "Use ?sslmode=disable in the connection URI instead, e.g. postgresql://host/db?sslmode=disable")
+                                                       "Use ?sslmode=disable in the connection URI instead, e.g. postgresql://host/db?sslmode=disable")
         ;; positional
         (if (str/ends-with? arg ".load")
           (recur (update opts :load-files conj arg) (rest remaining))
@@ -281,7 +281,7 @@
         ;; Build the SET clause
         set-str (when (seq set-clauses)
                   (str "SET " (str/join ", "
-                                (map (fn [[k v]] (str k " to '" v "'")) set-clauses))))
+                                        (map (fn [[k v]] (str k " to '" v "'")) set-clauses))))
         ;; Build BEFORE / AFTER LOAD DO $$ ... $$
         before-str (when before-file
                      (try
@@ -299,18 +299,18 @@
                         nil)))
         ;; Assemble the synthetic load file
         load-str (str/join "\n"
-                   (filter some?
-                     [(str "LOAD " source-kind)
-                      (str "  FROM " effective-source)
-                      encoding-str
-                      fields-str
-                      (str "  INTO " target-uri-str)
-                      with-str
-                      cast-str
-                      set-str
-                      before-str
-                      after-str
-                      ";"]))
+                           (filter some?
+                                   [(str "LOAD " source-kind)
+                                    (str "  FROM " effective-source)
+                                    encoding-str
+                                    fields-str
+                                    (str "  INTO " target-uri-str)
+                                    with-str
+                                    cast-str
+                                    set-str
+                                    before-str
+                                    after-str
+                                    ";"]))
         result (parser/parse-string load-str)]
     (if (:error result)
       (do (println "Error building inline command:" (:error result))
@@ -323,30 +323,30 @@
   (if (= (first args) "regress")
     (regress/run (rest args))
     (let [opts (parse-args args)]
-    (configure-logging opts)
-    (binding [copy/*root-dir*        (or (:root-dir opts) copy/*root-dir*)
-              copy/*on-error-stop*   (:on-error-stop opts)
-              copy/*dry-run*         (:dry-run opts)]
-      (when (:dry-run opts)
-        (log/info "DRY RUN — no data will be copied"))
-      (if (seq (:load-files opts))
-        (do
+      (configure-logging opts)
+      (binding [copy/*root-dir*        (or (:root-dir opts) copy/*root-dir*)
+                copy/*on-error-stop*   (:on-error-stop opts)
+                copy/*dry-run*         (:dry-run opts)]
+        (when (:dry-run opts)
+          (log/info "DRY RUN — no data will be copied"))
+        (if (seq (:load-files opts))
+          (do
           ;; Warn if URI-mode-only flags are provided with .load files
-          (when (or (seq (:with-opts opts)) (seq (:cast-rules opts))
-                    (:before-file opts) (:after-file opts))
-            (log/warn "--with, --cast, --before, --after are ignored when using a load file"))
-          (doseq [f (:load-files opts)]
-            (let [_ (log/info (str "Parsing commands from file " f))
-                  result (parser/parse-file f)]
-              (if (:error result)
-                (do (println "Error:" (:error result))
-                    (System/exit 1))
-                (core/run-command (:ok result) opts)))))
-        (if (and (:source-uri opts) (:target-uri opts))
-          (let [cmd (build-inline-command (:source-uri opts) (:target-uri opts) opts)]
-            (core/run-command cmd opts))
-          (do (println "No load file or source/target specified")
-              (print-usage))))))))
+            (when (or (seq (:with-opts opts)) (seq (:cast-rules opts))
+                      (:before-file opts) (:after-file opts))
+              (log/warn "--with, --cast, --before, --after are ignored when using a load file"))
+            (doseq [f (:load-files opts)]
+              (let [_ (log/info (str "Parsing commands from file " f))
+                    result (parser/parse-file f)]
+                (if (:error result)
+                  (do (println "Error:" (:error result))
+                      (System/exit 1))
+                  (core/run-command (:ok result) opts)))))
+          (if (and (:source-uri opts) (:target-uri opts))
+            (let [cmd (build-inline-command (:source-uri opts) (:target-uri opts) opts)]
+              (core/run-command cmd opts))
+            (do (println "No load file or source/target specified")
+                (print-usage))))))))
 
 (defn -main
   "Main entry point for the JAR."

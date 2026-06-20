@@ -118,8 +118,8 @@
   [lo hi chunk-size]
   (when (and lo hi (< lo hi) (pos? chunk-size))
     (take-while (fn [[a _]] (< a hi))
-      (iterate (fn [[_ b]] [b (min hi (+ b chunk-size))])
-               [lo (min hi (+ lo chunk-size))]))))
+                (iterate (fn [[_ b]] [b (min hi (+ b chunk-size))])
+                         [lo (min hi (+ lo chunk-size))]))))
 
 (defn- distribute
   "Round-robin distribute coll across n buckets.
@@ -159,13 +159,13 @@
   [columns mysql-table]
   (let [col-list (if (seq columns)
                    (str/join ", "
-                     (mapv (fn [col]
-                             (let [cn (:column-name col)
-                                   ct (or (:source-column-type col) (:column-type col))]
-                               (if (geometry-type? ct)
-                                 (str "ST_AsText(`" cn "`) AS `" cn "`")
-                                 (str "`" cn "`"))))
-                           columns))
+                             (mapv (fn [col]
+                                     (let [cn (:column-name col)
+                                           ct (or (:source-column-type col) (:column-type col))]
+                                       (if (geometry-type? ct)
+                                         (str "ST_AsText(`" cn "`) AS `" cn "`")
+                                         (str "`" cn "`"))))
+                                   columns))
                    "*")]
     (str "SELECT " col-list " FROM `" mysql-table "`")))
 
@@ -200,32 +200,32 @@
                                         (throw e)))]
                     (if has-next
                       (lazy-seq
-                        (cons (loop [i 1 result (transient [])]
-                                (if (<= i n)
-                                  (recur (inc i)
-                                         (conj! result
-                                           (convert-mysql-value
-                                             (.getObject rs i)
-                                             (nth jtypes (dec i))
-                                             (nth columns (dec i) nil))))
-                                  (persistent! result)))
-                              (next-row)))
+                       (cons (loop [i 1 result (transient [])]
+                               (if (<= i n)
+                                 (recur (inc i)
+                                        (conj! result
+                                               (convert-mysql-value
+                                                (.getObject rs i)
+                                                (nth jtypes (dec i))
+                                                (nth columns (dec i) nil))))
+                                 (persistent! result)))
+                             (next-row)))
                       ;; RS exhausted — open next range
                       (stream-ranges! conn active-stmt active-rs rest-sql columns))))]
           (next-row))))))
 
 (deftype MySQLSource
-  [^Connection conn
-   ^String database
-   ^String schema-name
-   table-spec
-   decoding-rules  ; seq of {:patterns [...] :encoding charset} or nil
-   server-variant  ; {:variant :mysql/:mariadb :major-version N :version-string "..."}
-   active-stmt     ; volatile! — current streaming PreparedStatement, or nil
-   active-rs       ; volatile! — current streaming ResultSet, or nil
-   uri-map         ; connection parameters map, used by partition-source to clone connections
-   range-col       ; String pk column for range queries, or nil (no partitioning)
-   ranges]         ; seq of [lo hi] Long pairs (one per partition range), or nil
+         [^Connection conn
+          ^String database
+          ^String schema-name
+          table-spec
+          decoding-rules  ; seq of {:patterns [...] :encoding charset} or nil
+          server-variant  ; {:variant :mysql/:mariadb :major-version N :version-string "..."}
+          active-stmt     ; volatile! — current streaming PreparedStatement, or nil
+          active-rs       ; volatile! — current streaming ResultSet, or nil
+          uri-map         ; connection parameters map, used by partition-source to clone connections
+          range-col       ; String pk column for range queries, or nil (no partitioning)
+          ranges]         ; seq of [lo hi] Long pairs (one per partition range), or nil
 
   Source
   (source-name [_] (str "mysql://" database "/" (:table-name table-spec)))
@@ -242,66 +242,66 @@
             ;; MariaDB and MySQL 5.x must use the simpler query without it.
             use-simple-index-query? (or (= :mariadb (:variant server-variant))
                                         (< (:major-version server-variant) 8))]
-      (->> ts
-           (map (fn [t]
-                  (let [table-name (apply-identifier-case (:table_name t) id-case)
-                        cols (columns conn
-                                      {:schema schema-name
-                                       :table (:table_name t)})
-                        pkeys (table-pkeys conn
-                                           {:schema schema-name
-                                            :table (:table_name t)})
-                        idxes (if use-simple-index-query?
-                                (table-indexes-mariadb conn {:schema schema-name
-                                                             :table (:table_name t)})
-                                (table-indexes conn {:schema schema-name
-                                                     :table (:table_name t)}))
-                        fks   (table-fkeys conn
-                                           {:schema schema-name
-                                            :table (:table_name t)})]
-                    {:table-name        table-name
-                     :source-table-name (:table_name t)
-                     :schema            schema-name
-                     :table-comment     (not-empty (:table_comment t))
-                    :columns    (mapv (fn [c]
-                                          (let [gen-expr (mysql-gen-expr->pg
+        (->> ts
+             (map (fn [t]
+                    (let [table-name (apply-identifier-case (:table_name t) id-case)
+                          cols (columns conn
+                                        {:schema schema-name
+                                         :table (:table_name t)})
+                          pkeys (table-pkeys conn
+                                             {:schema schema-name
+                                              :table (:table_name t)})
+                          idxes (if use-simple-index-query?
+                                  (table-indexes-mariadb conn {:schema schema-name
+                                                               :table (:table_name t)})
+                                  (table-indexes conn {:schema schema-name
+                                                       :table (:table_name t)}))
+                          fks   (table-fkeys conn
+                                             {:schema schema-name
+                                              :table (:table_name t)})]
+                      {:table-name        table-name
+                       :source-table-name (:table_name t)
+                       :schema            schema-name
+                       :table-comment     (not-empty (:table_comment t))
+                       :columns    (mapv (fn [c]
+                                           (let [gen-expr (mysql-gen-expr->pg
                                                            (:generation_expression c))]
-                                            (cond-> {:column-name      (apply-identifier-case (:column_name c) id-case)
-                                                     :column-type      (:column_type c)
-                                                     :is-nullable      (= "YES" (:is_nullable c))
-                                                     :column-default   (:column_default c)
-                                                     :extra            (:extra c)
-                                                     :column-key       (:column_key c)
-                                                     :ordinal-position (:ordinal_position c)
-                                                     :column-comment   (:column_comment c)}
-                                              gen-expr (assoc :generated-expression gen-expr))))
-                                        cols)
-                     :primary-key (mapv #(apply-identifier-case % id-case) (mapv :column_name pkeys))
-                     :indexes    (mapv (fn [idx]
-                                         {:name       (:index_name idx)
-                                          :unique     (zero? (:non_unique idx))
-                                          :index-type (:index_type idx)
-                                          :columns    (mapv (fn [col]
-                                                              (if (str/starts-with? col "(")
-                                                                (translate-mysql-expression col)
-                                                                (apply-identifier-case col id-case)))
-                                                            (split-index-columns (:columns idx)))})
-                                       idxes)
-                     :fkeys      (mapv (fn [fk]
-                                         {:name      (:constraint_name fk)
-                                          :columns   (mapv #(apply-identifier-case % id-case)
-                                                           (str/split (:cols fk) #","))
-                                          :ftable    (apply-identifier-case (:ftable fk) id-case)
-                                          :fcols     (mapv #(apply-identifier-case % id-case)
-                                                           (str/split (:fcols fk) #","))
-                                          :on-delete (:delete_rule fk)
-                                          :on-update (:update_rule fk)})
-                                       fks)})))
-           (filter (fn [t]
-                     (if-let [filter-fn (:table-filter table-spec)]
-                       (filter-fn (:table-name t))
-                       true)))
-           (sort-by :table-name)))))
+                                             (cond-> {:column-name      (apply-identifier-case (:column_name c) id-case)
+                                                      :column-type      (:column_type c)
+                                                      :is-nullable      (= "YES" (:is_nullable c))
+                                                      :column-default   (:column_default c)
+                                                      :extra            (:extra c)
+                                                      :column-key       (:column_key c)
+                                                      :ordinal-position (:ordinal_position c)
+                                                      :column-comment   (:column_comment c)}
+                                               gen-expr (assoc :generated-expression gen-expr))))
+                                         cols)
+                       :primary-key (mapv #(apply-identifier-case % id-case) (mapv :column_name pkeys))
+                       :indexes    (mapv (fn [idx]
+                                           {:name       (:index_name idx)
+                                            :unique     (zero? (:non_unique idx))
+                                            :index-type (:index_type idx)
+                                            :columns    (mapv (fn [col]
+                                                                (if (str/starts-with? col "(")
+                                                                  (translate-mysql-expression col)
+                                                                  (apply-identifier-case col id-case)))
+                                                              (split-index-columns (:columns idx)))})
+                                         idxes)
+                       :fkeys      (mapv (fn [fk]
+                                           {:name      (:constraint_name fk)
+                                            :columns   (mapv #(apply-identifier-case % id-case)
+                                                             (str/split (:cols fk) #","))
+                                            :ftable    (apply-identifier-case (:ftable fk) id-case)
+                                            :fcols     (mapv #(apply-identifier-case % id-case)
+                                                             (str/split (:fcols fk) #","))
+                                            :on-delete (:delete_rule fk)
+                                            :on-update (:update_rule fk)})
+                                         fks)})))
+             (filter (fn [t]
+                       (if-let [filter-fn (:table-filter table-spec)]
+                         (filter-fn (:table-name t))
+                         true)))
+             (sort-by :table-name)))))
 
   (read-rows [_ table-spec-entry]
     (let [{:keys [table-name source-table-name columns citus-read-sql]} table-spec-entry
@@ -338,14 +338,14 @@
        ((fn thisfn []
           (when (.next rs)
             (lazy-seq
-              (cons (loop [i 1 result (transient [])]
-                      (if (<= i n)
-                        (recur (inc i)
-                               (conj! result
-                                 (let [v (.getObject rs i)]
-                                   (when v (str v)))))
-                        (persistent! result)))
-                    (thisfn))))))}))
+             (cons (loop [i 1 result (transient [])]
+                     (if (<= i n)
+                       (recur (inc i)
+                              (conj! result
+                                     (let [v (.getObject rs i)]
+                                       (when v (str v)))))
+                       (persistent! result)))
+                   (thisfn))))))}))
 
   (partition-source [this table-spec-entry n chunk-bytes]
     (mysql-partition-source this table-spec-entry n chunk-bytes))
@@ -365,7 +365,6 @@
         (.close s))
       (catch Exception _))
     (try (.close ^Connection conn) (catch Exception _))))
-
 
 (defn connection
   "Create a MySQL JDBC connection.
@@ -407,15 +406,15 @@
                     :schema            schema-name
                     :is-view           true
                     :columns           (mapv (fn [c]
-                                              {:column-name      (apply-identifier-case (:column_name c) id-case)
-                                               :column-type      (:column_type c)
-                                               :is-nullable      (= "YES" (:is_nullable c))
-                                               :column-default   (:column_default c)
-                                               :extra            (:extra c)
-                                               :column-key       (:column_key c)
-                                               :ordinal-position (:ordinal_position c)
-                                               :column-comment   (:column_comment c)})
-                                            cols)
+                                               {:column-name      (apply-identifier-case (:column_name c) id-case)
+                                                :column-type      (:column_type c)
+                                                :is-nullable      (= "YES" (:is_nullable c))
+                                                :column-default   (:column_default c)
+                                                :extra            (:extra c)
+                                                :column-key       (:column_key c)
+                                                :ordinal-position (:ordinal_position c)
+                                                :column-comment   (:column_comment c)})
+                                             cols)
                     :primary-key []
                     :indexes     []
                     :fkeys       []}))))))
@@ -471,7 +470,7 @@
         (when pk-int?
           (try
             (let [avg-row (or (:avg_row_length
-                                (table-avg-row-length conn {:schema schema-name :table mysql-table}))
+                               (table-avg-row-length conn {:schema schema-name :table mysql-table}))
                               0)
                   rows-per-chunk (max 1000 (long (/ chunk-bytes (max 1 avg-row))))
                   pk-range  (table-pk-min-max conn {:pk-col (str "`" pk-col "`")
@@ -485,15 +484,15 @@
                   (when (>= (count rngs) 2)
                     (let [buckets (distribute rngs n)]
                       (keep-indexed
-                        (fn [_i bucket]
-                          (when (seq bucket)
-                            (->MySQLSource
-                              (connection uri-map)
-                              database schema-name table-spec
-                              decoding-rules server-variant
-                              (volatile! nil) (volatile! nil)
-                              uri-map pk-col (vec bucket))))
-                        buckets))))))
+                       (fn [_i bucket]
+                         (when (seq bucket)
+                           (->MySQLSource
+                            (connection uri-map)
+                            database schema-name table-spec
+                            decoding-rules server-variant
+                            (volatile! nil) (volatile! nil)
+                            uri-map pk-col (vec bucket))))
+                       buckets))))))
             (catch Exception e
               (log/warn (str "partition-source: could not partition " mysql-table ": " (.getMessage e)))
               nil)))))))

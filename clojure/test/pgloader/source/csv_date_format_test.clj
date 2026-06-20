@@ -42,25 +42,25 @@
 (deftest test-apply-date-format-date-time
   (testing "date-time string with standard format"
     (let [result (csv/apply-date-format "10-02-1999 00-33-12"
-                                         "MM-DD-YYYY HH24-MI-SS")]
+                                        "MM-DD-YYYY HH24-MI-SS")]
       (is (= "1999-10-02 00:33:12.000000" result)) "expected ISO timestamp")))
 
 (deftest test-apply-date-format-date-time-us
   (testing "date-time string with microseconds"
     (let [result (csv/apply-date-format "10-02-1999 00-33-12.123456"
-                                         "MM-DD-YYYY HH24-MI-SS.US")]
+                                        "MM-DD-YYYY HH24-MI-SS.US")]
       (is (= "1999-10-02 00:33:12.123456" result)))))
 
 (deftest test-apply-date-format-date-time-us-3digit
   (testing "date-time string with 3-digit fractional seconds (right-padded to 6)"
     (let [result (csv/apply-date-format "10-02-2014 00-33-13.123"
-                                         "MM-DD-YYYY HH24-MI-SS.US")]
+                                        "MM-DD-YYYY HH24-MI-SS.US")]
       (is (= "2014-10-02 00:33:13.123000" result)))))
 
 (deftest test-apply-date-format-date-time-us-4digit
   (testing "date-time string with 4-digit fractional seconds (right-padded to 6)"
     (let [result (csv/apply-date-format "10-02-2014 00-33-14.1234"
-                                         "MM-DD-YYYY HH24-MI-SS.US")]
+                                        "MM-DD-YYYY HH24-MI-SS.US")]
       (is (= "2014-10-02 00:33:14.123400" result)))))
 
 (deftest test-apply-date-format-time-only

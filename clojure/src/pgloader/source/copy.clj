@@ -8,11 +8,11 @@
 (set! *warn-on-reflection* true)
 
 (defrecord CopySource
-  [^String filepath
-   ^Charset encoding
-   delimiter
-   null-str
-   column-names]
+           [^String filepath
+            ^Charset encoding
+            delimiter
+            null-str
+            column-names]
 
   Source
   (source-name [_] (str "copy:" filepath))
@@ -52,7 +52,7 @@
       (map (fn [line]
              (mapv (fn [v] (if (= v null-str) nil v))
                    (str/split line (re-pattern (java.util.regex.Pattern/quote
-                                                 (str delimiter))))))
+                                                (str delimiter))))))
            (line-seq rdr)))))
 
 (defn create-source

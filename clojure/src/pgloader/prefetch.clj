@@ -17,18 +17,18 @@
 (set! *warn-on-reflection* true)
 
 (defrecord CopyPipeline
-  [^BlockingQueue queue
-   ^long batch-rows
-   ^long batch-bytes
-   ^AtomicBoolean done
-   ^AtomicLong error-count])
+           [^BlockingQueue queue
+            ^long batch-rows
+            ^long batch-bytes
+            ^AtomicBoolean done
+            ^AtomicLong error-count])
 
 (defn make-pipeline
   "Create a new CopyPipeline with default settings."
   ([] (make-pipeline copy/*batch-rows* copy/*batch-size*))
   ([batch-rows batch-bytes]
    (->CopyPipeline (LinkedBlockingQueue.
-                     (int copy/*prefetch-queue-capacity*))
+                    (int copy/*prefetch-queue-capacity*))
                    batch-rows batch-bytes
                    (AtomicBoolean. false)
                    (AtomicLong. 0))))
@@ -38,12 +38,12 @@
   (loop [batch (batch/make-batch max-rows max-bytes)
          rows  (read-rows source table-spec)]
     (if-let [row (first rows)]
-          (let [row      (if row-filter-fn (row-filter-fn row) row)
-                row-bytes (copy/format-row-bytes row cast-specs)]
-            (if (batch/batch-full? batch)
+      (let [row      (if row-filter-fn (row-filter-fn row) row)
+            row-bytes (copy/format-row-bytes row cast-specs)]
+        (if (batch/batch-full? batch)
           (do (.put ^BlockingQueue (.queue pipeline) batch)
               (recur (batch/batch-add-row! (batch/make-batch max-rows max-bytes)
-                                            row-bytes)
+                                           row-bytes)
                      (rest rows)))
           (recur (batch/batch-add-row! batch row-bytes)
                  (rest rows))))
@@ -148,17 +148,17 @@
         exc-holder (atom nil)
         rs-nanos-holder (atom 0)
         reader (Thread/startVirtualThread
-                 (fn []
-                   (log/debug (str "Reader started for " table-name))
-                   (try
-                     (reset! rs-nanos-holder
-                       (reader-task source table-spec pipeline cast-specs row-filter-fn))
-                     (log/debug (str "Reader for " table-name " is done in "
-                                     (pgloader.log/fmt-duration @rs-nanos-holder)))
-                     (catch Exception e
-                       (reset! exc-holder e)
-                       (.set ^AtomicBoolean (.done pipeline) true)
-                       (.offer ^BlockingQueue (.queue pipeline) :end-of-data)))))]
+                (fn []
+                  (log/debug (str "Reader started for " table-name))
+                  (try
+                    (reset! rs-nanos-holder
+                            (reader-task source table-spec pipeline cast-specs row-filter-fn))
+                    (log/debug (str "Reader for " table-name " is done in "
+                                    (pgloader.log/fmt-duration @rs-nanos-holder)))
+                    (catch Exception e
+                      (reset! exc-holder e)
+                      (.set ^AtomicBoolean (.done pipeline) true)
+                      (.offer ^BlockingQueue (.queue pipeline) :end-of-data)))))]
     (log/debug (str "Writer started for " table-name))
     (let [{:keys [rows-ok rows-bad ws-nanos bytes reject-paths] :as writer-result}
           (try

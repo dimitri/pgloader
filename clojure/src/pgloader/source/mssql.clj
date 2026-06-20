@@ -93,8 +93,8 @@
           grouped)))
 
 (deftype MSSQLSource
-  [^Connection conn
-   ^String source-name-str]
+         [^Connection conn
+          ^String source-name-str]
 
   Source
   (source-name [_] source-name-str)
@@ -134,8 +134,8 @@
                                              ai (and is-identity is-pk)]
                                          {:column-name (:column_name c)
                                           :column-type (if ai
-                                                          "bigserial"
-                                                          (mssql-type->pg col-type))
+                                                         "bigserial"
+                                                         (mssql-type->pg col-type))
                                           :is-nullable (= "YES" (:is_nullable c))
                                           :column-default (when-not ai (:column_default c))
                                           :extra (when ai "auto_increment")
@@ -166,22 +166,22 @@
                           (log/warn (str "MSSQL row advance error in " table-name ": " (.getMessage e)))
                           false))
                (lazy-seq
-                 (cons (loop [i 1 result (transient [])]
-                         (if (<= i n)
-                           (recur (inc i)
-                                  (conj! result
+                (cons (loop [i 1 result (transient [])]
+                        (if (<= i n)
+                          (recur (inc i)
+                                 (conj! result
                                     ;; Per-column error recovery: on encoding or conversion errors
                                     ;; substitute nil and continue (mirrors v3 restart behaviour).
-                                    (try
-                                      (let [v (.getObject rs i)]
-                                        (when v (str v)))
-                                      (catch Exception e
-                                        (log/warn (str "MSSQL column " i " read error in "
-                                                       table-name " (substituting NULL): "
-                                                       (.getMessage e)))
-                                        nil))))
-                           (persistent! result)))
-                       (thisfn)))))))
+                                        (try
+                                          (let [v (.getObject rs i)]
+                                            (when v (str v)))
+                                          (catch Exception e
+                                            (log/warn (str "MSSQL column " i " read error in "
+                                                           table-name " (substituting NULL): "
+                                                           (.getMessage e)))
+                                            nil))))
+                          (persistent! result)))
+                      (thisfn)))))))
         (catch Exception e
           (log/error (str "Query failed: " sql " - " (.getMessage e)))
           (throw e)))))
@@ -203,14 +203,14 @@
            ((fn thisfn []
               (when (.next rs)
                 (lazy-seq
-                  (cons (loop [i 1 result (transient [])]
-                          (if (<= i n)
-                            (recur (inc i)
-                                   (conj! result
-                                     (let [v (.getObject rs i)]
-                                       (when v (str v)))))
-                            (persistent! result)))
-                        (thisfn))))))})
+                 (cons (loop [i 1 result (transient [])]
+                         (if (<= i n)
+                           (recur (inc i)
+                                  (conj! result
+                                         (let [v (.getObject rs i)]
+                                           (when v (str v)))))
+                           (persistent! result)))
+                       (thisfn))))))})
         (catch Exception e
           (log/error (str "Query failed: " sql " - " (.getMessage e)))
           (throw e)))))
@@ -237,11 +237,11 @@
                     :source-schema schema
                     :is-view     true
                     :columns     (mapv (fn [c]
-                                        {:column-name    (:column_name c)
-                                         :column-type    (mssql-type->pg (:data_type c))
-                                         :is-nullable    (= "YES" (:is_nullable c))
-                                         :column-default (:column_default c)})
-                                      cols)
+                                         {:column-name    (:column_name c)
+                                          :column-type    (mssql-type->pg (:data_type c))
+                                          :is-nullable    (= "YES" (:is_nullable c))
+                                          :column-default (:column_default c)})
+                                       cols)
                     :primary-key (mapv :column_name pkeys)
                     :indexes     []
                     :fkeys       []}))))))

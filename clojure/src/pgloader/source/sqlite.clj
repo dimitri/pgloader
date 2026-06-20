@@ -57,7 +57,7 @@
       (into {}
             (keep (fn [[match col-name]]
                     (let [paren-pos (+ (.indexOf ^String sql match)
-                                      (- (count match) 1))] ; position of '('
+                                       (- (count match) 1))] ; position of '('
                       (when-let [expr (extract-balanced sql paren-pos)]
                         [col-name (str/trim expr)])))
                   (re-seq pattern sql))))
@@ -115,9 +115,9 @@
     (str/lower-case name)))
 
 (deftype SQLiteSource
-  [^java.sql.Connection conn
-   ^String db-path
-   id-case]  ; :snake-case-ids or nil (defaults to downcase)
+         [^java.sql.Connection conn
+          ^String db-path
+          id-case]  ; :snake-case-ids or nil (defaults to downcase)
 
   Source
   (source-name [_] (str "sqlite:" db-path))
@@ -146,23 +146,23 @@
                      {:table-name table-name
                       :source-table-name src-table-name
                       :schema "public"  ; match v3 behavior: SQLite tables land in "public" schema
-                       :columns (mapv (fn [c]
-                                        (let [col-type (:type c)
-                                              is-pk (pos? (:pk c))
-                                              ai (detect-autoincrement conn src-table-name (:name c) (:pk c))
-                                              pg-type (if (and ai is-pk)
-                                                        "bigserial"
-                                                        (sqlite-type->pg col-type))
-                                              dflt (:dflt_value c)
-                                              gen-expr (get gen-exprs (:name c))]
-                                          (cond-> {:column-name (:name c)
-                                                   :column-type pg-type
-                                                   :is-nullable (zero? (:notnull c))
-                                                   :column-default (when-not (sqlite-function-default? dflt) dflt)
-                                                   :key is-pk
-                                                   :extra (when ai "auto_increment")}
-                                            gen-expr (assoc :generated-expression gen-expr))))
-                                      cols)
+                      :columns (mapv (fn [c]
+                                       (let [col-type (:type c)
+                                             is-pk (pos? (:pk c))
+                                             ai (detect-autoincrement conn src-table-name (:name c) (:pk c))
+                                             pg-type (if (and ai is-pk)
+                                                       "bigserial"
+                                                       (sqlite-type->pg col-type))
+                                             dflt (:dflt_value c)
+                                             gen-expr (get gen-exprs (:name c))]
+                                         (cond-> {:column-name (:name c)
+                                                  :column-type pg-type
+                                                  :is-nullable (zero? (:notnull c))
+                                                  :column-default (when-not (sqlite-function-default? dflt) dflt)
+                                                  :key is-pk
+                                                  :extra (when ai "auto_increment")}
+                                           gen-expr (assoc :generated-expression gen-expr))))
+                                     cols)
                       :primary-key pkey-cols
                       :indexes idxes
                       :fkeys (mapv (fn [fk]
@@ -203,14 +203,14 @@
            ((fn thisfn []
               (when (.next rs)
                 (lazy-seq
-                  (cons (loop [i 1 result (transient [])]
-                          (if (<= i n)
-                            (recur (inc i)
-                                   (conj! result
-                                     (let [v (.getObject rs i)]
-                                       (when v (str v)))))
-                            (persistent! result)))
-                        (thisfn))))))})
+                 (cons (loop [i 1 result (transient [])]
+                         (if (<= i n)
+                           (recur (inc i)
+                                  (conj! result
+                                         (let [v (.getObject rs i)]
+                                           (when v (str v)))))
+                           (persistent! result)))
+                       (thisfn))))))})
         (catch Exception e
           (log/error (str "Query failed: " sql " - " (.getMessage e)))
           (throw e)))))

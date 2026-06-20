@@ -150,11 +150,11 @@
                                  (when (:path source) (File. ^String (:path source))))]
               (when first-file
                 (with-open [rdr (BufferedReader.
-                                  (InputStreamReader.
-                                    (io/input-stream first-file)
-                                    (if encoding
-                                      (Charset/forName ^String encoding)
-                                      StandardCharsets/ISO_8859_1)))]
+                                 (InputStreamReader.
+                                  (io/input-stream first-file)
+                                  (if encoding
+                                    (Charset/forName ^String encoding)
+                                    StandardCharsets/ISO_8859_1)))]
                   (some-> (.readLine rdr) infer-fields-from-header))))
             fields)
           all-cols (fields->columns (or eff-fields []))
@@ -193,8 +193,8 @@
         ;; File(s): concatenate rows from all matching files
         (let [rows (mapcat (fn [^File f]
                              (let [cs (if encoding
-                                         (Charset/forName ^String encoding)
-                                         StandardCharsets/ISO_8859_1)
+                                        (Charset/forName ^String encoding)
+                                        StandardCharsets/ISO_8859_1)
                                    rdr (BufferedReader. (InputStreamReader. (io/input-stream f) cs))]
                                (try
                                  (doall (read-rows-from-reader rdr fields fixed-header?))

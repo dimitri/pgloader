@@ -164,10 +164,10 @@
           points (str/split data #",(?=[-\d])")]
       (str "["
            (str/join ","
-             (map (fn [pt]
-                    (let [sp (.indexOf ^String pt " ")]
-                      (str "(" (subs pt 0 sp) "," (subs pt (inc sp)) ")")))
-                  points))
+                     (map (fn [pt]
+                            (let [sp (.indexOf ^String pt " ")]
+                              (str "(" (subs pt 0 sp) "," (subs pt (inc sp)) ")")))
+                          points))
            "]"))))
 
 (defn bits-to-hex-bitstring
