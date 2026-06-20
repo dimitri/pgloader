@@ -18,13 +18,17 @@
 (defonce locks (atom {}))
 
 (defn get-table-lock
-  "Get or create a reentrant lock for a given table reject file"
+  "Get or create a reentrant lock for a given table reject file.
+   swap! is used as a compare-and-swap so both the check and the insert
+   are inside the update function: all concurrent callers converge on the
+   same lock instance regardless of how many threads race here."
   [^String schema ^String table]
   (let [key (str schema "." table)]
-    (or (get @locks key)
-        (let [lock (ReentrantLock.)]
-          (swap! locks assoc key lock)
-          lock))))
+    (get (swap! locks (fn [m]
+                        (if (contains? m key)
+                          m
+                          (assoc m key (ReentrantLock.)))))
+         key)))
 
 (defn write-reject!
   "Write a bad row to reject files.
