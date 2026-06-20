@@ -1,6 +1,7 @@
 (ns pgloader.load-file.ast-test
   (:require [clojure.test :refer [deftest is testing]]
-            [pgloader.load-file.ast :refer [parse-uri]]))
+            [pgloader.load-file.ast :refer [parse-uri]])
+  (:import [java.sql DriverManager]))
 
 (deftest test-parse-mysql-uri
   (testing "mysql:// with query params"
@@ -59,3 +60,34 @@
   (testing "postgresql:// with sslmode query param preserved"
     (let [m (parse-uri "postgresql://pg:5432/mydb?sslmode=require")]
       (is (= "jdbc:postgresql://pg:5432/mydb?sslmode=require" (:jdbc-url m))))))
+
+;; Driver-level URL validation — no live server needed.
+;; DriverManager/getDriver calls Driver.acceptsURL() on each registered driver
+;; and returns the matching one, or throws SQLException if none accepts the URL.
+;; All three JDBC drivers are on the classpath and auto-register via ServiceLoader.
+
+(defn- driver-accepts? [url]
+  (try (DriverManager/getDriver url) true
+       (catch java.sql.SQLException _ false)))
+
+(deftest test-jdbc-urls-accepted-by-drivers
+  (testing "mysql:// synthesised URL accepted by MySQL Connector/J"
+    (is (driver-accepts? (:jdbc-url (parse-uri "mysql://root:pass@db:3306/mydb?useSSL=false")))))
+
+  (testing "jdbc:mysql:// passthrough accepted by MySQL Connector/J"
+    (is (driver-accepts? (:jdbc-url (parse-uri "jdbc:mysql://db:3306/mydb?useSSL=false&allowPublicKeyRetrieval=true")))))
+
+  (testing "postgresql:// synthesised URL accepted by PG JDBC driver"
+    (is (driver-accepts? (:jdbc-url (parse-uri "postgresql://pg:5432/mydb")))))
+
+  (testing "postgresql:// with query params accepted by PG JDBC driver"
+    (is (driver-accepts? (:jdbc-url (parse-uri "postgresql://pg:5432/mydb?sslmode=require")))))
+
+  (testing "jdbc:postgresql:// passthrough accepted by PG JDBC driver"
+    (is (driver-accepts? (:jdbc-url (parse-uri "jdbc:postgresql://pg:5432/mydb?sslmode=require")))))
+
+  (testing "mssql:// synthesised URL accepted by MSSQL JDBC driver"
+    (is (driver-accepts? (:jdbc-url (parse-uri "mssql://sa:pass@mssql:1433/mydb")))))
+
+  (testing "jdbc:sqlserver:// passthrough accepted by MSSQL JDBC driver"
+    (is (driver-accepts? (:jdbc-url (parse-uri "jdbc:sqlserver://mssql:1433;databaseName=testdb;user=sa;password=P@ss!;encrypt=false"))))))
