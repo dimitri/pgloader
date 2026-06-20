@@ -370,14 +370,35 @@
                 _          (log/info (str "Fetching catalog from " (source-name source)))
                 fetch-t0   (System/nanoTime)
                 cat        (catalog source)
-                ;; If MATERIALIZE ALL VIEWS, append view catalog entries to table catalog
-                cat        (if (= :all (:materialize-views cmd))
-                              (do (log/info "MATERIALIZE ALL VIEWS: fetching view list")
-                                  (into cat (case (:type source-uri)
-                                              (:mysql :mariadb) (mysql-source/catalog-views source)
-                                              :mssql            (mssql-source/catalog-views source)
-                                              [])))
-                              cat)
+                ;; If MATERIALIZE ALL VIEWS, append view catalog entries to table catalog.
+                ;; For a named list, views WITHOUT an explicit SQL definition are added
+                ;; to the catalog so the normal DDL+copy pipeline handles them.
+                ;; Views WITH an explicit SQL definition are handled by materialize-views! below.
+                cat        (cond
+                             (= :all (:materialize-views cmd))
+                             (do (log/info "MATERIALIZE ALL VIEWS: fetching view list")
+                                 (into cat (case (:type source-uri)
+                                             (:mysql :mariadb) (mysql-source/catalog-views source)
+                                             :mssql            (mssql-source/catalog-views source)
+                                             [])))
+
+                             (sequential? (:materialize-views cmd))
+                             (let [no-def-names (into #{}
+                                                      (keep #(when (nil? (:query %)) (:name %)))
+                                                      (:materialize-views cmd))]
+                               (if (seq no-def-names)
+                                 (do (log/info (str "MATERIALIZE VIEWS (named, no SQL def): "
+                                                    (clojure.string/join ", " no-def-names)))
+                                     (into cat
+                                           (filter #(contains? no-def-names
+                                                               (or (:source-table-name %) (:table-name %)))
+                                                   (case (:type source-uri)
+                                                     (:mysql :mariadb) (mysql-source/catalog-views source)
+                                                     :mssql            (mssql-source/catalog-views source)
+                                                     []))))
+                                 cat))
+
+                             :else cat)
                 fetch-ns   (- (System/nanoTime) fetch-t0)
                 _          (log/info (str "Found " (count cat) " tables/views in source catalog"))
                 _          (stats/new-entry! :pre "fetch meta data")
@@ -464,10 +485,11 @@
                   (catch Exception e
                     (.rollback pg-conn)
                     (log/warn (str "TRUNCATE failed for " schema "." table ": " (.getMessage e))))))))
-           ;; Execute MATERIALIZE VIEWS (named list only) — run queries against source, write to target.
-           ;; MATERIALIZE ALL VIEWS is handled by adding views to the catalog above.
+           ;; Execute MATERIALIZE VIEWS with explicit SQL definitions — run each user-provided
+           ;; query against the source, write to the target table via COPY.
+           ;; MATERIALIZE ALL VIEWS and named views without SQL defs are handled by the catalog.
            (when-let [matviews (when (sequential? (:materialize-views cmd))
-                                 (seq (:materialize-views cmd)))]
+                                 (seq (filter :query (:materialize-views cmd))))]
              (let [mv-schema (or (:db source-uri) "public")]
                (materialize-views! pg-conn source matviews mv-schema)))
            (log/info (str "Processing tables in this order: "
