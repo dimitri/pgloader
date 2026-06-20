@@ -487,6 +487,9 @@
                 create-indexes? (or (get with-options :create-indexes false)
                                     (get with-options :reindex false))
                 schema-only?  (get with-options :schema-only false)
+                ;; workers: parallel table copies; default 4 for DB sources, 8 for file sources (v3 defaults)
+                workers       (or (get with-options :workers)
+                                  (if (#{:mysql :mariadb :pgsql :mssql :sqlite} (:type source-uri)) 4 8))
                 all-idx-count (int (transduce (map #(count (:indexes %))) + 0 cat))
                 max-par-idx   (int (max 1 (or (get with-options :max-parallel-create-index)
                                                all-idx-count)))
@@ -580,82 +583,108 @@
           ;; Create the index stats entry before Phase 2 so futures can update it.
           (when create-indexes?
             (stats/new-entry! :post "Create Indexes"))
-          ;; Phase 2: COPY data only for tables whose DDL succeeded
+          ;; Phase 2: COPY data only for tables whose DDL succeeded, using worker threads.
+          ;; Each worker gets its own source connection and PostgreSQL connection so that
+          ;; up to `workers` tables can be copied simultaneously (v3 workers= behavior).
           (when (not schema-only?)
+          ;; Pre-create all per-table stats entries before spawning workers (prevents races).
+          (doseq [t cat]
+            (let [tl (table-stats-label (or (:schema t) "public") (:table-name t))]
+              (when-not (some #(= (:label %) tl) (stats/entries :data))
+                (stats/new-entry! :data tl))))
           (stats/new-entry! :post "COPY Wall-Clock Time")
-          (let [copy-wall-t0 (System/nanoTime)]
-          (doseq [[i t] (map-indexed vector cat)]
-            (let [schema (or (:schema t) "public")
-                  table  (:table-name t)
-                  cols   (:columns t)
-                  table-label (table-stats-label schema table)]
-              ;; Ensure a stats entry exists (may have been created in DDL phase; create here for file sources)
-              (when-not (some #(= (:label %) table-label) (stats/entries :data))
-                (stats/new-entry! :data table-label))
-              (when-not (@failed-tables table)
-                (let [ts (cond-> {:schema schema :table-name table :columns cols
-                                 :source-schema (:source-schema t)
-                                 :source-table-name (:source-table-name t)}
-                           (:citus-read-sql t) (assoc :citus-read-sql (:citus-read-sql t)))
-                      disable-triggers? (get with-options :disable-triggers false)]
-                  ;; Disable triggers if requested
-                  (when disable-triggers?
-                    (try
-                      (jdbc/execute! pg-conn ["SET session_replication_role = replica"])
-                      (.commit pg-conn)
-                      (catch Exception e
-                        (.rollback pg-conn)
-                        (log/warn (str "Failed to disable triggers: " (.getMessage e))))))
-                  (try
-                    (let [result (copy-table source ts pg-conn (:cast-rules cmd) (get with-options :projections []))]
-                      (log/info (str "COPY " table " done: "
-                                    (:rows-ok result) " rows in "
-                                    (plog/fmt-duration (:total-nanos result))))
-                      (when (pos? (:rows-bad result))
-                        (log/warn (str table ": " (:rows-bad result) " rows rejected"
-                                      (when-let [p (-> result :reject-paths :reject-log)]
-                                        (str ", see " p)))))
-                      (let [reject-paths (:reject-paths result)]
-                        (stats/update-entry! :data table-label
-                          :read (:rows-ok result)
-                          :rows (:rows-ok result)
-                          :errs (:rows-bad result)
-                          :bytes (:bytes result)
-                          :rs-nanos (:rs-nanos result)
-                          :ws-nanos (:ws-nanos result)
-                          :total-nanos (:total-nanos result)
-                          :reject-data (:reject-data reject-paths)
-                          :reject-log (:reject-log reject-paths))))
-                      (catch Exception e
-                        (log/error e (str "Failed to copy table " schema "." table ": " (.getMessage e)))
-                        (stats/update-entry! :data table-label :errs 1))
-                      (finally
-                        (when disable-triggers?
+          (let [copy-wall-t0    (System/nanoTime)
+                mysql-set-params (when (#{:mysql :mariadb} (:type source-uri))
+                                   (seq (filter :is-mysql (:set-parameters cmd))))
+                workers-pool    (Executors/newFixedThreadPool (int workers))
+                table-futs
+                (mapv
+                  (fn [[_i t]]
+                    (.submit ^ExecutorService workers-pool
+                      ^java.util.concurrent.Callable
+                      (fn []
+                        (let [worker-src (source-from-uri source-uri table-spec
+                                           with-options source-overrides (:decoding-as cmd))
+                              worker-pg  (postgres-connection target-uri)]
+                          (when mysql-set-params
+                            (mysql-source/execute-set-params! worker-src mysql-set-params))
                           (try
-                            (jdbc/execute! pg-conn ["SET session_replication_role = origin"])
-                            (.commit pg-conn)
-                            (catch Exception e2
-                              (.rollback pg-conn)
-                               (log/warn (str "Failed to re-enable triggers: " (.getMessage e2)))))))))
-                  ;; Submit this table's indexes to the parallel executor right after copy.
-                  ;; They build concurrently with subsequent table copies (v3 behavior).
-                  (when (and idx-executor (seq (:indexes t)))
-                    (when (nil? @idx-wall-t0)
-                      (reset! idx-wall-t0 (System/nanoTime)))
-                    (let [oid  (when-not preserve-index-names?
-                                 (get @table-oids (str schema "." table)))
-                          sqls (ddl/create-indexes-sql schema table (:indexes t) oid)]
-                      (doseq [sql sqls]
-                        (swap! idx-futures conj
-                          (.submit ^ExecutorService idx-executor
-                            ^java.util.concurrent.Callable
-                            (fn []
-                              (let [conn (postgres-connection target-uri)]
-                                (try
-                                  (exec-post-ddl! conn [sql] (str "INDEX on " table))
-                                  (finally (.close ^Connection conn)))))))))))))
-          (stats/update-entry! :post "COPY Wall-Clock Time"
-            :total-nanos (- (System/nanoTime) copy-wall-t0))))
+                            (let [schema      (or (:schema t) "public")
+                                  table       (:table-name t)
+                                  cols        (:columns t)
+                                  table-label (table-stats-label schema table)]
+                              (when-not (@failed-tables table)
+                                (let [ts (cond-> {:schema schema :table-name table :columns cols
+                                                  :source-schema (:source-schema t)
+                                                  :source-table-name (:source-table-name t)}
+                                           (:citus-read-sql t) (assoc :citus-read-sql (:citus-read-sql t)))
+                                      disable-triggers? (get with-options :disable-triggers false)]
+                                  (when disable-triggers?
+                                    (try
+                                      (jdbc/execute! worker-pg ["SET session_replication_role = replica"])
+                                      (.commit worker-pg)
+                                      (catch Exception e
+                                        (.rollback worker-pg)
+                                        (log/warn (str "Failed to disable triggers: " (.getMessage e))))))
+                                  (try
+                                    (let [result (copy-table worker-src ts worker-pg (:cast-rules cmd) (get with-options :projections []))]
+                                      (log/info (str "COPY " table " done: "
+                                                     (:rows-ok result) " rows in "
+                                                     (plog/fmt-duration (:total-nanos result))))
+                                      (when (pos? (:rows-bad result))
+                                        (log/warn (str table ": " (:rows-bad result) " rows rejected"
+                                                       (when-let [p (-> result :reject-paths :reject-log)]
+                                                         (str ", see " p)))))
+                                      (let [reject-paths (:reject-paths result)]
+                                        (stats/update-entry! :data table-label
+                                          :read (:rows-ok result)
+                                          :rows (:rows-ok result)
+                                          :errs (:rows-bad result)
+                                          :bytes (:bytes result)
+                                          :rs-nanos (:rs-nanos result)
+                                          :ws-nanos (:ws-nanos result)
+                                          :total-nanos (:total-nanos result)
+                                          :reject-data (:reject-data reject-paths)
+                                          :reject-log (:reject-log reject-paths))))
+                                    (catch Exception e
+                                      (log/error e (str "Failed to copy table " schema "." table ": " (.getMessage e)))
+                                      (stats/update-entry! :data table-label :errs 1))
+                                    (finally
+                                      (when disable-triggers?
+                                        (try
+                                          (jdbc/execute! worker-pg ["SET session_replication_role = origin"])
+                                          (.commit worker-pg)
+                                          (catch Exception e2
+                                            (.rollback worker-pg)
+                                            (log/warn (str "Failed to re-enable triggers: " (.getMessage e2))))))))
+                                  ;; Submit this table's indexes to the parallel executor right after copy.
+                                  ;; They build concurrently with subsequent table copies (v3 behavior).
+                                  (when (and idx-executor (seq (:indexes t)))
+                                    (when (nil? @idx-wall-t0)
+                                      (reset! idx-wall-t0 (System/nanoTime)))
+                                    (let [oid  (when-not preserve-index-names?
+                                                 (get @table-oids (str schema "." table)))
+                                          sqls (ddl/create-indexes-sql schema table (:indexes t) oid)]
+                                      (doseq [sql sqls]
+                                        (swap! idx-futures conj
+                                          (.submit ^ExecutorService idx-executor
+                                            ^java.util.concurrent.Callable
+                                            (fn []
+                                              (let [conn (postgres-connection target-uri)]
+                                                (try
+                                                  (exec-post-ddl! conn [sql] (str "INDEX on " table))
+                                                  (finally (.close ^Connection conn))))))))))
+                                    )))
+                            (finally
+                              (close! worker-src)
+                              (.close ^Connection worker-pg)))))))
+                  (map-indexed vector cat))]
+            (.shutdown ^ExecutorService workers-pool)
+            (.awaitTermination ^ExecutorService workers-pool Long/MAX_VALUE TimeUnit/NANOSECONDS)
+            (doseq [^Future f table-futs]
+              (try (.get f) (catch Exception _)))
+            (stats/update-entry! :post "COPY Wall-Clock Time"
+              :total-nanos (- (System/nanoTime) copy-wall-t0))))
           ;; Schema-only: no COPY phase ran, so submit all indexes now.
           (when (and create-indexes? schema-only? idx-executor)
             (when (nil? @idx-wall-t0)
