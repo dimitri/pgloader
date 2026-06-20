@@ -110,7 +110,7 @@ Legend:
 
 | Issue | Title | Status | Notes |
 |-------|-------|--------|-------|
-| #1195 | DISTRIBUTE ... AS REFERENCE TABLE | 🔧 | Grammar parsed; `create_reference_table()` and `create_distributed_table()` executed via HugSQL; FK backfill (`using col from table`) is Phase 2 |
+| #1195 | DISTRIBUTE ... AS REFERENCE TABLE | ✅ | Full support: reference tables, distributed tables, and FK backfill (`distribute T using col from other_table`). `augment-catalog` in `ddl/citus.clj` derives implicit rules by walking the FK graph and generates a JOIN-based SELECT when the distribution key lives in a parent table. |
 
 ## MSSQL source
 
@@ -200,7 +200,6 @@ users who stay on v3, but are not needed in v4.
 
 Not addressed in this PR; remain as future work:
 
-- **Citus FK backfill** (`distribute T using col from other_table`) — Phase 2
 - **MSSQL non-standard UDT types** (`SYB-MSUDT`) — not handled
 - **Multiple readers per table for MSSQL** — `workers` works; intra-table parallelism not yet
 - **GraalVM native binary** — JAR only; native image planned
