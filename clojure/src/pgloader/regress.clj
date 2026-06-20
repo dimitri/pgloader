@@ -31,27 +31,15 @@
   "Execute psql -f sql-file, capturing combined stdout+stderr into out-file.
    Returns the psql process exit code."
   [^File sql-file ^File out-file]
-  (let [tmp  (File/createTempFile "pgloader-regress" ".out")
-        args ^"[Ljava.lang.String;" (into-array String
+  (let [args ^"[Ljava.lang.String;" (into-array String
               ["psql" "-X" "-P" "pager=off"
                "-v" "ON_ERROR_STOP=1"
-               "-f" (.getAbsolutePath sql-file)])
-        exit (-> (doto (ProcessBuilder. args)
-                   (.redirectErrorStream true)
-                   (.redirectOutput tmp))
-                 .start
-                 .waitFor)]
-    ;; Strip trailing whitespace from every line so psql alignment
-    ;; differences across versions don't cause spurious failures.
-    ;; Use regex replace to preserve exact line endings and trailing newlines.
-    (spit out-file
-          (str/replace (slurp tmp) #"[ \t]+((\r?\n)|\z)" "$1")
-          :append false)
-    (.delete tmp)
-    exit))
-
-(defn- normalize-whitespace [s]
-  (str/replace s #"[ \t]+((\r?\n)|\z)" "$1"))
+               "-f" (.getAbsolutePath sql-file)])]
+    (-> (doto (ProcessBuilder. args)
+          (.redirectErrorStream true)
+          (.redirectOutput out-file))
+        .start
+        .waitFor)))
 
 (defn- diff-files
   "Unified diff of expected vs actual. Returns true when identical."
@@ -63,23 +51,14 @@
         false)
 
     :else
-    ;; Normalize trailing whitespace in both files before diffing so psql
-    ;; alignment padding differences across versions don't cause spurious
-    ;; failures.  The out-file is already normalized by run-psql; we also
-    ;; normalize the expected file in-place into a temp file so we can
-    ;; produce a clean diff without permanently rewriting expected/.
-    (let [norm-exp (File/createTempFile "pgloader-exp" ".out")]
-      (try
-        (spit norm-exp (normalize-whitespace (slurp exp-file)))
-        (let [{:keys [exit out]} (shell/sh "diff" "-u"
-                                           (.getAbsolutePath norm-exp)
-                                           (.getAbsolutePath out-file))]
-          (if (zero? exit)
-            (do (println (str "  ok       " test-name)) true)
-            (do (println (str "  FAIL     " test-name))
-                (print out)
-                false)))
-        (finally (.delete norm-exp))))))
+    (let [{:keys [exit out]} (shell/sh "diff" "-u"
+                                       (.getAbsolutePath exp-file)
+                                       (.getAbsolutePath out-file))]
+      (if (zero? exit)
+        (do (println (str "  ok       " test-name)) true)
+        (do (println (str "  FAIL     " test-name))
+            (print out)
+            false)))))
 
 (defn run
   "Entry point called from cli/run when first arg is 'regress'."
@@ -87,7 +66,9 @@
   (let [update?   (boolean (some #{"--update"} args))
         excludes  (->> args
                        (partition-all 2 1)
-                       (keep (fn [[a b]] (when (= "--exclude" a) b)))
+                       (keep (fn [[a b]] (when (= "--update" a) nil)
+                               (when (= "--exclude" a) b)))
+                       (remove nil?)
                        set)
         plain     (remove #(or (str/starts-with? % "--")
                                (contains? excludes %)) args)
