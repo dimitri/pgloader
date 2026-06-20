@@ -46,7 +46,8 @@
   (let [host (or (:host uri-map) "localhost")
         port (or (:port uri-map) 5432)
         db   (or (:db uri-map) (:database uri-map) "")
-        url  (str "jdbc:postgresql://" host ":" port "/" db)
+        url  (or (:jdbc-url uri-map)
+                 (str "jdbc:postgresql://" host ":" port "/" db))
         props (java.util.Properties.)]
     (when (:user uri-map) (.setProperty props "user" (:user uri-map)))
     (when (:password uri-map) (.setProperty props "password" (:password uri-map)))

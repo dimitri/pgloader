@@ -52,7 +52,8 @@
   (let [host (or (:host uri-map) "localhost")
         port (or (:port uri-map) 1433)
         db   (or (:db uri-map) "")
-        url  (str "jdbc:sqlserver://" host ":" port ";databaseName=" db ";encrypt=false")
+        url  (or (:jdbc-url uri-map)
+                 (str "jdbc:sqlserver://" host ":" port ";databaseName=" db ";encrypt=false"))
         props (java.util.Properties.)]
     (when (:user uri-map) (.setProperty props "user" (:user uri-map)))
     (when (:password uri-map) (.setProperty props "password" (:password uri-map)))

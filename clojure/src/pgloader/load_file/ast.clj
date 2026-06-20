@@ -24,80 +24,144 @@
    ;; For :archive load-type: ordered list of sub-LoadCommand records.
    commands])
 
+(defn- parse-mssql-jdbc-url
+  "Parse a jdbc:sqlserver://host:port;param=val;... URL.
+   The MSSQL JDBC driver uses semicolons to separate connection properties
+   rather than the standard ?key=val query-string convention."
+  [^String uri-str]
+  (let [without-prefix (subs uri-str (count "jdbc:sqlserver://"))
+        [host-port & param-strs] (str/split without-prefix #";" -1)
+        [host port-str] (str/split (or host-port "") #":" 2)
+        port (try (when port-str (Integer/parseInt port-str)) (catch Exception _ nil))
+        params (into {} (keep (fn [p]
+                                (when-let [[_ k v] (re-find #"(?i)^(.+?)=(.*)$" p)]
+                                  [(str/lower-case k) v]))
+                              param-strs))]
+    {:type     :mssql
+     :host     (or (not-empty host) "localhost")
+     :port     (or port 1433)
+     :db       (get params "databasename" "")
+     :user     (get params "user")
+     :password (get params "password")
+     :raw      uri-str
+     :jdbc-url uri-str}))
+
 (defn parse-uri
   "Parse a connection URI string into a structured map.
-   Supports postgresql:///?service=<name> to look up a pg_service.conf entry."
+   Accepts both pgloader-native schemes (postgresql://, mysql://, mssql://, …)
+   and JDBC URLs (jdbc:postgresql://, jdbc:mysql://, jdbc:sqlserver://, …).
+
+   Every returned map includes :jdbc-url — the exact URL to hand to
+   DriverManager/getConnection. Connection functions use :jdbc-url directly
+   so all driver-specific query parameters (useSSL, sslmode, trustServerCertificate,
+   connectTimeout, …) are passed through to the driver unchanged.
+
+   For pg_service.conf lookup use postgresql:///?service=<name>."
   [^String uri-str]
-  (let [uri (URI. uri-str)
-        scheme (.getScheme uri)
-        path (.getPath uri)
-        user-info (.getUserInfo uri)
-        [user password] (when user-info
-                          (let [parts (clojure.string/split user-info #":" 2)]
-                            [(first parts) (when (> (count parts) 1) (second parts))]))
-        query (.getQuery uri)
-        ;; Detect service= query param (e.g. postgresql:///?service=source)
-        service-name (when query
-                       (some->> (str/split query #"&")
-                                (some #(when (str/starts-with? % "service=")
-                                         (subs % (count "service="))))))
-        table-from-query (when (and query (not (re-find #"=" query)))
-                           (let [q (java.net.URLDecoder/decode query "UTF-8")]
-                             (if (re-find #"\." q)
-                               (let [[s t] (str/split q #"\." 2)]
-                                 {:schema s :table t})
-                               {:table q})))]
-    (case scheme
-      ("postgresql" "pgsql")
-      ;; service= URI: resolve against PGSERVICEFILE / ~/.pg_service.conf
-      (if service-name
-        (let [svc (pgloader.pg-service/lookup service-name)]
-          (when-not svc
-            (throw (ex-info (str "pg_service.conf: service '" service-name "' not found")
-                            {:service service-name})))
-          (merge {:type :pgsql :raw uri-str} svc))
+  (cond
+    ;; ── JDBC URL: pass through to driver, extract metadata for display/pgpass ──
+    (str/starts-with? uri-str "jdbc:sqlserver:")
+    (parse-mssql-jdbc-url uri-str)
 
-        (pgloader.pg-service/apply-pgpass
-         (merge {:type :pgsql
-                 :host (or (.getHost uri) "localhost")
-                 :port (if (pos? (.getPort uri)) (.getPort uri) 5432)
-                 :db (when path (clojure.string/replace path #"^/" ""))
-                 :user user
-                 :password password
-                 :raw uri-str}
-                table-from-query)))
+    (str/starts-with? uri-str "jdbc:sqlite:")
+    {:type     :sqlite
+     :path     (subs uri-str (count "jdbc:sqlite:"))
+     :raw      uri-str
+     :jdbc-url uri-str}
 
-      ("mssql" "sqlserver")
-      (merge {:type :mssql
-              :host (or (.getHost uri) "localhost")
-              :port (if (pos? (.getPort uri)) (.getPort uri) 1433)
-              :db (when path (clojure.string/replace path #"^/" ""))
-              :user user
-              :password password
-              :raw uri-str}
-             table-from-query)
+    (str/starts-with? uri-str "jdbc:")
+    ;; jdbc:postgresql://, jdbc:mysql://, jdbc:mariadb:// — strip "jdbc:" and
+    ;; parse the inner URI for host/port/db/user/password metadata; keep :jdbc-url
+    ;; so the connection function uses the original URL (preserving all query params).
+    (let [inner    (subs uri-str 5)          ; strip "jdbc:"
+          inner-map (parse-uri inner)]       ; recurse without prefix
+      (assoc inner-map :raw uri-str :jdbc-url uri-str))
 
-      ("mysql" "mariadb")
-      {:type (keyword scheme)
-       :host (or (.getHost uri) "localhost")
-       :port (if (pos? (.getPort uri)) (.getPort uri) 3306)
-       :db (when path (clojure.string/replace path #"^/" ""))
-       :user user
-       :password password
-       :raw uri-str}
+    ;; ── Standard pgloader URI ──
+    :else
+    (let [uri       (URI. uri-str)
+          scheme    (.getScheme uri)
+          path      (.getPath uri)
+          user-info (.getUserInfo uri)
+          [user password] (when user-info
+                            (let [parts (str/split user-info #":" 2)]
+                              [(first parts) (when (> (count parts) 1) (second parts))]))
+          raw-query (.getRawQuery uri)   ; preserve original query string (un-decoded)
+          query     (.getQuery uri)
+          service-name (when query
+                         (some->> (str/split query #"&")
+                                  (some #(when (str/starts-with? % "service=")
+                                           (subs % (count "service="))))))
+          table-from-query (when (and query (not (re-find #"=" query)))
+                             (let [q (java.net.URLDecoder/decode query "UTF-8")]
+                               (if (re-find #"\." q)
+                                 (let [[s t] (str/split q #"\." 2)]
+                                   {:schema s :table t})
+                                 {:table q})))
+          db        (when path (str/replace path #"^/" ""))
+          host      (or (.getHost uri) "localhost")]
+      (case scheme
+        ("postgresql" "pgsql")
+        (if service-name
+          (let [svc (pgloader.pg-service/lookup service-name)]
+            (when-not svc
+              (throw (ex-info (str "pg_service.conf: service '" service-name "' not found")
+                              {:service service-name})))
+            (merge {:type :pgsql :raw uri-str} svc))
+          (pgloader.pg-service/apply-pgpass
+           (merge {:type     :pgsql
+                   :host     host
+                   :port     (if (pos? (.getPort uri)) (.getPort uri) 5432)
+                   :db       db
+                   :user     user
+                   :password password
+                   :raw      uri-str
+                   :jdbc-url (str "jdbc:postgresql://" host
+                                  ":" (if (pos? (.getPort uri)) (.getPort uri) 5432)
+                                  "/" db
+                                  (when raw-query (str "?" raw-query)))}
+                  table-from-query)))
 
-      "csv"
-      {:type :csv
-       :path (clojure.string/replace (.getSchemeSpecificPart uri) #"^//" "")
-       :raw uri-str}
+        ("mssql" "sqlserver")
+        (merge {:type     :mssql
+                :host     host
+                :port     (if (pos? (.getPort uri)) (.getPort uri) 1433)
+                :db       db
+                :user     user
+                :password password
+                :raw      uri-str
+                :jdbc-url (str "jdbc:sqlserver://" host
+                               ":" (if (pos? (.getPort uri)) (.getPort uri) 1433)
+                               ";databaseName=" db ";encrypt=false"
+                               (when raw-query (str ";" (str/replace raw-query #"&" ";"))))}
+               table-from-query)
 
-      "sqlite"
-      {:type :sqlite
-       :path (clojure.string/replace (.getSchemeSpecificPart uri) #"^//" "")
-       :raw uri-str}
+        ("mysql" "mariadb")
+        {:type     (keyword scheme)
+         :host     host
+         :port     (if (pos? (.getPort uri)) (.getPort uri) 3306)
+         :db       db
+         :user     user
+         :password password
+         :raw      uri-str
+         :jdbc-url (str "jdbc:mysql://" host
+                        ":" (if (pos? (.getPort uri)) (.getPort uri) 3306)
+                        "/" db
+                        (when raw-query (str "?" raw-query)))}
 
-      {:type (keyword scheme)
-       :raw uri-str})))
+        "csv"
+        {:type :csv
+         :path (str/replace (.getSchemeSpecificPart uri) #"^//" "")
+         :raw  uri-str}
+
+        "sqlite"
+        {:type     :sqlite
+         :path     (str/replace (.getSchemeSpecificPart uri) #"^//" "")
+         :raw      uri-str
+         :jdbc-url (str "jdbc:sqlite:" (str/replace (.getSchemeSpecificPart uri) #"^//" ""))}
+
+        {:type (keyword scheme)
+         :raw  uri-str}))))
 
 (defn- parse-size
   "Parse size strings like '128MB', '20GB', '500KB' or plain integers"

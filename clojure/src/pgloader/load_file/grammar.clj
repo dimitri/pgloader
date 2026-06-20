@@ -150,8 +150,8 @@
     s-expr-inner = s-expr | #'[^()]+'
     table-ref = qualified-name | table-name
 
-   source-uri  = #'[a-zA-Z][a-zA-Z0-9+.-]*://[^\\s;]+'
-   pg-uri      = #'postgresql://[^\\s;]+' | #'pgsql://[^\\s;]+'
+   source-uri  = #'jdbc:[^\\s]+' | #'[a-zA-Z][a-zA-Z0-9+.-]*://[^\\s;]+'
+   pg-uri      = #'jdbc:p(?:ostgresql|gsql)://[^\\s]+' | #'p(?:ostgresql|gsql)://[^\\s;]+'
    column-list = <'('> <opt-ws> column-item (<opt-ws> <','> <opt-ws> column-item)* <opt-ws> <')'>
      column-item = column-name (<ws> date-format-spec)? (<ws> null-if-spec)?
      date-format-spec = <'['> <opt-ws> <'date'> <ws> <'format'> <ws> quoted-string <opt-ws> <']'>

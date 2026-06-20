@@ -4,8 +4,7 @@
             [clojure.string :as str]
             [next.jdbc :as jdbc]
             [clojure.tools.logging :as log])
-  (:import [java.sql Connection PreparedStatement ResultSet]
-           [com.mysql.cj.jdbc MysqlDataSource]))
+  (:import [java.sql Connection DriverManager PreparedStatement ResultSet]))
 
 (set! *warn-on-reflection* true)
 
@@ -369,20 +368,23 @@
 
 
 (defn connection
-  "Create a MySQL JDBC connection."
+  "Create a MySQL JDBC connection.
+   Uses :jdbc-url when present so all query parameters (useSSL, sslmode, etc.)
+   reach the driver unchanged. Falls back to constructing a URL from parts."
   [uri-map]
-  (let [ds (MysqlDataSource.)
-        _ (.setServerName ds (:host uri-map))
-        _ (.setPortNumber ds (int (:port uri-map)))
-        _ (.setDatabaseName ds (:db uri-map))
-        _ (when (:user uri-map) (.setUser ds (:user uri-map)))
-        _ (when (:password uri-map) (.setPassword ds (:password uri-map)))
-        _ (.setCharacterEncoding ds "UTF-8")
-        _ (.setRewriteBatchedStatements ds true)
-        _ (.setUseCursorFetch ds false)
-        ;; Convert zero dates (0000-00-00) to NULL instead of throwing
-        _ (.setZeroDateTimeBehavior ds "CONVERT_TO_NULL")]
-    (.getConnection ds)))
+  (let [host (or (:host uri-map) "localhost")
+        port (or (:port uri-map) 3306)
+        db   (or (:db uri-map) "")
+        url  (or (:jdbc-url uri-map)
+                 (str "jdbc:mysql://" host ":" port "/" db))
+        props (java.util.Properties.)]
+    (when (:user uri-map) (.setProperty props "user" (:user uri-map)))
+    (when (:password uri-map) (.setProperty props "password" (:password uri-map)))
+    (.setProperty props "characterEncoding" "UTF-8")
+    (.setProperty props "rewriteBatchedStatements" "true")
+    (.setProperty props "useCursorFetch" "false")
+    (.setProperty props "zeroDateTimeBehavior" "CONVERT_TO_NULL")
+    (DriverManager/getConnection url props)))
 
 (defn catalog-views
   "Return catalog entries for all MySQL views, same structure as catalog entries

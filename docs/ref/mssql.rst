@@ -47,10 +47,33 @@ clauses.
 MS SQL Database Source Specification: FROM
 ------------------------------------------
 
-Connection string to an existing MS SQL database server that listens and
-welcome external TCP/IP connection. As pgloader currently piggybacks on the
-FreeTDS driver, to change the port of the server please export the `TDSPORT`
-environment variable.
+Connection string to an existing MS SQL database server that accepts TCP/IP
+connections. pgloader v4 uses the official Microsoft JDBC driver (mssql-jdbc)
+so no FreeTDS or ODBC installation is required.
+
+Both pgloader-native and JDBC URL formats are accepted::
+
+    mssql://[user[:password]@][host][:port][/dbname]
+    jdbc:sqlserver://host[:port][;param=value;...]
+
+The JDBC URL format is particularly useful when you need to pass driver-specific
+parameters such as ``encrypt``, ``trustServerCertificate``, or
+``applicationIntent``:
+
+.. code-block:: sql
+
+    -- Native pgloader URI (encrypt=false by default)
+    FROM mssql://sa:password@mssql:1433/mydb
+
+    -- JDBC URL — no URL-encoding needed for special chars in password,
+    --            and all MSSQL JDBC properties are available:
+    FROM jdbc:sqlserver://mssql:1433;databaseName=mydb;user=sa;password=P@$$w0rd;encrypt=false
+
+    -- Azure SQL / SQL Server with SSL:
+    FROM jdbc:sqlserver://myserver.database.windows.net:1433;databaseName=mydb;user=admin;password=secret;encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net
+
+When using the native ``mssql://`` URI, ``encrypt=false`` is set automatically
+(matching the previous FreeTDS behaviour). Override it by using a JDBC URL.
 
 MS SQL Database Migration Options: WITH
 ---------------------------------------

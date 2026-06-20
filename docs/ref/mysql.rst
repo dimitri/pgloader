@@ -99,24 +99,31 @@ the connection string. The MySQL connection string accepts the same
 parameter *sslmode* as the PostgreSQL connection string, but the *verify*
 mode is not implemented (yet).
 
-::
+pgloader accepts both its native URI format and standard JDBC URLs for the
+MySQL source::
 
     mysql://[user[:password]@][netloc][:port][/dbname][?option=value&...]
+    jdbc:mysql://[user[:password]@][netloc][:port][/dbname][?option=value&...]
 
+JDBC URLs are passed directly to the MySQL Connector/J driver so any
+driver-supported query parameter is honoured. This is particularly useful
+for SSL configuration and authentication options:
 
-MySQL connection strings support specific options:
+.. code-block:: sql
 
-  - ``useSSL``
+    -- Disable SSL (common for local/Docker setups)
+    FROM mysql://root:pass@db:3306/mydb?useSSL=false
 
-    The same notation rules as found in the *Connection String* parts of the
-    documentation apply, and we have a specific MySQL option: ``useSSL``.
-    The value for ``useSSL`` can be either ``false`` or ``true``.
+    -- Or equivalently with a JDBC URL:
+    FROM jdbc:mysql://root:pass@db:3306/mydb?useSSL=false
 
-    If both ``sslmode`` and ``useSSL`` are used in the same connection
-    string, pgloader behavior is undefined.
-    
-The MySQL connection string also accepts the *useSSL* parameter with values
-being either *false* or *true*.
+    -- MySQL 8.x with RSA auth over a non-SSL connection:
+    FROM jdbc:mysql://root:pass@db:3306/mydb?useSSL=false&allowPublicKeyRetrieval=true
+
+Supported query parameters include ``useSSL``, ``sslmode``,
+``allowPublicKeyRetrieval``, ``serverTimezone``, ``connectTimeout``,
+``socketTimeout``, and all other `MySQL Connector/J connection properties
+<https://dev.mysql.com/doc/connector-j/en/connector-j-reference-configuration-properties.html>`_.
 
 Environment variables described in
 <http://dev.mysql.com/doc/refman/5.0/en/environment-variables.html> can be
