@@ -274,3 +274,59 @@ jobs:
         if: always()
         working-directory: clojure/tests
         run: make down || true
+
+  # ── Publish evergreen dev release ─────────────────────────────────────────
+  # Runs only on push (not PRs), only after all tests pass.
+  # Overwrites the assets on the fixed `v4-dev` pre-release tag so that
+  # https://github.com/dimitri/pgloader/releases/download/v4-dev/pgloader.jar
+  # always points to the latest green HEAD JAR.
+  publish-dev:
+    name: Publish dev release
+    needs: [unit, integration]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pgloader-v4-jar
+          path: clojure/target/
+
+      - name: Name versioned copy of JAR
+        id: ver
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          VERSION="4.0.0-${SHA}"
+          cp clojure/target/pgloader.jar "clojure/target/pgloader-${VERSION}.jar"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "sha=${SHA}"         >> "$GITHUB_OUTPUT"
+
+      - name: Update v4-dev release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v4-dev
+          name: "pgloader v4 — development build"
+          prerelease: true
+          body: |
+            Automated build from `${{ github.ref_name }}` at commit `${{ github.sha }}`.
+
+            All CI tests passed. Requires **Java 21+**, no other dependencies.
+
+            **Stable URL (always latest green HEAD):**
+            ```
+            curl -L -o pgloader.jar \
+              https://github.com/dimitri/pgloader/releases/download/v4-dev/pgloader.jar
+            java -jar pgloader.jar SOURCE TARGET
+            ```
+
+            This build: `${{ steps.ver.outputs.version }}`
+          files: |
+            clojure/target/pgloader.jar
+            clojure/target/pgloader-${{ steps.ver.outputs.version }}.jar

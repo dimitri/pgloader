@@ -2,7 +2,7 @@
   (:require [clojure.tools.build.api :as b]))
 
 (def lib 'io.pgloader/pgloader-v4)
-(def version "0.1.0-SNAPSHOT")
+(def version (or (System/getenv "PGLOADER_VERSION") "4.0.0-SNAPSHOT"))
 (def class-dir "target/classes")
 (def basis (b/create-basis {:project "deps.edn"}))
 (def uber-file (format "target/pgloader-v4-%s.jar" version))
