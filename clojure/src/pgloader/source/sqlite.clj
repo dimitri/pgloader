@@ -36,6 +36,15 @@
     (re-find #"(?i)\b(strftime|datetime|julianday|unixepoch)\s*\("
              (str default))))
 
+(defn- generated-column-names
+  "Return the set of column names that are GENERATED ALWAYS AS columns by
+   parsing the raw CREATE TABLE SQL from sqlite_master."
+  [^java.sql.Connection conn table-name]
+  (when-let [sql (:sql (get-create-table conn {:table table-name}))]
+    (into #{}
+          (map second)
+          (re-seq #"(?i)\b(\w+)\b[^,\n]*GENERATED\s+ALWAYS\s+AS" sql))))
+
 (defn- detect-autoincrement
   [^java.sql.Connection conn table-name col-name pk-id]
   (when (pos? pk-id)
@@ -103,6 +112,8 @@
                    (let [src-table-name (:table_name t)
                          table-name (apply-sqlite-identifier-case src-table-name id-case)
                          cols (list-columns conn src-table-name)
+                         gen-cols (generated-column-names conn src-table-name)
+                         cols (remove #(contains? gen-cols (:name %)) cols)
                          pk-cids (set (keep (fn [c]
                                               (when (pos? (:pk c)) (:cid c)))
                                             cols))

@@ -256,16 +256,22 @@
                      :source-table-name (:table_name t)
                      :schema            schema-name
                      :table-comment     (not-empty (:table_comment t))
-                    :columns    (mapv (fn [c]
-                                          {:column-name      (apply-identifier-case (:column_name c) id-case)
-                                           :column-type      (:column_type c)
-                                           :is-nullable      (= "YES" (:is_nullable c))
-                                           :column-default   (:column_default c)
-                                           :extra            (:extra c)
-                                           :column-key       (:column_key c)
-                                           :ordinal-position (:ordinal_position c)
-                                           :column-comment   (:column_comment c)})
-                                        cols)
+                    :columns    (into []
+                                      (keep (fn [c]
+                                              ;; Skip generated/computed columns — they cannot be
+                                              ;; written to via INSERT/COPY and have no source data.
+                                              (when-not (str/includes?
+                                                          (str/lower-case (or (:extra c) ""))
+                                                          "generated")
+                                                {:column-name      (apply-identifier-case (:column_name c) id-case)
+                                                 :column-type      (:column_type c)
+                                                 :is-nullable      (= "YES" (:is_nullable c))
+                                                 :column-default   (:column_default c)
+                                                 :extra            (:extra c)
+                                                 :column-key       (:column_key c)
+                                                 :ordinal-position (:ordinal_position c)
+                                                 :column-comment   (:column_comment c)})))
+                                      cols)
                      :primary-key (mapv #(apply-identifier-case % id-case) (mapv :column_name pkeys))
                      :indexes    (mapv (fn [idx]
                                          {:name       (:index_name idx)
