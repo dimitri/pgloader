@@ -605,9 +605,18 @@
                       (fn []
                         (let [worker-src (source-from-uri source-uri table-spec
                                            with-options source-overrides (:decoding-as cmd))
-                              worker-pg  (postgres-connection target-uri)]
+                              worker-pg  (postgres-connection target-uri)
+                              pg-params  (seq (remove :is-mysql (:set-parameters cmd)))]
                           (when mysql-set-params
                             (mysql-source/execute-set-params! worker-src mysql-set-params))
+                          (when pg-params
+                            (doseq [param pg-params]
+                              (try
+                                (jdbc/execute! worker-pg [(str "SET " (:var param) " TO '" (:value param) "'")])
+                                (.commit worker-pg)
+                                (catch Exception e
+                                  (.rollback worker-pg)
+                                  (log/warn (str "Worker SET failed: " (.getMessage e)))))))
                           (try
                             (let [schema      (or (:schema t) "public")
                                   table       (:table-name t)
