@@ -201,7 +201,6 @@ users who stay on v3, but are not needed in v4.
 Not addressed in this PR; remain as future work:
 
 - **Citus FK backfill** (`distribute T using col from other_table`) — Phase 2
-- **Mustache templating** (`{{VAR}}` in load files) — not yet ported from v3
 - **Generated columns** (SQLite, MySQL) — silently skipped; not copied
 - **MSSQL MATERIALIZE VIEWS named list** — grammar parsed; currently loads all views
 - **MSSQL non-standard UDT types** (`SYB-MSUDT`) — not handled
