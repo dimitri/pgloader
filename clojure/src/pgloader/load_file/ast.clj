@@ -24,27 +24,6 @@
    ;; For :archive load-type: ordered list of sub-LoadCommand records.
    commands])
 
-(defn- parse-mssql-jdbc-url
-  "Parse a jdbc:sqlserver://host:port;param=val;... URL.
-   The MSSQL JDBC driver uses semicolons to separate connection properties
-   rather than the standard ?key=val query-string convention."
-  [^String uri-str]
-  (let [without-prefix (subs uri-str (count "jdbc:sqlserver://"))
-        [host-port & param-strs] (str/split without-prefix #";" -1)
-        [host port-str] (str/split (or host-port "") #":" 2)
-        port (try (when port-str (Integer/parseInt port-str)) (catch Exception _ nil))
-        params (into {} (keep (fn [p]
-                                (when-let [[_ k v] (re-find #"(?i)^(.+?)=(.*)$" p)]
-                                  [(str/lower-case k) v]))
-                              param-strs))]
-    {:type     :mssql
-     :host     (or (not-empty host) "localhost")
-     :port     (or port 1433)
-     :db       (get params "databasename" "")
-     :user     (get params "user")
-     :password (get params "password")
-     :raw      uri-str
-     :jdbc-url uri-str}))
 
 (defn parse-uri
   "Parse a connection URI string into a structured map.
@@ -59,9 +38,11 @@
    For pg_service.conf lookup use postgresql:///?service=<name>."
   [^String uri-str]
   (cond
-    ;; ── JDBC URL: pass through to driver, extract metadata for display/pgpass ──
+    ;; ── JDBC URL: pass through to driver unchanged ──
+    ;; The MSSQL JDBC URL uses semicolons (jdbc:sqlserver://host;param=val;...)
+    ;; which java.net.URI can't parse. Hand it straight to the driver.
     (str/starts-with? uri-str "jdbc:sqlserver:")
-    (parse-mssql-jdbc-url uri-str)
+    {:type :mssql :raw uri-str :jdbc-url uri-str}
 
     (str/starts-with? uri-str "jdbc:sqlite:")
     {:type     :sqlite

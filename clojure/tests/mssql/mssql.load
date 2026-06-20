@@ -1,5 +1,5 @@
 LOAD DATABASE
-     FROM jdbc:sqlserver://mssql:1433;databaseName=testdb;user=sa;password=pgloaderTest1!;encrypt=false
+     FROM mssql://sa:pgloaderTest1!@mssql:1433/testdb
      INTO postgresql://pgloader:pgloader@postgres:5432/target
 
      WITH include drop, create tables, create indexes, reset sequences,

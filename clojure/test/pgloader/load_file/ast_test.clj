@@ -35,17 +35,13 @@
       (is (= "jdbc:postgresql://pg:5432/mydb?sslmode=require" (:jdbc-url m))))))
 
 (deftest test-parse-jdbc-sqlserver-uri
-  (testing "jdbc:sqlserver:// with semicolon params"
-    (let [m (parse-uri "jdbc:sqlserver://mssql:1433;databaseName=testdb;user=sa;password=P@ss!;encrypt=false")]
+  (testing "jdbc:sqlserver:// passed to driver as-is — no semicolon parsing"
+    (let [url "jdbc:sqlserver://mssql:1433;databaseName=testdb;user=sa;password=P@ss!;encrypt=false"
+          m   (parse-uri url)]
       (is (= :mssql (:type m)))
-      (is (= "mssql" (:host m)))
-      (is (= 1433 (:port m)))
-      (is (= "testdb" (:db m)))
-      (is (= "sa" (:user m)))
-      (is (= "P@ss!" (:password m)))
-      (is (= "jdbc:sqlserver://mssql:1433;databaseName=testdb;user=sa;password=P@ss!;encrypt=false"
-             (:jdbc-url m))
-          "full JDBC URL preserved for direct driver use"))))
+      (is (= url (:jdbc-url m)) "full JDBC URL preserved for direct driver use")
+      ;; We do NOT extract host/port/db/user from JDBC URLs — the driver parses them
+      (is (nil? (:user m))))))
 
 (deftest test-parse-mssql-native-uri
   (testing "mssql:// synthesises jdbc-url"
