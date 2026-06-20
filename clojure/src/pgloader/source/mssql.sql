@@ -102,3 +102,17 @@ SELECT KCU1.CONSTRAINT_NAME,
  WHERE KCU1.TABLE_SCHEMA = :schema
    AND KCU1.TABLE_NAME = :table
  ORDER BY KCU1.CONSTRAINT_NAME, KCU1.ORDINAL_POSITION
+
+-- :name table-extended-props :? :*
+-- :doc MS_Description extended properties for a table (minor_id=0) and its columns (minor_id>0)
+SELECT ep.minor_id,
+       COALESCE(c.name, '') AS column_name,
+       CAST(ep.value AS NVARCHAR(MAX)) AS comment
+  FROM sys.extended_properties ep
+  LEFT JOIN sys.columns c
+         ON c.object_id = ep.major_id
+        AND c.column_id = ep.minor_id
+ WHERE ep.major_id = OBJECT_ID(QUOTENAME(:schema) + '.' + QUOTENAME(:table))
+   AND ep.name = 'MS_Description'
+   AND ep.class = 1
+ ORDER BY ep.minor_id

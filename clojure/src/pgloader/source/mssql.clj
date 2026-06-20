@@ -113,10 +113,19 @@
                          cols (table-columns conn {:schema schema :table table-name})
                          pkeys (table-pkeys conn {:schema schema :table table-name})
                          idxes (table-indexes conn {:schema schema :table table-name})
-                         fks   (table-fkeys conn {:schema schema :table table-name})]
+                         fks   (table-fkeys conn {:schema schema :table table-name})
+                         ext-props (try
+                                     (table-extended-props conn {:schema schema :table table-name})
+                                     (catch Exception _ []))
+                         table-comment (not-empty (:comment (first (filter #(zero? (:minor_id %)) ext-props))))
+                         col-comments (into {} (keep (fn [ep]
+                                                       (when (pos? (:minor_id ep))
+                                                         [(:column_name ep) (:comment ep)]))
+                                                     ext-props))]
                      {:table-name table-name
                       :schema (if (= schema "dbo") "public" schema)
                       :source-schema schema
+                      :table-comment table-comment
                       :columns (mapv (fn [c]
                                        (let [col-type (:data_type c)
                                              is-identity (= 1 (:is_identity c))
@@ -128,7 +137,8 @@
                                                           (mssql-type->pg col-type))
                                           :is-nullable (= "YES" (:is_nullable c))
                                           :column-default (when-not ai (:column_default c))
-                                          :extra (when ai "auto_increment")}))
+                                          :extra (when ai "auto_increment")
+                                          :column-comment (not-empty (get col-comments (:column_name c)))}))
                                      cols)
                       :primary-key (mapv :column_name pkeys)
                       :indexes (build-index-cols idxes)
