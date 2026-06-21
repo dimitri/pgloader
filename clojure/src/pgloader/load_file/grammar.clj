@@ -251,8 +251,9 @@
                   (<ws> <'to'> <ws> target-type-name)?
                   (<ws> cast-option)*
     column-cast = <'column'> <ws> column-ref
-                  <ws> <'to'> <ws> target-type-name
+                  (<ws> <'to'> <ws> target-type-name | <ws> without-type)
                   (<ws> cast-option)*
+    without-type = <'WITHOUT'> <ws> <'TYPE'>
     cast-option = drop-not-null | drop-default | set-not-null | keep-not-null
                 | drop-typemod | keep-typemod | drop-extra | using-fn
     drop-not-null = <'drop'> <ws> <'not'> <ws> <'null'>

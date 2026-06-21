@@ -257,3 +257,49 @@
                     WITH uniquify index names;")]
       (is (:ok result))
       (is (true? (get-in result [:ok :with-options :uniquify-index-names]))))))
+
+;; ── Cast grammar fixes (#1522, #1273, #1470) ─────────────────────────────────
+
+(deftest test-cast-without-type
+  (testing "CAST column col WITHOUT TYPE parses successfully (#1522)"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                    CAST column status WITHOUT TYPE;")]
+      (is (:ok result) (str "Parse error: " (:error result)))
+      (let [rules (get-in result [:ok :cast-rules])]
+        (is (= 1 (count rules)))
+        (is (true? (:without-type (first rules)))))))
+
+  (testing "CAST column col WITHOUT TYPE using fn parses with using (#1522)"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                    CAST column status WITHOUT TYPE using set-to-enum-array;")]
+      (is (:ok result))
+      (let [rule (first (get-in result [:ok :cast-rules]))]
+        (is (:without-type rule))
+        (is (= :set-to-enum-array (:using rule)))))))
+
+(deftest test-cast-target-type-multi-word
+  (testing "multi-word target type like 'timestamp without time zone' parses (#1273)"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                    CAST type timestamp to \"timestamp without time zone\";")]
+      (is (:ok result) (str "Parse error: " (:error result)))
+      (let [rule (first (get-in result [:ok :cast-rules]))]
+        (is (= "timestamp without time zone" (:target-type rule))))))
+
+  (testing "unquoted multi-word type like 'timestamp without time zone' parses (#1273)"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                    CAST type timestamp to timestamp without time zone;")]
+      (is (:ok result) (str "Parse error: " (:error result)))
+      (let [rule (first (get-in result [:ok :cast-rules]))]
+        (is (= "timestamp without time zone" (:target-type rule))))))
+
+  (testing "timestamp to plain timestamp cast overrides default timestamptz (#1470)"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                    CAST type timestamp to timestamp;")]
+      (is (:ok result) (str "Parse error: " (:error result)))
+      (let [rule (first (get-in result [:ok :cast-rules]))]
+        (is (= "timestamp" (:target-type rule)))))))

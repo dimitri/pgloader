@@ -136,6 +136,19 @@
                 (.longValue p4) (.longValue p5)))
       (catch Exception _ v))))
 
+(defn hex-to-bytea
+  "Convert a hex string to PostgreSQL bytea \\x... format (#1066).
+   Input may be plain hex (DEADBEEF) or prefixed (0xDEADBEEF / \\xDEADBEEF).
+   Used when loading CSV/fixed fields that carry hex-encoded binary data."
+  [^String v]
+  (when v
+    (let [trimmed (str/trim v)
+          hex (cond
+                (str/starts-with? trimmed "0x") (subs trimmed 2)
+                (str/starts-with? trimmed "\\x") (subs trimmed 2)
+                :else trimmed)]
+      (str "\\x" (str/lower-case hex)))))
+
 (defn set-to-enum-array
   "Convert a MySQL SET value (comma-separated string) to PostgreSQL array format {val1,val2}.
    Mirrors CL pgloader's set-to-enum-array."
@@ -205,6 +218,7 @@
    :set-to-enum-array            set-to-enum-array
    :convert-mysql-point          convert-mysql-point
    :convert-mysql-linestring     convert-mysql-linestring
+   :hex-to-bytea                 hex-to-bytea
    :none                         identity})
 
 ;; ── Rule matching ─────────────────────────────────────────────────
@@ -318,7 +332,9 @@
    resolve-specs can still match on the original type after DDL generation
    changes :column-type to the PostgreSQL target.
    Also stores :cast-fn so the DDL layer can apply the same transform to
-   default values (mirrors CL format-default-value)."
+   default values (mirrors CL format-default-value).
+   Rules with :without-type true (from 'without type' syntax, #1522) match
+   the column but do not change its type."
   [columns cast-rules]
   (mapv (fn [col]
           (if-let [rule (some #(when (matches-rule? % col) %) cast-rules)]
@@ -331,10 +347,12 @@
                 cast-kw
                 (assoc :cast-fn cast-kw)
 
-                (:target-type rule)
+                ;; without-type: keep existing type; only apply cast-fn (#1522)
+                (and (:target-type rule) (not (:without-type rule)))
                 (assoc :column-type (:target-type rule))
 
-                (get-in rule [:options :drop-typemod])
+                (and (get-in rule [:options :drop-typemod])
+                     (not (:without-type rule)))
                 (assoc :column-type
                        (-> (:target-type rule)
                            (or (:column-type col))

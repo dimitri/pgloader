@@ -18,15 +18,20 @@
    (str (identifier-quote schema) "." (identifier-quote table))))
 
 (defn- pg-type-for
-  "Map a MySQL type name to PostgreSQL type."
+  "Map a MySQL type name to PostgreSQL type.
+   Preserves precision modifiers for temporal types (#1629)."
   [^String mysql-type ^String extra]
   (let [upper (str/upper-case mysql-type)
         lower (str/lower-case mysql-type)
-        unsigned? (str/includes? lower "unsigned")]
+        unsigned? (str/includes? lower "unsigned")
+        ;; Extract precision modifier like (6) from datetime(6)
+        typemod (re-find #"\(\d+\)" mysql-type)]
     (cond
       ;; Pass-through: native PostgreSQL types emitted by non-MySQL sources
       (= lower "uuid")   "uuid"
       (= lower "xml")    "xml"
+      ;; Pass-through array types from PostgreSQL sources (#1371)
+      (str/ends-with? lower "[]") lower
       (str/starts-with? upper "BIGSERIAL")   "bigserial"
       ;; Unsigned integers: upcast to avoid overflow (matches CL cast rules)
       (and unsigned? (str/starts-with? upper "TINYINT"))   "smallint"
@@ -74,10 +79,11 @@
       (str/starts-with? upper "ENUM")        "text"
       (str/starts-with? upper "SET")         "text[]"
       (str/starts-with? upper "JSON")        "jsonb"
-      (str/starts-with? upper "TIMESTAMP")   "timestamptz"
-      (str/starts-with? upper "DATETIME")    "timestamptz"
+      ;; Preserve precision modifier for temporal types: datetime(6) → timestamptz(6) (#1629)
+      (str/starts-with? upper "TIMESTAMP")   (str "timestamptz" (or typemod ""))
+      (str/starts-with? upper "DATETIME")    (str "timestamptz" (or typemod ""))
       (str/starts-with? upper "DATE")        "date"
-      (str/starts-with? upper "TIME")        "time"
+      (str/starts-with? upper "TIME")        (str "time" (or typemod ""))
       (str/starts-with? upper "YEAR")        "smallint"
       ;; Spatial types — requires PostGIS on the target.
       ;; The docker-compose postgres image includes PostGIS.
@@ -110,25 +116,35 @@
         default))))
 
 (defn- format-default
-  "Format a default value, quoting bare string literals for PostgreSQL."
+  "Format a default value, quoting bare string literals for PostgreSQL.
+   Handles:
+   - MySQL bit literals b'0'/b'1' → pass through (#1280)
+   - current_timestamp(N) with precision → current_timestamp (#1403)
+   - backslash in string defaults → escape as '' (#1546)"
   [^String val]
   (let [upper (str/upper-case val)
-        ;; Strip trailing () for comparison (PG doesn't accept () on these)
-        stripped (clojure.string/replace upper #"\(\)$" "")]
+        ;; Strip trailing () or (N) for comparison (PG doesn't accept those on keywords)
+        stripped (str/replace upper #"\(\d*\)$" "")]
     (cond
       ;; Numeric: don't quote
       (re-matches #"^-?\d+(\.\d+)?$" val) val
-      ;; Bit literal like B'0' or X'0F': pass through as-is (valid PG syntax)
-      (re-matches #"(?i)^[BX]'.*'$" val) val
-      ;; Known PostgreSQL keywords/functions: don't quote, strip ()
+      ;; Bit literal b'0', b'1', B'0', B'1': pass through as-is (#1280)
+      (re-matches #"(?i)^b'[01]+'$" val) val
+      ;; Hex literal X'0F': pass through as-is (valid PG syntax)
+      (re-matches #"(?i)^[X]'.*'$" val) val
+      ;; Known PostgreSQL keywords/functions: don't quote, strip precision (#1403)
       (#{"CURRENT_TIMESTAMP" "CURRENT_DATE" "CURRENT_TIME"
          "LOCALTIMESTAMP" "LOCALTIME" "TRUE" "FALSE"
          "NOW"}
        stripped) (str/lower-case stripped)
-      ;; Bare identifier (word): quote as string literal
+      ;; Bare identifier (word): quote as string literal with backslash escaping (#1546)
       (re-matches #"^\w+$" val) (str "'" (str/replace val "'" "''") "'")
-      ;; Anything else: quote as string literal
-      :else (str "'" (str/replace val "'" "''") "'"))))
+      ;; Anything else: quote as string literal; escape single quotes and backslashes (#1546)
+      :else (str "'"
+                 (-> val
+                     (str/replace "\\" "\\\\")
+                     (str/replace "'" "''"))
+                 "'"))))
 
 (defn- strip-quotes
   "Strip surrounding single or double quotes, repeatedly, until stable."
@@ -458,6 +474,20 @@
                         (:columns t))]
             (assoc t :columns new-cols :enum-types (vec enum-types))))
         catalog))
+
+(defn create-check-constraints-sql
+  "Generate ALTER TABLE ADD CONSTRAINT ... CHECK (...) statements.
+   Each check entry: {:constraint-name s :check-clause s}
+   MySQL 8.0.16+ exposes CHECK constraints in information_schema.CHECK_CONSTRAINTS.
+   Returns a vector of SQL strings."
+  [schema table-name checks]
+  (mapv (fn [ck]
+          (let [quoted-table (quote-fqname schema table-name)
+                ck-name      (identifier-quote (:constraint-name ck))]
+            (str "ALTER TABLE " quoted-table
+                 " ADD CONSTRAINT " ck-name
+                 " CHECK (" (:check-clause ck) ");")))
+        checks))
 
 (defn create-enum-types-sql
   "Generate DROP TYPE IF EXISTS + CREATE TYPE statements for ENUM/SET columns."
