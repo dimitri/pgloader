@@ -185,10 +185,12 @@
       (str "  " quoted-name " " pg-type
            " GENERATED ALWAYS AS (" generated-expression ") STORED")
       (let [zero? (zero-date? col)
-            coerced-default (coerce-default-for-type
-                             (when column-default (strip-quotes (str column-default)))
-                             pg-type
-                             (:cast-fn col))
+            ;; MariaDB information_schema returns the string "NULL" (not SQL NULL)
+            ;; for columns with no explicit default. Filter it out before calling
+            ;; coerce-default-for-type so cast functions are not applied to "NULL".
+            raw-default (when (and column-default (not= "NULL" (str column-default)))
+                          (strip-quotes (str column-default)))
+            coerced-default (coerce-default-for-type raw-default pg-type (:cast-fn col))
             temporal-int-default? (and coerced-default
                                        (re-find #"(?i)^(timestamp|date|time)" (or pg-type ""))
                                        (re-matches #"^-?\d+$" (str coerced-default)))
