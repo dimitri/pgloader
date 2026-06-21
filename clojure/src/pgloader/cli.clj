@@ -5,7 +5,8 @@
             [pgloader.load-file.ast :as ast]
             [pgloader.core :as core]
             [pgloader.copy :as copy]
-            [pgloader.regress :as regress])
+            [pgloader.regress :as regress]
+            [pgloader.stats :as stats])
   (:import [java.net URI]
            [java.nio.charset Charset]
            [org.slf4j LoggerFactory]
@@ -346,7 +347,12 @@
             (let [cmd (build-inline-command (:source-uri opts) (:target-uri opts) opts)]
               (core/run-command cmd opts))
             (do (println "No load file or source/target specified")
-                (print-usage))))))))
+                (print-usage))))
+        ;; Exit with code 1 when any rows were rejected or tables failed (#634).
+        ;; Checked after all commands complete so multi-file runs aggregate correctly.
+        (let [totals (stats/grand-totals)]
+          (when (pos? (:errs totals))
+            (System/exit 1)))))))
 
 (defn -main
   "Main entry point for the JAR."

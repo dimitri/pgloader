@@ -1,7 +1,8 @@
 (ns pgloader.ddl.common
   (:require [hugsql.core :as hugsql]
             [pgloader.cast :as cast]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.tools.logging :as log]))
 
 (set! *warn-on-reflection* true)
 
@@ -307,22 +308,51 @@
                  on-upd on-del ";\n")))
         fkeys))
 
+(def ^:private pg-max-identifier-length 63)
+
+(defn- snake-case-transform
+  "Convert an identifier to snake_case:
+   1. Insert underscore between camelCase boundaries (Foo → foo, FooBar → foo_bar).
+   2. Replace spaces and hyphens with underscore.
+   3. Collapse consecutive underscores (Object_Name → object_name, not object__name).
+   4. Replace $ with _ ($ is valid in MySQL/SQLite but not meaningful in PG identifiers).
+   5. Lowercase the whole result.
+   6. Truncate to 63 bytes (PostgreSQL max identifier length) with a warning when trimmed."
+  [^String s]
+  (let [result (-> s
+                   ;; camelCase → snake_case: insert _ between lower→upper transitions
+                   (str/replace #"([a-z\d])([A-Z])" "$1_$2")
+                   ;; Handle runs of uppercase followed by lowercase: XMLParser → xml_parser
+                   (str/replace #"([A-Z]+)([A-Z][a-z])" "$1_$2")
+                   ;; Replace spaces, hyphens, $ with underscore
+                   (str/replace #"[\s\-$]+" "_")
+                   str/lower-case
+                   ;; Collapse consecutive underscores (e.g. Object_Name → object_name)
+                   (str/replace #"_+" "_")
+                   ;; Strip leading/trailing underscores that may have appeared
+                   (str/replace #"^_+|_+$" ""))]
+    (if (> (count result) pg-max-identifier-length)
+      (do (log/warn (str "Identifier truncated to " pg-max-identifier-length
+                         " characters: " result))
+          (subs result 0 pg-max-identifier-length))
+      result)))
+
 (defn apply-identifier-case
   "Transform identifiers in the catalog according to with-options.
    Matches CL pgloader behaviour:
    - Default (no option): preserve original case (quote identifiers).
    - :quote-ids           preserve original case (same as default).
    - :downcase-ids        explicit lowercase.
-   - :snake-case-ids      lowercase + replace hyphens/spaces with underscores."
+   - :snake-case-ids      camelCase → snake_case + lowercase."
   [catalog with-options]
   (let [downcase? (get with-options :downcase-ids false)
-        snake? (get with-options :snake-case-ids false)]
+        snake?    (get with-options :snake-case-ids false)]
     (if (not (or downcase? snake?))
       catalog
       (mapv (fn [t]
-              (let [xf (fn [s]
-                         (cond-> (str/lower-case s)
-                           snake? (str/replace #"-" "_")))]
+              (let [xf (if snake?
+                         snake-case-transform
+                         str/lower-case)]
                 (-> t
                     (update :table-name xf)
                     (update :schema     xf)
@@ -333,7 +363,11 @@
                             (fn [pk] (mapv xf pk)))
                     (update :indexes
                             (fn [idxes]
-                              (mapv #(update % :columns (fn [cs] (mapv xf cs))) idxes)))
+                              (mapv (fn [idx]
+                                      (-> idx
+                                          (update :name xf)
+                                          (update :columns (fn [cs] (mapv xf cs)))))
+                                    idxes)))
                     (update :fkeys
                             (fn [fks]
                               (mapv (fn [fk]

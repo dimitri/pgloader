@@ -148,3 +148,105 @@
       (is (= "\"first_name\" || ' ' || \"last_name\"" result))))
   (testing "mysql-gen-expr->pg returns nil for blank expression"
     (is (nil? (#'pgloader.source.mysql/mysql-gen-expr->pg "")))))
+
+;; ── snake_case identifier transformation (#1286, #1287, #1320, #1327, #1344) ──
+
+(defn- make-table [table-name col-names idx-names]
+  {:table-name  table-name
+   :schema      "public"
+   :columns     (mapv #(hash-map :column-name %) col-names)
+   :primary-key []
+   :indexes     (mapv #(hash-map :name % :columns [%] :unique false) idx-names)
+   :fkeys       []})
+
+(deftest test-snake-case-transform
+  (testing "basic camelCase to snake_case"
+    (let [[t] (ddl/apply-identifier-case [(make-table "FooBar" ["fooBar" "BazQux"] [])]
+                                         {:snake-case-ids true})]
+      (is (= "foo_bar" (:table-name t)))
+      (is (= ["foo_bar" "baz_qux"] (mapv :column-name (:columns t))))))
+
+  (testing "existing underscores not doubled (#1287)"
+    (let [[t] (ddl/apply-identifier-case [(make-table "Object_Name" ["Object_Name"] [])]
+                                         {:snake-case-ids true})]
+      (is (= "object_name" (:table-name t)))
+      (is (= ["object_name"] (mapv :column-name (:columns t))))))
+
+  (testing "SQL keywords are still downcased (#1320)"
+    (let [[t] (ddl/apply-identifier-case [(make-table "Order" ["User" "From" "To"] [])]
+                                         {:snake-case-ids true})]
+      (is (= "order" (:table-name t)))
+      (is (= ["user" "from" "to"] (mapv :column-name (:columns t))))))
+
+  (testing "dollar sign replaced by underscore (#1344)"
+    (let [[t] (ddl/apply-identifier-case [(make-table "table$name" ["col$one"] [])]
+                                         {:snake-case-ids true})]
+      (is (= "table_name" (:table-name t)))
+      (is (= ["col_one"] (mapv :column-name (:columns t))))))
+
+  (testing "index names also transformed (#1327)"
+    (let [[t] (ddl/apply-identifier-case [(make-table "t" [] ["MyIndex" "Object_IDX"])]
+                                         {:snake-case-ids true})]
+      (is (= ["my_index" "object_idx"] (mapv :name (:indexes t))))))
+
+  (testing "table name truncated at 63 chars (#1286)"
+    (let [long-name (apply str (repeat 70 "a"))
+          [t] (ddl/apply-identifier-case [(make-table long-name [] [])]
+                                         {:snake-case-ids true})]
+      (is (= 63 (count (:table-name t))))))
+
+  (testing "downcase-ids still works for plain lowercase"
+    (let [[t] (ddl/apply-identifier-case [(make-table "MyTable" ["MyCol"] [])]
+                                         {:downcase-ids true})]
+      (is (= "mytable" (:table-name t)))
+      (is (= ["mycol"] (mapv :column-name (:columns t))))))
+
+  (testing "XMLParser-style all-caps prefix handled"
+    (let [[t] (ddl/apply-identifier-case [(make-table "XMLParser" [] [])]
+                                         {:snake-case-ids true})]
+      (is (= "xml_parser" (:table-name t))))))
+
+;; ── FK filter (#1216) ─────────────────────────────────────────────────────────
+
+(deftest test-create-fkeys-sql-filters-missing-tables
+  (testing "create-fkeys-sql generates SQL for all provided fkeys"
+    (let [fkeys [{:name "fk_orders_user" :columns ["user_id"] :ftable "users"
+                  :fcols ["id"] :on-delete nil :on-update nil}
+                 {:name "fk_orders_product" :columns ["product_id"] :ftable "products"
+                  :fcols ["id"] :on-delete "CASCADE" :on-update nil}]
+          sql (ddl/create-fkeys-sql "public" "orders" fkeys)]
+      (is (= 2 (count sql)))
+      (is (str/includes? (first sql) "REFERENCES \"public\".\"users\""))
+      (is (str/includes? (second sql) "ON DELETE CASCADE"))))
+
+  (testing "filtering fkeys to loaded tables excludes unloaded referenced tables (#1216)"
+    (let [all-fkeys [{:name "fk_a" :columns ["x"] :ftable "loaded_table"
+                      :fcols ["id"] :on-delete nil :on-update nil}
+                     {:name "fk_b" :columns ["y"] :ftable "excluded_table"
+                      :fcols ["id"] :on-delete nil :on-update nil}]
+          loaded-tables #{"loaded_table"}
+          fkeys (filter #(loaded-tables (:ftable %)) all-fkeys)
+          sql (ddl/create-fkeys-sql "public" "source_table" fkeys)]
+      (is (= 1 (count sql)))
+      (is (str/includes? (first sql) "REFERENCES \"public\".\"loaded_table\"")))))
+
+;; ── enum-types with include-no-drop (#1001) ───────────────────────────────────
+
+(deftest test-create-enum-types-sql
+  (testing "create-enum-types-sql generates DROP + CREATE pairs"
+    (let [sqls (ddl/create-enum-types-sql [{:type-name "color_enum"
+                                            :schema    "public"
+                                            :values    ["red" "green" "blue"]
+                                            :is-set    false}])]
+      (is (= 2 (count sqls)))
+      (is (str/starts-with? (first sqls) "DROP TYPE IF EXISTS"))
+      (is (str/starts-with? (second sqls) "CREATE TYPE"))))
+
+  (testing "filtering out DROP statements honours include-no-drop"
+    (let [sqls    (ddl/create-enum-types-sql [{:type-name "status_enum"
+                                               :schema    "public"
+                                               :values    ["active" "inactive"]
+                                               :is-set    false}])
+          no-drop (remove #(str/starts-with? % "DROP") sqls)]
+      (is (= 1 (count no-drop)))
+      (is (str/starts-with? (first no-drop) "CREATE TYPE")))))

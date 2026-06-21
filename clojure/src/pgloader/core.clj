@@ -503,367 +503,381 @@
                   (log/info (str "Processing tables in this order: "
                                  (clojure.string/join ", " (map :table-name cat))))
                   (log/info "Preparing target PostgreSQL schema")
-                  (let [failed-tables (atom #{})
-                        table-oids    (atom {})
-                        preserve-index-names? (get with-options :preserve-index-names false)
-                        create-indexes? (or (get with-options :create-indexes false)
-                                            (get with-options :reindex false))
-                        schema-only?  (get with-options :schema-only false)
+                  (let [load-failed (atom false)]
+                    (let [failed-tables (atom #{})
+                          table-oids    (atom {})
+                          preserve-index-names? (get with-options :preserve-index-names false)
+                          create-indexes? (or (get with-options :create-indexes false)
+                                              (get with-options :reindex false))
+                          schema-only?  (get with-options :schema-only false)
                 ;; workers: parallel table copies; default 4 for DB sources, 8 for file sources (v3 defaults)
-                        workers       (or (get with-options :workers)
-                                          (if (#{:mysql :mariadb :pgsql :mssql :sqlite} (:type source-uri)) 4 8))
+                          workers       (or (get with-options :workers)
+                                            (if (#{:mysql :mariadb :pgsql :mssql :sqlite} (:type source-uri)) 4 8))
                 ;; multiple readers per table: opt-in; concurrency = N readers per table
-                        multiple-readers? (get with-options :multiple-readers false)
-                        concurrency   (long (or (get with-options :concurrency) 1))
-                        chunk-bytes   (long (or (get with-options :chunk-size) (* 50 1024 1024)))
-                        all-idx-count (int (transduce (map #(count (:indexes %))) + 0 cat))
-                        max-par-idx   (int (max 1 (or (get with-options :max-parallel-create-index)
-                                                      all-idx-count)))
+                          multiple-readers? (get with-options :multiple-readers false)
+                          concurrency   (long (or (get with-options :concurrency) 1))
+                          chunk-bytes   (long (or (get with-options :chunk-size) (* 50 1024 1024)))
+                          all-idx-count (int (transduce (map #(count (:indexes %))) + 0 cat))
+                          max-par-idx   (int (max 1 (or (get with-options :max-parallel-create-index)
+                                                        all-idx-count)))
                 ;; Index executor: each table's indexes are submitted as soon as that
                 ;; table's COPY finishes, so index builds overlap with subsequent copies.
-                        idx-executor  (when (and create-indexes? (pos? all-idx-count))
-                                        (Executors/newFixedThreadPool max-par-idx))
-                        idx-futures   (atom [])
-                        idx-wall-t0   (atom nil)]
+                          idx-executor  (when (and create-indexes? (pos? all-idx-count))
+                                          (Executors/newFixedThreadPool max-par-idx))
+                          idx-futures   (atom [])
+                          idx-wall-t0   (atom nil)]
           ;; drop schema — executed once per schema before per-table DDL
-                    (when (and (get with-options :drop-schema false)
-                               (not (get with-options :data-only false)))
-                      (let [schemas (distinct (map #(or (:schema %) "public") cat))]
-                        (doseq [schema schemas]
-                          (log/info (str "Dropping schema " schema " CASCADE"))
-                          (try
-                            (jdbc/execute! pg-conn [(str "DROP SCHEMA IF EXISTS "
-                                                         (ddl/identifier-quote schema) " CASCADE")])
-                            (.commit pg-conn)
-                            (catch Exception e
-                              (.rollback pg-conn)
-                              (log/warn (str "Failed to drop schema " schema ": " (.getMessage e))))))))
+                      (when (and (get with-options :drop-schema false)
+                                 (not (get with-options :data-only false)))
+                        (let [schemas (distinct (map #(or (:schema %) "public") cat))]
+                          (doseq [schema schemas]
+                            (log/info (str "Dropping schema " schema " CASCADE"))
+                            (try
+                              (jdbc/execute! pg-conn [(str "DROP SCHEMA IF EXISTS "
+                                                           (ddl/identifier-quote schema) " CASCADE")])
+                              (.commit pg-conn)
+                              (catch Exception e
+                                (.rollback pg-conn)
+                                (log/warn (str "Failed to drop schema " schema ": " (.getMessage e))))))))
           ;; reindex — drop existing indexes before data load so they are rebuilt after
-                    (when (and (get with-options :reindex false)
-                               (not (get with-options :schema-only false)))
-                      (doseq [t cat]
-                        (let [schema (or (:schema t) "public")
-                              table  (:table-name t)]
-                          (when-let [idxs (seq (:indexes t))]
-                            (doseq [idx idxs]
-                              (let [idx-name (ddl/identifier-quote (:name idx))]
-                                (try
-                                  (jdbc/execute! pg-conn [(str "DROP INDEX IF EXISTS " idx-name)])
-                                  (.commit pg-conn)
-                                  (catch Exception _
-                                    (.rollback pg-conn)))))))))
+                      (when (and (get with-options :reindex false)
+                                 (not (get with-options :schema-only false)))
+                        (doseq [t cat]
+                          (let [schema (or (:schema t) "public")
+                                table  (:table-name t)]
+                            (when-let [idxs (seq (:indexes t))]
+                              (doseq [idx idxs]
+                                (let [idx-name (ddl/identifier-quote (:name idx))]
+                                  (try
+                                    (jdbc/execute! pg-conn [(str "DROP INDEX IF EXISTS " idx-name)])
+                                    (.commit pg-conn)
+                                    (catch Exception _
+                                      (.rollback pg-conn)))))))))
           ;; Phase 1: DDL for all tables — each table in its own transaction.
           ;; If a table's DDL fails, its transaction (including DROP TABLE)
           ;; is rolled back, leaving existing data intact.
            ;; Skip DDL if create-tables is false, create-no-tables, data-only
            ;; is set, or table already exists (e.g. created by BEFORE LOAD DO).
-                    (when (and (get with-options :create-tables false)
-                               (not (get with-options :create-no-tables false))
-                               (not (get with-options :data-only false)))
-                      (stats/new-entry! :pre "Create tables")
-                      (let [ddl-phase-start (System/nanoTime)]
-                        (doseq [[i t] (map-indexed vector cat)]
-                          (let [schema (or (:schema t) "public")
-                                table  (:table-name t)
-                                cols   (:columns t)
-                                table-label (table-stats-label schema table)]
-                            (stats/new-entry! :data table-label)
-                            (log/info (str "COPY " table " [" (inc i) "/" (count cat) "]"))
-                            (log/debug (str "Creating DDL for table: " schema "." table))
-                            (try
-                              (let [ddl-start (System/nanoTime)
-                                    pk (:primary-key t)
-                                    enum-types (:enum-types t)
-                                    ddl-sqls (cond-> [(str "CREATE SCHEMA IF NOT EXISTS " (ddl/identifier-quote schema))]
-                                               (not (get with-options :include-no-drop false))
-                                               (conj (ddl/drop-table-if-exists-sql schema table))
-                                               :always
-                                               (conj (ddl/create-table-sql schema table cols (:table-comment t))))]
-                  ;; Create ENUM/SET types before CREATE TABLE
-                                (when (seq enum-types)
-                                  (exec-post-ddl! pg-conn (ddl/create-enum-types-sql enum-types)
-                                                  (str "ENUM TYPES for " table)))
-                                (run-ddl-tx pg-conn ddl-sqls)
+                      (when (and (get with-options :create-tables false)
+                                 (not (get with-options :create-no-tables false))
+                                 (not (get with-options :data-only false)))
+                        (stats/new-entry! :pre "Create tables")
+                        (let [ddl-phase-start (System/nanoTime)]
+                          (doseq [[i t] (map-indexed vector cat)]
+                            (let [schema (or (:schema t) "public")
+                                  table  (:table-name t)
+                                  cols   (:columns t)
+                                  table-label (table-stats-label schema table)]
+                              (stats/new-entry! :data table-label)
+                              (log/info (str "COPY " table " [" (inc i) "/" (count cat) "]"))
+                              (log/debug (str "Creating DDL for table: " schema "." table))
+                              (try
+                                (let [ddl-start (System/nanoTime)
+                                      pk (:primary-key t)
+                                      enum-types (:enum-types t)
+                                      ddl-sqls (cond-> [(str "CREATE SCHEMA IF NOT EXISTS " (ddl/identifier-quote schema))]
+                                                 (not (get with-options :include-no-drop false))
+                                                 (conj (ddl/drop-table-if-exists-sql schema table))
+                                                 :always
+                                                 (conj (ddl/create-table-sql schema table cols (:table-comment t))))]
+                  ;; Create ENUM/SET types before CREATE TABLE.
+                  ;; With INCLUDE NO DROP, skip the DROP TYPE statements so
+                  ;; pre-existing types are preserved (#1001).
+                                  (when (seq enum-types)
+                                    (let [enum-sqls (ddl/create-enum-types-sql enum-types)
+                                          sqls-to-run (if (get with-options :include-no-drop false)
+                                                        (remove #(str/starts-with? % "DROP") enum-sqls)
+                                                        enum-sqls)]
+                                      (exec-post-ddl! pg-conn sqls-to-run
+                                                      (str "ENUM TYPES for " table))))
+                                  (run-ddl-tx pg-conn ddl-sqls)
                   ;; Query table OID and create primary-key index with idx_{oid}_PRIMARY naming.
-                                (when (seq pk)
-                                  (let [oid-row (table-oid pg-conn {:schema schema :table table})
-                                        oid     (:oid oid-row)]
-                                    (when oid
-                                      (swap! table-oids assoc (str schema "." table) oid)
-                                      (when-let [pk-sqls (ddl/create-primary-key-sql schema table pk oid)]
-                                        (run-ddl-tx pg-conn pk-sqls)))))
+                                  (when (seq pk)
+                                    (let [oid-row (table-oid pg-conn {:schema schema :table table})
+                                          oid     (:oid oid-row)]
+                                      (when oid
+                                        (swap! table-oids assoc (str schema "." table) oid)
+                                        (when-let [pk-sqls (ddl/create-primary-key-sql schema table pk oid)]
+                                          (run-ddl-tx pg-conn pk-sqls)))))
                   ;; Create ON UPDATE CURRENT_TIMESTAMP triggers
-                                (when-let [trg-sqls (ddl/create-triggers-sql schema table cols)]
-                                  (exec-post-ddl! pg-conn trg-sqls (str "TRIGGER on " table)))
-                                (stats/update-entry! :data table-label :rs-nanos (- (System/nanoTime) ddl-start)))
-                              (catch Exception e
-                                (log/error (str "Failed to create " schema "." table ": " (.getMessage e)))
-                                (stats/update-entry! :data table-label :errs 1)
-                                (swap! failed-tables conj table)))))
-                        (stats/update-entry! :pre "Create tables"
-                                             :rows (count cat)
-                                             :total-nanos (- (System/nanoTime) ddl-phase-start))))
+                                  (when-let [trg-sqls (ddl/create-triggers-sql schema table cols)]
+                                    (exec-post-ddl! pg-conn trg-sqls (str "TRIGGER on " table)))
+                                  (stats/update-entry! :data table-label :rs-nanos (- (System/nanoTime) ddl-start)))
+                                (catch Exception e
+                                  (log/error (str "Failed to create " schema "." table ": " (.getMessage e)))
+                                  (stats/update-entry! :data table-label :errs 1)
+                                  (reset! load-failed true)
+                                  (swap! failed-tables conj table)))))
+                          (stats/update-entry! :pre "Create tables"
+                                               :rows (count cat)
+                                               :total-nanos (- (System/nanoTime) ddl-phase-start))))
           ;; Create the index stats entry before Phase 2 so futures can update it.
-                    (when create-indexes?
-                      (stats/new-entry! :post "Create Indexes"))
+                      (when create-indexes?
+                        (stats/new-entry! :post "Create Indexes"))
           ;; Phase 2: COPY data only for tables whose DDL succeeded, using worker threads.
           ;; Each worker gets its own source connection and PostgreSQL connection so that
           ;; up to `workers` tables can be copied simultaneously (v3 workers= behavior).
-                    (when (not schema-only?)
+                      (when (not schema-only?)
           ;; Pre-create all per-table stats entries before spawning workers (prevents races).
-                      (doseq [t cat]
-                        (let [tl (table-stats-label (or (:schema t) "public") (:table-name t))]
-                          (when-not (some #(= (:label %) tl) (stats/entries :data))
-                            (stats/new-entry! :data tl))))
-                      (stats/new-entry! :post "COPY Wall-Clock Time")
-                      (let [copy-wall-t0    (System/nanoTime)
-                            mysql-set-params (when (#{:mysql :mariadb} (:type source-uri))
-                                               (seq (filter :is-mysql (:set-parameters cmd))))
-                            workers-pool    (Executors/newFixedThreadPool (int workers))
-                            table-futs
-                            (mapv
-                             (fn [[_i t]]
-                               (.submit ^ExecutorService workers-pool
-                                        ^java.util.concurrent.Callable
-                                        (fn []
-                                          (let [worker-src (source-from-uri source-uri table-spec
-                                                                            with-options source-overrides (:decoding-as cmd))
-                                                worker-pg  (postgres-connection target-uri)
-                                                pg-params  (seq (remove :is-mysql (:set-parameters cmd)))]
-                                            (when mysql-set-params
-                                              (mysql-source/execute-set-params! worker-src mysql-set-params))
-                                            (when pg-params
-                                              (doseq [param pg-params]
-                                                (try
-                                                  (jdbc/execute! worker-pg [(str "SET " (:var param) " TO '" (:value param) "'")])
-                                                  (.commit worker-pg)
-                                                  (catch Exception e
-                                                    (.rollback worker-pg)
-                                                    (log/warn (str "Worker SET failed: " (.getMessage e)))))))
-                                            (try
-                                              (let [schema      (or (:schema t) "public")
-                                                    table       (:table-name t)
-                                                    cols        (:columns t)
-                                                    table-label (table-stats-label schema table)]
-                                                (when-not (@failed-tables table)
-                                                  (let [;; Generated columns exist on the target (DDL emits
+                        (doseq [t cat]
+                          (let [tl (table-stats-label (or (:schema t) "public") (:table-name t))]
+                            (when-not (some #(= (:label %) tl) (stats/entries :data))
+                              (stats/new-entry! :data tl))))
+                        (stats/new-entry! :post "COPY Wall-Clock Time")
+                        (let [copy-wall-t0    (System/nanoTime)
+                              mysql-set-params (when (#{:mysql :mariadb} (:type source-uri))
+                                                 (seq (filter :is-mysql (:set-parameters cmd))))
+                              workers-pool    (Executors/newFixedThreadPool (int workers))
+                              table-futs
+                              (mapv
+                               (fn [[_i t]]
+                                 (.submit ^ExecutorService workers-pool
+                                          ^java.util.concurrent.Callable
+                                          (fn []
+                                            (let [worker-src (source-from-uri source-uri table-spec
+                                                                              with-options source-overrides (:decoding-as cmd))
+                                                  worker-pg  (postgres-connection target-uri)
+                                                  pg-params  (seq (remove :is-mysql (:set-parameters cmd)))]
+                                              (when mysql-set-params
+                                                (mysql-source/execute-set-params! worker-src mysql-set-params))
+                                              (when pg-params
+                                                (doseq [param pg-params]
+                                                  (try
+                                                    (jdbc/execute! worker-pg [(str "SET " (:var param) " TO '" (:value param) "'")])
+                                                    (.commit worker-pg)
+                                                    (catch Exception e
+                                                      (.rollback worker-pg)
+                                                      (log/warn (str "Worker SET failed: " (.getMessage e)))))))
+                                              (try
+                                                (let [schema      (or (:schema t) "public")
+                                                      table       (:table-name t)
+                                                      cols        (:columns t)
+                                                      table-label (table-stats-label schema table)]
+                                                  (when-not (@failed-tables table)
+                                                    (let [;; Generated columns exist on the target (DDL emits
                                       ;; GENERATED ALWAYS AS) but must be excluded from COPY
                                       ;; since PostgreSQL cannot accept values for them.
-                                                        copy-cols (remove :generated-expression cols)
-                                                        ts (cond-> {:schema schema :table-name table :columns copy-cols
-                                                                    :source-schema (:source-schema t)
-                                                                    :source-table-name (:source-table-name t)}
-                                                             (:citus-read-sql t) (assoc :citus-read-sql (:citus-read-sql t)))
-                                                        disable-triggers? (get with-options :disable-triggers false)]
-                                                    (when disable-triggers?
+                                                          copy-cols (remove :generated-expression cols)
+                                                          ts (cond-> {:schema schema :table-name table :columns copy-cols
+                                                                      :source-schema (:source-schema t)
+                                                                      :source-table-name (:source-table-name t)}
+                                                               (:citus-read-sql t) (assoc :citus-read-sql (:citus-read-sql t)))
+                                                          disable-triggers? (get with-options :disable-triggers false)]
+                                                      (when disable-triggers?
+                                                        (try
+                                                          (jdbc/execute! worker-pg ["SET session_replication_role = replica"])
+                                                          (.commit worker-pg)
+                                                          (catch Exception e
+                                                            (.rollback worker-pg)
+                                                            (log/warn (str "Failed to disable triggers: " (.getMessage e))))))
                                                       (try
-                                                        (jdbc/execute! worker-pg ["SET session_replication_role = replica"])
-                                                        (.commit worker-pg)
-                                                        (catch Exception e
-                                                          (.rollback worker-pg)
-                                                          (log/warn (str "Failed to disable triggers: " (.getMessage e))))))
-                                                    (try
-                                                      (let [parts (when (and multiple-readers? (> concurrency 1))
-                                                                    (seq (partition-source worker-src ts concurrency chunk-bytes)))
-                                                            result
-                                                            (if parts
-                                                              (do
-                                                                (log/info (str "COPY " table " using " (count parts) " parallel readers"))
-                                                                (let [part-exec (Executors/newVirtualThreadPerTaskExecutor)
-                                                                      part-futs
-                                                                      (mapv (fn [part-src]
-                                                                              (.submit ^ExecutorService part-exec
-                                                                                       ^java.util.concurrent.Callable
-                                                                                       (fn []
-                                                                                         (let [part-pg (postgres-connection target-uri)]
-                                                                                           (when pg-params
-                                                                                             (doseq [param pg-params]
-                                                                                               (try
-                                                                                                 (jdbc/execute! part-pg [(str "SET " (:var param) " TO '" (:value param) "'")])
-                                                                                                 (.commit part-pg)
-                                                                                                 (catch Exception _ (.rollback part-pg)))))
-                                                                                           (when disable-triggers?
-                                                                                             (try
-                                                                                               (jdbc/execute! part-pg ["SET session_replication_role = replica"])
-                                                                                               (.commit part-pg)
-                                                                                               (catch Exception _ (.rollback part-pg))))
-                                                                                           (try
-                                                                                             (copy-table part-src ts part-pg (:cast-rules cmd) (get with-options :projections []))
-                                                                                             (finally
-                                                                                               (close! part-src)
-                                                                                               (when disable-triggers?
+                                                        (let [parts (when (and multiple-readers? (> concurrency 1))
+                                                                      (seq (partition-source worker-src ts concurrency chunk-bytes)))
+                                                              result
+                                                              (if parts
+                                                                (do
+                                                                  (log/info (str "COPY " table " using " (count parts) " parallel readers"))
+                                                                  (let [part-exec (Executors/newVirtualThreadPerTaskExecutor)
+                                                                        part-futs
+                                                                        (mapv (fn [part-src]
+                                                                                (.submit ^ExecutorService part-exec
+                                                                                         ^java.util.concurrent.Callable
+                                                                                         (fn []
+                                                                                           (let [part-pg (postgres-connection target-uri)]
+                                                                                             (when pg-params
+                                                                                               (doseq [param pg-params]
                                                                                                  (try
-                                                                                                   (jdbc/execute! part-pg ["SET session_replication_role = origin"])
+                                                                                                   (jdbc/execute! part-pg [(str "SET " (:var param) " TO '" (:value param) "'")])
                                                                                                    (.commit part-pg)
-                                                                                                   (catch Exception _ (.rollback part-pg))))
-                                                                                               (.close ^java.sql.Connection part-pg)))))))
-                                                                            parts)]
-                                                                  (try
-                                                                    (reduce
-                                                                     (fn [acc ^java.util.concurrent.Future f]
-                                                                       (let [r (.get f)]
-                                                                         {:rows-ok     (+ (:rows-ok acc) (:rows-ok r))
-                                                                          :rows-bad    (+ (:rows-bad acc) (:rows-bad r))
-                                                                          :bytes       (+ (:bytes acc) (:bytes r))
-                                                                          :rs-nanos    (max (:rs-nanos acc) (:rs-nanos r))
-                                                                          :ws-nanos    (max (:ws-nanos acc) (:ws-nanos r))
-                                                                          :total-nanos (max (:total-nanos acc) (:total-nanos r))
-                                                                          :reject-paths (:reject-paths r)}))
-                                                                     {:rows-ok 0 :rows-bad 0 :bytes 0 :rs-nanos 0 :ws-nanos 0 :total-nanos 0 :reject-paths nil}
-                                                                     part-futs)
-                                                                    (finally
-                                                                      (.shutdown ^ExecutorService part-exec)
-                                                                      (.awaitTermination ^ExecutorService part-exec Long/MAX_VALUE TimeUnit/NANOSECONDS)))))
-                                                              (copy-table worker-src ts worker-pg (:cast-rules cmd) (get with-options :projections [])))]
-                                                        (log/info (str "COPY " table " done: "
-                                                                       (:rows-ok result) " rows in "
-                                                                       (plog/fmt-duration (:total-nanos result))))
-                                                        (when (pos? (:rows-bad result))
-                                                          (log/warn (str table ": " (:rows-bad result) " rows rejected"
-                                                                         (when-let [p (-> result :reject-paths :reject-log)]
-                                                                           (str ", see " p)))))
-                                                        (let [reject-paths (:reject-paths result)]
-                                                          (stats/update-entry! :data table-label
-                                                                               :read (:rows-ok result)
-                                                                               :rows (:rows-ok result)
-                                                                               :errs (:rows-bad result)
-                                                                               :bytes (:bytes result)
-                                                                               :rs-nanos (:rs-nanos result)
-                                                                               :ws-nanos (:ws-nanos result)
-                                                                               :total-nanos (:total-nanos result)
-                                                                               :reject-data (:reject-data reject-paths)
-                                                                               :reject-log (:reject-log reject-paths))))
-                                                      (catch Exception e
-                                                        (log/error e (str "Failed to copy table " schema "." table ": " (.getMessage e)))
-                                                        (stats/update-entry! :data table-label :errs 1)
-                                                        (when copy/*on-error-stop*
-                                                          (log/error "ON ERROR STOP — aborting remaining tables")
-                                                          (throw e)))
-                                                      (finally
+                                                                                                   (catch Exception _ (.rollback part-pg)))))
+                                                                                             (when disable-triggers?
+                                                                                               (try
+                                                                                                 (jdbc/execute! part-pg ["SET session_replication_role = replica"])
+                                                                                                 (.commit part-pg)
+                                                                                                 (catch Exception _ (.rollback part-pg))))
+                                                                                             (try
+                                                                                               (copy-table part-src ts part-pg (:cast-rules cmd) (get with-options :projections []))
+                                                                                               (finally
+                                                                                                 (close! part-src)
+                                                                                                 (when disable-triggers?
+                                                                                                   (try
+                                                                                                     (jdbc/execute! part-pg ["SET session_replication_role = origin"])
+                                                                                                     (.commit part-pg)
+                                                                                                     (catch Exception _ (.rollback part-pg))))
+                                                                                                 (.close ^java.sql.Connection part-pg)))))))
+                                                                              parts)]
+                                                                    (try
+                                                                      (reduce
+                                                                       (fn [acc ^java.util.concurrent.Future f]
+                                                                         (let [r (.get f)]
+                                                                           {:rows-ok     (+ (:rows-ok acc) (:rows-ok r))
+                                                                            :rows-bad    (+ (:rows-bad acc) (:rows-bad r))
+                                                                            :bytes       (+ (:bytes acc) (:bytes r))
+                                                                            :rs-nanos    (max (:rs-nanos acc) (:rs-nanos r))
+                                                                            :ws-nanos    (max (:ws-nanos acc) (:ws-nanos r))
+                                                                            :total-nanos (max (:total-nanos acc) (:total-nanos r))
+                                                                            :reject-paths (:reject-paths r)}))
+                                                                       {:rows-ok 0 :rows-bad 0 :bytes 0 :rs-nanos 0 :ws-nanos 0 :total-nanos 0 :reject-paths nil}
+                                                                       part-futs)
+                                                                      (finally
+                                                                        (.shutdown ^ExecutorService part-exec)
+                                                                        (.awaitTermination ^ExecutorService part-exec Long/MAX_VALUE TimeUnit/NANOSECONDS)))))
+                                                                (copy-table worker-src ts worker-pg (:cast-rules cmd) (get with-options :projections [])))]
+                                                          (log/info (str "COPY " table " done: "
+                                                                         (:rows-ok result) " rows in "
+                                                                         (plog/fmt-duration (:total-nanos result))))
+                                                          (when (pos? (:rows-bad result))
+                                                            (log/warn (str table ": " (:rows-bad result) " rows rejected"
+                                                                           (when-let [p (-> result :reject-paths :reject-log)]
+                                                                             (str ", see " p)))))
+                                                          (let [reject-paths (:reject-paths result)]
+                                                            (stats/update-entry! :data table-label
+                                                                                 :read (:rows-ok result)
+                                                                                 :rows (:rows-ok result)
+                                                                                 :errs (:rows-bad result)
+                                                                                 :bytes (:bytes result)
+                                                                                 :rs-nanos (:rs-nanos result)
+                                                                                 :ws-nanos (:ws-nanos result)
+                                                                                 :total-nanos (:total-nanos result)
+                                                                                 :reject-data (:reject-data reject-paths)
+                                                                                 :reject-log (:reject-log reject-paths))))
+                                                        (catch Exception e
+                                                          (log/error e (str "Failed to copy table " schema "." table ": " (.getMessage e)))
+                                                          (stats/update-entry! :data table-label :errs 1)
+                                                          (reset! load-failed true)
+                                                          (when copy/*on-error-stop*
+                                                            (log/error "ON ERROR STOP — aborting remaining tables")
+                                                            (throw e)))
+                                                        (finally
                                       ;; Reset triggers on worker-pg when single-reader path used it
-                                                        (when disable-triggers?
-                                                          (try
-                                                            (jdbc/execute! worker-pg ["SET session_replication_role = origin"])
-                                                            (.commit worker-pg)
-                                                            (catch Exception e2
-                                                              (.rollback worker-pg)
-                                                              (log/warn (str "Failed to re-enable triggers: " (.getMessage e2))))))))
+                                                          (when disable-triggers?
+                                                            (try
+                                                              (jdbc/execute! worker-pg ["SET session_replication_role = origin"])
+                                                              (.commit worker-pg)
+                                                              (catch Exception e2
+                                                                (.rollback worker-pg)
+                                                                (log/warn (str "Failed to re-enable triggers: " (.getMessage e2))))))))
                                   ;; Submit indexes after all readers for this table are done.
-                                                    (when (and idx-executor (seq (:indexes t)))
-                                                      (when (nil? @idx-wall-t0)
-                                                        (reset! idx-wall-t0 (System/nanoTime)))
-                                                      (let [oid  (when-not preserve-index-names?
-                                                                   (get @table-oids (str schema "." table)))
-                                                            sqls (ddl/create-indexes-sql schema table (:indexes t) oid)]
-                                                        (doseq [sql sqls]
-                                                          (swap! idx-futures conj
-                                                                 (.submit ^ExecutorService idx-executor
-                                                                          ^java.util.concurrent.Callable
-                                                                          (fn []
-                                                                            (let [conn (postgres-connection target-uri)]
-                                                                              (try
-                                                                                (exec-post-ddl! conn [sql] (str "INDEX on " table))
-                                                                                (finally (.close ^Connection conn)))))))))))))
-                                              (finally
-                                                (close! worker-src)
-                                                (.close ^Connection worker-pg)))))))
-                             (map-indexed vector cat))]
-                        (.shutdown ^ExecutorService workers-pool)
-                        (.awaitTermination ^ExecutorService workers-pool Long/MAX_VALUE TimeUnit/NANOSECONDS)
-                        (doseq [^Future f table-futs]
-                          (try (.get f) (catch Exception _)))
-                        (stats/update-entry! :post "COPY Wall-Clock Time"
-                                             :total-nanos (- (System/nanoTime) copy-wall-t0))))
+                                                      (when (and idx-executor (seq (:indexes t)))
+                                                        (when (nil? @idx-wall-t0)
+                                                          (reset! idx-wall-t0 (System/nanoTime)))
+                                                        (let [oid  (when-not preserve-index-names?
+                                                                     (get @table-oids (str schema "." table)))
+                                                              sqls (ddl/create-indexes-sql schema table (:indexes t) oid)]
+                                                          (doseq [sql sqls]
+                                                            (swap! idx-futures conj
+                                                                   (.submit ^ExecutorService idx-executor
+                                                                            ^java.util.concurrent.Callable
+                                                                            (fn []
+                                                                              (let [conn (postgres-connection target-uri)]
+                                                                                (try
+                                                                                  (exec-post-ddl! conn [sql] (str "INDEX on " table))
+                                                                                  (finally (.close ^Connection conn)))))))))))))
+                                                (finally
+                                                  (close! worker-src)
+                                                  (.close ^Connection worker-pg)))))))
+                               (map-indexed vector cat))]
+                          (.shutdown ^ExecutorService workers-pool)
+                          (.awaitTermination ^ExecutorService workers-pool Long/MAX_VALUE TimeUnit/NANOSECONDS)
+                          (doseq [^Future f table-futs]
+                            (try (.get f) (catch Exception _)))
+                          (stats/update-entry! :post "COPY Wall-Clock Time"
+                                               :total-nanos (- (System/nanoTime) copy-wall-t0))))
           ;; Schema-only: no COPY phase ran, so submit all indexes now.
-                    (when (and create-indexes? schema-only? idx-executor)
-                      (when (nil? @idx-wall-t0)
-                        (reset! idx-wall-t0 (System/nanoTime)))
-                      (doseq [t cat]
-                        (let [schema (or (:schema t) "public")
-                              table  (:table-name t)]
-                          (when-let [idxs (seq (:indexes t))]
-                            (let [oid  (when-not preserve-index-names?
-                                         (get @table-oids (str schema "." table)))
-                                  sqls (ddl/create-indexes-sql schema table idxs oid)]
-                              (doseq [sql sqls]
-                                (swap! idx-futures conj
-                                       (.submit ^ExecutorService idx-executor
-                                                ^java.util.concurrent.Callable
-                                                (fn []
-                                                  (let [conn (postgres-connection target-uri)]
-                                                    (try
-                                                      (exec-post-ddl! conn [sql] (str "INDEX on " table))
-                                                      (finally (.close ^Connection conn)))))))))))))
+                      (when (and create-indexes? schema-only? idx-executor)
+                        (when (nil? @idx-wall-t0)
+                          (reset! idx-wall-t0 (System/nanoTime)))
+                        (doseq [t cat]
+                          (let [schema (or (:schema t) "public")
+                                table  (:table-name t)]
+                            (when-let [idxs (seq (:indexes t))]
+                              (let [oid  (when-not preserve-index-names?
+                                           (get @table-oids (str schema "." table)))
+                                    sqls (ddl/create-indexes-sql schema table idxs oid)]
+                                (doseq [sql sqls]
+                                  (swap! idx-futures conj
+                                         (.submit ^ExecutorService idx-executor
+                                                  ^java.util.concurrent.Callable
+                                                  (fn []
+                                                    (let [conn (postgres-connection target-uri)]
+                                                      (try
+                                                        (exec-post-ddl! conn [sql] (str "INDEX on " table))
+                                                        (finally (.close ^Connection conn)))))))))))))
           ;; Await completion of all parallel index builds (overlapped with copy above).
-                    (when create-indexes?
-                      (when idx-executor
-                        (log/info "Waiting for parallel index builds to complete")
-                        (.shutdown ^ExecutorService idx-executor)
-                        (.awaitTermination ^ExecutorService idx-executor Long/MAX_VALUE TimeUnit/NANOSECONDS)
-                        (doseq [^Future f @idx-futures]
-                          (try (.get f) (catch Exception _))))
-                      (stats/update-entry! :post "Create Indexes"
-                                           :rows (count @idx-futures)
-                                           :total-nanos (- (System/nanoTime) (or @idx-wall-t0 (System/nanoTime)))))
-                    (when (get with-options :foreign-keys false)
-                      (log/info "Creating foreign keys")
-                      (stats/new-entry! :post "Create Foreign Keys")
-                      (let [start (System/nanoTime)
-                            n     (atom 0)]
-                        (doseq [t cat]
-                          (let [schema (or (:schema t) "public")
-                                table  (:table-name t)]
-                            (when-let [fks (seq (:fkeys t))]
-                              (exec-post-ddl! pg-conn
-                                              (ddl/create-fkeys-sql schema table fks)
-                                              (str "FK on " table))
-                              (swap! n + (count fks)))))
-                        (stats/update-entry! :post "Create Foreign Keys"
-                                             :rows @n :total-nanos (- (System/nanoTime) start))))
-                    (when (get with-options :reset-sequences false)
-                      (log/info "Resetting sequences")
-                      (stats/new-entry! :post "Reset Sequences")
-                      (let [start (System/nanoTime)
-                            n     (atom 0)]
-                        (doseq [t cat]
-                          (let [schema (or (:schema t) "public")
-                                table  (:table-name t)]
-                            (when-let [seqs (seq (ddl/reset-sequences-sql schema table (:columns t)))]
-                              (exec-post-ddl! pg-conn seqs (str "SEQUENCE for " table))
-                              (swap! n inc))))
-                        (stats/update-entry! :post "Reset Sequences"
-                                             :rows @n :total-nanos (- (System/nanoTime) start)))))
-        ;; Execute AFTER LOAD DO statements — all in one transaction
-                  (when-let [after-cmds (:after-load cmd)]
-                    (log/debug "Executing AFTER LOAD DO commands")
-                    (try
-                      (doseq [sql after-cmds]
-                        (log/debug (str "AFTER LOAD: " (clojure.string/trim sql)))
-                        (jdbc/execute! pg-conn [sql]))
-                      (.commit pg-conn)
-                      (catch Exception e
-                        (.rollback pg-conn)
-                        (log/error e "AFTER LOAD DO failed"))))
+                      (when create-indexes?
+                        (when idx-executor
+                          (log/info "Waiting for parallel index builds to complete")
+                          (.shutdown ^ExecutorService idx-executor)
+                          (.awaitTermination ^ExecutorService idx-executor Long/MAX_VALUE TimeUnit/NANOSECONDS)
+                          (doseq [^Future f @idx-futures]
+                            (try (.get f) (catch Exception _))))
+                        (stats/update-entry! :post "Create Indexes"
+                                             :rows (count @idx-futures)
+                                             :total-nanos (- (System/nanoTime) (or @idx-wall-t0 (System/nanoTime)))))
+                      (when (get with-options :foreign-keys false)
+                        (log/info "Creating foreign keys")
+                        (stats/new-entry! :post "Create Foreign Keys")
+                        (let [start          (System/nanoTime)
+                              n              (atom 0)
+                            ;; ORM mode: only include FKs whose referenced table was
+                            ;; actually loaded (avoids silent failure when tables are
+                            ;; excluded via INCLUDING/EXCLUDING filters, #1216).
+                              loaded-tables  (into #{} (map :table-name cat))]
+                          (doseq [t cat]
+                            (let [schema (or (:schema t) "public")
+                                  table  (:table-name t)
+                                  fks    (filter #(loaded-tables (:ftable %)) (:fkeys t))]
+                              (when (seq fks)
+                                (exec-post-ddl! pg-conn
+                                                (ddl/create-fkeys-sql schema table fks)
+                                                (str "FK on " table))
+                                (swap! n + (count fks)))))
+                          (stats/update-entry! :post "Create Foreign Keys"
+                                               :rows @n :total-nanos (- (System/nanoTime) start))))
+                      (when (get with-options :reset-sequences false)
+                        (log/info "Resetting sequences")
+                        (stats/new-entry! :post "Reset Sequences")
+                        (let [start (System/nanoTime)
+                              n     (atom 0)]
+                          (doseq [t cat]
+                            (let [schema (or (:schema t) "public")
+                                  table  (:table-name t)]
+                              (when-let [seqs (seq (ddl/reset-sequences-sql schema table (:columns t)))]
+                                (exec-post-ddl! pg-conn seqs (str "SEQUENCE for " table))
+                                (swap! n inc))))
+                          (stats/update-entry! :post "Reset Sequences"
+                                               :rows @n :total-nanos (- (System/nanoTime) start)))))
+        ;; Execute AFTER LOAD DO statements — skip when the load failed (#930).
+                    (when-let [after-cmds (and (not @load-failed) (seq (:after-load cmd)))]
+                      (log/debug "Executing AFTER LOAD DO commands")
+                      (try
+                        (doseq [sql after-cmds]
+                          (log/debug (str "AFTER LOAD: " (clojure.string/trim sql)))
+                          (jdbc/execute! pg-conn [sql]))
+                        (.commit pg-conn)
+                        (catch Exception e
+                          (.rollback pg-conn)
+                          (log/error e "AFTER LOAD DO failed"))))
         ;; ── Citus distribution ────────────────────────────────────────────
-                  (when-let [rules (seq (citus/expand-distribute-rules cat (:distribute-rules cmd)))]
-                    (log/info (str "Applying " (count rules) " Citus distribution rule(s)"))
-                    (let [schema-by-table (into {} (map (juxt :table-name :schema) cat))]
-                      (doseq [rule rules]
-                        (let [tgt-schema (or (get schema-by-table (:table rule))
-                                             (get-in cmd [:target :schema])
-                                             "public")]
-                          (try
-                            (citus/execute-distribute! pg-conn (assoc rule :schema tgt-schema))
-                            (.commit pg-conn)
-                            (log/info (str "  " (:table rule)
-                                           (if (= :reference (:type rule))
-                                             " → reference table"
-                                             (str " → distributed on " (:using rule)))))
-                            (catch Exception e
-                              (log/error e (str "Failed to distribute " (:table rule)
-                                                ": " (.getMessage e)))
-                              (.rollback pg-conn)))))))
-                  (log/info "Done copying all tables")))
+                    (when-let [rules (seq (citus/expand-distribute-rules cat (:distribute-rules cmd)))]
+                      (log/info (str "Applying " (count rules) " Citus distribution rule(s)"))
+                      (let [schema-by-table (into {} (map (juxt :table-name :schema) cat))]
+                        (doseq [rule rules]
+                          (let [tgt-schema (or (get schema-by-table (:table rule))
+                                               (get-in cmd [:target :schema])
+                                               "public")]
+                            (try
+                              (citus/execute-distribute! pg-conn (assoc rule :schema tgt-schema))
+                              (.commit pg-conn)
+                              (log/info (str "  " (:table rule)
+                                             (if (= :reference (:type rule))
+                                               " → reference table"
+                                               (str " → distributed on " (:using rule)))))
+                              (catch Exception e
+                                (log/error e (str "Failed to distribute " (:table rule)
+                                                  ": " (.getMessage e)))
+                                (.rollback pg-conn)))))))
+                    (log/info "Done copying all tables"))))
 
               (finally
                 (close! source)
