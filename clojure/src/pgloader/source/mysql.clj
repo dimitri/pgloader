@@ -163,11 +163,11 @@
           (.append sb \X)
           (doseq [b ba] (.append sb (format "%02x" (bit-and (int b) 0xff))))
           (.toString sb))
-        ;; Text columns: use getBytes to preserve embedded NUL bytes (#1573)
+        ;; Text columns: use getString so the JDBC driver applies charset
+        ;; conversion correctly (#1573). getString preserves NUL bytes in
+        ;; MySQL Connector/J; getObject may truncate at the first NUL.
         (and (instance? String v) (text-col-type? raw-col-type))
-        (let [ba (.getBytes rs (int col-idx))]
-          (when (some? ba)
-            (String. ba java.nio.charset.StandardCharsets/UTF_8)))
+        (.getString rs (int col-idx))
         :else (str v)))))
 
 (defn- mysql-select-sql

@@ -481,12 +481,15 @@
    MySQL 8.0.16+ exposes CHECK constraints in information_schema.CHECK_CONSTRAINTS.
    Returns a vector of SQL strings."
   [schema table-name checks]
-  (mapv (fn [ck]
-          (let [quoted-table (quote-fqname schema table-name)
-                ck-name      (identifier-quote (:constraint-name ck))]
-            (str "ALTER TABLE " quoted-table
-                 " ADD CONSTRAINT " ck-name
-                 " CHECK (" (:check-clause ck) ");")))
+  (into []
+        (keep (fn [ck]
+                (let [clause (:check-clause ck)]
+                  (when (and (string? clause) (not (str/blank? clause)))
+                    (let [quoted-table (quote-fqname schema table-name)
+                          ck-name      (identifier-quote (:constraint-name ck))]
+                      (str "ALTER TABLE " quoted-table
+                           " ADD CONSTRAINT " ck-name
+                           " CHECK (" clause ");"))))))
         checks))
 
 (defn create-enum-types-sql
