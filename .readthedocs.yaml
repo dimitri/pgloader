@@ -1,11 +1,13 @@
 version: 2
 
-# Build from the docs/ directory with Sphinx
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.11"
+
 sphinx:
   configuration: docs/conf.py
 
-# Explicitly set the version of Python and its requirements
 python:
-  version: 3.7
   install:
     - requirements: docs/requirements.txt
