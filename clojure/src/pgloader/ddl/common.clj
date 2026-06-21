@@ -487,11 +487,16 @@
         (keep (fn [ck]
                 (let [clause (:check-clause ck)]
                   (when (and (string? clause) (not (str/blank? clause)))
-                    (let [quoted-table (quote-fqname schema table-name)
+                    (let [;; MySQL 8 returns check clauses with backtick-quoted
+                          ;; identifiers (e.g. `salary` > 0). Replace backtick
+                          ;; quoting with PostgreSQL double-quote quoting so the
+                          ;; clause is valid SQL in PostgreSQL.
+                          pg-clause    (str/replace clause "`" "\"")
+                          quoted-table (quote-fqname schema table-name)
                           ck-name      (identifier-quote (:constraint-name ck))]
                       (str "ALTER TABLE " quoted-table
                            " ADD CONSTRAINT " ck-name
-                           " CHECK (" clause ");"))))))
+                           " CHECK (" pg-clause ");"))))))
         checks))
 
 (defn create-enum-types-sql

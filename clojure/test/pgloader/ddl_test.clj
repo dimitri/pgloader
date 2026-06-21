@@ -328,6 +328,13 @@
       (is (str/includes? (first sqls) "ADD CONSTRAINT \"chk_salary\" CHECK (salary > 0)"))
       (is (str/includes? (second sqls) "ADD CONSTRAINT \"chk_dept\" CHECK"))))
 
+  (testing "MySQL 8 backtick-quoted identifiers converted to double-quote (#1645)"
+    (let [sqls (ddl/create-check-constraints-sql "public" "employees"
+                                                 [{:constraint-name "chk_salary"
+                                                   :check-clause "`salary` > 0"}])]
+      (is (= 1 (count sqls)))
+      (is (str/includes? (first sqls) "CHECK (\"salary\" > 0)"))))
+
   (testing "empty checks returns empty vector"
     (is (= [] (ddl/create-check-constraints-sql "public" "t" [])))))
 
