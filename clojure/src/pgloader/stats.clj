@@ -27,8 +27,21 @@
    :data (make-phase)
    :post (make-phase)})
 
+(def ^:private fatal-error (atom false))
+
+(defn fatal-error!
+  "Signal that a fatal (non-row-level) load error occurred."
+  []
+  (reset! fatal-error true))
+
+(defn fatal-error?
+  "Return true if a fatal load error was signalled."
+  []
+  @fatal-error)
+
 (defn clear!
   []
+  (reset! fatal-error false)
   (doseq [p (vals state)]
     (reset! (:entries p) [])))
 

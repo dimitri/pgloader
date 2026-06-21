@@ -348,11 +348,10 @@
               (core/run-command cmd opts))
             (do (println "No load file or source/target specified")
                 (print-usage))))
-        ;; Exit with code 1 when any rows were rejected or tables failed (#634).
-        ;; Checked after all commands complete so multi-file runs aggregate correctly.
-        (let [totals (stats/grand-totals)]
-          (when (pos? (:errs totals))
-            (System/exit 1)))))))
+        ;; Exit with code 1 when a fatal load error occurred (#634).
+        ;; Row-level rejections (type errors) do not count as fatal.
+        (when (stats/fatal-error?)
+          (System/exit 1))))))
 
 (defn -main
   "Main entry point for the JAR."

@@ -607,6 +607,7 @@
                                   (log/error (str "Failed to create " schema "." table ": " (.getMessage e)))
                                   (stats/update-entry! :data table-label :errs 1)
                                   (reset! load-failed true)
+                                  (stats/fatal-error!)
                                   (swap! failed-tables conj table)))))
                           (stats/update-entry! :pre "Create tables"
                                                :rows (count cat)
@@ -745,6 +746,7 @@
                                                           (log/error e (str "Failed to copy table " schema "." table ": " (.getMessage e)))
                                                           (stats/update-entry! :data table-label :errs 1)
                                                           (reset! load-failed true)
+                                                          (stats/fatal-error!)
                                                           (when copy/*on-error-stop*
                                                             (log/error "ON ERROR STOP — aborting remaining tables")
                                                             (throw e)))
