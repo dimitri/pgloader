@@ -1,0 +1,11 @@
+  column_name  | column_default 
+---------------+----------------
+ dt_convert    | 
+ int_empty_def | 
+(2 rows)
+
+ rows_loaded 
+-------------
+           1
+(1 row)
+

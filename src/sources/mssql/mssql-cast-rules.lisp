@@ -71,7 +71,21 @@
     (:source (:type "smalldatetime") :target (:type "timestamptz"))
     (:source (:type "datetime") :target (:type "timestamptz"))
     (:source (:type "datetime2") :target (:type "timestamptz"))
-    (:source (:type "datetimeoffset") :target (:type "timestamptz")))
+    (:source (:type "datetimeoffset") :target (:type "timestamptz"))
+    ;; FreeTDS/jTDS synonym for datetimeoffset (#976)
+    (:source (:type "syb-msdatetimeoffset") :target (:type "timestamptz"))
+
+    ;; SQL Server timestamp/rowversion is a binary row-version counter, NOT a
+    ;; date/time value — map to bytea (#989)
+    (:source (:type "timestamp") :target (:type "bytea")
+             :using pgloader.transforms::byte-vector-to-bytea)
+    (:source (:type "rowversion") :target (:type "bytea")
+             :using pgloader.transforms::byte-vector-to-bytea)
+
+    ;; User-defined types and SQL Server meta-types — fall back to text (#1445)
+    (:source (:type "syb-msudt")   :target (:type "text" :drop-typemod t))
+    (:source (:type "sql_variant") :target (:type "text" :drop-typemod t))
+    (:source (:type "sysname")     :target (:type "text" :drop-typemod t)))
   "Data Type Casting to migrate from MSSQL to PostgreSQL")
 
 ;;;
@@ -172,6 +186,24 @@
                           (string= "newsequentialid()" default)
                           (string= "GENERATE_UUID" default)))
                  :generate-uuid)
+
+                ;; CONVERT(type, expr, style) defaults are SQL Server-specific
+                ;; and have no direct PostgreSQL equivalent (#1409)
+                ((and (stringp default)
+                      (uiop:string-prefix-p "CONVERT(" (string-upcase default)))
+                 :null)
+
+                ;; Empty-string default on a numeric column: SQL Server coerces
+                ;; '' → 0 for INT columns; PostgreSQL rejects it (#1163)
+                ((and (stringp default)
+                      (string= "" default)
+                      (member (column-type-name pgcol)
+                              '("int" "integer" "bigint" "smallint" "tinyint"
+                                "numeric" "decimal"
+                                "double precision" "real" "float"
+                                "bigserial" "serial" "smallserial")
+                              :test #'string=))
+                 :null)
 
                 (t (column-default pgcol)))))
       pgcol)))

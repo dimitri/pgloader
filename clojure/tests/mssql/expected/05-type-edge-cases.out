@@ -1,0 +1,6 @@
+ column_name |        data_type         
+-------------+--------------------------
+ dto         | timestamp with time zone
+ variant_col | text
+(2 rows)
+

@@ -258,6 +258,40 @@
       (is (:ok result))
       (is (true? (get-in result [:ok :with-options :uniquify-index-names]))))))
 
+;; ── EXCLUDING / INCLUDING table filters (#1328) ───────────────────────────────
+
+(deftest test-excluding-names-like
+  (testing "EXCLUDING TABLE NAMES LIKE 'pat' parses (alias for MATCHING)"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM mssql://h/db INTO pgsql://h/t
+                    EXCLUDING TABLE NAMES LIKE 'tmp_%';")]
+      (is (:ok result) (str "Parse error: " (:error result)))
+      (is (= ["tmp..*"] (get-in result [:ok :filters :excluding])))))
+
+  (testing "EXCLUDING TABLE NAMES MATCHING multiple patterns (#1328)"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM mssql://h/db INTO pgsql://h/t
+                    EXCLUDING TABLE NAMES MATCHING 'tmp_%', 'bak_%';")]
+      (is (:ok result) (str "Parse error: " (:error result)))
+      (is (= ["tmp..*" "bak..*"]
+             (get-in result [:ok :filters :excluding])))))
+
+  (testing "Multiple EXCLUDING clauses are all collected"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM mssql://h/db INTO pgsql://h/t
+                    EXCLUDING TABLE NAMES LIKE 'tmp_%'
+                    EXCLUDING TABLE NAMES LIKE 'bak_%';")]
+      (is (:ok result) (str "Parse error: " (:error result)))
+      (is (= ["tmp..*" "bak..*"]
+             (get-in result [:ok :filters :excluding])))))
+
+  (testing "INCLUDING TABLE NAMES LIKE parses single pattern"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM mssql://h/db INTO pgsql://h/t
+                    INCLUDING ONLY TABLE NAMES LIKE 'orders';")]
+      (is (:ok result) (str "Parse error: " (:error result)))
+      (is (= ["orders"] (get-in result [:ok :filters :including]))))))
+
 ;; ── Cast grammar fixes (#1522, #1273, #1470) ─────────────────────────────────
 
 (deftest test-cast-column-no-type

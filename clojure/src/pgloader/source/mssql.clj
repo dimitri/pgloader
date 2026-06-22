@@ -33,19 +33,47 @@
    "datetime2" "timestamptz"
    "smalldatetime" "timestamptz"
    "datetimeoffset" "timestamptz"
+   ;; FreeTDS/jTDS synonym for datetimeoffset (#976)
+   "syb-msdatetimeoffset" "timestamptz"
    "date" "date"
    "time" "time"
+   ;; SQL Server timestamp/rowversion is a binary row-version counter, NOT a
+   ;; date/time value; map to bytea (#989)
+   "timestamp" "bytea"
+   "rowversion" "bytea"
    "varbinary" "bytea"
    "binary" "bytea"
    "image" "bytea"
    "uniqueidentifier" "uuid"
    "hierarchyid" "bytea"
    "geography" "bytea"
-   "geometry" "bytea"})
+   "geometry" "bytea"
+   ;; User-defined types and SQL Server meta-types (#1445)
+   "syb-msudt" "text"
+   "sql_variant" "text"
+   "sysname" "text"})
 
 (defn- mssql-type->pg [type-name]
   (let [lower (str/lower-case type-name)]
     (get mssql-type-map lower "text")))
+
+(def ^:private numeric-pg-types
+  #{"integer" "bigint" "smallint" "numeric" "double precision" "real"})
+
+(defn- sanitize-default
+  "Drop column defaults that cannot be represented in PostgreSQL:
+   - CONVERT(…) expressions not already translated by mssql.sql (#1409)
+   - Empty-string defaults on numeric columns (#1163)"
+  [default pg-type]
+  (when default
+    (let [trimmed (str/trim default)
+          lower   (str/lower-case trimmed)]
+      (cond
+        ;; Any remaining CONVERT(…) that mssql.sql didn't map to a keyword
+        (str/starts-with? lower "convert(") nil
+        ;; Empty string on a numeric target type
+        (and (= trimmed "") (contains? numeric-pg-types pg-type)) nil
+        :else default))))
 
 (defn- connection
   [uri-map]
@@ -132,14 +160,14 @@
                                              is-identity (= 1 (:is_identity c))
                                              is-pk (some #(= (:column_name c) %) (mapv :column_name pkeys))
                                              ai (and is-identity is-pk)]
-                                         {:column-name (:column_name c)
-                                          :column-type (if ai
-                                                         "bigserial"
-                                                         (mssql-type->pg col-type))
-                                          :is-nullable (= "YES" (:is_nullable c))
-                                          :column-default (when-not ai (:column_default c))
-                                          :extra (when ai "auto_increment")
-                                          :column-comment (not-empty (get col-comments (:column_name c)))}))
+                                         (let [pg-type (if ai "bigserial" (mssql-type->pg col-type))
+                                               raw-def  (when-not ai (:column_default c))]
+                                           {:column-name (:column_name c)
+                                            :column-type pg-type
+                                            :is-nullable (= "YES" (:is_nullable c))
+                                            :column-default (sanitize-default raw-def pg-type)
+                                            :extra (when ai "auto_increment")
+                                            :column-comment (not-empty (get col-comments (:column_name c)))})))
                                      cols)
                       :primary-key (mapv :column_name pkeys)
                       :indexes (build-index-cols idxes)
@@ -170,11 +198,10 @@
                         (if (<= i n)
                           (recur (inc i)
                                  (conj! result
-                                    ;; Per-column error recovery: on encoding or conversion errors
-                                    ;; substitute nil and continue (mirrors v3 restart behaviour).
+                                    ;; getString preserves full decimal/numeric precision (#1615, #1619).
+                                    ;; Per-column error recovery: substitute nil on any error.
                                         (try
-                                          (let [v (.getObject rs i)]
-                                            (when v (str v)))
+                                          (.getString rs i)
                                           (catch Exception e
                                             (log/warn (str "MSSQL column " i " read error in "
                                                            table-name " (substituting NULL): "

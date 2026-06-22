@@ -2,7 +2,7 @@ JAR          ?= /pgloader.jar
 PGLOADER_CMD ?= java -jar $(JAR)
 REGRESS_FLAGS ?=
 
-# 04-indexes checks for a WHERE clause on filtered indexes — a v4 feature.
+# 04-indexes: filtered index WHERE clause — v4 only.
 # v3 does not translate SQL Server partial index filters to PostgreSQL WHERE
 # clauses, so that test is excluded from v3 runs.
 ifeq ($(firstword $(PGLOADER_CMD)),pgloader)
