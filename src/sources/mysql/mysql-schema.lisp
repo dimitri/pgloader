@@ -204,7 +204,7 @@
              ;; quoting so the CHECK clause is valid SQL in PostgreSQL.
              (let ((pg-clause (ppcre:regex-replace-all
                                "`([^`]+)`" check-clause "\"\\1\"")))
-               (add-check-constraint table constraint-name pg-clause)))))))
+               (add-check-constraint table constraint-name pg-clause))))))
 
 ;;;
 ;;; MySQL table row count estimate
