@@ -99,6 +99,19 @@
         (is (str/includes? output "read"))
         (is (str/includes? output "write"))))))
 
+(deftest test-summary-wall-nanos
+  (testing "wall-nanos overrides grand-total time in Total import time row"
+    (stats/clear!)
+    (stats/new-entry! :data "tbl")
+    (stats/update-entry! :data "tbl" :rows 10 :bytes 100 :total-nanos 99000000000)
+    (let [sw (StringWriter.)]
+      (binding [*out* sw]
+        ;; Pass a known wall-nanos (1.5 s) distinct from the per-table sum (99 s).
+        (summary/print-summary false 1500000000))
+      (let [output (.toString sw)]
+        (is (str/includes? output "1.500s"))
+        (is (not (str/includes? output "99.000s")))))))
+
 (deftest test-empty-stats
   (testing "no entries produces no summary crash"
     (stats/clear!)

@@ -333,10 +333,13 @@
   [cmd opts]
   (if (= :archive (:load-type cmd))
     ;; ── LOAD ARCHIVE ─────────────────────────────────────────────────────────
-    (do (run-archive-command cmd opts)
-        (summary/print-summary (or (:debug opts) (:verbose opts) false))
+    (let [run-wall-t0 (System/nanoTime)
+          verbose     (or (:debug opts) (:verbose opts) false)]
+      (run-archive-command cmd opts)
+      (let [wall-nanos (- (System/nanoTime) run-wall-t0)]
+        (summary/print-summary verbose wall-nanos)
         (when-let [summary-path (:summary opts)]
-          (summary/write-summary summary-path (or (:debug opts) (:verbose opts) false))))
+          (summary/write-summary summary-path verbose wall-nanos))))
     ;; ── All other load types ──────────────────────────────────────────────────
     (let [source-uri  (:source cmd)
           target-uri  (get-in cmd [:target :target-uri])
@@ -355,6 +358,7 @@
                                   (or (nil? exc-res) (not (some #(re-find % table-name) exc-res)))))))
           table-spec  (when table-filter {:table-filter table-filter})
           _           (when-not (:sub-command? opts) (stats/clear!))
+          run-wall-t0 (System/nanoTime)
           source      (source-from-uri source-uri table-spec (:with-options cmd) source-overrides (:decoding-as cmd))
           verbose     (or (:debug opts) (:verbose opts) false)]
       (log/info "pgloader v4")
@@ -791,6 +795,7 @@
                           (doseq [^Future f table-futs]
                             (try (.get f) (catch Exception _)))
                           (stats/update-entry! :post "COPY Wall-Clock Time"
+                                               :rows workers
                                                :total-nanos (- (System/nanoTime) copy-wall-t0))))
           ;; Schema-only: no COPY phase ran, so submit all indexes now.
                       (when (and create-indexes? schema-only? idx-executor)
@@ -906,9 +911,10 @@
                 (close! source)
                 (.close pg-conn))))))
       (when-not (:sub-command? opts)
-        (summary/print-summary verbose)
-        (when-let [summary-path (:summary opts)]
-          (summary/write-summary summary-path verbose))))))
+        (let [wall-nanos (- (System/nanoTime) run-wall-t0)]
+          (summary/print-summary verbose wall-nanos)
+          (when-let [summary-path (:summary opts)]
+            (summary/write-summary summary-path verbose wall-nanos)))))))
 
 (defn run-inline
   [source-uri target-uri opts]

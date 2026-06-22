@@ -63,30 +63,31 @@
      (fmt-row lw (:label entry) (:errs entry) (:rows entry) b t r w))))
 
 (defn print-summary
-  [verbose]
-  (let [all-entries (concat (stats/entries :pre) (stats/entries :data) (stats/entries :post))
-        lw          (label-width all-entries)]
-    (println)
-    (println "Results:")
-    (println)
-    (when (seq all-entries)
-      (println (header-row lw verbose))
-      (let [sections (keep (fn [p]
-                             (let [es (stats/entries p)]
-                               (when (seq es) es)))
-                           [:pre :data :post])]
-        (println (sep-line lw verbose))
-        (doseq [[i section] (map-indexed vector sections)]
-          (when (pos? i) (println (sep-line lw verbose)))
-          (doseq [entry section]
-            (println (fmt-entry lw entry verbose)))))
-      (println (sep-line lw verbose))
-      (let [g       (stats/grand-totals)
-            b       (if (zero? (:bytes g)) "" (log/fmt-bytes (:bytes g)))
-            t       (log/fmt-duration (:total-nanos g))
-            err-str (if (zero? (:errs g)) "✓" (str (:errs g)))]
-        (println (fmt-row lw "Total import time" err-str (:rows g) b t))
-        (println)))))
+  ([verbose] (print-summary verbose nil))
+  ([verbose wall-nanos]
+   (let [all-entries (concat (stats/entries :pre) (stats/entries :data) (stats/entries :post))
+         lw          (label-width all-entries)]
+     (println)
+     (println "Results:")
+     (println)
+     (when (seq all-entries)
+       (println (header-row lw verbose))
+       (let [sections (keep (fn [p]
+                              (let [es (stats/entries p)]
+                                (when (seq es) es)))
+                            [:pre :data :post])]
+         (println (sep-line lw verbose))
+         (doseq [[i section] (map-indexed vector sections)]
+           (when (pos? i) (println (sep-line lw verbose)))
+           (doseq [entry section]
+             (println (fmt-entry lw entry verbose)))))
+       (println (sep-line lw verbose))
+       (let [g       (stats/grand-totals)
+             b       (if (zero? (:bytes g)) "" (log/fmt-bytes (:bytes g)))
+             t       (log/fmt-duration (or wall-nanos (:total-nanos g)))
+             err-str (if (zero? (:errs g)) "✓" (str (:errs g)))]
+         (println (fmt-row lw "Total import time" err-str (:rows g) b t))
+         (println))))))
 
 (defn- csv-quote [s]
   (if (re-find #"[;\"]" s)
@@ -94,63 +95,67 @@
     s))
 
 (defn write-summary-csv
-  [^String path verbose]
-  (with-open [^Writer w (io/writer path)]
-    (let [header (if verbose
-                   ["table name" "errors" "rows" "bytes" "total time" "read time" "write time"]
-                   ["table name" "errors" "rows" "bytes" "total time"])]
-      (.write w (str/join ";" header))
-      (.write w "\n")
-      (doseq [phase [:pre :data :post]]
-        (doseq [e (stats/entries phase)]
-          (let [vals [(csv-quote (:label e))
-                      (str (:errs e))
-                      (str (:rows e))
-                      (str (:bytes e))
-                      (log/fmt-duration (:total-nanos e))]]
-            (.write w (str/join ";" (if verbose
-                                      (conj vals
-                                            (log/fmt-duration (:rs-nanos e))
-                                            (log/fmt-duration (:ws-nanos e)))
-                                      vals)))
-            (.write w "\n"))))
-      (let [g (stats/grand-totals)]
-        (.write w (str/join ";" ["GRAND TOTAL"
-                                 (str (:errs g))
-                                 (str (:rows g))
-                                 (str (:bytes g))
-                                 (log/fmt-duration (:total-nanos g))]))
-        (.write w "\n")))))
+  ([^String path verbose] (write-summary-csv path verbose nil))
+  ([^String path verbose wall-nanos]
+   (with-open [^Writer w (io/writer path)]
+     (let [header (if verbose
+                    ["table name" "errors" "rows" "bytes" "total time" "read time" "write time"]
+                    ["table name" "errors" "rows" "bytes" "total time"])]
+       (.write w (str/join ";" header))
+       (.write w "\n")
+       (doseq [phase [:pre :data :post]]
+         (doseq [e (stats/entries phase)]
+           (let [vals [(csv-quote (:label e))
+                       (str (:errs e))
+                       (str (:rows e))
+                       (str (:bytes e))
+                       (log/fmt-duration (:total-nanos e))]]
+             (.write w (str/join ";" (if verbose
+                                       (conj vals
+                                             (log/fmt-duration (:rs-nanos e))
+                                             (log/fmt-duration (:ws-nanos e)))
+                                       vals)))
+             (.write w "\n"))))
+       (let [g (stats/grand-totals)]
+         (.write w (str/join ";" ["GRAND TOTAL"
+                                  (str (:errs g))
+                                  (str (:rows g))
+                                  (str (:bytes g))
+                                  (log/fmt-duration (or wall-nanos (:total-nanos g)))]))
+         (.write w "\n"))))))
 
 (defn write-summary-json
-  [^String path verbose]
-  (let [data (reduce
-              (fn [acc phase-key]
-                (let [entries (stats/entries phase-key)]
-                  (assoc acc (name phase-key)
-                         {:tables (mapv
-                                   (fn [e]
-                                     (merge
-                                      {:label (:label e)
-                                       :errors (:errs e)
-                                       :rows (:rows e)
-                                       :bytes (:bytes e)
-                                       :total-time (:total-nanos e)}
-                                      (when verbose
-                                        {:read-time (:rs-nanos e)
-                                         :write-time (:ws-nanos e)})))
-                                   entries)
-                          :total (stats/get-totals phase-key)})))
-              {} [:pre :data :post])
-        full {:phases data
-              :grand-total (stats/grand-totals)}]
-    (spit path (pr-str full))))
+  ([^String path verbose] (write-summary-json path verbose nil))
+  ([^String path verbose wall-nanos]
+   (let [data (reduce
+               (fn [acc phase-key]
+                 (let [entries (stats/entries phase-key)]
+                   (assoc acc (name phase-key)
+                          {:tables (mapv
+                                    (fn [e]
+                                      (merge
+                                       {:label (:label e)
+                                        :errors (:errs e)
+                                        :rows (:rows e)
+                                        :bytes (:bytes e)
+                                        :total-time (:total-nanos e)}
+                                       (when verbose
+                                         {:read-time (:rs-nanos e)
+                                          :write-time (:ws-nanos e)})))
+                                    entries)
+                           :total (stats/get-totals phase-key)})))
+               {} [:pre :data :post])
+         g    (stats/grand-totals)
+         full {:phases      data
+               :grand-total (cond-> g wall-nanos (assoc :total-nanos wall-nanos))}]
+     (spit path (pr-str full)))))
 
 (defn write-summary
-  [path verbose]
-  (when path
-    (cond
-      (str/ends-with? path ".csv")  (write-summary-csv path verbose)
-      (str/ends-with? path ".json") (write-summary-json path verbose)
-      :else                         (write-summary-csv path verbose))
-    (println (str "Summary written to " path))))
+  ([path verbose] (write-summary path verbose nil))
+  ([path verbose wall-nanos]
+   (when path
+     (cond
+       (str/ends-with? path ".csv")  (write-summary-csv path verbose wall-nanos)
+       (str/ends-with? path ".json") (write-summary-json path verbose wall-nanos)
+       :else                         (write-summary-csv path verbose wall-nanos))
+     (println (str "Summary written to " path)))))
