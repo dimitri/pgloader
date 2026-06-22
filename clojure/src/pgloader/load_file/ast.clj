@@ -850,25 +850,32 @@
                                           {:source-name (if (vector? from-inner) (second from-inner) from-inner)
                                            :target-name   (if (vector? to-inner) (second to-inner) to-inner)}))
                                       alter-schema-nodes))
-              parse-pattern (fn [node]
-                              (let [pat-node (first (filter #(= :table-name-pattern (first %)) (rest node)))]
-                                (when pat-node
-                                  (let [child (second pat-node)]
-                                    (if (string? child)
-                                        ;; Regex pattern: ~/pattern/
-                                      (str/replace child #"^/(.*)/$" "$1")
-                                        ;; Quoted-string pattern: 'pattern'
-                                      (let [raw (second child)]
-                                        (-> raw
-                                            (str/replace "%" ".*")
-                                            (str/replace "_" "."))))))))
-              including-node (first (filter #(= :including-only (first %)) children))
-              table-pattern (when including-node (parse-pattern including-node))
-              excluding-node (first (filter #(= :excluding-only (first %)) children))
-              excluding-pattern (when excluding-node (parse-pattern excluding-node))
+              parse-pattern (fn [pat-node]
+                              (let [child (second pat-node)]
+                                (if (string? child)
+                                    ;; Regex pattern: ~/pattern/
+                                  (str/replace child #"^/(.*)/$" "$1")
+                                    ;; Quoted-string pattern: 'pattern'
+                                  (let [raw (second child)]
+                                    (-> raw
+                                        (str/replace "%" ".*")
+                                        (str/replace "_" "."))))))
+              parse-patterns (fn [node]
+                               ;; Collect all table-name-pattern leaves, unwrapping the
+                               ;; table-name-pattern-list wrapper (#1328: multiple patterns)
+                               (let [children (rest node)
+                                     pat-list-node (first (filter #(= :table-name-pattern-list (first %)) children))
+                                     pat-nodes (if pat-list-node
+                                                 (filter #(= :table-name-pattern (first %)) (rest pat-list-node))
+                                                 (filter #(= :table-name-pattern (first %)) children))]
+                                 (mapv parse-pattern pat-nodes)))
+              including-nodes (filter #(= :including-only (first %)) children)
+              inc-patterns (mapcat parse-patterns including-nodes)
+              excluding-nodes (filter #(= :excluding-only (first %)) children)
+              exc-patterns (mapcat parse-patterns excluding-nodes)
               filters (cond-> {}
-                        table-pattern (assoc :including [table-pattern])
-                        excluding-pattern (assoc :excluding [excluding-pattern]))
+                        (seq inc-patterns) (assoc :including (vec inc-patterns))
+                        (seq exc-patterns) (assoc :excluding (vec exc-patterns)))
               before-load-node (first (filter #(= :before-load-do (first %)) children))
               before-load (when before-load-node
                             (let [commands (rest (second before-load-node))]
@@ -925,7 +932,7 @@
           (->LoadCommand
            :database
            (cond-> source-uri
-             table-pattern (assoc :table-pattern table-pattern))
+             (seq inc-patterns) (assoc :table-pattern (first inc-patterns)))
            {:type :pgsql :target-uri pg-uri}
            (into {} (keep (fn [k]
                             (cond

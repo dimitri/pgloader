@@ -1,0 +1,13 @@
+ column_name |        data_type         
+-------------+--------------------------
+ dto         | timestamp with time zone
+ variant_col | text
+(2 rows)
+
+       big_decimal       
+-------------------------
+ -67723280.0928298500000
+  19942031.0000000000000
+         0.0000000000001
+(3 rows)
+
