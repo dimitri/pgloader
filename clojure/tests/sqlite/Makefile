@@ -2,7 +2,7 @@ JAR          ?= /pgloader.jar
 PGLOADER_CMD ?= java -jar $(JAR)
 REGRESS_FLAGS ?=
 
-SQLITE_TESTS = chinook test-pk sqlite chinook-noseq base64 spaced-path
+SQLITE_TESTS = chinook test-pk sqlite chinook-noseq base64 spaced-path matviews matviews-def
 
 .PHONY: all $(SQLITE_TESTS)
 
@@ -17,6 +17,12 @@ $(SQLITE_TESTS):
 spaced-path:
 	SQLITE_DB="work/spaced-path/my db.sqlite" $(PGLOADER_CMD) /work/spaced-path/spaced-path.load
 	java -jar $(JAR) regress $(REGRESS_FLAGS) /work/spaced-path
+
+# matviews: MATERIALIZE ALL VIEWS for SQLite (#699).
+# Runs the "all views" load first, then validates the named-view variant.
+matviews:
+	$(PGLOADER_CMD) /work/matviews/matviews.load
+	java -jar $(JAR) regress $(REGRESS_FLAGS) /work/matviews
 
 %-v3:
 	$(MAKE) $* PGLOADER_CMD="pgloader --client-min-messages notice"

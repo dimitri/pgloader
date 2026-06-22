@@ -1,0 +1,12 @@
+-- #699 regression test: MATERIALIZE VIEWS with a named view.
+-- Only active_products is requested; cheap_products is not migrated.
+LOAD DATABASE
+     FROM sqlite:///work/matviews/matviews.sqlite
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+
+     WITH include drop, create tables, reset sequences
+
+     MATERIALIZE VIEWS active_products
+
+     BEFORE LOAD DO
+       $$ CREATE SCHEMA IF NOT EXISTS public; $$;

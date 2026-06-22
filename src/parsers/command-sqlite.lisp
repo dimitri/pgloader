@@ -79,6 +79,7 @@ load database
                                              casts
                                              alter-table
                                              alter-schema
+                                             materialize-views
                                              including-like
                                              excluding-like
                                              before-load
@@ -100,9 +101,10 @@ load database
 
 (defun lisp-code-for-loading-from-sqlite (sqlite-db-conn pg-db-conn
                                           &key
-                                            gucs casts  options
+                                            gucs casts options
                                             before after-schema after
                                             alter-table alter-schema
+                                            views
                                             ((:including incl))
                                             ((:excluding excl))
                                             &allow-other-keys)
@@ -123,6 +125,7 @@ load database
        ,(sql-code-block pg-db-conn :pre before "before load")
 
        (copy-database source
+                      :materialize-views ',views
                       :alter-table ',alter-table
                       :alter-schema ',alter-schema
                       :after-schema ',after-schema
@@ -139,7 +142,7 @@ load database
     (destructuring-bind (sqlite-uri
                          pg-db-uri
                          &key
-                         gucs casts before after after-schema options
+                         gucs casts views before after after-schema options
                          alter-table alter-schema
                          including excluding)
         source
@@ -149,6 +152,7 @@ load database
              (lisp-code-for-loading-from-sqlite sqlite-uri pg-db-uri
                                                 :gucs gucs
                                                 :casts casts
+                                                :views views
                                                 :before before
                                                 :after-schema after-schema
                                                 :after after
@@ -157,4 +161,6 @@ load database
                                                 :alter-schema alter-schema
                                                 :including including
                                                 :excluding excluding))))))
+
+
 

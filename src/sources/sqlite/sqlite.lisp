@@ -78,7 +78,7 @@
                              including
                              excluding)
   "SQLite introspection to prepare the migration."
-  (declare (ignore materialize-views only-tables))
+  (declare (ignore only-tables))
   (let ((schema (add-schema catalog "public")))
     (with-stats-collection ("fetch meta data"
                             :use-result-as-rows t
@@ -86,11 +86,38 @@
                             :section :pre)
       (with-connection (conn (source-db sqlite) :check-has-sequences t)
         (let ((*sqlite-db* (conn-handle conn)))
+          ;; If views with explicit SQL definitions are given, CREATE them in
+          ;; SQLite first so the normal column-introspection path picks them up.
+          (when (and materialize-views (not (eq :all materialize-views)))
+            (create-matviews materialize-views sqlite))
+
+          ;; Fetch table columns
           (fetch-columns schema
                          sqlite
                          :including including
                          :excluding excluding
                          :db-has-sequences (has-sequences conn))
+
+          ;; Fetch view columns (PRAGMA table_info works identically for views)
+          (let ((view-names (unless (eq :all materialize-views)
+                              (when materialize-views
+                                (mapcar #'matview-source-name materialize-views)))))
+            (cond
+              (view-names
+               ;; SQLite's filter-list-to-where-clause expects plain strings
+               ;; (not filter-rule objects), so extract just the name part.
+               (let ((view-including
+                      (loop :for (schema-name . view-name) :in view-names
+                         :collect view-name)))
+                 (fetch-columns schema sqlite
+                                :table-type :view
+                                :including view-including
+                                :excluding nil
+                                :db-has-sequences (has-sequences conn))))
+              ((eq :all materialize-views)
+               (fetch-columns schema sqlite
+                              :table-type :view
+                              :db-has-sequences (has-sequences conn)))))
 
           (when create-indexes
             (fetch-indexes schema sqlite))
@@ -101,8 +128,16 @@
         ;; return how many objects we're going to deal with in total
         ;; for stats collection
         (+ (count-tables catalog)
+           (count-views catalog)
            (count-indexes catalog)
            (count-fkeys catalog))))
     catalog))
+
+(defmethod cleanup ((sqlite copy-sqlite) (catalog catalog) &key materialize-views)
+  "Drop any views created in the SQLite connection for the migration."
+  (when (and materialize-views (not (eq :all materialize-views)))
+    (with-connection (conn (source-db sqlite))
+      (let ((*sqlite-db* (conn-handle conn)))
+        (drop-matviews materialize-views sqlite)))))
 
 

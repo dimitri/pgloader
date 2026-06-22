@@ -57,6 +57,21 @@
     (loop for (name) in (sqlite:execute-to-list db sql)
        collect name)))
 
+(defun list-views (sqlite
+                   &key
+                     (db *sqlite-db*)
+                     including
+                     excluding)
+  "Return the list of views found in SQLITE-DB."
+  (let ((sql (sql "/sqlite/list-views.sql"
+                  including
+                  (filter-list-to-where-clause sqlite including :not nil)
+                  excluding
+                  (filter-list-to-where-clause sqlite excluding :not t))))
+    (log-message :sql "~a" sql)
+    (loop for (name) in (sqlite:execute-to-list db sql)
+       collect name)))
+
 (defun find-sequence (db table-name column-name)
   "Find if table-name.column-name is attached to a sequence in
    sqlite_sequence catalog."
@@ -138,14 +153,15 @@
                             including
                             excluding
                           &aux (db (conn-handle (source-db sqlite))))
-  "Get the list of SQLite column definitions per table."
-  (declare (ignore table-type))
-  (loop :for table-name :in (list-tables sqlite
-                                         :db db
-                                         :including including
-                                         :excluding excluding)
-     :do (let ((table (add-table schema table-name)))
-           (list-columns table :db db :db-has-sequences db-has-sequences))))
+  "Get the list of SQLite column definitions per table or view.
+   When TABLE-TYPE is :VIEW, introspect views instead of tables.
+   PRAGMA table_info works identically for views and tables in SQLite."
+  (let ((names (if (eq table-type :view)
+                   (list-views sqlite :db db :including including :excluding excluding)
+                   (list-tables sqlite :db db :including including :excluding excluding))))
+    (loop :for table-name :in names
+       :do (let ((table (add-table schema table-name)))
+             (list-columns table :db db :db-has-sequences db-has-sequences)))))
 
 
 ;;;

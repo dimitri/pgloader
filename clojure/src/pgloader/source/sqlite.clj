@@ -246,6 +246,44 @@
   (close! [this]
     (try (.close conn) (catch Exception _))))
 
+(defn- list-view-names
+  "Return a seq of view name strings from sqlite_master."
+  [^java.sql.Connection conn]
+  (->> (jdbc/execute! conn ["SELECT tbl_name FROM sqlite_master WHERE type = ? ORDER BY tbl_name" "view"])
+       (mapv (fn [row] (val (first row))))))
+
+(defn catalog-views
+  "Return catalog entries for all SQLite views, in the same shape as
+   entries returned by (catalog source).  PRAGMA table_info works on views
+   just like tables, so the column-mapping logic is identical."
+  [^SQLiteSource source]
+  (let [conn   (.-conn source)
+        id-case (.-id_case source)]
+    (->> (list-view-names conn)
+         (mapv (fn [src-name]
+                 (let [table-name (apply-sqlite-identifier-case src-name id-case)
+                       cols (list-columns conn src-name)]
+                   {:table-name        table-name
+                    :source-table-name src-name
+                    :schema            "public"
+                    :is-view           true
+                    :columns           (mapv (fn [c]
+                                               {:column-name    (:name c)
+                                                :column-type    (sqlite-type->pg (or (:type c) "text"))
+                                                :is-nullable    (zero? (:notnull c))
+                                                :column-default (let [d (:dflt_value c)]
+                                                                  (cond
+                                                                    (nil? d) nil
+                                                                    (sqlite-function-default? d) "CURRENT_TIMESTAMP"
+                                                                    :else d))
+                                                :key            (pos? (:pk c))
+                                                :extra          nil})
+                                             cols)
+                    :primary-key       []
+                    :indexes           []
+                    :fkeys             []})))
+         (sort-by :table-name))))
+
 (defn create-source
   [uri-map table-spec with-options]
   (let [conn (sqlite-connection (:path uri-map))
