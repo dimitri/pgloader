@@ -5,6 +5,32 @@
 
 
 ;;;
+;;; UUID extension dependency tracking
+;;;
+(defun catalog-add-uuid-extension (catalog pgversion)
+  "Scan CATALOG for columns with :generate-uuid defaults and ensure the
+   correct extension and function are used based on PGVERSION.
+
+   PostgreSQL 13+ ships gen_random_uuid() in core; older versions need the
+   uuid-ossp extension and uuid_generate_v4().  This function rewrites
+   :generate-uuid defaults in place and adds uuid-ossp to the extension list
+   when needed."
+  (let* ((major (if (stringp pgversion)
+                    (parse-integer pgversion :junk-allowed t)
+                    pgversion))
+         (has-builtin-uuid (and major (>= major 13))))
+    (loop :for schema :in (catalog-schema-list catalog)
+       :do (loop :for table :in (append (schema-table-list schema)
+                                        (schema-matview-list schema))
+              :do (loop :for column :in (table-column-list table)
+                     :when (eq :generate-uuid (column-default column))
+                     :do (if has-builtin-uuid
+                             ;; PG 13+: gen_random_uuid() is built-in
+                             (setf (column-default column) :generate-uuid-builtin)
+                             ;; PG < 13: need uuid-ossp extension
+                             (maybe-add-extension schema "uuid-ossp")))))))
+
+;;;
 ;;; Table schema support
 ;;;
 (defun create-sqltypes (catalog

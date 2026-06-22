@@ -146,6 +146,12 @@ Introduce a comma separated list of table name patterns used to limit the
 tables to migrate to a sublist. More than one such clause may be used, they
 will be accumulated together.
 
+The patterns use SQL Server's native ``LIKE`` syntax, meaning ``%`` matches
+any sequence of characters and ``_`` matches any single character. Regular
+expressions are not supported for MS SQL sources because SQL Server has no
+native regex operator; the filter is applied directly in the ``WHERE`` clause
+of the introspection query sent to the source database.
+
 Example::
 
   including only table names like 'GlobalAccount' in schema 'dbo'
@@ -158,8 +164,8 @@ table names from the migration. This filter only applies to the result of
 the *INCLUDING* filter.
 
 ::
-   
-   excluding table names matching 'LocalAccount' in schema 'dbo'
+
+   excluding table names like 'LocalAccount' in schema 'dbo'
 
 MS SQL Schema Transformations
 -----------------------------

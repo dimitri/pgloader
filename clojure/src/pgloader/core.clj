@@ -289,8 +289,12 @@
         (let [^java.sql.Connection pg-conn (postgres-connection target-uri)]
           (try
             (doseq [sql (:before-load cmd)]
-              (log/debug (str "BEFORE LOAD (archive): " (clojure.string/trim sql)))
-              (next.jdbc/execute! pg-conn [sql]))
+              (let [t0 (System/nanoTime)]
+                (log/debug (str "BEFORE LOAD (archive): " (clojure.string/trim sql)))
+                (next.jdbc/execute! pg-conn [sql])
+                (log/info (format "BEFORE LOAD done [%.3fs]: %s"
+                                  (/ (- (System/nanoTime) t0) 1e9)
+                                  (clojure.string/trim sql)))))
             (.commit pg-conn)
             (catch Exception e
               (.rollback pg-conn)
@@ -308,8 +312,12 @@
         (let [^java.sql.Connection pg-conn (postgres-connection target-uri)]
           (try
             (doseq [sql (:after-load cmd)]
-              (log/debug (str "AFTER LOAD (archive): " (clojure.string/trim sql)))
-              (next.jdbc/execute! pg-conn [sql]))
+              (let [t0 (System/nanoTime)]
+                (log/debug (str "AFTER LOAD (archive): " (clojure.string/trim sql)))
+                (next.jdbc/execute! pg-conn [sql])
+                (log/info (format "AFTER LOAD done [%.3fs]: %s"
+                                  (/ (- (System/nanoTime) t0) 1e9)
+                                  (clojure.string/trim sql)))))
             (.commit pg-conn)
             (catch Exception e
               (.rollback pg-conn)
@@ -442,8 +450,12 @@
                   (log/debug "Executing BEFORE LOAD DO commands")
                   (try
                     (doseq [sql before-cmds]
-                      (log/debug (str "BEFORE LOAD: " (clojure.string/trim sql)))
-                      (jdbc/execute! pg-conn [sql]))
+                      (let [t0 (System/nanoTime)]
+                        (log/debug (str "BEFORE LOAD: " (clojure.string/trim sql)))
+                        (jdbc/execute! pg-conn [sql])
+                        (log/info (format "BEFORE LOAD done [%.3fs]: %s"
+                                          (/ (- (System/nanoTime) t0) 1e9)
+                                          (clojure.string/trim sql)))))
                     (.commit pg-conn)
                     (catch Exception e
                       (.rollback pg-conn)
@@ -881,8 +893,12 @@
                       (log/debug "Executing AFTER LOAD DO commands")
                       (try
                         (doseq [sql after-cmds]
-                          (log/debug (str "AFTER LOAD: " (clojure.string/trim sql)))
-                          (jdbc/execute! pg-conn [sql]))
+                          (let [t0 (System/nanoTime)]
+                            (log/debug (str "AFTER LOAD: " (clojure.string/trim sql)))
+                            (jdbc/execute! pg-conn [sql])
+                            (log/info (format "AFTER LOAD done [%.3fs]: %s"
+                                              (/ (- (System/nanoTime) t0) 1e9)
+                                              (clojure.string/trim sql)))))
                         (.commit pg-conn)
                         (catch Exception e
                           (.rollback pg-conn)
