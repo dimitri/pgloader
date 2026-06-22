@@ -11,14 +11,31 @@
  idx_{oid}_PRIMARY
  idx_{oid}_PRIMARY
  idx_{oid}_PRIMARY
+ idx_{oid}_PRIMARY
+ idx_{oid}_PRIMARY
+ idx_{oid}_PRIMARY
+ idx_{oid}_PRIMARY
+ idx_{oid}_PRIMARY
+ idx_{oid}_PRIMARY
+ idx_{oid}_PRIMARY
+ idx_{oid}_PRIMARY
+ idx_{oid}_PRIMARY
+ idx_{oid}_PRIMARY
+ idx_{oid}_PRIMARY
+ idx_{oid}_PRIMARY
+ idx_{oid}_PRIMARY
+ idx_{oid}_PRIMARY
  idx_{oid}_ak_countdata_idx
  idx_{oid}_domain_filter
  idx_{oid}_domain_filter_unq
  idx_{oid}_fcm_batches_created_at_index
  idx_{oid}_hotel_id
+ idx_{oid}_idx_orders_user_id
+ idx_{oid}_idx_users_email
+ idx_{oid}_idx_users_email_lower
  idx_{oid}_patient_id
  idx_{oid}_search
  idx_{oid}_update_type
  idx_{oid}_url
-(20 rows)
+(37 rows)
 

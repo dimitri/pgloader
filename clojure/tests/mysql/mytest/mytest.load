@@ -1,0 +1,73 @@
+-- Unified MySQL regression load file.
+-- Loads the pgloader_mytest database (seed: mytest/mytest.sql) into PostgreSQL.
+-- Covers: legacy type-mapping edge cases (issues #650–#1102), the source/source2
+-- tables (expression index, camelCase), and the feature tests introduced in v4
+-- (issues #1066, #1196, #1280, #1403, #1522, #1560, #1629, #1645).
+
+load database
+     from      mysql://root:rootpassword@mysql:3306/pgloader_mytest?useSSL=false
+     into      postgresql://pgloader:pgloader@postgres:5432/target
+
+ WITH concurrency = 2,
+      multiple readers per thread,
+      rows per range = 50000,
+      quote identifiers,
+      create tables,
+      create indexes,
+      include drop
+
+ ALTER SCHEMA 'pgloader_mytest' RENAME TO 'mytest'
+ ALTER TABLE NAMES MATCHING ~/./ SET TABLESPACE 'pg_default'
+
+ CAST
+      -- --------------------------------------------------------
+      -- Legacy "my" database cast rules
+      -- --------------------------------------------------------
+
+      -- issue #650: enum with empty string values → NULL
+      column utilisateurs__Yvelines2013-06-28.sexe
+             to text drop not null using empty-string-to-null,
+
+      -- issue #661: funny_string.s has no meaningful typemod
+      column funny_string.s to text drop typemod drop not null,
+
+      -- issue #904: binary(16) uuid stored as hex blob → PostgreSQL uuid
+      column base64.id   to uuid drop typemod,
+      column base64.data to jsonb using base64-decode,
+
+      -- decimal(18,6) used as double precision
+      type decimal
+           when (and (= 18 precision) (= 6 scale))
+             to "double precision" drop typemod,
+
+      -- unsigned smallint overflows PostgreSQL smallint range → int
+      type smallint when unsigned to int drop typemod,
+
+      -- ON UPDATE CURRENT_TIMESTAMP: zero-date variant (drop the broken default)
+      type timestamp
+              when default "CURRENT_TIMESTAMP"
+              with extra on update current timestamp
+           to "timestamp with time zone"
+              drop default drop not null drop extra
+             using zero-dates-to-null,
+
+      -- ON UPDATE CURRENT_TIMESTAMP: plain variant (keep default, drop extra)
+      type timestamp with extra on update current timestamp
+           to "timestamp with time zone" drop extra,
+
+      -- issue #904: binary(16) uuid → PostgreSQL uuid type
+      column encryption_key_canary.uuid
+             to uuid drop typemod using byte-vector-to-hexstring,
+
+      -- --------------------------------------------------------
+      -- mysql-unit-full feature cast rules
+      -- --------------------------------------------------------
+
+      -- #1066: raw_hex column contains hex strings → PostgreSQL bytea \x...
+      column hex_binary.raw_hex to bytea using hex-to-bytea,
+
+      -- #1522: WITHOUT TYPE — preserve SET→text[] mapping, apply transform only
+      column set_column.perms using set-to-enum-array
+
+ BEFORE LOAD DO
+   $$ CREATE SCHEMA IF NOT EXISTS mytest; $$;

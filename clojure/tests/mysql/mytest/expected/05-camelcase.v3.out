@@ -1,0 +1,11 @@
+ count 
+-------
+     2
+(1 row)
+
+ column_name 
+-------------
+ MyId
+ MyName
+(2 rows)
+

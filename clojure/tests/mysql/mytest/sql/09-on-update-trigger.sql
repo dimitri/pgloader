@@ -3,6 +3,6 @@ SELECT trigger_name,
        event_manipulation,
        action_timing
 FROM   information_schema.triggers
-WHERE  trigger_schema = 'v4'
+WHERE  trigger_schema = 'mytest'
   AND  event_object_table = 'on_update_ts'
 ORDER  BY trigger_name;

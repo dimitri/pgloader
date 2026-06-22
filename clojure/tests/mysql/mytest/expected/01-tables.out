@@ -1,21 +1,35 @@
             table_name            
 ----------------------------------
  CamelCase
+ CamelCaseTable
  base64
+ bit_defaults
  bits
  countdata_template
  domain_filter
  empty
  encryption_key_canary
+ events
  fcm_batches
+ flags
  funny_string
  geom
+ hex_binary
  history
+ measurements
+ on_update_ts
  onupdate
+ orders
  pgloader_test_unsigned
  propertydecimal
  races
+ salary_check
+ set_column
+ things
+ type_mapping_test
+ type_precision
+ users
  utilisateurs__Yvelines2013-06-28
  uw_defined_meaning
-(17 rows)
+(31 rows)
 

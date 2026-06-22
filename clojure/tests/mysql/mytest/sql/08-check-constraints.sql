@@ -5,7 +5,7 @@ SELECT c.conname AS constraint_name,
 FROM   pg_constraint c
 JOIN   pg_class t   ON t.oid = c.conrelid
 JOIN   pg_namespace n ON n.oid = t.relnamespace
-WHERE  n.nspname  = 'v4'
+WHERE  n.nspname  = 'mytest'
   AND  t.relname  = 'salary_check'
   AND  c.contype  = 'c'
 ORDER  BY c.conname;

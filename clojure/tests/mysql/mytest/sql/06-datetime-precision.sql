@@ -5,6 +5,6 @@ SELECT column_name,
        datetime_precision,
        column_default
 FROM   information_schema.columns
-WHERE  table_schema = 'v4'
+WHERE  table_schema = 'mytest'
   AND  table_name   = 'type_precision'
 ORDER  BY ordinal_position;

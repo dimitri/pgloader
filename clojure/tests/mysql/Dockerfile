@@ -15,18 +15,13 @@ RUN unzip /tmp/sakila-db.zip -d /tmp/ \
 # Download with: test/mysql/download-f1db.sh
 COPY test/data/f1db.sql /docker-entrypoint-initdb.d/f1db.sql
 
-# === pgloader test schemas (from test/mysql/) ===
-COPY test/mysql/my.sql       /docker-entrypoint-initdb.d/my.sql
-COPY test/mysql/history.sql  /docker-entrypoint-initdb.d/history.sql
-
 # === db789 materialized views schema (from test/mysql/) ===
-COPY test/mysql/db789.sql    /docker-entrypoint-initdb.d/db789.sql
+COPY test/mysql/db789.sql /docker-entrypoint-initdb.d/db789.sql
 
-# === pgloader integration test seed (source + source2 databases) ===
-COPY clojure/tests/mysql/data/seed.sql /docker-entrypoint-initdb.d/seed.sql
-
-# === mysql-unit-full test schema (pgloader_mysql_unit_full database) ===
-COPY clojure/tests/mysql-unit-full/mysql-unit-full.sql /docker-entrypoint-initdb.d/mysql-unit-full.sql
+# === Unified pgloader_mytest test schema ===
+# Combines: legacy "my" + "history" tables, former source/source2 tables,
+# and the mysql-unit-full feature tests.  See mytest/mytest.sql for details.
+COPY clojure/tests/mysql/mytest/mytest.sql /docker-entrypoint-initdb.d/mytest.sql
 
 # === Init script ===
 # .sql files renamed to .tmpl to prevent MySQL auto-running them.
@@ -35,10 +30,7 @@ COPY clojure/tests/mysql/data/load-datasets.sh /docker-entrypoint-initdb.d/load-
 
 RUN chmod +x /docker-entrypoint-initdb.d/load-datasets.sh \
   && mv /docker-entrypoint-initdb.d/sakila-schema.sql /docker-entrypoint-initdb.d/sakila-schema.tmpl \
-  && mv /docker-entrypoint-initdb.d/sakila-data.sql /docker-entrypoint-initdb.d/sakila-data.tmpl \
-  && mv /docker-entrypoint-initdb.d/f1db.sql /docker-entrypoint-initdb.d/f1db.tmpl \
-  && mv /docker-entrypoint-initdb.d/my.sql        /docker-entrypoint-initdb.d/my.tmpl \
-  && mv /docker-entrypoint-initdb.d/history.sql   /docker-entrypoint-initdb.d/history.tmpl \
-  && mv /docker-entrypoint-initdb.d/db789.sql     /docker-entrypoint-initdb.d/db789.tmpl \
-  && mv /docker-entrypoint-initdb.d/seed.sql            /docker-entrypoint-initdb.d/seed.tmpl \
-  && mv /docker-entrypoint-initdb.d/mysql-unit-full.sql /docker-entrypoint-initdb.d/mysql-unit-full.tmpl
+  && mv /docker-entrypoint-initdb.d/sakila-data.sql   /docker-entrypoint-initdb.d/sakila-data.tmpl \
+  && mv /docker-entrypoint-initdb.d/f1db.sql          /docker-entrypoint-initdb.d/f1db.tmpl \
+  && mv /docker-entrypoint-initdb.d/db789.sql         /docker-entrypoint-initdb.d/db789.tmpl \
+  && mv /docker-entrypoint-initdb.d/mytest.sql        /docker-entrypoint-initdb.d/mytest.tmpl
