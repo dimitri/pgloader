@@ -67,8 +67,8 @@ override_dh_auto_test:
 	PATH=$(CURDIR)/build/bin:$(PATH) debian/tests/testsuite
 
 override_dh_auto_install:
-	mkdir -p debian/tmp/usr/bin
-	cp -a build/bin/pgloader debian/tmp/usr/bin/pgloader
+	mkdir -p debian/tmp/build/bin
+	cp -a build/bin/pgloader debian/tmp/build/bin/pgloader
 
 override_dh_strip override_dh_dwz:
 	# do nothing, sbcl doesn't write any debug info
