@@ -106,9 +106,14 @@
                                                          (select-keys uri-map [:table-pattern])
                                                          (select-keys with-options [:quote-ids :downcase-ids :snake-case-ids]))
                                                   decoding-as)
-    :csv   (csv-source/create-source (merge (assoc uri-map :table-spec table-spec)
-                                            with-options
-                                            source-overrides))
+    :csv   (let [csv-map (if-let [url (:url uri-map)]
+                           ;; HTTP source: download to temp file, load from there
+                           (let [tmp-file (archive/http-fetch! url)]
+                             (assoc uri-map :path (.getAbsolutePath tmp-file) :url nil))
+                           uri-map)]
+             (csv-source/create-source (merge (assoc csv-map :table-spec table-spec)
+                                              with-options
+                                              source-overrides)))
     :copy  (copy-source/create-source (merge uri-map source-overrides))
     :sqlite (sqlite-source/create-source uri-map (or table-spec {})
                                          (select-keys with-options [:snake-case-ids :downcase-ids]))

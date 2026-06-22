@@ -20,9 +20,13 @@
   (log-message :log "Fetching '~a'" url)
 
   (ensure-directories-exist tmpdir)
-  (let ((archive-filename (make-pathname :defaults tmpdir
-					 :name (pathname-name url)
-					 :type (pathname-type url))))
+  ;; Strip query string and fragment from URL before deriving the temp filename:
+  ;; pathname-name/pathname-type operate on the path component only (no "?...").
+  (let* ((path-only (let ((q (position #\? url)))
+                      (if q (subseq url 0 q) url)))
+         (archive-filename (make-pathname :defaults tmpdir
+                                         :name (pathname-name path-only)
+                                         :type (pathname-type path-only))))
     (multiple-value-bind (http-stream
 			  status-code
 			  headers

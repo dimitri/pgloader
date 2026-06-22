@@ -4,9 +4,10 @@ REGRESS_FLAGS ?=
 
 CSV_TESTS = allcols basic batch-rows before-after-do blanks-keep blanks-trim \
             column-order column-subset constant csv-escape-mode datestyle-dmy \
-            disable-triggers districts drop-indexes encoding escape-backslash \
-            filename-pattern guess-csv header-auto lines-terminated missing-col \
-            non-printable not-enclosed null-if nulls overflow parse-date pipe \
+            disable-triggers districts drop-indexes embedded-newline encoding \
+            escape-backslash filename-pattern guess-csv header-auto \
+            lines-terminated missing-col multi-null-if non-printable not-enclosed \
+            null-if null-if-blanks nulls overflow parse-date pipe \
             projection reformat semicolon set-params skip-header-2 tab \
             target-columns temp track trailing
 

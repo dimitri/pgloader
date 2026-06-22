@@ -17,7 +17,7 @@
                 with-csv-clause?
                column-list?
                load-csv-clause*
-               <opt-ws> <';'>
+               (<opt-ws> <';'>)?
 
     load-csv-clause = set-clause | before-load-do | after-load-do | having-fields
 
@@ -51,7 +51,7 @@
                 with-dbf-clause?
                column-list?
                load-dbf-clause*
-               <opt-ws> <';'>
+               (<opt-ws> <';'>)?
 
     load-dbf-clause = set-clause | before-load-do | after-load-do | having-fields | cast-clause
 
@@ -74,7 +74,7 @@
     distribute-using-from = <'DISTRIBUTE'> <ws> table-name <ws> <'USING'> <ws> column-name <ws> <'FROM'> <ws> from-table-list
     from-table-list = table-name (<opt-ws> <','> <opt-ws> table-name)*
 
-   from-source = filepath | stdin-source | inline-source | glob-source | copy-source | dbf-source
+   from-source = filepath | stdin-source | inline-source | glob-source | copy-source | dbf-source | http-source | csv-filename-matching
    copy-source = <'copy'> <'://'> #'[^\\s;]+'
    dbf-source  = dbf-filepath | http-source
    dbf-filepath = <'dbf'> <'://'> #'[^\\s;]+'
@@ -128,6 +128,7 @@
     archive-from-source = http-source | filepath
     load-archive-clause = before-load-do | after-load-do
     archive-sub-command = load-fixed | load-csv | load-dbf
+    csv-filename-matching = <'FILENAME'> <ws> <'MATCHING'> <ws> file-pattern
 
    with-copy-clause = <'WITH'> <ws> copy-option (<opt-ws> <','> <opt-ws> copy-option)*
     copy-option = truncate | create-tables | create-table | create-no-tables | option-delimiter | option-null | batch-rows | batch-size | batch-concurrency | disable-triggers | drop-indexes
@@ -153,9 +154,11 @@
    source-uri  = <\"'\"> #\"[^']+\" <\"'\"> | #'jdbc:[^\\s]+' | #'[a-zA-Z][a-zA-Z0-9+.-]*://[^\\s;]+'
    pg-uri      = <\"'\"> #\"[^']+\" <\"'\"> | #'jdbc:p(?:ostgresql|gsql)://[^\\s]+' | #'p(?:ostgresql|gsql)://[^\\s;]+'
    column-list = <'('> <opt-ws> column-item (<opt-ws> <','> <opt-ws> column-item)* <opt-ws> <')'>
-     column-item = column-name (<ws> date-format-spec)? (<ws> null-if-spec)?
+     column-item = column-name (<ws> date-format-spec)? (<ws> null-if-spec)*
      date-format-spec = <'['> <opt-ws> <'date'> <ws> <'format'> <ws> quoted-string <opt-ws> <']'>
-     null-if-spec = <'['> <opt-ws> <'null'> <ws> <'if'> <ws> (quoted-string | dq-string) <opt-ws> <']'>
+     null-if-spec = <'['> <opt-ws> null-if-clause (<opt-ws> <','> <opt-ws> null-if-clause)* <opt-ws> <']'>
+     null-if-clause = <'null'> <ws> <'if'> <ws> (quoted-string | dq-string | null-if-blanks-kw)
+     null-if-blanks-kw = 'blanks'
     column-name = #'[a-zA-Z_][a-zA-Z0-9_-]*' | <'\"'> #'[^\"]+' <'\"'>
     qualified-name = schema-name <'.'> table-name
     schema-name = #'[a-zA-Z_][a-zA-Z0-9_-]*' | <'\"'> #'[^\"]+' <'\"'>
