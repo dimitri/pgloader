@@ -27,6 +27,8 @@ v4only:
 	java -jar $(JAR) v4only/v4only.load
 	java -jar $(JAR) regress $(REGRESS_FLAGS) v4only
 
+all-v3: my-v3 sakila-v3 f1db-v3 source-v3
+
 %-v3:
 	$(MAKE) $* PGLOADER_CMD="pgloader --client-min-messages notice"
 
