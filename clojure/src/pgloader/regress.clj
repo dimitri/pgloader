@@ -5,9 +5,11 @@
    psql reads standard PG env vars (PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD).
 
    Usage:
-     java -jar pgloader.jar regress [--update] <suite-dir>
+     java -jar pgloader.jar regress [--update] [--variant <name>] <suite-dir>
 
-   --update  write out/ → expected/ instead of diffing (baseline registration)"
+   --update          write out/ → expected/ instead of diffing (baseline registration)
+   --variant <name>  prefer expected/<stem>.<name>.out over expected/<stem>.out;
+                     --update with --variant writes to the variant file"
   (:require [clojure.java.io :as io]
             [clojure.java.shell :as shell]
             [clojure.string :as str])
@@ -60,18 +62,38 @@
             (print out)
             false)))))
 
+(defn- expected-file
+  "Resolve the expected file for a given stem, honouring --variant.
+   When variant is non-nil, prefer <exp-dir>/<stem>.<variant>.out and fall
+   back to <exp-dir>/<stem>.out when the variant file does not exist."
+  [^File exp-dir stem variant]
+  (if variant
+    (let [vf (io/file exp-dir (str stem "." variant ".out"))]
+      (if (.exists vf) vf (io/file exp-dir (str stem ".out"))))
+    (io/file exp-dir (str stem ".out"))))
+
 (defn run
   "Entry point called from cli/run when first arg is 'regress'."
   [args]
   (let [update?   (boolean (some #{"--update"} args))
+        variant   (->> (partition-all 2 1 args)
+                       (some (fn [[a b]] (when (= "--variant" a) b))))
         excludes  (->> args
                        (partition-all 2 1)
-                       (keep (fn [[a b]] (when (= "--update" a) nil)
+                       (keep (fn [[a b]]
                                (when (= "--exclude" a) b)))
                        (remove nil?)
                        set)
+        ;; Strip flags and their values so only positional args remain.
+        flag-values (into #{} (keep-indexed
+                               (fn [i _]
+                                 (when (contains? #{"--variant" "--exclude"}
+                                                  (nth args i nil))
+                                   (nth args (inc i) nil)))
+                               args))
         plain     (remove #(or (str/starts-with? % "--")
-                               (contains? excludes %)) args)
+                               (contains? excludes %)
+                               (contains? flag-values %)) args)
         dir-arg   (first plain)
         suite-dir (io/file (or dir-arg "."))
         exp-dir   (io/file suite-dir "expected")
@@ -88,7 +110,11 @@
              (fn [^File sql-file]
                (let [s        (stem sql-file)
                      out-file (io/file out-dir (str s ".out"))
-                     exp-file (io/file exp-dir (str s ".out"))]
+                     exp-file (expected-file exp-dir s variant)
+                     ;; When updating with a variant, always write the variant file.
+                     upd-file (if (and update? variant)
+                                (io/file exp-dir (str s "." variant ".out"))
+                                exp-file)]
                  (let [exit (run-psql sql-file out-file)]
                    (if (pos? exit)
                      (do (println (str "  ERROR    " s
@@ -96,8 +122,9 @@
                          (when (.exists out-file) (print (slurp out-file)))
                          false)
                      (if update?
-                       (do (io/copy out-file exp-file)
-                           (println (str "  updated  " s))
+                       (do (io/copy out-file upd-file)
+                           (println (str "  updated  " s
+                                         (when variant (str " [" variant "]"))))
                            true)
                        (diff-files exp-file out-file s))))))
              files)]

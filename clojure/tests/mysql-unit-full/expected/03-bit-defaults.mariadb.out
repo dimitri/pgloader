@@ -1,0 +1,8 @@
+ column_name |        data_type         |  column_default   
+-------------+--------------------------+-------------------
+ id          | bigint                   | 
+ flags       | bit varying              | '0'::"bit"
+ single_bit  | bit varying              | '0'::"bit"
+ created_at  | timestamp with time zone | CURRENT_TIMESTAMP
+(4 rows)
+

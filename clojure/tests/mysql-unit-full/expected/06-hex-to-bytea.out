@@ -1,0 +1,7 @@
+  label   |  raw_hex   
+----------+------------
+ plain    | \xdeadbeef
+ prefixed | \xcafebabe
+ empty    | \x
+(3 rows)
+

@@ -24,7 +24,7 @@ services:
       --character-set-server=utf8mb4
       --collation-server=utf8mb4_unicode_ci
     healthcheck:
-      test: ["CMD-SHELL", "mariadb -u root -prootpassword -e 'USE source; SELECT COUNT(*) FROM users' 2>/dev/null && mariadb -u root -prootpassword -e 'USE sakila; SELECT COUNT(*) FROM actor' 2>/dev/null && mariadb -u root -prootpassword -e 'USE f1db; SELECT COUNT(*) FROM circuits' 2>/dev/null"]
+      test: ["CMD-SHELL", "mariadb -u root -prootpassword -e 'USE source; SELECT COUNT(*) FROM users' 2>/dev/null && mariadb -u root -prootpassword -e 'USE sakila; SELECT COUNT(*) FROM actor' 2>/dev/null && mariadb -u root -prootpassword -e 'USE f1db; SELECT COUNT(*) FROM circuits' 2>/dev/null && mariadb -u root -prootpassword -e 'USE pgloader_mysql_unit_full; SELECT COUNT(*) FROM salary_check' 2>/dev/null"]
       interval: 10s
       timeout: 10s
       retries: 30
@@ -36,9 +36,11 @@ services:
       dockerfile: clojure/tests/Dockerfile
     volumes:
       - .:/suite
+      - ../mysql-unit-full:/suite/mysql-unit-full
       - ../../target/pgloader.jar:/pgloader.jar:ro
     environment:
       JAR: /pgloader.jar
+      MYSQL_HOST: mariadb
       PGHOST: postgres
       PGPORT: "5432"
       PGDATABASE: target
