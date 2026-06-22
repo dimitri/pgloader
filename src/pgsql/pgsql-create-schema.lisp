@@ -175,7 +175,7 @@
                                     CREATE EXTENSION IF NOT EXISTS ~s;~%~
                                   then retry pgloader."
                                  ext-name ext-name)
-                    (error e))))))))))
+                    (error e)))))))))
 
 (defun create-tables (catalog
                       &key
