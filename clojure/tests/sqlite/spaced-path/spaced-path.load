@@ -1,0 +1,13 @@
+-- #1365 regression test: SQLite path with spaces via env-var expansion.
+-- SQLITE_DB is set to a path containing a space and the URI is single-quoted
+-- so that the grammar's source-uri rule handles it correctly.
+LOAD DATABASE
+     FROM 'sqlite:///{{SQLITE_DB}}'
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+
+     WITH include drop, create tables, reset sequences
+
+     ALTER SCHEMA 'public' RENAME TO 'spaced'
+
+     BEFORE LOAD DO
+       $$ CREATE SCHEMA IF NOT EXISTS spaced; $$;

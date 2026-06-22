@@ -1,0 +1,7 @@
+ id |   message   
+----+-------------
+  1 | hello
+  2 | world
+  3 | spaces work
+(3 rows)
+

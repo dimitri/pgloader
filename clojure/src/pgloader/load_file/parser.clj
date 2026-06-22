@@ -76,18 +76,17 @@
 
 (defn- expand-env
   "Replace {{VAR}} placeholders with the value of the OS environment variable
-   VAR. Values containing whitespace or ';' are automatically single-quoted so
-   that paths with spaces survive the grammar's source-uri rule (#1365).
-   Throws if a referenced variable is not set."
+   VAR. Throws if a referenced variable is not set.
+
+   To use a path that contains spaces, single-quote the entire URI token in
+   the load file: FROM 'sqlite:///{{DB_PATH}}' rather than FROM sqlite:///{{DB_PATH}}.
+   The grammar accepts single-quoted source-uri values (#1365)."
   [s]
   (str/replace s #"\{\{(\w+)\}\}"
                (fn [[_ k]]
-                 (let [v (or (System/getenv k)
-                             (throw (ex-info (str "Undefined template variable: " k)
-                                             {:var k})))]
-                   (if (re-find #"[\s;]" v)
-                     (str "'" (str/replace v "'" "\\'") "'")
-                     v)))))
+                 (or (System/getenv k)
+                     (throw (ex-info (str "Undefined template variable: " k)
+                                     {:var k}))))))
 
 (defn parse-file
   "Parse a .load file. Expands {{VAR}} placeholders from the OS environment

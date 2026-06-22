@@ -357,10 +357,13 @@
                    INTO 'postgresql://user@localhost/my database';")]
       (is (:ok result) (str "Parse failed: " (:error result))))))
 
-(deftest test-expand-env-auto-quotes-spaces
-  (testing "expanded value with spaces parses correctly when pre-quoted (#1365)"
-    ;; Simulates what expand-env produces when {{VAR}} = '/my data/db.sqlite'
-    (let [expanded "LOAD DATABASE FROM 'sqlite:///my data/db.sqlite'
+(deftest test-var-expansion-with-space-using-quoted-uri
+  (testing "{{VAR}} expanding to a path with a space works when URI is quoted (#1365)
+            Pattern: FROM 'sqlite:///{{DB_PATH}}' where DB_PATH has a space.
+            After expansion: FROM 'sqlite:///my data/db.sqlite'."
+    (let [;; Simulate the result of expand-env on 'sqlite:///{{DB_PATH}}'
+          ;; where DB_PATH = 'my data/db.sqlite'
+          expanded "LOAD DATABASE FROM 'sqlite:///my data/db.sqlite'
                     INTO postgresql://localhost/tgt;"
           result   (parser/parse-string expanded)]
       (is (:ok result) (str "Parse failed: " (:error result)))
