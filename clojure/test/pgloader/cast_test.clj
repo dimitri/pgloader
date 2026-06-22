@@ -186,22 +186,20 @@
             result (cast/apply-type-overrides columns rules)]
         (is (= ["varchar"] (mapv :column-type result))))))
 
-  (deftest test-without-type-cast
-    (testing "without-type rule matches column but does not change type (#1522)"
+  (deftest test-column-cast-no-type
+    (testing "column cast without 'to TYPE' does not change type (#1522)"
       (let [rules [{:source {:type :column :column "status"}
-                    :without-type true
+                    :target-type nil
                     :using :set-to-enum-array}]
             columns [{:column-name "status" :column-type "enum('a','b')"}
                      {:column-name "name"   :column-type "varchar(100)"}]
             overridden (cast/apply-type-overrides columns rules)]
-      ;; Type should NOT change
         (is (= "enum('a','b')" (:column-type (first overridden))))
-      ;; But cast-fn should be set
         (is (= :set-to-enum-array (:cast-fn (first overridden))))))
 
-    (testing "without-type resolve-specs picks up the using fn"
+    (testing "column cast without 'to TYPE' resolve-specs picks up the using fn"
       (let [rules [{:source {:type :column :column "status"}
-                    :without-type true
+                    :target-type nil
                     :using :set-to-enum-array}]
             columns [{:column-name "status" :column-type "enum('a','b')"}]
             specs (cast/resolve-specs rules columns)]

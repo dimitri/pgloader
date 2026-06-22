@@ -260,24 +260,23 @@
 
 ;; ── Cast grammar fixes (#1522, #1273, #1470) ─────────────────────────────────
 
-(deftest test-cast-without-type
-  (testing "CAST column col WITHOUT TYPE parses successfully (#1522)"
+(deftest test-cast-column-no-type
+  (testing "CAST column col using fn (no 'to TYPE') parses successfully (#1522)"
     (let [result (parser/parse-string
                   "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
-                    CAST column status WITHOUT TYPE;")]
+                    CAST column tbl.status using set-to-enum-array;")]
       (is (:ok result) (str "Parse error: " (:error result)))
-      (let [rules (get-in result [:ok :cast-rules])]
-        (is (= 1 (count rules)))
-        (is (true? (:without-type (first rules)))))))
+      (let [rule (first (get-in result [:ok :cast-rules]))]
+        (is (nil? (:target-type rule)))
+        (is (= :set-to-enum-array (:using rule))))))
 
-  (testing "CAST column col WITHOUT TYPE using fn parses with using (#1522)"
+  (testing "CAST column col (no 'to TYPE', no using) parses successfully"
     (let [result (parser/parse-string
                   "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
-                    CAST column status WITHOUT TYPE using set-to-enum-array;")]
-      (is (:ok result))
+                    CAST column tbl.status drop not null;")]
+      (is (:ok result) (str "Parse error: " (:error result)))
       (let [rule (first (get-in result [:ok :cast-rules]))]
-        (is (:without-type rule))
-        (is (= :set-to-enum-array (:using rule)))))))
+        (is (nil? (:target-type rule)))))))
 
 (deftest test-cast-target-type-multi-word
   (testing "multi-word target type like 'timestamp without time zone' parses (#1273)"

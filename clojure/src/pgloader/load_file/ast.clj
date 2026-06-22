@@ -263,7 +263,6 @@
                              col (second (first (filter #(= :column-name (first %)) parts)))]
                          {:type :column :table tbl :column col})))
                    source)
-          without-type? (some #(= :without-type (first %)) inner-children)
           ;; Unwrap [:cast-option [...]] wrappers so option tag nodes are at top level
           flat-cast-opts (mapcat (fn [n]
                                    (if (and (vector? n) (= :cast-option (first n)))
@@ -310,7 +309,6 @@
           drop-opts (parse-cast-options (map first flat-cast-opts))]
       (cond-> {:target-type target}
         source (assoc :source source)
-        without-type? (assoc :without-type true)
         (seq drop-opts) (assoc :options drop-opts)
         using-fn (assoc :using using-fn)
         when-cond (merge when-cond)))))

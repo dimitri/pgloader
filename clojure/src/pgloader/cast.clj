@@ -333,8 +333,8 @@
    changes :column-type to the PostgreSQL target.
    Also stores :cast-fn so the DDL layer can apply the same transform to
    default values (mirrors CL format-default-value).
-   Rules with :without-type true (from 'without type' syntax, #1522) match
-   the column but do not change its type."
+   Rules with no :target-type (column cast without a 'to TYPE' clause) match
+   the column and apply the cast function without changing its type."
   [columns cast-rules]
   (mapv (fn [col]
           (if-let [rule (some #(when (matches-rule? % col) %) cast-rules)]
@@ -347,12 +347,12 @@
                 cast-kw
                 (assoc :cast-fn cast-kw)
 
-                ;; without-type: keep existing type; only apply cast-fn (#1522)
-                (and (:target-type rule) (not (:without-type rule)))
+                ;; only override the column type when the rule specifies one
+                (:target-type rule)
                 (assoc :column-type (:target-type rule))
 
                 (and (get-in rule [:options :drop-typemod])
-                     (not (:without-type rule)))
+                     (:target-type rule))
                 (assoc :column-type
                        (-> (:target-type rule)
                            (or (:column-type col))

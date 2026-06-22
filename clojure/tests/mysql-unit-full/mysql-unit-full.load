@@ -26,9 +26,9 @@ load database
       -- #1066 hex-to-bytea: load raw_hex column as PostgreSQL bytea
       column hex_binary.raw_hex to bytea using hex-to-bytea,
 
-      -- #1522 WITHOUT TYPE: preserve the SET→enum-array mapping but route
-      -- the value through set-to-enum-array without changing the column type
-      column set_column.perms WITHOUT TYPE using set-to-enum-array
+      -- #1522 omitting 'to TYPE': preserve the SET→enum-array mapping, only
+      -- route the value through set-to-enum-array without changing the column type
+      column set_column.perms using set-to-enum-array
 
  BEFORE LOAD DO
    $$ CREATE SCHEMA IF NOT EXISTS mysql_unit_full; $$;
