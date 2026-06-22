@@ -199,7 +199,7 @@ $(BUNDLE): $(BUNDLEDIR) $(BUNDLEDIR)/version.sexp
 	cp bundle/README.md $(BUNDLEDIR)
 	cp bundle/save.lisp $(BUNDLEDIR)
 	sed -e s/%VERSION%/$(VERSION)/ < bundle/Makefile > $(BUNDLEDIR)/Makefile
-	git archive --format=tar --prefix=pgloader-$(VERSION)/ master \
+	git archive --format=tar --prefix=pgloader-$(VERSION)/ main \
 	     | tar -C $(BUNDLEDIR)/local-projects/ -xf -
 	make QLDIR=$(BUNDLEDIR) clones
 	tar -C build/bundle 		    \

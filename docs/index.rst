@@ -52,7 +52,7 @@ On the fly data transformation
     some tweaking and clean-up before being sent to PostgreSQL.
 
     For instance in the `geolite
-    <https://github.com/dimitri/pgloader/blob/master/test/archive.load>`_
+    <https://github.com/dimitri/pgloader/blob/main/test/archive.load>`_
     example we can see that integer values are being rewritten as IP address
     ranges, allowing to target an ``ip4r`` column directly.
 
