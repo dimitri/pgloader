@@ -2,6 +2,7 @@
   (:require [pgloader.source.protocol :refer [Source read-rows source-name]]
             [pgloader.cast :as cast]
             [pgloader.transforms :as transforms]
+            [pgloader.utils.archive :as archive]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.tools.logging :as log])
@@ -275,17 +276,23 @@
           ;; When opencsv uses \ as escape, \N is eaten to N; also match the stripped form
           nil-str-alt (when (and nil-str (= eff-esc \\) (str/starts-with? nil-str "\\"))
                         (subs nil-str 1))
+          ;; col-nil-map: column-name → vector of null-if specs.
+          ;; Each spec is either :blanks (keyword) or a string to match.
+          ;; :nullifs replaces the old single :nullif field.
           col-nil-map (when (and cols (seq column-nullifs))
                         (into {}
-                              (map (fn [cn] [(:name cn) (:nullif cn)])
+                              (map (fn [cn] [(:name cn) (:nullifs cn)])
                                    column-nullifs)))
-          ;; When opencsv strips backslash escapes, per-column "\N" becomes "N";
-          ;; build nullif-value→alt map so [null if '\N'] still matches in backslash-quote mode.
+          ;; When opencsv strips backslash escapes, "\N" becomes "N".
+          ;; Build an alt map: original-string → stripped-string for each
+          ;; backslash-prefixed null-if value so [null if '\N'] still matches.
           col-nil-val-alt (when (and col-nil-map (= eff-esc \\))
                             (into {}
-                                  (keep (fn [[_ v]]
-                                          (when (and v (str/starts-with? v "\\"))
-                                            [v (subs v 1)]))
+                                  (keep (fn [[_ vs]]
+                                          (some (fn [v]
+                                                  (when (and (string? v) (str/starts-with? v "\\"))
+                                                    [v (subs v 1)]))
+                                                vs))
                                         col-nil-map)))
           trim-blanks trim-unquoted-blanks
           ;; Open a second reader to detect per-field quoted status.
@@ -315,21 +322,34 @@
                                 (reduce (fn [acc [i fmt]]
                                           (update acc i #(apply-date-format % fmt)))
                                         row date-transforms)))
-          apply-null-trim (fn [v col-nil is-quoted]
+          apply-null-trim (fn [v col-nils is-quoted]
+                            ;; col-nils is a seq of null-if specs for this column
+                            ;; (each is :blanks keyword or a string).
                             ;; For unquoted fields (is-quoted=false, only reliable when
-                            ;; trim-reader active) match null-if against raw OR trimmed
-                            ;; value: "   " matches null-if "" while " " matches null-if " ".
+                            ;; trim-reader active) match null-if against raw OR trimmed value.
                             (let [unquoted? (and v trim-reader (false? is-quoted))
-                                  matches? (fn [target]
-                                             (when (and v target)
-                                               (or (= v target)
-                                                   (when unquoted? (= (str/trim v) target)))))
-                                  col-nil-alt (when col-nil-val-alt (get col-nil-val-alt col-nil))
-                                  v (if (or (matches? nil-str)
-                                            (when nil-str-alt (matches? nil-str-alt))
-                                            (matches? col-nil)
-                                            (when col-nil-alt (matches? col-nil-alt)))
-                                      nil v)]
+                                  matches-spec? (fn [spec]
+                                                  (cond
+                                                    (= :blanks spec)
+                                                    ;; blanks: empty or whitespace-only string
+                                                    (and v (str/blank? v))
+                                                    (string? spec)
+                                                    (when v
+                                                      (let [alt (when (and (= eff-esc \\)
+                                                                           (str/starts-with? spec "\\"))
+                                                                  (subs spec 1))]
+                                                        (or (= v spec)
+                                                            (when alt (= v alt))
+                                                            (when unquoted? (= (str/trim v) spec))
+                                                            (when (and alt unquoted?) (= (str/trim v) alt)))))
+                                                    :else false))
+                                  ;; Check global null-if (WITH ... null if 'x')
+                                  global-null? (or (when nil-str (matches-spec? nil-str))
+                                                   (when nil-str-alt (matches-spec? nil-str-alt)))
+                                  ;; Check per-column null-if specs
+                                  col-null?  (when (seq col-nils)
+                                               (some matches-spec? col-nils))
+                                  v (if (or global-null? col-null?) nil v)]
                               ;; trim-unquoted-blanks: unquoted only; trim and blank → nil
                               (if (and trim-blanks (not is-quoted))
                                 (if (nil? v)
@@ -474,7 +494,11 @@
   [{:keys [path columns skip-header delimiter quote-char escape-char encoding
            nullif keep-unquoted-blanks trim-unquoted-blanks inline inline-data stdin
            projections csv-header lines-terminated column-formats column-nullifs
-           glob-pattern directory target-columns]}]
+           glob-pattern directory target-columns
+           filename-pattern archive-dir]}]
+  ;; FILENAME MATCHING inside a LOAD ARCHIVE: resolve pattern against extracted dir.
+  (when (and filename-pattern (not archive-dir))
+    (throw (ex-info "FILENAME MATCHING requires an archive context" {:pattern filename-pattern})))
   (if (and glob-pattern directory)
     ;; Glob source
     (let [enc (or (when encoding (Charset/forName encoding))
@@ -487,8 +511,14 @@
                        (if (and qc escape-char (= (char qc) (char escape-char))) (char 0) (or escape-char \\))
                        col-names nullif keep-unquoted-blanks trim-unquoted-blanks
                        projections))
-    ;; Regular CSV source
-    (let [filepath (when (and path (not= path :inline) (not stdin)) path)
+    ;; Regular CSV source (or FILENAME MATCHING resolved from archive dir)
+    (let [filepath (cond
+                     (and filename-pattern archive-dir)
+                     ;; Resolve the first file matching the regex in the archive dir.
+                     (let [matched (archive/matching-files archive-dir filename-pattern)]
+                       (when (seq matched) (.getAbsolutePath ^java.io.File (first matched))))
+                     (and path (not= path :inline) (not stdin)) path
+                     :else nil)
           enc (or (when encoding (Charset/forName encoding))
                   (when inline-data StandardCharsets/UTF_8)
                   StandardCharsets/UTF_8)

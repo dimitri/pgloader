@@ -1,0 +1,16 @@
+LOAD CSV FROM '/work/null-if-blanks/null-if-blanks.csv'
+             (id, name [null if blanks], status [null if blanks])
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_null_if_blanks
+
+     WITH fields terminated by ',',
+          fields enclosed by '"',
+          trim unquoted blanks
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_null_if_blanks; $$,
+       $$ CREATE TABLE public.csv_null_if_blanks (
+            id     integer,
+            name   text,
+            status text
+          ); $$;

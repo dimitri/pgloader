@@ -347,19 +347,38 @@
             :uniquify-index-names [:uniquify-index-names true]
             tag))))))
 
+(defn- parse-null-if-clause
+  "Parse a null-if-clause node → a null-if value: :blanks keyword or string."
+  [node]
+  (when (and (vector? node) (= :null-if-clause (first node)))
+    (let [inner (second node)]
+      (cond
+        (and (vector? inner) (= :null-if-blanks-kw (first inner))) :blanks
+        (and (vector? inner) (= :quoted-string    (first inner))) (second inner)
+        (and (vector? inner) (= :dq-string        (first inner))) (second inner)
+        :else (second inner)))))
+
+(defn- parse-null-if-spec
+  "Parse a null-if-spec node → vector of null-if values (:blanks or string)."
+  [node]
+  (when (and (vector? node) (= :null-if-spec (first node)))
+    (mapv parse-null-if-clause (filter #(and (vector? %) (= :null-if-clause (first %))) (rest node)))))
+
 (defn- parse-column-item
-  "Parse a column-item node. Returns {:name string :date-format string-or-nil :nullif string-or-nil}."
+  "Parse a column-item node. Returns {:name string :date-format string-or-nil :nullifs [...]}.
+   :nullifs is a (possibly empty) vector of null-if values (:blanks keyword or string)."
   [node]
   (when (and (vector? node) (= :column-item (first node)))
     (let [children (rest node)
           col-name (second (first (filter #(= :column-name (first %)) children)))
           df-node (some #(when (= :date-format-spec (first %)) %) children)
-          nf-node (some #(when (= :null-if-spec (first %)) %) children)
+          nf-nodes (filter #(= :null-if-spec (first %)) children)
           date-format (when df-node
                         (second (second df-node)))
-          nullif (when nf-node
-                   (second (second nf-node)))]
-      {:name col-name :date-format date-format :nullif nullif})))
+          ;; Collect all null-if values across all null-if-spec brackets for this column.
+          ;; Supports both [null if ''] [null if '0'] and [null if '', null if '0'].
+          nullifs (into [] (mapcat parse-null-if-spec nf-nodes))]
+      {:name col-name :date-format date-format :nullifs nullifs})))
 
 (defn- hiccup->set-option
   [node]
@@ -546,6 +565,9 @@
                                   {:type :csv :glob-pattern pattern :directory dir-path :encoding source-enc})
                                 :copy-source {:type :copy :path (second inner) :encoding source-enc}
                                 :dbf-source {:type :dbf :path (second inner) :encoding source-enc}
+                                :http-source {:type :csv :url (second inner) :encoding source-enc}
+                                :csv-filename-matching
+                                {:type :csv :filename-pattern (second (second inner)) :encoding source-enc}
                                 {:type :csv :path nil})))
               pg-uris  (filter #(= :pg-uri (first %)) children)
               pg-uri   (parse-uri (second (first pg-uris)))
@@ -619,7 +641,7 @@
                                                 (filter #(= :column-item (first %))
                                                         (rest source-col-list))))))
                 col-nullifs (when source-col-list
-                              (seq (filter :nullif
+                              (seq (filter (comp seq :nullifs)
                                            (map parse-column-item
                                                 (filter #(= :column-item (first %))
                                                         (rest source-col-list))))))

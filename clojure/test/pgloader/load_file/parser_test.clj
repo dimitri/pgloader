@@ -141,6 +141,74 @@
         ;; verify the INLINE data contains test rows
         (is (str/includes? (:inline-data source) "10-02-1999 00-33-12.123456"))))))
 
+;; ── CSV null-if tests (issues #1135, #1221) ─────────────────────────────────
+
+(deftest test-parse-csv-null-if-blanks-per-column
+  (testing "per-column [null if blanks] is parsed (issue #1135)"
+    (let [result (parser/parse-string
+                  "LOAD CSV FROM '/data/test.csv'
+                     (id, name [null if blanks], score)
+                   INTO postgresql:///target;")]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (let [source  (get-in result [:ok :source])
+            col-nif (:column-nullifs source)]
+        (is (seq col-nif))
+        (let [name-col (first (filter #(= "name" (:name %)) col-nif))]
+          (is name-col)
+          (is (= [:blanks] (:nullifs name-col))))))))
+
+(deftest test-parse-csv-multiple-null-if-per-column
+  (testing "multiple [null if] specs per column parsed as a list (issue #1221)"
+    (let [result (parser/parse-string
+                  "LOAD CSV FROM '/data/test.csv'
+                     (id, score [null if blanks, null if '0'], name)
+                   INTO postgresql:///target;")]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (let [source  (get-in result [:ok :source])
+            col-nif (:column-nullifs source)]
+        (is (seq col-nif))
+        (let [score-col (first (filter #(= "score" (:name %)) col-nif))]
+          (is score-col)
+          (is (= [:blanks "0"] (:nullifs score-col))))))))
+
+(deftest test-parse-csv-multiple-null-if-separate-brackets
+  (testing "multiple separate [null if] bracket groups per column also work"
+    (let [result (parser/parse-string
+                  "LOAD CSV FROM '/data/test.csv'
+                     (id, code [null if ''] [null if 'N/A'])
+                   INTO postgresql:///target;")]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (let [source  (get-in result [:ok :source])
+            col-nif (:column-nullifs source)]
+        (is (seq col-nif))
+        (let [code-col (first (filter #(= "code" (:name %)) col-nif))]
+          (is code-col)
+          (is (= ["" "N/A"] (:nullifs code-col))))))))
+
+(deftest test-parse-csv-http-source
+  (testing "CSV FROM unquoted http URL is parsed as :csv type with :url (issue #1606)"
+    (let [result (parser/parse-string
+                  "LOAD CSV FROM https://example.com/data.csv?token=abc
+                   INTO postgresql:///target;")]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (let [source (get-in result [:ok :source])]
+        (is (= :csv (:type source)))
+        (is (= "https://example.com/data.csv?token=abc" (:url source)))))))
+
+(deftest test-parse-archive-csv-filename-matching
+  (testing "FILENAME MATCHING inside LOAD ARCHIVE CSV sub-command (issue #1335)"
+    (let [result (parser/parse-string
+                  "LOAD ARCHIVE FROM 'data.zip'
+                   INTO postgresql:///target
+                   LOAD CSV FROM FILENAME MATCHING ~/zone\\.csv/
+                     (zone_id, country_code, zone_name)
+                   INTO postgresql:///target;")]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (let [cmd (get-in result [:ok :commands 0])
+            source (:source cmd)]
+        (is (= :csv (:type source)))
+        (is (= "zone\\.csv" (:filename-pattern source)))))))
+
 (deftest test-distribute-reference-parse
   (testing "DISTRIBUTE AS REFERENCE TABLE is parsed correctly"
     (let [result (parser/parse-string

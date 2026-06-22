@@ -1,0 +1,15 @@
+LOAD CSV FROM '/work/embedded-newline/embedded-newline.csv'
+             (id, description, status)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.csv_embedded_newline
+
+     WITH fields terminated by ',',
+          fields enclosed by '"'
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS public.csv_embedded_newline; $$,
+       $$ CREATE TABLE public.csv_embedded_newline (
+            id          integer,
+            description text,
+            status      text
+          ); $$;

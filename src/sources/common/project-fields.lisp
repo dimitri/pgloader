@@ -11,16 +11,26 @@
    applying a transformation function. In that case a cols entry is a list
    of '(colname type expression), the expression being the (already
    compiled) function to use here."
-  (labels ((null-as-processing-fn (null-as)
-	     "return a lambda form that will process a value given NULL-AS."
-	     (if (eq null-as :blanks)
-		 (lambda (col)
-		   (declare (optimize speed))
-		   (if (every (lambda (char) (char= char #\Space)) col)
-		       nil
-		       col))
-		 (lambda (col)
-		   (if (string= null-as col) nil col))))
+  (labels ((null-as-match-p (null-as col)
+             "Return T if COL matches one NULL-AS spec (:blanks or a string)."
+             (if (eq null-as :blanks)
+                 (every (lambda (char) (char= char #\Space)) col)
+                 (string= null-as col)))
+
+           (null-as-processing-fn (null-as-list)
+             "Return a lambda that maps COL to NIL when it matches any element
+              of NULL-AS-LIST (list of :blanks / strings), or returns COL."
+             (lambda (col)
+               (declare (optimize speed))
+               (if (some (lambda (na) (null-as-match-p na col)) null-as-list)
+                   nil
+                   col)))
+
+           (collect-null-as (plist)
+             "Collect all :null-as values from PLIST (may have duplicate keys
+              when multiple [null if ...] options are given for one column)."
+             (loop :for (k v) :on plist :by #'cddr
+                   :when (eq k :null-as) :collect v))
 
 	   (field-name-as-symbol (field-name-or-list)
 	     "we need to deal with symbols as we generate code"
@@ -30,21 +40,22 @@
 
 	   (process-field (field-name-or-list)
 	     "Given a field entry, return a function dealing with nulls for it"
-	     (destructuring-bind (&key null-as
-                                       date-format
-                                       trim-both
-                                       trim-left
-                                       trim-right
-                                       &allow-other-keys)
-		 (typecase field-name-or-list
-		   (list (cdr field-name-or-list))
-		   (t    (cdr (assoc field-name-or-list fields
-                                     :test #'string-equal))))
+             (let* ((plist (typecase field-name-or-list
+                             (list (cdr field-name-or-list))
+                             (t    (cdr (assoc field-name-or-list fields
+                                               :test #'string-equal)))))
+                    (null-as-list (collect-null-as plist)))
+               (destructuring-bind (&key date-format
+                                         trim-both
+                                         trim-left
+                                         trim-right
+                                         &allow-other-keys)
+                   plist
                ;; now prepare a function of a column
                (lambda (col)
                  (let ((value-or-null
-                        (if (null null-as) col
-                            (funcall (null-as-processing-fn null-as) col))))
+                        (if (null null-as-list) col
+                            (funcall (null-as-processing-fn null-as-list) col))))
                    (when value-or-null
                      (let ((value-or-null
                             (cond (trim-both
@@ -58,7 +69,7 @@
                        (if date-format
                            (parse-date-string value-or-null
                                               (parse-date-format date-format))
-                           value-or-null))))))))
+                           value-or-null)))))))))
 
     (let* ((projection
 	    (cond
