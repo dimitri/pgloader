@@ -198,9 +198,10 @@
                 ((and (stringp default)
                       (string= "" default)
                       (member (column-type-name pgcol)
-                              '("integer" "bigint" "smallint" "numeric"
-                                "double precision" "real" "bigserial"
-                                "serial" "smallserial")
+                              '("int" "integer" "bigint" "smallint" "tinyint"
+                                "numeric" "decimal"
+                                "double precision" "real" "float"
+                                "bigserial" "serial" "smallserial")
                               :test #'string=))
                  :null)
 
