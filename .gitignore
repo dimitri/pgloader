@@ -19,3 +19,4 @@ web/howto/sqlite.html
 system-index.txt
 buildapp.log
 docs/_build
+.claude/worktrees/

@@ -263,6 +263,12 @@
                              col (second (first (filter #(= :column-name (first %)) parts)))]
                          {:type :column :table tbl :column col})))
                    source)
+          ;; Unwrap [:cast-option [...]] wrappers so option tag nodes are at top level
+          flat-cast-opts (mapcat (fn [n]
+                                   (if (and (vector? n) (= :cast-option (first n)))
+                                     (rest n)
+                                     [n]))
+                                 inner-children)
           target-node (first (filter #(= :target-type-name (first %)) inner-children))
           target (when target-node
                    (let [target-inner (second target-node)]
@@ -273,7 +279,7 @@
                            (when (and (vector? n) (= :using-fn (first n)))
                              (keyword (second (some #(when (and (vector? %) (= :fn-name (first %))) %)
                                                     (rest n))))))
-                         inner-children)
+                         flat-cast-opts)
           when-node (first (filter #(= :when-or-unsigned (first %)) inner-children))
           when-cond (when when-node
                       (let [wc (vec (rest when-node))]
@@ -300,7 +306,7 @@
                                                (second c)))
                                            (rest we))]
                             {:when-extra (clojure.string/join "" parts)}))))
-          drop-opts (parse-cast-options inner-children)]
+          drop-opts (parse-cast-options (map first flat-cast-opts))]
       (cond-> {:target-type target}
         source (assoc :source source)
         (seq drop-opts) (assoc :options drop-opts)

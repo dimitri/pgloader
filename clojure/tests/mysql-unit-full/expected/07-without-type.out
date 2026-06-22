@@ -1,0 +1,13 @@
+ column_name | data_type |     udt_name      
+-------------+-----------+-------------------
+ id          | integer   | int4
+ perms       | ARRAY     | _set_column_perms
+(2 rows)
+
+ id |        perms         
+----+----------------------
+  1 | {read}
+  2 | {read,write}
+  3 | {read,write,execute}
+(3 rows)
+

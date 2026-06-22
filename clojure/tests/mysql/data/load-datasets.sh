@@ -24,3 +24,7 @@ echo "db789 loaded successfully"
 echo "=== Loading pgloader integration seed (source, source2) ==="
 mysql -u root -p"$MYSQL_ROOT_PASSWORD" < /docker-entrypoint-initdb.d/seed.tmpl
 echo "Seed loaded successfully"
+
+echo "=== Loading mysql-unit-full test schema (pgloader_mysql_unit_full) ==="
+mysql -u root -p"$MYSQL_ROOT_PASSWORD" < /docker-entrypoint-initdb.d/mysql-unit-full.tmpl
+echo "mysql-unit-full test schema loaded successfully"

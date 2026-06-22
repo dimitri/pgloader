@@ -836,6 +836,20 @@
                                 (swap! n + (count fks)))))
                           (stats/update-entry! :post "Create Foreign Keys"
                                                :rows @n :total-nanos (- (System/nanoTime) start))))
+                      (let [all-checks (mapcat (fn [t]
+                                                 (ddl/create-check-constraints-sql
+                                                  (or (:schema t) "public")
+                                                  (:table-name t)
+                                                  (:checks t)))
+                                               cat)]
+                        (when (seq all-checks)
+                          (log/info "Creating CHECK constraints")
+                          (stats/new-entry! :post "Create Check Constraints")
+                          (let [start (System/nanoTime)]
+                            (exec-post-ddl! pg-conn all-checks "CHECK constraints")
+                            (stats/update-entry! :post "Create Check Constraints"
+                                                 :rows (count all-checks)
+                                                 :total-nanos (- (System/nanoTime) start)))))
                       (when (get with-options :reset-sequences false)
                         (log/info "Resetting sequences")
                         (stats/new-entry! :post "Reset Sequences")

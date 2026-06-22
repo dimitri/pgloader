@@ -250,3 +250,103 @@
           no-drop (remove #(str/starts-with? % "DROP") sqls)]
       (is (= 1 (count no-drop)))
       (is (str/starts-with? (first no-drop) "CREATE TYPE")))))
+
+;; ── MySQL type mapping (#1629, #1280, #1403, #1546, #1371) ───────────────────
+
+(deftest test-pg-type-for-timestamp-precision
+  (testing "datetime(6) preserves precision as timestamptz(6) (#1629)"
+    (let [col {:column-name "created_at" :column-type "datetime(6)"
+               :is-nullable true :extra "" :column-default nil}
+          sql (ddl/column-def col)]
+      (is (str/includes? sql "timestamptz(6)"))))
+
+  (testing "timestamp(3) preserves precision (#1629)"
+    (let [col {:column-name "ts" :column-type "timestamp(3)"
+               :is-nullable true :extra "" :column-default nil}
+          sql (ddl/column-def col)]
+      (is (str/includes? sql "timestamptz(3)"))))
+
+  (testing "datetime without precision stays timestamptz"
+    (let [col {:column-name "ts" :column-type "datetime"
+               :is-nullable true :extra "" :column-default nil}
+          sql (ddl/column-def col)]
+      (is (str/includes? sql "timestamptz"))
+      (is (not (str/includes? sql "timestamptz(")))))
+
+  (testing "array types from PG source pass through unchanged (#1371)"
+    (let [col {:column-name "tags" :column-type "varchar[]"
+               :is-nullable true :extra "" :column-default nil}
+          sql (ddl/column-def col)]
+      (is (str/includes? sql "varchar[]")))))
+
+(deftest test-column-def-defaults
+  (testing "bit(1) DEFAULT b'0' passes through as bit literal (#1280)"
+    (let [col {:column-name "flag" :column-type "bit(1)"
+               :is-nullable false :extra "" :column-default "b'0'"}
+          sql (ddl/column-def col)]
+      (is (str/includes? sql "DEFAULT b'0'"))))
+
+  (testing "current_timestamp(6) DEFAULT strips precision for PG (#1403)"
+    (let [col {:column-name "ts" :column-type "datetime(6)"
+               :is-nullable true :extra ""
+               :column-default "current_timestamp(6)"}
+          sql (ddl/column-def col)]
+      (is (str/includes? sql "DEFAULT current_timestamp"))
+      (is (not (str/includes? sql "current_timestamp(6)")))))
+
+  (testing "backslash in default value is escaped (#1546)"
+    (let [col {:column-name "path" :column-type "varchar(255)"
+               :is-nullable true :extra "" :column-default "C:\\Users"}
+          sql (ddl/column-def col)]
+      (is (str/includes? sql "DEFAULT 'C:\\\\Users'"))))
+
+  (testing "ON UPDATE CURRENT_TIMESTAMP trigger generated (#1560/#1196)"
+    (let [cols [{:column-name "updated_at" :column-type "datetime"
+                 :is-nullable true :extra "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+                 :column-default "CURRENT_TIMESTAMP"}]]
+      (let [sqls (ddl/create-triggers-sql "public" "orders" cols)]
+        (is (some? sqls))
+        (is (= 2 (count sqls)))
+        (is (str/includes? (first sqls) "CREATE OR REPLACE FUNCTION")))))
+
+  (testing "ON UPDATE CURRENT_TIMESTAMP with no DEFAULT also creates trigger (#1196)"
+    (let [cols [{:column-name "upd" :column-type "timestamp"
+                 :is-nullable true :extra "on update CURRENT_TIMESTAMP"
+                 :column-default nil}]]
+      (let [sqls (ddl/create-triggers-sql "myschema" "t" cols)]
+        (is (some? sqls))
+        (is (str/includes? (second sqls) "BEFORE UPDATE"))))))
+
+(deftest test-check-constraints-sql
+  (testing "generates ALTER TABLE ADD CONSTRAINT CHECK (#1645)"
+    (let [sqls (ddl/create-check-constraints-sql "public" "employees"
+                                                 [{:constraint-name "chk_salary"
+                                                   :check-clause "salary > 0"}
+                                                  {:constraint-name "chk_dept"
+                                                   :check-clause "dept IN ('HR','Eng')"}])]
+      (is (= 2 (count sqls)))
+      (is (str/includes? (first sqls) "ADD CONSTRAINT \"chk_salary\" CHECK (salary > 0)"))
+      (is (str/includes? (second sqls) "ADD CONSTRAINT \"chk_dept\" CHECK"))))
+
+  (testing "MySQL 8 backtick-quoted identifiers converted to double-quote (#1645)"
+    (let [sqls (ddl/create-check-constraints-sql "public" "employees"
+                                                 [{:constraint-name "chk_salary"
+                                                   :check-clause "`salary` > 0"}])]
+      (is (= 1 (count sqls)))
+      (is (str/includes? (first sqls) "CHECK (\"salary\" > 0)"))))
+
+  (testing "empty checks returns empty vector"
+    (is (= [] (ddl/create-check-constraints-sql "public" "t" [])))))
+
+(deftest test-enum-type-name-after-alter-table-rename
+  (testing "ENUM type name uses renamed table name (#1564)"
+    (let [cat [{:table-name "renamed_tbl"
+                :schema     "public"
+                :columns    [{:column-name "status"
+                              :column-type "enum('active','inactive')"}]
+                :primary-key [] :indexes [] :fkeys []}]
+          result (ddl/add-enum-types cat)]
+      (let [enum-types (:enum-types (first result))]
+        (is (= 1 (count enum-types)))
+        ;; type name uses the (already-renamed) table name
+        (is (= "renamed_tbl_status" (:type-name (first enum-types))))))))

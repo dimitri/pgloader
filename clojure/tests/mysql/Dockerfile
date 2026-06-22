@@ -25,6 +25,9 @@ COPY test/mysql/db789.sql    /docker-entrypoint-initdb.d/db789.sql
 # === pgloader integration test seed (source + source2 databases) ===
 COPY clojure/tests/mysql/data/seed.sql /docker-entrypoint-initdb.d/seed.sql
 
+# === mysql-unit-full test schema (pgloader_mysql_unit_full database) ===
+COPY clojure/tests/mysql-unit-full/mysql-unit-full.sql /docker-entrypoint-initdb.d/mysql-unit-full.sql
+
 # === Init script ===
 # .sql files renamed to .tmpl to prevent MySQL auto-running them.
 # Our shell script creates the correct databases first, then sources the .tmpl files.
@@ -37,4 +40,5 @@ RUN chmod +x /docker-entrypoint-initdb.d/load-datasets.sh \
   && mv /docker-entrypoint-initdb.d/my.sql        /docker-entrypoint-initdb.d/my.tmpl \
   && mv /docker-entrypoint-initdb.d/history.sql   /docker-entrypoint-initdb.d/history.tmpl \
   && mv /docker-entrypoint-initdb.d/db789.sql     /docker-entrypoint-initdb.d/db789.tmpl \
-  && mv /docker-entrypoint-initdb.d/seed.sql      /docker-entrypoint-initdb.d/seed.tmpl
+  && mv /docker-entrypoint-initdb.d/seed.sql            /docker-entrypoint-initdb.d/seed.tmpl \
+  && mv /docker-entrypoint-initdb.d/mysql-unit-full.sql /docker-entrypoint-initdb.d/mysql-unit-full.tmpl

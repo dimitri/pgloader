@@ -1,0 +1,9 @@
+ column_name |        data_type         | datetime_precision |  column_default   
+-------------+--------------------------+--------------------+-------------------
+ id          | integer                  |                    | 
+ ts6         | timestamp with time zone |                  6 | CURRENT_TIMESTAMP
+ ts3         | timestamp with time zone |                  3 | 
+ t3          | time without time zone   |                  3 | 
+ plain_ts    | timestamp with time zone |                  6 | CURRENT_TIMESTAMP
+(5 rows)
+

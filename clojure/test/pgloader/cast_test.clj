@@ -147,4 +147,60 @@
           result (cast/apply-type-overrides columns rules)]
       (is (= ["text" "int"] (mapv :column-type result)))
       ;; source type preserved so resolve-specs can still match on original
-      (is (= "char(3)" (:source-column-type (first result)))))))
+      (is (= "char(3)" (:source-column-type (first result))))))
+
+;; ── New PR-1/PR-2 cast fixes ──────────────────────────────────────────────────
+
+  (deftest test-hex-to-bytea
+    (testing "plain hex string (#1066)"
+      (is (= "\\xdeadbeef" (cast/hex-to-bytea "DEADBEEF"))))
+    (testing "0x prefix stripped"
+      (is (= "\\xcafe" (cast/hex-to-bytea "0xCAFE"))))
+    (testing "\\x prefix stripped"
+      (is (= "\\x01ff" (cast/hex-to-bytea "\\x01FF"))))
+    (testing "nil input"
+      (is (nil? (cast/hex-to-bytea nil)))))
+
+  (deftest test-hex-to-bytea-in-registry
+    (testing "hex-to-bytea is in cast registry and works via apply-cast"
+      (is (= "\\xdeadbeef" (cast/apply-cast :hex-to-bytea "DEADBEEF")))))
+
+  (deftest test-int-to-uuid-in-registry
+    (testing "int-to-uuid is registered and converts integers (#1457)"
+      (let [result (cast/apply-cast :int-to-uuid "0")]
+        (is (= "00000000-0000-0000-0000-000000000000" result)))))
+
+  (deftest test-char-cast-prefix-match
+    (testing "type char cast rule matches char(N) via prefix (#1525)"
+      (let [rules [{:source {:type :type :name "char"} :target-type "text"
+                    :options {:drop-typemod true}}]
+            columns [{:column-name "code" :column-type "char(3)"}
+                     {:column-name "flag" :column-type "char(1)"}]
+            result (cast/apply-type-overrides columns rules)]
+        (is (= ["text" "text"] (mapv :column-type result)))))
+
+    (testing "char(1) matched by 'char' rule (char without parens)"
+      (let [rules [{:source {:type :type :name "char"} :target-type "varchar"
+                    :options {:drop-typemod false}}]
+            columns [{:column-name "x" :column-type "char"}]
+            result (cast/apply-type-overrides columns rules)]
+        (is (= ["varchar"] (mapv :column-type result))))))
+
+  (deftest test-column-cast-no-type
+    (testing "column cast without 'to TYPE' does not change type (#1522)"
+      (let [rules [{:source {:type :column :column "status"}
+                    :target-type nil
+                    :using :set-to-enum-array}]
+            columns [{:column-name "status" :column-type "enum('a','b')"}
+                     {:column-name "name"   :column-type "varchar(100)"}]
+            overridden (cast/apply-type-overrides columns rules)]
+        (is (= "enum('a','b')" (:column-type (first overridden))))
+        (is (= :set-to-enum-array (:cast-fn (first overridden))))))
+
+    (testing "column cast without 'to TYPE' resolve-specs picks up the using fn"
+      (let [rules [{:source {:type :column :column "status"}
+                    :target-type nil
+                    :using :set-to-enum-array}]
+            columns [{:column-name "status" :column-type "enum('a','b')"}]
+            specs (cast/resolve-specs rules columns)]
+        (is (= [:set-to-enum-array] specs))))))

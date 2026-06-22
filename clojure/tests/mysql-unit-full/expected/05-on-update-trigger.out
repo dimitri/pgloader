@@ -1,0 +1,5 @@
+    trigger_name     | event_manipulation | action_timing 
+---------------------+--------------------+---------------
+ trg_on_update_ts_ts | UPDATE             | BEFORE
+(1 row)
+

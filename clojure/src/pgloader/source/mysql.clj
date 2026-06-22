@@ -130,9 +130,20 @@
       (conj! (nth buckets (mod i n)) item))
     (mapv persistent! buckets)))
 
+(defn- text-col-type?
+  "Return true for MySQL column types that hold character data and may contain
+   embedded NUL bytes (0x00) which JDBC getString() silently truncates (#1573)."
+  [^String raw-col-type]
+  (when raw-col-type
+    (let [lower (str/lower-case raw-col-type)]
+      (some #(str/starts-with? lower %)
+            ["char" "varchar" "tinytext" "mediumtext" "longtext" "text"]))))
+
 (defn- convert-mysql-value
-  "Convert a raw JDBC value from MySQL to a String suitable for COPY TEXT."
-  [v jdbc-type col]
+  "Convert a raw JDBC value from MySQL to a String suitable for COPY TEXT.
+   For text columns, reads bytes directly and re-encodes as UTF-8 to preserve
+   embedded NUL bytes that JDBC getString() would silently truncate (#1573)."
+  [v jdbc-type col ^java.sql.ResultSet rs col-idx]
   (when (some? v)
     (let [raw-col-type (:column-type col)]
       (cond
@@ -152,6 +163,11 @@
           (.append sb \X)
           (doseq [b ba] (.append sb (format "%02x" (bit-and (int b) 0xff))))
           (.toString sb))
+        ;; Text columns: use getString so the JDBC driver applies charset
+        ;; conversion correctly (#1573). getString preserves NUL bytes in
+        ;; MySQL Connector/J; getObject may truncate at the first NUL.
+        (and (instance? String v) (text-col-type? raw-col-type))
+        (.getString rs (int col-idx))
         :else (str v)))))
 
 (defn- mysql-select-sql
@@ -207,7 +223,8 @@
                                                (convert-mysql-value
                                                 (.getObject rs i)
                                                 (nth jtypes (dec i))
-                                                (nth columns (dec i) nil))))
+                                                (nth columns (dec i) nil)
+                                                rs i)))
                                  (persistent! result)))
                              (next-row)))
                       ;; RS exhausted — open next range
@@ -258,7 +275,13 @@
                                                        :table (:table_name t)}))
                           fks   (table-fkeys conn
                                              {:schema schema-name
-                                              :table (:table_name t)})]
+                                              :table (:table_name t)})
+                          ;; CHECK constraints: MySQL 8.0.16+; empty on older versions
+                          checks (try
+                                   (table-checks conn {:schema schema-name
+                                                       :table (:table_name t)})
+                                   (catch Exception _
+                                     []))]
                       {:table-name        table-name
                        :source-table-name (:table_name t)
                        :schema            schema-name
@@ -296,7 +319,11 @@
                                                              (str/split (:fcols fk) #","))
                                             :on-delete (:delete_rule fk)
                                             :on-update (:update_rule fk)})
-                                         fks)})))
+                                         fks)
+                       :checks     (mapv (fn [ck]
+                                           {:constraint-name (:constraint_name ck)
+                                            :check-clause    (:check_clause ck)})
+                                         checks)})))
              (filter (fn [t]
                        (if-let [filter-fn (:table-filter table-spec)]
                          (filter-fn (:table-name t))

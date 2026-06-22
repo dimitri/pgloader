@@ -103,6 +103,18 @@ SELECT tc.constraint_name                 AS constraint_name,
    AND k.referenced_table_schema = :schema
  GROUP BY tc.constraint_name, k.referenced_table_name, rc.update_rule, rc.delete_rule
 
+-- :name table-checks :? :*
+-- :doc CHECK constraints for a table (MySQL 8.0.16+; returns empty on older versions)
+SELECT cc.CONSTRAINT_NAME  AS constraint_name,
+       cc.CHECK_CLAUSE      AS check_clause
+  FROM information_schema.TABLE_CONSTRAINTS tc
+  JOIN information_schema.CHECK_CONSTRAINTS cc
+    ON cc.CONSTRAINT_SCHEMA = tc.TABLE_SCHEMA
+   AND cc.CONSTRAINT_NAME   = tc.CONSTRAINT_NAME
+ WHERE tc.TABLE_SCHEMA      = :schema
+   AND tc.TABLE_NAME        = :table
+   AND tc.CONSTRAINT_TYPE   = 'CHECK'
+
 -- :name table-avg-row-length :? :1
 -- :doc AVG_ROW_LENGTH estimate from information_schema for chunk-size calculation
 SELECT COALESCE(AVG_ROW_LENGTH, 0) AS avg_row_length
