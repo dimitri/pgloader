@@ -175,6 +175,12 @@
     (:smalldatetime  (format nil "convert(varchar(30), [~a], 126)" name))
     (:date           (format nil "convert(varchar(30), [~a], 126)" name))
     (:bigint         (format nil "cast([~a] as numeric(20))" name))
+    ;; DECIMAL/NUMERIC: avoid cl-mssql's parse-number which converts to
+    ;; double-float and loses precision beyond ~15 digits (#1619).
+    ;; CONVERT style 0 gives SQL Server's canonical decimal-point string,
+    ;; which PostgreSQL numeric input accepts directly.
+    ((:decimal :numeric :money :smallmoney)
+                     (format nil "convert(varchar(40), [~a], 0)" name))
     (t               (format nil "[~a]" name))))
 
 (defmethod get-column-list ((mssql copy-mssql))
