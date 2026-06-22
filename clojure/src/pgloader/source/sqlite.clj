@@ -158,7 +158,10 @@
                                          (cond-> {:column-name (:name c)
                                                   :column-type pg-type
                                                   :is-nullable (zero? (:notnull c))
-                                                  :column-default (when-not (sqlite-function-default? dflt) dflt)
+                                                  :column-default (cond
+                                                                    (nil? dflt) nil
+                                                                    (sqlite-function-default? dflt) "CURRENT_TIMESTAMP"
+                                                                    :else dflt)
                                                   :key is-pk
                                                   :extra (when ai "auto_increment")}
                                            gen-expr (assoc :generated-expression gen-expr))))

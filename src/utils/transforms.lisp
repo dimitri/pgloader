@@ -298,10 +298,13 @@
   (declare (type (or null fixnum float string) float))
   (when float
     (typecase float
-      (double-float (let ((*read-default-float-format* 'double-float))
-                      (princ-to-string float)))
-      (string       float)
-      (t            (princ-to-string float)))))
+      (double-float
+       (cond ((> float most-positive-double-float)  "Infinity")
+             ((< float most-negative-double-float) "-Infinity")
+             (t (let ((*read-default-float-format* 'double-float))
+                  (princ-to-string float)))))
+      (string float)
+      (t      (princ-to-string float)))))
 
 (defun set-to-enum-array (set-string)
   "Transform a MySQL SET value into a PostgreSQL ENUM Array"

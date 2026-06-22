@@ -111,9 +111,11 @@
                  :current-timestamp)
 
                 ((and (stringp default)
-                      ;; we don't care about spaces in that expression
-                      (string-equal "datetime('now','localtime')"
-                                    (remove #\Space default)))
+                      ;; datetime('now'), datetime('now','localtime'),
+                      ;; (datetime('now')) and similar SQLite spellings (#1348)
+                      (cl-ppcre:scan
+                       "(?i)datetime\\s*\\(\\s*'now'"
+                       (remove #\Space default)))
                  :current-timestamp)
 
                 ((and (stringp default) (string-equal "current_date" default))
