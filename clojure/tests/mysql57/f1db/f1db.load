@@ -1,3 +1,0 @@
-load database
-  from mysql://root:rootpassword@mysql:3306/f1db?useSSL=false
-  into pgsql://pgloader:pgloader@postgres:5432/target;
