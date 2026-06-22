@@ -796,6 +796,7 @@
                             (try (.get f) (catch Exception _)))
                           (stats/update-entry! :post "COPY Wall-Clock Time"
                                                :rows workers
+                                               :bytes (:bytes (stats/get-totals :data))
                                                :total-nanos (- (System/nanoTime) copy-wall-t0))))
           ;; Schema-only: no COPY phase ran, so submit all indexes now.
                       (when (and create-indexes? schema-only? idx-executor)

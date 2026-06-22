@@ -83,10 +83,11 @@
              (println (fmt-entry lw entry verbose)))))
        (println (sep-line lw verbose))
        (let [g       (stats/grand-totals)
-             b       (if (zero? (:bytes g)) "" (log/fmt-bytes (:bytes g)))
+             d       (stats/get-totals :data)
+             b       (if (zero? (:bytes d)) "" (log/fmt-bytes (:bytes d)))
              t       (log/fmt-duration (or wall-nanos (:total-nanos g)))
              err-str (if (zero? (:errs g)) "✓" (str (:errs g)))]
-         (println (fmt-row lw "Total import time" err-str (:rows g) b t))
+         (println (fmt-row lw "Total import time" err-str (:rows d) b t))
          (println))))))
 
 (defn- csv-quote [s]
@@ -116,11 +117,12 @@
                                              (log/fmt-duration (:ws-nanos e)))
                                        vals)))
              (.write w "\n"))))
-       (let [g (stats/grand-totals)]
+       (let [g (stats/grand-totals)
+             d (stats/get-totals :data)]
          (.write w (str/join ";" ["GRAND TOTAL"
                                   (str (:errs g))
-                                  (str (:rows g))
-                                  (str (:bytes g))
+                                  (str (:rows d))
+                                  (str (:bytes d))
                                   (log/fmt-duration (or wall-nanos (:total-nanos g)))]))
          (.write w "\n"))))))
 
@@ -146,8 +148,11 @@
                            :total (stats/get-totals phase-key)})))
                {} [:pre :data :post])
          g    (stats/grand-totals)
+         d    (stats/get-totals :data)
          full {:phases      data
-               :grand-total (cond-> g wall-nanos (assoc :total-nanos wall-nanos))}]
+               :grand-total (-> g
+                                (assoc :rows (:rows d) :bytes (:bytes d))
+                                (cond-> wall-nanos (assoc :total-nanos wall-nanos)))}]
      (spit path (pr-str full)))))
 
 (defn write-summary
