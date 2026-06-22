@@ -76,13 +76,18 @@
 
 (defn- expand-env
   "Replace {{VAR}} placeholders with the value of the OS environment variable
-   VAR. Throws if a referenced variable is not set."
+   VAR. Values containing whitespace or ';' are automatically single-quoted so
+   that paths with spaces survive the grammar's source-uri rule (#1365).
+   Throws if a referenced variable is not set."
   [s]
   (str/replace s #"\{\{(\w+)\}\}"
                (fn [[_ k]]
-                 (or (System/getenv k)
-                     (throw (ex-info (str "Undefined template variable: " k)
-                                     {:var k}))))))
+                 (let [v (or (System/getenv k)
+                             (throw (ex-info (str "Undefined template variable: " k)
+                                             {:var k})))]
+                   (if (re-find #"[\s;]" v)
+                     (str "'" (str/replace v "'" "\\'") "'")
+                     v)))))
 
 (defn parse-file
   "Parse a .load file. Expands {{VAR}} placeholders from the OS environment
