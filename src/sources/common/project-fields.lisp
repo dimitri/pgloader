@@ -69,7 +69,7 @@
                        (if date-format
                            (parse-date-string value-or-null
                                               (parse-date-format date-format))
-                           value-or-null))))))))
+                           value-or-null)))))))))
 
     (let* ((projection
 	    (cond
