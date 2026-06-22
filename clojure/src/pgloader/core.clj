@@ -388,6 +388,7 @@
                                      (into cat (case (:type source-uri)
                                                  (:mysql :mariadb) (mysql-source/catalog-views source)
                                                  :mssql            (mssql-source/catalog-views source)
+                                                 :sqlite           (sqlite-source/catalog-views source)
                                                  [])))
 
                                  (sequential? (:materialize-views cmd))
@@ -403,6 +404,7 @@
                                                        (case (:type source-uri)
                                                          (:mysql :mariadb) (mysql-source/catalog-views source)
                                                          :mssql            (mssql-source/catalog-views source)
+                                                         :sqlite           (sqlite-source/catalog-views source)
                                                          []))))
                                      cat))
 

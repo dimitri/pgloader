@@ -1,0 +1,13 @@
+-- #699 regression test: MATERIALIZE ALL VIEWS for SQLite.
+-- Both views defined in the source DB (active_products, cheap_products)
+-- are migrated to PostgreSQL alongside the base table.
+LOAD DATABASE
+     FROM sqlite:///work/matviews/matviews.sqlite
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+
+     WITH include drop, create tables, reset sequences
+
+     MATERIALIZE ALL VIEWS
+
+     BEFORE LOAD DO
+       $$ CREATE SCHEMA IF NOT EXISTS public; $$;

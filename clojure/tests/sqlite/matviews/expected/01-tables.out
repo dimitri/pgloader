@@ -1,0 +1,8 @@
+   table_name    
+-----------------
+ active_products
+ cheap_products
+ products
+ spatial_ref_sys
+(4 rows)
+
