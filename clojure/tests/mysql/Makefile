@@ -28,10 +28,14 @@ mysql-unit-full:
 	java -jar $(JAR) mysql-unit-full/mysql-unit-full.load
 	java -jar $(JAR) regress $(REGRESS_FLAGS) mysql-unit-full
 
-# all-v3 explicitly excludes mysql-unit-full: it tests v4-specific behaviour
-# and has no meaningful v3 equivalent.  The @: recipe prevents the %-v3
-# catch-all from appending its own recipe (make all PGLOADER_CMD=pgloader).
-all-v3: my-v3 sakila-v3 f1db-v3 source-v3
+# mysql-unit-full-v3: same suite against the v3 binary, compared against
+# .v3 variant expected files that capture deliberate v3 vs v4 differences
+# (serial vs identity, bit vs bit varying, trigger naming).
+mysql-unit-full-v3:
+	pgloader --client-min-messages notice mysql-unit-full/mysql-unit-full.load
+	java -jar $(JAR) regress --variant v3 mysql-unit-full
+
+all-v3: my-v3 sakila-v3 f1db-v3 source-v3 mysql-unit-full-v3
 	@:
 
 %-v3:

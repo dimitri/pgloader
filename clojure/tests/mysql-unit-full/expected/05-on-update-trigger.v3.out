@@ -1,0 +1,5 @@
+        trigger_name         | event_manipulation | action_timing 
+-----------------------------+--------------------+---------------
+ on_update_current_timestamp | UPDATE             | BEFORE
+(1 row)
+

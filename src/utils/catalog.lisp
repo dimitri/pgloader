@@ -57,6 +57,8 @@
            index-list
            fkey-list
            trigger-list
+           ;; check-constraint-list: list of (name . pg-clause) pairs
+           check-constraint-list
            ;; citus is an extra slot for citus support
            citus-rule)
 
@@ -420,6 +422,11 @@
   already exists, and return the FKEY object."
   (let ((current-fkey (find-fkey table fkey-name :key key :test test)))
     (or current-fkey (add-fkey table fkey))))
+
+(defun add-check-constraint (table constraint-name pg-clause)
+  "Append a CHECK constraint (name . pg-clause) to TABLE's check-constraint-list."
+  (push-to-end (cons constraint-name pg-clause)
+               (table-check-constraint-list table)))
 
 
 ;;;

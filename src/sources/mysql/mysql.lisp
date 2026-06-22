@@ -191,6 +191,9 @@ Illegal ~a character starting at position ~a~@[: ~a~].~%"
                               :including including
                               :excluding excluding))
 
+        ;; CHECK constraints (MySQL 8.0.16+ only; no-op on older versions)
+        (fetch-check-constraints schema mysql)
+
         (when create-indexes
           (fetch-indexes schema mysql
                          :including including

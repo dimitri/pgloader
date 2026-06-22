@@ -101,6 +101,7 @@
            #:table-column-list
            #:table-index-list
            #:table-fkey-list
+           #:table-check-constraint-list
            #:table-trigger-list
            #:table-citus-rule
 
@@ -193,6 +194,7 @@
            #:add-fkey
            #:find-fkey
            #:maybe-add-fkey
+           #:add-check-constraint
            #:count-tables
            #:count-views
            #:count-indexes
@@ -459,6 +461,7 @@
            #:drop-pgsql-fkeys
            #:create-pgsql-fkeys
            #:create-triggers
+           #:create-pgsql-check-constraints
 
            #:fetch-pgsql-catalog
            #:merge-catalogs

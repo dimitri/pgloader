@@ -122,6 +122,24 @@
                                 (sqltype-name type-name)))))
       (string  type-name))))
 
+;;; PostgreSQL types that do not accept a typemod (precision/scale modifier).
+;;; When a cast rule preserves the source typemod (drop-typemod nil) but the
+;;; target type cannot carry one, the typemod must be silently stripped here
+;;; or the CREATE TABLE statement will error with "type modifier is not
+;;; allowed for type X".
+(defvar *pgsql-no-typemod-types*
+  '("bytea" "boolean" "bool" "text" "date" "uuid"
+    "json" "jsonb" "xml" "money" "oid")
+  "PostgreSQL types that never accept a typemod.")
+
+(defun effective-type-mod (column)
+  "Return COLUMN's typemod unless the target type does not support one."
+  (let ((type-name (get-column-type-name-from-sqltype column)))
+    (when (and (column-type-mod column)
+               (not (member type-name *pgsql-no-typemod-types*
+                             :test #'string-equal)))
+      (column-type-mod column))))
+
 (defmethod format-create-sql ((column column)
                               &key
                                 (stream nil)
@@ -129,16 +147,17 @@
                                 pretty-print
                                 ((:max-column-name-length max)))
   (declare (ignore if-not-exists))
-  (format stream
-          "~a~vt~a~:[~*~;~a~]~:[ not null~;~]~:[~; default ~a~]"
-          (column-name column)
-          (if pretty-print (if max (+ 3 max) 22) 1)
-          (get-column-type-name-from-sqltype column)
-          (column-type-mod column)
-          (column-type-mod column)
-          (column-nullable column)
-          (column-default column)
-          (format-default-value column)))
+  (let ((typemod (effective-type-mod column)))
+    (format stream
+            "~a~vt~a~:[~*~;~a~]~:[ not null~;~]~:[~; default ~a~]"
+            (column-name column)
+            (if pretty-print (if max (+ 3 max) 22) 1)
+            (get-column-type-name-from-sqltype column)
+            typemod
+            typemod
+            (column-nullable column)
+            (column-default column)
+            (format-default-value column))))
 
 (defvar *pgsql-default-values*
   '((:null              . "NULL")

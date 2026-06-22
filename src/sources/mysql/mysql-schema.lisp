@@ -189,6 +189,24 @@
      (return schema)))
 
 ;;;
+;;; MySQL CHECK constraints (MySQL 8.0.16+; no-op on older servers)
+;;;
+(defmethod fetch-check-constraints ((schema schema) (mysql copy-mysql))
+  "Fetch CHECK constraints from MySQL information_schema.CHECK_CONSTRAINTS.
+   Only available on MySQL 8.0.16+; the JOIN returns empty on older servers
+   (information_schema.CHECK_CONSTRAINTS was added in 8.0.16)."
+  (loop
+     :for (table-name constraint-name check-clause)
+     :in (mysql-query (sql "/mysql/list-all-checks.sql" (db-name *connection*)))
+     :do (let ((table (find-table schema table-name)))
+           (when table
+             ;; Replace MySQL backtick quoting with PostgreSQL double-quote
+             ;; quoting so the CHECK clause is valid SQL in PostgreSQL.
+             (let ((pg-clause (ppcre:regex-replace-all
+                               "`([^`]+)`" check-clause "\"\\1\"")))
+               (add-check-constraint table constraint-name pg-clause))))))
+
+;;;
 ;;; MySQL table row count estimate
 ;;;
 (defmethod fetch-table-row-count ((schema schema)
