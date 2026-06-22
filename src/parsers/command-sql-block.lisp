@@ -81,7 +81,7 @@
       (loop :for command :in commands
          :do (let ((start (get-internal-real-time)))
                (pgsql-execute command :client-min-messages :error)
-               (log-message :debug "~a: ~a [~,3fs]"
+               (log-message :notice "~a: ~a [~,3fs]"
                             label
                             (string-trim '(#\Newline #\Return #\Space) command)
                             (/ (- (get-internal-real-time) start)
