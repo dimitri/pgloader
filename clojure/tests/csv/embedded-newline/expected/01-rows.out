@@ -1,10 +1,10 @@
- id |        description        |  status
-----+---------------------------+----------
-  1 | first line               +| active
-    | second line               |
-  2 | no newline here           | inactive
-  3 | three                    +| pending
-    | line                     +|
-    | field                     |
+ id |   description   |  status  
+----+-----------------+----------
+  1 | first line     +| active
+    | second line     | 
+  2 | no newline here | inactive
+  3 | three          +| pending
+    | line           +| 
+    | field           | 
 (3 rows)
 
