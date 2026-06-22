@@ -20,8 +20,7 @@
                     pgversion))
          (has-builtin-uuid (and major (>= major 13))))
     (loop :for schema :in (catalog-schema-list catalog)
-       :do (loop :for table :in (append (schema-table-list schema)
-                                        (schema-matview-list schema))
+       :do (loop :for table :in (schema-table-list schema)
               :do (loop :for column :in (table-column-list table)
                      :when (eq :generate-uuid (column-default column))
                      :do (if has-builtin-uuid
