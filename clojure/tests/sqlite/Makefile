@@ -2,15 +2,11 @@ JAR          ?= /pgloader.jar
 PGLOADER_CMD ?= java -jar $(JAR)
 REGRESS_FLAGS ?=
 
-SQLITE_TESTS    = chinook test-pk sqlite chinook-noseq base64
-SQLITE_V4_TESTS = spaced-path
+SQLITE_TESTS = chinook test-pk sqlite chinook-noseq base64 spaced-path
 
-.PHONY: all all-v3 $(SQLITE_TESTS) $(SQLITE_V4_TESTS)
+.PHONY: all $(SQLITE_TESTS)
 
-all: $(SQLITE_TESTS) $(SQLITE_V4_TESTS)
-
-# all-v3: excludes v4-only tests (single-quoted URI, {{VAR}} expansion)
-all-v3: $(SQLITE_TESTS)
+all: $(SQLITE_TESTS)
 
 $(SQLITE_TESTS):
 	$(PGLOADER_CMD) /work/$@/$@.load

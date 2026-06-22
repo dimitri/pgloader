@@ -55,7 +55,15 @@ load database
   (:lambda (source)
     (bind (((_ filename) source)) filename)))
 
-(defrule sqlite-uri (or sqlite-db-uri http-uri maybe-quoted-filename)
+;; Accepts 'sqlite:///path/with spaces/db.sqlite' — quoted to allow spaces.
+;; The content after sqlite:// is extracted directly; parse-namestring is not
+;; used so that SBCL cannot misinterpret the sqlite: prefix as a device name.
+(defrule quoted-sqlite-uri (and #\' "sqlite://" (* (not #\')) #\')
+  (:lambda (source)
+    (bind (((_ _ path _) source))
+      (list :filename (pathname (coerce path 'string))))))
+
+(defrule sqlite-uri (or quoted-sqlite-uri sqlite-db-uri http-uri maybe-quoted-filename)
   (:lambda (source)
     (destructuring-bind (kind url) source
       (case kind
