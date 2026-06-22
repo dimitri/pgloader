@@ -129,4 +129,31 @@
       (let [mvs (:materialize-views (:ok result))]
         (is (sequential? mvs))
         (is (= 1 (count mvs)))
-        (is (= "my_view" (:name (first mvs))))))))
+        (is (= "my_view" (:name (first mvs))))
+        (is (nil? (:query (first mvs))))))))
+
+(deftest parser-materialize-view-with-definition-test
+  (testing "MATERIALIZE VIEWS with inline SQL definition is parsed correctly"
+    (let [result (pgloader.load-file.parser/parse-string
+                  "LOAD DATABASE FROM sqlite:///tmp/test.db
+                   INTO postgresql://localhost/tgt
+                   MATERIALIZE VIEWS renamed
+                     AS $$ SELECT id, name AS product_name FROM products $$;")]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (let [mvs (:materialize-views (:ok result))]
+        (is (sequential? mvs))
+        (is (= 1 (count mvs)))
+        (is (= "renamed" (:name (first mvs))))
+        (is (= "SELECT id, name AS product_name FROM products" (:query (first mvs)))))))
+
+  (testing "multiple views — mix of named-only and with-definition"
+    (let [result (pgloader.load-file.parser/parse-string
+                  "LOAD DATABASE FROM sqlite:///tmp/test.db
+                   INTO postgresql://localhost/tgt
+                   MATERIALIZE VIEWS existing_view,
+                     custom AS $$ SELECT a, b AS alias FROM t $$;")]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (let [mvs (:materialize-views (:ok result))]
+        (is (= 2 (count mvs)))
+        (is (nil?    (:query (first mvs))))
+        (is (string? (:query (second mvs))))))))

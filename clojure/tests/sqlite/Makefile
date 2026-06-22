@@ -2,7 +2,7 @@ JAR          ?= /pgloader.jar
 PGLOADER_CMD ?= java -jar $(JAR)
 REGRESS_FLAGS ?=
 
-SQLITE_TESTS = chinook test-pk sqlite chinook-noseq base64 spaced-path matviews
+SQLITE_TESTS = chinook test-pk sqlite chinook-noseq base64 spaced-path matviews matviews-def
 
 .PHONY: all $(SQLITE_TESTS)
 

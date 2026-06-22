@@ -897,9 +897,9 @@
                                       (let [defs (rest (second inner))]
                                         (mapv (fn [d]
                                                 (let [parts (rest d)
-                                                      name (second (first parts))
-                                                      query (when (> (count parts) 2)
-                                                              (second (nth parts 2)))]
+                                                      name  (second (first parts))
+                                                      query (when (> (count parts) 1)
+                                                              (str/trim (second (nth parts 1))))]
                                                   (if query
                                                     {:name name :query query}
                                                     {:name name})))
