@@ -10,21 +10,21 @@ echo "=== Loading F1DB dataset (14 tables) ==="
 mysql -u root -p"$MYSQL_ROOT_PASSWORD" < /docker-entrypoint-initdb.d/f1db.tmpl
 echo "F1DB loaded successfully"
 
-echo "=== Loading pgloader test schemas (my, history) ==="
-mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS pgloader"
-mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "SET GLOBAL sql_mode=''" pgloader
-mysql -u root -p"$MYSQL_ROOT_PASSWORD" pgloader < /docker-entrypoint-initdb.d/my.tmpl
-mysql -u root -p"$MYSQL_ROOT_PASSWORD" pgloader < /docker-entrypoint-initdb.d/history.tmpl
-echo "pgloader test schemas loaded successfully"
-
 echo "=== Loading db789 materialized views schema ==="
 mysql -u root -p"$MYSQL_ROOT_PASSWORD" < /docker-entrypoint-initdb.d/db789.tmpl
 echo "db789 loaded successfully"
 
-echo "=== Loading pgloader integration seed (source, source2) ==="
-mysql -u root -p"$MYSQL_ROOT_PASSWORD" < /docker-entrypoint-initdb.d/seed.tmpl
-echo "Seed loaded successfully"
+echo "=== Loading pgloader_mytest unified test schema ==="
+# Disable strict mode for the session so legacy zero-date values are accepted.
+mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "SET GLOBAL sql_mode=''"
+mysql -u root -p"$MYSQL_ROOT_PASSWORD" < /docker-entrypoint-initdb.d/mytest.tmpl
+echo "pgloader_mytest loaded successfully"
 
-echo "=== Loading mysql-unit-full test schema (pgloader_mysql_unit_full) ==="
-mysql -u root -p"$MYSQL_ROOT_PASSWORD" < /docker-entrypoint-initdb.d/mysql-unit-full.tmpl
-echo "mysql-unit-full test schema loaded successfully"
+# NOTE — qmynd authentication (pgloader v3 / Common Lisp):
+#   MySQL 8 defaults to caching_sha2_password, which qmynd does not support.
+#   This container starts with --default-authentication-plugin=mysql_native_password
+#   (see docker-compose.yml) so the pgloader user is already compatible.
+#   If you're running against a plain MySQL 8 without that flag, run:
+#
+#     ALTER USER 'pgloader'@'%' IDENTIFIED WITH mysql_native_password BY 'pgloader';
+#     FLUSH PRIVILEGES;

@@ -236,16 +236,6 @@ jobs:
             make_target: mysql-v3
             needs_f1db: true
 
-          # ── MySQL 5.7 (amd64 only via Rosetta emulation) ───────────────────
-          - suite: mysql57
-            pgloader: v4
-            make_target: mysql57
-            needs_f1db: true
-          - suite: mysql57
-            pgloader: v3
-            make_target: mysql57-v3
-            needs_f1db: true
-
           # ── MariaDB ────────────────────────────────────────────────────────
           - suite: mariadb
             pgloader: v4

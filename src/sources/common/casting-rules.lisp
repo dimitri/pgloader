@@ -165,5 +165,6 @@
          :do (when (and (null target) using (null first-match-using))
                (setf first-match-using using))
          :until target
-         :finally (return (make-pgsql-type source target using))))))
+         :finally (return (make-pgsql-type source target
+                                           (or using first-match-using)))))))
 

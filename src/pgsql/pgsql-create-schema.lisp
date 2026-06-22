@@ -253,6 +253,26 @@
 
 
 ;;;
+;;; CHECK constraints
+;;;
+(defun create-pgsql-check-constraints (catalog &key (section :post) label)
+  "Generate and execute ALTER TABLE … ADD CONSTRAINT … CHECK (…) for every
+   table that has check constraints recorded in its check-constraint-list."
+  (let ((sql-list
+         (loop :for table :in (table-list catalog)
+            :append
+            (loop :for (name . clause) :in (table-check-constraint-list table)
+               :for table-sql := (format nil
+                                         "ALTER TABLE ~a ADD CONSTRAINT ~a CHECK (~a);"
+                                         (format-table-name table)
+                                         (apply-identifier-case name)
+                                         clause)
+               :collect table-sql))))
+    (when sql-list
+      (pgsql-execute-with-timing section label sql-list))))
+
+
+;;;
 ;;; Parallel index building.
 ;;;
 (defun create-indexes-in-kernel (pgconn table kernel channel

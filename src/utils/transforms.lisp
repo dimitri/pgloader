@@ -97,6 +97,7 @@
                  sql-server-bit-to-boolean
                  varbinary-to-string
                  base64-decode
+                 hex-to-bytea
 		 hex-to-dec
                  byte-vector-to-hexstring
 
@@ -499,6 +500,19 @@
     (null    nil)
     (integer hex-string)
     (string (write-to-string (parse-integer hex-string :radix 16)))))
+
+(defun hex-to-bytea (hex-string)
+  "Convert a plain or 0x-prefixed hex string to PostgreSQL bytea \\x… notation.
+   Accepts nil, plain hex (\"deadbeef\"), 0x-prefixed (\"0xdeadbeef\"),
+   and \\x-prefixed (\"\\xdeadbeef\") inputs."
+  (etypecase hex-string
+    (null nil)
+    (string
+     (let* ((s (string-trim '(#\Space) hex-string))
+            (hex (cond ((uiop:string-prefix-p "0x" s) (subseq s 2))
+                       ((uiop:string-prefix-p "\\x" s) (subseq s 2))
+                       (t s))))
+       (concatenate 'string "\\x" hex)))))
 
 
 ;;;

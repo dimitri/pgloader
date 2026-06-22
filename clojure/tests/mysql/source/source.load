@@ -1,8 +1,0 @@
-load database
-     from      mysql://pgloader:pgloader@mysql:3306/source?useSSL=false
-     into postgresql://pgloader:pgloader@postgres:5432/target
-
- WITH concurrency = 1,
-      quote identifiers
-
- ALTER SCHEMA 'source' RENAME TO 'public';

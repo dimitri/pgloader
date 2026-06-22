@@ -1,0 +1,8 @@
+ column_name |        data_type         |              column_default              
+-------------+--------------------------+------------------------------------------
+ id          | integer                  | nextval('bit_defaults_id_seq'::regclass)
+ flags       | bit                      | '0'::"bit"
+ single_bit  | boolean                  | 
+ created_at  | timestamp with time zone | CURRENT_TIMESTAMP
+(4 rows)
+

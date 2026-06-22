@@ -125,35 +125,35 @@
     ;; MySQL and dates...
     ;;
     (:source (:type "datetime" :default "0000-00-00 00:00:00" :not-null t)
-     :target (:type "timestamptz" :drop-default t :drop-not-null t)
+     :target (:type "timestamptz" :drop-default t :drop-not-null t :drop-typemod nil)
      :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "datetime" :default "0000-00-00 00:00:00")
-     :target (:type "timestamptz" :drop-default t)
+     :target (:type "timestamptz" :drop-default t :drop-typemod nil)
      :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "datetime" :on-update-current-timestamp t :not-null t)
-     :target (:type "timestamptz" :drop-default t :drop-not-null t)
+     :target (:type "timestamptz" :drop-default t :drop-not-null t :drop-typemod nil)
      :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "datetime" :on-update-current-timestamp t :not-null nil)
-     :target (:type "timestamptz" :drop-default t)
+     :target (:type "timestamptz" :drop-default t :drop-typemod nil)
      :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "timestamp" :default "0000-00-00 00:00:00" :not-null t)
-     :target (:type "timestamptz" :drop-default t :drop-not-null t)
+     :target (:type "timestamptz" :drop-default t :drop-not-null t :drop-typemod nil)
      :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "timestamp" :default "0000-00-00 00:00:00")
-     :target (:type "timestamptz" :drop-default t)
+     :target (:type "timestamptz" :drop-default t :drop-typemod nil)
      :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "timestamp" :on-update-current-timestamp t :not-null t)
-     :target (:type "timestamptz" :drop-default t :drop-not-null t)
+     :target (:type "timestamptz" :drop-default t :drop-not-null t :drop-typemod nil)
      :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "timestamp" :on-update-current-timestamp t :not-null nil)
-     :target (:type "timestamptz" :drop-default t)
+     :target (:type "timestamptz" :drop-default t :drop-typemod nil)
      :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "date" :default "0000-00-00")
@@ -165,12 +165,15 @@
     (:source (:type "year")      :target (:type "integer" :drop-typemod t))
 
     (:source (:type "datetime")
-     :target (:type "timestamptz")
+     :target (:type "timestamptz" :drop-typemod nil)
      :using pgloader.transforms::zero-dates-to-null)
 
     (:source (:type "timestamp")
-     :target (:type "timestamptz")
+     :target (:type "timestamptz" :drop-typemod nil)
      :using pgloader.transforms::zero-dates-to-null)
+
+    (:source (:type "time")
+     :target (:type "time" :drop-typemod nil))
 
     ;; Inline MySQL "interesting" datatype
     (:source (:type "enum")
@@ -217,8 +220,12 @@
   (cond ((string= "auto_increment" extra)
          :auto-increment)
 
+        ;; MySQL 5.x: plain "on update CURRENT_TIMESTAMP"
+        ;; MySQL 8.x: "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
         ((or (string= extra "on update CURRENT_TIMESTAMP")
-             (string= extra "on update current_timestamp()"))
+             (string= extra "on update current_timestamp()")
+             (uiop:string-suffix-p extra "on update CURRENT_TIMESTAMP")
+             (uiop:string-suffix-p extra "on update current_timestamp()"))
          :on-update-current-timestamp)))
 
 (defmethod cast ((col mysql-column) &key table)
@@ -238,10 +245,13 @@
                  :null)
 
                 ((and (stringp default)
-                      ;; address CURRENT_TIMESTAMP(6) and other spellings
-                      (or (uiop:string-prefix-p "CURRENT_TIMESTAMP" default)
-                          (string= "CURRENT TIMESTAMP" default)
-                          (string= "current_timestamp()" default)))
+                      ;; address CURRENT_TIMESTAMP(6) and other spellings.
+                      ;; MySQL 8 uppercases; MariaDB lowercases — use
+                      ;; case-insensitive prefix so both are handled.
+                      (or (string-equal (subseq default 0
+                                                (min 17 (length default)))
+                                        "CURRENT_TIMESTAMP")
+                          (string-equal default "CURRENT TIMESTAMP")))
                  :current-timestamp)
 
                 (t (column-default pgcol)))))

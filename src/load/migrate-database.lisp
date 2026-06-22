@@ -180,6 +180,13 @@
                               :log-level :notice))
 
         ;;
+        ;; CHECK constraints (MySQL 8.0.16+; no-op when none present)
+        ;;
+        (create-pgsql-check-constraints catalog
+                                        :section :post
+                                        :label "Create Check Constraints")
+
+        ;;
         ;; Triggers and stored procedures -- includes special default values
         ;;
         (when create-triggers
