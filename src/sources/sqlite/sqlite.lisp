@@ -104,9 +104,11 @@
                                 (mapcar #'matview-source-name materialize-views)))))
             (cond
               (view-names
+               ;; SQLite's filter-list-to-where-clause expects plain strings
+               ;; (not filter-rule objects), so extract just the name part.
                (let ((view-including
                       (loop :for (schema-name . view-name) :in view-names
-                         :collect (make-string-match-rule :target view-name))))
+                         :collect view-name)))
                  (fetch-columns schema sqlite
                                 :table-type :view
                                 :including view-including
