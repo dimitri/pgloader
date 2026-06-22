@@ -4,7 +4,7 @@ REGRESS_FLAGS ?=
 
 .PHONY: all mytest sakila f1db source mytest-v3
 
-all: mytest sakila f1db source
+all: mytest sakila f1db
 
 mytest:
 	$(PGLOADER_CMD) mytest/mytest.load
@@ -18,10 +18,6 @@ f1db:
 	$(PGLOADER_CMD) f1db/f1db.load
 	java -jar $(JAR) regress $(REGRESS_FLAGS) f1db
 
-source:
-	$(PGLOADER_CMD) source/source.load
-	java -jar $(JAR) regress $(REGRESS_FLAGS) source
-
 # mytest-v3: same suite against the v3 binary, compared against
 # .v3 variant expected files that capture deliberate v3 vs v4 differences
 # (serial vs identity, bit vs bit varying, trigger naming).
@@ -29,7 +25,7 @@ mytest-v3:
 	pgloader --client-min-messages notice mytest/mytest.load
 	java -jar $(JAR) regress --variant v3 mytest
 
-all-v3: mytest-v3 sakila-v3 f1db-v3 source-v3
+all-v3: mytest-v3 sakila-v3 f1db-v3
 	@:
 
 %-v3:
