@@ -6,7 +6,7 @@ on:
       - 'clojure/**'
       - '.github/workflows/clojure-integration-tests.yml'
   push:
-    branches: [master, main, citus-v3, v4-clojure-rewrite]
+    branches: [main, citus-v3, v4-clojure-rewrite]
     paths:
       - 'clojure/**'
       - '.github/workflows/clojure-integration-tests.yml'
@@ -340,6 +340,16 @@ jobs:
           cp clojure/target/pgloader.jar "clojure/target/pgloader-${VERSION}.jar"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "sha=${SHA}"         >> "$GITHUB_OUTPUT"
+
+      - name: Delete previous versioned JAR assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view v4-dev --repo ${{ github.repository }} --json assets \
+            --jq '.assets[].name' 2>/dev/null \
+          | grep -E '^pgloader-[0-9]' \
+          | xargs -r -I{} gh release delete-asset v4-dev {} \
+              --repo ${{ github.repository }} --yes || true
 
       - name: Update v4-dev release
         uses: softprops/action-gh-release@v2

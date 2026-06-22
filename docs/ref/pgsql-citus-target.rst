@@ -79,7 +79,7 @@ to the tables that have a direct or indirect foreign key reference to the
 
 We run pgloader using the following command, where the file
 `./test/citus/company.load
-<https://github.com/dimitri/pgloader/blob/master/test/citus/company.load>`_
+<https://github.com/dimitri/pgloader/blob/main/test/citus/company.load>`_
 contains the pgloader command as shown above.
 
 ::
