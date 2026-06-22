@@ -66,6 +66,9 @@ override_dh_auto_build-arch:
 override_dh_auto_test:
 	PATH=$(CURDIR)/build/bin:$(PATH) debian/tests/testsuite
 
+override_dh_auto_install:
+	install -D -m 755 build/bin/pgloader debian/pgloader/usr/bin/pgloader
+
 override_dh_strip override_dh_dwz:
 	# do nothing, sbcl doesn't write any debug info
 
