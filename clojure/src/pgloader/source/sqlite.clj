@@ -73,35 +73,58 @@
          (str/includes? upper (str/upper-case (str col-name " INTEGER"))))))))
 
 (def ^:private sqlite-type-map
-  {"integer" "bigint"
-   "int" "integer"
-   "tinyint" "smallint"
-   "smallint" "smallint"
-   "mediumint" "integer"
-   "bigint" "bigint"
-   "text" "text"
-   "varchar" "text"
-   "nvarchar" "text"
-   "char" "text"
-   "nchar" "text"
-   "clob" "text"
-   "blob" "bytea"
-   "real" "double precision"
-   "float" "double precision"
-   "double" "double precision"
+  {;; text-affinity types
+   "character"        "text"
+   "varchar"          "text"
+   "nvarchar"         "text"
+   "char"             "text"
+   "nchar"            "text"
+   "clob"             "text"
+   "text"             "text"
+   ;; integer-affinity types — sized aliases (int4, int8) are exact entries
+   ;; so they are not shadowed by the shorter "int" prefix
+   "integer"          "bigint"
+   "int"              "integer"
+   "int2"             "smallint"
+   "int4"             "integer"
+   "int8"             "bigint"
+   "tinyint"          "smallint"
+   "smallint"         "smallint"
+   "mediumint"        "integer"
+   "bigint"           "bigint"
+   "long"             "bigint"
+   ;; blob/binary — byte[] is used by Hibernate/some ORMs (#1231)
+   "blob"             "bytea"
+   "byte"             "bytea"
+   "byte[]"           "bytea"
+   ;; real-affinity types
+   "real"             "double precision"
+   "float"            "double precision"
+   "float4"           "real"
+   "float8"           "double precision"
+   "double"           "double precision"
    "double precision" "double precision"
-   "numeric" "numeric"
-   "decimal" "numeric"
-   "boolean" "boolean"
-   "datetime" "timestamptz"
-   "timestamp" "timestamptz"
-   "timestamptz" "timestamptz"
-   "date" "date"
-   "time" "time"})
+   "numeric"          "numeric"
+   "decimal"          "numeric"
+   "number"           "numeric"
+   ;; date/time and other types
+   "boolean"          "boolean"
+   "datetime"         "timestamptz"
+   "timestamp"        "timestamptz"
+   "timestamptz"      "timestamptz"
+   "date"             "date"
+   "time"             "time"})
 
-(defn- sqlite-type->pg [type-name]
+(defn- sqlite-type->pg
+  "Map a raw SQLite declared type name to a PostgreSQL type name.
+   Normalises case then does an exact lookup followed by a longest-prefix
+   match so that 'int' does not shadow 'integer', 'int4', 'int8', etc."
+  [type-name]
   (let [lower (str/lower-case type-name)]
-    (or (some (fn [[k v]] (when (str/starts-with? lower k) v)) sqlite-type-map)
+    (or (get sqlite-type-map lower)
+        (some (fn [[k v]]
+                (when (str/starts-with? lower k) v))
+              (sort-by (comp - count key) sqlite-type-map))
         "text")))
 
 (defn- apply-sqlite-identifier-case

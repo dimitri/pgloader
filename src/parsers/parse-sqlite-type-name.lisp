@@ -31,27 +31,46 @@
 
 (defrule sqlite-typemod (or sqlite-double-typemod sqlite-single-typemod))
 
-;; type names may be "double quoted", such as "double precision"
-(defrule sqlite-type-name (or (+ (and (not extra-qualifiers)
-                                      (+ (or (alpha-char-p character) #\_))
-                                      (? " "))))
+;; type names may include digits (int4, int8, float4, float8) and
+;; multi-word forms ("double precision").
+(defrule sqlite-type-name (+ (and (not extra-qualifiers)
+                                  (+ (or (alpha-char-p character)
+                                         (digit-char-p character)
+                                         #\_))
+                                  (? " ")))
   (:text t))
+
+;; Optional trailing [] for ORM-generated array-like blob types (byte[], blob[]).
+;; We preserve the brackets in the returned type string so that cast rules can
+;; match on the exact name "byte[]" if desired (#1231).
+(defrule sqlite-array-suffix (and #\[ #\])
+  (:constant "[]"))
 
 (defrule sqlite-type-expr (and (* extra-qualifiers)
                                sqlite-type-name
+                               (? sqlite-array-suffix)
                                (* extra-qualifiers)
                                ignore-whitespace
                                (? sqlite-typemod)
                                ignore-whitespace
                                (* extra-qualifiers))
   (:lambda (tn)
-    (list (text (second tn))
-          (fifth tn)
-          (remove-if #'null
-                     (append (first tn) (third tn) (seventh tn))))))
+    (let* ((base   (string-right-trim " " (text (second tn))))
+           (suffix (or (third tn) ""))
+           (name   (concatenate 'string base suffix)))
+      (list name
+            (sixth tn)
+            (remove-if #'null
+                       (append (first tn) (fourth tn) (eighth tn)))))))
 
 (defun parse-sqlite-type-name (type-name)
   (if (string= type-name "")
       ;; yes SQLite allows for empty type names
       "text"
-      (values-list (parse 'sqlite-type-expr (string-downcase type-name)))))
+      (handler-case
+          (values-list (parse 'sqlite-type-expr (string-downcase type-name)))
+        ;; If the type name cannot be parsed at all (e.g. starts with a digit
+        ;; or contains characters we don't handle), fall back to "text" and let
+        ;; the catch-all cast rule deal with it.
+        (esrap:esrap-parse-error ()
+          (values "text" nil nil)))))
