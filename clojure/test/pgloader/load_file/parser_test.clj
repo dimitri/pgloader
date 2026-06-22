@@ -336,3 +336,43 @@
       (is (:ok result) (str "Parse error: " (:error result)))
       (let [rule (first (get-in result [:ok :cast-rules]))]
         (is (= "timestamp" (:target-type rule)))))))
+
+;; ---------------------------------------------------------------------------
+;; #1365 — {{VAR}} with whitespace in the value (paths with spaces)
+;; ---------------------------------------------------------------------------
+
+(deftest test-single-quoted-source-uri-grammar
+  (testing "grammar accepts single-quoted source-uri — needed for paths with spaces (#1365)"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM 'sqlite:///path/with spaces/my db.sqlite'
+                   INTO postgresql://localhost/target;")]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (is (= :sqlite (get-in result [:ok :source :type])))
+      (is (= "/path/with spaces/my db.sqlite" (get-in result [:ok :source :path]))))))
+
+(deftest test-single-quoted-pg-uri-grammar
+  (testing "grammar accepts single-quoted pg-uri (#1365)"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM sqlite:///tmp/test.db
+                   INTO 'postgresql://user@localhost/my database';")]
+      (is (:ok result) (str "Parse failed: " (:error result))))))
+
+(deftest test-var-expansion-with-space-using-quoted-uri
+  (testing "{{VAR}} expanding to a path with a space works when URI is quoted (#1365)
+            Pattern: FROM 'sqlite:///{{DB_PATH}}' where DB_PATH has a space.
+            After expansion: FROM 'sqlite:///my data/db.sqlite'."
+    (let [;; Simulate the result of expand-env on 'sqlite:///{{DB_PATH}}'
+          ;; where DB_PATH = 'my data/db.sqlite'
+          expanded "LOAD DATABASE FROM 'sqlite:///my data/db.sqlite'
+                    INTO postgresql://localhost/tgt;"
+          result   (parser/parse-string expanded)]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (is (= "/my data/db.sqlite" (get-in result [:ok :source :path]))))))
+
+(deftest test-unquoted-plain-path-still-works
+  (testing "unquoted path without spaces continues to work (#1365 non-regression)"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM sqlite:///tmp/plain.db
+                   INTO postgresql://localhost/tgt;")]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (is (= "/tmp/plain.db" (get-in result [:ok :source :path]))))))

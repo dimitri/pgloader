@@ -296,9 +296,9 @@
               "ALTER TABLE ~a ADD ~@[CONSTRAINT ~a ~]FOREIGN KEY(~{~a~^,~}) REFERENCES ~a(~{~a~^,~})~:[~*~; ON UPDATE ~a~]~:[~*~; ON DELETE ~a~]"
               (format-table-name (fkey-table fk))
               (fkey-name fk)            ; constraint name
-              (fkey-columns fk)
+              (mapcar #'apply-identifier-case (fkey-columns fk))
               (format-table-name (fkey-foreign-table fk))
-              (fkey-foreign-columns fk)
+              (mapcar #'apply-identifier-case (fkey-foreign-columns fk))
               (fkey-update-rule fk)
               (fkey-update-rule fk)
               (fkey-delete-rule fk)

@@ -59,7 +59,11 @@
 
     ;; ── Standard pgloader URI ──
     :else
-    (let [uri       (URI. uri-str)
+    (let [;; java.net.URI rejects spaces and a handful of other characters.
+          ;; Percent-encode them so URI. doesn't throw; getPath/getSchemeSpecificPart
+          ;; decode them back, giving us the original string in the result map.
+          safe-str  (str/replace uri-str " " "%20")
+          uri       (URI. safe-str)
           scheme    (.getScheme uri)
           path      (.getPath uri)
           user-info (.getUserInfo uri)

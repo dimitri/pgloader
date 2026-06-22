@@ -302,9 +302,12 @@
       (declare (ignore source encoding fields columns))
       (list pg-db-uri table-name gucs))))
 
-(defrule pg-db-uri-from-source-target (or load-sqlite-command
+;; mssql and mysql must come before sqlite: sqlite-uri falls back to
+;; maybe-quoted-filename which accepts any string, so it would swallow
+;; mssql:// and mysql:// URIs before those specific rules get a chance (#1580).
+(defrule pg-db-uri-from-source-target (or load-mssql-command
                                           load-mysql-command
-                                          load-mssql-command)
+                                          load-sqlite-command)
   (:lambda (command)
     (destructuring-bind (source pg-db-uri &key gucs &allow-other-keys)
         command

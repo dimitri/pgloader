@@ -76,7 +76,11 @@
 
 (defn- expand-env
   "Replace {{VAR}} placeholders with the value of the OS environment variable
-   VAR. Throws if a referenced variable is not set."
+   VAR. Throws if a referenced variable is not set.
+
+   To use a path that contains spaces, single-quote the entire URI token in
+   the load file: FROM 'sqlite:///{{DB_PATH}}' rather than FROM sqlite:///{{DB_PATH}}.
+   The grammar accepts single-quoted source-uri values (#1365)."
   [s]
   (str/replace s #"\{\{(\w+)\}\}"
                (fn [[_ k]]
