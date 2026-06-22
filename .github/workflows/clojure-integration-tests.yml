@@ -26,13 +26,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
 
       - name: Cache Clojure dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.m2/repository
@@ -59,13 +59,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
 
       - name: Cache Clojure dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.m2/repository
@@ -105,14 +105,14 @@ jobs:
 
       - name: Restore image from cross-run cache
         id: img-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /tmp/test-runner.tar.gz
           key: test-runner-${{ hashFiles('clojure/tests/Dockerfile', 'src/**', 'pgloader.asd', 'Makefile', 'conf/**') }}
 
       - name: Set up Docker Buildx
         if: steps.img-cache.outputs.cache-hit != 'true'
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build image (skipped on cache hit)
         if: steps.img-cache.outputs.cache-hit != 'true'
@@ -124,7 +124,7 @@ jobs:
           docker save pgloader-test-runner:latest | gzip > /tmp/test-runner.tar.gz
 
       - name: Upload image artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-runner-image
           path: /tmp/test-runner.tar.gz
@@ -141,13 +141,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
 
       - name: Cache Clojure dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.m2/repository
@@ -170,7 +170,7 @@ jobs:
           ls target/pgloader-v4-*.jar | head -1 | xargs -I{} ln -f {} target/pgloader.jar
 
       - name: Upload JAR artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pgloader-v4-jar
           path: clojure/target/pgloader.jar
@@ -285,7 +285,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download test-runner image
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: test-runner-image
           path: /tmp/
@@ -294,7 +294,7 @@ jobs:
         run: docker load < /tmp/test-runner.tar.gz
 
       - name: Download pgloader v4 JAR
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: pgloader-v4-jar
           path: clojure/target/
@@ -327,7 +327,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download JAR artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: pgloader-v4-jar
           path: clojure/target/
