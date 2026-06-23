@@ -17,4 +17,8 @@ for dump in departments employees dept_emp dept_manager \
         < /employees-data/load_${dump}.dump
 done
 
+echo "=== Granting employees access to pgloader user ==="
+mariadb -u root -p"${MYSQL_ROOT_PASSWORD}" \
+    -e "GRANT ALL PRIVILEGES ON employees.* TO 'pgloader'@'%'; FLUSH PRIVILEGES;"
+
 echo "=== employees database ready ==="
