@@ -461,13 +461,19 @@
                                  (sequential? (:materialize-views cmd))
                                  (let [no-def-names (into #{}
                                                           (keep #(when (nil? (:query %)) (:name %)))
-                                                          (:materialize-views cmd))]
+                                                          (:materialize-views cmd))
+                                       ;; Match by qualified "schema.table" or plain "table" name.
+                                       ;; Allows MATERIALIZE VIEWS schema.view in load files.
+                                       view-matches? (fn [entry]
+                                                       (let [tn (or (:source-table-name entry) (:table-name entry))
+                                                             sn (:source-schema entry)]
+                                                         (or (contains? no-def-names tn)
+                                                             (and sn (contains? no-def-names (str sn "." tn))))))]
                                    (if (seq no-def-names)
                                      (do (log/info (str "MATERIALIZE VIEWS (named, no SQL def): "
                                                         (clojure.string/join ", " no-def-names)))
                                          (into cat
-                                               (filter #(contains? no-def-names
-                                                                   (or (:source-table-name %) (:table-name %)))
+                                               (filter view-matches?
                                                        (case (:type source-uri)
                                                          (:mysql :mariadb) (mysql-source/catalog-views source)
                                                          :mssql            (mssql-source/catalog-views source)

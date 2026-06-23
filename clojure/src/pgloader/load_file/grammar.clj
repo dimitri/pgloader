@@ -306,7 +306,7 @@
     materialize-named-views = <'MATERIALIZE'> <ws> <'VIEWS'> <ws> matview-list
     matview-list = matview-def (<opt-ws> <','> <opt-ws> matview-def)*
     matview-def = matview-name (<ws> <'as'> <ws> quoted-command)?
-    matview-name = #'[a-zA-Z_][a-zA-Z0-9_]*'
+    matview-name = #'[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)?'
 
     names-keyword = (<'MATCHING'> | <'LIKE'>)
     including-only = <'INCLUDING'> <ws> <'ONLY'> <ws> <'TABLE'> <ws> <'NAMES'> <ws> names-keyword <ws> table-name-pattern-list (<ws> <'IN'> <ws> <'SCHEMA'> <ws> quoted-string)?
