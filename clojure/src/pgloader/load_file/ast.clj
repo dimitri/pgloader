@@ -286,30 +286,35 @@
                          flat-cast-opts)
           when-node (first (filter #(= :when-or-unsigned (first %)) inner-children))
           when-cond (when when-node
-                      (let [wc (vec (rest when-node))]
-                        (cond
-                          (empty? wc) {:when-unsigned true}
-                          (some #(= :when-default-val (first %)) wc)
-                          (let [dv (first (filter #(= :when-default-val (first %)) wc))
-                                vi (second dv)]
-                            {:when-default (if (= :dq-string (first vi))
-                                             (second vi)
-                                             (clojure.string/join " " (map second (filter #(= :word-part (first %)) (rest vi)))))})
-                          (some #(= :when-expr (first %)) wc)
-                          (let [we (first (filter #(= :when-expr (first %)) wc))
-                                parts (map (fn [c]
-                                             (cond
-                                               (= :when-expr (first c))
-                                               (str "(" (reconstruct-when-expr c) ")")
-                                               (and (= :when-inner (first c))
-                                                    (= 2 (count c))
-                                                    (vector? (second c))
-                                                    (= :when-expr (first (second c))))
-                                               (str "(" (reconstruct-when-expr (second c)) ")")
-                                               :else
-                                               (second c)))
-                                           (rest we))]
-                            {:when-extra (clojure.string/join "" parts)}))))
+                      (let [wc (vec (rest when-node))
+                            not-null? (some #(and (vector? %) (= :when-not-null (first %))) wc)
+                            wc (vec (remove #(and (vector? %) (= :when-not-null (first %))) wc))
+                            base (cond
+                                   (empty? wc) {:when-unsigned true}
+                                   (some #(= :when-default-val (first %)) wc)
+                                   (let [dv (first (filter #(= :when-default-val (first %)) wc))
+                                         vi (second dv)]
+                                     {:when-default (if (= :dq-string (first vi))
+                                                      (second vi)
+                                                      (clojure.string/join " " (map second (filter #(= :word-part (first %)) (rest vi)))))})
+                                   (some #(= :when-expr (first %)) wc)
+                                   (let [we (first (filter #(= :when-expr (first %)) wc))
+                                         parts (map (fn [c]
+                                                      (cond
+                                                        (= :when-expr (first c))
+                                                        (str "(" (reconstruct-when-expr c) ")")
+                                                        (and (= :when-inner (first c))
+                                                             (= 2 (count c))
+                                                             (vector? (second c))
+                                                             (= :when-expr (first (second c))))
+                                                        (str "(" (reconstruct-when-expr (second c)) ")")
+                                                        :else
+                                                        (second c)))
+                                                    (rest we))]
+                                     {:when-extra (clojure.string/join "" parts)})
+                                   :else nil)]
+                        (cond-> (or base {})
+                          not-null? (assoc :when-not-null true))))
           drop-opts (parse-cast-options (map first flat-cast-opts))]
       (cond-> {:target-type target}
         source (assoc :source source)

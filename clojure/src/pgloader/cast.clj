@@ -253,7 +253,10 @@
          (or (nil? (:when-default rule))
              (= col-def (:when-default rule)))
          (or (not (:when-unsigned rule))
-             (str/includes? col-type "unsigned"))))
+             (str/includes? col-type "unsigned"))
+         ;; `and not null` source guard: rule only matches NOT NULL columns
+         (or (not (:when-not-null rule))
+             (false? (:is-nullable col)))))
 
       :else false)))
 

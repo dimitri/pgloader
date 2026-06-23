@@ -17,9 +17,9 @@ with seqattr as
      from pg_attrdef d
  )
     select nspname, relname, c.oid, attname,
-           t.oid::regtype as type,
+           replace(t.oid::regtype::text, ' without time zone', '') as type,
            case when atttypmod > 0
-                then substring(format_type(t.oid, atttypmod) from '\d+(?:,\d+)?')
+                then substring(format_type(t.oid, atttypmod) from E'\\((.+)\\)')
                 else null
             end as typmod,
            attnotnull,

@@ -8,6 +8,16 @@
 
 (set! *warn-on-reflection* true)
 
+(def ^:private charset-aliases
+  "Normalise common encoding aliases that may not be registered in the JVM."
+  {"cp950"  "Big5"
+   "CP950"  "Big5"
+   "cp932"  "windows-31j"
+   "CP932"  "windows-31j"})
+
+(defn- charset-for ^Charset [^String encoding]
+  (Charset/forName (get charset-aliases encoding encoding)))
+
 (defn- dbf-type->pg [^DBFDataType t decimal-count]
   (cond
     (= t DBFDataType/CHARACTER) "text"
@@ -79,5 +89,5 @@
 
 (defn create-source [{:keys [path encoding]}]
   (->DBFSource path
-               (or (when encoding (Charset/forName encoding))
+               (or (when encoding (charset-for encoding))
                    StandardCharsets/ISO_8859_1)))

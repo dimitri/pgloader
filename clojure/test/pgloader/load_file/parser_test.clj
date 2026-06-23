@@ -65,6 +65,18 @@
       (is (seq (:set-parameters cmd)))
       (is (seq (:cast-rules cmd))))))
 
+(deftest test-parse-cast-when-default-and-not-null
+  (testing "CAST ... when default \"...\" and not null parses (#1676)"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM mysql://user@localhost/mydb
+                    INTO postgresql:///target
+                    CAST type datetime when default \"0000-00-00 00:00:00\" and not null
+                           to timestamp drop not null drop default using zero-dates-to-null;")]
+      (is (:ok result))
+      (let [rule (first (:cast-rules (:ok result)))]
+        (is (= "0000-00-00 00:00:00" (:when-default rule)))
+        (is (true? (:when-not-null rule)))))))
+
 (deftest test-parse-invalid
   (let [result (parser/parse-string "LOAD BOGUS;")]
     (is (:error result))))
