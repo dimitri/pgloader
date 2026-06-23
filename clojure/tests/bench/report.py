@@ -135,30 +135,30 @@ def build_table(suites, versions):
             cols[ver] = lst[run_idx] if run_idx < len(lst) else None
         return cols
 
-    pg_getter = steps[0][1]   # pgloader-time accessor — the comparison metric
-
     # per-run blocks
     for run_n in range(1, max_runs + 1):
         for s_idx, (step_name, getter) in enumerate(steps):
             run_lbl    = str(run_n) if s_idx == 0 else ""
-            show_ratio = s_idx == 0   # ratio only on the pgloader row
+            show_ratio = s_idx < 2   # pgloader and COPY wall rows; OS wall is indicative
             parts      = [run_lbl.rjust(RUN_W), step_name.rjust(STP_W)]
             for suite in suites:
-                cols  = data_cols(suite, run_n - 1)
-                pg_v3 = pg_getter(cols["v3"]) if cols["v3"] is not None else None
-                pg_v4 = pg_getter(cols["v4"]) if cols["v4"] is not None else None
+                cols = data_cols(suite, run_n - 1)
                 for ver in versions:
                     val = getter(cols[ver]) if cols[ver] is not None else None
                     parts.append(fmt_time(val, DW))
-                parts.append(fmt_ratio(pg_v3, pg_v4) if show_ratio
-                             else "—".rjust(RAT_W))
+                if show_ratio:
+                    v3r = getter(cols["v3"]) if cols["v3"] is not None else None
+                    v4r = getter(cols["v4"]) if cols["v4"] is not None else None
+                    parts.append(fmt_ratio(v3r, v4r))
+                else:
+                    parts.append("—".rjust(RAT_W))
             lines.append(SEP.join(parts))
         lines.append(bar)
 
     # median block (bar from last run already printed)
     for s_idx, (step_name, getter) in enumerate(steps):
         run_lbl    = "med" if s_idx == 0 else ""
-        show_ratio = s_idx == 0
+        show_ratio = s_idx < 2
         parts      = [run_lbl.rjust(RUN_W), step_name.rjust(STP_W)]
         for suite in suites:
             meds = {}
@@ -166,15 +166,9 @@ def build_table(suites, versions):
                 vals = [getter(r) for r in all_data[suite][ver]
                         if getter(r) is not None]
                 meds[ver] = median(vals) if vals else None
-            pg_v3_vals = [pg_getter(r) for r in all_data[suite]["v3"]
-                          if pg_getter(r) is not None]
-            pg_v4_vals = [pg_getter(r) for r in all_data[suite]["v4"]
-                          if pg_getter(r) is not None]
-            pg_v3m = median(pg_v3_vals) if pg_v3_vals else None
-            pg_v4m = median(pg_v4_vals) if pg_v4_vals else None
             for ver in versions:
                 parts.append(fmt_time(meds[ver], DW))
-            parts.append(fmt_ratio(pg_v3m, pg_v4m) if show_ratio
+            parts.append(fmt_ratio(meds.get("v3"), meds.get("v4")) if show_ratio
                          else "—".rjust(RAT_W))
         lines.append(SEP.join(parts))
 
