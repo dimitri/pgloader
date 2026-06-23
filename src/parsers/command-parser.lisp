@@ -258,19 +258,21 @@
 
 (defun parse-cli-options (type options)
   "Parse options as per the WITH clause when we get them from the CLI."
-  (alexandria:alist-plist
-   (loop :for option :in options
-      :collect (parse (ecase type
-                        (:csv    'csv-option)
-                        (:fixed  'fixed-option)
-                        (:copy   'copy-option)
-                        (:dbf    'dbf-option)
-                        (:ixf    'ixf-option)
-                        (:sqlite 'sqlite-option)
-                        (:pgsql  'pgsql-option)
-                        (:mysql  'mysql-option)
-                        (:mssql  'mssql-option))
-                      option))))
+  (when (and type options)
+    (alexandria:alist-plist
+     (loop :for option :in options
+        :collect (parse (case type
+                          (:csv    'csv-option)
+                          (:fixed  'fixed-option)
+                          (:copy   'copy-option)
+                          (:dbf    'dbf-option)
+                          (:ixf    'ixf-option)
+                          (:sqlite 'sqlite-option)
+                          (:pgsql  'pgsql-option)
+                          (:mysql  'mysql-option)
+                          (:mssql  'mssql-option)
+                          (t (error "Unknown source type ~s for --with option parsing" type)))
+                        option)))))
 
 (defun parse-cli-casts (casts)
   "Parse additional CAST rules when we get them from the CLI."

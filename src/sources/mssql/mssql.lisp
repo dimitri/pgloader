@@ -69,20 +69,25 @@
                      :excluding excluding)
 
       ;; fetch view (and their columns) metadata, covering comments too
+      ;; Build a separate `view-including` list so we don't contaminate the
+      ;; `including` filter used below for indexes and foreign keys.
       (let* ((view-names (unless (eq :all materialize-views)
                            (mapcar #'matview-source-name materialize-views)))
-             (including
-              (loop :for (schema-name . view-name) :in view-names
-                 :do (let* ((schema-name (or schema-name "dbo"))
-                            (schema-entry
-                             (or (assoc schema-name including :test #'string=)
-                                 (progn (push (cons schema-name nil) including)
-                                        (assoc schema-name including
-                                               :test #'string=)))))
-                       (push-to-end view-name (cdr schema-entry))))))
+             (view-including
+              (when view-names
+                (let ((vi (copy-tree including)))
+                  (loop :for (schema-name . view-name) :in view-names
+                     :do (let* ((schema-name (or schema-name "dbo"))
+                                (schema-entry
+                                 (or (assoc schema-name vi :test #'string=)
+                                     (progn (push (cons schema-name nil) vi)
+                                            (assoc schema-name vi
+                                                   :test #'string=)))))
+                           (push-to-end view-name (cdr schema-entry))))
+                  vi))))
         (cond (view-names
                (fetch-columns catalog mssql
-                              :including including
+                              :including view-including
                               :excluding excluding
                               :table-type :view))
 

@@ -1,7 +1,26 @@
 (ns pgloader.load-file.ast-test
   (:require [clojure.test :refer [deftest is testing]]
-            [pgloader.load-file.ast :refer [parse-uri]])
+            [pgloader.load-file.ast :refer [parse-uri]]
+            [pgloader.load-file.parser :as parser])
   (:import [java.sql DriverManager]))
+
+(deftest test-cast-rule-when-not-null
+  (testing "hiccup->cast-rule emits :when-not-null true when 'and not null' present (#1676)"
+    (let [r (parser/parse-string
+             "LOAD DATABASE FROM mysql://u@l/d INTO postgresql:///t
+              CAST type datetime when default \"0000-00-00 00:00:00\" and not null
+                   to timestamp drop not null drop default using zero-dates-to-null;")
+          rule (first (:cast-rules (:ok r)))]
+      (is (true? (:when-not-null rule)))
+      (is (= "0000-00-00 00:00:00" (:when-default rule)))))
+  (testing "no :when-not-null when 'and not null' absent"
+    (let [r (parser/parse-string
+             "LOAD DATABASE FROM mysql://u@l/d INTO postgresql:///t
+              CAST type datetime when default \"0000-00-00 00:00:00\"
+                   to timestamp drop default using zero-dates-to-null;")
+          rule (first (:cast-rules (:ok r)))]
+      (is (nil? (:when-not-null rule)))
+      (is (= "0000-00-00 00:00:00" (:when-default rule))))))
 
 (deftest test-parse-mysql-uri
   (testing "mysql:// with query params"
