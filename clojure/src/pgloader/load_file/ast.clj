@@ -449,6 +449,7 @@
         :csv-header {:csv-header true}
         :csv-escape-mode {:escape-mode :following}
         :lines-terminated {:lines-terminated (interpret-escape (second (second node)))}
+        :date-format {:date-format (second (second node))}
         :drop-indexes {:drop-indexes true}
         nil))))
 
@@ -533,6 +534,19 @@
       {:projection {:column-name col-name
                     :target-type target-type
                     :using using-expr}})))
+
+(defn- date-time-target-type?
+  [target-type]
+  (contains? #{"date"
+               "time"
+               "time without time zone"
+               "time with time zone"
+               "timetz"
+               "timestamp"
+               "timestamp without time zone"
+               "timestamp with time zone"
+               "timestamptz"}
+             (some-> target-type str/lower-case)))
 
 (defn transform
   "Transform an instaparse hiccup tree into a LoadCommand record.
@@ -643,15 +657,34 @@
                 after-load (when after-load-node
                              (let [commands (rest (second after-load-node))]
                                (mapv #(second %) (filter vector? commands))))
-                cols (when source-col-list
-                       (mapv :name (map parse-column-item
-                                        (filter #(= :column-item (first %))
-                                                (rest source-col-list)))))
-                col-formats (when source-col-list
-                              (seq (filter :date-format
-                                           (map parse-column-item
-                                                (filter #(= :column-item (first %))
-                                                        (rest source-col-list))))))
+                source-column-items (when source-col-list
+                                      (map parse-column-item
+                                           (filter #(= :column-item (first %))
+                                                   (rest source-col-list))))
+                cols (when source-column-items
+                       (mapv :name source-column-items))
+                explicit-col-formats (seq (filter :date-format source-column-items))
+                target-projections (or (:projections tt-table)
+                                       (seq tt-projections))
+                default-col-formats (when (and cols
+                                               (:date-format csv-options)
+                                               (seq target-projections))
+                                      (let [explicit-names (set (map :name explicit-col-formats))
+                                            typed-by-name (into {}
+                                                                (keep (fn [{:keys [column-name target-type]}]
+                                                                        (when (date-time-target-type? target-type)
+                                                                          [column-name target-type]))
+                                                                      target-projections))]
+                                        (keep-indexed
+                                         (fn [i col-name]
+                                           (let [target-type (or (get typed-by-name col-name)
+                                                                 (:target-type (nth target-projections i nil)))]
+                                             (when (and (not (contains? explicit-names col-name))
+                                                        (date-time-target-type? target-type))
+                                               {:name col-name
+                                                :date-format (:date-format csv-options)})))
+                                         cols)))
+                col-formats (seq (concat default-col-formats explicit-col-formats))
                 col-nullifs (when source-col-list
                               (seq (filter (comp seq :nullifs)
                                            (map parse-column-item

@@ -59,6 +59,7 @@
                           option-disable-triggers
                           option-identifiers-case
 			  option-skip-header
+                          option-date-format
                           option-fixed-header))
 
 (defrule fixed-options (and kw-with
@@ -148,6 +149,7 @@
                                :encoding ,encoding
                                :fields ',fields
                                :columns ',columns
+                               :date-format ,(getf options :date-format)
                                :skip-lines ,(or (getf options :skip-lines) 0)
                                :header ,(getf options :header))))
 

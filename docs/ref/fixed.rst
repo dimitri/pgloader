@@ -180,6 +180,17 @@ Fixed File Format Loading Options: WITH
 
 When loading from a `FIXED` file, the following options are supported:
 
+  - *date format*
+
+    Takes a date format string as argument. When target columns are of a
+    PostgreSQL date/time type, this option applies the format to those
+    fields by default. A per-field *date format* specification still takes
+    precedence for that field.
+
+    Here's an example of a *WITH* date format specification::
+
+      WITH date format 'YYYY-MM-DD HH24-MI-SS.US'
+
   - *truncate*
 
     When this option is listed, pgloader issues a `TRUNCATE` command
@@ -201,4 +212,3 @@ When loading from a `FIXED` file, the following options are supported:
 
     Takes a numeric value as argument. Instruct pgloader to skip that
     many lines at the beginning of the input file.
-
