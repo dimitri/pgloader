@@ -89,18 +89,17 @@
       (BufferedReader. (InputStreamReader. (io/input-stream (File. ^String (:path source))) cs)))))
 
 (defn- read-rows-from-reader
-  "Read fixed-width rows from a BufferedReader. Returns a lazy seq of string vectors."
+  "Read fixed-width rows from rdr lazily, closing the reader when exhausted."
   [^BufferedReader rdr fields fixed-header?]
-  (let [fields (if fixed-header?
-                 (let [header (.readLine rdr)]
-                   (when header
-                     (infer-fields-from-header header)))
-                 fields)]
-    (when fields
-      (letfn [(rows []
-                (when-let [line (.readLine rdr)]
-                  (cons (parse-line line fields) (lazy-seq (rows)))))]
-        (rows)))))
+  (let [eff-fields (if fixed-header?
+                     (when-let [header (.readLine rdr)]
+                       (infer-fields-from-header header))
+                     fields)]
+    (when eff-fields
+      ((fn row-seq []
+         (if-let [line (.readLine rdr)]
+           (lazy-seq (cons (parse-line line eff-fields) (row-seq)))
+           (do (.close rdr) nil)))))))
 
 ;; ── Catalog helper ────────────────────────────────────────────────────────────
 
@@ -190,15 +189,14 @@
         ;; Inline data: read from the embedded string
         (let [rdr (open-reader source encoding)]
           (read-rows-from-reader rdr fields fixed-header?))
-        ;; File(s): concatenate rows from all matching files
+        ;; File(s): concatenate rows from all matching files lazily.
+        ;; read-rows-from-reader closes each reader when its seq is exhausted.
         (let [rows (mapcat (fn [^File f]
-                             (let [cs (if encoding
-                                        (Charset/forName ^String encoding)
-                                        StandardCharsets/ISO_8859_1)
+                             (let [cs  (if encoding
+                                         (Charset/forName ^String encoding)
+                                         StandardCharsets/ISO_8859_1)
                                    rdr (BufferedReader. (InputStreamReader. (io/input-stream f) cs))]
-                               (try
-                                 (doall (read-rows-from-reader rdr fields fixed-header?))
-                                 (finally (.close rdr)))))
+                               (read-rows-from-reader rdr fields fixed-header?)))
                            files)]
           ;; Project to select-cols if specified (post-INTO column list)
           (if (seq select-cols)

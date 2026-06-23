@@ -1,0 +1,38 @@
+-- Divvy Bikeshare trip data: 3 summer months of 2023 (≈ 2.2M rows, ≈ 450 MB)
+-- Files downloaded into /work/divvy/ by `make divvy-data` on the host.
+-- Each file is named YYYYMM-divvy-tripdata.csv.
+LOAD CSV
+     FROM ALL FILENAMES MATCHING ~/\d{6}-divvy-tripdata\.csv$/
+          IN DIRECTORY '/work/divvy'
+          HAVING FIELDS (
+              ride_id, rideable_type, started_at, ended_at,
+              start_station_name, start_station_id,
+              end_station_name, end_station_id,
+              start_lat, start_lng, end_lat, end_lng,
+              member_casual
+          )
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE public.divvy_trips
+
+     WITH truncate,
+          skip header = 1,
+          fields optionally enclosed by '"',
+          fields terminated by ','
+
+     BEFORE LOAD DO
+         $$ DROP TABLE IF EXISTS public.divvy_trips; $$,
+         $$ CREATE TABLE public.divvy_trips (
+              ride_id            text,
+              rideable_type      text,
+              started_at         timestamptz,
+              ended_at           timestamptz,
+              start_station_name text,
+              start_station_id   text,
+              end_station_name   text,
+              end_station_id     text,
+              start_lat          double precision,
+              start_lng          double precision,
+              end_lat            double precision,
+              end_lng            double precision,
+              member_casual      text
+           ); $$;

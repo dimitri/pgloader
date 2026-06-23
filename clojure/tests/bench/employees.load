@@ -1,0 +1,7 @@
+load database
+  from mysql://pgloader:pgloader@mariadb:3306/employees?useSSL=false
+  into pgsql://pgloader:pgloader@postgres:5432/target
+
+  with workers = 4, concurrency = 1,
+       include drop, create tables, create indexes, reset sequences
+;
