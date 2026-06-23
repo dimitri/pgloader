@@ -298,6 +298,148 @@ jobs:
         working-directory: clojure/tests
         run: make down || true
 
+  # ── Build bench MariaDB source image ──────────────────────────────────────
+  # Custom MariaDB image with employees sample database pre-seeded.
+  # Cached across runs keyed on the bench Dockerfile and init script so it
+  # is only rebuilt when those files change (not on every pgloader code push).
+  build-bench-source:
+    name: Build bench source image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Restore image from cross-run cache
+        id: bench-cache
+        uses: actions/cache@v5
+        with:
+          path: /tmp/bench-source.tar.gz
+          key: bench-source-${{ hashFiles('clojure/tests/bench/Dockerfile', 'clojure/tests/bench/init-employees.sh') }}
+
+      - name: Set up Docker Buildx
+        if: steps.bench-cache.outputs.cache-hit != 'true'
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build bench source image (skipped on cache hit)
+        if: steps.bench-cache.outputs.cache-hit != 'true'
+        run: |
+          docker buildx build \
+            --load \
+            -t pgloader-bench-source:latest \
+            clojure/tests/bench/
+          docker save pgloader-bench-source:latest | gzip > /tmp/bench-source.tar.gz
+
+      - name: Upload bench source image artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: bench-source-image
+          path: /tmp/bench-source.tar.gz
+          retention-days: 1
+
+  # ── Bench: employees + lahman timing comparison (v4 vs v3) ────────────────
+  bench:
+    name: bench ${{ matrix.suite }} (${{ matrix.pgloader }})
+    needs: [unit, build-test-runner, build-jar, build-bench-source]
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: employees
+            pgloader: v4
+            make_target: employees
+          - suite: employees
+            pgloader: v3
+            make_target: employees-v3
+          - suite: lahman
+            pgloader: v4
+            make_target: lahman
+          - suite: lahman
+            pgloader: v3
+            make_target: lahman-v3
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Download test-runner image
+        uses: actions/download-artifact@v8
+        with:
+          name: test-runner-image
+          path: /tmp/
+
+      - name: Download bench source image
+        uses: actions/download-artifact@v8
+        with:
+          name: bench-source-image
+          path: /tmp/
+
+      - name: Load Docker images
+        run: |
+          docker load < /tmp/test-runner.tar.gz
+          docker load < /tmp/bench-source.tar.gz
+
+      - name: Download pgloader v4 JAR
+        uses: actions/download-artifact@v8
+        with:
+          name: pgloader-v4-jar
+          path: clojure/target/
+
+      - name: Cache Lahman SQLite
+        if: matrix.suite == 'lahman'
+        uses: actions/cache@v5
+        with:
+          path: clojure/tests/bench/lahman.sqlite
+          key: lahman-sqlite-2022
+
+      - name: Fetch Lahman SQLite (on cache miss)
+        if: matrix.suite == 'lahman'
+        working-directory: clojure/tests/bench
+        run: |
+          [ -f lahman.sqlite ] || make lahman.sqlite
+
+      - name: Run ${{ matrix.suite }} bench (${{ matrix.pgloader }}) — 3 runs
+        working-directory: clojure/tests/bench
+        run: |
+          docker compose --profile test run --rm test-runner \
+            make ${{ matrix.make_target }} RUNS=3
+
+      - name: Upload timing JSON
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bench-${{ matrix.suite }}-${{ matrix.pgloader }}
+          path: /tmp/pgloader-bench/${{ matrix.suite }}-${{ matrix.pgloader }}-*.json
+          retention-days: 7
+
+      - name: Tear down
+        if: always()
+        working-directory: clojure/tests/bench
+        run: docker compose down --volumes || true
+
+  # ── Bench report: aggregate timing JSON from all four bench jobs ───────────
+  bench-report:
+    name: Bench timing report
+    needs: [bench]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Download all timing artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: bench-*
+          path: /tmp/pgloader-bench/
+          merge-multiple: true
+
+      - name: Print timing table and write step summary
+        env:
+          GITHUB_STEP_SUMMARY: ${{ github.step_summary }}
+        run: python3 clojure/tests/bench/report.py /tmp/pgloader-bench/
+
   # ── Publish evergreen dev release ─────────────────────────────────────────
   # Runs only on push (not PRs), only after all tests pass.
   # Overwrites the assets on the fixed `v4-dev` pre-release tag so that
@@ -305,7 +447,7 @@ jobs:
   # always points to the latest green HEAD JAR.
   publish-dev:
     name: Publish dev release
-    needs: [unit, integration]
+    needs: [unit, integration, bench]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:

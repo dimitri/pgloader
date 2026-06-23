@@ -1,0 +1,65 @@
+services:
+  # ── Source: MariaDB with employees pre-seeded ─────────────────────────────
+  mariadb:
+    build:
+      context: .
+    image: pgloader-bench-source:latest
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpassword
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MARIADB_USER: pgloader
+      MARIADB_PASSWORD: pgloader
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+    # Health check verifies all 2,844,047 salary rows are loaded, not just
+    # that MariaDB is up — the init script runs after the daemon is healthy.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >
+          mariadb -u root -prootpassword employees
+          -e 'SELECT COUNT(*) FROM salaries' 2>/dev/null
+          | grep -q 2844047
+      interval: 15s
+      timeout: 10s
+      retries: 60
+      start_period: 120s
+
+  # ── Target: PostgreSQL ────────────────────────────────────────────────────
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: pgloader
+      POSTGRES_PASSWORD: pgloader
+      POSTGRES_DB: target
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgloader -d target"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Test runner ───────────────────────────────────────────────────────────
+  test-runner:
+    image: pgloader-test-runner:latest
+    build:
+      context: ../../..
+      dockerfile: clojure/tests/Dockerfile
+    volumes:
+      - .:/suite
+      - ../../target/pgloader.jar:/pgloader.jar:ro
+      # lahman.sqlite is fetched by `make lahman.sqlite` and bind-mounted here
+      - ./lahman.sqlite:/work/lahman.sqlite:ro
+    environment:
+      JAR: /pgloader.jar
+      MYSQL_HOST: mariadb
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: target
+      PGUSER: pgloader
+      PGPASSWORD: pgloader
+    depends_on:
+      postgres: {condition: service_healthy}
+      mariadb:  {condition: service_healthy}
+    profiles: [test]
+    command: make -C /suite
