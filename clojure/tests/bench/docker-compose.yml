@@ -50,6 +50,8 @@ services:
       - ../../target/pgloader.jar:/pgloader.jar:ro
       # lahman.sqlite is fetched by `make lahman.sqlite` and bind-mounted here
       - ./lahman.sqlite:/work/lahman.sqlite:ro
+      # divvy CSV files are fetched by `make divvy-data` and bind-mounted here
+      - ./divvy:/work/divvy:ro
     environment:
       JAR: /pgloader.jar
       MYSQL_HOST: mariadb

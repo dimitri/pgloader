@@ -22,3 +22,4 @@ docs/_build
 .claude/worktrees/
 clojure/tests/bench/summaries/
 clojure/tests/bench/lahman.sqlite
+clojure/tests/bench/divvy/

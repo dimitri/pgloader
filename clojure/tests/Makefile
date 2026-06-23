@@ -299,12 +299,12 @@ update-expected-citus: ensure-jar
 # inside that network, summaries land in bench/summaries/ via the .:/suite
 # bind-mount, then the report runs on the host where python3 is available.
 #
-# Lahman SQLite is downloaded to bench/lahman.sqlite before starting — it is
-# bind-mounted read-only into the test-runner at /work/lahman.sqlite.
+# Lahman SQLite and Divvy CSV files are downloaded to bench/ before starting —
+# both are bind-mounted read-only into the test-runner container.
 
 RUNS ?= 3
 
-bench: ensure-jar | bench/lahman.sqlite
+bench: ensure-jar | bench/lahman.sqlite bench/divvy/.ready
 	@$(DC) -f bench/docker-compose.yml down --volumes 2>/dev/null; true
 	@rm -rf bench/summaries && mkdir -p bench/summaries
 	$(DC) $(PROFILE) -f bench/docker-compose.yml run --rm --build test-runner \
@@ -314,6 +314,10 @@ bench: ensure-jar | bench/lahman.sqlite
 
 bench/lahman.sqlite:
 	$(MAKE) -C bench lahman.sqlite
+
+bench/divvy/.ready:
+	$(MAKE) -C bench divvy-data
+	@touch bench/divvy/.ready
 
 bench-down:
 	@$(DC) -f bench/docker-compose.yml down --volumes 2>/dev/null; true

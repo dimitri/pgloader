@@ -358,6 +358,12 @@ jobs:
           - suite: lahman
             pgloader: v3
             make_target: lahman-v3
+          - suite: divvy
+            pgloader: v4
+            make_target: divvy
+          - suite: divvy
+            pgloader: v3
+            make_target: divvy-v3
 
     steps:
       - name: Checkout
@@ -399,18 +405,31 @@ jobs:
         run: |
           [ -f lahman.sqlite ] || make lahman.sqlite
 
+      - name: Cache Divvy CSV files
+        if: matrix.suite == 'divvy'
+        uses: actions/cache@v5
+        with:
+          path: clojure/tests/bench/divvy/
+          key: divvy-tripdata-2023-Q3
+
+      - name: Fetch Divvy CSV files (on cache miss)
+        if: matrix.suite == 'divvy'
+        working-directory: clojure/tests/bench
+        run: |
+          make divvy-data
+
       - name: Run ${{ matrix.suite }} bench (${{ matrix.pgloader }}) — 3 runs
         working-directory: clojure/tests/bench
         run: |
           docker compose --profile test run --rm test-runner \
-            make ${{ matrix.make_target }} RUNS=3
+            make -C /suite ${{ matrix.make_target }} RUNS=3
 
       - name: Upload timing JSON
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: bench-${{ matrix.suite }}-${{ matrix.pgloader }}
-          path: /tmp/pgloader-bench/${{ matrix.suite }}-${{ matrix.pgloader }}-*.json
+          path: clojure/tests/bench/summaries/${{ matrix.suite }}-${{ matrix.pgloader }}-*.json
           retention-days: 7
 
       - name: Tear down
@@ -436,9 +455,10 @@ jobs:
           merge-multiple: true
 
       - name: Print timing table and write step summary
-        env:
-          GITHUB_STEP_SUMMARY: ${{ github.step_summary }}
-        run: python3 clojure/tests/bench/report.py /tmp/pgloader-bench/
+        run: |
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          python3 clojure/tests/bench/report.py /tmp/pgloader-bench/ | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
 
   # ── Publish evergreen dev release ─────────────────────────────────────────
   # Runs only on push (not PRs), only after all tests pass.
