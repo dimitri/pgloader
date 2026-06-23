@@ -22,7 +22,8 @@
   com.github.albfernandez/javadbf {:mvn/version "1.13.1"}
 
   ch.qos.logback/logback-classic {:mvn/version "1.5.6"}
-  com.github.clj-easy/graal-build-time {:mvn/version "1.0.5"}}
+  com.github.clj-easy/graal-build-time {:mvn/version "1.0.5"}
+  org.clojure/data.json {:mvn/version "2.5.0"}}
 
  :aliases
  {:test

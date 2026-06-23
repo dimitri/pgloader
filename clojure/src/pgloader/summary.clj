@@ -1,6 +1,7 @@
 (ns pgloader.summary
   (:require [pgloader.log :as log]
             [pgloader.stats :as stats]
+            [clojure.data.json :as json]
             [clojure.java.io :as io]
             [clojure.string :as str])
   (:import [java.io Writer]))
@@ -153,7 +154,7 @@
                :grand-total (-> g
                                 (assoc :rows (:rows d) :bytes (:bytes d))
                                 (cond-> wall-nanos (assoc :total-nanos wall-nanos)))}]
-     (spit path (pr-str full)))))
+     (spit path (json/write-str full :key-fn name)))))
 
 (defn write-summary
   ([path verbose] (write-summary path verbose nil))
