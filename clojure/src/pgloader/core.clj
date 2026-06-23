@@ -265,26 +265,49 @@
             cat))))))
 
 (defn- materialize-views!
-  "Execute MATERIALIZE VIEWS: run each view's query against the source
-   and write the results to the target PostgreSQL table via COPY.
-   The target tables are expected to already exist (e.g. created by BEFORE LOAD DO)."
-  [^java.sql.Connection pg-conn source matviews schema]
+  "Execute MATERIALIZE VIEWS with explicit SQL definitions.
+   For each view:
+   1. Run the SQL query against the source to discover column names and types.
+   2. Create the target table (DROP IF EXISTS + CREATE TABLE) from inferred types,
+      mirroring v3 behaviour where the schema is derived from the query result.
+   3. Stream rows to the target via COPY, applying cast-specs from cast-rule-maps."
+  [^java.sql.Connection pg-conn source matviews schema cast-rule-maps]
   (doseq [{:keys [name query]} matviews]
-    (let [sql      (or query (str "SELECT * FROM `" name "`"))
+    (let [sql      (or query (str "SELECT * FROM \"" name "\""))
           _        (log/info (str "Materializing view: " name))
           {:keys [columns rows]} (read-query source sql)
-          col-count (count columns)
-          table-spec {:target-schema schema
-                      :target-table  name
-                      :columns       (mapv (fn [c] {:column-name (:column-name c)}) columns)}
-          copy-sql-str (copy/copy-sql table-spec)]
+          ;; Map JDBC type names to PostgreSQL types; all columns are nullable
+          ;; (view query results carry no NOT NULL guarantees).
+          pg-columns (mapv (fn [c]
+                             (assoc c
+                                    :column-type (ddl/pg-type-for-jdbc (:column-type c))
+                                    :is-nullable true
+                                    :column-default nil
+                                    :extra nil))
+                           columns)
+          _ (try
+              (doseq [s [(str "CREATE SCHEMA IF NOT EXISTS "
+                              (ddl/identifier-quote schema))
+                         (ddl/drop-table-if-exists-sql schema name)
+                         (ddl/create-table-sql schema name pg-columns)]]
+                (jdbc/execute! pg-conn [s]))
+              (.commit pg-conn)
+              (log/info (str "Created target table for materialized view: "
+                             schema "." name))
+              (catch Exception e
+                (.rollback pg-conn)
+                (log/error e (str "Failed to create table for materialized view " name))
+                (throw e)))
+          cast-specs   (cast/resolve-specs cast-rule-maps pg-columns)
+          copy-sql-str (copy/copy-sql {:target-schema schema
+                                       :target-table  name
+                                       :columns       pg-columns})]
       (try
         (loop [b (batch/make-batch 1000 (* 20 1024 1024))
                remaining rows
                total-rows (long 0)]
           (if-let [row (first remaining)]
-            (let [row-bytes (copy/format-row-bytes
-                             row (vec (repeat col-count nil)))
+            (let [row-bytes (copy/format-row-bytes row cast-specs)
                   b' (batch/batch-add-row! b row-bytes)]
               (if (batch/batch-full? b')
                 (do (batch/send-batch! pg-conn b' copy-sql-str)
@@ -578,7 +601,7 @@
                   (when-let [matviews (when (sequential? (:materialize-views cmd))
                                         (seq (filter :query (:materialize-views cmd))))]
                     (let [mv-schema (or (:db source-uri) "public")]
-                      (materialize-views! pg-conn source matviews mv-schema)))
+                      (materialize-views! pg-conn source matviews mv-schema cast-rule-maps)))
                   (log/info (str "Processing tables in this order: "
                                  (clojure.string/join ", " (map :table-name cat))))
                   (log/info "Preparing target PostgreSQL schema")

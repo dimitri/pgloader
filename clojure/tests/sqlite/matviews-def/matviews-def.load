@@ -2,8 +2,7 @@
 -- The view renames column 'tx' to 'transcript', which is the exact use-case
 -- from the original feature request (#699). The SQL is executed against the
 -- source SQLite connection and the result is written to PostgreSQL via COPY.
--- The target table must be created by BEFORE LOAD DO since pgloader infers
--- the schema from the query at runtime.
+-- pgloader now infers the target table schema from the query result metadata.
 LOAD DATABASE
      FROM sqlite:///work/matviews-def/source.sqlite
      INTO postgresql://pgloader:pgloader@postgres:5432/target
@@ -11,12 +10,4 @@ LOAD DATABASE
      WITH include drop, create tables, reset sequences
 
      MATERIALIZE VIEWS order_summary
-       AS $$ SELECT id, tx AS transcript, amount FROM orders $$
-
-     BEFORE LOAD DO
-       $$ DROP TABLE IF EXISTS order_summary CASCADE; $$,
-       $$ CREATE TABLE order_summary (
-            id         integer,
-            transcript text,
-            amount     double precision
-          ); $$;
+       AS $$ SELECT id, tx AS transcript, amount FROM orders $$;

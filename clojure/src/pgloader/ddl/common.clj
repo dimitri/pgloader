@@ -97,6 +97,29 @@
       (str/starts-with? upper "GEOMETRYCOLLECTION") "geometry(GeometryCollection)"
       :else "text")))
 
+(defn pg-type-for-jdbc
+  "Map a JDBC getColumnTypeName() result to a PostgreSQL SQL type name.
+   Handles PostgreSQL internal type aliases (int4 → integer, bool → boolean,
+   timestamptz → timestamp with time zone, _int4 → integer[], …) and falls
+   back to the MySQL/SQLite type mapping for everything else."
+  [^String jdbc-type]
+  (when jdbc-type
+    (let [lower (str/lower-case (str/trim jdbc-type))]
+      (case lower
+        "int2"        "smallint"
+        "int4"        "integer"
+        "int8"        "bigint"
+        "bool"        "boolean"
+        "float4"      "real"
+        "float8"      "double precision"
+        "bpchar"      "text"
+        "timestamptz" "timestamp with time zone"
+        "timetz"      "time with time zone"
+        ;; PostgreSQL JDBC array types are prefixed with _ (_int4, _text, etc.)
+        (if (str/starts-with? lower "_")
+          (str (pg-type-for-jdbc (subs jdbc-type 1)) "[]")
+          (pg-type-for jdbc-type nil))))))
+
 (defn- coerce-default-for-type
   "Coerce a column default to be valid for the given PostgreSQL type.
    If the column has a :cast-fn (from a user cast rule), apply it — this

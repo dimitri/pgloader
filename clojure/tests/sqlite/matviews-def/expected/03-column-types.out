@@ -1,0 +1,7 @@
+ column_name | data_type 
+-------------+-----------
+ id          | integer
+ transcript  | text
+ amount      | real
+(3 rows)
+
