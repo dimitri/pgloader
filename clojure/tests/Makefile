@@ -302,10 +302,13 @@ update-expected-citus: ensure-jar
 # Lahman SQLite is downloaded to bench/lahman.sqlite before starting — it is
 # bind-mounted read-only into the test-runner at /work/lahman.sqlite.
 
+RUNS ?= 3
+
 bench: ensure-jar | bench/lahman.sqlite
 	@$(DC) -f bench/docker-compose.yml down --volumes 2>/dev/null; true
-	@mkdir -p bench/summaries
-	$(DC) $(PROFILE) -f bench/docker-compose.yml run --rm --build test-runner
+	@rm -rf bench/summaries && mkdir -p bench/summaries
+	$(DC) $(PROFILE) -f bench/docker-compose.yml run --rm --build test-runner \
+	  make -C /suite bench RUNS=$(RUNS)
 	@python3 bench/report.py bench/summaries
 	@$(DC) -f bench/docker-compose.yml down --volumes 2>/dev/null; true
 

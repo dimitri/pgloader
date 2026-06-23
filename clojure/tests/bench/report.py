@@ -39,9 +39,17 @@ def parse_v3(d):
     # yason encodes CL slot names as uppercase strings
     pgloader_s = d.get("SECS") or d.get("secs") or 0.0
     os_s = d.get("os-wall-ms", 0) / 1000
-    # sum rows from DATA array
+    # DATA is a list of groups; each group is a list of per-table dicts.
+    # v3 batches concurrent tables into sub-lists and may emit JSON null
+    # for empty sections (e.g. SQLite loads with no DATA tables tracked).
     data = d.get("DATA") or d.get("data") or []
-    rows = sum(t.get("ROWS") or t.get("rows") or 0 for t in data)
+    rows = sum(
+        entry.get("ROWS") or entry.get("rows") or 0
+        for group in data
+        if group is not None
+        for entry in (group if isinstance(group, list) else [group])
+        if isinstance(entry, dict)
+    )
     return float(pgloader_s), None, os_s, rows
 
 
@@ -92,13 +100,15 @@ def build_table(suites, versions):
                     f"{suite:<12} {ver:<4} {n:<5}  "
                     f"{fmt_s(pg)}  {fmt_s(cp)}  {fmt_s(os_)}  {fmt_rows(r):>7}"
                 )
-            pg_med  = median(r[0] for r in run_data)
-            cp_vals = [r[1] for r in run_data if r[1] is not None]
-            cp_med  = median(cp_vals) if cp_vals else None
-            os_med  = median(r[2] for r in run_data)
+            pg_med   = median(r[0] for r in run_data)
+            cp_vals  = [r[1] for r in run_data if r[1] is not None]
+            cp_med   = median(cp_vals) if cp_vals else None
+            os_med   = median(r[2] for r in run_data)
+            row_vals = [r[3] for r in run_data if r[3]]
+            rows_med = int(median(row_vals)) if row_vals else 0
             rows.append(
                 f"{suite:<12} {ver:<4} {'med':<5}  "
-                f"{fmt_s(pg_med)}  {fmt_s(cp_med)}  {fmt_s(os_med)}  "
+                f"{fmt_s(pg_med)}  {fmt_s(cp_med)}  {fmt_s(os_med)}  {fmt_rows(rows_med):>7}"
             )
 
         v4 = collect(suite, "v4")
