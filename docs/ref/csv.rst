@@ -190,6 +190,17 @@ When loading from a `CSV` file, the following options are supported:
     names to be found in the CSV file, using the same CSV parameters as
     for the CSV data.
 
+  - *date format*
+
+    Takes a date format string as argument. When target columns are of a
+    PostgreSQL date/time type, this option applies the format to those
+    fields by default. A per-field *date format* specification still takes
+    precedence for that field.
+
+    Here's an example of a *WITH* date format specification::
+
+      WITH date format 'YYYY-MM-DD HH24-MI-SS.US'
+
   - *trim unquoted blanks*
 
     When reading unquoted values in the `CSV` file, remove the blanks
@@ -259,4 +270,3 @@ When loading from a `CSV` file, the following options are supported:
 
     This character is used to recognize *end-of-line* condition when
     reading the `CSV` data.
-

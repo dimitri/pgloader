@@ -2,12 +2,13 @@ LOAD CSV
      FROM inline
           (
             "row num",
-            ts [date format 'MM-DD-YYYY HH24-MI-SS.US'],
+            ts,
             hr [date format 'HH24:MI.SS']
           )
      INTO postgresql:///pgloader?dateformat ("row num", ts, hr)
 
      WITH truncate,
+          date format 'MM-DD-YYYY HH24-MI-SS.US',
           fields optionally enclosed by '"',
           fields escaped by double-quote,
           fields terminated by ','

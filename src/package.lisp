@@ -547,6 +547,7 @@
            #:encoding
            #:skip-lines
            #:header
+           #:date-format
 
            ;; md-copy protocol/api
            #:parse-header

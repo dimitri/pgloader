@@ -165,7 +165,8 @@
     table-name  = #'[a-zA-Z_][a-zA-Z0-9_-]*' | <'\"'> #'[^\"]+' <'\"'>
 
    with-csv-clause  = <'WITH'> <ws> csv-option (<opt-ws> <','> <opt-ws> csv-option)*
-    csv-option  = skip-header | fields-enclosed | fields-terminated | fields-escaped | fields-not-enclosed | csv-encoding | create-tables | create-no-tables | nullif | keep-unquoted-blanks | trim-unquoted-blanks | truncate | disable-triggers | batch-rows | batch-size | batch-concurrency | csv-header | lines-terminated | csv-escape-mode | drop-indexes
+    csv-option  = skip-header | fields-enclosed | fields-terminated | fields-escaped | fields-not-enclosed | csv-encoding | create-tables | create-no-tables | nullif | keep-unquoted-blanks | trim-unquoted-blanks | truncate | disable-triggers | batch-rows | batch-size | batch-concurrency | csv-header | lines-terminated | csv-escape-mode | date-format | drop-indexes
+    date-format = <'date'> <ws> <'format'> <ws> quoted-string
     drop-indexes = <'drop'> <ws> <'indexes'>
    csv-encoding = <'encoding'> <ws> quoted-string
    skip-header = <'skip'> <ws> <'header'> <opt-ws> <'='> <opt-ws> integer
