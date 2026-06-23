@@ -1,0 +1,6 @@
+   constraint_name   |             check_clause              
+---------------------+---------------------------------------
+ chk_age_range       | CHECK (((age >= 18) AND (age <= 99)))
+ chk_salary_positive | CHECK ((salary > (0)::numeric))
+(2 rows)
+
