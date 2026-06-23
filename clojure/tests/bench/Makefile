@@ -4,10 +4,13 @@ JAR          ?= $(_jar_default)
 PGLOADER_V4  ?= java -jar $(JAR)
 PGLOADER_V3  ?= pgloader --client-min-messages notice
 RUNS         ?= 3
-SUMMARY_DIR  ?= /tmp/pgloader-bench
 
-# BENCH_DIR: directory containing this Makefile (script helpers live here)
+# BENCH_DIR: directory containing this Makefile (script helpers live here).
+# Inside the test-runner container this is /suite/; on the host it is the
+# real bench/ path.  Either way SUMMARY_DIR lands on the host via the
+# .:/suite bind-mount so files survive the container exit.
 BENCH_DIR    := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+SUMMARY_DIR  ?= $(BENCH_DIR)summaries
 
 LAHMAN_URL ?= https://github.com/jknecht/baseball-archive-sqlite/releases/download/2022/lahman_1871-2022.sqlite
 
@@ -21,7 +24,10 @@ inject_ms = perl $(BENCH_DIR)inject-ms.pl
 
 all: bench
 
-bench: employees employees-v3 lahman lahman-v3 report
+# Inside the test-runner container (invoked by tests/Makefile via docker
+# compose run), only the data-loading targets run.  The report target needs
+# python3 and runs on the host after the container exits.
+bench: employees employees-v3 lahman lahman-v3
 
 # ── employees ─────────────────────────────────────────────────────────────────
 

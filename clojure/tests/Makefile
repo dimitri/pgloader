@@ -42,7 +42,7 @@ PROFILE  = --profile test
 .PHONY: update-expected-mysql update-expected-mysql57
 .PHONY: update-expected-mariadb update-expected-pgsql update-expected-mssql update-expected-citus
 .PHONY: down ensure-jar ensure-f1db
-.PHONY: bench employees employees-v3 lahman lahman-v3 bench-report bench-down
+.PHONY: bench bench-down
 
 all: csv copy fixed dbf sqlite mysql mysql57 mariadb pgsql mssql citus
 
@@ -293,13 +293,27 @@ update-expected-citus: ensure-jar
 	  run --rm --build -e REGRESS_FLAGS=--update test-runner
 	@$(DC) -f citus/docker-compose.yml down --volumes 2>/dev/null; true
 
-# ─── Bench suite (delegates to tests/bench/Makefile) ─────────────────────────
+# ─── Bench suite ──────────────────────────────────────────────────────────────
+# Mirrors the pattern of every other suite: docker compose brings up source +
+# target databases, the test-runner container executes pgloader (v4 and v3)
+# inside that network, summaries land in bench/summaries/ via the .:/suite
+# bind-mount, then the report runs on the host where python3 is available.
+#
+# Lahman SQLite is downloaded to bench/lahman.sqlite before starting — it is
+# bind-mounted read-only into the test-runner at /work/lahman.sqlite.
 
-bench employees employees-v3 lahman lahman-v3 bench-report:
-	$(MAKE) -C bench $@
+bench: ensure-jar | bench/lahman.sqlite
+	@$(DC) -f bench/docker-compose.yml down --volumes 2>/dev/null; true
+	@mkdir -p bench/summaries
+	$(DC) $(PROFILE) -f bench/docker-compose.yml run --rm --build test-runner
+	@python3 bench/report.py bench/summaries
+	@$(DC) -f bench/docker-compose.yml down --volumes 2>/dev/null; true
+
+bench/lahman.sqlite:
+	$(MAKE) -C bench lahman.sqlite
 
 bench-down:
-	$(MAKE) -C bench down
+	@$(DC) -f bench/docker-compose.yml down --volumes 2>/dev/null; true
 
 # ─── Teardown ─────────────────────────────────────────────────────────────────
 # Stop every suite's compose stack (safe to run at any time).
