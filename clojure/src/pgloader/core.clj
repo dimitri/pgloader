@@ -590,15 +590,26 @@
                           multiple-readers? (get with-options :multiple-readers false)
                           concurrency   (long (or (get with-options :concurrency) 1))
                           chunk-bytes   (long (or (get with-options :chunk-size) (* 50 1024 1024)))
-                          all-idx-count (int (transduce (map #(count (:indexes %))) + 0 cat))
-                          max-par-idx   (int (max 1 (or (get with-options :max-parallel-create-index)
-                                                        all-idx-count)))
-                ;; Index executor: each table's indexes are submitted as soon as that
-                ;; table's COPY finishes, so index builds overlap with subsequent copies.
-                          idx-executor  (when (and create-indexes? (pos? all-idx-count))
-                                          (Executors/newFixedThreadPool max-par-idx))
-                          idx-futures   (atom [])
-                          idx-wall-t0   (atom nil)]
+                          all-idx-count   (int (transduce (map #(count (:indexes %))) + 0 cat))
+                          pk-count        (int (count (filter #(seq (:primary-key %)) cat)))
+                          total-idx-count (+ all-idx-count pk-count)
+                ;; Pool sized to the widest single table (matches v3's max-indexes-per-table),
+                ;; not to the grand total — avoids spawning one thread per index.
+                          max-idx-per-table (int (apply max 0
+                                                        (map #(+ (if (seq (:primary-key %)) 1 0)
+                                                                 (count (:indexes %)))
+                                                             cat)))
+                          max-par-idx     (int (max 1 (or (get with-options :max-parallel-create-index)
+                                                          max-idx-per-table)))
+                ;; Index executor: indexes are submitted as soon as each table's COPY
+                ;; finishes (PK + secondary), so index builds overlap subsequent copies.
+                          idx-executor    (when (and create-indexes? (pos? total-idx-count))
+                                            (Executors/newFixedThreadPool max-par-idx))
+                          idx-futures     (atom [])
+                          idx-wall-t0     (atom nil)
+                ;; ALTER TABLE … ADD PRIMARY KEY USING INDEX — collected during index
+                ;; submission, executed serially after all CREATE INDEX tasks finish.
+                          pkey-alter-sqls (atom [])]
           ;; drop schema — executed once per schema before per-table DDL
                       (when (and (get with-options :drop-schema false)
                                  (not (get with-options :data-only false)))
@@ -667,14 +678,14 @@
                                       (exec-post-ddl! pg-conn sqls-to-run
                                                       (str "ENUM TYPES for " table))))
                                   (run-ddl-tx pg-conn ddl-sqls)
-                  ;; Query table OID and create primary-key index with idx_{oid}_PRIMARY naming.
-                                  (when (seq pk)
+                  ;; Query OID for index naming (PK + secondary).
+                  ;; PK creation is deferred to after COPY — same as v3.
+                                  (when (or (seq pk)
+                                            (and (not preserve-index-names?) (seq (:indexes t))))
                                     (let [oid-row (table-oid pg-conn {:schema schema :table table})
                                           oid     (:oid oid-row)]
                                       (when oid
-                                        (swap! table-oids assoc (str schema "." table) oid)
-                                        (when-let [pk-sqls (ddl/create-primary-key-sql schema table pk oid)]
-                                          (run-ddl-tx pg-conn pk-sqls)))))
+                                        (swap! table-oids assoc (str schema "." table) oid))))
                   ;; Create ON UPDATE CURRENT_TIMESTAMP triggers
                                   (when-let [trg-sqls (ddl/create-triggers-sql schema table cols)]
                                     (exec-post-ddl! pg-conn trg-sqls (str "TRIGGER on " table)))
@@ -835,22 +846,38 @@
                                                               (catch Exception e2
                                                                 (.rollback worker-pg)
                                                                 (log/warn (str "Failed to re-enable triggers: " (.getMessage e2))))))))
-                                  ;; Submit indexes after all readers for this table are done.
-                                                      (when (and idx-executor (seq (:indexes t)))
-                                                        (when (nil? @idx-wall-t0)
-                                                          (reset! idx-wall-t0 (System/nanoTime)))
-                                                        (let [oid  (when-not preserve-index-names?
-                                                                     (get @table-oids (str schema "." table)))
-                                                              sqls (ddl/create-indexes-sql schema table (:indexes t) oid)]
-                                                          (doseq [sql sqls]
-                                                            (swap! idx-futures conj
-                                                                   (.submit ^ExecutorService idx-executor
-                                                                            ^java.util.concurrent.Callable
-                                                                            (fn []
-                                                                              (let [conn (postgres-connection target-uri)]
-                                                                                (try
-                                                                                  (exec-post-ddl! conn [sql] (str "INDEX on " table))
-                                                                                  (finally (.close ^Connection conn)))))))))))))
+                                  ;; Submit ALL indexes (PK + secondary) after COPY — same as v3.
+                                                      (let [pk      (:primary-key t)
+                                                            has-idx (or (seq pk) (seq (:indexes t)))]
+                                                        (when (and idx-executor has-idx)
+                                                          (when (nil? @idx-wall-t0)
+                                                            (reset! idx-wall-t0 (System/nanoTime)))
+                                                          (let [oid (get @table-oids (str schema "." table))]
+                                                            ;; PK: CREATE UNIQUE INDEX deferred from DDL phase
+                                                            (when (seq pk)
+                                                              (let [[pk-create-sql pk-alter-sql]
+                                                                    (ddl/create-primary-key-sql schema table pk oid)]
+                                                                (swap! pkey-alter-sqls conj pk-alter-sql)
+                                                                (swap! idx-futures conj
+                                                                       (.submit ^ExecutorService idx-executor
+                                                                                ^java.util.concurrent.Callable
+                                                                                (fn []
+                                                                                  (let [conn (postgres-connection target-uri)]
+                                                                                    (try
+                                                                                      (exec-post-ddl! conn [pk-create-sql] (str "PK INDEX on " table))
+                                                                                      (finally (.close ^Connection conn)))))))))
+                                                            ;; Secondary indexes
+                                                            (let [oid* (when-not preserve-index-names? oid)
+                                                                  sqls (ddl/create-indexes-sql schema table (:indexes t) oid*)]
+                                                              (doseq [sql sqls]
+                                                                (swap! idx-futures conj
+                                                                       (.submit ^ExecutorService idx-executor
+                                                                                ^java.util.concurrent.Callable
+                                                                                (fn []
+                                                                                  (let [conn (postgres-connection target-uri)]
+                                                                                    (try
+                                                                                      (exec-post-ddl! conn [sql] (str "INDEX on " table))
+                                                                                      (finally (.close ^Connection conn)))))))))))))))
                                                 (finally
                                                   (close! worker-src)
                                                   (.close ^Connection worker-pg)))))))
@@ -869,11 +896,26 @@
                           (reset! idx-wall-t0 (System/nanoTime)))
                         (doseq [t cat]
                           (let [schema (or (:schema t) "public")
-                                table  (:table-name t)]
+                                table  (:table-name t)
+                                pk     (:primary-key t)
+                                oid    (get @table-oids (str schema "." table))]
+                            ;; PK index
+                            (when (seq pk)
+                              (let [[pk-create-sql pk-alter-sql]
+                                    (ddl/create-primary-key-sql schema table pk oid)]
+                                (swap! pkey-alter-sqls conj pk-alter-sql)
+                                (swap! idx-futures conj
+                                       (.submit ^ExecutorService idx-executor
+                                                ^java.util.concurrent.Callable
+                                                (fn []
+                                                  (let [conn (postgres-connection target-uri)]
+                                                    (try
+                                                      (exec-post-ddl! conn [pk-create-sql] (str "PK INDEX on " table))
+                                                      (finally (.close ^Connection conn)))))))))
+                            ;; Secondary indexes
                             (when-let [idxs (seq (:indexes t))]
-                              (let [oid  (when-not preserve-index-names?
-                                           (get @table-oids (str schema "." table)))
-                                    sqls (ddl/create-indexes-sql schema table idxs oid)]
+                              (let [oid* (when-not preserve-index-names? oid)
+                                    sqls (ddl/create-indexes-sql schema table idxs oid*)]
                                 (doseq [sql sqls]
                                   (swap! idx-futures conj
                                          (.submit ^ExecutorService idx-executor
@@ -893,7 +935,17 @@
                             (try (.get f) (catch Exception _))))
                         (stats/update-entry! :post "Create Indexes"
                                              :rows (count @idx-futures)
-                                             :total-nanos (- (System/nanoTime) (or @idx-wall-t0 (System/nanoTime)))))
+                                             :total-nanos (- (System/nanoTime) (or @idx-wall-t0 (System/nanoTime))))
+                        ;; Upgrade UNIQUE indexes to PRIMARY KEY — fast (index already built)
+                        ;; but requires ACCESS EXCLUSIVE lock. Matches v3's "Primary Keys" step.
+                        (when (seq @pkey-alter-sqls)
+                          (stats/new-entry! :post "Primary Keys")
+                          (let [pk-start (System/nanoTime)]
+                            (doseq [sql @pkey-alter-sqls]
+                              (exec-post-ddl! pg-conn [sql] "Primary Keys"))
+                            (stats/update-entry! :post "Primary Keys"
+                                                 :rows (count @pkey-alter-sqls)
+                                                 :total-nanos (- (System/nanoTime) pk-start)))))
                       (when (get with-options :foreign-keys false)
                         (log/info "Creating foreign keys")
                         (stats/new-entry! :post "Create Foreign Keys")
