@@ -1,9 +1,9 @@
- pk_constraints
+ pk_constraints 
 ----------------
              11
 (1 row)
 
- total_indexes
+ total_indexes 
 ---------------
             20
 (1 row)
