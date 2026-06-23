@@ -97,8 +97,8 @@
    "blob"             "bytea"
    "byte"             "bytea"
    "byte[]"           "bytea"
-   ;; real-affinity types
-   "real"             "double precision"
+   ;; real-affinity types — SQLite REAL maps to PostgreSQL real (matches v3 cast rule)
+   "real"             "real"
    "float"            "double precision"
    "float4"           "real"
    "float8"           "double precision"
@@ -250,6 +250,32 @@
         (catch Exception e
           (log/error (str "Query failed: " sql " - " (.getMessage e)))
           (throw e)))))
+
+  (create-view! [_ view-name _source-schema sql]
+    ;; SQLite has no schemas; create the view unqualified.
+    (jdbc/execute! conn [(str "CREATE VIEW \"" view-name "\" AS " sql)])
+    (let [cols (list-columns conn view-name)]
+      {:table-name        view-name
+       :source-table-name view-name
+       :schema            "public"
+       :is-view           true
+       :columns           (mapv (fn [c]
+                                  {:column-name    (:name c)
+                                   :column-type    (sqlite-type->pg (or (:type c) "text"))
+                                   :is-nullable    true
+                                   :column-default nil
+                                   :key            false
+                                   :extra          nil})
+                                cols)
+       :primary-key []
+       :indexes     []
+       :fkeys       []}))
+
+  (drop-view! [_ view-name _source-schema]
+    (try
+      (jdbc/execute! conn [(str "DROP VIEW IF EXISTS \"" view-name "\"")])
+      (catch Exception e
+        (log/warn (str "Failed to drop source view \"" view-name "\": " (.getMessage e))))))
 
   (partition-source [_ _ _ _] nil)
 

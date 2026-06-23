@@ -1,6 +1,6 @@
  column_name | data_type 
 -------------+-----------
- id          | integer
+ id          | bigint
  transcript  | text
  amount      | real
 (3 rows)

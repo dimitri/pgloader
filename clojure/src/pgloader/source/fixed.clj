@@ -172,6 +172,12 @@
 
   (close! [_])
 
+  (create-view! [_ _ _ _]
+    (throw (UnsupportedOperationException. "create-view! not supported for fixed source")))
+
+  (drop-view! [_ _ _]
+    (throw (UnsupportedOperationException. "drop-view! not supported for fixed source")))
+
   (read-query [_ _sql]
     (throw (UnsupportedOperationException. "read-query not supported for fixed source")))
 

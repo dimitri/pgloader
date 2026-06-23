@@ -155,8 +155,7 @@ sqlite: ensure-jar
 sqlite-v3: ensure-jar
 	@$(DC) -f sqlite/docker-compose.yml down --volumes 2>/dev/null; true
 	$(DC) $(PROFILE) -f sqlite/docker-compose.yml run --rm --build \
-	  -e "PGLOADER_CMD=pgloader --client-min-messages notice" \
-	  -e "REGRESS_FLAGS=--variant v3" test-runner
+	  -e "PGLOADER_CMD=pgloader --client-min-messages notice" test-runner
 	@$(DC) -f sqlite/docker-compose.yml down --volumes 2>/dev/null; true
 
 update-expected-sqlite: ensure-jar
