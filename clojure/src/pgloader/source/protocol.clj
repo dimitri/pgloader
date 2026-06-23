@@ -35,6 +35,19 @@
      distributing across n readers).
      Each returned source has its own DB connection and reads only its portion.")
 
+  (create-view! [this view-name source-schema sql]
+    "Create a VIEW named view-name (optionally qualified with source-schema) on the
+     source connection using the given SQL definition.  source-schema is nil for
+     sources without named schemas (SQLite, MySQL).
+     Returns a catalog entry map in the same shape as entries from catalog, suitable
+     for passing directly to read-rows and ddl/create-table-sql.
+     Throws UnsupportedOperationException for file-based sources.")
+
+  (drop-view! [this view-name source-schema]
+    "Drop the VIEW named view-name from the source connection.  Best-effort: logs
+     but does not rethrow on failure.  source-schema is nil where not applicable.
+     Throws UnsupportedOperationException for file-based sources.")
+
   (close! [this]
     "Release all resources held by this source.
      Called once after all tables are copied or on error."))

@@ -374,6 +374,33 @@
                        (persistent! result)))
                    (thisfn))))))}))
 
+  (create-view! [_ view-name _source-schema sql]
+    ;; MySQL has no meaningful schema prefix here — the view is created in the
+    ;; connected database, mirroring v3's behaviour where schema is always nil.
+    (jdbc/execute! conn [(str "CREATE VIEW `" view-name "` AS " sql)])
+    (let [id-case (identifier-case-option table-spec)
+          cols    (columns conn {:schema schema-name :table view-name})]
+      {:table-name        (apply-identifier-case view-name id-case)
+       :source-table-name view-name
+       :schema            schema-name
+       :is-view           true
+       :columns           (mapv (fn [c]
+                                  {:column-name    (apply-identifier-case (:column_name c) id-case)
+                                   :column-type    (:column_type c)
+                                   :is-nullable    true
+                                   :column-default nil
+                                   :extra          nil})
+                                cols)
+       :primary-key []
+       :indexes     []
+       :fkeys       []}))
+
+  (drop-view! [_ view-name _source-schema]
+    (try
+      (jdbc/execute! conn [(str "DROP VIEW IF EXISTS `" view-name "`")])
+      (catch Exception e
+        (log/warn (str "Failed to drop source view `" view-name "`: " (.getMessage e))))))
+
   (partition-source [this table-spec-entry n chunk-bytes]
     (mysql-partition-source this table-spec-entry n chunk-bytes))
 

@@ -1,5 +1,5 @@
 (ns pgloader.core
-  (:require [pgloader.source.protocol :refer [Source source-name catalog close! read-query partition-source]]
+  (:require [pgloader.source.protocol :refer [Source source-name catalog close! read-rows create-view! drop-view! partition-source]]
             [pgloader.source.mysql   :as mysql-source]
             [pgloader.source.csv    :as csv-source]
             [pgloader.source.copy   :as copy-source]
@@ -265,42 +265,63 @@
             cat))))))
 
 (defn- materialize-views!
-  "Execute MATERIALIZE VIEWS: run each view's query against the source
-   and write the results to the target PostgreSQL table via COPY.
-   The target tables are expected to already exist (e.g. created by BEFORE LOAD DO)."
-  [^java.sql.Connection pg-conn source matviews schema]
+  "Execute MATERIALIZE VIEWS with explicit SQL definitions, mirroring v3 behaviour:
+   for each view, CREATE VIEW <name> AS <sql> on the source, introspect its columns
+   from the source catalog (preserving declared types and precision), create the
+   target table from that schema, stream rows via COPY, then DROP VIEW on the source.
+   source-schema is nil for sources without named schemas (SQLite, MySQL) and a
+   schema string for PostgreSQL and MS SQL sources."
+  [^java.sql.Connection pg-conn source matviews schema cast-rule-maps]
   (doseq [{:keys [name query]} matviews]
-    (let [sql      (or query (str "SELECT * FROM `" name "`"))
-          _        (log/info (str "Materializing view: " name))
-          {:keys [columns rows]} (read-query source sql)
-          col-count (count columns)
-          table-spec {:target-schema schema
-                      :target-table  name
-                      :columns       (mapv (fn [c] {:column-name (:column-name c)}) columns)}
-          copy-sql-str (copy/copy-sql table-spec)]
+    (let [dot-pos  (.indexOf ^String name (int \.))
+          [source-schema view-name] (if (pos? dot-pos)
+                                      [(subs name 0 dot-pos) (subs name (inc dot-pos))]
+                                      [nil name])
+          _          (log/info (str "Materializing view: " name))
+          view-entry (create-view! source view-name source-schema query)]
       (try
-        (loop [b (batch/make-batch 1000 (* 20 1024 1024))
-               remaining rows
-               total-rows (long 0)]
-          (if-let [row (first remaining)]
-            (let [row-bytes (copy/format-row-bytes
-                             row (vec (repeat col-count nil)))
-                  b' (batch/batch-add-row! b row-bytes)]
-              (if (batch/batch-full? b')
-                (do (batch/send-batch! pg-conn b' copy-sql-str)
-                    (.commit pg-conn)
-                    (recur (batch/make-batch 1000 (* 20 1024 1024))
-                           (rest remaining)
-                           (long (+ total-rows (:row-count b')))))
-                (recur b' (rest remaining) total-rows)))
-            (when (pos? (:row-count b))
-              (batch/send-batch! pg-conn b copy-sql-str)
-              (.commit pg-conn)
-              (log/info (str "Materialized view " name ": "
-                             (+ total-rows (:row-count b)) " rows")))))
+        (let [pg-columns   (:columns view-entry)
+              _            (try
+                             (doseq [s [(str "CREATE SCHEMA IF NOT EXISTS "
+                                             (ddl/identifier-quote schema))
+                                        (ddl/drop-table-if-exists-sql schema view-name)
+                                        (ddl/create-table-sql schema view-name pg-columns)]]
+                               (jdbc/execute! pg-conn [s]))
+                             (.commit pg-conn)
+                             (log/info (str "Created target table for materialized view: "
+                                            schema "." view-name))
+                             (catch Exception e
+                               (.rollback pg-conn)
+                               (log/error e (str "Failed to create table for materialized view " name))
+                               (throw e)))
+              cast-specs   (cast/resolve-specs cast-rule-maps pg-columns)
+              copy-sql-str (copy/copy-sql {:target-schema schema
+                                           :target-table  view-name
+                                           :columns       pg-columns})
+              rows         (read-rows source view-entry)]
+          (loop [b          (batch/make-batch 1000 (* 20 1024 1024))
+                 remaining  rows
+                 total-rows (long 0)]
+            (if-let [row (first remaining)]
+              (let [row-bytes (copy/format-row-bytes row cast-specs)
+                    b'        (batch/batch-add-row! b row-bytes)]
+                (if (batch/batch-full? b')
+                  (do (batch/send-batch! pg-conn b' copy-sql-str)
+                      (.commit pg-conn)
+                      (recur (batch/make-batch 1000 (* 20 1024 1024))
+                             (rest remaining)
+                             (long (+ total-rows (:row-count b')))))
+                  (recur b' (rest remaining) total-rows)))
+              (when (pos? (:row-count b))
+                (batch/send-batch! pg-conn b copy-sql-str)
+                (.commit pg-conn)
+                (log/info (str "Materialized view " name ": "
+                               (+ total-rows (:row-count b)) " rows"))))))
         (catch Exception e
           (.rollback pg-conn)
-          (log/error e (str "Failed to materialize view " name)))))))
+          (log/error e (str "Failed to materialize view " name)))
+        (finally
+          (drop-view! source view-name source-schema))))))
 
 (declare run-command)
 
@@ -578,7 +599,7 @@
                   (when-let [matviews (when (sequential? (:materialize-views cmd))
                                         (seq (filter :query (:materialize-views cmd))))]
                     (let [mv-schema (or (:db source-uri) "public")]
-                      (materialize-views! pg-conn source matviews mv-schema)))
+                      (materialize-views! pg-conn source matviews mv-schema cast-rule-maps)))
                   (log/info (str "Processing tables in this order: "
                                  (clojure.string/join ", " (map :table-name cat))))
                   (log/info "Preparing target PostgreSQL schema")
