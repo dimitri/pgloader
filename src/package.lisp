@@ -756,7 +756,8 @@
            #:copy-mysql
            #:*decoding-as*
 	   #:*mysql-default-cast-rules*
-           #:with-mysql-connection))
+           #:with-mysql-connection
+           #:apply-my-cnf))
 
 (defpackage #:pgloader.source.pgsql
   (:use #:cl

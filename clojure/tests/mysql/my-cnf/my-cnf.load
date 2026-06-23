@@ -1,0 +1,24 @@
+-- Test .my.cnf credential lookup (issue #767).
+--
+-- The MySQL URI includes the user name but omits the password.  Both v3 and
+-- v4 must fill in the missing password from the [pgloader] section of the
+-- ~/.my.cnf placed in the test-runner container by the Dockerfile.
+--
+-- Omitting user+password from the URI is not tested here because the v3
+-- ESRAP grammar greedily consumes the rest of the load file as the password
+-- field when no "@" separator is present.
+--
+-- The regress query checks that rows arrived, proving the connection
+-- succeeded with a password drawn from the option file.
+
+load database
+     from      mysql://root@mysql:3306/pgloader_mytest?useSSL=false
+     into      postgresql://pgloader:pgloader@postgres:5432/target
+
+     with include drop, create tables,
+          reset sequences, create indexes, foreign keys
+
+     including only table names matching 'users'
+
+     set work_mem to '16MB',
+         maintenance_work_mem to '512MB';

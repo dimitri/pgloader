@@ -40,3 +40,9 @@ COPY --from=pgloader-v3-builder /opt/src/pgloader/build/bin/pgloader \
      /usr/local/bin/pgloader
 COPY --from=pgloader-v3-builder /opt/src/pgloader/conf/freetds.conf \
      /etc/freetds/freetds.conf
+
+# ── ~/.my.cnf for issue #767 test ────────────────────────────────────────────
+# Copied from the repo as a plain file; installed as a dotfile at the right
+# location.  chmod 600 is required — MySQL refuses world-readable option files.
+COPY clojure/tests/mysql/my-cnf/my.cnf /root/.my.cnf
+RUN chmod 600 /root/.my.cnf
