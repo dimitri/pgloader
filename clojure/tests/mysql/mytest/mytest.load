@@ -67,7 +67,20 @@ load database
       column hex_binary.raw_hex to bytea using hex-to-bytea,
 
       -- #1522: WITHOUT TYPE — preserve SET→text[] mapping, apply transform only
-      column set_column.perms using set-to-enum-array
+      column set_column.perms using set-to-enum-array,
+
+      -- #1676: and not null source guard — only coerces NOT NULL zero-date columns.
+      -- zero_dates_notnull.created_at (NOT NULL) matches; .updated_at (nullable) does not.
+      type datetime
+              when default "0000-00-00 00:00:00" and not null
+           to timestamp drop not null drop default
+              using zero-dates-to-null,
+
+      -- Fallback: nullable datetime with zero default → still coerce, but no drop-not-null
+      type datetime
+              when default "0000-00-00 00:00:00"
+           to timestamp drop default
+              using zero-dates-to-null
 
  BEFORE LOAD DO
    $$ CREATE SCHEMA IF NOT EXISTS mytest; $$;

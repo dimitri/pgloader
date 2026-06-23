@@ -410,6 +410,27 @@ CREATE TABLE set_column (
 
 INSERT INTO set_column (perms) VALUES ('read'), ('read,write'), ('read,write,execute');
 
+-- #1676: CAST ... when default "..." and not null — only matches NOT NULL columns.
+-- This table has two datetime columns:
+--   created_at: NOT NULL DEFAULT '0000-00-00 00:00:00' → matched by the cast rule
+--   updated_at: nullable DEFAULT '0000-00-00 00:00:00' → NOT matched (null allowed)
+-- After the load:
+--   created_at should be a nullable timestamp (drop not null applied)
+--              with the zero-date row converted to NULL
+--   updated_at should remain typed as timestamp (the other cast rule, without
+--              the not-null guard, applies) and the zero-date also becomes NULL
+CREATE TABLE zero_dates_notnull (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  label      VARCHAR(50) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT '0000-00-00 00:00:00',
+  updated_at DATETIME         DEFAULT '0000-00-00 00:00:00'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO zero_dates_notnull (label, created_at, updated_at) VALUES
+  ('zero',    '0000-00-00 00:00:00', '0000-00-00 00:00:00'),
+  ('real',    '2024-06-01 12:00:00', '2024-06-01 12:00:00'),
+  ('null-upd','2024-06-02 09:00:00', NULL);
+
 -- ============================================================
 -- Grants
 -- ============================================================
