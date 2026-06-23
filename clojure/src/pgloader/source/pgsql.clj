@@ -26,7 +26,7 @@
 
 (def ^:private pg-type-map
   {"smallint" "smallint"
-   "integer" "bigint"
+   "integer" "integer"
    "bigint" "bigint"
    "real" "double precision"
    "double precision" "double precision"
@@ -172,6 +172,7 @@
                                              is-pk (some #(= (:column_name c) %) (mapv :column_name pkeys))
                                              ai (detect-autoincrement (:column_default c) (:column_name c) col-type)]
                                          {:column-name (:column_name c)
+                                          :source-column-type col-type
                                           :column-type (cond
                                                          (and ai is-pk) "bigserial"
                                                          (= col-type "ARRAY")
