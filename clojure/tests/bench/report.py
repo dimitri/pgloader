@@ -3,7 +3,7 @@
 pgloader bench timing report — PR-description format.
 
 Rows are (dataset, version, run); columns are timing metrics.
-A v3÷v4 ratio row follows each dataset block.
+A v4÷v3 ratio row follows each dataset block (< 1 = v4 faster, > 1 = v4 slower).
 
   dataset      ver   run │  pgloader │ COPY wall │   OS wall │    rows │  bytes │  MB/s
   ─────────────────────────────────────────────────────────────────────────────────────
@@ -134,10 +134,11 @@ def fmt_mbps(bytes_, copy_s, w):
     return f"{bytes_ / 1_048_576 / copy_s:.1f}".rjust(w)
 
 
-def fmt_ratio(v3, v4, w):
-    if v3 is None or v4 is None or v4 == 0:
+def fmt_ratio(v4, v3, w):
+    """v4÷v3: < 1 means v4 is faster, > 1 means v4 is slower."""
+    if v4 is None or v3 is None or v3 == 0:
         return "—".rjust(w)
-    return f"{v3 / v4:.2f}×".rjust(w)
+    return f"{v4 / v3:.2f}×".rjust(w)
 
 
 def _med(lst, field):
@@ -231,7 +232,8 @@ def build_table(suites, versions=("v4", "v3")):
                 fmt_mbps(med_byt, med_copy, MBS_W),
             ]))
 
-        # ratio row: always v3 ÷ v4 on pgloader + COPY wall; — elsewhere
+        # ratio row: v4÷v3 on pgloader + COPY wall; — elsewhere
+        # < 1 = v4 faster, > 1 = v4 slower
         v4r = all_data[suite]["v4"]
         v3r = all_data[suite]["v3"]
         m4_pg   = _med(v4r, F_PG)
@@ -242,8 +244,8 @@ def build_table(suites, versions=("v4", "v3")):
             " " * DST_W,
             "─".rjust(VER_W),
             "ratio".rjust(RUN_W),
-            fmt_ratio(m3_pg,   m4_pg,   TIME_W),
-            fmt_ratio(m3_copy, m4_copy, TIME_W),
+            fmt_ratio(m4_pg,   m3_pg,   TIME_W),
+            fmt_ratio(m4_copy, m3_copy, TIME_W),
             "—".rjust(TIME_W),
             "—".rjust(ROW_W),
             "—".rjust(BYT_W),

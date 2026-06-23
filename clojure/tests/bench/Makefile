@@ -1,7 +1,7 @@
 # Container default for JAR; fall back to relative path for local runs
 _jar_default := $(or $(wildcard /pgloader.jar),$(firstword $(wildcard ../../target/pgloader.jar ../../target/pgloader-*.jar)))
 JAR          ?= $(_jar_default)
-PGLOADER_V4  ?= java -jar $(JAR) --quiet
+PGLOADER_V4  ?= java -Xmx2g -jar $(JAR) --quiet
 PGLOADER_V3  ?= pgloader --quiet
 RUNS         ?= 3
 
