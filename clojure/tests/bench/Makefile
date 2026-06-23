@@ -1,8 +1,8 @@
 # Container default for JAR; fall back to relative path for local runs
 _jar_default := $(or $(wildcard /pgloader.jar),$(firstword $(wildcard ../../target/pgloader.jar ../../target/pgloader-*.jar)))
 JAR          ?= $(_jar_default)
-PGLOADER_V4  ?= java -jar $(JAR)
-PGLOADER_V3  ?= pgloader --client-min-messages notice
+PGLOADER_V4  ?= java -jar $(JAR) --quiet
+PGLOADER_V3  ?= pgloader --quiet
 RUNS         ?= 3
 
 # BENCH_DIR: directory containing this Makefile (script helpers live here).

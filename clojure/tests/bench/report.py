@@ -45,8 +45,19 @@ def parse_v4(d):
 def parse_v3(d):
     pgloader_s = float(d.get("SECS") or d.get("secs") or 0.0)
     os_s       = d.get("os-wall-ms", 0) / 1000
-    # COPY wall-clock is not reported by v3
-    return pgloader_s, None, os_s
+    # "COPY Threads Completion" in POSTLOAD is the v3 equivalent of v4's
+    # "COPY Wall-Clock Time": elapsed seconds until all copy threads finished.
+    copy_wall_s = None
+    for group in (d.get("POSTLOAD") or d.get("postload") or []):
+        if not group:
+            continue
+        for entry in (group if isinstance(group, list) else [group]):
+            if isinstance(entry, dict) and entry.get("NAME") == "COPY Threads Completion":
+                secs = entry.get("SECS") or entry.get("secs")
+                if secs:
+                    copy_wall_s = float(secs)
+                break
+    return pgloader_s, copy_wall_s, os_s
 
 
 def collect(suite, version):
@@ -124,37 +135,47 @@ def build_table(suites, versions):
             cols[ver] = lst[run_idx] if run_idx < len(lst) else None
         return cols
 
+    pg_getter = steps[0][1]   # pgloader-time accessor — the comparison metric
+
     # per-run blocks
     for run_n in range(1, max_runs + 1):
         for s_idx, (step_name, getter) in enumerate(steps):
-            run_lbl = str(run_n) if s_idx == 0 else ""
-            parts   = [run_lbl.rjust(RUN_W), step_name.rjust(STP_W)]
+            run_lbl    = str(run_n) if s_idx == 0 else ""
+            show_ratio = s_idx == 0   # ratio only on the pgloader row
+            parts      = [run_lbl.rjust(RUN_W), step_name.rjust(STP_W)]
             for suite in suites:
-                cols = data_cols(suite, run_n - 1)
-                v3r  = getter(cols["v3"]) if cols["v3"] is not None else None
-                v4r  = getter(cols["v4"]) if cols["v4"] is not None else None
+                cols  = data_cols(suite, run_n - 1)
+                pg_v3 = pg_getter(cols["v3"]) if cols["v3"] is not None else None
+                pg_v4 = pg_getter(cols["v4"]) if cols["v4"] is not None else None
                 for ver in versions:
                     val = getter(cols[ver]) if cols[ver] is not None else None
                     parts.append(fmt_time(val, DW))
-                parts.append(fmt_ratio(v3r, v4r))
+                parts.append(fmt_ratio(pg_v3, pg_v4) if show_ratio
+                             else "—".rjust(RAT_W))
             lines.append(SEP.join(parts))
         lines.append(bar)
 
     # median block (bar from last run already printed)
     for s_idx, (step_name, getter) in enumerate(steps):
-        run_lbl = "med" if s_idx == 0 else ""
-        parts   = [run_lbl.rjust(RUN_W), step_name.rjust(STP_W)]
+        run_lbl    = "med" if s_idx == 0 else ""
+        show_ratio = s_idx == 0
+        parts      = [run_lbl.rjust(RUN_W), step_name.rjust(STP_W)]
         for suite in suites:
             meds = {}
             for ver in versions:
                 vals = [getter(r) for r in all_data[suite][ver]
                         if getter(r) is not None]
                 meds[ver] = median(vals) if vals else None
-            v3m = meds.get("v3")
-            v4m = meds.get("v4")
+            pg_v3_vals = [pg_getter(r) for r in all_data[suite]["v3"]
+                          if pg_getter(r) is not None]
+            pg_v4_vals = [pg_getter(r) for r in all_data[suite]["v4"]
+                          if pg_getter(r) is not None]
+            pg_v3m = median(pg_v3_vals) if pg_v3_vals else None
+            pg_v4m = median(pg_v4_vals) if pg_v4_vals else None
             for ver in versions:
                 parts.append(fmt_time(meds[ver], DW))
-            parts.append(fmt_ratio(v3m, v4m))
+            parts.append(fmt_ratio(pg_v3m, pg_v4m) if show_ratio
+                         else "—".rjust(RAT_W))
         lines.append(SEP.join(parts))
 
     return "\n".join(lines)
