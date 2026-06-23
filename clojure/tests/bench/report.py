@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
 """
-Aggregate pgloader bench JSON summaries and print a timing comparison table.
+pgloader bench timing report.
 
-Each JSON file is a pgloader --summary output augmented with os-wall-ms by
-the Makefile runner.  v4 and v3 use different JSON structures:
+Pivoted layout: rows are (run, step), columns are (dataset × version) + ratio.
 
-  v4: {"grand-total": {"total-nanos": N, ...},
-       "phases": {"post": {"tables": [{"label": "COPY Wall-Clock Time",
-                                       "total-time": N}, ...]}}}
+  run │      step │ employees v3 │ employees v4 │ v3÷v4 │ lahman v3 │ lahman v4 │ v3÷v4
+    1 │  pgloader │       x.xxxs │       x.xxxs │ x.xx× │    x.xxxs │    x.xxxs │ x.xx×
+    1 │ COPY wall │            — │       x.xxxs │     — │         — │    x.xxxs │     —
+    1 │   OS wall │       x.xxxs │       x.xxxs │ x.xx× │    x.xxxs │    x.xxxs │ x.xx×
+  ...
+  med │  pgloader │         ...
 
-  v3: {"SECS": N, ...}   (yason-encoded state struct; root "SECS" = elapsed s)
+v4 JSON:  {"grand-total": {"total-nanos": N},
+           "phases": {"post": {"tables": [{"label": "COPY Wall-Clock Time",
+                                           "total-time": N}]}},
+           "os-wall-ms": N}
 
-Both formats carry "os-wall-ms" added by the shell wrapper.
+v3 JSON:  {"SECS": N, "DATA": [[{table…}, …], …], "os-wall-ms": N}
+          DATA is a list of concurrent-batch groups; some may be JSON null.
 """
 
 import json
@@ -20,37 +26,27 @@ import sys
 from pathlib import Path
 from statistics import median
 
-SUMMARY_DIR = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("/tmp/pgloader-bench")
+SUMMARY_DIR = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("summaries")
 
+
+# ── parsers ───────────────────────────────────────────────────────────────────
 
 def parse_v4(d):
-    pgloader_s = d["grand-total"]["total-nanos"] / 1e9
+    pgloader_s  = d["grand-total"]["total-nanos"] / 1e9
     copy_wall_s = None
     for t in d.get("phases", {}).get("post", {}).get("tables", []):
         if t.get("label") == "COPY Wall-Clock Time":
             copy_wall_s = t["total-time"] / 1e9
             break
     os_s = d.get("os-wall-ms", 0) / 1000
-    rows = d["grand-total"].get("rows", 0)
-    return pgloader_s, copy_wall_s, os_s, rows
+    return pgloader_s, copy_wall_s, os_s
 
 
 def parse_v3(d):
-    # yason encodes CL slot names as uppercase strings
-    pgloader_s = d.get("SECS") or d.get("secs") or 0.0
-    os_s = d.get("os-wall-ms", 0) / 1000
-    # DATA is a list of groups; each group is a list of per-table dicts.
-    # v3 batches concurrent tables into sub-lists and may emit JSON null
-    # for empty sections (e.g. SQLite loads with no DATA tables tracked).
-    data = d.get("DATA") or d.get("data") or []
-    rows = sum(
-        entry.get("ROWS") or entry.get("rows") or 0
-        for group in data
-        if group is not None
-        for entry in (group if isinstance(group, list) else [group])
-        if isinstance(entry, dict)
-    )
-    return float(pgloader_s), None, os_s, rows
+    pgloader_s = float(d.get("SECS") or d.get("secs") or 0.0)
+    os_s       = d.get("os-wall-ms", 0) / 1000
+    # COPY wall-clock is not reported by v3
+    return pgloader_s, None, os_s
 
 
 def collect(suite, version):
@@ -61,82 +57,118 @@ def collect(suite, version):
             break
         with open(p) as f:
             d = json.load(f)
-        if version == "v4":
-            runs.append(parse_v4(d))
-        else:
-            runs.append(parse_v3(d))
+        runs.append(parse_v4(d) if version == "v4" else parse_v3(d))
     return runs
 
 
-def fmt_s(s, width=8):
+# ── formatting ────────────────────────────────────────────────────────────────
+
+def _dat_w(suites, versions):
+    """Minimum column width to fit the widest suite+version header."""
+    return max(len(f"{s} {v}") for s in suites for v in versions) + 1
+
+SEP   = " │ "
+RAT_W = 6   # "v3÷v4" / "0.87×"
+RUN_W = 3   # "med"
+STP_W = 9   # "COPY wall"
+
+
+def fmt_time(s, w):
     if s is None:
-        return " " * (width - 2) + "—" + " "
-    return f"{s:{width}.3f}s"
+        return "—".rjust(w)
+    return f"{s:>{w-1}.3f}s"
 
 
-def fmt_rows(n):
-    if not n:
-        return ""
-    if n >= 1_000_000:
-        return f"{n/1_000_000:.1f}M"
-    if n >= 1_000:
-        return f"{n/1_000:.0f}k"
-    return str(n)
+def fmt_ratio(v3, v4):
+    if v3 is None or v4 is None or v4 == 0:
+        return "—".rjust(RAT_W)
+    return f"{v3 / v4:.2f}×".rjust(RAT_W)
 
+
+# ── table builder ─────────────────────────────────────────────────────────────
 
 def build_table(suites, versions):
-    hdr = (f"{'dataset':<12} {'ver':<4} {'run':<5}  "
-           f"{'pgloader':>9}  {'COPY wall':>10}  {'OS wall':>9}  {'rows':>7}")
-    sep = "-" * len(hdr)
-    rows = [hdr, sep]
+    all_data = {s: {v: collect(s, v) for v in versions} for s in suites}
+    max_runs = max(
+        (len(all_data[s][v]) for s in suites for v in versions),
+        default=0,
+    )
 
+    DW = _dat_w(suites, versions)
+
+    # header
+    parts = ["run".rjust(RUN_W), "step".rjust(STP_W)]
     for suite in suites:
         for ver in versions:
-            run_data = collect(suite, ver)
-            if not run_data:
-                continue
-            for n, (pg, cp, os_, r) in enumerate(run_data, 1):
-                rows.append(
-                    f"{suite:<12} {ver:<4} {n:<5}  "
-                    f"{fmt_s(pg)}  {fmt_s(cp)}  {fmt_s(os_)}  {fmt_rows(r):>7}"
-                )
-            pg_med   = median(r[0] for r in run_data)
-            cp_vals  = [r[1] for r in run_data if r[1] is not None]
-            cp_med   = median(cp_vals) if cp_vals else None
-            os_med   = median(r[2] for r in run_data)
-            row_vals = [r[3] for r in run_data if r[3]]
-            rows_med = int(median(row_vals)) if row_vals else 0
-            rows.append(
-                f"{suite:<12} {ver:<4} {'med':<5}  "
-                f"{fmt_s(pg_med)}  {fmt_s(cp_med)}  {fmt_s(os_med)}  {fmt_rows(rows_med):>7}"
-            )
+            parts.append(f"{suite} {ver}".rjust(DW))
+        parts.append("v3÷v4".rjust(RAT_W))
+    hdr = SEP.join(parts)
+    bar = "─" * len(hdr)
 
-        v4 = collect(suite, "v4")
-        v3 = collect(suite, "v3")
-        if v4 and v3:
-            v4_med = median(r[0] for r in v4)
-            v3_med = median(r[0] for r in v3)
-            ratio  = v3_med / v4_med if v4_med else 0
-            os_v4  = median(r[2] for r in v4)
-            os_v3  = median(r[2] for r in v3)
-            os_ratio = os_v3 / os_v4 if os_v4 else 0
-            rows.append(
-                f"{suite:<12} {'—':<4} {'v3÷v4':<5}  "
-                f"{ratio:>8.2f}×  {'—':>10}  {os_ratio:>8.2f}×"
-            )
-        rows.append("")
+    lines = [hdr, bar]
 
-    return "\n".join(rows)
+    steps = [
+        ("pgloader",  lambda r: r[0]),
+        ("COPY wall", lambda r: r[1]),
+        ("OS wall",   lambda r: r[2]),
+    ]
 
+    def data_cols(suite, run_idx):
+        """Return (v3_val, v4_val) for a given run index (0-based)."""
+        cols = {}
+        for ver in ("v3", "v4"):
+            lst = all_data[suite][ver]
+            cols[ver] = None
+        for ver in versions:
+            lst = all_data[suite][ver]
+            cols[ver] = lst[run_idx] if run_idx < len(lst) else None
+        return cols
+
+    # per-run blocks
+    for run_n in range(1, max_runs + 1):
+        for s_idx, (step_name, getter) in enumerate(steps):
+            run_lbl = str(run_n) if s_idx == 0 else ""
+            parts   = [run_lbl.rjust(RUN_W), step_name.rjust(STP_W)]
+            for suite in suites:
+                cols = data_cols(suite, run_n - 1)
+                v3r  = getter(cols["v3"]) if cols["v3"] is not None else None
+                v4r  = getter(cols["v4"]) if cols["v4"] is not None else None
+                for ver in versions:
+                    val = getter(cols[ver]) if cols[ver] is not None else None
+                    parts.append(fmt_time(val, DW))
+                parts.append(fmt_ratio(v3r, v4r))
+            lines.append(SEP.join(parts))
+        lines.append(bar)
+
+    # median block (bar from last run already printed)
+    for s_idx, (step_name, getter) in enumerate(steps):
+        run_lbl = "med" if s_idx == 0 else ""
+        parts   = [run_lbl.rjust(RUN_W), step_name.rjust(STP_W)]
+        for suite in suites:
+            meds = {}
+            for ver in versions:
+                vals = [getter(r) for r in all_data[suite][ver]
+                        if getter(r) is not None]
+                meds[ver] = median(vals) if vals else None
+            v3m = meds.get("v3")
+            v4m = meds.get("v4")
+            for ver in versions:
+                parts.append(fmt_time(meds[ver], DW))
+            parts.append(fmt_ratio(v3m, v4m))
+        lines.append(SEP.join(parts))
+
+    return "\n".join(lines)
+
+
+# ── entry point ───────────────────────────────────────────────────────────────
 
 def as_markdown(table_str):
-    lines = ["## pgloader bench results", "", "```", table_str, "```", ""]
-    return "\n".join(lines)
+    return "\n".join(["## pgloader bench results", "", "```", table_str, "```", ""])
 
 
 def main():
     suites   = ["employees", "lahman"]
-    versions = ["v4", "v3"]
+    versions = ["v3", "v4"]   # v3 first → ratio is v3÷v4
 
     table = build_table(suites, versions)
     print(table)
