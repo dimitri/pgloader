@@ -133,17 +133,21 @@
 			      dbname
                               (use-ssl :no))
         (apply #'append uri)
-      ;; Default to environment variables as described in
-      ;;  http://dev.mysql.com/doc/refman/5.0/en/environment-variables.html
+      ;; Credential lookup order:
+      ;;  1. URI (explicit values in the connection string)
+      ;;  2. ~/.my.cnf / /etc/my.cnf — [pgloader] section, then [client]
+      ;;  3. Environment variables (MYSQL_PWD, MYSQL_HOST, MYSQL_TCP_PORT)
       (declare (ignore type))
-      (make-instance 'mysql-connection
-                     :user (or user     (getenv-default "USER"))
-                     :pass (or password (getenv-default "MYSQL_PWD"))
-                     :host (or host     (getenv-default "MYSQL_HOST" "localhost"))
-                     :port (or port     (parse-integer
-                                         (getenv-default "MYSQL_TCP_PORT" "3306")))
-                     :name dbname
-                     :use-ssl use-ssl))))
+      (multiple-value-bind (eff-user eff-pass eff-host eff-port eff-dbname)
+          (pgloader.source.mysql:apply-my-cnf user password host port dbname)
+        (make-instance 'mysql-connection
+                       :user (or eff-user  (getenv-default "USER"))
+                       :pass (or eff-pass  (getenv-default "MYSQL_PWD"))
+                       :host (or eff-host  (getenv-default "MYSQL_HOST" "localhost"))
+                       :port (or eff-port  (parse-integer
+                                            (getenv-default "MYSQL_TCP_PORT" "3306")))
+                       :name (or eff-dbname dbname)
+                       :use-ssl use-ssl)))))
 
 (defrule mysql-source (and kw-load kw-database kw-from mysql-uri)
   (:lambda (source) (bind (((_ _ _ uri) source)) uri)))

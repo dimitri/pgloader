@@ -1,7 +1,8 @@
 (ns pgloader.load-file.ast
   (:require [instaparse.core :as insta]
             [clojure.string :as str]
-            [pgloader.pg-service :as pg-service])
+            [pgloader.pg-service :as pg-service]
+            [pgloader.mysql-options :as mysql-opts])
   (:import [java.net URI]))
 
 (set! *warn-on-reflection* true)
@@ -121,17 +122,23 @@
                table-from-query)
 
         ("mysql" "mariadb")
-        {:type     (keyword scheme)
-         :host     host
-         :port     (if (pos? (.getPort uri)) (.getPort uri) 3306)
-         :db       db
-         :user     user
-         :password password
-         :raw      uri-str
-         :jdbc-url (str "jdbc:mysql://" host
-                        ":" (if (pos? (.getPort uri)) (.getPort uri) 3306)
-                        "/" db
-                        (when raw-query (str "?" raw-query)))}
+        (let [base {:type     (keyword scheme)
+                    :host     host
+                    :port     (when (pos? (.getPort uri)) (.getPort uri))
+                    :db       db
+                    :user     user
+                    :password password
+                    :raw      uri-str}
+              merged (mysql-opts/apply-my-cnf base)
+              eff-host (or (:host merged) "localhost")
+              eff-port (or (:port merged) 3306)]
+          (assoc merged
+                 :host eff-host
+                 :port eff-port
+                 :jdbc-url (str "jdbc:mysql://" eff-host
+                                ":" eff-port
+                                "/" (or (:db merged) "")
+                                (when raw-query (str "?" raw-query)))))
 
         "csv"
         {:type :csv

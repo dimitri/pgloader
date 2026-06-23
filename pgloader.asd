@@ -184,6 +184,7 @@
                                 :depends-on ("common")
                                 :components
                                 ((:file "mysql-cast-rules")
+                                 (:file "my-cnf")
                                  (:file "mysql-connection")
                                  (:file "mysql-schema")
                                  (:file "mysql")))
