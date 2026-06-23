@@ -69,3 +69,15 @@
       (is (= "mysql" (:source-type opts)))
       (is (= ["create tables" "reset sequences"] (:with-opts opts)))
       (is (= "utf-8" (:encoding opts))))))
+
+(deftest test-parse-args-sqlite-with-quote-identifiers
+  (testing "--with 'quote identifiers' is captured for a SQLite source (#1187)
+            v4 routes this through the grammar via a synthetic load file;
+            v3 had an ecase crash on nil type — fixed in command-parser.lisp."
+    (let [opts (cli/parse-args ["--with" "quote identifiers"
+                                "--with" "include drop"
+                                "sqlite:///tmp/test.db"
+                                "pgsql:///target"])]
+      (is (= ["quote identifiers" "include drop"] (:with-opts opts)))
+      (is (= "sqlite:///tmp/test.db" (:source-uri opts)))
+      (is (= "pgsql:///target" (:target-uri opts))))))
