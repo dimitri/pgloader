@@ -203,16 +203,25 @@
 
   (read-rows [_ table-spec-entry]
     (let [{:keys [table-name source-table-name columns]} table-spec-entry
-          src-tbl (or source-table-name table-name)
+          src-tbl  (or source-table-name table-name)
           col-list (str/join ", " (map #(str "\"" (:column-name %) "\"") columns))
-          col-names (mapv #(str/lower-case (:column-name %)) columns)
-          sql (str "SELECT " col-list " FROM \"" src-tbl "\"")
-          _ (log/debug (str "SQLite read-rows: " sql))
-          rs (jdbc/execute! conn [sql])]
-      (map (fn [row]
-             (let [row-map (into {} (map (fn [[k v]] [(str/lower-case (name k)) v]) row))]
-               (mapv (fn [cn] (some-> (get row-map cn) str)) col-names)))
-           rs)))
+          n-cols   (int (count columns))
+          sql      (str "SELECT " col-list " FROM \"" src-tbl "\"")
+          _        (log/debug (str "SQLite read-rows: " sql))
+          stmt     (.prepareStatement conn sql)
+          rs       (.executeQuery stmt)]
+      ((fn thisfn []
+         (when (.next ^ResultSet rs)
+           (lazy-seq
+            (cons (loop [i      (int 1)
+                         result (transient [])]
+                    (if (<= i n-cols)
+                      (recur (unchecked-inc i)
+                             (conj! result
+                                    (let [v (.getObject ^ResultSet rs i)]
+                                      (when (some? v) (str v)))))
+                      (persistent! result)))
+                  (thisfn))))))))
 
   (read-query [_ sql]
     (let [stmt (.prepareStatement conn sql)]
