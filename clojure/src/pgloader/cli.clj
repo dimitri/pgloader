@@ -20,9 +20,13 @@
 
 (defn- set-log-level!
   [^String level-str]
-  (let [^Logger root (.getLogger (LoggerFactory/getILoggerFactory) "ROOT")
+  (let [ctx   (LoggerFactory/getILoggerFactory)
         level (Level/valueOf level-str)]
-    (.setLevel root level)))
+    (.setLevel ^Logger (.getLogger ctx "ROOT") level)
+    ;; Clear any explicit level on the "pgloader" named logger so it
+    ;; inherits from root instead of overriding it (e.g. logback.xml
+    ;; pins it to DEBUG, which would defeat --quiet / --verbose).
+    (.setLevel ^Logger (.getLogger ctx "pgloader") nil)))
 
 (defn- set-appender-level!
   "Set the threshold level on a named appender attached to the root logger."
