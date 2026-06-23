@@ -79,5 +79,11 @@
     (log-message :notice "Executing SQL block for ~a" label)
     (with-pgsql-transaction (:pgconn pgconn)
       (loop :for command :in commands
-         :do (pgsql-execute command :client-min-messages :error)
+         :do (let ((start (get-internal-real-time)))
+               (pgsql-execute command :client-min-messages :error)
+               (log-message :notice "~a: ~a [~,3fs]"
+                            label
+                            (string-trim '(#\Newline #\Return #\Space) command)
+                            (/ (- (get-internal-real-time) start)
+                               internal-time-units-per-second)))
          :counting command))))

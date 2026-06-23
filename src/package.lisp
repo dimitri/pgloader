@@ -452,6 +452,7 @@
 	   #:truncate-tables
            #:set-table-oids
 
+           #:catalog-add-uuid-extension
            #:create-extensions
            #:create-sqltypes
 	   #:create-schemas

@@ -5,6 +5,31 @@
 
 
 ;;;
+;;; UUID extension dependency tracking
+;;;
+(defun catalog-add-uuid-extension (catalog pgversion)
+  "Scan CATALOG for columns with :generate-uuid defaults and ensure the
+   correct extension and function are used based on PGVERSION.
+
+   PostgreSQL 13+ ships gen_random_uuid() in core; older versions need the
+   uuid-ossp extension and uuid_generate_v4().  This function rewrites
+   :generate-uuid defaults in place and adds uuid-ossp to the extension list
+   when needed."
+  (let* ((major (if (stringp pgversion)
+                    (parse-integer pgversion :junk-allowed t)
+                    pgversion))
+         (has-builtin-uuid (and major (>= major 13))))
+    (loop :for schema :in (catalog-schema-list catalog)
+       :do (loop :for table :in (schema-table-list schema)
+              :do (loop :for column :in (table-column-list table)
+                     :when (eq :generate-uuid (column-default column))
+                     :do (if has-builtin-uuid
+                             ;; PG 13+: gen_random_uuid() is built-in
+                             (setf (column-default column) :generate-uuid-builtin)
+                             ;; PG < 13: need uuid-ossp extension
+                             (maybe-add-extension schema "uuid-ossp")))))))
+
+;;;
 ;;; Table schema support
 ;;;
 (defun create-sqltypes (catalog
@@ -104,18 +129,53 @@
                                    :log-level log-level
                                    :client-min-messages client-min-messages)))))
 
+(defun list-installed-extensions ()
+  "Return a list of extension names currently installed in the database."
+  (mapcar #'first
+          (pomo:query "select extname from pg_extension")))
+
 (defun create-extensions (catalog
                           &key
                             if-not-exists
                             include-drop
                             (client-min-messages :notice))
-  "Create all extensions from the given database CATALOG."
-  (let ((sql
-         (loop :for extension :in (extension-list catalog)
-            :when include-drop
-            :collect (format-drop-sql extension :if-exists t :cascade t)
-            :collect (format-create-sql extension :if-not-exists if-not-exists))))
-    (pgsql-execute sql :client-min-messages client-min-messages)))
+  "Create all extensions from the given database CATALOG.
+
+   Extensions that are already installed are skipped (no superuser needed for
+   that case).  When an extension is missing and CREATE EXTENSION fails — most
+   commonly because the connected role lacks superuser / CREATE privileges —
+   a clear error is logged explaining what the user must do manually."
+  (let ((installed (list-installed-extensions)))
+    (loop :for extension :in (extension-list catalog)
+       :for ext-name := (extension-name extension)
+       :do (cond
+             ;; DROP requested: always attempt it
+             (include-drop
+              (pgsql-execute (format-drop-sql extension :if-exists t :cascade t)
+                             :client-min-messages client-min-messages))
+             (t nil))
+       :do (cond
+             ;; Already installed — nothing to do
+             ((member ext-name installed :test #'string=)
+              (log-message :info "Extension ~s is already installed, skipping." ext-name))
+
+             ;; Try to create it; catch privilege errors and emit a clear message
+             (t
+              (let ((create-sql (format-create-sql extension
+                                                   :if-not-exists if-not-exists)))
+                (handler-case
+                    (pgsql-execute create-sql :client-min-messages client-min-messages)
+                  (cl-postgres:database-error (e)
+                    (log-message :error
+                                 "Could not create extension ~s: ~a"
+                                 ext-name e)
+                    (log-message :error
+                                 "The pgloader role may lack CREATE/superuser privileges. ~
+                                  Ask a database superuser to run:~%~
+                                    CREATE EXTENSION IF NOT EXISTS ~s;~%~
+                                  then retry pgloader."
+                                 ext-name ext-name)
+                    (error e)))))))))
 
 (defun create-tables (catalog
                       &key

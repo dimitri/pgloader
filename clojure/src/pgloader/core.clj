@@ -214,6 +214,56 @@
         (.rollback pg-conn)
         (log/warn (str label " failed (skipping): " (.getMessage e)))))))
 
+(defn- pg-major-version
+  "Return the PostgreSQL major version as an integer (e.g. 13, 14, 15)."
+  [^Connection pg-conn]
+  (try
+    (let [row (first (jdbc/execute! pg-conn ["SELECT current_setting('server_version_num')::integer AS v"]))]
+      (quot (:v row) 10000))
+    (catch Exception _
+      ;; Assume modern PG if we can't determine the version.
+      13)))
+
+(defn- ensure-uuid-extension!
+  "For catalogs that reference gen_random_uuid() defaults:
+   - PG 13+: gen_random_uuid() is built-in — rewrite nothing, no extension needed.
+   - PG < 13: gen_random_uuid() requires pgcrypto; attempt CREATE EXTENSION and
+     emit a clear message if it fails due to insufficient privileges.
+
+   Returns the (possibly rewritten) catalog."
+  [^Connection pg-conn cat]
+  (let [needs-uuid? (some (fn [t]
+                            (some #(= "gen_random_uuid()" (:column-default %))
+                                  (:columns t)))
+                          cat)]
+    (if-not needs-uuid?
+      cat
+      (let [major (pg-major-version pg-conn)]
+        (if (>= major 13)
+          ;; PG 13+: built-in, nothing to do
+          cat
+          ;; PG < 13: need pgcrypto for gen_random_uuid(); try to install it
+          (do
+            (log/info "Target is PostgreSQL" major "— gen_random_uuid() requires pgcrypto extension")
+            (try
+              (let [installed (set (map :extname
+                                        (jdbc/execute! pg-conn ["SELECT extname FROM pg_extension"])))]
+                (if (contains? installed "pgcrypto")
+                  (log/info "Extension pgcrypto is already installed, skipping.")
+                  (do
+                    (jdbc/execute! pg-conn ["CREATE EXTENSION IF NOT EXISTS pgcrypto"])
+                    (.commit pg-conn)
+                    (log/info "Created extension pgcrypto for gen_random_uuid() support"))))
+              (catch Exception e
+                (.rollback pg-conn)
+                (log/error (str "Could not create extension pgcrypto: " (.getMessage e)))
+                (log/error (str "The pgloader role may lack CREATE/superuser privileges. "
+                                "Ask a database superuser to run:\n"
+                                "  CREATE EXTENSION IF NOT EXISTS pgcrypto;\n"
+                                "then retry pgloader."))
+                (throw e)))
+            cat))))))
+
 (defn- materialize-views!
   "Execute MATERIALIZE VIEWS: run each view's query against the source
    and write the results to the target PostgreSQL table via COPY.
@@ -289,8 +339,12 @@
         (let [^java.sql.Connection pg-conn (postgres-connection target-uri)]
           (try
             (doseq [sql (:before-load cmd)]
-              (log/debug (str "BEFORE LOAD (archive): " (clojure.string/trim sql)))
-              (next.jdbc/execute! pg-conn [sql]))
+              (let [t0 (System/nanoTime)]
+                (log/debug (str "BEFORE LOAD (archive): " (clojure.string/trim sql)))
+                (next.jdbc/execute! pg-conn [sql])
+                (log/info (format "BEFORE LOAD done [%.3fs]: %s"
+                                  (/ (- (System/nanoTime) t0) 1e9)
+                                  (clojure.string/trim sql)))))
             (.commit pg-conn)
             (catch Exception e
               (.rollback pg-conn)
@@ -308,8 +362,12 @@
         (let [^java.sql.Connection pg-conn (postgres-connection target-uri)]
           (try
             (doseq [sql (:after-load cmd)]
-              (log/debug (str "AFTER LOAD (archive): " (clojure.string/trim sql)))
-              (next.jdbc/execute! pg-conn [sql]))
+              (let [t0 (System/nanoTime)]
+                (log/debug (str "AFTER LOAD (archive): " (clojure.string/trim sql)))
+                (next.jdbc/execute! pg-conn [sql])
+                (log/info (format "AFTER LOAD done [%.3fs]: %s"
+                                  (/ (- (System/nanoTime) t0) 1e9)
+                                  (clojure.string/trim sql)))))
             (.commit pg-conn)
             (catch Exception e
               (.rollback pg-conn)
@@ -442,8 +500,12 @@
                   (log/debug "Executing BEFORE LOAD DO commands")
                   (try
                     (doseq [sql before-cmds]
-                      (log/debug (str "BEFORE LOAD: " (clojure.string/trim sql)))
-                      (jdbc/execute! pg-conn [sql]))
+                      (let [t0 (System/nanoTime)]
+                        (log/debug (str "BEFORE LOAD: " (clojure.string/trim sql)))
+                        (jdbc/execute! pg-conn [sql])
+                        (log/info (format "BEFORE LOAD done [%.3fs]: %s"
+                                          (/ (- (System/nanoTime) t0) 1e9)
+                                          (clojure.string/trim sql)))))
                     (.commit pg-conn)
                     (catch Exception e
                       (.rollback pg-conn)
@@ -572,6 +634,9 @@
                       (when (and (get with-options :create-tables false)
                                  (not (get with-options :create-no-tables false))
                                  (not (get with-options :data-only false)))
+                        ;; Ensure extensions required by column defaults exist
+                        ;; (e.g. pgcrypto for gen_random_uuid() on PG < 13).
+                        (ensure-uuid-extension! pg-conn cat)
                         (stats/new-entry! :pre "Create tables")
                         (let [ddl-phase-start (System/nanoTime)]
                           (doseq [[i t] (map-indexed vector cat)]
@@ -881,8 +946,12 @@
                       (log/debug "Executing AFTER LOAD DO commands")
                       (try
                         (doseq [sql after-cmds]
-                          (log/debug (str "AFTER LOAD: " (clojure.string/trim sql)))
-                          (jdbc/execute! pg-conn [sql]))
+                          (let [t0 (System/nanoTime)]
+                            (log/debug (str "AFTER LOAD: " (clojure.string/trim sql)))
+                            (jdbc/execute! pg-conn [sql])
+                            (log/info (format "AFTER LOAD done [%.3fs]: %s"
+                                              (/ (- (System/nanoTime) t0) 1e9)
+                                              (clojure.string/trim sql)))))
                         (.commit pg-conn)
                         (catch Exception e
                           (.rollback pg-conn)

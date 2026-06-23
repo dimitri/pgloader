@@ -163,7 +163,10 @@
   '((:null              . "NULL")
     (:current-date      . "CURRENT_DATE")
     (:current-timestamp . "CURRENT_TIMESTAMP")
-    (:generate-uuid     . "uuid_generate_v4()"))
+    ;; :generate-uuid is rewritten by catalog-add-uuid-extension to one of the
+    ;; two entries below based on the target PostgreSQL version.
+    (:generate-uuid     . "uuid_generate_v4()")  ; fallback: uuid-ossp (PG < 13)
+    (:generate-uuid-builtin . "gen_random_uuid()"))  ; PG 13+: built-in, no extension
   "Common normalized default values and their PostgreSQL spelling.")
 
 (defmethod format-default-value ((column column) &key (stream nil))

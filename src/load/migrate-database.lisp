@@ -31,6 +31,11 @@
 
     (finalize-catalogs catalog (pgconn-variant (target-db copy)))
 
+    ;; Resolve UUID extension dependencies based on the target PG version.
+    ;; PG 13+ has gen_random_uuid() built-in; older versions need uuid-ossp.
+    (catalog-add-uuid-extension catalog
+                                (pgconn-major-version (target-db copy)))
+
     (if create-tables
         (progn
           (when create-schemas

@@ -14,10 +14,10 @@
 ;;;
 (defparameter *mysql-default-cast-rules*
   `((:source (:type "int" :auto-increment t :typemod (< precision 10))
-     :target (:type "serial"))
+     :target (:type "serial" :drop-default t))
 
     (:source (:type "int" :auto-increment t :typemod (<= 10 precision))
-     :target (:type "bigserial"))
+     :target (:type "bigserial" :drop-default t))
 
     (:source (:type "int" :auto-increment nil :typemod (< precision 10))
      :target (:type "int"))
@@ -26,10 +26,10 @@
      :target (:type "bigint"))
 
     ;; bigint mediumint smallint and tinyint with auto_increment always are [big]serial
-    (:source (:type "tinyint" :auto-increment t) :target (:type "serial"))
-    (:source (:type "smallint" :auto-increment t) :target (:type "serial"))
-    (:source (:type "mediumint" :auto-increment t) :target (:type "serial"))
-    (:source (:type "bigint" :auto-increment t) :target (:type "bigserial"))
+    (:source (:type "tinyint" :auto-increment t) :target (:type "serial" :drop-default t))
+    (:source (:type "smallint" :auto-increment t) :target (:type "serial" :drop-default t))
+    (:source (:type "mediumint" :auto-increment t) :target (:type "serial" :drop-default t))
+    (:source (:type "bigint" :auto-increment t) :target (:type "bigserial" :drop-default t))
 
     ;; actually tinyint(1) is most often used as a boolean
     (:source (:type "tinyint" :typemod (= 1 precision))
@@ -68,9 +68,9 @@
              :target (:type "bigint"  :drop-typemod t))
 
     (:source (:type "int" :unsigned t :auto-increment t)
-              :target (:type "bigserial" :drop-typemod t))
+              :target (:type "bigserial" :drop-typemod t :drop-default t))
     (:source (:type "int" :signed t :auto-increment t)
-              :target (:type "serial" :drop-typemod t))
+              :target (:type "serial" :drop-typemod t :drop-default t))
 
     ;; we need the following to benefit from :drop-typemod
     (:source (:type "tinyint")   :target (:type "smallint" :drop-typemod t))
