@@ -42,9 +42,7 @@ COPY --from=pgloader-v3-builder /opt/src/pgloader/conf/freetds.conf \
      /etc/freetds/freetds.conf
 
 # ── ~/.my.cnf for issue #767 test ────────────────────────────────────────────
-# The [pgloader] section supplies credentials for the my-cnf test suite,
-# which intentionally omits user/password from the mysql:// URI.
-# The [client] section uses a weaker credential to confirm [pgloader] wins.
-RUN printf '[client]\nuser = nobody\n\n[pgloader]\nuser = root\npassword = rootpassword\n' \
-    > /root/.my.cnf \
- && chmod 600 /root/.my.cnf
+# Copied from the repo as a plain file; installed as a dotfile at the right
+# location.  chmod 600 is required — MySQL refuses world-readable option files.
+COPY clojure/tests/mysql/my-cnf/my.cnf /root/.my.cnf
+RUN chmod 600 /root/.my.cnf
