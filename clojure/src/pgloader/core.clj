@@ -116,7 +116,7 @@
                                               source-overrides)))
     :copy  (copy-source/create-source (merge uri-map source-overrides))
     :sqlite (sqlite-source/create-source uri-map (or table-spec {})
-                                         (select-keys with-options [:snake-case-ids :downcase-ids]))
+                                         (select-keys with-options [:snake-case-ids :downcase-ids :quote-ids]))
     :dbf   (dbf-source/create-source (merge (resolve-dbf-url uri-map) source-overrides))
     :fixed (fixed-source/create-source (merge uri-map source-overrides
                                               (select-keys with-options [:select-columns :fixed-header])))

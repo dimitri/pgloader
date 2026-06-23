@@ -69,8 +69,9 @@ load database
       -- #1522: WITHOUT TYPE — preserve SET→text[] mapping, apply transform only
       column set_column.perms using set-to-enum-array,
 
-      -- #1676: and not null source guard — only coerces NOT NULL zero-date columns.
-      -- zero_dates_notnull.created_at (NOT NULL) matches; .updated_at (nullable) does not.
+      -- #1676: and not null source guard
+      -- only coerces NOT NULL zero-date columns
+      -- zero_dates_notnull.created_at matches, nullable updated_at does not
       type datetime
               when default "0000-00-00 00:00:00" and not null
            to timestamp drop not null drop default
