@@ -42,6 +42,7 @@ PROFILE  = --profile test
 .PHONY: update-expected-mysql update-expected-mysql57
 .PHONY: update-expected-mariadb update-expected-pgsql update-expected-mssql update-expected-citus
 .PHONY: down ensure-jar ensure-f1db
+.PHONY: bench employees employees-v3 lahman lahman-v3 bench-report bench-down
 
 all: csv copy fixed dbf sqlite mysql mysql57 mariadb pgsql mssql citus
 
@@ -291,6 +292,14 @@ update-expected-citus: ensure-jar
 	$(DC) $(PROFILE) -f citus/docker-compose.yml \
 	  run --rm --build -e REGRESS_FLAGS=--update test-runner
 	@$(DC) -f citus/docker-compose.yml down --volumes 2>/dev/null; true
+
+# ─── Bench suite (delegates to tests/bench/Makefile) ─────────────────────────
+
+bench employees employees-v3 lahman lahman-v3 bench-report:
+	$(MAKE) -C bench $@
+
+bench-down:
+	$(MAKE) -C bench down
 
 # ─── Teardown ─────────────────────────────────────────────────────────────────
 # Stop every suite's compose stack (safe to run at any time).
