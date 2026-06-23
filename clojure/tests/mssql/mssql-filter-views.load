@@ -1,0 +1,17 @@
+-- #1578/#1603: MATERIALIZE VIEWS with no INCLUDING ONLY clause must not
+-- contaminate the nil `including` filter used for index/FK lookup.
+--
+-- Intentionally has no INCLUDING ONLY clause so that `including` starts
+-- as NIL ("all tables").  Before the fix, view names were pushed into this
+-- nil alist, turning it into a non-nil filter that selected only the view —
+-- silently dropping every table index and FK.
+LOAD DATABASE
+     FROM mssql://sa:pgloaderTest1!@mssql:1433/filtertest
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+
+     WITH include drop, create tables, create indexes, reset sequences,
+          foreign keys
+
+     MATERIALIZE VIEWS filtered.items_view
+
+     ALTER SCHEMA 'filtered' RENAME TO 'filtered';

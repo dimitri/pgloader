@@ -1,0 +1,15 @@
+ products 
+----------
+        2
+(1 row)
+
+ order_items 
+-------------
+           3
+(1 row)
+
+ items_view 
+------------
+          3
+(1 row)
+

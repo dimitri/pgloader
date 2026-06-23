@@ -79,3 +79,55 @@ GO
 
 INSERT INTO default_edge_cases DEFAULT VALUES;
 GO
+
+-- ============================================================
+-- filtertest: separate database for #1578/#1603 regression.
+--
+-- The bug: MATERIALIZE VIEWS with no INCLUDING ONLY clause
+-- caused view names to be pushed into the initially-nil
+-- `including` filter, turning "fetch all tables' indexes" into
+-- "fetch indexes only for the view" — silently dropping every
+-- table index.
+--
+-- The load file connects to this database with no table filter
+-- so that `including` starts as NIL.  After the load, we verify
+-- that the table indexes and FK survived.
+-- ============================================================
+CREATE DATABASE filtertest;
+GO
+USE filtertest;
+GO
+
+CREATE SCHEMA filtered;
+GO
+
+CREATE TABLE filtered.products (
+    id    INT IDENTITY(1,1) PRIMARY KEY,
+    name  NVARCHAR(100) NOT NULL
+);
+GO
+
+CREATE TABLE filtered.order_items (
+    id         INT IDENTITY(1,1) PRIMARY KEY,
+    product_id INT NOT NULL,
+    qty        INT NOT NULL DEFAULT 1,
+    CONSTRAINT fk_items_products
+        FOREIGN KEY (product_id) REFERENCES filtered.products(id)
+);
+GO
+
+CREATE INDEX idx_items_product ON filtered.order_items(product_id);
+GO
+
+-- The view whose name must NOT contaminate the table index/FK lookup
+CREATE VIEW filtered.items_view AS
+    SELECT oi.id, p.name, oi.qty
+    FROM   filtered.order_items oi
+    JOIN   filtered.products    p  ON p.id = oi.product_id;
+GO
+
+INSERT INTO filtered.products (name) VALUES ('Widget'), ('Gadget');
+GO
+
+INSERT INTO filtered.order_items (product_id, qty) VALUES (1, 3), (2, 1), (1, 5);
+GO

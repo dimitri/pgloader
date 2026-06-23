@@ -11,13 +11,19 @@ else
   _REGRESS_EXTRA :=
 endif
 
-.PHONY: all run
+.PHONY: all run update-expected
 
 all: run
 
 run:
-	$(PGLOADER_CMD) mssql.load
-	java -jar $(JAR) regress $(REGRESS_FLAGS) $(_REGRESS_EXTRA) .
+	$(PGLOADER_CMD) /suite/mssql.load
+	$(PGLOADER_CMD) /suite/mssql-filter-views.load
+	java -jar $(JAR) regress $(REGRESS_FLAGS) $(_REGRESS_EXTRA) /suite
+
+update-expected:
+	$(PGLOADER_CMD) /suite/mssql.load
+	$(PGLOADER_CMD) /suite/mssql-filter-views.load
+	java -jar $(JAR) regress --update /suite
 
 %-v3:
 	$(MAKE) $* PGLOADER_CMD="pgloader --client-min-messages notice"
