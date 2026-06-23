@@ -267,7 +267,8 @@
     keep-typemod  = <'keep'> <ws> <'typemod'>
     using-fn      = <'using'> <ws> fn-name
     fn-name     = #'[a-zA-Z][a-zA-Z0-9_-]*'
-    when-or-unsigned = <'when'> <ws> (when-expr | <'unsigned'> | <'default'> <ws> when-default-val)
+    when-or-unsigned = <'when'> <ws> (when-expr | <'unsigned'> | <'default'> <ws> when-default-val) (<ws> when-not-null)?
+    when-not-null = <'and'> <ws> <'not'> <ws> <'null'>
     when-expr   = <'('> <opt-ws> when-inner* <opt-ws> <')'>
     when-inner  = when-expr | #'[^()]+'
     when-default-val = cast-type-name | dq-string
@@ -305,7 +306,7 @@
     materialize-named-views = <'MATERIALIZE'> <ws> <'VIEWS'> <ws> matview-list
     matview-list = matview-def (<opt-ws> <','> <opt-ws> matview-def)*
     matview-def = matview-name (<ws> <'as'> <ws> quoted-command)?
-    matview-name = #'[a-zA-Z_][a-zA-Z0-9_]*'
+    matview-name = #'[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)?'
 
     names-keyword = (<'MATCHING'> | <'LIKE'>)
     including-only = <'INCLUDING'> <ws> <'ONLY'> <ws> <'TABLE'> <ws> <'NAMES'> <ws> names-keyword <ws> table-name-pattern-list (<ws> <'IN'> <ws> <'SCHEMA'> <ws> quoted-string)?

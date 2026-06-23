@@ -26,7 +26,7 @@
 
 (def ^:private pg-type-map
   {"smallint" "smallint"
-   "integer" "bigint"
+   "integer" "integer"
    "bigint" "bigint"
    "real" "double precision"
    "double precision" "double precision"
@@ -37,7 +37,7 @@
    "character" "text"
    "name" "text"
    "bytea" "bytea"
-   "timestamp without time zone" "timestamptz"
+   "timestamp without time zone" "timestamp"
    "timestamp with time zone" "timestamptz"
    "date" "date"
    "time without time zone" "time"
@@ -172,11 +172,16 @@
                                              is-pk (some #(= (:column_name c) %) (mapv :column_name pkeys))
                                              ai (detect-autoincrement (:column_default c) (:column_name c) col-type)]
                                          {:column-name (:column_name c)
-                                          :column-type (if (and ai is-pk)
-                                                         "bigserial"
-                                                         (if (= col-type "ARRAY")
-                                                           (or (pg-array-type->pg (:udt_name c)) "text[]")
-                                                           (pg-type->pg col-type)))
+                                          :source-column-type col-type
+                                          :column-type (cond
+                                                         (and ai is-pk) "bigserial"
+                                                         (= col-type "ARRAY")
+                                                         (or (pg-array-type->pg (:udt_name c)) "text[]")
+                                                         ;; Preserve precision for temporal types
+                                                         (and (re-find #"(?i)^(timestamp|time)\b" (pg-type->pg col-type))
+                                                              (:datetime_precision c))
+                                                         (str (pg-type->pg col-type) "(" (:datetime_precision c) ")")
+                                                         :else (pg-type->pg col-type))
                                           :is-nullable (= "YES" (:is_nullable c))
                                           :column-default (when-not ai (:column_default c))
                                           :extra (when ai "auto_increment")}))

@@ -1,0 +1,7 @@
+ column_name |          data_type          | datetime_precision
+-------------+-----------------------------+--------------------
+ id          | integer                     |
+ ts6         | timestamp without time zone |                  6
+ ts_notz     | timestamp without time zone |                  6
+ t3          | time without time zone      |                  3
+(4 rows)

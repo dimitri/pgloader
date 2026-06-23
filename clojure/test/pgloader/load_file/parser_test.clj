@@ -65,6 +65,18 @@
       (is (seq (:set-parameters cmd)))
       (is (seq (:cast-rules cmd))))))
 
+(deftest test-parse-cast-when-default-and-not-null
+  (testing "CAST ... when default \"...\" and not null parses (#1676)"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM mysql://user@localhost/mydb
+                    INTO postgresql:///target
+                    CAST type datetime when default \"0000-00-00 00:00:00\" and not null
+                           to timestamp drop not null drop default using zero-dates-to-null;")]
+      (is (:ok result))
+      (let [rule (first (:cast-rules (:ok result)))]
+        (is (= "0000-00-00 00:00:00" (:when-default rule)))
+        (is (true? (:when-not-null rule)))))))
+
 (deftest test-parse-invalid
   (let [result (parser/parse-string "LOAD BOGUS;")]
     (is (:error result))))
@@ -444,3 +456,30 @@
                    INTO postgresql://localhost/tgt;")]
       (is (:ok result) (str "Parse failed: " (:error result)))
       (is (= "/tmp/plain.db" (get-in result [:ok :source :path]))))))
+
+;; ── SQLite CLI --with parity: grammar support for identifier-case (#1187) ───
+
+(deftest test-sqlite-with-quote-identifiers-grammar
+  (testing "LOAD DATABASE FROM sqlite://... WITH quote identifiers parses (#1187)"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM sqlite:///tmp/foo.db
+                   INTO postgresql:///target
+                   WITH quote identifiers;")]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (is (true? (get-in result [:ok :with-options :quote-ids])))))
+
+  (testing "LOAD DATABASE FROM sqlite://... WITH snake_case identifiers parses"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM sqlite:///tmp/foo.db
+                   INTO postgresql:///target
+                   WITH snake_case identifiers;")]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (is (true? (get-in result [:ok :with-options :snake-case-ids])))))
+
+  (testing "LOAD DATABASE FROM sqlite://... WITH downcase identifiers parses"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM sqlite:///tmp/foo.db
+                   INTO postgresql:///target
+                   WITH downcase identifiers;")]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (is (true? (get-in result [:ok :with-options :downcase-ids]))))))

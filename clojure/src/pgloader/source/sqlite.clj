@@ -135,6 +135,7 @@
                         (str/replace #"([a-z])([A-Z])" "$1_$2")
                         (str/replace #"([A-Z]+)([A-Z][a-z])" "$1_$2")
                         str/lower-case)
+    :quote-ids name
     (str/lower-case name)))
 
 (deftype SQLiteSource
@@ -298,6 +299,7 @@
   (let [conn (sqlite-connection (:path uri-map))
         id-case (cond
                   (:snake-case-ids with-options) :snake-case-ids
+                  (:quote-ids with-options)      :quote-ids
                   (:downcase-ids with-options)   :downcase-ids
                   :else                           :downcase-ids)]  ; v3 default: lowercase
     (->SQLiteSource conn (:path uri-map) id-case)))

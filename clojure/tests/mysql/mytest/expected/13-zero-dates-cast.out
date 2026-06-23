@@ -1,0 +1,6 @@
+ column_name |          data_type          | is_nullable 
+-------------+-----------------------------+-------------
+ created_at  | timestamp without time zone | YES
+ updated_at  | timestamp without time zone | YES
+(2 rows)
+

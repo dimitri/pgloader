@@ -17,6 +17,7 @@ SELECT column_name,
        character_maximum_length,
        numeric_precision,
        numeric_scale,
+       datetime_precision,
        ordinal_position
   FROM information_schema.columns
  WHERE table_schema = :schema

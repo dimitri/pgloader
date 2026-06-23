@@ -16,6 +16,9 @@
 (defrule cast-signed-guard (and kw-when kw-signed)
   (:constant (cons :signed t)))
 
+(defrule cast-not-null-source-guard (and kw-and kw-not kw-null)
+  (:constant (cons :not-null t)))
+
 ;; at the moment we only know about extra auto_increment
 (defrule cast-source-extra (and kw-with kw-extra
                                 (or kw-auto-increment
@@ -47,6 +50,7 @@
 
 (defrule cast-source-extra-or-guard (* (or cast-unsigned-guard
                                            cast-signed-guard
+                                           cast-not-null-source-guard
                                            cast-default-guard
                                            cast-typemod-guard
                                            cast-source-extra))
@@ -60,6 +64,7 @@
                   (typemod nil t-s-p)
                   (signed nil s-s-p)
                   (unsigned nil u-s-p)
+                  (not-null nil nn-s-p)
                   (auto-increment nil ai-s-p)
                   (on-update-current-timestamp nil ouct-s-p)
                   &allow-other-keys)
@@ -69,6 +74,7 @@
 		,@(when d-s-p (list :default default))
 		,@(when s-s-p (list :signed signed))
 		,@(when u-s-p (list :unsigned unsigned))
+		,@(when nn-s-p (list :not-null not-null))
 		,@(when ai-s-p (list :auto-increment auto-increment))
                 ,@(when ouct-s-p (list :on-update-current-timestamp
                                        on-update-current-timestamp))))))
