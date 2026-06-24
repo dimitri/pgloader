@@ -26,7 +26,7 @@
 
 (def ^:private pg-type-map
   {"smallint" "smallint"
-   "integer" "bigint"
+   "integer" "integer"
    "bigint" "bigint"
    "real" "double precision"
    "double precision" "double precision"
@@ -37,7 +37,7 @@
    "character" "text"
    "name" "text"
    "bytea" "bytea"
-   "timestamp without time zone" "timestamptz"
+   "timestamp without time zone" "timestamp"
    "timestamp with time zone" "timestamptz"
    "date" "date"
    "time without time zone" "time"
@@ -172,11 +172,16 @@
                                              is-pk (some #(= (:column_name c) %) (mapv :column_name pkeys))
                                              ai (detect-autoincrement (:column_default c) (:column_name c) col-type)]
                                          {:column-name (:column_name c)
-                                          :column-type (if (and ai is-pk)
-                                                         "bigserial"
-                                                         (if (= col-type "ARRAY")
-                                                           (or (pg-array-type->pg (:udt_name c)) "text[]")
-                                                           (pg-type->pg col-type)))
+                                          :source-column-type col-type
+                                          :column-type (cond
+                                                         (and ai is-pk) "bigserial"
+                                                         (= col-type "ARRAY")
+                                                         (or (pg-array-type->pg (:udt_name c)) "text[]")
+                                                         ;; Preserve precision for temporal types
+                                                         (and (re-find #"(?i)^(timestamp|time)\b" (pg-type->pg col-type))
+                                                              (:datetime_precision c))
+                                                         (str (pg-type->pg col-type) "(" (:datetime_precision c) ")")
+                                                         :else (pg-type->pg col-type))
                                           :is-nullable (= "YES" (:is_nullable c))
                                           :column-default (when-not ai (:column_default c))
                                           :extra (when ai "auto_increment")}))
@@ -254,6 +259,45 @@
         (catch Exception e
           (log/error (str "Query failed: " sql " - " (.getMessage e)))
           (throw e)))))
+
+  (create-view! [_ view-name source-schema sql]
+    ;; PostgreSQL: schema-qualify the view name.  Default to "public" when the
+    ;; user omitted a schema prefix, matching the v3 behaviour of creating in
+    ;; the current search_path schema.
+    (let [schema (or source-schema "public")
+          qname  (str "\"" schema "\".\"" view-name "\"")]
+      (jdbc/execute! conn [(str "CREATE VIEW " qname " AS " sql)])
+      (let [cols  (columns conn {:schema schema :table view-name})
+            pkeys (table-pkeys conn {:schema schema :table view-name})]
+        {:table-name    view-name
+         :schema        schema
+         :source-schema schema
+         :is-view       true
+         :columns       (mapv (fn [c]
+                                (let [col-type (:data_type c)]
+                                  {:column-name    (:column_name c)
+                                   :column-type    (cond
+                                                     (= col-type "ARRAY")
+                                                     (or (pg-array-type->pg (:udt_name c)) "text[]")
+                                                     (and (re-find #"(?i)^(timestamp|time)\b" (pg-type->pg col-type))
+                                                          (:datetime_precision c))
+                                                     (str (pg-type->pg col-type) "(" (:datetime_precision c) ")")
+                                                     :else (pg-type->pg col-type))
+                                   :is-nullable    true
+                                   :column-default nil
+                                   :extra          nil}))
+                              cols)
+         :primary-key   (mapv :column_name pkeys)
+         :indexes       []
+         :fkeys         []})))
+
+  (drop-view! [_ view-name source-schema]
+    (let [schema (or source-schema "public")
+          qname  (str "\"" schema "\".\"" view-name "\"")]
+      (try
+        (jdbc/execute! conn [(str "DROP VIEW IF EXISTS " qname)])
+        (catch Exception e
+          (log/warn (str "Failed to drop source view " qname ": " (.getMessage e)))))))
 
   (partition-source [this table-spec-entry n chunk-bytes]
     (pgsql-partition-source this table-spec-entry n chunk-bytes))

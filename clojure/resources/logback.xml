@@ -26,5 +26,4 @@
     <appender-ref ref="FILE"/>
   </root>
 
-  <logger name="pgloader" level="DEBUG"/>
 </configuration>

@@ -15,6 +15,7 @@ populate:
 	java -jar $(JAR) /suite/source/load-dbf.load
 	java -jar $(JAR) /suite/source/load-track.load
 	java -jar $(JAR) /suite/source/load-places.load
+	java -jar $(JAR) /suite/source/load-timestamps.load
 
 run: populate
 	$(PGLOADER_CMD) /suite/pgsql.load

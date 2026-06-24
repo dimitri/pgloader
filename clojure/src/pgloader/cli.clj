@@ -20,9 +20,13 @@
 
 (defn- set-log-level!
   [^String level-str]
-  (let [^Logger root (.getLogger (LoggerFactory/getILoggerFactory) "ROOT")
+  (let [ctx   (LoggerFactory/getILoggerFactory)
         level (Level/valueOf level-str)]
-    (.setLevel root level)))
+    (.setLevel ^Logger (.getLogger ctx "ROOT") level)
+    ;; Clear any explicit level on the "pgloader" named logger so it
+    ;; inherits from root instead of overriding it (e.g. logback.xml
+    ;; pins it to DEBUG, which would defeat --quiet / --verbose).
+    (.setLevel ^Logger (.getLogger ctx "pgloader") nil)))
 
 (defn- set-appender-level!
   "Set the threshold level on a named appender attached to the root logger."
@@ -91,7 +95,7 @@
   (println "  --log-min-messages LVL      Minimum log level for logfile (trace/debug/info/warn/error)")
   (println "  --root-dir DIR              Root directory for reject files (default: /tmp/pgloader)")
   (println "  --logfile FILE              Write log output to FILE in addition to stdout")
-  (println "  --summary FILE              Write summary to CSV or JSON file")
+  (println "  -S, --summary FILE          Write summary to JSON or CSV file")
   (println "  --on-error-stop             Stop on first copy error instead of continuing")
   (println "  --dry-run                   Connect and plan but do not copy any data")
   (println "  --type TYPE                 Force source type (csv, mysql, pgsql, mssql, sqlite, dbf)")
@@ -191,6 +195,8 @@
         "--root-dir"              (recur (assoc opts :root-dir (second remaining))
                                          (drop 2 remaining))
         "--summary"               (recur (assoc opts :summary (second remaining))
+                                         (drop 2 remaining))
+        "-S"                      (recur (assoc opts :summary (second remaining))
                                          (drop 2 remaining))
         "--logfile"               (recur (assoc opts :logfile (second remaining))
                                          (drop 2 remaining))

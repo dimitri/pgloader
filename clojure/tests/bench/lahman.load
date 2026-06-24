@@ -1,0 +1,6 @@
+load database
+  from sqlite:///work/lahman.sqlite
+  into pgsql://pgloader:pgloader@postgres:5432/target
+
+  with include drop, create tables, create indexes, reset sequences
+;

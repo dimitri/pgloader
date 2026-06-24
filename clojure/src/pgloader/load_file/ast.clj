@@ -1,7 +1,8 @@
 (ns pgloader.load-file.ast
   (:require [instaparse.core :as insta]
             [clojure.string :as str]
-            [pgloader.pg-service :as pg-service])
+            [pgloader.pg-service :as pg-service]
+            [pgloader.mysql-options :as mysql-opts])
   (:import [java.net URI]))
 
 (set! *warn-on-reflection* true)
@@ -121,17 +122,23 @@
                table-from-query)
 
         ("mysql" "mariadb")
-        {:type     (keyword scheme)
-         :host     host
-         :port     (if (pos? (.getPort uri)) (.getPort uri) 3306)
-         :db       db
-         :user     user
-         :password password
-         :raw      uri-str
-         :jdbc-url (str "jdbc:mysql://" host
-                        ":" (if (pos? (.getPort uri)) (.getPort uri) 3306)
-                        "/" db
-                        (when raw-query (str "?" raw-query)))}
+        (let [base {:type     (keyword scheme)
+                    :host     host
+                    :port     (when (pos? (.getPort uri)) (.getPort uri))
+                    :db       db
+                    :user     user
+                    :password password
+                    :raw      uri-str}
+              merged (mysql-opts/apply-my-cnf base)
+              eff-host (or (:host merged) "localhost")
+              eff-port (or (:port merged) 3306)]
+          (assoc merged
+                 :host eff-host
+                 :port eff-port
+                 :jdbc-url (str "jdbc:mysql://" eff-host
+                                ":" eff-port
+                                "/" (or (:db merged) "")
+                                (when raw-query (str "?" raw-query)))))
 
         "csv"
         {:type :csv
@@ -286,30 +293,35 @@
                          flat-cast-opts)
           when-node (first (filter #(= :when-or-unsigned (first %)) inner-children))
           when-cond (when when-node
-                      (let [wc (vec (rest when-node))]
-                        (cond
-                          (empty? wc) {:when-unsigned true}
-                          (some #(= :when-default-val (first %)) wc)
-                          (let [dv (first (filter #(= :when-default-val (first %)) wc))
-                                vi (second dv)]
-                            {:when-default (if (= :dq-string (first vi))
-                                             (second vi)
-                                             (clojure.string/join " " (map second (filter #(= :word-part (first %)) (rest vi)))))})
-                          (some #(= :when-expr (first %)) wc)
-                          (let [we (first (filter #(= :when-expr (first %)) wc))
-                                parts (map (fn [c]
-                                             (cond
-                                               (= :when-expr (first c))
-                                               (str "(" (reconstruct-when-expr c) ")")
-                                               (and (= :when-inner (first c))
-                                                    (= 2 (count c))
-                                                    (vector? (second c))
-                                                    (= :when-expr (first (second c))))
-                                               (str "(" (reconstruct-when-expr (second c)) ")")
-                                               :else
-                                               (second c)))
-                                           (rest we))]
-                            {:when-extra (clojure.string/join "" parts)}))))
+                      (let [wc (vec (rest when-node))
+                            not-null? (some #(and (vector? %) (= :when-not-null (first %))) wc)
+                            wc (vec (remove #(and (vector? %) (= :when-not-null (first %))) wc))
+                            base (cond
+                                   (empty? wc) {:when-unsigned true}
+                                   (some #(= :when-default-val (first %)) wc)
+                                   (let [dv (first (filter #(= :when-default-val (first %)) wc))
+                                         vi (second dv)]
+                                     {:when-default (if (= :dq-string (first vi))
+                                                      (second vi)
+                                                      (clojure.string/join " " (map second (filter #(= :word-part (first %)) (rest vi)))))})
+                                   (some #(= :when-expr (first %)) wc)
+                                   (let [we (first (filter #(= :when-expr (first %)) wc))
+                                         parts (map (fn [c]
+                                                      (cond
+                                                        (= :when-expr (first c))
+                                                        (str "(" (reconstruct-when-expr c) ")")
+                                                        (and (= :when-inner (first c))
+                                                             (= 2 (count c))
+                                                             (vector? (second c))
+                                                             (= :when-expr (first (second c))))
+                                                        (str "(" (reconstruct-when-expr (second c)) ")")
+                                                        :else
+                                                        (second c)))
+                                                    (rest we))]
+                                     {:when-extra (clojure.string/join "" parts)})
+                                   :else nil)]
+                        (cond-> (or base {})
+                          not-null? (assoc :when-not-null true))))
           drop-opts (parse-cast-options (map first flat-cast-opts))]
       (cond-> {:target-type target}
         source (assoc :source source)

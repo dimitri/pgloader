@@ -233,6 +233,12 @@
 
   (close! [_])
 
+  (create-view! [_ _ _ _]
+    (throw (UnsupportedOperationException. "create-view! not supported for CSV source")))
+
+  (drop-view! [_ _ _]
+    (throw (UnsupportedOperationException. "drop-view! not supported for CSV source")))
+
   (read-query [_ _sql]
     (throw (UnsupportedOperationException. "read-query not supported for CSV source")))
 
@@ -462,31 +468,36 @@
 
   (close! [_])
 
+  (create-view! [_ _ _ _]
+    (throw (UnsupportedOperationException. "create-view! not supported for CSV source")))
+
+  (drop-view! [_ _ _]
+    (throw (UnsupportedOperationException. "drop-view! not supported for CSV source")))
+
   (read-query [_ _sql]
     (throw (UnsupportedOperationException. "read-query not supported for CSV source")))
 
   (read-rows [_ table-spec]
     (let [files (matching-files directory pattern)]
       (mapcat (fn [f]
-                (let [csv (map->CSVSource {:filepath (.getPath ^File f)
-                                           :encoding encoding
-                                           :skip-lines skip-lines
-                                           :separator separator
-                                           :quote-char quote-char
-                                           :escape-char escape-char
-                                           :column-names column-names
-                                           :nullif nullif
-                                           :keep-unquoted-blanks keep-unquoted-blanks
-                                           :trim-unquoted-blanks trim-unquoted-blanks
-                                           :inline-data nil
-                                           :projections projections
-                                           :csv-header nil
-                                           :lines-terminator nil
-                                           :column-formats nil
-                                           :column-nullifs nil
-                                           :stdin? false})
-                      rows (vec (read-rows csv table-spec))]
-                  rows))
+                (read-rows (map->CSVSource {:filepath (.getPath ^File f)
+                                            :encoding encoding
+                                            :skip-lines skip-lines
+                                            :separator separator
+                                            :quote-char quote-char
+                                            :escape-char escape-char
+                                            :column-names column-names
+                                            :nullif nullif
+                                            :keep-unquoted-blanks keep-unquoted-blanks
+                                            :trim-unquoted-blanks trim-unquoted-blanks
+                                            :inline-data nil
+                                            :projections projections
+                                            :csv-header nil
+                                            :lines-terminator nil
+                                            :column-formats nil
+                                            :column-nullifs nil
+                                            :stdin? false})
+                           table-spec))
               files))))
 
 (defn create-source

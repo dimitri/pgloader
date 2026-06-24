@@ -1,0 +1,24 @@
+-- Seed a 'timestamps' schema in the source PostgreSQL to test Fix C (#1621):
+-- pgloader pgsql-to-pgsql must round-trip timestamp(N) precision and the
+-- 'timestamp without time zone' type name correctly in the target DDL.
+LOAD CSV
+     FROM inline
+          (id, ts6, ts_notz, t3)
+     INTO postgresql://pgloader:pgloader@source:5432/source
+     TARGET TABLE timestamps.ts_types
+
+     WITH truncate,
+          fields terminated by ','
+
+     BEFORE LOAD DO
+       $$ CREATE SCHEMA IF NOT EXISTS timestamps; $$,
+       $$ DROP TABLE IF EXISTS timestamps.ts_types CASCADE; $$,
+       $$ CREATE TABLE timestamps.ts_types (
+            id      integer PRIMARY KEY,
+            ts6     timestamp(6),
+            ts_notz timestamp without time zone,
+            t3      time(3)
+          ); $$;
+
+1,2024-01-15 10:30:00.123456,2024-01-15 10:30:00,10:30:00.123
+2,2024-06-01 00:00:00.000000,2024-06-01 00:00:00,00:00:00.000

@@ -97,8 +97,8 @@
    "blob"             "bytea"
    "byte"             "bytea"
    "byte[]"           "bytea"
-   ;; real-affinity types
-   "real"             "double precision"
+   ;; real-affinity types — SQLite REAL maps to PostgreSQL real (matches v3 cast rule)
+   "real"             "real"
    "float"            "double precision"
    "float4"           "real"
    "float8"           "double precision"
@@ -135,6 +135,7 @@
                         (str/replace #"([a-z])([A-Z])" "$1_$2")
                         (str/replace #"([A-Z]+)([A-Z][a-z])" "$1_$2")
                         str/lower-case)
+    :quote-ids name
     (str/lower-case name)))
 
 (deftype SQLiteSource
@@ -203,16 +204,25 @@
 
   (read-rows [_ table-spec-entry]
     (let [{:keys [table-name source-table-name columns]} table-spec-entry
-          src-tbl (or source-table-name table-name)
+          src-tbl  (or source-table-name table-name)
           col-list (str/join ", " (map #(str "\"" (:column-name %) "\"") columns))
-          col-names (mapv #(str/lower-case (:column-name %)) columns)
-          sql (str "SELECT " col-list " FROM \"" src-tbl "\"")
-          _ (log/debug (str "SQLite read-rows: " sql))
-          rs (jdbc/execute! conn [sql])]
-      (map (fn [row]
-             (let [row-map (into {} (map (fn [[k v]] [(str/lower-case (name k)) v]) row))]
-               (mapv (fn [cn] (some-> (get row-map cn) str)) col-names)))
-           rs)))
+          n-cols   (int (count columns))
+          sql      (str "SELECT " col-list " FROM \"" src-tbl "\"")
+          _        (log/debug (str "SQLite read-rows: " sql))
+          stmt     (.prepareStatement conn sql)
+          rs       (.executeQuery stmt)]
+      ((fn thisfn []
+         (when (.next ^ResultSet rs)
+           (lazy-seq
+            (cons (loop [i      (int 1)
+                         result (transient [])]
+                    (if (<= i n-cols)
+                      (recur (unchecked-inc i)
+                             (conj! result
+                                    (let [v (.getObject ^ResultSet rs i)]
+                                      (when (some? v) (str v)))))
+                      (persistent! result)))
+                  (thisfn))))))))
 
   (read-query [_ sql]
     (let [stmt (.prepareStatement conn sql)]
@@ -240,6 +250,32 @@
         (catch Exception e
           (log/error (str "Query failed: " sql " - " (.getMessage e)))
           (throw e)))))
+
+  (create-view! [_ view-name _source-schema sql]
+    ;; SQLite has no schemas; create the view unqualified.
+    (jdbc/execute! conn [(str "CREATE VIEW \"" view-name "\" AS " sql)])
+    (let [cols (list-columns conn view-name)]
+      {:table-name        view-name
+       :source-table-name view-name
+       :schema            "public"
+       :is-view           true
+       :columns           (mapv (fn [c]
+                                  {:column-name    (:name c)
+                                   :column-type    (sqlite-type->pg (or (:type c) "text"))
+                                   :is-nullable    true
+                                   :column-default nil
+                                   :key            false
+                                   :extra          nil})
+                                cols)
+       :primary-key []
+       :indexes     []
+       :fkeys       []}))
+
+  (drop-view! [_ view-name _source-schema]
+    (try
+      (jdbc/execute! conn [(str "DROP VIEW IF EXISTS \"" view-name "\"")])
+      (catch Exception e
+        (log/warn (str "Failed to drop source view \"" view-name "\": " (.getMessage e))))))
 
   (partition-source [_ _ _ _] nil)
 
@@ -289,6 +325,7 @@
   (let [conn (sqlite-connection (:path uri-map))
         id-case (cond
                   (:snake-case-ids with-options) :snake-case-ids
+                  (:quote-ids with-options)      :quote-ids
                   (:downcase-ids with-options)   :downcase-ids
                   :else                           :downcase-ids)]  ; v3 default: lowercase
     (->SQLiteSource conn (:path uri-map) id-case)))

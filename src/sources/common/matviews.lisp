@@ -12,10 +12,12 @@
 (in-package :pgloader.sources)
 
 (defmethod format-matview-name (matview (copy db-copy))
-  "Format the materialized view name."
+  "Format the materialized view name.
+   The matview source-name is a cons cell (schema-name . view-name) where
+   schema-name is nil for unqualified names (SQLite, MySQL) and a string for
+   qualified names (PostgreSQL, MS SQL)."
   (declare (ignore copy))
-  (let ((schema-name (when (matview-schema matview)
-                       (schema-source-name schema)))
+  (let ((schema-name (car (matview-source-name matview)))
         (view-name   (cdr (matview-source-name matview))))
     (format nil "~@[~s.~]~a" schema-name view-name)))
 
