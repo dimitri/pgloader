@@ -29,6 +29,7 @@
         JOIN pg_class cf on r.confrelid = cf.oid
         JOIN pg_namespace nf on cf.relnamespace = nf.oid
         JOIN pg_depend d on d.classid = 'pg_constraint'::regclass
+                        and d.refclassid = 'pg_class'::regclass
                         and d.objid = r.oid
                         and d.refobjsubid = 0
    where r.contype = 'f'
