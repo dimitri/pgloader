@@ -32,7 +32,7 @@ another:
    ;
 
 Everything works exactly the same way as when doing a PostgreSQL to
-PostgreSQL migration, with the added fonctionality of this new `distribute`
+PostgreSQL migration, with the added functionality of this new `distribute`
 command.
 
 Distribute Command
@@ -140,7 +140,7 @@ The ``impressions`` table has an indirect foreign key reference to the
 ``company`` table, which is the table where the distribution key is
 specified. pgloader will discover that itself from walking the PostgreSQL
 catalogs, and you may also use the following specification in the pgloader
-command to explicitely add the indirect dependency:
+command to explicitly add the indirect dependency:
 
 ::
    
