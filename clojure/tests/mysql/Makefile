@@ -30,7 +30,7 @@ my-cnf:
 # (serial vs identity, bit vs bit varying, trigger naming).
 mytest-v3:
 	pgloader --client-min-messages notice mytest/mytest.load
-	java -jar $(JAR) regress --variant v3 mytest
+	java -jar $(JAR) regress $(REGRESS_FLAGS) --variant v3 mytest
 
 all-v3: mytest-v3 sakila-v3 f1db-v3
 	@:
@@ -43,3 +43,6 @@ all-v3: mytest-v3 sakila-v3 f1db-v3
 
 update-expected-%:
 	java -jar $(JAR) regress --update $*
+
+update-expected-v3-%:
+	java -jar $(JAR) regress --update --variant v3 $*

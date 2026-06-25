@@ -110,6 +110,25 @@
       (is (= 1 (count sqls)))
       (is (str/includes? (first sqls) "\"status\", (lower(email))")))))
 
+(deftest test-create-indexes-sql-mixed-case-name
+  (testing "mixed-case index name is quoted exactly once (#1521)"
+    ;; With an oid the name becomes idx_{oid}_{raw}, still single-quoted.
+    (let [idxes [{:name "MyMixedCaseIndex" :unique false :columns ["col"]}]
+          sqls  (ddl/create-indexes-sql "public" "t" idxes 7)]
+      (is (= 1 (count sqls)))
+      ;; Must contain exactly one opening double-quote before the name.
+      (is (str/includes? (first sqls) "\"idx_7_MyMixedCaseIndex\""))
+      ;; Must NOT contain backslash-escaped quotes (double-quoting regression).
+      (is (not (str/includes? (first sqls) "\\\"")))))
+
+  (testing "preserve-index-names path (oid=nil) also single-quoted (#1521)"
+    ;; When oid is nil the raw index name is passed through identifier-quote once.
+    (let [idxes [{:name "MyPreservedIndex" :unique false :columns ["col"]}]
+          sqls  (ddl/create-indexes-sql "public" "t" idxes nil)]
+      (is (= 1 (count sqls)))
+      (is (str/includes? (first sqls) "\"MyPreservedIndex\""))
+      (is (not (str/includes? (first sqls) "\\\""))))))
+
 (deftest test-split-index-columns
   (testing "plain columns"
     (is (= ["email" "name"] (#'pgloader.source.mysql/split-index-columns "email,name"))))
@@ -188,6 +207,13 @@
     (let [[t] (ddl/apply-identifier-case [(make-table "t" [] ["MyIndex" "Object_IDX"])]
                                          {:snake-case-ids true})]
       (is (= ["my_index" "object_idx"] (mapv :name (:indexes t))))))
+
+  (testing "quote-ids (default) leaves mixed-case index names untouched (#1521)"
+    ;; With no downcase/snake option, apply-identifier-case is a no-op on index names
+    ;; so identifier-quote in create-indexes-sql receives the original case.
+    (let [[t] (ddl/apply-identifier-case [(make-table "t" [] ["MyIndex" "CamelCase"])]
+                                         {})]
+      (is (= ["MyIndex" "CamelCase"] (mapv :name (:indexes t))))))
 
   (testing "table name truncated at 63 chars (#1286)"
     (let [long-name (apply str (repeat 70 "a"))
@@ -349,4 +375,4 @@
       (let [enum-types (:enum-types (first result))]
         (is (= 1 (count enum-types)))
         ;; type name uses the (already-renamed) table name
-        (is (= "renamed_tbl_status" (:type-name (first enum-types))))))))
+        (is (= "renamed_tbl_status_t" (:type-name (first enum-types))))))))

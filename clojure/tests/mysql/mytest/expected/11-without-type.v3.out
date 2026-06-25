@@ -1,7 +1,7 @@
- column_name | data_type |     udt_name      
--------------+-----------+-------------------
+ column_name | data_type |      udt_name       
+-------------+-----------+---------------------
  id          | integer   | int4
- perms       | ARRAY     | _set_column_perms
+ perms       | ARRAY     | _set_column_perms_t
 (2 rows)
 
  id |        perms         

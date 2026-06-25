@@ -577,8 +577,13 @@
                                           (log/error e "Citus catalog augmentation failed, continuing without distributed table backfill")
                                           c))
                                       c))
-                           ;; Expand ENUM/SET columns to named PostgreSQL ENUM types
-                              ddl/add-enum-types)]
+                           ;; Expand ENUM/SET columns to named PostgreSQL ENUM types.
+                           ;; Check the target so name conflicts are caught before CREATE TYPE.
+                              (ddl/add-enum-types (fn [schema names]
+                                                    (into #{}
+                                                          (map :name)
+                                                          (type-names-in-schema
+                                                           pg-conn {:schema schema :names names})))))]
           ;; Truncate tables if requested — each table its own transaction
                   (when (get with-options :truncate)
                     (log/debug "Truncating tables")

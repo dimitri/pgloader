@@ -263,6 +263,13 @@ update-expected-mysql: ensure-jar ensure-f1db
 	  run --rm --build -e "PGLOADER_CMD=pgloader --client-min-messages notice" -e REGRESS_FLAGS=--update test-runner
 	@$(DC) -f mysql/docker-compose.yml down --volumes 2>/dev/null; true
 
+update-expected-mysql-v3: ensure-jar ensure-f1db
+	@$(DC) -f mysql/docker-compose.yml down --volumes 2>/dev/null; true
+	$(DC) $(PROFILE) -f mysql/docker-compose.yml \
+	  run --rm --build -e "PGLOADER_CMD=pgloader --client-min-messages notice" -e REGRESS_FLAGS=--update \
+	  test-runner make -C /suite all-v3
+	@$(DC) -f mysql/docker-compose.yml down --volumes 2>/dev/null; true
+
 update-expected-mysql57: ensure-jar ensure-f1db
 	@$(DC) -f mysql57/docker-compose.yml down --volumes 2>/dev/null; true
 	$(DC) $(PROFILE) -f mysql57/docker-compose.yml \
@@ -273,6 +280,13 @@ update-expected-mariadb: ensure-jar ensure-f1db
 	@$(DC) -f mariadb/docker-compose.yml down --volumes 2>/dev/null; true
 	$(DC) $(PROFILE) -f mariadb/docker-compose.yml \
 	  run --rm --build -e "PGLOADER_CMD=pgloader --client-min-messages notice" -e REGRESS_FLAGS=--update test-runner
+	@$(DC) -f mariadb/docker-compose.yml down --volumes 2>/dev/null; true
+
+update-expected-mariadb-v3: ensure-jar ensure-f1db
+	@$(DC) -f mariadb/docker-compose.yml down --volumes 2>/dev/null; true
+	$(DC) $(PROFILE) -f mariadb/docker-compose.yml \
+	  run --rm --build -e "PGLOADER_CMD=pgloader --client-min-messages notice" -e REGRESS_FLAGS=--update \
+	  test-runner make -C /suite all-v3
 	@$(DC) -f mariadb/docker-compose.yml down --volumes 2>/dev/null; true
 
 update-expected-pgsql: ensure-jar

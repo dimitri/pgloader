@@ -9,6 +9,8 @@
 
    --update          write out/ → expected/ instead of diffing (baseline registration)
    --variant <name>  prefer expected/<stem>.<name>.out over expected/<stem>.out;
+                     for compound names (e.g. 'v3.mariadb') strips one leading
+                     component per miss: stem.v3.mariadb.out → stem.mariadb.out → stem.out;
                      --update with --variant writes to the variant file"
   (:require [clojure.java.io :as io]
             [clojure.java.shell :as shell]
@@ -64,13 +66,23 @@
 
 (defn- expected-file
   "Resolve the expected file for a given stem, honouring --variant.
-   When variant is non-nil, prefer <exp-dir>/<stem>.<variant>.out and fall
-   back to <exp-dir>/<stem>.out when the variant file does not exist."
+   For a compound variant like 'v3.mariadb', strips the leading component on
+   each miss, so the fallback chain is:
+     stem.v3.mariadb.out → stem.mariadb.out → stem.out
+   This lets variant files be omitted when their content would be identical to
+   the shorter-suffix fallback."
   [^File exp-dir stem variant]
-  (if variant
-    (let [vf (io/file exp-dir (str stem "." variant ".out"))]
-      (if (.exists vf) vf (io/file exp-dir (str stem ".out"))))
-    (io/file exp-dir (str stem ".out"))))
+  (if-not variant
+    (io/file exp-dir (str stem ".out"))
+    (let [parts    (str/split variant #"\.")
+          suffixes (conj (mapv #(str/join "." (drop % parts))
+                               (range (count parts)))
+                         nil)]
+      (or (some (fn [sfx]
+                  (let [f (io/file exp-dir (str stem (when sfx (str "." sfx)) ".out"))]
+                    (when (.exists f) f)))
+                suffixes)
+          (io/file exp-dir (str stem ".out"))))))
 
 (defn run
   "Entry point called from cli/run when first arg is 'regress'."

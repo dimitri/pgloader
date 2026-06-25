@@ -32,6 +32,38 @@
 ;;;
 ;;; Table schema support
 ;;;
+(defun type-names-existing-in-schema (schema-name names)
+  "Return the subset of NAMES already taken in SCHEMA-NAME as a list of
+   strings (one query, ANY($2) array).  Every table registers an implicit
+   composite type in pg_type, so this covers both tables and explicit types."
+  (pomo:query
+   "SELECT t.typname
+      FROM pg_catalog.pg_type t
+      JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+     WHERE n.nspname = $1
+       AND t.typname = ANY($2)"
+   schema-name (coerce names 'vector)
+   :column))
+
+(defun resolve-enum-type-name (schema-name base-name)
+  "Return the first candidate name for an ENUM/SET type that does not
+   already exist in SCHEMA-NAME.  BASE-NAME is expected to end in '_t'.
+   Alternatives strip that suffix and append '_enum', or prepend 'enum_'.
+   All three candidates are checked in a single query.
+   Signals an error when all candidates conflict."
+  (let* ((stem (if (and (> (length base-name) 2)
+                        (string= "_t" (subseq base-name (- (length base-name) 2))))
+                   (subseq base-name 0 (- (length base-name) 2))
+                   base-name))
+         (candidates (list base-name
+                           (format nil "~a_enum" stem)
+                           (format nil "enum_~a" stem)))
+         (taken (type-names-existing-in-schema schema-name candidates)))
+    (or (find-if (lambda (name) (not (member name taken :test #'string=))) candidates)
+        (error "~@<Could not find a non-conflicting PostgreSQL type name ~
+                for enum ~s in schema ~s; tried: ~{~s~^, ~}~:>"
+               base-name schema-name candidates))))
+
 (defun create-sqltypes (catalog
                         &key
                           if-not-exists
@@ -40,6 +72,10 @@
   "Create the needed data types for given CATALOG."
   (let ((sqltype-list (sqltype-list catalog)))
     (loop :for sqltype :in sqltype-list
+       :do (setf (sqltype-name sqltype)
+                 (resolve-enum-type-name
+                  (ensure-unquoted (schema-name (sqltype-schema sqltype)))
+                  (sqltype-name sqltype)))
        :when include-drop
        :count t
        :do (pgsql-execute (format-drop-sql sqltype :cascade t :if-exists t)
