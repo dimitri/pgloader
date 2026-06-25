@@ -138,8 +138,10 @@
          "NOW"}
        stripped) (str/lower-case stripped)
       ;; PostgreSQL function call expressions (e.g. nextval(…), gen_random_uuid()):
-      ;; pass through unquoted so they are treated as SQL expressions (#1497)
-      (re-matches #"^\w+\(.*\)$" val) val
+      ;; pass through unquoted so they are treated as SQL expressions (#1497).
+      ;; Pattern: word( … ) — the inner content may contain nested parens (e.g.
+      ;; nextval('schema.seq')) but must end with ) so bare words are not matched.
+      (re-matches #"(?s)^\w+\(.*\)$" val) val
       ;; Bare identifier (word): quote as string literal with backslash escaping (#1546)
       (re-matches #"^\w+$" val) (str "'" (str/replace val "'" "''") "'")
       ;; Anything else: quote as string literal; escape single quotes and backslashes (#1546)

@@ -27,7 +27,7 @@ RUN mkdir -p /opt/src/pgloader/build/bin \
  && make DYNSIZE=$DYNSIZE clones save
 
 # ── Stage 2: test-runner image (JRE + psql + make + pgloader v3) ──────────────
-FROM clojure:temurin-21-tools-deps-bookworm
+FROM eclipse-temurin:21-jre-jammy
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \

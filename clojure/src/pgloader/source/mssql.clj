@@ -323,7 +323,7 @@
   "Return a seq of sequence descriptors for all user-created SEQUENCE objects
    in the MS SQL database.  Each map contains the keys needed to emit a
    PostgreSQL CREATE SEQUENCE statement:
-     :schema :name :data-type :start :increment :min :max :cycle? :cache"
+     :schema :name :start :increment :min :max :current :cycle? :cache"
   [^MSSQLSource src]
   (let [conn (.-conn src)]
     (->> (try (sequences conn) (catch Exception _ []))
@@ -331,7 +331,6 @@
                  (let [schema (:schema_name s)]
                    {:schema     (if (= schema "dbo") "public" schema)
                     :name       (:sequence_name s)
-                    :data-type  (mssql-type->pg (:data_type s))
                     :start      (:start_value s)
                     :increment  (:increment s)
                     :min        (:minimum_value s)
