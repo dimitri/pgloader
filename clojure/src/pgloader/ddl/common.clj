@@ -446,12 +446,33 @@
     (->> (re-seq #"'((?:[^']*(?:''[^']*)*)*)'" (second m))
          (mapv #(str/replace (second %) "''" "'")))))
 
+(defn resolve-enum-type-name
+  "Return the first candidate name that does not exist in schema on the target.
+   name-exists-fn is (fn [schema name] -> bool).  base-name is expected to end
+   in '_t'; alternatives strip that suffix and try '_enum' or 'enum_' prefix.
+   Throws when all three candidates conflict."
+  [name-exists-fn schema base-name]
+  (let [stem       (if (str/ends-with? base-name "_t")
+                     (subs base-name 0 (- (count base-name) 2))
+                     base-name)
+        candidates [base-name
+                    (str stem "_enum")
+                    (str "enum_" stem)]]
+    (or (first (remove #(name-exists-fn schema %) candidates))
+        (throw (ex-info (str "Cannot find a non-conflicting PostgreSQL type name for "
+                             base-name " in schema " schema
+                             "; tried: " (str/join ", " candidates))
+                        {:schema schema :base-name base-name :tried candidates})))))
+
 (defn add-enum-types
   "For columns with ENUM or SET type, compute PostgreSQL ENUM type names and
    attach them to the catalog. Returns updated catalog where:
    - :enum-types is a vector of {:type-name s :schema s :values [...] :is-set bool}
-   - each ENUM/SET column's :column-type is updated to the PG type reference"
-  [catalog]
+   - each ENUM/SET column's :column-type is updated to the PG type reference
+
+   name-exists-fn is (fn [schema name] -> bool) checked against the target
+   database; pass (constantly false) when no connection is available."
+  [catalog name-exists-fn]
   (mapv (fn [t]
           (let [table (:table-name t)
                 sch   (or (:schema t) "public")
@@ -462,7 +483,9 @@
                                 is-st (str/starts-with? ct "set(")]
                             (if (or is-en is-st)
                               (let [values    (parse-enum-values (:column-type col))
-                                    type-name (str table "_" (:column-name col))
+                                    type-name (resolve-enum-type-name
+                                               name-exists-fn sch
+                                               (str table "_" (:column-name col) "_t"))
                                     pg-ref    (str (identifier-quote sch) "." (identifier-quote type-name))
                                     pg-type   (if is-st (str pg-ref "[]") pg-ref)]
                                 [(conj cols (assoc col :column-type pg-type

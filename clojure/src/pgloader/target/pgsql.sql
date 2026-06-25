@@ -15,6 +15,17 @@ SELECT column_name
    AND table_name   = :table
  ORDER BY ordinal_position
 
+-- :name name-exists-in-schema :? :1
+-- :doc Check whether a name already exists in a schema as a relation or user-defined type.
+--      Every table registers an implicit composite type in pg_type, so one lookup covers both.
+SELECT EXISTS (
+  SELECT 1
+    FROM pg_catalog.pg_type t
+    JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+   WHERE n.nspname = :schema
+     AND t.typname = :name
+) AS exists
+
 -- :name table-oid :? :1
 -- :doc Fetch the pg_class OID for a table; used to generate stable index names (idx_{oid}_PRIMARY)
 SELECT c.oid AS oid
