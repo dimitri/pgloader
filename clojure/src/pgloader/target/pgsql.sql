@@ -22,7 +22,7 @@ SELECT t.typname AS name
   FROM pg_catalog.pg_type t
   JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
  WHERE n.nspname = :schema
-   AND t.typname = ANY(:v*:names)
+   AND t.typname IN (:v*:names)
 
 -- :name table-oid :? :1
 -- :doc Fetch the pg_class OID for a table; used to generate stable index names (idx_{oid}_PRIMARY)

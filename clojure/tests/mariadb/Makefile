@@ -31,7 +31,7 @@ mysql-unit-full:
 # against .v3.mariadb variant expected files.
 mysql-unit-full-v3:
 	pgloader --client-min-messages notice mysql-unit-full/mysql-unit-full.load
-	java -jar $(JAR) regress --variant v3.mariadb mysql-unit-full
+	java -jar $(JAR) regress $(REGRESS_FLAGS) --variant v3.mariadb mysql-unit-full
 
 all-v3: my-v3 sakila-v3 f1db-v3 mysql-unit-full-v3
 	@:
@@ -47,3 +47,6 @@ update-expected-%:
 
 update-expected-mariadb-%:
 	java -jar $(JAR) regress --update --variant mariadb $*
+
+update-expected-v3.mariadb-%:
+	java -jar $(JAR) regress --update --variant v3.mariadb $*
