@@ -205,7 +205,10 @@
          (index-name (if (and *preserve-index-names*
                               (not (string-equal "primary" (index-name index)))
                               (table-oid (index-table index)))
-                         (index-name index)
+                         ;; preserve-index-names: apply identifier-case so
+                         ;; mixed-case names get quoted when needed, consistent
+                         ;; with the build-identifier path below.
+                         (apply-identifier-case (index-name index))
 
                          ;; in the general case, we build our own index name.
                          (build-identifier "_"
@@ -220,7 +223,7 @@
         ;; LOCK on the table before we have the index done already
         (or (index-sql index)
             (format stream
-                    "CREATE UNIQUE INDEX ~s ON ~a (~{~a~^, ~})~@[ WHERE ~a~];"
+                    "CREATE UNIQUE INDEX ~a ON ~a (~{~a~^, ~})~@[ WHERE ~a~];"
                     index-name
                     (format-table-name table)
                     (index-columns index)
@@ -246,7 +249,7 @@
            (multiple-value-bind (access-method expression)
                (index-access-method index)
             (format stream
-                    "CREATE~:[~; UNIQUE~] INDEX ~s ON ~a ~@[USING ~a~](~{~a~^, ~})~@[ WHERE ~a~];"
+                    "CREATE~:[~; UNIQUE~] INDEX ~a ON ~a ~@[USING ~a~](~{~a~^, ~})~@[ WHERE ~a~];"
                     (index-unique index)
                     index-name
                     (format-table-name table)
