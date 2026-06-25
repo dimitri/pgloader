@@ -680,6 +680,12 @@
                         ;; Ensure extensions required by column defaults exist
                         ;; (e.g. pgcrypto for gen_random_uuid() on PG < 13).
                         (ensure-uuid-extension! pg-conn cat)
+                        ;; Create sequences before tables so that NEXT VALUE FOR
+                        ;; defaults (translated to nextval()) resolve correctly.
+                        (when (= :mssql (:type source-uri))
+                          (when-let [seqs (seq (mssql-source/catalog-sequences source))]
+                            (log/info (str "Creating " (count seqs) " sequence(s) from MS SQL"))
+                            (run-ddl-tx pg-conn (ddl/create-sequences-sql seqs))))
                         (stats/new-entry! :pre "Create tables")
                         (let [ddl-phase-start (System/nanoTime)]
                           (doseq [[i t] (map-indexed vector cat)]

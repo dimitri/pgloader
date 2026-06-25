@@ -1,3 +1,22 @@
+-- :name sequences :? :*
+-- :doc List all user-defined SEQUENCE objects in the current MS SQL database.
+--      IDENTITY columns do NOT appear here — they use a separate engine mechanism
+--      and are never backed by a sys.sequences row.
+SELECT s.name                                          AS sequence_name,
+       sc.name                                         AS schema_name,
+       tp.name                                         AS data_type,
+       CAST(s.start_value    AS BIGINT)                AS start_value,
+       CAST(s.increment      AS BIGINT)                AS increment,
+       CAST(s.minimum_value  AS BIGINT)                AS minimum_value,
+       CAST(s.maximum_value  AS BIGINT)                AS maximum_value,
+       CAST(s.current_value  AS BIGINT)                AS current_value,
+       s.is_cycling                                    AS is_cycling,
+       s.cache_size                                    AS cache_size
+  FROM sys.sequences  s
+  JOIN sys.schemas   sc ON sc.schema_id = s.schema_id
+  JOIN sys.types     tp ON tp.user_type_id = s.user_type_id
+ ORDER BY sc.name, s.name
+
 -- :name tables :? :*
 -- :doc List all user tables in the current MS SQL database
 SELECT TABLE_SCHEMA,

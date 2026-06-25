@@ -161,6 +161,30 @@
      :finally (return catalog)))
 
 
+(defun fetch-sequences (catalog mssql)
+  "Query sys.sequences and collect them into CATALOG as a list of plists.
+   Each plist has :schema-name :sequence-name :start-value :increment-by
+   :minimum-value :maximum-value :current-value :is-cycling :cache-size."
+  (declare (ignore mssql))
+  (loop
+     :for (schema-name sequence-name data-type start-value increment-by
+                       minimum-value maximum-value current-value is-cycling cache-size)
+     :in (mssql-query (sql "/mssql/list-all-sequences.sql"))
+     :collect (list :schema-name   schema-name
+                    :sequence-name sequence-name
+                    :data-type     data-type
+                    :start-value   start-value
+                    :increment-by  increment-by
+                    :minimum-value minimum-value
+                    :maximum-value maximum-value
+                    :current-value current-value
+                    :is-cycling    is-cycling
+                    :cache-size    cache-size)
+     :into sequences
+     :finally (setf (catalog-sequences catalog) sequences)
+              (return catalog)))
+
+
 ;;;
 ;;; Tools to handle row queries.
 ;;;

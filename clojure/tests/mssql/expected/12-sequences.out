@@ -1,0 +1,15 @@
+ sequence_exists 
+-----------------
+ t
+(1 row)
+
+ default_uses_nextval 
+----------------------
+ t
+(1 row)
+
+ rows_copied 
+-------------
+ t
+(1 row)
+

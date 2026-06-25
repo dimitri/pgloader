@@ -187,6 +187,17 @@
                           (string= "GENERATE_UUID" default)))
                  :generate-uuid)
 
+                ;; NEXT VALUE FOR [schema].[sequence] → nextval('schema.sequence') (#1497)
+                ((and (stringp default)
+                      (uiop:string-prefix-p "NEXT VALUE FOR" (string-upcase default)))
+                 (cl-ppcre:register-groups-bind (schema seq-name)
+                     ("(?i)NEXT\\s+VALUE\\s+FOR\\s+\\[([^\\]]+)\\]\\.\\[([^\\]]+)\\]"
+                      default)
+                   (let ((pg-schema (if (string= (string-downcase schema) "dbo")
+                                        "public"
+                                        schema)))
+                     (format nil "nextval('~a.~a')" pg-schema seq-name))))
+
                 ;; CONVERT(type, expr, style) defaults are SQL Server-specific
                 ;; and have no direct PostgreSQL equivalent (#1409)
                 ((and (stringp default)

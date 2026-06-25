@@ -137,6 +137,9 @@
          "LOCALTIMESTAMP" "LOCALTIME" "TRUE" "FALSE"
          "NOW"}
        stripped) (str/lower-case stripped)
+      ;; PostgreSQL function call expressions (e.g. nextval(…), gen_random_uuid()):
+      ;; pass through unquoted so they are treated as SQL expressions (#1497)
+      (re-matches #"^\w+\(.*\)$" val) val
       ;; Bare identifier (word): quote as string literal with backslash escaping (#1546)
       (re-matches #"^\w+$" val) (str "'" (str/replace val "'" "''") "'")
       ;; Anything else: quote as string literal; escape single quotes and backslashes (#1546)
@@ -603,3 +606,30 @@
                           ", COALESCE(MAX(" quoted-col "), 1), false)"
                           " FROM " quoted-fqname ";\n"))))
                columns))))
+
+(defn create-sequence-sql
+  "Generate DROP … / CREATE SEQUENCE SQL for an MSSQL sequence descriptor.
+   seq-map keys: :schema :name :start :increment :min :max :cycle? :cache :current
+   The START value is set to current+increment so the first nextval() returns
+   the next unused value (mirroring SQL Server behaviour where current_value is
+   the last value issued, not the next)."
+  [{:keys [schema name start increment min max cycle? cache current]}]
+  (let [qname   (quote-fqname schema name)
+        ;; current_value is the last issued value; next PostgreSQL value should
+        ;; be current+increment (or start when current equals start-1 / no rows yet).
+        next-val (if current (+ current increment) start)]
+    [(str "DROP SEQUENCE IF EXISTS " qname " CASCADE;")
+     (str "CREATE SEQUENCE " qname
+          " AS bigint"
+          " START WITH " next-val
+          " INCREMENT BY " increment
+          " MINVALUE " min
+          " MAXVALUE " max
+          (if cycle? " CYCLE" " NO CYCLE")
+          (when (and cache (pos? cache)) (str " CACHE " cache))
+          ";")]))
+
+(defn create-sequences-sql
+  "Generate DROP/CREATE SQL for a collection of sequence descriptors."
+  [sequences]
+  (mapcat create-sequence-sql sequences))

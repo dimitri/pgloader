@@ -104,6 +104,9 @@
                             :including including
                             :excluding excluding))
 
+      ;; always fetch sequences — they are always created if present
+      (fetch-sequences catalog mssql)
+
       ;; return how many objects we're going to deal with in total
       ;; for stats collection
       (+ (count-tables catalog)

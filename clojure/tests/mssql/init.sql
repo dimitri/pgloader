@@ -116,6 +116,33 @@ INSERT INTO composite_child (region_id, product_id, qty) VALUES
 GO
 
 -- ============================================================
+-- #1497: SEQUENCE objects and NEXT VALUE FOR column defaults.
+--
+-- Verify that pgloader:
+--   (a) migrates the SEQUENCE itself as a PostgreSQL CREATE SEQUENCE
+--   (b) translates NEXT VALUE FOR [dbo].[order_seq] → nextval('public.order_seq')
+--       in the column default of seq_orders
+-- ============================================================
+CREATE SEQUENCE dbo.order_seq
+    AS BIGINT
+    START WITH 1000
+    INCREMENT BY 10
+    MINVALUE 1000
+    MAXVALUE 9999999999
+    NO CYCLE;
+GO
+
+-- Use NEXT VALUE FOR as a column default (issue #1497)
+CREATE TABLE seq_orders (
+    id          BIGINT DEFAULT (NEXT VALUE FOR dbo.order_seq) PRIMARY KEY,
+    description NVARCHAR(200)
+);
+GO
+
+INSERT INTO seq_orders (description) VALUES (N'First sequenced order'), (N'Second sequenced order');
+GO
+
+-- ============================================================
 -- filtertest: separate database for #1578/#1603 regression.
 --
 -- The bug: MATERIALIZE VIEWS with no INCLUDING ONLY clause
