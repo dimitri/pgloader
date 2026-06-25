@@ -275,7 +275,7 @@
       (let [cols  (table-columns conn {:schema schema :table view-name})
             pkeys (table-pkeys   conn {:schema schema :table view-name})]
         {:table-name    view-name
-         :schema        (if (= schema "dbo") "public" schema)
+         :schema        (mssql-schema->pg schema)
          :source-schema schema
          :is-view       true
          :columns       (mapv (fn [c]
@@ -315,7 +315,7 @@
                        cols       (table-columns conn {:schema schema :table view-name})
                        pkeys      (table-pkeys   conn {:schema schema :table view-name})]
                    {:table-name  view-name
-                    :schema      (if (= schema "dbo") "public" schema)
+                    :schema      (mssql-schema->pg schema)
                     :source-schema schema
                     :is-view     true
                     :columns     (mapv (fn [c]
