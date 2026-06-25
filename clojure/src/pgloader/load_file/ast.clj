@@ -1,6 +1,7 @@
 (ns pgloader.load-file.ast
   (:require [instaparse.core :as insta]
             [clojure.string :as str]
+            [clojure.tools.logging :as log]
             [pgloader.pg-service :as pg-service]
             [pgloader.mysql-options :as mysql-opts])
   (:import [java.net URI]))
@@ -449,6 +450,7 @@
         :csv-header {:csv-header true}
         :csv-escape-mode {:escape-mode :following}
         :lines-terminated {:lines-terminated (interpret-escape (second (second node)))}
+        :date-format {:date-format (second (second node))}
         :drop-indexes {:drop-indexes true}
         nil))))
 
@@ -533,6 +535,19 @@
       {:projection {:column-name col-name
                     :target-type target-type
                     :using using-expr}})))
+
+(defn- date-time-target-type?
+  [target-type]
+  (contains? #{"date"
+               "time"
+               "time without time zone"
+               "time with time zone"
+               "timetz"
+               "timestamp"
+               "timestamp without time zone"
+               "timestamp with time zone"
+               "timestamptz"}
+             (some-> target-type str/lower-case)))
 
 (defn transform
   "Transform an instaparse hiccup tree into a LoadCommand record.
@@ -643,15 +658,33 @@
                 after-load (when after-load-node
                              (let [commands (rest (second after-load-node))]
                                (mapv #(second %) (filter vector? commands))))
-                cols (when source-col-list
-                       (mapv :name (map parse-column-item
-                                        (filter #(= :column-item (first %))
-                                                (rest source-col-list)))))
-                col-formats (when source-col-list
-                              (seq (filter :date-format
-                                           (map parse-column-item
-                                                (filter #(= :column-item (first %))
-                                                        (rest source-col-list))))))
+                source-column-items (when source-col-list
+                                      (map parse-column-item
+                                           (filter #(= :column-item (first %))
+                                                   (rest source-col-list))))
+                cols (when source-column-items
+                       (mapv :name source-column-items))
+                explicit-col-formats (seq (filter :date-format source-column-items))
+                target-projections (seq (or (:projections tt-table)
+                                            tt-projections))
+                default-col-formats (when (and cols
+                                               (:date-format csv-options))
+                                      (let [explicit-names (set (map :name explicit-col-formats))
+                                            typed-by-name (into {}
+                                                                (keep (fn [{:keys [column-name target-type]}]
+                                                                        (when (date-time-target-type? target-type)
+                                                                          [column-name target-type]))
+                                                                      target-projections))]
+                                        (if (seq typed-by-name)
+                                          (keep
+                                           (fn [col-name]
+                                             (when (and (not (contains? explicit-names col-name))
+                                                        (get typed-by-name col-name))
+                                               {:name col-name
+                                                :date-format (:date-format csv-options)}))
+                                           cols)
+                                          (log/warn "WITH date format was specified, but no target date/time columns were annotated; add TARGET TABLE column types to apply it."))))
+                col-formats (seq (concat default-col-formats explicit-col-formats))
                 col-nullifs (when source-col-list
                               (seq (filter (comp seq :nullifs)
                                            (map parse-column-item
@@ -1041,6 +1074,7 @@
                                 :create-tables    (assoc acc :create-tables true)
                                 :create-no-tables (assoc acc :create-tables false)
                                 :fixed-header     (assoc acc :fixed-header true)
+                                :date-format      (assoc acc :date-format (second (second opt)))
                                 :drop-indexes     (assoc acc :drop-indexes true)
                                 :disable-triggers (assoc acc :disable-triggers true)
                                 acc))
@@ -1083,6 +1117,22 @@
               target-schema (or (:schema tt-table)
                                 (when (and qualified (= 2 (count (vec (rest qualified)))))
                                   (-> qualified rest vec first second)))
+              field-names (when fields (mapv :name fields))
+              fixed-target-projections (when tt-table (seq (:projections tt-table)))
+              default-col-formats (when (and field-names (:date-format fixed-options))
+                                    (let [typed-by-name (into {}
+                                                              (keep (fn [{:keys [column-name target-type]}]
+                                                                      (when (date-time-target-type? target-type)
+                                                                        [column-name target-type]))
+                                                                    fixed-target-projections))]
+                                      (if (seq typed-by-name)
+                                        (seq (keep
+                                              (fn [field-name]
+                                                (when (get typed-by-name field-name)
+                                                  {:name field-name
+                                                   :date-format (:date-format fixed-options)}))
+                                              field-names))
+                                        (log/warn "WITH date format was specified, but no target date/time columns were annotated; add TARGET TABLE column types to apply it."))))
               set-params (mapcat (fn [c]
                                    (when (and (vector? c) (= :set-clause (first c)))
                                      (keep hiccup->set-option (rest c))))
@@ -1098,7 +1148,9 @@
            (merge from-source
                   {:fields fields}
                   (when (and inline-data (:inline from-source))
-                    {:inline-data inline-data}))
+                    {:inline-data inline-data})
+                  (when (seq default-col-formats)
+                    {:column-formats (seq default-col-formats)}))
            {:type :pgsql :target-uri pg-uri
             :schema target-schema
             :table  target-table}

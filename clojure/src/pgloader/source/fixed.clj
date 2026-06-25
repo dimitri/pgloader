@@ -14,6 +14,7 @@
      :fixed-header    When true the first line of the file defines column names
                       and their start positions; no explicit field list needed."
   (:require [pgloader.source.protocol :refer [Source]]
+            [pgloader.source.csv       :refer [apply-date-format]]
             [pgloader.utils.archive    :as archive]
             [clojure.string            :as str]
             [clojure.java.io           :as io]
@@ -121,7 +122,7 @@
 
 ;; ── Source records ────────────────────────────────────────────────────────────
 
-(defrecord FixedFileSource [source fields encoding fixed-header? select-cols]
+(defrecord FixedFileSource [source fields encoding fixed-header? select-cols column-formats]
   Source
 
   (source-name [_]
@@ -182,8 +183,23 @@
     (throw (UnsupportedOperationException. "read-query not supported for fixed source")))
 
   (read-rows [_ table-spec]
-    ;; Collect all files to read.
-    (let [files (cond
+    ;; Pre-compute date transforms once per source, not per row.
+    (let [date-transform-fn
+          (when (seq column-formats)
+            (let [fmts (into {} (map (fn [cf] [(:name cf) (:date-format cf)]) column-formats))
+                  field-names (mapv :name fields)
+                  transforms (vec (keep-indexed (fn [i n]
+                                                  (when-let [fmt (get fmts n)]
+                                                    [i fmt]))
+                                                field-names))]
+              (when (seq transforms)
+                (fn [^clojure.lang.IPersistentVector row]
+                  (reduce (fn [acc [i fmt]]
+                            (let [v (nth acc i nil)]
+                              (if v (assoc acc i (apply-date-format v fmt)) acc)))
+                          row transforms)))))
+          ;; Collect all files to read.
+          files (cond
                   (:filename-pattern source)
                   (archive/matching-files (:archive-dir source) (:filename-pattern source))
 
@@ -191,27 +207,30 @@
 
                   :else
                   [(File. ^String (:path source))])]
-      (if (:inline-data source)
-        ;; Inline data: read from the embedded string
-        (let [rdr (open-reader source encoding)]
-          (read-rows-from-reader rdr fields fixed-header?))
-        ;; File(s): concatenate rows from all matching files lazily.
-        ;; read-rows-from-reader closes each reader when its seq is exhausted.
-        (let [rows (mapcat (fn [^File f]
-                             (let [cs  (if encoding
-                                         (Charset/forName ^String encoding)
-                                         StandardCharsets/ISO_8859_1)
-                                   rdr (BufferedReader. (InputStreamReader. (io/input-stream f) cs))]
-                               (read-rows-from-reader rdr fields fixed-header?)))
-                           files)]
-          ;; Project to select-cols if specified (post-INTO column list)
-          (if (seq select-cols)
-            (let [field-names (mapv :name fields)
-                  col-set     (set select-cols)
-                  proj-idx    (vec (keep-indexed (fn [i _] (when (col-set (nth field-names i)) i))
-                                                 (range (count field-names))))]
-              (map (fn [row] (mapv #(nth row % nil) proj-idx)) rows))
-            rows))))))
+      (letfn [(apply-transforms [rows]
+                (if date-transform-fn (map date-transform-fn rows) rows))]
+        (if (:inline-data source)
+          ;; Inline data: read from the embedded string
+          (let [rdr (open-reader source encoding)]
+            (apply-transforms (read-rows-from-reader rdr fields fixed-header?)))
+          ;; File(s): concatenate rows from all matching files lazily.
+          ;; read-rows-from-reader closes each reader when its seq is exhausted.
+          (let [rows (mapcat (fn [^File f]
+                               (let [cs  (if encoding
+                                           (Charset/forName ^String encoding)
+                                           StandardCharsets/ISO_8859_1)
+                                     rdr (BufferedReader. (InputStreamReader. (io/input-stream f) cs))]
+                                 (read-rows-from-reader rdr fields fixed-header?)))
+                             files)]
+            ;; Project to select-cols if specified (post-INTO column list)
+            (apply-transforms
+             (if (seq select-cols)
+               (let [field-names (mapv :name fields)
+                     col-set     (set select-cols)
+                     proj-idx    (vec (keep-indexed (fn [i _] (when (col-set (nth field-names i)) i))
+                                                    (range (count field-names))))]
+                 (map (fn [row] (mapv #(nth row % nil) proj-idx)) rows))
+               rows))))))))
 
 (defn create-source
   "Create a FixedFileSource from a parsed source map.
@@ -223,10 +242,12 @@
      :archive-dir     java.io.File temp dir from archive expansion.
      :fields          Vec of {:name :start :length :trim-right :null-if-blanks}.
      :encoding        Charset name.
-     :fixed-header    Boolean."
+     :fixed-header    Boolean.
+     :column-formats  Seq of {:name col :date-format fmt} for WITH date format."
   [source-map]
-  (let [fields       (:fields source-map)
-        encoding     (:encoding source-map)
-        fixed-header (:fixed-header source-map false)
-        select-cols  (:select-columns source-map)]
-    (->FixedFileSource source-map fields encoding fixed-header select-cols)))
+  (let [fields          (:fields source-map)
+        encoding        (:encoding source-map)
+        fixed-header    (:fixed-header source-map false)
+        select-cols     (:select-columns source-map)
+        column-formats  (:column-formats source-map)]
+    (->FixedFileSource source-map fields encoding fixed-header select-cols column-formats)))

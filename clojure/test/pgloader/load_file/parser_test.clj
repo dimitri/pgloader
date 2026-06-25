@@ -153,6 +153,75 @@
         ;; verify the INLINE data contains test rows
         (is (str/includes? (:inline-data source) "10-02-1999 00-33-12.123456"))))))
 
+(deftest test-parse-csv-with-default-date-format
+  (testing "WITH date format applies to typed target date columns and explicit field formats override it"
+    (let [result (parser/parse-string
+                  "LOAD CSV FROM '/data/dates.csv'
+                     (id, created_at, closed_at [date format 'DD/MM/YYYY'])
+                   INTO postgresql:///target
+                   TARGET TABLE public.events
+                     (id integer, created_at timestamptz, closed_at date)
+                   WITH date format 'YYYY-MM-DD HH24-MI-SS.US';")]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (let [cmd (:ok result)
+            formats (get-in cmd [:source :column-formats])]
+        (is (= "YYYY-MM-DD HH24-MI-SS.US"
+               (some #(when (= "created_at" (:name %)) (:date-format %))
+                     formats)))
+        (is (= "DD/MM/YYYY"
+               (some #(when (= "closed_at" (:name %)) (:date-format %))
+                     formats)))
+        (is (nil? (some #(when (= "id" (:name %)) (:date-format %))
+                        formats)))))))
+
+(deftest test-parse-csv-default-date-format-matches-target-names
+  (testing "WITH date format does not fall back to target projection positions"
+    (let [result (parser/parse-string
+                  "LOAD CSV FROM '/data/dates.csv'
+                     (id, name, created_at)
+                   INTO postgresql:///target
+                   TARGET TABLE public.events
+                     (id integer, created_at timestamptz, name text)
+                   WITH date format 'YYYY-MM-DD';")]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (let [formats (get-in result [:ok :source :column-formats])]
+        (is (= "YYYY-MM-DD"
+               (some #(when (= "created_at" (:name %)) (:date-format %))
+                     formats)))
+        (is (nil? (some #(when (= "name" (:name %)) (:date-format %))
+                        formats)))))))
+
+(deftest test-parse-fixed-with-date-format
+  (testing "LOAD FIXED accepts WITH date format"
+    (let [result (parser/parse-string
+                  "LOAD FIXED FROM fixed:///data/events.dat
+                     (id from 0 for 2, created_at from 2 for 10)
+                   INTO postgresql:///target
+                   WITH date format 'YYYY-MM-DD';")]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (let [cmd (:ok result)]
+        (is (= :fixed (:load-type cmd)))
+        (is (= "YYYY-MM-DD"
+               (get-in cmd [:with-options :date-format])))))))
+
+(deftest test-parse-fixed-with-date-format-applies-to-columns
+  (testing "LOAD FIXED WITH date format populates column-formats for typed target date fields"
+    (let [result (parser/parse-string
+                  "LOAD FIXED FROM fixed:///data/events.dat
+                     (id from 0 for 2, created_at from 2 for 10)
+                   INTO postgresql:///target
+                   TARGET TABLE public.events
+                     (id integer, created_at timestamptz)
+                   WITH date format 'YYYY-MM-DD';")]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (let [cmd (:ok result)
+            formats (get-in cmd [:source :column-formats])]
+        (is (= "YYYY-MM-DD"
+               (some #(when (= "created_at" (:name %)) (:date-format %))
+                     formats)))
+        (is (nil? (some #(when (= "id" (:name %)) (:date-format %))
+                        formats)))))))
+
 ;; ── CSV null-if tests (issues #1135, #1221) ─────────────────────────────────
 
 (deftest test-parse-csv-null-if-blanks-per-column

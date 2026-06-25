@@ -13,7 +13,8 @@
    fields to columns projections (mapping)."
   (reformat-then-process :fields  (fields copy)
                          :columns (columns copy)
-                         :target  (target copy)))
+                         :target  (target copy)
+                         :date-format (date-format copy)))
 
 (defmethod copy-column-list ((copy md-copy))
   "We did reformat-then-process the column list, so we now send them in the
@@ -39,7 +40,8 @@
                                  (make-list (length (columns copy))))
                  :encoding   (encoding copy)
                  :skip-lines (skip-lines copy)
-                 :header     (header copy)))
+                 :header     (header copy)
+                 :date-format (date-format copy)))
 
 (defmethod map-rows ((copy md-copy) &key process-row-fn)
   "Load data from a text file in CSV format, with support for advanced

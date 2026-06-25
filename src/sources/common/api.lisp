@@ -92,6 +92,9 @@
 		:initform 0)		  ;
    (header      :accessor header          ; CSV headers are col names
                 :initarg :header          ;
+                :initform nil)            ;
+   (date-format :accessor date-format     ; default date format
+                :initarg :date-format     ;
                 :initform nil))           ;
   (:documentation "pgloader Multiple Files Data Source (csv, fixed, copy)."))
 
@@ -185,4 +188,3 @@
 
 (defgeneric drop-matviews (matview-list db-copy)
   (:documentation "Drop Materialized Views."))
-

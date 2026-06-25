@@ -135,6 +135,7 @@
                         option-trim-unquoted-blanks
                         option-keep-unquoted-blanks
                         option-csv-escape-mode
+                        option-date-format
                         option-null-if))
 
 (defrule csv-options (and kw-with
