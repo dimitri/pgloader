@@ -115,7 +115,7 @@
 
     with-fixed-clause = <'WITH'> <ws> fixed-option (<opt-ws> <','> <opt-ws> fixed-option)*
     fixed-option = truncate | create-tables | create-table | create-no-tables | batch-rows
-                 | batch-size | batch-concurrency | disable-triggers | drop-indexes | fixed-header
+                 | batch-size | batch-concurrency | disable-triggers | drop-indexes | fixed-header | date-format
     fixed-header = <'fixed'> <ws> <'header'>
 
    load-archive = <'LOAD'> <ws> <'ARCHIVE'>
