@@ -95,6 +95,28 @@
           ["geometry" "point" "linestring" "polygon"
            "multipoint" "multilinestring" "multipolygon" "geometrycollection"])))
 
+;;; MySQL charset names that do not match the encoding they actually store.
+;;; Applied to the charset returned by DECODING-AS rules before issuing SET NAMES,
+;;; so the MySQL server sends bytes that Connector/J can correctly decode.
+;;;
+;;;   latin1 — MySQL documents this as Windows cp1252 (not ISO 8859-1).
+;;;            They share 0x00-0x7F and 0xA0-0xFF but differ in 0x80-0x9F,
+;;;            where cp1252 has 27 printable characters (€, –, ™ …) that
+;;;            ISO 8859-1 leaves undefined as C1 control codes.
+;;;
+;;;   latin5 — MySQL latin5 is ISO 8859-9 (Turkish). SET NAMES 'latin5' is
+;;;            already correct server-side (MySQL converts to UTF-8 properly),
+;;;            so no remapping is needed for the SET NAMES path.
+(def ^:private mysql-charset-aliases
+  {"latin1" "cp1252"})
+
+(defn- normalize-mysql-charset
+  "Map MySQL charset names that alias wrong encodings to their correct names
+   for the SET NAMES call.  MySQL's latin1 is actually cp1252 (Windows-1252):
+   they share 0x00-0x7F and 0xA0-0xFF but differ in 0x80-0x9F."
+  [charset]
+  (get mysql-charset-aliases charset charset))
+
 (defn- decoding-as-charset
   "Return the charset for TABLE-NAME by matching against DECODING-AS rules,
    or nil if no rule matches."
@@ -333,7 +355,8 @@
   (read-rows [_ table-spec-entry]
     (let [{:keys [table-name source-table-name columns citus-read-sql]} table-spec-entry
           mysql-table (or source-table-name table-name)]
-      (when-let [charset (decoding-as-charset mysql-table decoding-rules)]
+      (when-let [charset (normalize-mysql-charset
+                          (decoding-as-charset mysql-table decoding-rules))]
         (try
           (jdbc/execute! conn [(str "SET NAMES '" charset "'")])
           (log/info (str "SET NAMES '" charset "' for table " mysql-table))
