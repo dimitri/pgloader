@@ -1,6 +1,7 @@
 (ns pgloader.load-file.ast
   (:require [instaparse.core :as insta]
             [clojure.string :as str]
+            [clojure.tools.logging :as log]
             [pgloader.pg-service :as pg-service]
             [pgloader.mysql-options :as mysql-opts])
   (:import [java.net URI]))
@@ -664,26 +665,25 @@
                 cols (when source-column-items
                        (mapv :name source-column-items))
                 explicit-col-formats (seq (filter :date-format source-column-items))
-                target-projections (or (:projections tt-table)
-                                       (seq tt-projections))
+                target-projections (seq (or (:projections tt-table)
+                                            tt-projections))
                 default-col-formats (when (and cols
-                                               (:date-format csv-options)
-                                               (seq target-projections))
+                                               (:date-format csv-options))
                                       (let [explicit-names (set (map :name explicit-col-formats))
                                             typed-by-name (into {}
                                                                 (keep (fn [{:keys [column-name target-type]}]
                                                                         (when (date-time-target-type? target-type)
                                                                           [column-name target-type]))
                                                                       target-projections))]
-                                        (keep-indexed
-                                         (fn [i col-name]
-                                           (let [target-type (or (get typed-by-name col-name)
-                                                                 (:target-type (nth target-projections i nil)))]
+                                        (if (seq typed-by-name)
+                                          (keep
+                                           (fn [col-name]
                                              (when (and (not (contains? explicit-names col-name))
-                                                        (date-time-target-type? target-type))
+                                                        (get typed-by-name col-name))
                                                {:name col-name
-                                                :date-format (:date-format csv-options)})))
-                                         cols)))
+                                                :date-format (:date-format csv-options)}))
+                                           cols)
+                                          (log/warn "WITH date format was specified, but no target date/time columns were annotated; add TARGET TABLE column types to apply it."))))
                 col-formats (seq (concat default-col-formats explicit-col-formats))
                 col-nullifs (when source-col-list
                               (seq (filter (comp seq :nullifs)
@@ -1074,6 +1074,7 @@
                                 :create-tables    (assoc acc :create-tables true)
                                 :create-no-tables (assoc acc :create-tables false)
                                 :fixed-header     (assoc acc :fixed-header true)
+                                :date-format      (assoc acc :date-format (second (second opt)))
                                 :drop-indexes     (assoc acc :drop-indexes true)
                                 :disable-triggers (assoc acc :disable-triggers true)
                                 acc))
