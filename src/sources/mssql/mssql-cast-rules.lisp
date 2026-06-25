@@ -191,7 +191,7 @@
                 ((and (stringp default)
                       (uiop:string-prefix-p "NEXT VALUE FOR" (string-upcase default)))
                  (cl-ppcre:register-groups-bind (schema seq-name)
-                     ("(?i)NEXT\\s+VALUE\\s+FOR\\s+\\[([^\\]]+)\\]\\.\\[([^\\]]+)\\]"
+                     ("(?i)^NEXT VALUE FOR \\[([^\\]]+)\\]\\.\\[([^\\]]+)\\]$"
                       default)
                    (if (and schema seq-name)
                        (format nil "nextval('~a.~a')"

@@ -74,7 +74,7 @@
    starts with NEXT VALUE FOR but does not match the expected bracket syntax."
   [^String s]
   (if-let [[_ schema seq-name]
-           (re-find #"(?i)^NEXT\s+VALUE\s+FOR\s+\[([^\]]+)\]\.\[([^\]]+)\]$"
+           (re-find #"(?i)^NEXT VALUE FOR \[([^\]]+)\]\.\[([^\]]+)\]$"
                     (str/trim s))]
     (str "nextval('" (mssql-schema->pg schema) "." seq-name "')")
     (do (log/warn (str "NEXT VALUE FOR default did not match expected "
