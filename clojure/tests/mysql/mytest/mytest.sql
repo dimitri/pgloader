@@ -432,6 +432,29 @@ INSERT INTO zero_dates_notnull (label, created_at, updated_at) VALUES
   ('null-upd','2024-06-02 09:00:00', NULL);
 
 -- ============================================================
+-- #1368: latin1 charset encoding — MySQL latin1 is cp1252, not iso-8859-1.
+-- The two encodings differ in the range 0x80–0x9F: cp1252 maps those bytes
+-- to printable characters (€ 0x80, – 0x96, ™ 0x99, …) while ISO 8859-1
+-- leaves them as C1 control codes.  pgloader must decode them as cp1252.
+-- ============================================================
+CREATE TABLE `latin1_encoding` (
+  id    INT AUTO_INCREMENT PRIMARY KEY,
+  label VARCHAR(30)  NOT NULL,
+  word  VARCHAR(100) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- Rows use raw cp1252 byte values (hex literals with _latin1 introducer).
+-- Note: iso-8859-1 and cp1252 agree on 0x00-0x7F and 0xA0-0xFF; the
+-- difference is 0x80-0x9F, where cp1252 has printable chars.
+--   0x80 = € (U+20AC)    0x96 = – (U+2013)    0x99 = ™ (U+2122)
+--   0xE9 = é (U+00E9)  — this byte is identical in both encodings
+INSERT INTO `latin1_encoding` (label, word) VALUES
+  ('euro',      _latin1 x'80'),          -- € U+20AC  (cp1252 0x80, undefined in iso-8859-1)
+  ('en_dash',   _latin1 x'96'),          -- – U+2013  (cp1252 0x96, undefined in iso-8859-1)
+  ('trademark', _latin1 x'99'),          -- ™ U+2122  (cp1252 0x99, undefined in iso-8859-1)
+  ('cafe_euro', _latin1 x'636166e980'); -- café€: c(63)a(61)f(66)é(e9)€(80)
+
+-- ============================================================
 -- Grants
 -- ============================================================
 GRANT SELECT ON pgloader_mytest.* TO 'pgloader'@'%';

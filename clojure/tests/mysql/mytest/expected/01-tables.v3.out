@@ -16,6 +16,7 @@
  geom
  hex_binary
  history
+ latin1_encoding
  measurements
  on_update_ts
  onupdate
@@ -32,5 +33,5 @@
  utilisateurs__Yvelines2013-06-28
  uw_defined_meaning
  zero_dates_notnull
-(32 rows)
+(33 rows)
 

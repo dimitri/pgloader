@@ -7,6 +7,73 @@
 (defvar *connection* nil "Current MySQL connection")
 
 ;;;
+;;; qmynd maps MySQL charset/collation IDs to Babel encoding keywords, but
+;;; several mappings are wrong because MySQL's charset names don't match the
+;;; actual encoding stored on disk:
+;;;
+;;;   * latin1  — MySQL documents it as cp1252 (Windows-1252).  The two share
+;;;               all code points in 0x00–0x7F and 0xA0–0xFF but differ in
+;;;               0x80–0x9F: ISO 8859-1 treats those 32 positions as C1 control
+;;;               characters while cp1252 maps them to printable characters
+;;;               (€ 0x80, – 0x96, ™ 0x99, …).  qmynd maps all latin1
+;;;               collations to :iso-8859-1 — silently corrupting any byte in
+;;;               0x80–0x9F.
+;;;
+;;;   * latin5  — MySQL uses this name for ISO 8859-9 (Turkish), not ISO 8859-5
+;;;               (Cyrillic).  qmynd maps latin5 to :iso-8859-5, which will
+;;;               mis-decode the entire 0xA0–0xFF range for Turkish text.
+;;;
+;;;   * latin7-estonian-cs (collation 20) — qmynd maps it to :iso-8859-7
+;;;               (Greek) instead of :iso-8859-13 (Baltic/Latvian), which is
+;;;               correct for all other latin7 collations in qmynd.
+;;;
+;;; cp850   — DOS Latin-1.  The system Babel (cl-babel Debian package) does
+;;;           NOT ship an enc-cp850.lisp; returning :cp850 would raise an
+;;;           unknown-encoding error at runtime.  qmynd already punts
+;;;           cp850-general-ci to :iso-8859-1; we leave that as-is.
+;;;           cp850-binary (collation 80) is absent from qmynd's ecase and
+;;;           would cause a run-time ecase-failure; we add it here as the same
+;;;           :iso-8859-1 punt that qmynd uses for cp850-general-ci.
+;;;
+;;; We redefine qmynd-impl::mysql-cs-coll-to-character-encoding here (after
+;;; qmynd is fully loaded) rather than patching the vendored library, so that
+;;; upgrading qmynd cannot silently revert the fix.  Collation IDs are written
+;;; as integer literals rather than #.(list ...) reader macros so the
+;;; redefinition is safe across SBCL image save/restore.
+;;;   latin1-german1-ci=5  latin1-swedish-ci=8   latin1-danish-ci=15
+;;;   latin1-german2-ci=31 latin1-binary=47       latin1-general-ci=48
+;;;   latin1-general-cs=49 latin1-spanish-ci=94
+;;;   latin5-turkish-ci=21 latin5-binary=196
+;;;   latin7-estonian-cs=20
+;;;   cp850-binary=80
+;;;
+;; Store the original before redefining so the closure below can delegate.
+;; defvar rather than a let-captured variable so the function object is
+;; explicitly rooted in the image and survives SBCL save/restore cleanly.
+(defvar *qmynd-original-cs-coll-fn*
+  #'qmynd-impl::mysql-cs-coll-to-character-encoding)
+
+(defun qmynd-impl::mysql-cs-coll-to-character-encoding (cs-coll)
+  ;; Collation IDs as integer literals (no #. reader macros) for safety.
+  ;; latin1-german1-ci=5  latin1-swedish-ci=8   latin1-danish-ci=15
+  ;; latin1-german2-ci=31 latin1-binary=47       latin1-general-ci=48
+  ;; latin1-general-cs=49 latin1-spanish-ci=94
+  ;; latin5-turkish-ci=21 latin5-binary=196
+  ;; latin7-estonian-cs=20
+  ;; cp850-binary=80  (cp850-general-ci=4 left to original: same :iso-8859-1)
+  (case cs-coll
+    ;; MySQL latin1 is Windows cp1252, not ISO 8859-1.
+    ((5 8 15 31 47 48 49 94) :cp1252)
+    ;; MySQL latin5 is ISO 8859-9 (Turkish), not ISO 8859-5 (Cyrillic).
+    ((21 196) :iso-8859-9)
+    ;; latin7-estonian-cs should be ISO 8859-13; qmynd has it as :iso-8859-7.
+    ((20) :iso-8859-13)
+    ;; cp850-binary (80) absent from qmynd's ecase: same :iso-8859-1 punt.
+    ((80) :iso-8859-1)
+    (otherwise
+     (funcall *qmynd-original-cs-coll-fn* cs-coll))))
+
+;;;
 ;;; General utility to manage MySQL connection
 ;;;
 (defclass mysql-connection (db-connection)

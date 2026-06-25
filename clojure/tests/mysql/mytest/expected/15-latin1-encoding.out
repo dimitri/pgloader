@@ -1,0 +1,8 @@
+   label   | word  |       hex        
+-----------+-------+------------------
+ euro      | €     | e282ac
+ en_dash   | –     | e28093
+ trademark | ™     | e284a2
+ cafe_euro | café€ | 636166c3a9e282ac
+(4 rows)
+
