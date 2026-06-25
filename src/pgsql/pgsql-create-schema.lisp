@@ -118,16 +118,16 @@
   "Create all sequences from CATALOG's :sequences list.
    Each entry is a plist with :schema-name :sequence-name :start-value
    :increment-by :minimum-value :maximum-value :current-value :is-cycling
-   :cache-size (as returned by fetch-sequences).
+   :cache-size (as returned by fetch-sequences).  :schema-name is already
+   mapped to the PostgreSQL name (dbo → public) by fetch-sequences.
    The start is set to current+increment so the first nextval() returns
-   the next un-issued value."
+   the next un-issued value.
+   DROP and CREATE are executed inside a single transaction per sequence
+   so that a failed CREATE does not leave behind a ghost DROP."
   (loop :for seq :in (catalog-sequences catalog)
      :for schema-name   := (getf seq :schema-name)
-     :for pg-schema     := (if (string= (string-downcase schema-name) "dbo")
-                               "public"
-                               schema-name)
      :for seq-name      := (getf seq :sequence-name)
-     :for qname         := (format nil "\"~a\".\"~a\"" pg-schema seq-name)
+     :for qname         := (format nil "\"~a\".\"~a\"" schema-name seq-name)
      :for start         := (getf seq :start-value)
      :for increment     := (getf seq :increment-by)
      :for minimum       := (getf seq :minimum-value)
@@ -137,18 +137,19 @@
      :for cache         := (getf seq :cache-size)
      :for next-val      := (if current (+ current increment) start)
      :do
-     (when include-drop
-       (pgsql-execute (format nil "DROP SEQUENCE IF EXISTS ~a CASCADE;" qname)
-                      :client-min-messages client-min-messages))
-     (pgsql-execute
-      (format nil "CREATE SEQUENCE IF NOT EXISTS ~a AS bigint~
-                   ~% START WITH ~a INCREMENT BY ~a~
-                   ~% MINVALUE ~a MAXVALUE ~a~
-                   ~%~:[NO CYCLE~;CYCLE~]~:[~; CACHE ~a~];"
-              qname next-val increment minimum maximum
-              is-cycling
-              (and cache (> cache 0)) cache)
-      :client-min-messages client-min-messages)))
+     (pomo:with-transaction ()
+       (when include-drop
+         (pgsql-execute (format nil "DROP SEQUENCE IF EXISTS ~a CASCADE;" qname)
+                        :client-min-messages client-min-messages))
+       (pgsql-execute
+        (format nil "CREATE SEQUENCE IF NOT EXISTS ~a AS bigint~
+                     ~% START WITH ~a INCREMENT BY ~a~
+                     ~% MINVALUE ~a MAXVALUE ~a~
+                     ~%~:[NO CYCLE~;CYCLE~]~:[~; CACHE ~a~];"
+                qname next-val increment minimum maximum
+                is-cycling
+                (and cache (> cache 0)) cache)
+        :client-min-messages client-min-messages))))
 
 (defun create-schemas (catalog
                        &key

@@ -193,10 +193,15 @@
                  (cl-ppcre:register-groups-bind (schema seq-name)
                      ("(?i)NEXT\\s+VALUE\\s+FOR\\s+\\[([^\\]]+)\\]\\.\\[([^\\]]+)\\]"
                       default)
-                   (let ((pg-schema (if (string= (string-downcase schema) "dbo")
-                                        "public"
-                                        schema)))
-                     (format nil "nextval('~a.~a')" pg-schema seq-name))))
+                   (if (and schema seq-name)
+                       (format nil "nextval('~a.~a')"
+                               (mssql-schema->pg schema) seq-name)
+                       (progn
+                         (log-message :warning
+                                      "NEXT VALUE FOR default did not match expected ~
+                                       [schema].[sequence] syntax, dropping: ~s"
+                                      default)
+                         nil))))
 
                 ;; CONVERT(type, expr, style) defaults are SQL Server-specific
                 ;; and have no direct PostgreSQL equivalent (#1409)

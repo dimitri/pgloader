@@ -60,17 +60,26 @@
 (def ^:private numeric-pg-types
   #{"integer" "bigint" "smallint" "numeric" "double precision" "real"})
 
+(defn- mssql-schema->pg
+  "Map a SQL Server schema name to its PostgreSQL equivalent.
+   Currently maps dbo (the default SQL Server schema) to public.
+   This mirrors the ALTER SCHEMA 'dbo' RENAME TO 'public' convention."
+  [^String schema]
+  (if (= (str/lower-case schema) "dbo") "public" schema))
+
 (defn- translate-next-value-for
   "Translate a SQL Server NEXT VALUE FOR [schema].[sequence] default to the
    PostgreSQL equivalent nextval('schema.sequence').
-   Returns the translated string, or nil if the input is not a NEXT VALUE FOR
-   expression.  Handles optional dbo→public schema remapping."
+   Returns the translated string, or nil and logs a warning if the input
+   starts with NEXT VALUE FOR but does not match the expected bracket syntax."
   [^String s]
-  (when-let [[_ schema seq-name]
-             (re-find #"(?i)^NEXT\s+VALUE\s+FOR\s+\[([^\]]+)\]\.\[([^\]]+)\]$"
-                      (str/trim s))]
-    (let [pg-schema (if (= (str/lower-case schema) "dbo") "public" schema)]
-      (str "nextval('" pg-schema "." seq-name "')"))))
+  (if-let [[_ schema seq-name]
+           (re-find #"(?i)^NEXT\s+VALUE\s+FOR\s+\[([^\]]+)\]\.\[([^\]]+)\]$"
+                    (str/trim s))]
+    (str "nextval('" (mssql-schema->pg schema) "." seq-name "')")
+    (do (log/warn (str "NEXT VALUE FOR default did not match expected "
+                       "[schema].[sequence] syntax, dropping: " s))
+        nil)))
 
 (defn- sanitize-default
   "Normalise MSSQL column defaults for PostgreSQL:
@@ -167,7 +176,7 @@
                                                          [(:column_name ep) (:comment ep)]))
                                                      ext-props))]
                      {:table-name table-name
-                      :schema (if (= schema "dbo") "public" schema)
+                      :schema (mssql-schema->pg schema)
                       :source-schema schema
                       :table-comment table-comment
                       :columns (mapv (fn [c]
@@ -329,7 +338,7 @@
     (->> (try (sequences conn) (catch Exception _ []))
          (mapv (fn [s]
                  (let [schema (:schema_name s)]
-                   {:schema     (if (= schema "dbo") "public" schema)
+                   {:schema     (mssql-schema->pg schema)
                     :name       (:sequence_name s)
                     :start      (:start_value s)
                     :increment  (:increment s)

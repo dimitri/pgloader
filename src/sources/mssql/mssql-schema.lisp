@@ -23,6 +23,14 @@
   "Associate internal table type symbol with what's found in MS SQL
   information_schema.tables.table_type column.")
 
+(defun mssql-schema->pg (schema-name)
+  "Map a SQL Server schema name to its PostgreSQL equivalent.
+   Maps dbo (the default SQL Server schema) to public, following the
+   ALTER SCHEMA 'dbo' RENAME TO 'public' load-file convention."
+  (if (string= (string-downcase schema-name) "dbo")
+      "public"
+      schema-name))
+
 (defmethod filter-list-to-where-clause ((mssql copy-mssql)
                                         filter-list
                                         &key
@@ -161,18 +169,19 @@
      :finally (return catalog)))
 
 
-(defun fetch-sequences (catalog mssql)
+(defun fetch-sequences (catalog)
   "Query sys.sequences and collect them into CATALOG as a list of plists.
    Each plist has :schema-name :sequence-name :start-value :increment-by
-   :minimum-value :maximum-value :current-value :is-cycling :cache-size."
-  (declare (ignore mssql))
+   :minimum-value :maximum-value :current-value :is-cycling :cache-size.
+   Uses the implicit *mssql-db* connection established by the caller."
   (loop
+     ;; data-type (3rd column) is fetched but not used — SQL Server sequence
+     ;; types (tinyint/smallint/int/bigint/decimal) all map safely to bigint.
      :for (schema-name sequence-name data-type start-value increment-by
                        minimum-value maximum-value current-value is-cycling cache-size)
      :in (mssql-query (sql "/mssql/list-all-sequences.sql"))
-     :collect (list :schema-name   schema-name
+     :collect (list :schema-name   (mssql-schema->pg schema-name)
                     :sequence-name sequence-name
-                    :data-type     data-type
                     :start-value   start-value
                     :increment-by  increment-by
                     :minimum-value minimum-value
