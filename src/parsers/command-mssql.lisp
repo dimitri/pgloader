@@ -136,14 +136,14 @@
      (log-message :log "Loading the FreeTDS shared librairy (sybdb)")
      (let (#+sbcl(sb-ext:*muffled-warnings* 'style-warning))
        (cffi:load-foreign-library 'mssql::sybdb)
-       (mssql:init))
+       (when (fboundp 'mssql::init) (mssql::init)))
 
      (unwind-protect
        (progn
          (log-message :log "DRY RUN, only checking connections.")
          (check-connection ,ms-db-conn)
          (check-connection ,pg-db-conn))
-       (mssql:exit))))
+       (when (fboundp 'mssql::exit) (mssql::exit)))))
 
 (defun lisp-code-for-loading-from-mssql (ms-db-conn pg-db-conn
                                          &key
@@ -157,7 +157,7 @@
      ;; now is the time to load the CFFI lib we need (freetds)
      (let (#+sbcl(sb-ext:*muffled-warnings* 'style-warning))
        (cffi:load-foreign-library 'mssql::sybdb)
-       (mssql:init))
+       (when (fboundp 'mssql::init) (mssql::init)))
 
      (unwind-protect
        (let* ((*default-cast-rules* ',*mssql-default-cast-rules*)
@@ -187,7 +187,7 @@
                         ,@(remove-batch-control-option options))
 
          ,(sql-code-block pg-db-conn :post after "after load"))
-       (mssql:exit))))
+       (when (fboundp 'mssql::exit) (mssql::exit)))))
 
 (defrule load-mssql-database load-mssql-command
   (:lambda (source)
