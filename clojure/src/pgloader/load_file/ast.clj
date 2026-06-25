@@ -1117,6 +1117,22 @@
               target-schema (or (:schema tt-table)
                                 (when (and qualified (= 2 (count (vec (rest qualified)))))
                                   (-> qualified rest vec first second)))
+              field-names (when fields (mapv :name fields))
+              fixed-target-projections (when tt-table (seq (:projections tt-table)))
+              default-col-formats (when (and field-names (:date-format fixed-options))
+                                    (let [typed-by-name (into {}
+                                                              (keep (fn [{:keys [column-name target-type]}]
+                                                                      (when (date-time-target-type? target-type)
+                                                                        [column-name target-type]))
+                                                                    fixed-target-projections))]
+                                      (if (seq typed-by-name)
+                                        (seq (keep
+                                              (fn [field-name]
+                                                (when (get typed-by-name field-name)
+                                                  {:name field-name
+                                                   :date-format (:date-format fixed-options)}))
+                                              field-names))
+                                        (log/warn "WITH date format was specified, but no target date/time columns were annotated; add TARGET TABLE column types to apply it."))))
               set-params (mapcat (fn [c]
                                    (when (and (vector? c) (= :set-clause (first c)))
                                      (keep hiccup->set-option (rest c))))
@@ -1132,7 +1148,9 @@
            (merge from-source
                   {:fields fields}
                   (when (and inline-data (:inline from-source))
-                    {:inline-data inline-data}))
+                    {:inline-data inline-data})
+                  (when (seq default-col-formats)
+                    {:column-formats (seq default-col-formats)}))
            {:type :pgsql :target-uri pg-uri
             :schema target-schema
             :table  target-table}
