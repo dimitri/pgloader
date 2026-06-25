@@ -472,35 +472,37 @@
    - :enum-types is a vector of {:type-name s :schema s :values [...] :is-set bool}
    - each ENUM/SET column's :column-type is updated to the PG type reference
 
-   name-exists-fn is (fn [schema name] -> bool) checked against the target
-   database; pass (constantly false) when no connection is available."
-  [catalog name-exists-fn]
-  (mapv (fn [t]
-          (let [table (:table-name t)
-                sch   (or (:schema t) "public")
-                [new-cols enum-types]
-                (reduce (fn [[cols types] col]
-                          (let [ct    (str/lower-case (or (:column-type col) ""))
-                                is-en (str/starts-with? ct "enum(")
-                                is-st (str/starts-with? ct "set(")]
-                            (if (or is-en is-st)
-                              (let [values    (parse-enum-values (:column-type col))
-                                    type-name (resolve-enum-type-name
-                                               name-exists-fn sch
-                                               (str table "_" (:column-name col) "_t"))
-                                    pg-ref    (str (identifier-quote sch) "." (identifier-quote type-name))
-                                    pg-type   (if is-st (str pg-ref "[]") pg-ref)]
-                                [(conj cols (assoc col :column-type pg-type
-                                                   :source-column-type (:column-type col)))
-                                 (conj types {:type-name type-name
-                                              :schema    sch
-                                              :values    values
-                                              :is-set    is-st})])
-                              [(conj cols col) types])))
-                        [[] []]
-                        (:columns t))]
-            (assoc t :columns new-cols :enum-types (vec enum-types))))
-        catalog))
+   names-existing-fn is (fn [schema [name ...]] -> #{name ...}), checked
+   against the target database to resolve name conflicts before CREATE TYPE.
+   Defaults to (constantly #{}) when called with catalog only."
+  ([catalog] (add-enum-types catalog (constantly #{})))
+  ([catalog names-existing-fn]
+   (mapv (fn [t]
+           (let [table (:table-name t)
+                 sch   (or (:schema t) "public")
+                 [new-cols enum-types]
+                 (reduce (fn [[cols types] col]
+                           (let [ct    (str/lower-case (or (:column-type col) ""))
+                                 is-en (str/starts-with? ct "enum(")
+                                 is-st (str/starts-with? ct "set(")]
+                             (if (or is-en is-st)
+                               (let [values    (parse-enum-values (:column-type col))
+                                     type-name (resolve-enum-type-name
+                                                names-existing-fn sch
+                                                (str table "_" (:column-name col) "_t"))
+                                     pg-ref    (str (identifier-quote sch) "." (identifier-quote type-name))
+                                     pg-type   (if is-st (str pg-ref "[]") pg-ref)]
+                                 [(conj cols (assoc col :column-type pg-type
+                                                    :source-column-type (:column-type col)))
+                                  (conj types {:type-name type-name
+                                               :schema    sch
+                                               :values    values
+                                               :is-set    is-st})])
+                               [(conj cols col) types])))
+                         [[] []]
+                         (:columns t))]
+             (assoc t :columns new-cols :enum-types (vec enum-types))))
+         catalog)))
 
 (defn create-check-constraints-sql
   "Generate ALTER TABLE ADD CONSTRAINT ... CHECK (...) statements.

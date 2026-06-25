@@ -349,4 +349,4 @@
       (let [enum-types (:enum-types (first result))]
         (is (= 1 (count enum-types)))
         ;; type name uses the (already-renamed) table name
-        (is (= "renamed_tbl_status" (:type-name (first enum-types))))))))
+        (is (= "renamed_tbl_status_t" (:type-name (first enum-types))))))))
