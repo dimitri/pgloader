@@ -80,6 +80,41 @@ GO
 INSERT INTO default_edge_cases DEFAULT VALUES;
 GO
 
+-- #1594: multi-column foreign key — verify all columns are preserved.
+-- `composite_parent` has a two-column primary key; `composite_child` references
+-- both columns via a single FK constraint.  Before the fix, only the last
+-- column was kept, producing a broken one-column FK.
+CREATE TABLE composite_parent (
+    region_id   INT NOT NULL,
+    product_id  INT NOT NULL,
+    name        NVARCHAR(100),
+    CONSTRAINT pk_composite_parent PRIMARY KEY (region_id, product_id)
+);
+GO
+
+CREATE TABLE composite_child (
+    id          INT IDENTITY(1,1) PRIMARY KEY,
+    region_id   INT NOT NULL,
+    product_id  INT NOT NULL,
+    qty         INT NOT NULL DEFAULT 1,
+    CONSTRAINT fk_child_parent
+        FOREIGN KEY (region_id, product_id)
+        REFERENCES composite_parent(region_id, product_id)
+);
+GO
+
+INSERT INTO composite_parent (region_id, product_id, name) VALUES
+    (1, 10, N'Widget-A'),
+    (1, 20, N'Widget-B'),
+    (2, 10, N'Gadget-A');
+GO
+
+INSERT INTO composite_child (region_id, product_id, qty) VALUES
+    (1, 10, 5),
+    (1, 20, 3),
+    (2, 10, 1);
+GO
+
 -- ============================================================
 -- filtertest: separate database for #1578/#1603 regression.
 --

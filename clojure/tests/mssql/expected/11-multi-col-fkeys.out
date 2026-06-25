@@ -1,0 +1,16 @@
+ fk_count 
+----------
+        1
+(1 row)
+
+ column_name | ordinal_position 
+-------------+------------------
+ region_id   |                1
+ product_id  |                2
+(2 rows)
+
+ child_rows 
+------------
+          3
+(1 row)
+
