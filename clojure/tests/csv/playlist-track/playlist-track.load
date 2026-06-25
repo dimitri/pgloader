@@ -1,0 +1,24 @@
+-- #1424: FK violation during COPY must not collapse throughput for subsequent
+-- batches.  pgloader must use binary search (bisect) to find the bad row
+-- rather than retrying every row one at a time.
+--
+-- This test builds on top of the track test: csv.track (3503 rows) is already
+-- loaded when this file runs.  The CSV contains all 8715 PlaylistTrack rows
+-- from the Chinook dataset, with one bad row injected in the middle
+-- (track_id=99999, which does not exist in csv.track).  pgloader must load
+-- all 8715 other rows and reject only the bad one.
+
+LOAD CSV FROM '/work/playlist-track/playlist-track.csv'
+             (playlist_id, track_id)
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+     TARGET TABLE csv.playlist_track
+
+     WITH truncate,
+          fields terminated by ','
+
+     BEFORE LOAD DO
+       $$ DROP TABLE IF EXISTS csv.playlist_track CASCADE; $$,
+       $$ CREATE TABLE csv.playlist_track (
+            playlist_id bigint NOT NULL,
+            track_id    bigint NOT NULL REFERENCES csv.track (trackid)
+          ); $$;

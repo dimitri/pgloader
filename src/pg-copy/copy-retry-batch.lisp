@@ -52,6 +52,64 @@
     (1- n)))
 
 ;;;
+;;; Binary-search recovery for batches where PostgreSQL does not supply a
+;;; COPY line number in the error CONTEXT (e.g. FK violations, deferred
+;;; constraint checks).
+;;;
+;;; The function tries to commit the first half of the range; on success it
+;;; recurses into the second half.  On failure it recurses into the failing
+;;; half.  At the base case (count = 1) it tries the single row and, if that
+;;; fails too, rejects it via PROCESS-BAD-ROW.
+;;;
+;;; Complexity: O(k · log N) COPY round-trips for k bad rows in a batch of N.
+;;;
+(defun bisect-batch (table-name table columns batch start count)
+  "Find and reject all bad rows in BATCH[START .. START+COUNT) via binary
+   search.  Commits each good sub-range independently.  Returns the number
+   of rows rejected."
+  (if (<= count 1)
+      ;; Base case: try this single row so we get the exact condition to log.
+      (progn
+        (log-message :debug "bisect: trying 1 row at position ~d" start)
+        (handler-case
+            (progn
+              (copy-partial-batch table-name columns batch 1 start)
+              0)
+          (postgresql-retryable (c)
+            (pomo:execute "ROLLBACK")
+            (log-message :info "error recovery: rejecting row at position ~d" start)
+            (log-message :error "PostgreSQL [~s] ~a" table-name c)
+            (process-bad-row table c (aref (batch-data batch) start))
+            1)))
+      ;; Recursive case: split, try each half independently.
+      (let* ((half   (floor count 2))
+             (errors 0))
+        ;; First half [start .. start+half)
+        (log-message :debug "bisect: trying ~d rows [~d, ~d)" half start (+ start half))
+        (incf errors
+              (handler-case
+                  (progn
+                    (copy-partial-batch table-name columns batch half start)
+                    0)
+                (postgresql-retryable (c)
+                  (pomo:execute "ROLLBACK")
+                  (log-message :error "PostgreSQL [~s] ~a" table-name c)
+                  (bisect-batch table-name table columns batch start half))))
+        ;; Second half [start+half .. start+count)
+        (log-message :debug "bisect: trying ~d rows [~d, ~d)"
+                     (- count half) (+ start half) (+ start count))
+        (incf errors
+              (handler-case
+                  (progn
+                    (copy-partial-batch table-name columns batch (- count half) (+ start half))
+                    0)
+                (postgresql-retryable (c)
+                  (pomo:execute "ROLLBACK")
+                  (log-message :error "PostgreSQL [~s] ~a" table-name c)
+                  (bisect-batch table-name table columns batch (+ start half) (- count half)))))
+        errors)))
+
+;;;
 ;;; The main retry batch function.
 ;;;
 (defun retry-batch (table columns batch condition
@@ -62,30 +120,22 @@
 
   (log-message :info "Entering error recovery.")
 
-  ;; Not all COPY errors produce a COPY error message. Foreign key violation
-  ;; produce a detailed message containing the data that we can't insert. In
-  ;; that case we're going to insert every single row of the batch, one at a
-  ;; time, and handle the error(s) individually.
+  ;; Not all COPY errors include a line number in the CONTEXT field.
+  ;; Foreign key violations are a common example: PostgreSQL raises the
+  ;; constraint error via a trigger and does not annotate it with the
+  ;; "COPY tablename, line N" context that we rely on for efficient recovery.
+  ;;
+  ;; In that case use a binary search: try the first half of the batch; if it
+  ;; succeeds commit it and try the second half; if it fails recurse into the
+  ;; failing half.  This finds every bad row in O(k · log N) COPY round-trips
+  ;; where k is the number of bad rows, instead of the previous O(N).
   ;;
   (unless (parse-copy-error-context (database-error-context condition))
-    (let ((table-name  (format-table-name table))
-          (first-error t))
-      (loop :repeat (batch-count batch)
-         :for pos :from 0
-         :do (handler-case
-                 (incf pos
-                       (copy-partial-batch table-name columns batch 1 pos))
-               (postgresql-retryable (condition)
-                 (pomo:execute "ROLLBACK")
-                 (process-bad-row table condition (aref (batch-data batch) pos))
-                 (if first-error
-                     ;; the first error has been logged about already
-                     (setf first-error nil)
-                     (log-message :error "PostgreSQL [~s] ~a"
-                                  table-name condition))
-                 (incf nb-errors)))))
-
-    ;; that's all folks, we're done.
+    (incf nb-errors
+          (bisect-batch (format-table-name table) table columns
+                        batch 0 (batch-count batch)))
+    (log-message :info "Recovery found ~d error~:p in ~d row~:p"
+                 nb-errors (batch-count batch))
     (return-from retry-batch nb-errors))
 
   ;; now deal with the COPY error case where we have a line number and have

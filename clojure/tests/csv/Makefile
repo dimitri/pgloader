@@ -9,7 +9,7 @@ CSV_TESTS = allcols basic batch-rows before-after-do blanks-keep blanks-trim \
             lines-terminated missing-col multi-null-if non-printable not-enclosed \
             null-if null-if-blanks nulls overflow parse-date pipe \
             projection reformat semicolon set-params skip-header-2 tab \
-            target-columns temp track trailing
+            target-columns temp track playlist-track trailing
 
 # constant uses v4-only column injection: TARGET TABLE t (b,c,d) where c has no
 # source column — v3 evaluates the unbound symbol c and errors.

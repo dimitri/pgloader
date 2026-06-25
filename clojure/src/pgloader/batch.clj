@@ -94,12 +94,64 @@
                             exception
                             copy/*root-dir*))))
 
+(defn- bisect-batch!
+  "Binary search over batch[start..end) to find and reject all bad rows.
+   Each good sub-range is committed independently so no good rows are lost.
+   At the base case (one row) the row is tried individually and, if it fails,
+   written to the reject files.
+   Complexity: O(k · log N) COPY round-trips for k bad rows in a range of N.
+   Returns {:errors n :rows-ok n :reject-paths p}."
+  [batch table-spec ^PGConnection pg-conn ^String copy-sql start end reject-paths]
+  (let [cnt (- end start)]
+    (if (<= cnt 1)
+      ;; Base case: try the single row to obtain the exact exception for the
+      ;; reject log, then reject it if it still fails.
+      (do
+        (log/debug (str "bisect: trying 1 row at position " start))
+        (try
+          (send-rows! pg-conn batch start end copy-sql)
+          (.commit ^Connection pg-conn)
+          {:errors 0 :rows-ok 1 :reject-paths reject-paths}
+          (catch PSQLException e
+            (.rollback ^Connection pg-conn)
+            (log/warn (str "Row permanently rejected (bisect) for "
+                           (:target-table table-spec)))
+            (let [paths (write-reject-row! batch start table-spec e)]
+              {:errors 1 :rows-ok 0 :reject-paths (or paths reject-paths)}))))
+      ;; Recursive case: split and try each half independently.
+      (let [mid          (+ start (quot cnt 2))
+            _            (log/debug (str "bisect: trying " (- mid start)
+                                         " rows [" start ", " mid ")"))
+            first-result (try
+                           (send-rows! pg-conn batch start mid copy-sql)
+                           (.commit ^Connection pg-conn)
+                           {:errors 0 :rows-ok (- mid start) :reject-paths reject-paths}
+                           (catch PSQLException _e
+                             (.rollback ^Connection pg-conn)
+                             (bisect-batch! batch table-spec pg-conn copy-sql
+                                            start mid reject-paths)))
+            _            (log/debug (str "bisect: trying " (- end mid)
+                                         " rows [" mid ", " end ")"))
+            second-result (try
+                            (send-rows! pg-conn batch mid end copy-sql)
+                            (.commit ^Connection pg-conn)
+                            {:errors 0 :rows-ok (- end mid)
+                             :reject-paths (:reject-paths first-result)}
+                            (catch PSQLException _e
+                              (.rollback ^Connection pg-conn)
+                              (bisect-batch! batch table-spec pg-conn copy-sql
+                                             mid end (:reject-paths first-result))))]
+        {:errors      (+ (:errors first-result) (:errors second-result))
+         :rows-ok     (+ (:rows-ok first-result) (:rows-ok second-result))
+         :reject-paths (:reject-paths second-result)}))))
+
 (defn- retry-loop
   "Retry helper: attempts to send a sub-batch [pos, total-rows).
-   On success, commits and returns. On PSQLException, rolls back,
-   identifies the bad row, writes it to reject files, and recurses.
-   Each sub-batch is independently committed (matching copy-partial-batch
-   in the CL implementation).
+   When PostgreSQL supplies a COPY line number in the error CONTEXT, skips
+   directly to that row and commits all preceding good rows in one shot.
+   When no line number is available (e.g. FK violations), delegates to
+   bisect-batch! which finds bad rows in O(k·log N) round-trips.
+   Each sub-batch is independently committed.
    Returns {:errors n :rows-ok n :reject-paths {...}}."
   [batch table-spec ^PGConnection pg-conn
    ^String copy-sql pos errors rows-ok total-rows reject-paths]
@@ -117,56 +169,51 @@
         (if (= :ok result)
           {:errors errors :rows-ok (+ rows-ok (- total-rows pos))
            :reject-paths reject-paths}
-          (let [e (:error result)
-                err-line (parse-copy-line e)
-                bad-idx  (if (and err-line
-                                  (< (+ pos err-line) total-rows)
-                                  (>= (+ pos err-line) pos))
-                           (+ pos err-line)
-                           pos)]
-            ;; Try to send good rows before the bad row as a committed sub-batch
-            (if (< pos bad-idx)
-              ;; There are good rows before the bad row. Try to commit them.
-              (let [sub-result
-                    (try
-                      (send-rows! pg-conn batch pos bad-idx copy-sql)
-                      (.commit ^Connection pg-conn)
-                      :ok
-                      (catch PSQLException inner-e
-                        (.rollback ^Connection pg-conn)
-                        (let [inner-err-line (parse-copy-line inner-e)
-                              inner-bad-idx (if (and inner-err-line
-                                                     (< (+ pos inner-err-line) bad-idx)
-                                                     (>= (+ pos inner-err-line) pos))
-                                              (+ pos inner-err-line)
-                                              pos)]
-                          (let [paths (write-reject-row! batch inner-bad-idx
-                                                         table-spec inner-e)]
-                            (log/warn (str "Row permanently rejected for "
-                                           (:target-table table-spec)))
-                            {:sub-error true
-                             :new-pos (inc inner-bad-idx)
-                             :new-errors (inc errors)
-                             :new-rows-ok rows-ok
-                             :new-reject-paths (or paths reject-paths)}))))]
-                (if (= :ok sub-result)
-                  ;; Good rows before bad row committed. Reject bad row and continue.
-                  (let [sub-rows (- bad-idx pos)
-                        paths (write-reject-row! batch bad-idx table-spec e)]
+          (let [e        (:error result)
+                err-line (parse-copy-line e)]
+            (if (nil? err-line)
+              ;; No COPY line number in the error (e.g. FK violation).
+              ;; Use binary search to locate and reject bad rows.
+              (let [bisect (bisect-batch! batch table-spec pg-conn copy-sql
+                                          pos total-rows reject-paths)]
+                {:errors      (+ errors (:errors bisect))
+                 :rows-ok     (+ rows-ok (:rows-ok bisect))
+                 :reject-paths (:reject-paths bisect)})
+              ;; We have a line number — skip directly to the bad row.
+              (let [bad-idx (if (and (< (+ pos err-line) total-rows)
+                                     (>= (+ pos err-line) pos))
+                              (+ pos err-line)
+                              pos)]
+                (if (< pos bad-idx)
+                  ;; Commit good rows before the bad row, then reject it.
+                  (let [sub-result
+                        (try
+                          (send-rows! pg-conn batch pos bad-idx copy-sql)
+                          (.commit ^Connection pg-conn)
+                          :ok
+                          (catch PSQLException inner-e
+                            (.rollback ^Connection pg-conn)
+                            ;; Sub-batch itself failed — bisect it.
+                            (bisect-batch! batch table-spec pg-conn copy-sql
+                                           pos bad-idx reject-paths)))]
+                    (if (= :ok sub-result)
+                      (let [sub-rows (- bad-idx pos)
+                            paths    (write-reject-row! batch bad-idx table-spec e)]
+                        (log/warn (str "Row permanently rejected for "
+                                       (:target-table table-spec)))
+                        (recur (inc bad-idx) (inc errors) (+ rows-ok sub-rows)
+                               (or paths reject-paths)))
+                      ;; sub-result is a bisect result map
+                      (recur (inc bad-idx)
+                             (+ errors (:errors sub-result))
+                             (+ rows-ok (:rows-ok sub-result))
+                             (:reject-paths sub-result))))
+                  ;; Bad row is right at pos — reject it and continue.
+                  (let [paths (write-reject-row! batch bad-idx table-spec e)]
                     (log/warn (str "Row permanently rejected for "
                                    (:target-table table-spec)))
-                    (recur (inc bad-idx) (inc errors) (+ rows-ok sub-rows)
-                           (or paths reject-paths)))
-                  ;; Sub-batch failed. Use state from inner failure.
-                  (recur (:new-pos sub-result) (:new-errors sub-result)
-                         (:new-rows-ok sub-result)
-                         (:new-reject-paths sub-result))))
-              ;; No good rows before the bad row. Just reject and continue.
-              (let [paths (write-reject-row! batch bad-idx table-spec e)]
-                (log/warn (str "Row permanently rejected for "
-                               (:target-table table-spec)))
-                (recur (inc bad-idx) (inc errors) rows-ok
-                       (or paths reject-paths))))))))))
+                    (recur (inc bad-idx) (inc errors) rows-ok
+                           (or paths reject-paths))))))))))))
 
 (defn retry-batch!
   "Entry point for error recovery. Called after the outer batch has been
@@ -174,6 +221,7 @@
    transaction. Each sub-batch in the retry gets its own commit.
    Returns {:errors n :rows-ok n :reject-paths {:reject-data string :reject-log string}}."
   [batch table-spec ^PSQLException first-exception ^PGConnection pg-conn]
+  (log/info "Entering error recovery.")
   (retry-loop batch table-spec pg-conn
               (copy/copy-sql table-spec)
               0 0 0 (:row-count batch) nil))
