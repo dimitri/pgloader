@@ -447,18 +447,20 @@
          (mapv #(str/replace (second %) "''" "'")))))
 
 (defn resolve-enum-type-name
-  "Return the first candidate name that does not exist in schema on the target.
-   name-exists-fn is (fn [schema name] -> bool).  base-name is expected to end
-   in '_t'; alternatives strip that suffix and try '_enum' or 'enum_' prefix.
-   Throws when all three candidates conflict."
-  [name-exists-fn schema base-name]
+  "Return the first candidate name not already taken in schema on the target.
+   names-existing-fn is (fn [schema [name ...]] -> #{name ...}) — it receives
+   all candidates at once and returns the set of taken names (one query).
+   base-name is expected to end in '_t'; alternatives strip that suffix and
+   try '_enum' suffix or 'enum_' prefix.  Throws when all candidates conflict."
+  [names-existing-fn schema base-name]
   (let [stem       (if (str/ends-with? base-name "_t")
                      (subs base-name 0 (- (count base-name) 2))
                      base-name)
         candidates [base-name
                     (str stem "_enum")
-                    (str "enum_" stem)]]
-    (or (first (remove #(name-exists-fn schema %) candidates))
+                    (str "enum_" stem)]
+        taken      (names-existing-fn schema candidates)]
+    (or (first (remove taken candidates))
         (throw (ex-info (str "Cannot find a non-conflicting PostgreSQL type name for "
                              base-name " in schema " schema
                              "; tried: " (str/join ", " candidates))
