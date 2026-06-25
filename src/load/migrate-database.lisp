@@ -61,6 +61,15 @@
                              :include-drop include-drop
                              :client-min-messages :error))
 
+          ;; create sequences before tables so nextval() defaults resolve
+          (when (catalog-sequences catalog)
+            (with-stats-collection ("Create Sequences" :section :pre
+                                                       :use-result-as-read t
+                                                       :use-result-as-rows t)
+              (create-sequences catalog
+                                :include-drop include-drop
+                                :client-min-messages :error)))
+
           ;; now the tables
           (with-stats-collection ("Create tables" :section :pre
                                                   :use-result-as-read t

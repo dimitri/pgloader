@@ -79,6 +79,7 @@
            #:catalog-schema-list
            #:catalog-types-without-btree
            #:catalog-distribution-rules
+           #:catalog-sequences
 
            #:schema-name
            #:schema-catalog
@@ -456,6 +457,7 @@
            #:create-extensions
            #:create-sqltypes
 	   #:create-schemas
+           #:create-sequences
            #:add-to-search-path
 	   #:create-tables
 	   #:create-views

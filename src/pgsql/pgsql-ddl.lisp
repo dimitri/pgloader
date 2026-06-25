@@ -189,7 +189,12 @@
                         (make-column :default transformed-default)))
                   (format-default-value transformed-column))
                 (if default
-                    (ensure-quoted default #\')
+                    ;; PostgreSQL function call expressions (e.g. nextval(…)):
+                    ;; pass through as raw SQL, do not quote as string (#1497)
+                    (if (and (stringp default)
+                             (cl-ppcre:scan "^\\w+\\(" default))
+                        default
+                        (ensure-quoted default #\'))
                     (format stream "NULL")))))
 
       ;; else, when column-transform-default is nil:

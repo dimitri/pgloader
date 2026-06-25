@@ -60,15 +60,39 @@
 (def ^:private numeric-pg-types
   #{"integer" "bigint" "smallint" "numeric" "double precision" "real"})
 
+(defn- mssql-schema->pg
+  "Map a SQL Server schema name to its PostgreSQL equivalent.
+   Currently maps dbo (the default SQL Server schema) to public.
+   This mirrors the ALTER SCHEMA 'dbo' RENAME TO 'public' convention."
+  [^String schema]
+  (if (= (str/lower-case schema) "dbo") "public" schema))
+
+(defn- translate-next-value-for
+  "Translate a SQL Server NEXT VALUE FOR [schema].[sequence] default to the
+   PostgreSQL equivalent nextval('schema.sequence').
+   Returns the translated string, or nil and logs a warning if the input
+   starts with NEXT VALUE FOR but does not match the expected bracket syntax."
+  [^String s]
+  (if-let [[_ schema seq-name]
+           (re-find #"(?i)^NEXT VALUE FOR \[([^\]]+)\]\.\[([^\]]+)\]$"
+                    (str/trim s))]
+    (str "nextval('" (mssql-schema->pg schema) "." seq-name "')")
+    (do (log/warn (str "NEXT VALUE FOR default did not match expected "
+                       "[schema].[sequence] syntax, dropping: " s))
+        nil)))
+
 (defn- sanitize-default
-  "Drop column defaults that cannot be represented in PostgreSQL:
-   - CONVERT(…) expressions not already translated by mssql.sql (#1409)
-   - Empty-string defaults on numeric columns (#1163)"
+  "Normalise MSSQL column defaults for PostgreSQL:
+   - NEXT VALUE FOR [schema].[seq] → nextval('schema.seq')  (#1497)
+   - CONVERT(…) expressions not already translated by mssql.sql → nil (#1409)
+   - Empty-string defaults on numeric columns → nil (#1163)"
   [default pg-type]
   (when default
     (let [trimmed (str/trim default)
           lower   (str/lower-case trimmed)]
       (cond
+        ;; SQL Server sequence default → PostgreSQL nextval()
+        (str/starts-with? lower "next value for") (translate-next-value-for trimmed)
         ;; Any remaining CONVERT(…) that mssql.sql didn't map to a keyword
         (str/starts-with? lower "convert(") nil
         ;; Empty string on a numeric target type
@@ -152,7 +176,7 @@
                                                          [(:column_name ep) (:comment ep)]))
                                                      ext-props))]
                      {:table-name table-name
-                      :schema (if (= schema "dbo") "public" schema)
+                      :schema (mssql-schema->pg schema)
                       :source-schema schema
                       :table-comment table-comment
                       :columns (mapv (fn [c]
@@ -251,7 +275,7 @@
       (let [cols  (table-columns conn {:schema schema :table view-name})
             pkeys (table-pkeys   conn {:schema schema :table view-name})]
         {:table-name    view-name
-         :schema        (if (= schema "dbo") "public" schema)
+         :schema        (mssql-schema->pg schema)
          :source-schema schema
          :is-view       true
          :columns       (mapv (fn [c]
@@ -291,7 +315,7 @@
                        cols       (table-columns conn {:schema schema :table view-name})
                        pkeys      (table-pkeys   conn {:schema schema :table view-name})]
                    {:table-name  view-name
-                    :schema      (if (= schema "dbo") "public" schema)
+                    :schema      (mssql-schema->pg schema)
                     :source-schema schema
                     :is-view     true
                     :columns     (mapv (fn [c]
@@ -303,6 +327,26 @@
                     :primary-key (mapv :column_name pkeys)
                     :indexes     []
                     :fkeys       []}))))))
+
+(defn catalog-sequences
+  "Return a seq of sequence descriptors for all user-created SEQUENCE objects
+   in the MS SQL database.  Each map contains the keys needed to emit a
+   PostgreSQL CREATE SEQUENCE statement:
+     :schema :name :start :increment :min :max :current :cycle? :cache"
+  [^MSSQLSource src]
+  (let [conn (.-conn src)]
+    (->> (try (sequences conn) (catch Exception _ []))
+         (mapv (fn [s]
+                 (let [schema (:schema_name s)]
+                   {:schema     (mssql-schema->pg schema)
+                    :name       (:sequence_name s)
+                    :start      (:start_value s)
+                    :increment  (:increment s)
+                    :min        (:minimum_value s)
+                    :max        (:maximum_value s)
+                    :current    (:current_value s)
+                    :cycle?     (= true (:is_cycling s))
+                    :cache      (:cache_size s)}))))))
 
 (defn create-source
   [uri-map _table-spec]
