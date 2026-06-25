@@ -48,6 +48,14 @@ GO
 CREATE INDEX idx_orders_customer ON orders(customer_id);
 GO
 
+-- #1608: index name with a dash must survive MSSQL → PG migration.
+-- SQL Server allows dashes in identifiers (via bracket-quoting); PostgreSQL
+-- requires the name to be double-quoted in DDL.  Both the default
+-- (uniquify) and PRESERVE INDEX NAMES paths must handle this correctly.
+SET QUOTED_IDENTIFIER ON;
+CREATE INDEX [idx-dash-test] ON customers(score);
+GO
+
 -- Partial / filtered index: only rows with a non-NULL email
 -- QUOTED_IDENTIFIER ON is required by SQL Server for filtered indexes
 SET QUOTED_IDENTIFIER ON;
