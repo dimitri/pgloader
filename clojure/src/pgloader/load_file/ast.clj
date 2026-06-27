@@ -342,6 +342,7 @@
             :batch-rows          [tag (Integer/parseInt (second (second inner)))]
             :batch-size          [tag (second (second inner))]
             :prefetch-rows       [tag (Integer/parseInt (second (second inner)))]
+            :batch-concurrency   [tag (Integer/parseInt (second (second inner)))]
             :rows-per-range      [tag (Integer/parseInt (second (second inner)))]
             :workers             [tag (Integer/parseInt (second (second inner)))]
             :concurrency         [tag (Integer/parseInt (second (second inner)))]
@@ -447,7 +448,7 @@
         :batch-size {:batch-size (second (second node))}
         :batch-concurrency {:batch-concurrency (Integer/parseInt (second (second node)))}
         :prefetch-rows {:prefetch-rows (Integer/parseInt (second (second node)))}
-        :csv-header {:csv-header true}
+        :csv-header  {:csv-header true}
         :csv-escape-mode {:escape-mode :following}
         :lines-terminated {:lines-terminated (interpret-escape (second (second node)))}
         :date-format {:date-format (second (second node))}
@@ -469,6 +470,7 @@
         :batch-rows {:batch-rows (Integer/parseInt (second (second node)))}
         :batch-size {:batch-size (second (second node))}
         :batch-concurrency {:batch-concurrency (Integer/parseInt (second (second node)))}
+        :prefetch-rows {:prefetch-rows (Integer/parseInt (second (second node)))}
         :disable-triggers {:disable-triggers true}
         :drop-indexes {:drop-indexes true}
         nil))))
@@ -487,6 +489,7 @@
         :batch-rows {:batch-rows (Integer/parseInt (second (second node)))}
         :batch-size {:batch-size (second (second node))}
         :batch-concurrency {:batch-concurrency (Integer/parseInt (second (second node)))}
+        :prefetch-rows {:prefetch-rows (Integer/parseInt (second (second node)))}
         :disable-triggers {:disable-triggers true}
         :drop-indexes {:drop-indexes true}
         nil))))
@@ -1070,13 +1073,17 @@
                           (if (and (vector? n) (= :fixed-option (first n)))
                             (let [opt (second n)]
                               (case (first opt)
-                                :truncate         (assoc acc :truncate true)
-                                :create-tables    (assoc acc :create-tables true)
-                                :create-no-tables (assoc acc :create-tables false)
-                                :fixed-header     (assoc acc :fixed-header true)
-                                :date-format      (assoc acc :date-format (second (second opt)))
-                                :drop-indexes     (assoc acc :drop-indexes true)
-                                :disable-triggers (assoc acc :disable-triggers true)
+                                :truncate          (assoc acc :truncate true)
+                                :create-tables     (assoc acc :create-tables true)
+                                :create-no-tables  (assoc acc :create-tables false)
+                                :fixed-header      (assoc acc :fixed-header true)
+                                :date-format       (assoc acc :date-format (second (second opt)))
+                                :drop-indexes      (assoc acc :drop-indexes true)
+                                :disable-triggers  (assoc acc :disable-triggers true)
+                                :batch-rows        (assoc acc :batch-rows (Integer/parseInt (second (second opt))))
+                                :batch-size        (assoc acc :batch-size (second (second opt)))
+                                :batch-concurrency (assoc acc :batch-concurrency (Integer/parseInt (second (second opt))))
+                                :prefetch-rows     (assoc acc :prefetch-rows (Integer/parseInt (second (second opt))))
                                 acc))
                             acc))
                         {}
