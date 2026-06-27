@@ -85,15 +85,18 @@
   "Transform input STRING into a suitable column name.
     lahmanID        lahman_id
     playerID        player_id
-    birthYear       birth_year"
+    birthYear       birth_year
+    Reference_ID    reference_id"
   (coerce
    (loop
       :for first := t :then nil
       :for char :across string
       :for previous-upper-p := nil :then char-upper-p
+      :for previous-underscore := nil :then underscore
+      :for underscore := (char= char #\_)
       :for char-upper-p := (and (alpha-char-p char)
                                 (eq char (char-upcase char)))
-      :for new-word := (and (not first) char-upper-p (not previous-upper-p))
-      :when (and new-word (not (char= char #\_))) :collect #\_
+      :for new-word := (and (not first) char-upper-p (not previous-upper-p) (not previous-underscore))
+      :when new-word :collect #\_
       :collect (char-downcase char))
    'string))
