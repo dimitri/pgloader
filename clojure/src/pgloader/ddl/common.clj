@@ -32,7 +32,9 @@
       (= lower "xml")    "xml"
       ;; Pass-through array types from PostgreSQL sources (#1371)
       (str/ends-with? lower "[]") lower
-      (str/starts-with? upper "BIGSERIAL")   "bigserial"
+      (str/starts-with? upper "BIGSERIAL")    "bigserial"
+      (str/starts-with? upper "SMALLSERIAL") "smallserial"
+      (str/starts-with? upper "SERIAL")      "serial"
       ;; Unsigned integers: upcast to avoid overflow (matches CL cast rules)
       (and unsigned? (str/starts-with? upper "TINYINT"))   "smallint"
       (and unsigned? (str/starts-with? upper "SMALLINT"))  "integer"
