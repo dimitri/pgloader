@@ -25,17 +25,26 @@
                                              :table table
                                              :columns columns
                                              :condition c))))))
+            ;; The unwind-protect cleanup closes the COPY writer (sending
+            ;; CopyDone to the server) but intentionally does NOT COMMIT.
+            ;; cl-postgres's with-syncing in close-db-writer reads until
+            ;; ReadyForQuery even on error, so the connection is always in
+            ;; a clean SQL state when the cleanup finishes.  COMMIT only
+            ;; runs on the success path below; the error handler uses the
+            ;; now-clean connection to ROLLBACK.
             (unwind-protect
                  (loop
                     :for row := (lq:pop-queue queue)
                     :until (eq :end-of-data row)
                     :do (multiple-value-bind (row-bytes row-seconds)
                             (stream-row copier copy nbcols row)
-                          (incf rcount)
-                          (incf bytes row-bytes)
-                          (incf seconds row-seconds)))
-              (cl-postgres:close-db-writer copier)
-              (pomo:execute "COMMIT"))))
+                          (when row-bytes
+                            (incf rcount)
+                            (incf bytes row-bytes)
+                            (incf seconds row-seconds))))
+              (cl-postgres:close-db-writer copier))
+            ;; Only reached when the loop completes without signalling.
+            (pomo:execute "COMMIT")))
 
       (postgresql-unavailable (condition)
         ;; We got disconnected, maybe because PostgreSQL is being restarted,
@@ -52,8 +61,11 @@
         (error condition))
 
       (condition (c)
-        ;; stop at any failure here, this function doesn't implement any kind
-        ;; of retry behaviour.
+        ;; close-db-writer in the unwind-protect cleanup above has already
+        ;; sent CopyDone and read until ReadyForQuery (via cl-postgres's
+        ;; with-syncing), so the connection is now in SQL mode.  ROLLBACK
+        ;; is safe regardless of whether the error came from data streaming
+        ;; or from close-db-writer itself.
         (log-message :error "~a" c)
         (update-stats :data table :errs 1)
         (pomo:execute "ROLLBACK")

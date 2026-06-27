@@ -1,0 +1,36 @@
+/*
+ * Regression test for GitHub issue #1622 (comment 2026-06-22).
+ *
+ * When a SQLite INTEGER column contains a TEXT value that PostgreSQL rejects
+ * during COPY, pgloader used to hang indefinitely under "on error stop" mode
+ * because the COPY writer was closed (sending CopyDone) inside the
+ * unwind-protect cleanup, and COMMIT ran there too — so when the outer
+ * handler-case handler tried to ROLLBACK the transaction had already been
+ * committed and the connection state was inconsistent.
+ *
+ * The database has three rows in the "products" table:
+ *   id=1  name='apple'   qty=10           (valid INTEGER)
+ *   id=2  name='banana'  qty='lots-of-it' (TEXT in INTEGER column)
+ *   id=3  name='cherry'  qty=5            (valid INTEGER)
+ *
+ * Expected outcome:
+ *   - pgloader exits cleanly (non-zero exit code is fine).
+ *   - pgloader does NOT hang.
+ *   - An error is logged for the INTEGER type mismatch.
+ *
+ * To regenerate the database:
+ *   python3 test/sqlite/create-type-mismatch.py
+ */
+
+load database
+     from 'sqlite/type-mismatch.db'
+     into postgresql:///pgloader
+
+     with include drop, create tables, create indexes, reset sequences,
+          on error stop
+
+      set work_mem to '16MB',
+          search_path to 'typemismatch'
+
+   before load do
+     $$ create schema if not exists typemismatch; $$;

@@ -4,36 +4,37 @@ OUT   = $(TESTS:.load=.out)
 
 REMOTE = archive.load bossa-all.load bossa.load census-places.load dbf-zip.load
 LOCAL  = $(filter-out $(REMOTE:.load=.out),$(OUT))
-REGRESS= allcols.load 		    \
-         csv-before-after.load 	    \
-         csv-districts.load 	    \
-         csv-parse-date.load 	    \
-         csv-error.load 	    \
-         csv-escape-mode.load 	    \
-         csv-filename-pattern.load  \
-         csv-guess.load             \
-         csv-header.load            \
-         csv-json.load              \
-         csv-keep-extra-blanks.load \
-         csv-missing-col.load       \
-         csv-non-printable.load     \
-         csv-nulls.load             \
-         csv-temp.load              \
-         csv-trim-extra-blanks.load \
-         csv-using-sexp.load        \
-         csv.load 		    \
-	 copy.load                  \
-	 copy-hex.load              \
-         dbf.load 		    \
-         errors.load 		    \
-         fk-reject.load 	    \
-         fixed.load 		    \
-         fields-with-periods.load   \
-         ixf.load 		    \
-         overflow.load 		    \
-         partial.load 		    \
-         serial.load 		    \
-         udc.load 		    \
+REGRESS= allcols.load 		       \
+         csv-before-after.load 	       \
+         csv-districts.load 	       \
+         csv-parse-date.load 	       \
+         csv-error.load 	       \
+         csv-escape-mode.load 	       \
+         csv-filename-pattern.load     \
+         csv-guess.load                \
+         csv-header.load               \
+         csv-json.load                 \
+         csv-keep-extra-blanks.load    \
+         csv-missing-col.load          \
+         csv-non-printable.load        \
+         csv-nulls.load                \
+         csv-temp.load                 \
+         csv-trim-extra-blanks.load    \
+         csv-using-sexp.load           \
+         csv.load 		       \
+	 copy.load                     \
+	 copy-hex.load                 \
+         dbf.load 		       \
+         errors.load 		       \
+         fk-reject.load 	       \
+         fixed.load 		       \
+         fields-with-periods.load      \
+         ixf.load 		       \
+         overflow.load 		       \
+         partial.load 		       \
+         serial.load 		       \
+         sqlite-on-error-stop.load     \
+         udc.load 		       \
          xzero.load
 
 # Those are not included in the tests because CCL doesn't have the cp866
@@ -80,6 +81,16 @@ prepare: bossa.sql
 errors.out: errors.load
 	-$(PGLOADER) $<
 	@echo
+
+# sqlite LOAD DATABASE is incompatible with --regress (parse-target-pg-db-uri
+# returns nil for LOAD DATABASE commands).  Run without --regress; any hang
+# would be caught by the CI job timeout.
+sqlite/type-mismatch.db:
+	python3 sqlite/create-type-mismatch.py
+
+regress/out/sqlite-on-error-stop.out: sqlite-on-error-stop.load sqlite/type-mismatch.db
+	-$(PGLOADER) $<
+	touch $@
 
 nofile.out: nofile.load
 	-$(PGLOADER) $<
