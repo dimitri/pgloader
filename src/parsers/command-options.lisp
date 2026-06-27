@@ -73,14 +73,20 @@
     (bind (((_ _ _ val) batch-size))
       (cons :batch-size val))))
 
-;;; deprecated, but still accept it in the parsing
+;;; 'batch concurrency' is deprecated; 'prefetch rows' is the current spelling.
+;;; They both control *prefetch-rows* but using both in the same WITH clause
+;;; produces undefined behavior, so we track them with different keys and error
+;;; at parse time if both appear together (see batch-control-bindings).
 (defrule option-prefetch-rows (and (or (and kw-batch kw-concurrency)
                                        (and kw-prefetch kw-rows))
                                    equal-sign
                                    (+ (digit-char-p character)))
   (:lambda (prefetch-rows)
-    (bind (((_ _ nb) prefetch-rows))
-      (cons :prefetch-rows (parse-integer (text nb))))))
+    (bind (((keyword-pair _ nb) prefetch-rows))
+      (let ((key (if (eq (first keyword-pair) :batch)
+                     :batch-concurrency
+                     :prefetch-rows)))
+        (cons key (parse-integer (text nb)))))))
 
 (defrule option-rows-per-range (and kw-rows kw-per kw-range
                                     equal-sign
@@ -90,9 +96,13 @@
 
 (defun batch-control-bindings (options)
   "Generate the code needed to add batch-control"
+  (when (and (getf options :batch-concurrency) (getf options :prefetch-rows))
+    (error "pgloader: 'batch concurrency' (deprecated) and 'prefetch rows' cannot both appear in the same WITH clause; remove 'batch concurrency'"))
   `((*copy-batch-rows* (or ,(getf options :batch-rows) *copy-batch-rows*))
     (*copy-batch-size* (or ,(getf options :batch-size) *copy-batch-size*))
-    (*prefetch-rows*   (or ,(getf options :prefetch-rows) *prefetch-rows*))
+    (*prefetch-rows*   (or ,(or (getf options :prefetch-rows)
+                                (getf options :batch-concurrency))
+                           *prefetch-rows*))
     (*rows-per-range*  (or ,(getf options :rows-per-range) *rows-per-range*))))
 
 (defun identifier-case-binding (options)
@@ -104,6 +114,7 @@
                                       (option-list '(:batch-rows
                                                      :batch-size
                                                      :prefetch-rows
+                                                     :batch-concurrency
                                                      :rows-per-range
                                                      :on-error-stop
                                                      :identifier-case))
