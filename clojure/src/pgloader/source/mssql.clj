@@ -184,7 +184,9 @@
                                              is-identity (= 1 (:is_identity c))
                                              is-pk (some #(= (:column_name c) %) (mapv :column_name pkeys))
                                              ai (and is-identity is-pk)]
-                                         (let [pg-type (if ai "bigserial" (mssql-type->pg col-type))
+                                         (let [pg-type (if ai
+                                                         (if (= col-type "bigint") "bigserial" "serial")
+                                                         (mssql-type->pg col-type))
                                                raw-def  (when-not ai (:column_default c))]
                                            {:column-name (:column_name c)
                                             :column-type pg-type
