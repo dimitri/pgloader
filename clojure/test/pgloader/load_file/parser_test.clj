@@ -552,3 +552,20 @@
                    WITH downcase identifiers;")]
       (is (:ok result) (str "Parse failed: " (:error result)))
       (is (true? (get-in result [:ok :with-options :downcase-ids]))))))
+
+(deftest test-with-on-error-stop
+  (testing "WITH on error stop sets :on-error-stop true in with-options"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM sqlite:///tmp/foo.db
+                   INTO postgresql:///target
+                   WITH on error stop;")]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (is (true? (get-in result [:ok :with-options :on-error-stop])))))
+
+  (testing "WITH on error resume next does not set :on-error-stop"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM sqlite:///tmp/foo.db
+                   INTO postgresql:///target
+                   WITH on error resume next;")]
+      (is (:ok result) (str "Parse failed: " (:error result)))
+      (is (nil? (get-in result [:ok :with-options :on-error-stop]))))))
