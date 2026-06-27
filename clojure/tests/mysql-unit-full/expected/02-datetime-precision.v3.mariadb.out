@@ -2,8 +2,8 @@
 -------------+--------------------------+--------------------+--------------------------------------------
  id          | bigint                   |                    | nextval('type_precision_id_seq'::regclass)
  ts6         | timestamp with time zone |                  6 | CURRENT_TIMESTAMP
- ts3         | timestamp with time zone |                  3 | NULL::timestamp with time zone
- t3          | time without time zone   |                  3 | NULL::time without time zone
+ ts3         | timestamp with time zone |                  3 | 
+ t3          | time without time zone   |                  3 | 
  plain_ts    | timestamp with time zone |                  6 | CURRENT_TIMESTAMP
 (5 rows)
 

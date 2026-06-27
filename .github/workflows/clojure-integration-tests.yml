@@ -1,14 +1,12 @@
 name: pgloader v4 Integration Tests
 
 on:
-  pull_request:
-    paths:
-      - 'clojure/**'
-      - '.github/workflows/clojure-integration-tests.yml'
+  pull_request: {}
   push:
     branches: [main, citus-v3, v4-clojure-rewrite]
     paths:
       - 'clojure/**'
+      - 'src/**'
       - '.github/workflows/clojure-integration-tests.yml'
 
 # Cancel in-progress runs for the same branch/PR on new pushes
