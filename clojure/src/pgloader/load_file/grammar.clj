@@ -115,7 +115,7 @@
 
     with-fixed-clause = <'WITH'> <ws> fixed-option (<opt-ws> <','> <opt-ws> fixed-option)*
     fixed-option = truncate | create-tables | create-table | create-no-tables | batch-rows
-                 | batch-size | batch-concurrency | disable-triggers | drop-indexes | fixed-header | date-format
+                 | batch-size | batch-concurrency | prefetch-rows | disable-triggers | drop-indexes | fixed-header | date-format
     fixed-header = <'fixed'> <ws> <'header'>
 
    load-archive = <'LOAD'> <ws> <'ARCHIVE'>
@@ -131,12 +131,12 @@
     csv-filename-matching = <'FILENAME'> <ws> <'MATCHING'> <ws> file-pattern
 
    with-copy-clause = <'WITH'> <ws> copy-option (<opt-ws> <','> <opt-ws> copy-option)*
-    copy-option = truncate | create-tables | create-table | create-no-tables | option-delimiter | option-null | batch-rows | batch-size | batch-concurrency | disable-triggers | drop-indexes
+    copy-option = truncate | create-tables | create-table | create-no-tables | option-delimiter | option-null | batch-rows | batch-size | batch-concurrency | prefetch-rows | disable-triggers | drop-indexes
     option-delimiter = <'delimiter'> <opt-ws> <'='> <opt-ws> quoted-char
     option-null = <'null'> <opt-ws> <'='> <opt-ws> quoted-string
 
    with-dbf-clause = <'WITH'> <ws> dbf-option (<opt-ws> <','> <opt-ws> dbf-option)*
-    dbf-option = truncate | create-tables | create-table | create-no-tables | batch-rows | batch-size | batch-concurrency | disable-triggers | drop-indexes | dbf-encoding
+    dbf-option = truncate | create-tables | create-table | create-no-tables | batch-rows | batch-size | batch-concurrency | prefetch-rows | disable-triggers | drop-indexes | dbf-encoding
     create-table = <'create'> <ws> <'table'>
     dbf-encoding = <'encoding'> <ws> quoted-string
    having-fields = <'having'> <ws> <'fields'> <ws> column-list
@@ -165,7 +165,7 @@
     table-name  = #'[a-zA-Z_][a-zA-Z0-9_-]*' | <'\"'> #'[^\"]+' <'\"'>
 
    with-csv-clause  = <'WITH'> <ws> csv-option (<opt-ws> <','> <opt-ws> csv-option)*
-    csv-option  = skip-header | fields-enclosed | fields-terminated | fields-escaped | fields-not-enclosed | csv-encoding | create-tables | create-no-tables | nullif | keep-unquoted-blanks | trim-unquoted-blanks | truncate | disable-triggers | batch-rows | batch-size | batch-concurrency | csv-header | lines-terminated | csv-escape-mode | date-format | drop-indexes
+    csv-option  = skip-header | fields-enclosed | fields-terminated | fields-escaped | fields-not-enclosed | csv-encoding | create-tables | create-no-tables | nullif | keep-unquoted-blanks | trim-unquoted-blanks | truncate | disable-triggers | batch-rows | batch-size | batch-concurrency | prefetch-rows | csv-header | lines-terminated | csv-escape-mode | date-format | drop-indexes
     date-format = <'date'> <ws> <'format'> <ws> quoted-string
     drop-indexes = <'drop'> <ws> <'indexes'>
    csv-encoding = <'encoding'> <ws> quoted-string
@@ -192,7 +192,7 @@
 
    with-db-clause   = <'WITH'> <ws> db-option (<opt-ws> <','> <opt-ws> db-option)*
     db-option   = include-drop | create-tables | create-indexes | create-no-tables
-                | workers | concurrency | batch-rows | batch-size | prefetch-rows
+                | workers | concurrency | batch-rows | batch-size | prefetch-rows | batch-concurrency
                 | on-error-stop | on-error-resume | identifier-case
                 | multiple-readers | single-reader | rows-per-range | chunk-size
                 | include-no-drop | truncate | disable-triggers

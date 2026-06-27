@@ -450,12 +450,15 @@
             (close! source)
             (.close ^java.sql.Connection pg-conn)
             (log/info "DRY RUN — connections OK"))
-        (let [opts-batch-rows (some-> (get (:with-options cmd) :batch-rows) (long))
-              opts-batch-size (some-> (get (:with-options cmd) :batch-size) (Long/parseLong))
-              opts-prefetch-rows (some-> (get (:with-options cmd) :prefetch-rows) (long))]
+        (let [opts-batch-rows    (some-> (get (:with-options cmd) :batch-rows) (long))
+              opts-batch-size    (some-> (get (:with-options cmd) :batch-size) (Long/parseLong))
+              opts-prefetch-rows (some-> (get (:with-options cmd) :prefetch-rows) (long))
+              opts-batch-concurr (some-> (get (:with-options cmd) :batch-concurrency) (long))
+              _ (when (and opts-prefetch-rows opts-batch-concurr)
+                  (throw (ex-info "pgloader: 'batch concurrency' (deprecated) and 'prefetch rows' cannot both appear in the same WITH clause; remove 'batch concurrency'" {})))]
           (binding [copy/*batch-rows* (or opts-batch-rows copy/*batch-rows*)
                     copy/*batch-size* (or opts-batch-size copy/*batch-size*)
-                    copy/*prefetch-queue-capacity* (or opts-prefetch-rows copy/*prefetch-queue-capacity*)]
+                    copy/*prefetch-queue-capacity* (or opts-prefetch-rows opts-batch-concurr copy/*prefetch-queue-capacity*)]
             (try
           ;; Send MySQL-specific SET params to the MySQL source connection before catalog fetch
               (when (#{:mysql :mariadb} (:type source-uri))
