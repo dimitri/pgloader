@@ -50,9 +50,7 @@
                with len = (loop :for name
                              :in (sqlite:statement-column-names statement)
                              :count name)
-               with row-num = 0
                while (sqlite:step-statement statement)
-               do (incf row-num)
                for row = (let ((v (make-array len)))
                            (loop :for x :below len
                               :for col-name := (nth x cols)
