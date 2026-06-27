@@ -33,7 +33,13 @@
   (let* ((table-name (table-source-name (source sqlite)))
          (cols       (mapcar #'coldef-name (fields sqlite)))
          (sql        (format nil "SELECT ~{`~a`~^, ~} FROM `~a`;" cols table-name))
-         (pgtypes    (map 'vector #'column-type-name (columns sqlite))))
+         (pgtypes    (map 'vector #'column-type-name (columns sqlite)))
+         ;; locate the primary key column index so decoding errors can cite it
+         (pkey-idx   (let* ((indexes (table-index-list (target sqlite)))
+                            (pkey    (first (remove-if-not #'index-primary indexes)))
+                            (pcol    (when pkey (first (index-columns pkey)))))
+                       (when pcol
+                         (position pcol cols :test #'string-equal)))))
     (log-message :sql "SQLite: ~a" sql)
     (with-connection (*sqlite-db* (source-db sqlite))
       (let* ((db (conn-handle *sqlite-db*))
@@ -44,17 +50,32 @@
                with len = (loop :for name
                              :in (sqlite:statement-column-names statement)
                              :count name)
+               with row-num = 0
                while (sqlite:step-statement statement)
+               do (incf row-num)
                for row = (let ((v (make-array len)))
                            (loop :for x :below len
-                              :for raw := (sqlite:statement-column-value statement x)
-                              :for ptype := (aref pgtypes x)
-                              :for stype := (sqlite-ffi:sqlite3-column-type
-                                             (sqlite::handle statement)
-                                             x)
-                              :for val := (parse-value raw stype ptype
-                                                       :encoding encoding)
-                              :do (setf (aref v x) val))
+                              :for col-name := (nth x cols)
+                              :for stype    := (sqlite-ffi:sqlite3-column-type
+                                                (sqlite::handle statement) x)
+                              :for ptype    := (aref pgtypes x)
+                              :do (setf (aref v x)
+                                        (handler-case
+                                            (parse-value
+                                             (sqlite:statement-column-value statement x)
+                                             stype ptype :encoding encoding)
+                                          (babel-encodings:character-decoding-error (e)
+                                            (log-message :error
+                                              "While decoding text from SQLite table ~s: ~%~
+Illegal ~a character at byte position ~a~@[, pkey ~s~]~@[, column ~s~].~%"
+                                              table-name
+                                              (babel-encodings:character-coding-error-encoding e)
+                                              (babel-encodings:character-coding-error-position e)
+                                              (when (and pkey-idx (< pkey-idx x))
+                                                (aref v pkey-idx))
+                                              col-name)
+                                            (update-stats :data (target sqlite) :errs 1)
+                                            nil))))
                            v)
                counting t into rows
                do (funcall process-row-fn row)
