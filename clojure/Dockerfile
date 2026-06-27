@@ -23,7 +23,7 @@ FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
 # Copy the built jar
-COPY --from=builder /app/target/pgloader-v4-0.1.0-SNAPSHOT.jar /app/pgloader.jar
+COPY --from=builder /app/target/pgloader.jar /app/pgloader.jar
 
 # Create a non-root user
 RUN groupadd --system pgloader \
