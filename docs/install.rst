@@ -38,6 +38,19 @@ on any CPU architecture supported by Java 21 (x86-64, arm64, …).
 
 __ https://github.com/dimitri/pgloader/releases
 
+Docker image (v4)
+^^^^^^^^^^^^^^^^^
+
+A multi-arch Docker image for v4 is published to the GitHub Container Registry
+after every green push to ``main`` (as ``:latest``) and for every tagged release::
+
+    docker pull ghcr.io/dimitri/pgloader-v4:latest
+    docker run --rm ghcr.io/dimitri/pgloader-v4:latest --version
+    docker run --rm -v $(pwd):/work ghcr.io/dimitri/pgloader-v4:latest /work/my.load
+
+The image supports **linux/amd64** and **linux/arm64** natively — no emulation
+layer is needed on arm64 hosts (AWS Graviton, Apple Silicon, Raspberry Pi, …).
+
 .. _install_v3:
 
 pgloader v3 — Common Lisp
