@@ -33,7 +33,7 @@ Please provide the following information:
     
   - [ ] how can I reproduce the bug?
 
-    Incude a self-contained pgloader command file.
+    Include a self-contained pgloader command file.
 
     If you're loading from a database, consider attaching a database dump to
     your issue. For MySQL, use `mysqldump`. For SQLite, just send over your

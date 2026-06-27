@@ -30,9 +30,9 @@
 
 (defun db-write-row (copier data)
   "Copy cl-postgres:db-write-row guts to avoid computing utf-8 bytes all
-   over again, as we reproduced the data formating in pgloader code. The
+   over again, as we reproduced the data formatting in pgloader code. The
    reason we do that is to be able to lower the cost of retrying batches:
-   the formating has then already been done."
+   the formatting has then already been done."
   (let* ((connection          (cl-postgres::copier-database copier))
 	 (cl-postgres::socket (cl-postgres::connection-socket connection)))
     (cl-postgres::with-reconnect-restart connection
@@ -52,9 +52,9 @@
 ;;;
 (defun db-write-vector-row (copier row &optional (nbcols (length row)))
   "Copy cl-postgres:db-write-row guts to avoid computing utf-8 bytes all
-   over again, as we reproduced the data formating in pgloader code. The
+   over again, as we reproduced the data formatting in pgloader code. The
    reason we do that is to be able to lower the cost of retrying batches:
-   the formating has then already been done."
+   the formatting has then already been done."
   (declare (optimize (speed 3) (space 0) (debug 1) (compilation-speed 0)))
   (let* ((col-bytes           (map 'vector
                                    (lambda (col)
@@ -89,9 +89,9 @@
 
 (defun db-write-escaped-vector-row (copier row &optional (nbcols (length row)))
   "Copy cl-postgres:db-write-row guts to avoid computing utf-8 bytes all
-   over again, as we reproduced the data formating in pgloader code. The
+   over again, as we reproduced the data formatting in pgloader code. The
    reason we do that is to be able to lower the cost of retrying batches:
-   the formating has then already been done."
+   the formatting has then already been done."
   (declare (optimize (speed 3) (space 0) (debug 1) (compilation-speed 0)))
   (let* ((col-bytes           (map 'vector
                                    (lambda (col)
