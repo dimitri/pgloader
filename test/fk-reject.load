@@ -1,0 +1,41 @@
+/*
+ * Regression test for GitHub issue #1333.
+ *
+ * When a batch contains rows that violate a foreign-key constraint, pgloader
+ * must reject those rows (write them to the .dat reject file) and commit the
+ * valid rows.  Previously the retry-batch code crashed with "Invalid index N
+ * for (SIMPLE-VECTOR N)" instead, and the rejected rows were lost entirely.
+ *
+ * The fix uses binary search (bisect-batch) when PostgreSQL does not annotate
+ * the COPY error with a line number — which is the case for FK violations.
+ *
+ * Scenario:
+ *   parent table: ids 1, 2, 3
+ *   child  table: FK → parent(id)
+ *   CSV rows: (1,1) valid | (2,99) bad FK | (3,2) valid
+ *
+ * Expected: rows (1,1) and (3,2) are loaded; (2,99) is rejected.
+ */
+
+LOAD CSV
+     FROM INLINE (id, parent_id)
+     INTO postgresql:///pgloader?fk_reject
+
+     WITH truncate,
+          fields terminated by ','
+
+      SET work_mem to '12MB'
+
+   BEFORE LOAD DO
+    $$ drop table if exists fk_reject cascade; $$,
+    $$ drop table if exists fk_parent cascade; $$,
+    $$ create table fk_parent (id integer primary key); $$,
+    $$ insert into fk_parent values (1), (2), (3); $$,
+    $$ create table fk_reject (
+           id        integer primary key,
+           parent_id integer not null references fk_parent(id)
+       ); $$;
+
+1,1
+2,99
+3,2

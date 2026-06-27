@@ -194,8 +194,18 @@
                       (parse-copy-error-context
                        (database-error-context next-error-in-batch))))
 
-                 (setf condition  next-error-in-batch
-                       next-error (+ current-batch-pos next-error-relative)))))))))
+                 (if next-error-relative
+                     (setf condition  next-error-in-batch
+                           next-error (+ current-batch-pos next-error-relative))
+                     ;; No COPY line-number context (e.g. FK violation following
+                     ;; a format error): fall back to binary search for the
+                     ;; remaining rows and exit.
+                     (progn
+                       (incf nb-errors
+                             (bisect-batch table-name table columns
+                                           batch current-batch-pos
+                                           (- (batch-count batch) current-batch-pos)))
+                       (return-from retry-batch nb-errors))))))))))
 
   (log-message :info "Recovery found ~d errors in ~d row~:p"
                nb-errors (batch-count batch))
