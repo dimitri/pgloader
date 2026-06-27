@@ -28,15 +28,15 @@ model, and finally the data is backfilled automatically in the target table
 thanks to generating queries like the following:
 
 ~~~
-SELECT "campaigns".company_id::text,
-       "impressions".id::text,
-       "impressions".ad_id::text,
-       "impressions".seen_at::text,
-       "impressions".site_url::text,
-       "impressions".cost_per_impression_usd::text,
-       "impressions".user_ip::text,
-       "impressions".user_data::text
-  FROM "public"."impressions"  
+SELECT CAST(campaigns.company_id AS text),
+       CAST(impressions.id AS text),
+       CAST(impressions.ad_id AS text),
+       CAST(impressions.seen_at AS text),
+       CAST(impressions.site_url AS text),
+       CAST(impressions.cost_per_impression_usd AS text),
+       CAST(impressions.user_ip AS text),
+       CAST(impressions.user_data AS text)
+  FROM "public"."impressions"
         JOIN "public"."ads" ON impressions.ad_id = ads.id
         JOIN "public"."campaigns" ON ads.campaign_id = campaigns.id
 ~~~
