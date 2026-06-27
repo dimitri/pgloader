@@ -1,0 +1,34 @@
+/*
+ * Regression test for GitHub issue #1250.
+ *
+ * When a SQLite text column contains bytes that are not valid UTF-8, pgloader
+ * must report the error with enough context to locate the offending record
+ * (table name, byte position, primary-key value) and substitute NULL for the
+ * bad column so the rest of the row — and the rest of the table — continue
+ * loading.
+ *
+ * The database has three rows in the "files" table:
+ *   id=1  filename='valid-file.txt'      (valid UTF-8)
+ *   id=2  filename=b'file\x96name.txt'   (Windows-1252 em-dash, invalid UTF-8)
+ *   id=3  filename='another-valid.txt'   (valid UTF-8)
+ *
+ * Expected outcome:
+ *   - Row 1 and row 3 are loaded with the correct filename.
+ *   - Row 2 is loaded with filename = NULL and one error is counted.
+ *   - The error log contains: table name, byte position, pkey value (2).
+ *
+ * To regenerate the database:
+ *   python3 test/sqlite/create-bad-utf8.py
+ */
+
+load database
+     from 'sqlite/bad-utf8.db'
+     into postgresql:///pgloader
+
+     with include drop, create tables, create indexes, reset sequences
+
+      set work_mem to '16MB',
+          search_path to 'badutf8'
+
+   before load do
+     $$ create schema if not exists badutf8; $$;
