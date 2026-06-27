@@ -201,7 +201,7 @@
           source-schema (or (:source-schema table-spec-entry) schema)
           base-sql (or citus-read-sql
                        (let [col-names (mapv :column-name columns)
-                             col-list (str/join ", " (map #(str "\"" % "\"") col-names))]
+                             col-list (str/join ", " (map #(str "CAST(\"" % "\" AS text)") col-names))]
                          (str "SELECT " col-list " FROM \"" source-schema "\".\"" table-name "\"")))
           sql (if (and ctid-lo ctid-hi)
                 (str base-sql " " (first (ctid-where-sqlvec {:lo (str "'(" ctid-lo ",0)'::tid")

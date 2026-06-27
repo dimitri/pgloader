@@ -76,7 +76,9 @@
         own-cols   (mapv :column-name (:columns table-entry))
         cast-text? (= :pgsql source-type)
         fmt-col    (fn [tbl col]
-                     (str tbl "." col (when cast-text? "::text")))
+                     (if cast-text?
+                       (str "CAST(" tbl "." col " AS text)")
+                       (str tbl "." col)))
         col-list   (str/join ", "
                              (concat [(fmt-col from-table-name dist-col-name)]
                                      (map #(fmt-col tname %) own-cols)))]

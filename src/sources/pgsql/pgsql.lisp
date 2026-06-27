@@ -40,7 +40,7 @@
           (let* ((cols   (mapcar #'column-name (fields pgsql)))
                  (sql
                   (format nil
-                          "SELECT ~{~s::text~^, ~} FROM ~s.~s"
+                          "SELECT ~{CAST(~s AS text)~^, ~} FROM ~s.~s"
                           cols
                           (schema-source-name (table-schema (source pgsql)))
                           (table-source-name (source pgsql)))))
