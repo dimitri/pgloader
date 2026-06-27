@@ -368,7 +368,7 @@
           (format-citus-join-clause source-table
                                     (table-citus-rule target-table))))
     (format nil
-            "SELECT ~{~a::text~^, ~} FROM ~s.~s ~a"
+            "SELECT ~{CAST(~a AS text)~^, ~} FROM ~s.~s ~a"
             cols
             (schema-source-name (table-schema source-table))
             (table-source-name source-table)

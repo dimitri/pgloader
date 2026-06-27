@@ -49,6 +49,7 @@ test-unit:
 	  -n pgloader.cast-test \
 	  -n pgloader.batch-test \
 	  -n pgloader.ddl-test \
+	  -n pgloader.ddl.citus-test \
 	  -n pgloader.load-file.parser-test \
 	  -n pgloader.transforms-test \
 	  -n pgloader.pg-service-test \
