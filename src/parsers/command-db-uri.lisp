@@ -122,6 +122,7 @@
                                     (* (or (alpha-char-p character)
                                            (digit-char-p character)
                                            #\.
+					   #\:
                                            punct)))))
   (:lambda (dbn)
     (list :dbname (text (second dbn)))))
