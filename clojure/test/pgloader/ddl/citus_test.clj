@@ -88,14 +88,16 @@
                             (citus/augment-catalog broken-catalog rules))))))
 
 (deftest test-augment-catalog-pg-source-type
-  (testing "PG source type adds ::text casts to the read SQL"
+  (testing "PG source type wraps columns in CAST(... AS text) in the read SQL"
     (let [rules [{:type :distributed-from :table "splits"
                   :using "biller_id" :from ["receivable_accounts"]}]
           aug   (citus/augment-catalog sample-catalog rules :source-type :pgsql)
           entry (first (filter #(= "splits" (:table-name %)) aug))
           sql   (:citus-read-sql entry)]
       (is (string? sql))
-      (is (re-find #"::text" sql)))))
+      (is (re-find #"CAST\(" sql))
+      (is (re-find #"AS text\)" sql))
+      (is (not (re-find #"::text" sql))))))
 
 (deftest test-augment-catalog-from-chain
   (testing "Two-hop FROM chain traverses correctly"
