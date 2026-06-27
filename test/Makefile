@@ -26,6 +26,7 @@ REGRESS= allcols.load 		    \
 	 copy-hex.load              \
          dbf.load 		    \
          errors.load 		    \
+         fk-reject.load 	    \
          fixed.load 		    \
          fields-with-periods.load   \
          ixf.load 		    \
