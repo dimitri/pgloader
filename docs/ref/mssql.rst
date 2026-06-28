@@ -94,14 +94,143 @@ following options are added:
 
 MS SQL Database Casting Rules
 -----------------------------
-    
+
 CAST
 ^^^^
 
-The cast clause allows to specify custom casting rules, either to overload
-the default casting rules or to amend them with special cases.
+The ``CAST`` clause overrides or extends the built-in type mapping rules
+that pgloader applies when converting an MS SQL schema to PostgreSQL.
 
-Please refer to the MS SQL CAST clause for details.
+The built-in defaults map all character types (``char``, ``nchar``,
+``varchar``, ``nvarchar``, ``ntext``) to ``text`` and discard the length
+modifier.  Use ``CAST`` when you want to preserve types and/or length
+modifiers.
+
+User-defined rules are evaluated before the built-in defaults, and the
+first matching rule wins.
+
+Synopsis
+""""""""
+
+::
+
+  CAST cast_rule [, ...]
+
+where *cast_rule* is:
+
+.. code-block:: text
+
+  { type source_type | column table_name.column_name }
+    [ guard ... ]
+    [ to target_type ]
+    [ option ... ]
+    [ using function_name ]
+
+where *guard* is one of:
+
+.. code-block:: text
+
+  when default 'string'
+  when ( typemod_expression )
+  and not null
+
+and *option* is one of:
+
+.. code-block:: text
+
+  { drop | keep } default
+  { drop | keep } typemod
+  { drop | keep | set } not null
+  { drop | keep } extra
+
+Parameters
+""""""""""
+
+``type`` *source_type*
+    Match all columns whose MS SQL data type is *source_type*
+    (case-insensitive).  This is the most common form.
+
+``column`` *table_name*.*column_name*
+    Match a single column by its qualified name.  This form accepts the
+    same *option* list as the ``type`` form but no *guard*.
+
+``to`` *target_type*
+    The PostgreSQL type to emit in ``CREATE TABLE``.  When omitted, the
+    type from the first matching built-in rule is used and only the
+    *options* take effect.
+
+Guards
+""""""
+
+Guards narrow the set of columns a rule applies to.  Multiple guards on
+the same rule are combined with AND semantics.
+
+``when default '``\ *string*\ ``'``
+    Match only columns whose default value equals *string*.
+
+``when (`` *typemod_expression* ``)``
+    Match only columns whose type modifier satisfies *typemod_expression*,
+    a Common Lisp s-expression where ``precision`` and ``scale`` are bound
+    to the modifier components.  For example, ``nvarchar(40)`` has
+    ``precision = 40`` and ``scale = 0``; ``nvarchar(max)`` has
+    ``precision = -1``.
+
+    Supported operators: ``=``, ``<``, ``>``, ``<=``, ``>=``; combine
+    with ``and`` and ``or``.
+
+``and not null``
+    Match only columns declared ``NOT NULL`` in the source.
+
+Options
+"""""""
+
+``drop typemod`` / ``keep typemod``
+    Controls whether the length modifier is carried into the PostgreSQL
+    type definition.
+
+    *  **Default for all built-in MSSQL rules**: ``drop typemod`` — the
+       modifier is discarded.  ``nvarchar(40)`` with ``type nvarchar to
+       varchar`` (or the built-in rule) produces a plain ``varchar``.
+    *  ``keep typemod`` preserves it.  ``nvarchar(40)`` with
+       ``type nvarchar to varchar keep typemod`` produces ``varchar(40)``.
+
+``drop default`` / ``keep default``
+    Controls whether the source column's ``DEFAULT`` expression is copied
+    to the ``CREATE TABLE`` statement.  The default behaviour is ``drop
+    default`` because MS SQL default expressions are often not valid
+    PostgreSQL syntax.
+
+``drop not null`` / ``keep not null`` / ``set not null``
+    Controls the ``NOT NULL`` constraint on the target column.
+    ``set not null`` adds the constraint even when the source column is
+    nullable.
+
+Examples
+""""""""
+
+Preserve character-type length modifiers instead of mapping everything to
+``text``::
+
+  CAST type nvarchar  to varchar keep typemod,
+       type nchar     to char    keep typemod,
+       type varchar   to varchar keep typemod,
+       type char      to char    keep typemod
+
+With these rules, ``nvarchar(40)`` becomes ``varchar(40)``,
+``nchar(10)`` becomes ``char(10)``, and so on.  Without them the
+built-in defaults would produce plain ``text`` for all four types.
+
+Handle ``nvarchar(max)`` (the driver reports ``precision = -1``)
+separately, keeping it as ``text``, while using a fixed-length type for
+all other ``nvarchar`` columns::
+
+  CAST type nvarchar when (= precision -1) to text drop typemod,
+       type nvarchar                        to varchar keep typemod
+
+Override a single column while keeping the general rule::
+
+  CAST type    nvarchar          to varchar keep typemod,
+       column  dbo.product.code  to char(8) drop typemod
 
 MS SQL Views Support
 --------------------
