@@ -43,9 +43,10 @@ jobs:
         run: make bundle
 
       - name: Run regression suite against bundle binary
-        # pg_virtualenv spins up a throwaway PostgreSQL cluster so the
-        # regress tests can create/drop databases freely.
+        # pg_virtualenv spins up a throwaway PostgreSQL cluster whose
+        # superuser is the current OS user (not 'postgres').  Pass that
+        # name via PGSUPERUSER so the test Makefile's createdb/psql calls
+        # use the right role — mirroring what debian/tests/testsuite does.
         run: |
-          PGSUPERUSER=postgres \
           pg_virtualenv -i'-Atrust' \
-          make test-bundle
+            env PGSUPERUSER="$(id -un)" make test-bundle
