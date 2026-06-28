@@ -589,6 +589,28 @@
                                                           (map :name)
                                                           (type-names-in-schema
                                                            pg-conn {:schema schema :names names})))))]
+          ;; After apply-identifier-case, check whether any table has two columns
+          ;; whose names become identical after PostgreSQL's 63-char truncation.
+          ;; Accumulate every instance and report them all before aborting.
+                  (let [collisions (ddl/check-identifier-collisions cat)]
+                    (when (seq collisions)
+                      (doseq [c collisions]
+                        (log/error (str (:schema c) "." (:table c)
+                                        ": column name collision — "
+                                        (str/join ", " (map pr-str (:columns c)))
+                                        " all truncate to " (pr-str (:effective-name c)))))
+                      (throw (ex-info
+                              (str (count collisions)
+                                   " column name collision(s) found in source catalog.\n\n"
+                                   "PostgreSQL limits identifier names to "
+                                   ddl/pg-max-identifier-length
+                                   " bytes (NAMEDATALEN-1). The tables listed above contain "
+                                   "multiple columns whose names become identical after "
+                                   "truncation. This would cause CREATE TABLE to fail or COPY "
+                                   "to load data into the wrong column.\n\n"
+                                   "Please rename the affected columns in the source database "
+                                   "before migrating.")
+                              {:collisions collisions}))))
           ;; Truncate tables if requested — each table its own transaction
                   (when (get with-options :truncate)
                     (log/debug "Truncating tables")

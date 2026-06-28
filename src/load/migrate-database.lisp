@@ -258,6 +258,31 @@
   ;; cast the catalog into something PostgreSQL can work on
   (cast catalog)
 
+  ;; After casting, apply-identifier-case has been applied to every column
+  ;; name.  Check now whether any table has two columns whose names become
+  ;; identical after PostgreSQL's 63-character identifier truncation.  All
+  ;; collisions are accumulated and reported together so users can fix
+  ;; everything in one pass before re-running the migration.
+  (let ((collisions (check-catalog-identifier-collisions catalog)))
+    (when collisions
+      (dolist (c collisions)
+        (log-message :error
+                     "~a.~a: column name collision — ~{~s~^, ~} all truncate to ~s"
+                     (getf c :schema)
+                     (getf c :table)
+                     (getf c :columns)
+                     (getf c :effective-name)))
+      (error "~d column name collision~:p found in source catalog.
+
+PostgreSQL limits identifier names to ~d bytes (NAMEDATALEN-1). The tables
+listed above contain multiple columns whose names become identical after
+truncation. This would cause CREATE TABLE to fail or COPY to load data into
+the wrong column.
+
+Please rename the affected columns in the source database before migrating."
+             (length collisions)
+             +pg-max-identifier-length+)))
+
   ;; support code for index filters (where clauses)
   (process-index-definitions catalog :sql-dialect (class-name (class-of copy)))
 

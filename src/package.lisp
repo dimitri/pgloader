@@ -233,7 +233,11 @@
            #:citus-format-sql-select
            #:citus-backfill-table-p
 
-           #:format-table-name))
+           #:format-table-name
+
+           #:+pg-max-identifier-length+
+           #:pg-effective-name
+           #:check-catalog-identifier-collisions))
 
 (defpackage #:pgloader.state
   (:use #:cl #:pgloader.params #:pgloader.catalog)

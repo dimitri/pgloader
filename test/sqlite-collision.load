@@ -1,0 +1,31 @@
+/*
+ * Regression test for GitHub issue #353 (column name identifier collision).
+ *
+ * The source SQLite database has a table "products" with two columns whose
+ * names share the same first 63 characters:
+ *
+ *   col_very_long_name_that_exceeds_postgresql_identifier_limit_aaax
+ *   col_very_long_name_that_exceeds_postgresql_identifier_limit_aaay
+ *
+ * Both truncate to the same PostgreSQL identifier (NAMEDATALEN-1 = 63).
+ *
+ * Expected outcome:
+ *   - pgloader exits with a non-zero exit code.
+ *   - pgloader does NOT hang.
+ *   - pgloader logs an error naming the colliding columns.
+ *   - pgloader does NOT attempt to create any table or copy any data.
+ *
+ * To regenerate the database:
+ *   python3 test/sqlite/create-collision.py
+ */
+
+load database
+     from 'sqlite/collision.db'
+     into postgresql:///pgloader
+
+     with include drop, create tables, create indexes, reset sequences
+
+      set search_path to 'collision_test'
+
+   before load do
+     $$ create schema if not exists collision_test; $$;
