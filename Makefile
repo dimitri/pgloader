@@ -24,7 +24,7 @@ QLDIR      = $(BUILDDIR)/quicklisp
 MANIFEST   = $(BUILDDIR)/manifest.ql
 LATEST     = $(BUILDDIR)/pgloader-latest.tgz
 
-BUNDLEDIST = 2022-02-20
+BUNDLEDIST = 2026-01-01
 BUNDLENAME = pgloader-bundle-$(VERSION)
 BUNDLEDIR  = $(BUILDDIR)/bundle/$(BUNDLENAME)
 BUNDLE     = $(BUILDDIR)/$(BUNDLENAME).tgz
