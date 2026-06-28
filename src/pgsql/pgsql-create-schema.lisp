@@ -302,8 +302,10 @@
    must already be active when calling that function."
   (let* ((target-list (mapcar #'format-table-name
                               (etypecase catalog-or-table
-                                (catalog (table-list catalog-or-table))
-                                (schema  (table-list catalog-or-table))
+                                (catalog (append (table-list catalog-or-table)
+                                                 (view-list  catalog-or-table)))
+                                (schema  (append (table-list catalog-or-table)
+                                                 (view-list  catalog-or-table)))
                                 (table   (list catalog-or-table)))))
          (sql
           (when target-list
