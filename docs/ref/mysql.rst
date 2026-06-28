@@ -335,123 +335,161 @@ keys*, *downcase identifiers*, *uniquify index names*.
 MySQL Database Casting Rules
 ----------------------------
 
-The command *CAST* introduces user-defined casting rules.
+The ``CAST`` clause overrides or extends the built-in type mapping rules
+that pgloader applies when converting a MySQL schema to PostgreSQL.
+User-defined rules are evaluated before the built-in defaults, and the
+first matching rule wins.
 
-The cast clause allows to specify custom casting rules, either to overload
-the default casting rules or to amend them with special cases.
+Synopsis
+^^^^^^^^
 
-A casting rule is expected to follow one of the forms::
+::
 
-    type <mysql-type-name> [ <guard> ... ] to <pgsql-type-name> [ <option> ... ]
-    column <table-name>.<column-name> [ <guards> ] to ...
+  CAST cast_rule [, ...]
 
-It's possible for a *casting rule* to either match against a MySQL data type
-or against a given *column name* in a given *table name*. That flexibility
-allows to cope with cases where the type `tinyint` might have been used as a
-`boolean` in some cases but as a `smallint` in others.
+where *cast_rule* is:
 
-The *casting rules* are applied in order, the first match prevents following
-rules to be applied, and user defined rules are evaluated first.
+.. code-block:: text
 
-The supported guards are:
+  { type source_type | column table_name.column_name }
+    [ guard ... ]
+    [ to target_type ]
+    [ option ... ]
+    [ using function_name ]
 
-  - *when unsigned*
+where *guard* is one of:
 
-    The casting rule is only applied against MySQL columns of the source
-    type that have the keyword *unsigned* in their data type definition.
+.. code-block:: text
 
-    Example of a casting rule using a *unsigned* guard::
-        
+  when unsigned
+  when signed
+  when default 'string'
+  when ( typemod_expression )
+  and not null
+  with extra { auto_increment | on_update_current_timestamp }
+
+and *option* is one of:
+
+.. code-block:: text
+
+  { drop | keep } default
+  { drop | keep } typemod
+  { drop | keep | set } not null
+  { drop | keep } extra
+
+A rule can match either a MySQL data type (``type`` form) or a single
+column by qualified name (``column`` form).  That flexibility allows
+handling cases where, say, ``tinyint`` is used as a boolean in some
+tables but as a small integer in others.
+
+Guards
+^^^^^^
+
+Guards narrow the set of columns a rule applies to.  Multiple guards on
+the same rule are combined with AND semantics.
+
+``when unsigned`` / ``when signed``
+    Match only columns whose type definition includes the ``unsigned`` or
+    ``signed`` keyword.
+
+    ::
+
       type smallint when unsigned to integer drop typemod
 
-  - *when default 'value'*
+``when default '``\ *string*\ ``'``
+    Match only columns whose default value equals *string* (single- or
+    double-quoted).
 
-    The casting rule is only applied against MySQL columns of the source
-    type that have given *value*, which must be a single-quoted or a
-    double-quoted string.
+``when (`` *typemod_expression* ``)``
+    Match only columns whose type modifier satisfies *typemod_expression*,
+    a Common Lisp s-expression where ``precision`` and ``scale`` are bound
+    to the modifier components.  For ``char(1)``, ``precision = 1`` and
+    ``scale = 0``.
 
-  - *when typemod expression*
+    Supported operators: ``=``, ``<``, ``>``, ``<=``, ``>=``; combine
+    with ``and`` and ``or``.
 
-    The casting rule is only applied against MySQL columns of the source
-    type that have a *typemod* value matching the given *typemod
-    expression*. The *typemod* is separated into its *precision* and *scale*
-    components.
-
-    Example of a cast rule using a *typemod* guard::
+    ::
 
       type char when (= precision 1) to char keep typemod
 
-    This expression casts MySQL `char(1)` column to a PostgreSQL column of
-    type `char(1)` while allowing for the general case `char(N)` will be
-    converted by the default cast rule into a PostgreSQL type `varchar(N)`.
+    This casts ``char(1)`` to PostgreSQL ``char(1)`` while the general
+    ``char(N)`` case falls through to the next matching rule.
 
-  - *with extra auto_increment*
+``and not null``
+    Match only columns declared ``NOT NULL`` in the source.
 
-    The casting rule is only applied against MySQL columns having the
-    *extra* column `auto_increment` option set, so that it's possible to
-    target e.g. `serial` rather than `integer`.
+``with extra auto_increment`` / ``with extra on_update_current_timestamp``
+    Match only columns that carry the named MySQL ``EXTRA`` attribute.
+    When this guard is absent the rule matches both columns that have the
+    attribute and those that do not.
 
-    The default matching behavior, when this option isn't set, is to match
-    both columns with the extra definition and without.
+    To map ``int`` to either ``serial`` or ``integer`` depending on
+    ``auto_increment``, spell out two rules::
 
-    This means that if you want to implement a casting rule that target
-    either `serial` or `integer` from a `smallint` definition depending on
-    the *auto_increment* extra bit of information from MySQL, then you need
-    to spell out two casting rules as following::
+      type int with extra auto_increment  to serial  drop typemod,
+      type int                            to integer drop typemod
 
-      type smallint  with extra auto_increment
-        to serial drop typemod keep default keep not null,
+Options
+^^^^^^^
 
-      type smallint
-        to integer drop typemod keep default keep not null
+``drop typemod`` / ``keep typemod``
+    Controls whether the length modifier is carried into the PostgreSQL
+    type definition.
 
-The supported casting options are:
+    *  ``drop typemod``: the modifier is discarded.  ``varchar(40)``
+       produces plain ``varchar`` (or whatever the target type is).
+       Many built-in MySQL rules default to ``drop typemod``.
+    *  ``keep typemod``: the modifier is preserved.  ``varchar(40)``
+       produces ``varchar(40)``.
 
-  - *drop default*, *keep default*
+``drop default`` / ``keep default``
+    Controls whether the source column's ``DEFAULT`` expression is copied
+    to the ``CREATE TABLE`` statement.  The built-in rules default to
+    ``drop default``.  ``keep default`` copies the expression verbatim.
 
-    When the option *drop default* is listed, pgloader drops any
-    existing default expression in the MySQL database for columns of the
-    source type from the `CREATE TABLE` statement it generates.
+``drop not null`` / ``keep not null`` / ``set not null``
+    Controls the ``NOT NULL`` constraint on the target column.
+    ``set not null`` adds the constraint regardless of what the source
+    column says.
 
-    The spelling *keep default* explicitly prevents that behaviour and
-    can be used to overload the default casting rules.
+``drop extra`` / ``keep extra``
+    Controls whether ``auto_increment`` or similar extra attributes are
+    propagated (e.g. as ``GENERATED ALWAYS``).
 
-  - *drop not null*, *keep not null*, *set not null*
-
-    When the option *drop not null* is listed, pgloader drops any
-    existing `NOT NULL` constraint associated with the given source
-    MySQL datatype when it creates the tables in the PostgreSQL
-    database.
-
-    The spelling *keep not null* explicitly prevents that behaviour and
-    can be used to overload the default casting rules.
-
-    When the option *set not null* is listed, pgloader sets a `NOT NULL`
-    constraint on the target column regardless whether it has been set
-    in the source MySQL column.
-
-  - *drop typemod*, *keep typemod*
-
-    When the option *drop typemod* is listed, pgloader drops any
-    existing *typemod* definition (e.g. *precision* and *scale*) from
-    the datatype definition found in the MySQL columns of the source
-    type when it created the tables in the PostgreSQL database.
-
-    The spelling *keep typemod* explicitly prevents that behaviour and
-    can be used to overload the default casting rules.
-
-  - *using*
-
-    This option takes as its single argument the name of a function to
-    be found in the `pgloader.transforms` Common Lisp package. See above
-    for details.
-
-    It's possible to augment a default cast rule (such as one that
-    applies against `ENUM` data type for example) with a *transformation
-    function* by omitting entirely the `type` parts of the casting rule,
-    as in the following example::
+``using`` *function_name*
+    Apply a named transformation function from the
+    ``pgloader.transforms`` package to each value before it is written to
+    PostgreSQL.  The ``type`` part of the rule may be omitted to augment
+    an existing built-in rule::
 
       column enumerate.foo using empty-string-to-null
+
+Examples
+^^^^^^^^
+
+Preserve ``varchar`` and ``char`` length modifiers instead of collapsing
+them to ``text``::
+
+  CAST type varchar to varchar keep typemod,
+       type char    to char    keep typemod
+
+Without ``keep typemod``, ``varchar(40)`` would become plain ``varchar``
+(and, depending on the built-in default, possibly ``text``).  With it,
+``varchar(40)`` stays ``varchar(40)``.
+
+Cast ``tinyint(1)`` to ``boolean`` while leaving other ``tinyint``
+columns as ``smallint``::
+
+  CAST type tinyint when (= precision 1) to boolean  drop typemod,
+       type tinyint                       to smallint drop typemod
+
+Handle ``auto_increment`` columns explicitly::
+
+  CAST type int    with extra auto_increment  to serial    drop typemod,
+       type int                               to integer   drop typemod,
+       type bigint  with extra auto_increment  to bigserial drop typemod,
+       type bigint                             to bigint    drop typemod
 
 MySQL Views Support
 -------------------
