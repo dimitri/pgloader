@@ -1,0 +1,52 @@
+name: Quicklisp bundle build & regression test
+
+# Runs when anything that affects the v3 bundle changes: the bundle
+# machinery itself, the Makefile (which holds BUNDLEDIST), or the Lisp
+# source that gets compiled into the bundle binary.
+on:
+  pull_request:
+    paths:
+      - 'Makefile'
+      - 'bundle/**'
+      - 'src/**'
+      - '.github/workflows/bundle-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'Makefile'
+      - 'bundle/**'
+      - 'src/**'
+      - '.github/workflows/bundle-ci.yml'
+
+jobs:
+  bundle:
+    name: Build and test from Quicklisp bundle
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install postgresql-common
+        run: sudo apt-get install -y postgresql-common
+
+      - name: Install pgapt repository
+        run: sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+
+      - name: Install build dependencies
+        run: sudo apt-get build-dep -y .
+
+      - name: Build Quicklisp bundle
+        # Downloads the pinned Quicklisp dist (BUNDLEDIST in Makefile),
+        # creates the self-contained bundle tarball, extracts it, compiles
+        # pgloader from the bundled sources, and smoke-tests with --version.
+        run: make bundle
+
+      - name: Run regression suite against bundle binary
+        # pg_virtualenv spins up a throwaway PostgreSQL cluster whose
+        # superuser is the current OS user (not 'postgres').  Pass that
+        # name via PGSUPERUSER so the test Makefile's createdb/psql calls
+        # use the right role — mirroring what debian/tests/testsuite does.
+        run: |
+          pg_virtualenv -i'-Atrust' \
+            env PGSUPERUSER="$(id -un)" make test-bundle

@@ -62,7 +62,7 @@ $(PGLOADER): $(BUILDAPP)
 	mv $@.tmp $@
 
 test: $(PGLOADER)
-	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) -C $(SRCDIR)/test regress
+	$(MAKE) PGLOADER=$(realpath $(PGLOADER)) -C $(SRCDIR)/test prepare regress
 
 save:
 	sbcl --no-userinit --load ./save.lisp

@@ -3,14 +3,21 @@ name: Smoke test — published JAR
 # Runs whenever the v4-dev pre-release is updated (i.e. after every green CI
 # push that publishes a new JAR), and can also be triggered manually.
 on:
-  release:
-    types: [prereleased]
+  # Fires automatically after the integration-tests workflow publishes a new
+  # JAR to the v4-dev pre-release on main.  Using workflow_run rather than
+  # release: prereleased because updating assets on an existing pre-release
+  # does not re-fire the release event.
+  workflow_run:
+    workflows: ["pgloader v4 Integration Tests"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   smoke:
     name: Download JAR & migrate Chinook SQLite → PostgreSQL
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     services:
       postgres:
