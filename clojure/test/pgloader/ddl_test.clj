@@ -232,6 +232,63 @@
                                          {:snake-case-ids true})]
       (is (= "xml_parser" (:table-name t))))))
 
+;; ── Identifier collision detection (#353) ────────────────────────────────────
+
+(def ^:private col-prefix-63
+  "col_very_long_name_that_exceeds_postgresql_identifier_limit_aaa")
+
+(deftest test-check-identifier-collisions
+  (testing "no collisions: empty catalog"
+    (is (empty? (ddl/check-identifier-collisions []))))
+
+  (testing "no collisions: short column names"
+    (let [cat [(make-table "t" ["id" "name" "value"] [])]]
+      (is (empty? (ddl/check-identifier-collisions cat)))))
+
+  (testing "no collisions: names exactly 63 chars (no truncation)"
+    (let [cat [(make-table "t" [col-prefix-63 "other_col"] [])]]
+      (is (empty? (ddl/check-identifier-collisions cat)))))
+
+  (testing "no collisions: 64-char names that differ within first 63 chars"
+    (let [col-a (str "aaaa_" col-prefix-63)  ;; first 63 chars differ from col-b
+          col-b (str "bbbb_" col-prefix-63)
+          cat   [(make-table "t" [col-a col-b] [])]]
+      (is (empty? (ddl/check-identifier-collisions cat)))))
+
+  (testing "collision: two columns sharing first 63 chars"
+    (let [col-a (str col-prefix-63 "x")
+          col-b (str col-prefix-63 "y")
+          cat   [(make-table "t" [col-a col-b "short_col"] [])]]
+      (let [cs (ddl/check-identifier-collisions cat)]
+        (is (= 1 (count cs)))
+        (is (= col-prefix-63 (:effective-name (first cs))))
+        (is (= #{col-a col-b} (set (:columns (first cs)))))
+        (is (= "t" (:table (first cs)))))))
+
+  (testing "collision: three columns sharing first 63 chars"
+    (let [col-a (str col-prefix-63 "x")
+          col-b (str col-prefix-63 "y")
+          col-c (str col-prefix-63 "z")
+          cat   [(make-table "t" [col-a col-b col-c] [])]]
+      (let [cs (ddl/check-identifier-collisions cat)]
+        (is (= 1 (count cs)))
+        (is (= #{col-a col-b col-c} (set (:columns (first cs))))))))
+
+  (testing "collision: distinct collisions in two different tables — both reported"
+    ;; All four names share the same 63-char prefix so both tables get a
+    ;; collision entry — total must be 2, one per table.
+    (let [a1 (str col-prefix-63 "x") a2 (str col-prefix-63 "y")
+          b1 (str col-prefix-63 "p") b2 (str col-prefix-63 "q")
+          cat [(make-table "table_a" [a1 a2] [])
+               (make-table "table_b" [b1 b2] [])]]
+      (is (= 2 (count (ddl/check-identifier-collisions cat))))))
+
+  (testing "no cross-table collision: same long name in two different tables is fine"
+    (let [col-a (str col-prefix-63 "x")
+          cat   [(make-table "t1" [col-a "short"] [])
+                 (make-table "t2" [col-a "other"] [])]]
+      (is (empty? (ddl/check-identifier-collisions cat))))))
+
 ;; ── FK filter (#1216) ─────────────────────────────────────────────────────────
 
 (deftest test-create-fkeys-sql-filters-missing-tables

@@ -391,6 +391,45 @@
   (column-name column))
 
 ;;;
+;;; PostgreSQL limits identifier names to NAMEDATALEN-1 = 63 bytes.  Two
+;;; source columns in the same table whose names map to the same truncated
+;;; identifier cause CREATE TABLE to fail with a duplicate-column error, or
+;;; COPY to silently load data into the wrong column.  Detect these
+;;; collisions after the catalog has been cast (apply-identifier-case
+;;; already applied) so the names here are exactly what pgloader will send
+;;; to PostgreSQL.
+;;;
+(defconstant +pg-max-identifier-length+ 63)
+
+(defun pg-effective-name (identifier)
+  "Return the name PostgreSQL stores in pg_attribute for IDENTIFIER.
+   Strips outer double-quotes (from :quote identifier-case mode) and
+   truncates to +pg-max-identifier-length+ characters."
+  (let ((inner (ensure-unquoted identifier)))
+    (subseq inner 0 (min +pg-max-identifier-length+ (length inner)))))
+
+(defun check-catalog-identifier-collisions (catalog)
+  "Return a plist for every (table, truncated-name) pair in CATALOG where
+   two or more columns map to the same PostgreSQL identifier after 63-char
+   truncation.  Each entry has keys :schema :table :effective-name :columns.
+   Returns NIL when no collisions are found."
+  (loop :for schema :in (catalog-schema-list catalog)
+     :append
+       (loop :for table :in (schema-table-list schema)
+          :append
+            (let ((name-map (make-hash-table :test #'equal)))
+              (dolist (col (table-column-list table))
+                (push (column-name col)
+                      (gethash (pg-effective-name (column-name col)) name-map)))
+              (loop :for eff :being :the :hash-keys :of name-map
+                      :using (hash-value cols)
+                    :when (> (length cols) 1)
+                    :collect (list :schema         (schema-name schema)
+                                   :table          (table-name  table)
+                                   :effective-name eff
+                                   :columns        (nreverse cols)))))))
+
+;;;
 ;;; There's no simple equivalent to array_agg() in MS SQL, so the index and
 ;;; fkey queries return a row per index|fkey column rather than per
 ;;; index|fkey. Hence this extra API:

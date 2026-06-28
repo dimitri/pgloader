@@ -33,6 +33,7 @@ REGRESS= allcols.load 		       \
          overflow.load 		       \
          partial.load 		       \
          serial.load 		       \
+         sqlite-collision.load         \
          sqlite-on-error-stop.load     \
          udc.load 		       \
          xzero.load
@@ -85,6 +86,15 @@ errors.out: errors.load
 # sqlite LOAD DATABASE is incompatible with --regress (parse-target-pg-db-uri
 # returns nil for LOAD DATABASE commands).  Run without --regress; any hang
 # would be caught by the CI job timeout.
+sqlite/collision.db:
+	python3 sqlite/create-collision.py
+
+# pgloader must detect the 63-char identifier collision and exit non-zero.
+# LOAD DATABASE is incompatible with --regress; run without it.
+regress/out/sqlite-collision.out: sqlite-collision.load sqlite/collision.db
+	-$(PGLOADER) $<
+	touch $@
+
 sqlite/type-mismatch.db:
 	python3 sqlite/create-type-mismatch.py
 

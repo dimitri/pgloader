@@ -333,7 +333,9 @@
                  on-upd on-del ";\n")))
         fkeys))
 
-(def ^:private pg-max-identifier-length 63)
+(def pg-max-identifier-length
+  "PostgreSQL's NAMEDATALEN-1: the maximum number of bytes in an identifier."
+  63)
 
 (defn- snake-case-transform
   "Convert an identifier to snake_case:
@@ -402,6 +404,25 @@
                                           (update :fcols   (fn [cs] (mapv xf cs)))))
                                     fks))))))
             catalog))))
+
+(defn check-identifier-collisions
+  "Return a seq of collision maps for every (table, truncated-name) pair in
+   CATALOG where two or more columns map to the same PostgreSQL identifier
+   after 63-character truncation.  Each map has keys :schema :table
+   :effective-name :columns.  Returns an empty seq when no collisions exist."
+  [catalog]
+  (for [t     catalog
+        :let  [names     (mapv :column-name (:columns t))
+               eff-names (mapv #(subs % 0 (min pg-max-identifier-length (count %))) names)
+               freqs     (frequencies eff-names)
+               coll-effs (into #{} (keep (fn [[k v]] (when (> v 1) k)) freqs))]
+        :when (seq coll-effs)
+        eff   coll-effs]
+    {:schema         (:schema t)
+     :table          (:table-name t)
+     :effective-name eff
+     :columns        (filterv #(= eff (subs % 0 (min pg-max-identifier-length (count %))))
+                              names)}))
 
 (defn apply-alter-schema
   "Apply ALTER SCHEMA ... RENAME TO ... rules from the load command.

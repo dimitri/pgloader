@@ -1,0 +1,31 @@
+/*
+ * Manual test for GitHub issue #353 (column name identifier collision).
+ *
+ * Requires a running MySQL server with the mysql_collision database set up:
+ *
+ *   CREATE DATABASE mysql_collision;
+ *   USE mysql_collision;
+ *   CREATE TABLE products (
+ *     id    INT PRIMARY KEY,
+ *     name  VARCHAR(100) NOT NULL,
+ *     col_very_long_name_that_exceeds_postgresql_identifier_limit_aaax INT,
+ *     col_very_long_name_that_exceeds_postgresql_identifier_limit_aaay INT
+ *   );
+ *
+ * Expected outcome: pgloader exits non-zero, logs the collision, touches no
+ * PostgreSQL tables.
+ *
+ * Run manually (not in REGRESS — requires a MySQL server):
+ *   pgloader test/mysql-collision.load
+ */
+
+load database
+     from mysql://root@localhost/mysql_collision
+     into postgresql:///pgloader
+
+     with include drop, create tables, create indexes, reset sequences
+
+      set search_path to 'mysql_collision_test'
+
+   before load do
+     $$ create schema if not exists mysql_collision_test; $$;
