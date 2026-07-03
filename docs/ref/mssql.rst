@@ -345,6 +345,48 @@ The matching is done in pgloader itself, with a Common Lisp regular
 expression lib, so doesn't depend on the *LIKE* implementation of MS SQL,
 nor on the lack of support for regular expressions in the engine.
 
+Azure SQL / Azure Active Directory Authentication
+-------------------------------------------------
+
+pgloader v4 uses the Microsoft JDBC driver (``mssql-jdbc``) and bundles
+MSAL4J, so the following non-interactive Azure AD authentication modes work
+out of the box.  Always use a ``jdbc:sqlserver://`` URL for Azure SQL so that
+``encrypt=true`` and ``authentication=`` reach the driver exactly as written:
+
+``ActiveDirectoryPassword``
+    Authenticate with an Azure AD username and password::
+
+        FROM "jdbc:sqlserver://myserver.database.windows.net:1433;databaseName=mydb;\
+authentication=ActiveDirectoryPassword;user=user@tenant.onmicrosoft.com;\
+password=secret;encrypt=true;trustServerCertificate=false"
+
+``ActiveDirectoryServicePrincipal``
+    Authenticate as an Azure AD application (client ID + client secret),
+    suitable for fully automated / CI pipelines::
+
+        FROM "jdbc:sqlserver://myserver.database.windows.net:1433;databaseName=mydb;\
+authentication=ActiveDirectoryServicePrincipal;\
+AADSecurePrincipalId=<client-id>;AADSecurePrincipalSecret=<client-secret>;\
+encrypt=true"
+
+``ActiveDirectoryManagedIdentity``
+    Authenticate using the managed identity of the Azure VM, App Service,
+    or container that pgloader runs in — no credentials in the URL::
+
+        FROM "jdbc:sqlserver://myserver.database.windows.net:1433;databaseName=mydb;\
+authentication=ActiveDirectoryManagedIdentity;encrypt=true"
+
+.. note::
+
+   ``ActiveDirectoryInteractive`` opens a browser window for an OAuth2
+   interactive login and **cannot** be used with pgloader, which runs
+   non-interactively.
+
+   The native ``mssql://`` scheme defaults to ``encrypt=false`` to match
+   on-premises SQL Server behaviour.  For Azure SQL use the
+   ``jdbc:sqlserver://`` form shown above so that ``encrypt=true`` is set
+   explicitly.
+
 MS SQL Driver setup and encoding
 --------------------------------
 
