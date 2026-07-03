@@ -1,5 +1,6 @@
 (ns pgloader.load-file.ast-test
   (:require [clojure.test :refer [deftest is testing]]
+            [clojure.string :as str]
             [pgloader.load-file.ast :refer [parse-uri]]
             [pgloader.load-file.parser :as parser])
   (:import [java.sql DriverManager]))
@@ -64,12 +65,34 @@
       (is (nil? (:user m))))))
 
 (deftest test-parse-mssql-native-uri
-  (testing "mssql:// synthesises jdbc-url"
+  (testing "mssql:// synthesises jdbc-url with encrypt=false default"
     (let [m (parse-uri "mssql://sa:secret@mssql:1433/mydb")]
       (is (= :mssql (:type m)))
       (is (= "jdbc:sqlserver://mssql:1433;databaseName=mydb;encrypt=false"
              (:jdbc-url m))
-          "mssql:// gets jdbc-url with databaseName and encrypt=false"))))
+          "mssql:// gets jdbc-url with databaseName and encrypt=false")))
+
+  (testing "mssql:// with encrypt=true in query string — no duplicate encrypt=false"
+    (let [m (parse-uri "mssql://sa:secret@mssql:1433/mydb?encrypt=true")]
+      (is (= "jdbc:sqlserver://mssql:1433;databaseName=mydb;encrypt=true"
+             (:jdbc-url m))
+          "encrypt= in query string suppresses the default encrypt=false")))
+
+  (testing "mssql:// with authentication= for Azure AD (non-interactive)"
+    (let [m (parse-uri "mssql://user@server.database.windows.net:1433/mydb?authentication=ActiveDirectoryPassword&encrypt=true")]
+      (is (= :mssql (:type m)))
+      (is (str/includes? (:jdbc-url m) "authentication=ActiveDirectoryPassword"))
+      (is (str/includes? (:jdbc-url m) "encrypt=true"))
+      (is (not (str/includes? (:jdbc-url m) "encrypt=false"))
+          "no duplicate encrypt=false when encrypt= already in query string"))))
+
+(deftest test-msal4j-on-classpath
+  (testing "MSAL4J is bundled — Azure AD non-interactive auth modes are available"
+    (is (try (Class/forName "com.microsoft.aad.msal4j.PublicClientApplication")
+             true
+             (catch ClassNotFoundException _
+               false))
+        "com.microsoft.aad.msal4j must be on the classpath for ActiveDirectoryPassword / ActiveDirectoryServicePrincipal auth")))
 
 (deftest test-parse-postgresql-synthesises-jdbc-url
   (testing "postgresql:// synthesises jdbc-url"

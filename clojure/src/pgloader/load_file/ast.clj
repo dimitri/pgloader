@@ -118,7 +118,13 @@
                 :raw      uri-str
                 :jdbc-url (str "jdbc:sqlserver://" host
                                ":" (if (pos? (.getPort uri)) (.getPort uri) 1433)
-                               ";databaseName=" db ";encrypt=false"
+                               ";databaseName=" db
+                               ;; Only default encrypt=false when the caller hasn't
+                               ;; already set it via query params (e.g. encrypt=true
+                               ;; is required for Azure SQL).
+                               (when-not (and raw-query
+                                              (str/includes? raw-query "encrypt="))
+                                 ";encrypt=false")
                                (when raw-query (str ";" (str/replace raw-query #"&" ";"))))}
                table-from-query)
 
