@@ -356,21 +356,21 @@ and ``authentication=`` reach the driver exactly as written.
 
 Quick reference:
 
-+--------------------------------------+------------------------------------------------+
-| Mode                                 | Typical use case                               |
-+======================================+================================================+
-| ``ActiveDirectoryServicePrincipal``  | CI/CD — app registration (client ID + secret)  |
-+--------------------------------------+------------------------------------------------+
-| ``ActiveDirectoryManagedIdentity``   | Azure VM / App Service / AKS — no credentials |
-+--------------------------------------+------------------------------------------------+
-| ``ActiveDirectoryDefault``           | Developer laptop: ``az login`` fallback chain  |
-+--------------------------------------+------------------------------------------------+
-| ``ActiveDirectoryAzCli``             | Developer laptop: explicit ``az login`` token  |
-+--------------------------------------+------------------------------------------------+
-| ``ActiveDirectoryWorkloadIdentity``  | Kubernetes OIDC workload identity              |
-+--------------------------------------+------------------------------------------------+
-| ``ActiveDirectoryPassword``          | **Deprecated** — blocked by MFA enforcement    |
-+--------------------------------------+------------------------------------------------+
++--------------------------------------------+------------------------------------------------+
+| Mode                                       | Typical use case                               |
++============================================+================================================+
+| ``ActiveDirectoryServicePrincipal``        | CI/CD — app registration (client ID + secret)  |
++--------------------------------------------+------------------------------------------------+
+| ``ActiveDirectoryServicePrincipalCertif.`` | CI/CD — app registration with certificate      |
++--------------------------------------------+------------------------------------------------+
+| ``ActiveDirectoryManagedIdentity``         | Azure VM / App Service / AKS — no credentials |
++--------------------------------------------+------------------------------------------------+
+| ``ActiveDirectoryDefault``                 | Developer laptop: ``az login`` fallback chain  |
++--------------------------------------------+------------------------------------------------+
+| ``ActiveDirectoryIntegrated``              | Windows / Kerberos domain-joined machine       |
++--------------------------------------------+------------------------------------------------+
+| ``ActiveDirectoryPassword``                | **Deprecated** — blocked by MFA enforcement    |
++--------------------------------------------+------------------------------------------------+
 
 ``ActiveDirectoryServicePrincipal``
     Authenticate as an Azure AD application (client ID + client secret) —
@@ -402,19 +402,12 @@ authentication=ActiveDirectoryDefault;encrypt=true;trustServerCertificate=false"
     get-access-token`` using your existing ``az login`` session — no browser
     popup is needed.
 
-``ActiveDirectoryAzCli``
-    Like ``ActiveDirectoryDefault`` but always uses the Azure CLI token
-    exclusively.  Useful when you want a predictable, unambiguous credential
-    source on a developer machine::
+``ActiveDirectoryIntegrated``
+    Authenticate via Kerberos on a domain-joined machine.  Requires a valid
+    Kerberos ticket (``kinit`` on Linux/macOS, automatic on Windows)::
 
         FROM "jdbc:sqlserver://myserver.database.windows.net:1433;databaseName=mydb;\
-authentication=ActiveDirectoryAzCli;encrypt=true;trustServerCertificate=false"
-
-``ActiveDirectoryWorkloadIdentity``
-    For Kubernetes pods with OIDC workload identity federation::
-
-        FROM "jdbc:sqlserver://myserver.database.windows.net:1433;databaseName=mydb;\
-authentication=ActiveDirectoryWorkloadIdentity;encrypt=true"
+authentication=ActiveDirectoryIntegrated;encrypt=true"
 
 ``ActiveDirectoryPassword``
     .. note::
