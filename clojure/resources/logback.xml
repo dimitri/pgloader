@@ -21,6 +21,13 @@
     </encoder>
   </appender>
 
+  <!-- azure-identity logs every credential it tries in its DefaultAzureCredential
+       chain (EnvironmentCredential unavailable, WorkloadIdentity unavailable,
+       ManagedIdentity unavailable, etc.) at INFO/WARN — expected on a developer
+       machine but very noisy. Suppress to WARN/ERROR respectively. -->
+  <logger name="com.azure.identity" level="WARN"/>
+  <logger name="com.microsoft.aad.msal4j" level="ERROR"/>
+
   <root level="INFO">
     <appender-ref ref="CONSOLE"/>
     <appender-ref ref="FILE"/>
