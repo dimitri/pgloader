@@ -348,21 +348,33 @@ nor on the lack of support for regular expressions in the engine.
 Azure SQL / Azure Active Directory Authentication
 -------------------------------------------------
 
-pgloader v4 uses the Microsoft JDBC driver (``mssql-jdbc``) and bundles
-MSAL4J, so the following non-interactive Azure AD authentication modes work
-out of the box.  Always use a ``jdbc:sqlserver://`` URL for Azure SQL so that
-``encrypt=true`` and ``authentication=`` reach the driver exactly as written:
+pgloader v4 uses the Microsoft JDBC driver (``mssql-jdbc``) and bundles both
+MSAL4J and the Azure Identity library (``azure-identity``), so all
+non-browser-dependent Entra ID authentication modes work out of the box.
+Always use a ``jdbc:sqlserver://`` URL for Azure SQL so that ``encrypt=true``
+and ``authentication=`` reach the driver exactly as written.
 
-``ActiveDirectoryPassword``
-    Authenticate with an Azure AD username and password::
+Quick reference:
 
-        FROM "jdbc:sqlserver://myserver.database.windows.net:1433;databaseName=mydb;\
-authentication=ActiveDirectoryPassword;user=user@tenant.onmicrosoft.com;\
-password=secret;encrypt=true;trustServerCertificate=false"
++--------------------------------------+------------------------------------------------+
+| Mode                                 | Typical use case                               |
++======================================+================================================+
+| ``ActiveDirectoryServicePrincipal``  | CI/CD — app registration (client ID + secret)  |
++--------------------------------------+------------------------------------------------+
+| ``ActiveDirectoryManagedIdentity``   | Azure VM / App Service / AKS — no credentials |
++--------------------------------------+------------------------------------------------+
+| ``ActiveDirectoryDefault``           | Developer laptop: ``az login`` fallback chain  |
++--------------------------------------+------------------------------------------------+
+| ``ActiveDirectoryAzCli``             | Developer laptop: explicit ``az login`` token  |
++--------------------------------------+------------------------------------------------+
+| ``ActiveDirectoryWorkloadIdentity``  | Kubernetes OIDC workload identity              |
++--------------------------------------+------------------------------------------------+
+| ``ActiveDirectoryPassword``          | **Deprecated** — blocked by MFA enforcement    |
++--------------------------------------+------------------------------------------------+
 
 ``ActiveDirectoryServicePrincipal``
-    Authenticate as an Azure AD application (client ID + client secret),
-    suitable for fully automated / CI pipelines::
+    Authenticate as an Azure AD application (client ID + client secret) —
+    the recommended mode for CI/CD pipelines and automated migrations::
 
         FROM "jdbc:sqlserver://myserver.database.windows.net:1433;databaseName=mydb;\
 authentication=ActiveDirectoryServicePrincipal;\
@@ -371,16 +383,62 @@ encrypt=true"
 
 ``ActiveDirectoryManagedIdentity``
     Authenticate using the managed identity of the Azure VM, App Service,
-    or container that pgloader runs in — no credentials in the URL::
+    AKS pod, or container that pgloader runs in — no credentials in the URL::
 
         FROM "jdbc:sqlserver://myserver.database.windows.net:1433;databaseName=mydb;\
 authentication=ActiveDirectoryManagedIdentity;encrypt=true"
 
+``ActiveDirectoryDefault``
+    The recommended mode for developer workstations.  Uses the Azure
+    Identity ``DefaultAzureCredential`` chain: environment variables →
+    workload identity → managed identity → **Azure CLI** → Azure PowerShell.
+    After a one-time ``az login``, no credentials need to appear in the URL::
+
+        FROM "jdbc:sqlserver://myserver.database.windows.net:1433;databaseName=mydb;\
+authentication=ActiveDirectoryDefault;encrypt=true;trustServerCertificate=false"
+
+    This also works headlessly in WSL2: ``DefaultAzureCredential`` falls back
+    to ``AzureCliCredential``, which shells out to ``az account
+    get-access-token`` using your existing ``az login`` session — no browser
+    popup is needed.
+
+``ActiveDirectoryAzCli``
+    Like ``ActiveDirectoryDefault`` but always uses the Azure CLI token
+    exclusively.  Useful when you want a predictable, unambiguous credential
+    source on a developer machine::
+
+        FROM "jdbc:sqlserver://myserver.database.windows.net:1433;databaseName=mydb;\
+authentication=ActiveDirectoryAzCli;encrypt=true;trustServerCertificate=false"
+
+``ActiveDirectoryWorkloadIdentity``
+    For Kubernetes pods with OIDC workload identity federation::
+
+        FROM "jdbc:sqlserver://myserver.database.windows.net:1433;databaseName=mydb;\
+authentication=ActiveDirectoryWorkloadIdentity;encrypt=true"
+
+``ActiveDirectoryPassword``
+    .. note::
+
+       **Deprecated by Microsoft.**  This mode is incompatible with mandatory
+       Entra ID multifactor authentication (MFA), which Microsoft now enforces
+       by default across most tenants.  Attempting it in an MFA-required
+       tenant returns ``AADSTS50076``.  Use ``ActiveDirectoryDefault`` or
+       ``ActiveDirectoryServicePrincipal`` instead.
+
+    ::
+
+        FROM "jdbc:sqlserver://myserver.database.windows.net:1433;databaseName=mydb;\
+authentication=ActiveDirectoryPassword;user=user@tenant.onmicrosoft.com;\
+password=secret;encrypt=true;trustServerCertificate=false"
+
 .. note::
 
-   ``ActiveDirectoryInteractive`` opens a browser window for an OAuth2
-   interactive login and **cannot** be used with pgloader, which runs
-   non-interactively.
+   ``ActiveDirectoryInteractive`` makes MSAL4J open a system browser via
+   ``xdg-open`` for an OAuth2 interactive login.  It works on native Windows,
+   native macOS, and Linux desktops with a display server.  It **fails** in
+   WSL2 (``linux_xdg_open_failed`` — WSL2 has no JVM-accessible browser
+   integration), headless Linux, Docker/Podman containers, and CI pipelines.
+   Use ``ActiveDirectoryDefault`` with an existing ``az login`` session instead.
 
    The native ``mssql://`` scheme defaults to ``encrypt=false`` to match
    on-premises SQL Server behaviour.  For Azure SQL use the

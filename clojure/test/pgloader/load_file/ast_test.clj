@@ -94,6 +94,14 @@
                false))
         "com.microsoft.aad.msal4j must be on the classpath for ActiveDirectoryPassword / ActiveDirectoryServicePrincipal auth")))
 
+(deftest test-azure-identity-on-classpath
+  (testing "azure-identity is bundled — ActiveDirectoryDefault / AzCli / WorkloadIdentity auth modes are available"
+    (is (try (Class/forName "com.azure.identity.DefaultAzureCredentialBuilder")
+             true
+             (catch ClassNotFoundException _
+               false))
+        "com.azure.identity must be on the classpath for ActiveDirectoryDefault / ActiveDirectoryAzCli / ActiveDirectoryWorkloadIdentity auth")))
+
 (deftest test-parse-postgresql-synthesises-jdbc-url
   (testing "postgresql:// synthesises jdbc-url"
     (let [m (parse-uri "postgresql://user:pass@pg:5432/mydb")]

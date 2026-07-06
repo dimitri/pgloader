@@ -17,6 +17,7 @@
   com.mysql/mysql-connector-j {:mvn/version "9.0.0"}
   com.microsoft.sqlserver/mssql-jdbc {:mvn/version "12.6.1.jre11"}
   com.microsoft.azure/msal4j         {:mvn/version "1.14.1"}
+  com.azure/azure-identity           {:mvn/version "1.11.1"}
   org.xerial/sqlite-jdbc    {:mvn/version "3.46.0.0"}
 
   com.opencsv/opencsv       {:mvn/version "5.9"}
