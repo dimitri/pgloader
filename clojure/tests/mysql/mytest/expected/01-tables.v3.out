@@ -3,8 +3,8 @@
  CamelCase
  CamelCaseTable
  base64
- bit_defaults
  binary_types
+ bit_defaults
  bits
  countdata_template
  domain_filter
