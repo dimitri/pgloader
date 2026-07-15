@@ -64,6 +64,65 @@
   (is (= "cafe" (cast/byte-vector-to-hexstring "CAFE")))
   (is (nil? (cast/byte-vector-to-hexstring nil))))
 
+(deftest test-byte-vector-to-hexstring-x-prefix
+  (testing "strips bare X prefix (MySQL binary column format)"
+    (is (= "deadbeef" (cast/byte-vector-to-hexstring "Xdeadbeef")))
+    (is (= "deadbeef" (cast/byte-vector-to-hexstring "XDEADBEEF")))
+    (is (= "a3cda7d500a64111814659127a8d5e42"
+           (cast/byte-vector-to-hexstring "Xa3cda7d500a64111814659127a8d5e42"))))
+  (testing "still strips \\x prefix (bytea format)"
+    (is (= "deadbeef" (cast/byte-vector-to-hexstring "\\xDEADBEEF"))))
+  (testing "plain hex passthrough"
+    (is (= "cafe" (cast/byte-vector-to-hexstring "CAFE"))))
+  (testing "nil returns nil"
+    (is (nil? (cast/byte-vector-to-hexstring nil)))))
+
+(deftest test-binary-to-uuid
+  (testing "nil input"
+    (is (nil? (cast/binary-to-uuid nil))))
+  (testing "wrong length returns nil"
+    (is (nil? (cast/binary-to-uuid "Xdeadbeef")))
+    (is (nil? (cast/binary-to-uuid "Xdeadbeefdeadbeefdeadbeefdeadbeef00"))))
+  (testing "16-byte X-prefix input (MySQL BINARY(16))"
+    (is (= "a3cda7d5-00a6-4111-8146-59127a8d5e42"
+           (cast/binary-to-uuid "Xa3cda7d500a64111814659127a8d5e42")))
+    (is (= "00000000-0000-0000-0000-000000000000"
+           (cast/binary-to-uuid "X00000000000000000000000000000000")))
+    (is (= "ffffffff-ffff-ffff-ffff-ffffffffffff"
+           (cast/binary-to-uuid "Xffffffffffffffffffffffffffffffff"))))
+  (testing "\\x-prefix input (bytea literal style)"
+    (is (= "a3cda7d5-00a6-4111-8146-59127a8d5e42"
+           (cast/binary-to-uuid "\\xa3cda7d500a64111814659127a8d5e42"))))
+  (testing "registered in cast registry"
+    (is (= "a3cda7d5-00a6-4111-8146-59127a8d5e42"
+           (cast/apply-cast :binary-to-uuid "Xa3cda7d500a64111814659127a8d5e42")))
+    (is (nil? (cast/apply-cast :binary-to-uuid nil)))))
+
+(deftest test-binary-to-bytea
+  (testing "nil input"
+    (is (nil? (cast/binary-to-bytea nil))))
+  (testing "X-prefix input (MySQL BINARY column)"
+    (is (= "\\xdeadbeef" (cast/binary-to-bytea "Xdeadbeef")))
+    (is (= "\\xdeadbeef" (cast/binary-to-bytea "XDEADBEEF")))
+    (is (= "\\xa3cda7d500a64111814659127a8d5e42"
+           (cast/binary-to-bytea "Xa3cda7d500a64111814659127a8d5e42"))))
+  (testing "\\x-prefix input strips and re-emits"
+    (is (= "\\xdeadbeef" (cast/binary-to-bytea "\\xDEADBEEF"))))
+  (testing "plain hex input"
+    (is (= "\\xdeadbeef" (cast/binary-to-bytea "DEADBEEF"))))
+  (testing "registered in cast registry"
+    (is (= "\\xdeadbeef" (cast/apply-cast :binary-to-bytea "Xdeadbeef")))
+    (is (nil? (cast/apply-cast :binary-to-bytea nil)))))
+
+(deftest test-hex-to-bytea-x-prefix
+  (testing "bare X prefix (MySQL binary column style)"
+    (is (= "\\xdeadbeef" (cast/hex-to-bytea "Xdeadbeef")))
+    (is (= "\\xdeadbeef" (cast/hex-to-bytea "XDEADBEEF"))))
+  (testing "existing prefixes still work"
+    (is (= "\\xdeadbeef" (cast/hex-to-bytea "0xDEADBEEF")))
+    (is (= "\\xdeadbeef" (cast/hex-to-bytea "\\xDEADBEEF")))
+    (is (= "\\xdeadbeef" (cast/hex-to-bytea "DEADBEEF")))))
+
 (deftest test-resolve-specs-empty
   (is (= [:tinyint-to-boolean]
          (cast/resolve-specs [] [{:column-name "x" :column-type "tinyint(1)"}])))

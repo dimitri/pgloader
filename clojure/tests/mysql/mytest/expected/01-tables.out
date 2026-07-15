@@ -4,6 +4,7 @@
  CamelCaseTable
  base64
  bit_defaults
+ binary_types
  bits
  countdata_template
  domain_filter
@@ -34,5 +35,5 @@
  utilisateurs__Yvelines2013-06-28
  uw_defined_meaning
  zero_dates_notnull
-(34 rows)
+(35 rows)
 

@@ -472,6 +472,20 @@ INSERT INTO `ip_addresses` (label, ip_raw) VALUES
   ('null_ip',     NULL);
 
 -- ============================================================
+-- #1758: BINARY(16) → uuid and BINARY → bytea transforms
+-- ============================================================
+CREATE TABLE `binary_types` (
+  id       INT AUTO_INCREMENT PRIMARY KEY,
+  uuid_col BINARY(16) NOT NULL,
+  data_col BINARY(8)  NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `binary_types` (uuid_col, data_col) VALUES
+  (0xa3cda7d500a64111814659127a8d5e42, 0xdeadbeefcafebabe),
+  (0x00000000000000000000000000000000, 0x0000000000000000),
+  (0xffffffffffffffffffffffffffffffff, 0xffffffffffffffff);
+
+-- ============================================================
 -- Grants
 -- ============================================================
 GRANT SELECT ON pgloader_mytest.* TO 'pgloader'@'%';
