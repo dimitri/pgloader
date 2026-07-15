@@ -64,6 +64,65 @@
   (is (= "cafe" (cast/byte-vector-to-hexstring "CAFE")))
   (is (nil? (cast/byte-vector-to-hexstring nil))))
 
+(deftest test-byte-vector-to-hexstring-x-prefix
+  (testing "strips bare X prefix (MySQL binary column format)"
+    (is (= "deadbeef" (cast/byte-vector-to-hexstring "Xdeadbeef")))
+    (is (= "deadbeef" (cast/byte-vector-to-hexstring "XDEADBEEF")))
+    (is (= "a3cda7d500a64111814659127a8d5e42"
+           (cast/byte-vector-to-hexstring "Xa3cda7d500a64111814659127a8d5e42"))))
+  (testing "still strips \\x prefix (bytea format)"
+    (is (= "deadbeef" (cast/byte-vector-to-hexstring "\\xDEADBEEF"))))
+  (testing "plain hex passthrough"
+    (is (= "cafe" (cast/byte-vector-to-hexstring "CAFE"))))
+  (testing "nil returns nil"
+    (is (nil? (cast/byte-vector-to-hexstring nil)))))
+
+(deftest test-binary-to-uuid
+  (testing "nil input"
+    (is (nil? (cast/binary-to-uuid nil))))
+  (testing "wrong length returns nil"
+    (is (nil? (cast/binary-to-uuid "Xdeadbeef")))
+    (is (nil? (cast/binary-to-uuid "Xdeadbeefdeadbeefdeadbeefdeadbeef00"))))
+  (testing "16-byte X-prefix input (MySQL BINARY(16))"
+    (is (= "a3cda7d5-00a6-4111-8146-59127a8d5e42"
+           (cast/binary-to-uuid "Xa3cda7d500a64111814659127a8d5e42")))
+    (is (= "00000000-0000-0000-0000-000000000000"
+           (cast/binary-to-uuid "X00000000000000000000000000000000")))
+    (is (= "ffffffff-ffff-ffff-ffff-ffffffffffff"
+           (cast/binary-to-uuid "Xffffffffffffffffffffffffffffffff"))))
+  (testing "\\x-prefix input (bytea literal style)"
+    (is (= "a3cda7d5-00a6-4111-8146-59127a8d5e42"
+           (cast/binary-to-uuid "\\xa3cda7d500a64111814659127a8d5e42"))))
+  (testing "registered in cast registry"
+    (is (= "a3cda7d5-00a6-4111-8146-59127a8d5e42"
+           (cast/apply-cast :binary-to-uuid "Xa3cda7d500a64111814659127a8d5e42")))
+    (is (nil? (cast/apply-cast :binary-to-uuid nil)))))
+
+(deftest test-binary-to-bytea
+  (testing "nil input"
+    (is (nil? (cast/binary-to-bytea nil))))
+  (testing "X-prefix input (MySQL BINARY column)"
+    (is (= "\\xdeadbeef" (cast/binary-to-bytea "Xdeadbeef")))
+    (is (= "\\xdeadbeef" (cast/binary-to-bytea "XDEADBEEF")))
+    (is (= "\\xa3cda7d500a64111814659127a8d5e42"
+           (cast/binary-to-bytea "Xa3cda7d500a64111814659127a8d5e42"))))
+  (testing "\\x-prefix input strips and re-emits"
+    (is (= "\\xdeadbeef" (cast/binary-to-bytea "\\xDEADBEEF"))))
+  (testing "plain hex input"
+    (is (= "\\xdeadbeef" (cast/binary-to-bytea "DEADBEEF"))))
+  (testing "registered in cast registry"
+    (is (= "\\xdeadbeef" (cast/apply-cast :binary-to-bytea "Xdeadbeef")))
+    (is (nil? (cast/apply-cast :binary-to-bytea nil)))))
+
+(deftest test-hex-to-bytea-x-prefix
+  (testing "bare X prefix (MySQL binary column style)"
+    (is (= "\\xdeadbeef" (cast/hex-to-bytea "Xdeadbeef")))
+    (is (= "\\xdeadbeef" (cast/hex-to-bytea "XDEADBEEF"))))
+  (testing "existing prefixes still work"
+    (is (= "\\xdeadbeef" (cast/hex-to-bytea "0xDEADBEEF")))
+    (is (= "\\xdeadbeef" (cast/hex-to-bytea "\\xDEADBEEF")))
+    (is (= "\\xdeadbeef" (cast/hex-to-bytea "DEADBEEF")))))
+
 (deftest test-resolve-specs-empty
   (is (= [:tinyint-to-boolean]
          (cast/resolve-specs [] [{:column-name "x" :column-type "tinyint(1)"}])))
@@ -203,4 +262,32 @@
                     :using :set-to-enum-array}]
             columns [{:column-name "status" :column-type "enum('a','b')"}]
             specs (cast/resolve-specs rules columns)]
-        (is (= [:set-to-enum-array] specs))))))
+        (is (= [:set-to-enum-array] specs)))))
+
+  (deftest test-varbinary-to-inet
+    (testing "nil and empty input"
+      (is (nil? (cast/varbinary-to-inet nil)))
+      (is (nil? (cast/varbinary-to-inet "X")))
+      (is (nil? (cast/varbinary-to-inet ""))))
+    (testing "IPv4 addresses (4-byte varbinary)"
+      (is (= "127.0.0.1"      (cast/varbinary-to-inet "X7f000001")))
+      (is (= "127.255.255.255" (cast/varbinary-to-inet "X7fffffff")))
+      (is (= "81.95.238.207"  (cast/varbinary-to-inet "X515feecf")))
+      (is (= "0.0.0.0"        (cast/varbinary-to-inet "X00000000")))
+      (is (= "255.255.255.255" (cast/varbinary-to-inet "Xffffffff"))))
+    (testing "IPv6 address (16-byte varbinary)"
+      (is (= "2001:7c0:710:c143:d167:6b49:d48c:2494"
+             (cast/varbinary-to-inet "X200107c00710c143d1676b49d48c2494"))))
+    (testing "registered and callable via apply-cast"
+      (is (= "127.0.0.1"      (cast/apply-cast :varbinary-to-inet "X7f000001")))
+      (is (= "127.255.255.255" (cast/apply-cast :varbinary-to-inet "X7fffffff")))
+      (is (nil?                (cast/apply-cast :varbinary-to-inet nil))))
+    (testing "column cast rule resolves :varbinary-to-inet via resolve-specs"
+      (let [rules   [{:source      {:type :column :column "ip_raw" :table "ip_addresses"}
+                      :target-type "inet"
+                      :options     {:drop-typemod true}
+                      :using       :varbinary-to-inet}]
+            columns [{:column-name "ip_raw" :column-type "varbinary(16)"
+                      :table-name  "ip_addresses"}]
+            specs   (cast/resolve-specs rules columns)]
+        (is (= [:varbinary-to-inet] specs))))))

@@ -96,6 +96,9 @@
                  sql-server-uniqueidentifier-to-uuid
                  sql-server-bit-to-boolean
                  varbinary-to-string
+                 varbinary-to-inet
+                 binary-to-uuid
+                 binary-to-bytea
                  base64-decode
                  hex-to-bytea
 		 hex-to-dec
@@ -489,6 +492,69 @@
       (null nil)
       (string string)
       (vector (babel:octets-to-string string)))))
+
+(defun varbinary-to-inet (vector)
+  "Convert a MySQL VARBINARY IP address to a PostgreSQL inet-compatible string.
+   Accepts a byte vector: 4 bytes → IPv4 dotted decimal, 16 bytes → IPv6 colon
+   notation, 0 bytes or nil → nil."
+  (etypecase vector
+    (null   nil)
+    (string (if (string= "" vector) nil
+                (error "varbinary-to-inet: expected byte vector, got string: ~s" vector)))
+    (vector
+     (case (length vector)
+       (0  nil)
+       (4  (format nil "~d.~d.~d.~d"
+                   (aref vector 0) (aref vector 1)
+                   (aref vector 2) (aref vector 3)))
+       (16 (format nil "~{~a~^:~}"
+                   (loop for i from 0 to 14 by 2
+                         collect (format nil "~2,'0x~2,'0x"
+                                         (aref vector i) (aref vector (1+ i))))))
+       (t  (error "varbinary-to-inet: expected 4 or 16 bytes, got ~d bytes" (length vector)))))))
+
+(defun binary-to-uuid (vector)
+  "Convert a MySQL BINARY(16) byte vector to a PostgreSQL UUID string.
+   Returns the canonical hyphenated form xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.
+   Returns nil for nil or non-16-byte input."
+  (etypecase vector
+    (null nil)
+    (string (if (string= "" vector) nil
+                (error "binary-to-uuid: expected byte vector, got string: ~s" vector)))
+    (vector
+     (when (= 16 (length vector))
+       (format nil "~8,'0x-~4,'0x-~4,'0x-~4,'0x-~12,'0x"
+               (+ (ash (aref vector 0)  24) (ash (aref vector 1)  16)
+                  (ash (aref vector 2)   8)      (aref vector 3))
+               (+ (ash (aref vector 4)   8)      (aref vector 5))
+               (+ (ash (aref vector 6)   8)      (aref vector 7))
+               (+ (ash (aref vector 8)   8)      (aref vector 9))
+               (+ (ash (aref vector 10) 40) (ash (aref vector 11) 32)
+                  (ash (aref vector 12) 24) (ash (aref vector 13) 16)
+                  (ash (aref vector 14)  8)      (aref vector 15)))))))
+
+(defun binary-to-bytea (vector)
+  "Convert a MySQL BINARY/VARBINARY byte vector to a PostgreSQL bytea hex literal (\\x{hex}).
+   Returns nil for nil or empty input."
+  (etypecase vector
+    (null nil)
+    (string (if (string= "" vector) nil
+                (error "binary-to-bytea: expected byte vector, got string: ~s" vector)))
+    (vector
+     (when (plusp (length vector))
+       (let ((hex-digits "0123456789abcdef")
+             (bytea (make-array (+ 2 (* 2 (length vector)))
+                                :initial-element #\0
+                                :element-type 'standard-char)))
+         (setf (aref bytea 0) #\\)
+         (setf (aref bytea 1) #\x)
+         (loop for pos from 2 by 2
+               for byte across vector
+               do (let ((high (ldb (byte 4 4) byte))
+                        (low  (ldb (byte 4 0) byte)))
+                    (setf (aref bytea pos)       (aref hex-digits high))
+                    (setf (aref bytea (+ pos 1)) (aref hex-digits low)))
+               finally (return bytea)))))))
 
 (defun base64-decode (string)
   (etypecase string

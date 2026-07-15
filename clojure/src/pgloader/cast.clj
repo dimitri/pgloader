@@ -87,12 +87,46 @@
              java.nio.charset.StandardCharsets/UTF_8)))
 
 (defn byte-vector-to-hexstring
-  "Convert a hex-bytea string (\\\\xDEADBEEF) to UUID-like hex string.
-   Strips the \\\\x prefix and lowercases."
+  "Strip the leading X or \\x prefix from a MySQL binary hex string and lowercase.
+   MySQL binary columns arrive as \"X{hex}\"; PostgreSQL bytea literals use \"\\x{hex}\".
+   Both prefixes are stripped so the result is plain lowercase hex (e.g. \"deadbeef\"),
+   which PostgreSQL's uuid type accepts."
   [^String v]
   (when v
-    (let [hex (if (str/starts-with? v "\\x") (subs v 2) v)]
+    (let [hex (cond (str/starts-with? v "\\x") (subs v 2)
+                    (str/starts-with? v "X")    (subs v 1)
+                    :else v)]
       (str/lower-case hex))))
+
+(defn binary-to-uuid
+  "Convert a MySQL BINARY(16) column to a PostgreSQL uuid string.
+   Input is the X-prefixed hex string from convert-mysql-value (\"X{32 hex chars}\").
+   Output is the canonical hyphenated form \"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\".
+   Returns nil for nil or non-16-byte input."
+  [^String v]
+  (when v
+    (let [hex (str/lower-case
+               (cond (str/starts-with? v "\\x") (subs v 2)
+                     (str/starts-with? v "X")    (subs v 1)
+                     :else v))]
+      (when (= 32 (count hex))
+        (str (subs hex 0 8) "-"
+             (subs hex 8 12) "-"
+             (subs hex 12 16) "-"
+             (subs hex 16 20) "-"
+             (subs hex 20))))))
+
+(defn binary-to-bytea
+  "Convert a MySQL BINARY/VARBINARY column to a PostgreSQL bytea hex literal.
+   Input is the X-prefixed hex string from convert-mysql-value (\"X{hex}\").
+   Output is the PostgreSQL bytea hex format \"\\\\x{hex}\" (lowercase hex).
+   Returns nil for nil input."
+  [^String v]
+  (when v
+    (let [hex (cond (str/starts-with? v "\\x") (subs v 2)
+                    (str/starts-with? v "X")    (subs v 1)
+                    :else v)]
+      (str "\\x" (str/lower-case hex)))))
 
 (defn numeric-to-integer
   "Truncate a decimal numeric string to a PostgreSQL integer string.
@@ -138,7 +172,7 @@
 
 (defn hex-to-bytea
   "Convert a hex string to PostgreSQL bytea \\x... format (#1066).
-   Input may be plain hex (DEADBEEF) or prefixed (0xDEADBEEF / \\xDEADBEEF).
+   Input may be plain hex (DEADBEEF) or prefixed (0xDEADBEEF / \\xDEADBEEF / XDEADBEEF).
    Used when loading CSV/fixed fields that carry hex-encoded binary data."
   [^String v]
   (when v
@@ -146,6 +180,7 @@
           hex (cond
                 (str/starts-with? trimmed "0x") (subs trimmed 2)
                 (str/starts-with? trimmed "\\x") (subs trimmed 2)
+                (str/starts-with? trimmed "X")   (subs trimmed 1)
                 :else trimmed)]
       (str "\\x" (str/lower-case hex)))))
 
@@ -154,6 +189,22 @@
    Mirrors CL pgloader's set-to-enum-array."
   [^String v]
   (when v (str "{" v "}")))
+
+(defn varbinary-to-inet
+  "Convert a MySQL VARBINARY IP address to a PostgreSQL inet-compatible string.
+   Accepts the X-prefixed hex string that convert-mysql-value produces for binary
+   columns (e.g. \"X7f000001\" → \"127.0.0.1\", \"X200107c0...\" → IPv6).
+   Returns nil for null or empty input; handles 4-byte (IPv4) and 16-byte (IPv6)."
+  [^String v]
+  (when (and v (not (str/blank? v)))
+    (let [hex (if (str/starts-with? v "X") (subs v 1) v)]
+      (when (pos? (count hex))
+        (let [n  (quot (count hex) 2)
+              ba (byte-array n)]
+          (dotimes [i n]
+            (aset-byte ba i
+                       (unchecked-byte (Integer/parseInt (subs hex (* 2 i) (+ (* 2 i) 2)) 16))))
+          (.getHostAddress (java.net.InetAddress/getByAddress ba)))))))
 
 (defn convert-mysql-point
   "Convert a MySQL POINT WKT string to PostgreSQL point format.
@@ -211,11 +262,14 @@
    :sqlite-timestamp-to-timestamp sqlite-timestamp-to-timestamp
    :base64-decode                base64-decode
    :byte-vector-to-hexstring     byte-vector-to-hexstring
+   :binary-to-uuid               binary-to-uuid
+   :binary-to-bytea              binary-to-bytea
    :bits-to-boolean              bits-to-boolean
    :bits-to-hex-bitstring        bits-to-hex-bitstring
    :numeric-to-integer           numeric-to-integer
    :int-to-uuid                  int-to-uuid
    :set-to-enum-array            set-to-enum-array
+   :varbinary-to-inet            varbinary-to-inet
    :convert-mysql-point          convert-mysql-point
    :convert-mysql-linestring     convert-mysql-linestring
    :hex-to-bytea                 hex-to-bytea

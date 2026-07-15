@@ -1,0 +1,7 @@
+               uuid_col               |      data_col      
+--------------------------------------+--------------------
+ a3cda7d5-00a6-4111-8146-59127a8d5e42 | \xdeadbeefcafebabe
+ 00000000-0000-0000-0000-000000000000 | \x0000000000000000
+ ffffffff-ffff-ffff-ffff-ffffffffffff | \xffffffffffffffff
+(3 rows)
+

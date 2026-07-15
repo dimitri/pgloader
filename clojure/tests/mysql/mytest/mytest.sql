@@ -455,6 +455,37 @@ INSERT INTO `latin1_encoding` (label, word) VALUES
   ('cafe_euro', _latin1 x'636166e980'); -- café€: c(63)a(61)f(66)é(e9)€(80)
 
 -- ============================================================
+-- #1757: varbinary-to-inet — VARBINARY(16) storing raw IP bytes
+-- 4 bytes = IPv4, 16 bytes = IPv6, 0 bytes = NULL
+-- ============================================================
+CREATE TABLE `ip_addresses` (
+  id      INT AUTO_INCREMENT PRIMARY KEY,
+  label   VARCHAR(30) NOT NULL,
+  ip_raw  VARBINARY(16) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `ip_addresses` (label, ip_raw) VALUES
+  ('loopback',    x'7F000001'),                             -- 127.0.0.1
+  ('broadcast',   x'7FFFFFFF'),                             -- 127.255.255.255
+  ('public_ipv4', x'515FEECF'),                             -- 81.95.238.207
+  ('ipv6',        x'200107C00710C143D1676B49D48C2494'),     -- 2001:7c0:710:c143:d167:6b49:d48c:2494
+  ('null_ip',     NULL);
+
+-- ============================================================
+-- #1758: BINARY(16) → uuid and BINARY → bytea transforms
+-- ============================================================
+CREATE TABLE `binary_types` (
+  id       INT AUTO_INCREMENT PRIMARY KEY,
+  uuid_col BINARY(16) NOT NULL,
+  data_col BINARY(8)  NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `binary_types` (uuid_col, data_col) VALUES
+  (0xa3cda7d500a64111814659127a8d5e42, 0xdeadbeefcafebabe),
+  (0x00000000000000000000000000000000, 0x0000000000000000),
+  (0xffffffffffffffffffffffffffffffff, 0xffffffffffffffff);
+
+-- ============================================================
 -- Grants
 -- ============================================================
 GRANT SELECT ON pgloader_mytest.* TO 'pgloader'@'%';
