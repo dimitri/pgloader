@@ -3,6 +3,7 @@
  CamelCase
  CamelCaseTable
  base64
+ binary_types
  bit_defaults
  bits
  countdata_template
@@ -34,5 +35,5 @@
  utilisateurs__Yvelines2013-06-28
  uw_defined_meaning
  zero_dates_notnull
-(34 rows)
+(35 rows)
 
