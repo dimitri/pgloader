@@ -35,7 +35,13 @@
    (b/uber {:class-dir class-dir
             :uber-file uber-file
             :basis     basis
-            :main      'pgloader.cli})
+            :main      'pgloader.cli
+            ;; Some azure-identity transitive JARs include META-INF/LICENSE as
+            ;; a directory entry. The default :append-dedupe conflict handler
+            ;; calls slurp on the existing path, which throws "Is a directory".
+            ;; Excluding the bare LICENSE path (no extension) avoids the crash;
+            ;; META-INF/LICENSE.txt entries from other JARs are still included.
+            :exclude ["META-INF/LICENSE"]})
    ;; Create a stable pgloader.jar symlink so docker-compose volume mounts work.
    (let [target-name (-> uber-file (clojure.string/replace #"^target/" ""))
          symlink     (java.nio.file.Paths/get "target/pgloader.jar" (make-array String 0))

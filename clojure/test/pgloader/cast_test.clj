@@ -203,4 +203,32 @@
                     :using :set-to-enum-array}]
             columns [{:column-name "status" :column-type "enum('a','b')"}]
             specs (cast/resolve-specs rules columns)]
-        (is (= [:set-to-enum-array] specs))))))
+        (is (= [:set-to-enum-array] specs)))))
+
+  (deftest test-varbinary-to-inet
+    (testing "nil and empty input"
+      (is (nil? (cast/varbinary-to-inet nil)))
+      (is (nil? (cast/varbinary-to-inet "X")))
+      (is (nil? (cast/varbinary-to-inet ""))))
+    (testing "IPv4 addresses (4-byte varbinary)"
+      (is (= "127.0.0.1"      (cast/varbinary-to-inet "X7f000001")))
+      (is (= "127.255.255.255" (cast/varbinary-to-inet "X7fffffff")))
+      (is (= "81.95.238.207"  (cast/varbinary-to-inet "X515feecf")))
+      (is (= "0.0.0.0"        (cast/varbinary-to-inet "X00000000")))
+      (is (= "255.255.255.255" (cast/varbinary-to-inet "Xffffffff"))))
+    (testing "IPv6 address (16-byte varbinary)"
+      (is (= "2001:7c0:710:c143:d167:6b49:d48c:2494"
+             (cast/varbinary-to-inet "X200107c00710c143d1676b49d48c2494"))))
+    (testing "registered and callable via apply-cast"
+      (is (= "127.0.0.1"      (cast/apply-cast :varbinary-to-inet "X7f000001")))
+      (is (= "127.255.255.255" (cast/apply-cast :varbinary-to-inet "X7fffffff")))
+      (is (nil?                (cast/apply-cast :varbinary-to-inet nil))))
+    (testing "column cast rule resolves :varbinary-to-inet via resolve-specs"
+      (let [rules   [{:source      {:type :column :column "ip_raw" :table "ip_addresses"}
+                      :target-type "inet"
+                      :options     {:drop-typemod true}
+                      :using       :varbinary-to-inet}]
+            columns [{:column-name "ip_raw" :column-type "varbinary(16)"
+                      :table-name  "ip_addresses"}]
+            specs   (cast/resolve-specs rules columns)]
+        (is (= [:varbinary-to-inet] specs))))))

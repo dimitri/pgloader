@@ -155,6 +155,22 @@
   [^String v]
   (when v (str "{" v "}")))
 
+(defn varbinary-to-inet
+  "Convert a MySQL VARBINARY IP address to a PostgreSQL inet-compatible string.
+   Accepts the X-prefixed hex string that convert-mysql-value produces for binary
+   columns (e.g. \"X7f000001\" → \"127.0.0.1\", \"X200107c0...\" → IPv6).
+   Returns nil for null or empty input; handles 4-byte (IPv4) and 16-byte (IPv6)."
+  [^String v]
+  (when (and v (not (str/blank? v)))
+    (let [hex (if (str/starts-with? v "X") (subs v 1) v)]
+      (when (pos? (count hex))
+        (let [n  (quot (count hex) 2)
+              ba (byte-array n)]
+          (dotimes [i n]
+            (aset-byte ba i
+                       (unchecked-byte (Integer/parseInt (subs hex (* 2 i) (+ (* 2 i) 2)) 16))))
+          (.getHostAddress (java.net.InetAddress/getByAddress ba)))))))
+
 (defn convert-mysql-point
   "Convert a MySQL POINT WKT string to PostgreSQL point format.
    Input:  'POINT(48.5513589 7.6926827)'
@@ -216,6 +232,7 @@
    :numeric-to-integer           numeric-to-integer
    :int-to-uuid                  int-to-uuid
    :set-to-enum-array            set-to-enum-array
+   :varbinary-to-inet            varbinary-to-inet
    :convert-mysql-point          convert-mysql-point
    :convert-mysql-linestring     convert-mysql-linestring
    :hex-to-bytea                 hex-to-bytea
