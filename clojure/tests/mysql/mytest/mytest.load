@@ -81,7 +81,10 @@ load database
       type datetime
               when default "0000-00-00 00:00:00"
            to timestamp drop default
-              using zero-dates-to-null
+              using zero-dates-to-null,
+
+      -- #1757: varbinary(16) storing raw IP bytes → PostgreSQL inet
+      column ip_addresses.ip_raw to inet using varbinary-to-inet
 
  BEFORE LOAD DO
    $$ CREATE SCHEMA IF NOT EXISTS mytest; $$;

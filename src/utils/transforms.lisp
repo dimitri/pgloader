@@ -96,6 +96,7 @@
                  sql-server-uniqueidentifier-to-uuid
                  sql-server-bit-to-boolean
                  varbinary-to-string
+                 varbinary-to-inet
                  base64-decode
                  hex-to-bytea
 		 hex-to-dec
@@ -489,6 +490,26 @@
       (null nil)
       (string string)
       (vector (babel:octets-to-string string)))))
+
+(defun varbinary-to-inet (vector)
+  "Convert a MySQL VARBINARY IP address to a PostgreSQL inet-compatible string.
+   Accepts a byte vector: 4 bytes → IPv4 dotted decimal, 16 bytes → IPv6 colon
+   notation, 0 bytes or nil → nil."
+  (etypecase vector
+    (null   nil)
+    (string (if (string= "" vector) nil
+                (error "varbinary-to-inet: expected byte vector, got string: ~s" vector)))
+    (vector
+     (case (length vector)
+       (0  nil)
+       (4  (format nil "~d.~d.~d.~d"
+                   (aref vector 0) (aref vector 1)
+                   (aref vector 2) (aref vector 3)))
+       (16 (format nil "~{~a~^:~}"
+                   (loop for i from 0 to 14 by 2
+                         collect (format nil "~2,'0x~2,'0x"
+                                         (aref vector i) (aref vector (1+ i))))))
+       (t  (error "varbinary-to-inet: expected 4 or 16 bytes, got ~d bytes" (length vector)))))))
 
 (defun base64-decode (string)
   (etypecase string

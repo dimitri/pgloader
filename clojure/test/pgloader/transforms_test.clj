@@ -70,3 +70,17 @@
   (is (= "[(-87.87342467651445,45.79684462673078),(-87.87170806274479,45.802110434248966)]"
          (t/convert-mysql-linestring
           "LINESTRING(-87.87342467651445 45.79684462673078,-87.87170806274479 45.802110434248966)"))))
+
+(deftest test-varbinary-to-inet
+  (testing "nil and empty input"
+    (is (nil? (t/varbinary-to-inet nil)))
+    (is (nil? (t/varbinary-to-inet "X")))
+    (is (nil? (t/varbinary-to-inet ""))))
+  (testing "IPv4 addresses (4-byte varbinary)"
+    (is (= "127.255.255.255" (t/varbinary-to-inet "X7fffffff")))
+    (is (= "81.95.238.207"   (t/varbinary-to-inet "X515feecf")))
+    (is (= "0.0.0.0"         (t/varbinary-to-inet "X00000000")))
+    (is (= "255.255.255.255" (t/varbinary-to-inet "Xffffffff"))))
+  (testing "IPv6 address (16-byte varbinary)"
+    (is (= "2001:7c0:710:c143:d167:6b49:d48c:2494"
+           (t/varbinary-to-inet "X200107c00710c143d1676b49d48c2494")))))
