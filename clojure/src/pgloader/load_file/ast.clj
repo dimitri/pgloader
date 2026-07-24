@@ -3,8 +3,11 @@
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [pgloader.pg-service :as pg-service]
-            [pgloader.mysql-options :as mysql-opts])
+            [pgloader.mysql-options :as mysql-opts]
+            [pgloader.transforms :refer [compile-using-expr]])
   (:import [java.net URI]))
+
+(declare s-expr-content)
 
 (set! *warn-on-reflection* true)
 
@@ -295,8 +298,18 @@
                        (clojure.string/join " " (map second (filter #(= :word-part (first %)) (rest target-inner)))))))
           using-fn (some (fn [n]
                            (when (and (vector? n) (= :using-fn (first n)))
-                             (keyword (second (some #(when (and (vector? %) (= :fn-name (first %))) %)
-                                                    (rest n))))))
+                             (let [expr-node (some #(when (and (vector? %)
+                                                                 (or (= :fn-name (first %))
+                                                                     (= :s-expr (first %))
+                                                                     (= :reader-fn (first %))))
+                                                       %)
+                                                     (rest n))]
+                               (case (first expr-node)
+                                 :fn-name   (keyword (second expr-node))
+                                 :s-expr    (compile-using-expr
+                                              (str "(" (s-expr-content expr-node) ")"))
+                                 :reader-fn (compile-using-expr
+                                              (str "#(" (s-expr-content (second expr-node)) ")"))))))
                          flat-cast-opts)
           when-node (first (filter #(= :when-or-unsigned (first %)) inner-children))
           when-cond (when when-node

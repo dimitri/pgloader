@@ -266,7 +266,7 @@
     keep-not-null = <'keep'> <ws> <'not'> <ws> <'null'>
     drop-typemod  = <'drop'> <ws> <'typemod'>
     keep-typemod  = <'keep'> <ws> <'typemod'>
-    using-fn      = <'using'> <ws> fn-name
+    using-fn      = <'using'> <ws> (s-expr | reader-fn | fn-name)
     fn-name     = #'[a-zA-Z][a-zA-Z0-9_-]*'
     when-or-unsigned = <'when'> <ws> (when-expr | <'unsigned'> | <'default'> <ws> when-default-val) (<ws> when-not-null)?
     when-not-null = <'and'> <ws> <'not'> <ws> <'null'>
