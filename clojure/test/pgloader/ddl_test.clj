@@ -433,3 +433,34 @@
         (is (= 1 (count enum-types)))
         ;; type name uses the (already-renamed) table name
         (is (= "renamed_tbl_status_t" (:type-name (first enum-types))))))))
+
+(deftest test-reset-sequences-sql
+  (testing "auto_increment column emits a setval that advances past loaded data"
+    ;; Regression: the old SQL passed is_called=false unconditionally, so the
+    ;; next insert reused MAX(col) and hit a duplicate-key error. is_called must
+    ;; be true when rows exist so nextval() returns MAX+1.
+    (let [col   {:column-name "id" :column-type "bigserial"
+                 :source-column-type "bigint(20)" :extra "auto_increment"}
+          [sql] (ddl/reset-sequences-sql "public" "t" [col])]
+      (is (some? sql))
+      (is (str/includes? sql "pg_get_serial_sequence('\"public\".\"t\"', 'id')"))
+      (is (str/includes? sql "GREATEST(MAX(\"id\"), 1)"))
+      (is (str/includes? sql "MAX(\"id\") IS NOT NULL"))
+      ;; the buggy unconditional-false form must be gone
+      (is (not (str/includes? sql ", false)")))))
+
+  (testing "plain integer auto_increment column (no cast) still emits SQL"
+    (let [col   {:column-name "id" :column-type "int" :extra "auto_increment"}
+          [sql] (ddl/reset-sequences-sql "public" "t" [col])]
+      (is (some? sql))
+      (is (str/includes? sql "GREATEST(MAX(\"id\"), 1)"))))
+
+  (testing "non-auto_increment column emits nothing"
+    (is (= [] (ddl/reset-sequences-sql "public" "t"
+                                       [{:column-name "id" :column-type "int"}]))))
+
+  (testing "auto_increment column cast to a non-integer type is skipped"
+    ;; MAX() on a text column would fail the COALESCE/GREATEST type check.
+    (let [col {:column-name "id" :column-type "text"
+               :source-column-type "int" :extra "auto_increment"}]
+      (is (= [] (ddl/reset-sequences-sql "public" "t" [col]))))))
