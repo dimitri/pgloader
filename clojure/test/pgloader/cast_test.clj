@@ -163,6 +163,18 @@
                    {:column-name "b" :column-type "int"}]]
       (is (= [:int-to-ip nil] (cast/resolve-specs rules columns)))))
 
+  (testing "'type bigint with extra auto_increment to bigserial' only rewrites AI columns (#1767)"
+    ;; Mirrors the load file from #1767: the rule must retype the auto_increment
+    ;; PK to bigserial (so PostgreSQL creates a sequence) and leave plain bigint alone.
+    (let [rule    {:source {:type :type :name "bigint"} :when-extra "auto_increment"
+                   :target-type "bigserial"}
+          columns [{:column-name "id"  :column-type "bigint(20)" :extra "auto_increment"}
+                   {:column-name "cnt" :column-type "bigint(20)"}]
+          result  (cast/apply-type-overrides columns [rule])]
+      (is (= "bigserial"  (:column-type (first result))))
+      (is (= "bigint(20)" (:column-type (second result)))
+          "a plain bigint column must not be turned into bigserial")))
+
   (testing "when-default condition"
     (let [rules [{:source {:type :type :name "varchar"} :when-default "''" :using :empty-string-to-null}]
           columns [{:column-name "a" :column-type "varchar(10)" :column-default "''"}

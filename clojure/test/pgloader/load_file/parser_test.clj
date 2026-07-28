@@ -486,6 +486,42 @@
       (let [rule (first (get-in result [:ok :cast-rules]))]
         (is (= "timestamp" (:target-type rule)))))))
 
+(deftest test-cast-with-extra-auto-increment
+  (testing "'with extra auto_increment' parses and becomes a :when-extra guard (#1767)"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                    CAST type bigint with extra auto_increment to bigserial;")]
+      (is (:ok result) (str "Parse error: " (:error result)))
+      (let [rule (first (get-in result [:ok :cast-rules]))]
+        (is (= "bigint" (get-in rule [:source :name])))
+        (is (= "auto_increment" (:when-extra rule)))
+        (is (= "bigserial" (:target-type rule))))))
+
+  (testing "'with extra on update current timestamp' parses as a :when-extra guard"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                    CAST type timestamp with extra on update current timestamp to timestamptz;")]
+      (is (:ok result) (str "Parse error: " (:error result)))
+      (let [rule (first (get-in result [:ok :cast-rules]))]
+        (is (= "on update" (:when-extra rule)))
+        (is (= "timestamptz" (:target-type rule))))))
+
+  (testing "un-underscored 'with extra auto increment' is a loud parse error, not silent (#1767)"
+    ;; Before the fix this parsed with the whole phrase swallowed as the source
+    ;; type name, so the rule matched nothing and auto-increment PKs were lost.
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                    CAST type bigint with extra auto increment to bigserial;")]
+      (is (not (:ok result)) "must reject the un-underscored spelling")))
+
+  (testing "the 'with extra' guard does not break a type name containing 'with' (#1767)"
+    (doseq [t ["timestamp with time zone" "timestamp without time zone"]]
+      (let [result (parser/parse-string
+                    (str "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                          CAST type timestamp to " t ";"))]
+        (is (:ok result) (str "Parse error for target '" t "': " (:error result)))
+        (is (= t (:target-type (first (get-in result [:ok :cast-rules])))))))))
+
 ;; ---------------------------------------------------------------------------
 ;; #1365 — {{VAR}} with whitespace in the value (paths with spaces)
 ;; ---------------------------------------------------------------------------

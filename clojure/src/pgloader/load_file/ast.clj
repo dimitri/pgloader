@@ -298,6 +298,12 @@
                              (keyword (second (some #(when (and (vector? %) (= :fn-name (first %))) %)
                                                     (rest n))))))
                          flat-cast-opts)
+          extra-node (first (filter #(and (vector? %) (= :with-extra (first %))) inner-children))
+          extra-cond (when extra-node
+                       (case (first (first (filter vector? (rest extra-node))))
+                         :extra-auto-increment      {:when-extra "auto_increment"}
+                         :extra-on-update-timestamp {:when-extra "on update"}
+                         nil))
           when-node (first (filter #(= :when-or-unsigned (first %)) inner-children))
           when-cond (when when-node
                       (let [wc (vec (rest when-node))
@@ -334,7 +340,8 @@
         source (assoc :source source)
         (seq drop-opts) (assoc :options drop-opts)
         using-fn (assoc :using using-fn)
-        when-cond (merge when-cond)))))
+        when-cond (merge when-cond)
+        extra-cond (merge extra-cond)))))
 
 (defn- hiccup->option-keyword
   "Convert a hiccup option node to a keyword or [keyword value] pair.

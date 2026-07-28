@@ -273,11 +273,13 @@
     when-expr   = <'('> <opt-ws> when-inner* <opt-ws> <')'>
     when-inner  = when-expr | #'[^()]+'
     when-default-val = cast-type-name | dq-string
-    with-extra   = <'with'> <ws> <'extra'> <ws> <'on'> <ws> <'update'> <ws> <'current'> <ws> <'timestamp'>
+    with-extra   = <'with'> <ws> <'extra'> <ws> (extra-auto-increment | extra-on-update-timestamp)
+    extra-auto-increment = <'auto_increment'>
+    extra-on-update-timestamp = <'on'> <ws> <'update'> <ws> <'current'> <ws> <'timestamp'>
     column-ref  = schema-name <'.'> table-name <'.'> column-name
                 | table-name <'.'> column-name
                 | column-name
-    cast-type-name   = word-part (<ws> word-part)*
+    cast-type-name   = word-part (<ws> !(<'with'> <ws> <'extra'>) word-part)*
     word-part        = #'[a-zA-Z][a-zA-Z0-9]*'
     target-type-name = cast-type-name | dq-string
     dq-string  = <'\"'> #'[^\"]+' <'\"'>
