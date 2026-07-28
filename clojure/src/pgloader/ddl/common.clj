@@ -628,7 +628,8 @@
                          quoted-col (identifier-quote col-name)]
                      (str "SELECT pg_catalog.setval("
                           "pg_get_serial_sequence('" quoted-fqname "', '" col-name "')"
-                          ", COALESCE(MAX(" quoted-col "), 1), false)"
+                          ", GREATEST(MAX(" quoted-col "), 1)"
+                          ", MAX(" quoted-col ") IS NOT NULL)"
                           " FROM " quoted-fqname ";\n"))))
                columns))))
 
