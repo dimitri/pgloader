@@ -21,7 +21,7 @@ server, and manages errors by filling a pair of *reject.dat* and
 *reject.log* files.
 
 Thanks to being able to load data directly from a database source, pgloader
-also supports from migrations from other productions to PostgreSQL. In this
+also supports live migrations from other productions to PostgreSQL. In this
 mode of operations, pgloader handles both the schema and data parts of the
 migration, in a single unmanned command, allowing to implement **Continuous
 Migration**.
