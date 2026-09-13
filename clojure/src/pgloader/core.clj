@@ -27,7 +27,8 @@
   (:import [org.postgresql PGConnection]
            [java.sql Connection DriverManager]
            [java.io File]
-           [java.util.concurrent Executors ExecutorService Future TimeUnit])
+           [java.util.concurrent Executors ExecutorService Future TimeUnit
+            ExecutionException])
   (:require [clojure.tools.logging :as log]))
 
 (set! *warn-on-reflection* true)
@@ -407,6 +408,25 @@
           :foreign-keys    true
           :reset-sequences true}
          with-options))
+
+(defn- await-table-futures!
+  "Wait for every table worker, finish index work, then propagate a strict failure."
+  [table-futs ^ExecutorService idx-executor]
+  (let [first-failure (volatile! nil)]
+    (doseq [^Future f table-futs]
+      (try
+        (.get f)
+        (catch ExecutionException e
+          (when-not @first-failure
+            (vreset! first-failure (or (.getCause e) e))))
+        (catch Exception e
+          (when-not @first-failure
+            (vreset! first-failure e)))))
+    (when idx-executor
+      (.shutdown idx-executor)
+      (.awaitTermination idx-executor Long/MAX_VALUE TimeUnit/NANOSECONDS))
+    (when (and copy/*on-error-stop* @first-failure)
+      (throw @first-failure))))
 
 (defn run-command
   [cmd opts]
@@ -950,8 +970,7 @@
                                (map-indexed vector cat))]
                           (.shutdown ^ExecutorService workers-pool)
                           (.awaitTermination ^ExecutorService workers-pool Long/MAX_VALUE TimeUnit/NANOSECONDS)
-                          (doseq [^Future f table-futs]
-                            (try (.get f) (catch Exception _)))
+                          (await-table-futures! table-futs idx-executor)
                           (stats/update-entry! :post "COPY Wall-Clock Time"
                                                :rows workers
                                                :bytes (:bytes (stats/get-totals :data))

@@ -55,6 +55,7 @@ test-unit:
 	  -n pgloader.transforms-test \
 	  -n pgloader.pg-service-test \
 	  -n pgloader.cli-test \
+	  -n pgloader.core-test \
 	  -n pgloader.source.mssql-test
 
 # ─── E2E integration tests ────────────────────────────────────────────────────

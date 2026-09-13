@@ -90,6 +90,7 @@ jobs:
             -n pgloader.transforms-test \
             -n pgloader.pg-service-test \
             -n pgloader.cli-test \
+            -n pgloader.core-test \
             -n pgloader.source.mssql-test
 
   # ── Build test-runner Docker image (contains v3 pgloader binary) ───────────

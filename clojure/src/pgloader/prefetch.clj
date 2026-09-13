@@ -4,7 +4,7 @@
            [org.postgresql.util PSQLException]
            [java.sql Connection]
            [java.util.concurrent LinkedBlockingQueue
-            BlockingQueue]
+            BlockingQueue TimeUnit]
            [java.util.concurrent.atomic AtomicBoolean AtomicLong]
            [java.nio.charset StandardCharsets])
   (:require [pgloader.batch :as batch]
@@ -95,7 +95,11 @@
                           (if cause (.getMessage ^Throwable cause) "unknown"))))
         (throw e))
       (catch PSQLException e
-        (.rollback ^Connection pg-conn)
+        (try
+          (.rollback ^Connection pg-conn)
+          (catch Exception rollback-error
+            (.addSuppressed e rollback-error)
+            (throw e)))
         (when copy/*on-error-stop*
           (throw e))
         (log/info "Entering error recovery.")
@@ -125,20 +129,25 @@
            ws-nanos  (long 0)
            bytes     (long 0)
            reject-paths nil]
-      (let [item (.take ^BlockingQueue (.queue pipeline))]
-        (if (= :end-of-data item)
+      (let [item (.poll ^BlockingQueue (.queue pipeline)
+                        100 TimeUnit/MILLISECONDS)]
+        (if (or (= :end-of-data item)
+                (and (nil? item)
+                     (.get ^AtomicBoolean (.done pipeline))))
           {:rows-ok rows-ok
            :rows-bad errors
            :ws-nanos (- (System/nanoTime) start)
            :bytes bytes
            :reject-paths reject-paths}
-          (let [^batch/Batch b item
-                result (send-batch-or-retry!
-                        pg-conn table-spec copy-sql-str
-                        b rows-ok errors ws-nanos bytes reject-paths)]
-            (recur (long (:rows-ok result)) (long (:errors result))
-                   (long (:ws-nanos result)) (long (:bytes result))
-                   (:reject-paths result))))))))
+          (if (nil? item)
+            (recur rows-ok errors ws-nanos bytes reject-paths)
+            (let [^batch/Batch b item
+                  result (send-batch-or-retry!
+                          pg-conn table-spec copy-sql-str
+                          b rows-ok errors ws-nanos bytes reject-paths)]
+              (recur (long (:rows-ok result)) (long (:errors result))
+                     (long (:ws-nanos result)) (long (:bytes result))
+                     (:reject-paths result)))))))))
 
 (defn copy-table!
   "Orchestrate the full copy of a single table.
