@@ -215,24 +215,15 @@
               meta (.getMetaData rs)
               n    (.getColumnCount meta)]
           ((fn thisfn []
-             (when (try (.next rs)
-                        (catch Exception e
-                          (log/warn (str "MSSQL row advance error in " table-name ": " (.getMessage e)))
-                          false))
+             (when (.next rs)
                (lazy-seq
                 (cons (loop [i 1 result (transient [])]
                         (if (<= i n)
                           (recur (inc i)
                                  (conj! result
                                     ;; getString preserves full decimal/numeric precision (#1615, #1619).
-                                    ;; Per-column error recovery: substitute nil on any error.
-                                        (try
-                                          (.getString rs i)
-                                          (catch Exception e
-                                            (log/warn (str "MSSQL column " i " read error in "
-                                                           table-name " (substituting NULL): "
-                                                           (.getMessage e)))
-                                            nil))))
+                                    ;; Driver errors must abort rather than change data to NULL.
+                                        (.getString rs i)))
                           (persistent! result)))
                       (thisfn)))))))
         (catch Exception e

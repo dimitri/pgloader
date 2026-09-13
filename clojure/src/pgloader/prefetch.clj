@@ -4,7 +4,7 @@
            [org.postgresql.util PSQLException]
            [java.sql Connection]
            [java.util.concurrent LinkedBlockingQueue
-            BlockingQueue]
+            BlockingQueue TimeUnit]
            [java.util.concurrent.atomic AtomicBoolean AtomicLong]
            [java.nio.charset StandardCharsets])
   (:require [pgloader.batch :as batch]
@@ -75,7 +75,7 @@
 (defn- send-batch-or-retry!
   "Send a single batch, or handle errors and return updated counters.
    Returns {:status :ok :rows-ok ... :errors ... :ws-nanos ... :bytes ... :reject-paths ...}
-   for success/retry, or throws for non-retryable errors."
+   for success/retry. In strict mode, rolls back and propagates COPY errors."
   [^PGConnection pg-conn table-spec ^String copy-sql-str
    b rows-ok errors ws-nanos bytes reject-paths]
   (let [batch-start (System/nanoTime)]
@@ -95,7 +95,13 @@
                           (if cause (.getMessage ^Throwable cause) "unknown"))))
         (throw e))
       (catch PSQLException e
-        (.rollback ^Connection pg-conn)
+        (try
+          (.rollback ^Connection pg-conn)
+          (catch Exception rollback-error
+            (.addSuppressed e rollback-error)
+            (throw e)))
+        (when copy/*on-error-stop*
+          (throw e))
         (log/info "Entering error recovery.")
         (let [retry-result (batch/retry-batch! b table-spec e pg-conn)]
           {:status :retry
@@ -112,8 +118,8 @@
 (defn writer-task
   "Virtual thread task that drains batches from the pipeline queue
    and sends them to PostgreSQL via CopyManager.
-   Each batch gets its own transaction. On data errors, retry-batch!
-   handles per-row recovery with independent sub-batch commits.
+   Each batch gets its own transaction. In resume mode, retry-batch! handles
+   per-row recovery with independent sub-batch commits.
    Returns {:rows-ok n :rows-bad n :ws-nanos n :bytes n :reject-paths {...}}."
   [^PGConnection pg-conn table-spec ^CopyPipeline pipeline]
   (let [copy-sql-str (copy/copy-sql table-spec)
@@ -123,20 +129,25 @@
            ws-nanos  (long 0)
            bytes     (long 0)
            reject-paths nil]
-      (let [item (.take ^BlockingQueue (.queue pipeline))]
-        (if (= :end-of-data item)
+      (let [item (.poll ^BlockingQueue (.queue pipeline)
+                        100 TimeUnit/MILLISECONDS)]
+        (if (or (= :end-of-data item)
+                (and (nil? item)
+                     (.get ^AtomicBoolean (.done pipeline))))
           {:rows-ok rows-ok
            :rows-bad errors
            :ws-nanos (- (System/nanoTime) start)
            :bytes bytes
            :reject-paths reject-paths}
-          (let [^batch/Batch b item
-                result (send-batch-or-retry!
-                        pg-conn table-spec copy-sql-str
-                        b rows-ok errors ws-nanos bytes reject-paths)]
-            (recur (long (:rows-ok result)) (long (:errors result))
-                   (long (:ws-nanos result)) (long (:bytes result))
-                   (:reject-paths result))))))))
+          (if (nil? item)
+            (recur rows-ok errors ws-nanos bytes reject-paths)
+            (let [^batch/Batch b item
+                  result (send-batch-or-retry!
+                          pg-conn table-spec copy-sql-str
+                          b rows-ok errors ws-nanos bytes reject-paths)]
+              (recur (long (:rows-ok result)) (long (:errors result))
+                     (long (:ws-nanos result)) (long (:bytes result))
+                     (:reject-paths result)))))))))
 
 (defn copy-table!
   "Orchestrate the full copy of a single table.

@@ -27,7 +27,8 @@
   (:import [org.postgresql PGConnection]
            [java.sql Connection DriverManager]
            [java.io File]
-           [java.util.concurrent Executors ExecutorService Future TimeUnit])
+           [java.util.concurrent Executors ExecutorService Future TimeUnit
+            ExecutionException])
   (:require [clojure.tools.logging :as log]))
 
 (set! *warn-on-reflection* true)
@@ -408,6 +409,25 @@
           :reset-sequences true}
          with-options))
 
+(defn- await-table-futures!
+  "Wait for every table worker, finish index work, then propagate a strict failure."
+  [table-futs ^ExecutorService idx-executor]
+  (let [first-failure (volatile! nil)]
+    (doseq [^Future f table-futs]
+      (try
+        (.get f)
+        (catch ExecutionException e
+          (when-not @first-failure
+            (vreset! first-failure (or (.getCause e) e))))
+        (catch Exception e
+          (when-not @first-failure
+            (vreset! first-failure e)))))
+    (when idx-executor
+      (.shutdown idx-executor)
+      (.awaitTermination idx-executor Long/MAX_VALUE TimeUnit/NANOSECONDS))
+    (when (and copy/*on-error-stop* @first-failure)
+      (throw @first-failure))))
+
 (defn run-command
   [cmd opts]
   (if (= :archive (:load-type cmd))
@@ -786,7 +806,7 @@
                                (fn [[_i t]]
                                  (.submit ^ExecutorService workers-pool
                                           ^java.util.concurrent.Callable
-                                          (fn []
+                                          (bound-fn []
                                             (let [worker-src (source-from-uri source-uri table-spec
                                                                               with-options source-overrides (:decoding-as cmd))
                                                   worker-pg  (postgres-connection target-uri)
@@ -806,7 +826,8 @@
                                                       table       (:table-name t)
                                                       cols        (:columns t)
                                                       table-label (table-stats-label schema table)]
-                                                  (when-not (@failed-tables table)
+                                                  (when-not (or (@failed-tables table)
+                                                                (and copy/*on-error-stop* @load-failed))
                                                     (let [;; Generated columns exist on the target (DDL emits
                                       ;; GENERATED ALWAYS AS) but must be excluded from COPY
                                       ;; since PostgreSQL cannot accept values for them.
@@ -835,7 +856,7 @@
                                                                         (mapv (fn [part-src]
                                                                                 (.submit ^ExecutorService part-exec
                                                                                          ^java.util.concurrent.Callable
-                                                                                         (fn []
+                                                                                         (bound-fn []
                                                                                            (let [part-pg (postgres-connection target-uri)]
                                                                                              (when pg-params
                                                                                                (doseq [param pg-params]
@@ -949,8 +970,7 @@
                                (map-indexed vector cat))]
                           (.shutdown ^ExecutorService workers-pool)
                           (.awaitTermination ^ExecutorService workers-pool Long/MAX_VALUE TimeUnit/NANOSECONDS)
-                          (doseq [^Future f table-futs]
-                            (try (.get f) (catch Exception _)))
+                          (await-table-futures! table-futs idx-executor)
                           (stats/update-entry! :post "COPY Wall-Clock Time"
                                                :rows workers
                                                :bytes (:bytes (stats/get-totals :data))

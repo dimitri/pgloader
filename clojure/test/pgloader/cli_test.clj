@@ -1,6 +1,8 @@
 (ns pgloader.cli-test
   (:require [clojure.test :refer [deftest is testing]]
-            [pgloader.cli :as cli]))
+            [pgloader.cli :as cli]
+            [pgloader.core :as core]
+            [pgloader.load-file.parser :as parser]))
 
 (deftest test-parse-args-basic
   (testing "positional .load file"
@@ -81,3 +83,18 @@
       (is (= ["quote identifiers" "include drop"] (:with-opts opts)))
       (is (= "sqlite:///tmp/test.db" (:source-uri opts)))
       (is (= "pgsql:///target" (:target-uri opts))))))
+
+(deftest strict-load-file-failure-stops-later-files
+  (let [calls   (atom [])
+        failure (ex-info "copy failed" {:file "first.load"})]
+    (with-redefs [parser/parse-file (fn [file] {:ok {:file file}})
+                  core/run-command (fn [cmd _opts]
+                                     (swap! calls conj (:file cmd))
+                                     (when (= "first.load" (:file cmd))
+                                       (throw failure)))]
+      (let [thrown (try
+                     (cli/run ["first.load" "second.load"])
+                     nil
+                     (catch Exception e e))]
+        (is (identical? failure thrown))
+        (is (= ["first.load"] @calls))))))
