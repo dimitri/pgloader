@@ -75,7 +75,7 @@
 (defn- send-batch-or-retry!
   "Send a single batch, or handle errors and return updated counters.
    Returns {:status :ok :rows-ok ... :errors ... :ws-nanos ... :bytes ... :reject-paths ...}
-   for success/retry, or throws for non-retryable errors."
+   for success/retry. In strict mode, rolls back and propagates COPY errors."
   [^PGConnection pg-conn table-spec ^String copy-sql-str
    b rows-ok errors ws-nanos bytes reject-paths]
   (let [batch-start (System/nanoTime)]
@@ -96,6 +96,8 @@
         (throw e))
       (catch PSQLException e
         (.rollback ^Connection pg-conn)
+        (when copy/*on-error-stop*
+          (throw e))
         (log/info "Entering error recovery.")
         (let [retry-result (batch/retry-batch! b table-spec e pg-conn)]
           {:status :retry
@@ -112,8 +114,8 @@
 (defn writer-task
   "Virtual thread task that drains batches from the pipeline queue
    and sends them to PostgreSQL via CopyManager.
-   Each batch gets its own transaction. On data errors, retry-batch!
-   handles per-row recovery with independent sub-batch commits.
+   Each batch gets its own transaction. In resume mode, retry-batch! handles
+   per-row recovery with independent sub-batch commits.
    Returns {:rows-ok n :rows-bad n :ws-nanos n :bytes n :reject-paths {...}}."
   [^PGConnection pg-conn table-spec ^CopyPipeline pipeline]
   (let [copy-sql-str (copy/copy-sql table-spec)

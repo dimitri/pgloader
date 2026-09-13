@@ -48,12 +48,14 @@ test-unit:
 	clojure -M:test -m cognitect.test-runner \
 	  -n pgloader.cast-test \
 	  -n pgloader.batch-test \
+	  -n pgloader.prefetch-test \
 	  -n pgloader.ddl-test \
 	  -n pgloader.ddl.citus-test \
 	  -n pgloader.load-file.parser-test \
 	  -n pgloader.transforms-test \
 	  -n pgloader.pg-service-test \
-	  -n pgloader.cli-test
+	  -n pgloader.cli-test \
+	  -n pgloader.source.mssql-test
 
 # ─── E2E integration tests ────────────────────────────────────────────────────
 # All suite management lives in tests/Makefile.

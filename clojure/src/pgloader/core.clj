@@ -786,7 +786,7 @@
                                (fn [[_i t]]
                                  (.submit ^ExecutorService workers-pool
                                           ^java.util.concurrent.Callable
-                                          (fn []
+                                          (bound-fn []
                                             (let [worker-src (source-from-uri source-uri table-spec
                                                                               with-options source-overrides (:decoding-as cmd))
                                                   worker-pg  (postgres-connection target-uri)
@@ -806,7 +806,8 @@
                                                       table       (:table-name t)
                                                       cols        (:columns t)
                                                       table-label (table-stats-label schema table)]
-                                                  (when-not (@failed-tables table)
+                                                  (when-not (or (@failed-tables table)
+                                                                (and copy/*on-error-stop* @load-failed))
                                                     (let [;; Generated columns exist on the target (DDL emits
                                       ;; GENERATED ALWAYS AS) but must be excluded from COPY
                                       ;; since PostgreSQL cannot accept values for them.
@@ -835,7 +836,7 @@
                                                                         (mapv (fn [part-src]
                                                                                 (.submit ^ExecutorService part-exec
                                                                                          ^java.util.concurrent.Callable
-                                                                                         (fn []
+                                                                                         (bound-fn []
                                                                                            (let [part-pg (postgres-connection target-uri)]
                                                                                              (when pg-params
                                                                                                (doseq [param pg-params]
