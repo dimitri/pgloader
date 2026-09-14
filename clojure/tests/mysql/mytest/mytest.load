@@ -90,5 +90,5 @@ load database
       column binary_types.uuid_col to uuid drop typemod using binary-to-uuid,
       column binary_types.data_col to bytea drop typemod using binary-to-bytea
 
- BEFORE LOAD DO
-   $$ CREATE SCHEMA IF NOT EXISTS mytest; $$;
+ -- UTF-8 bytes stored in latin1 columns: decode the stored bytes as UTF-8.
+ DECODING TABLE NAMES MATCHING 'legacy_notes' AS utf8;

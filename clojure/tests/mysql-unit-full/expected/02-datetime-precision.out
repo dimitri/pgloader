@@ -1,6 +1,6 @@
- column_name |        data_type         | datetime_precision |  column_default   
--------------+--------------------------+--------------------+-------------------
- id          | integer                  |                    | 
+ column_name |        data_type         | datetime_precision |                       column_default                       
+-------------+--------------------------+--------------------+------------------------------------------------------------
+ id          | integer                  |                    | nextval('mysql_unit_full.type_precision_id_seq'::regclass)
  ts6         | timestamp with time zone |                  6 | CURRENT_TIMESTAMP
  ts3         | timestamp with time zone |                  3 | 
  t3          | time without time zone   |                  3 | 

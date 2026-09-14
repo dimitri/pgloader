@@ -27,10 +27,12 @@ my-cnf:
 
 # mytest-v3: same suite against the v3 binary, compared against
 # .v3 variant expected files that capture deliberate v3 vs v4 differences
-# (serial vs identity, bit vs bit varying, trigger naming).
+# (bit vs bit varying, trigger naming, sequence reset of empty tables).
+# 19-decoding-as is v4 only: the v3 binary built from src/ does not apply
+# DECODING TABLE NAMES MATCHING … AS utf8 to latin1 columns.
 mytest-v3:
 	pgloader --client-min-messages notice mytest/mytest.load
-	java -jar $(JAR) regress $(REGRESS_FLAGS) --variant v3 mytest
+	java -jar $(JAR) regress $(REGRESS_FLAGS) --variant v3 --exclude 19-decoding-as mytest
 
 all-v3: mytest-v3 sakila-v3 f1db-v3
 	@:

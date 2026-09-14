@@ -455,6 +455,26 @@ INSERT INTO `latin1_encoding` (label, word) VALUES
   ('cafe_euro', _latin1 x'636166e980'); -- café€: c(63)a(61)f(66)é(e9)€(80)
 
 -- ============================================================
+-- DECODING TABLE NAMES MATCHING 'legacy_notes' AS utf8: an application wrote
+-- UTF-8 bytes into latin1 columns. Read through MySQL's charset conversion
+-- they come out double-encoded ("Jean-FranÃ§ois"); pgloader must decode the
+-- stored bytes as UTF-8 instead.
+-- The explicit ids leave a gap so the sequence reset is visible: the next
+-- generated id on the target must be 7, not 6.
+-- ============================================================
+CREATE TABLE `legacy_notes` (
+  id     INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  author VARCHAR(100) NOT NULL,
+  note   TEXT,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+INSERT INTO `legacy_notes` (id, author, note) VALUES
+  (5, _latin1 x'4a65616e2d4672616ec3a76f697320456b737472c3b66d', -- Jean-François Ekström
+      _latin1 x'5a6fc3ab20e28093206e61c3af766520636166c3a9'),   -- Zoë – naïve café
+  (6, 'ascii only', NULL);
+
+-- ============================================================
 -- #1757: varbinary-to-inet — VARBINARY(16) storing raw IP bytes
 -- 4 bytes = IPv4, 16 bytes = IPv6, 0 bytes = NULL
 -- ============================================================

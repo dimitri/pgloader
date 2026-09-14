@@ -1,0 +1,15 @@
+  table_name  | column_name | data_type | has_sequence 
+--------------+-------------+-----------+--------------
+ empty        | id          | integer   | t
+ fcm_batches  | id          | bigint    | t
+ legacy_notes | id          | bigint    | t
+ users        | id          | integer   | t
+(4 rows)
+
+  table_name  | next_id 
+--------------+---------
+ empty        |       1
+ legacy_notes |       7
+ users        |       4
+(3 rows)
+

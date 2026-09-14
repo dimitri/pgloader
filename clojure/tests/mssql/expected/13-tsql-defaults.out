@@ -1,0 +1,21 @@
+ column_name |  column_default   
+-------------+-------------------
+ status      | 'new'::text
+ label       | 'it''s'::text
+ created_utc | CURRENT_TIMESTAMP
+ created_loc | CURRENT_TIMESTAMP
+ updated_utc | CURRENT_TIMESTAMP
+ row_guid    | gen_random_uuid()
+(6 rows)
+
+ rows_loaded 
+-------------
+           3
+(1 row)
+
+ id | status | label | has_created_utc | has_row_guid 
+----+--------+-------+-----------------+--------------
+  4 | new    | it's  | t               | t
+(1 row)
+
+INSERT 0 1

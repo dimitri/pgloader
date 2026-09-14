@@ -4,7 +4,8 @@
             [clojure.string :as str]
             [next.jdbc :as jdbc]
             [clojure.tools.logging :as log])
-  (:import [java.sql Connection DriverManager PreparedStatement ResultSet]))
+  (:import [java.nio.charset Charset]
+           [java.sql Connection DriverManager PreparedStatement ResultSet]))
 
 (set! *warn-on-reflection* true)
 
@@ -95,27 +96,63 @@
           ["geometry" "point" "linestring" "polygon"
            "multipoint" "multilinestring" "multipolygon" "geometrycollection"])))
 
-;;; MySQL charset names that do not match the encoding they actually store.
-;;; Applied to the charset returned by DECODING-AS rules before issuing SET NAMES,
-;;; so the MySQL server sends bytes that Connector/J can correctly decode.
+;;; DECODING TABLE NAMES MATCHING … AS <charset> means: take the bytes stored
+;;; in the text columns as-is and decode them with <charset>, whatever charset
+;;; the column is declared with (typically UTF-8 bytes stored in latin1
+;;; columns). Asking the server to convert (SET NAMES) would double-encode
+;;; exactly that data, so the columns are read with CAST(… AS BINARY) and
+;;; decoded on the client.
+;;;
+;;; MySQL charset names mapped to Java charsets. Some MySQL names do not match
+;;; the encoding they actually store:
 ;;;
 ;;;   latin1 — MySQL documents this as Windows cp1252 (not ISO 8859-1).
 ;;;            They share 0x00-0x7F and 0xA0-0xFF but differ in 0x80-0x9F,
 ;;;            where cp1252 has 27 printable characters (€, –, ™ …) that
 ;;;            ISO 8859-1 leaves undefined as C1 control codes.
 ;;;
-;;;   latin5 — MySQL latin5 is ISO 8859-9 (Turkish). SET NAMES 'latin5' is
-;;;            already correct server-side (MySQL converts to UTF-8 properly),
-;;;            so no remapping is needed for the SET NAMES path.
-(def ^:private mysql-charset-aliases
-  {"latin1" "cp1252"})
+;;;   latin5 — MySQL latin5 is ISO 8859-9 (Turkish).
+(def ^:private mysql-charsets
+  {"utf8"     "UTF-8"
+   "utf8mb3"  "UTF-8"
+   "utf8mb4"  "UTF-8"
+   "latin1"   "windows-1252"
+   "latin2"   "ISO-8859-2"
+   "latin5"   "ISO-8859-9"
+   "latin7"   "ISO-8859-13"
+   "greek"    "ISO-8859-7"
+   "hebrew"   "ISO-8859-8"
+   "cp1250"   "windows-1250"
+   "cp1251"   "windows-1251"
+   "cp1256"   "windows-1256"
+   "cp1257"   "windows-1257"
+   "cp850"    "IBM850"
+   "cp852"    "IBM852"
+   "cp866"    "IBM866"
+   "koi8r"    "KOI8-R"
+   "koi8u"    "KOI8-U"
+   "sjis"     "Shift_JIS"
+   "cp932"    "windows-31j"
+   "ujis"     "EUC-JP"
+   "eucjpms"  "x-eucJP-Open"
+   "euckr"    "EUC-KR"
+   "big5"     "Big5"
+   "tis620"   "TIS-620"
+   "ucs2"     "UTF-16BE"
+   "utf16"    "UTF-16BE"
+   "utf16le"  "UTF-16LE"
+   "utf32"    "UTF-32BE"})
 
-(defn- normalize-mysql-charset
-  "Map MySQL charset names that alias wrong encodings to their correct names
-   for the SET NAMES call.  MySQL's latin1 is actually cp1252 (Windows-1252):
-   they share 0x00-0x7F and 0xA0-0xFF but differ in 0x80-0x9F."
-  [charset]
-  (get mysql-charset-aliases charset charset))
+(defn- decoding-charset
+  "Resolve a DECODING … AS charset name (MySQL or Java spelling) to a
+   java.nio.charset.Charset. Throws when the charset is unknown."
+  ^Charset [^String charset]
+  (let [cs-name (str/lower-case (str/trim charset))]
+    (try
+      (Charset/forName ^String (get mysql-charsets cs-name cs-name))
+      (catch Exception _
+        (throw (ex-info (str "DECODING AS: unsupported charset " (pr-str charset))
+                        {:charset charset}))))))
 
 (defn- decoding-as-charset
   "Return the charset for TABLE-NAME by matching against DECODING-AS rules,
@@ -161,13 +198,31 @@
       (some #(str/starts-with? lower %)
             ["char" "varchar" "tinytext" "mediumtext" "longtext" "text"]))))
 
+(defn- decodable-col-type?
+  "Return true for MySQL column types whose values are stored in a character
+   set, and so are subject to DECODING … AS rules."
+  [^String raw-col-type]
+  (when raw-col-type
+    (boolean (re-find #"(?i)^(char|varchar|tinytext|mediumtext|longtext|text|enum|set)\b"
+                      raw-col-type))))
+
+(defn- source-col-type
+  [col]
+  (or (:source-column-type col) (:column-type col)))
+
 (defn- convert-mysql-value
   "Convert a raw JDBC value from MySQL to a String suitable for COPY TEXT.
    For text columns, reads bytes directly and re-encodes as UTF-8 to preserve
-   embedded NUL bytes that JDBC getString() would silently truncate (#1573)."
-  [v jdbc-type col ^java.sql.ResultSet rs col-idx]
+   embedded NUL bytes that JDBC getString() would silently truncate (#1573).
+   When decode-cs is given, text columns arrive as raw bytes (see
+   mysql-select-sql) and are decoded with that charset."
+  [v jdbc-type col ^java.sql.ResultSet rs col-idx & [^Charset decode-cs]]
   (when (some? v)
-    (let [raw-col-type (:column-type col)]
+    (let [raw-col-type (:column-type col)
+          decoded?     (and decode-cs
+                            (bytes? v)
+                            (decodable-col-type? (source-col-type col)))
+          v            (if decoded? (String. ^bytes v decode-cs) v)]
       (cond
         (instance? Boolean v)    (if v "1" "0")
         (= "YEAR" jdbc-type)     (str (if (instance? java.sql.Date v)
@@ -188,20 +243,27 @@
         ;; Text columns: use getString so the JDBC driver applies charset
         ;; conversion correctly (#1573). getString preserves NUL bytes in
         ;; MySQL Connector/J; getObject may truncate at the first NUL.
+        decoded? v
         (and (instance? String v) (text-col-type? raw-col-type))
         (.getString rs (int col-idx))
         :else (str v)))))
 
 (defn- mysql-select-sql
-  "Build base SELECT SQL for a table given its column metadata and MySQL table name."
-  [columns mysql-table]
+  "Build base SELECT SQL for a table given its column metadata and MySQL table name.
+   With raw-text? true, text columns are selected as CAST(… AS BINARY) so the
+   server sends the stored bytes without any charset conversion."
+  [columns mysql-table & [raw-text?]]
   (let [col-list (if (seq columns)
                    (str/join ", "
                              (mapv (fn [col]
                                      (let [cn (:column-name col)
-                                           ct (or (:source-column-type col) (:column-type col))]
-                                       (if (geometry-type? ct)
+                                           ct (source-col-type col)]
+                                       (cond
+                                         (geometry-type? ct)
                                          (str "ST_AsText(`" cn "`) AS `" cn "`")
+                                         (and raw-text? (decodable-col-type? ct))
+                                         (str "CAST(`" cn "` AS BINARY) AS `" cn "`")
+                                         :else
                                          (str "`" cn "`"))))
                                    columns))
                    "*")]
@@ -210,7 +272,7 @@
 (defn- stream-ranges!
   "Execute sqls sequentially on conn, closing each RS/stmt before the next.
    Returns a lazy seq of all rows across all range queries."
-  [^Connection conn active-stmt active-rs sqls columns]
+  [^Connection conn active-stmt active-rs sqls columns decode-cs]
   (when (seq sqls)
     (let [sql      (first sqls)
           rest-sql (rest sqls)]
@@ -246,11 +308,11 @@
                                                 (.getObject rs i)
                                                 (nth jtypes (dec i))
                                                 (nth columns (dec i) nil)
-                                                rs i)))
+                                                rs i decode-cs)))
                                  (persistent! result)))
                              (next-row)))
                       ;; RS exhausted — open next range
-                      (stream-ranges! conn active-stmt active-rs rest-sql columns))))]
+                      (stream-ranges! conn active-stmt active-rs rest-sql columns decode-cs))))]
           (next-row))))))
 
 (deftype MySQLSource
@@ -355,14 +417,12 @@
   (read-rows [_ table-spec-entry]
     (let [{:keys [table-name source-table-name columns citus-read-sql]} table-spec-entry
           mysql-table (or source-table-name table-name)]
-      (when-let [charset (normalize-mysql-charset
-                          (decoding-as-charset mysql-table decoding-rules))]
-        (try
-          (jdbc/execute! conn [(str "SET NAMES '" charset "'")])
-          (log/info (str "SET NAMES '" charset "' for table " mysql-table))
-          (catch Exception e
-            (log/warn (str "SET NAMES failed for " mysql-table ": " (.getMessage e))))))
-      (let [base-sql (or citus-read-sql (mysql-select-sql columns mysql-table))
+      (let [decode-cs (some-> (decoding-as-charset mysql-table decoding-rules)
+                              decoding-charset)
+            _        (when decode-cs
+                       (log/info (str "Decoding text columns of " mysql-table
+                                      " as " (.name decode-cs))))
+            base-sql (or citus-read-sql (mysql-select-sql columns mysql-table (some? decode-cs)))
             sqls     (if (seq ranges)
                        (mapv (fn [[lo hi]]
                                (str base-sql
@@ -370,7 +430,7 @@
                                     " AND `" range-col "` < " hi))
                              ranges)
                        [base-sql])]
-        (stream-ranges! conn active-stmt active-rs sqls columns))))
+        (stream-ranges! conn active-stmt active-rs sqls columns decode-cs))))
   (read-query [_ sql]
     (let [stmt (.prepareStatement conn sql)
           _    (doto stmt

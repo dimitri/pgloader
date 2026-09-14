@@ -17,6 +17,28 @@
   ([schema table]
    (str (identifier-quote schema) "." (identifier-quote table))))
 
+(defn- auto-increment?
+  "True when a column's :extra marks it as auto-increment."
+  [extra]
+  (str/includes? (str/lower-case (str extra)) "auto_increment"))
+
+(defn- serial-type?
+  [^String pg-type]
+  (boolean (re-matches #"(?i)(small|big)?serial" (str pg-type))))
+
+(declare pg-type-for)
+
+(defn- auto-increment-pg-type
+  "Map an auto-increment integer column to serial/bigserial, mirroring the CL
+   default cast rules: types that map to bigint (or numeric, for bigint
+   unsigned) become bigserial, all smaller integer types become serial.
+   Returns nil when the source type is not an integer type."
+  [^String mysql-type]
+  (when (re-find #"(?i)^(tiny|small|medium|big)?int" mysql-type)
+    (case (pg-type-for mysql-type nil)
+      ("bigint" "numeric") "bigserial"
+      "serial")))
+
 (defn- pg-type-for
   "Map a MySQL type name to PostgreSQL type.
    Preserves precision modifiers for temporal types (#1629)."
@@ -27,6 +49,9 @@
         ;; Extract precision modifier like (6) from datetime(6)
         typemod (re-find #"\(\d+\)" mysql-type)]
     (cond
+      ;; AUTO_INCREMENT integers own a sequence on the target
+      (and (auto-increment? extra) (auto-increment-pg-type mysql-type))
+      (auto-increment-pg-type mysql-type)
       ;; Pass-through: native PostgreSQL types emitted by non-MySQL sources
       (= lower "uuid")   "uuid"
       (= lower "xml")    "xml"
@@ -202,6 +227,8 @@
                                        (re-find #"(?i)^(timestamp|date|time)" (or pg-type ""))
                                        (re-matches #"^-?\d+$" (str coerced-default)))
             default-str (when (and coerced-default
+                                   ;; serial types come with their own nextval() default
+                                   (not (serial-type? pg-type))
                                    (not= "NULL" (str coerced-default))
                                    (not= "" (str coerced-default))
                                    (not zero?)
@@ -209,7 +236,7 @@
                           (str " DEFAULT " (format-default coerced-default)))]
         (str "  " quoted-name " " pg-type
              (when (and (false? is-nullable)
-                        (not (str/includes? (str extra) "auto_increment"))
+                        (not (auto-increment? extra))
                         (not= "NULL" (str column-default))
                         (not zero?))
                " NOT NULL")
@@ -600,37 +627,54 @@
                          quoted-schema "." quoted-fn "();")]
         [fn-sql trg-sql]))))
 
+(defn- sql-literal
+  [^String s]
+  (str "'" (str/replace s "'" "''") "'"))
+
 (defn reset-sequences-sql
   "Generate SELECT setval() for auto-increment columns.
    Calls pg_catalog.setval with MAX(col) to advance the sequence
-   past any data that was bulk-loaded (bypassing the sequence).
+   past any data that was bulk-loaded (bypassing the sequence), so that the
+   next nextval() returns MAX(col) + 1, or 1 on an empty table.
+
+   Each statement returns a single row whose setval value is NULL when the
+   column does not own a sequence (pg_get_serial_sequence returns NULL).
 
    Returns a vector of SQL strings (one per auto-increment column)."
   [schema table-name columns]
   (let [quoted-fqname (quote-fqname schema table-name)]
     (vec (keep (fn [col]
                  (when (and (:column-name col)
-                            (:extra col)
-                            (str/includes? (str/lower-case (:extra col)) "auto_increment")
+                            (auto-increment? (:extra col))
                             ;; Only reset sequences for integer-typed columns.
                             ;; Cast rules may change the PG type (e.g. int → text);
-                            ;; non-integer MAX() causes COALESCE type mismatch.
+                            ;; non-integer MAX() causes a type mismatch.
                             (let [src     (or (:source-column-type col) (:column-type col) "")
                                   ct      (or (:column-type col) "")
                                   pg-type (str/lower-case
                                            (if (not= src ct)
                                              ct
-                                             (pg-type-for ct nil)))]
+                                             (pg-type-for ct (:extra col))))]
                               (some #(str/starts-with? pg-type %)
                                     ["integer" "bigint" "bigserial" "smallint" "serial"
                                      "int2" "int4" "int8"])))
-                   (let [col-name   (:column-name col)
-                         quoted-col (identifier-quote col-name)]
+                   (let [quoted-col (identifier-quote (:column-name col))
+                         max-col    (str "MAX(" quoted-col ")")]
+                     ;; setval(seq, max, true) makes nextval() return max + 1;
+                     ;; an empty table gets setval(seq, 1, false) so nextval() returns 1.
                      (str "SELECT pg_catalog.setval("
-                          "pg_get_serial_sequence('" quoted-fqname "', '" col-name "')"
-                          ", COALESCE(MAX(" quoted-col "), 1), false)"
+                          "pg_get_serial_sequence(" (sql-literal quoted-fqname)
+                          ", " (sql-literal (:column-name col)) ")"
+                          ", GREATEST(" max-col ", 1), " max-col " IS NOT NULL)"
                           " FROM " quoted-fqname ";\n"))))
                columns))))
+
+(defn create-schemas-sql
+  "Generate CREATE SCHEMA IF NOT EXISTS statements, one per distinct schema,
+   in first-seen order."
+  [schemas]
+  (mapv #(str "CREATE SCHEMA IF NOT EXISTS " (identifier-quote %) ";")
+        (distinct (remove nil? schemas))))
 
 (defn create-sequence-sql
   "Generate DROP … / CREATE SEQUENCE SQL for an MSSQL sequence descriptor.
