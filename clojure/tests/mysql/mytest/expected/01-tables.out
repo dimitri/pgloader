@@ -19,6 +19,7 @@
  history
  ip_addresses
  latin1_encoding
+ legacy_notes
  measurements
  on_update_ts
  onupdate
@@ -35,5 +36,5 @@
  utilisateurs__Yvelines2013-06-28
  uw_defined_meaning
  zero_dates_notnull
-(35 rows)
+(36 rows)
 

@@ -201,3 +201,35 @@ GO
 
 INSERT INTO filtered.order_items (product_id, qty) VALUES (1, 3), (2, 1), (1, 5);
 GO
+
+-- tsqldefaults: separate database for T-SQL default expressions, loaded by
+-- mssql-tsql-defaults.load with v4 only — v3 copies SYSUTCDATETIME() verbatim,
+-- fails to create the table and aborts the whole load.
+-- Unicode string literals N'…' must land as the string value (not the literal
+-- text N'new'), and T-SQL functions such as SYSUTCDATETIME() or
+-- NEWSEQUENTIALID() must be translated to PostgreSQL. The table lives in a
+-- non-dbo schema, which has to be created on the target before the table.
+CREATE DATABASE tsqldefaults;
+GO
+
+USE tsqldefaults;
+GO
+
+CREATE SCHEMA shop;
+GO
+
+CREATE TABLE shop.tsql_defaults (
+    id          INT IDENTITY(1,1) PRIMARY KEY,
+    status      NVARCHAR(20)     NOT NULL DEFAULT (N'new'),
+    label       VARCHAR(20)      DEFAULT ('it''s'),
+    created_utc DATETIME2(3)     NOT NULL DEFAULT (SYSUTCDATETIME()),
+    created_loc DATETIME2        DEFAULT (SYSDATETIME()),
+    updated_utc DATETIME         DEFAULT (GETUTCDATE()),
+    row_guid    UNIQUEIDENTIFIER DEFAULT (NEWSEQUENTIALID())
+);
+GO
+
+INSERT INTO shop.tsql_defaults DEFAULT VALUES;
+INSERT INTO shop.tsql_defaults DEFAULT VALUES;
+INSERT INTO shop.tsql_defaults DEFAULT VALUES;
+GO

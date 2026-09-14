@@ -1,5 +1,6 @@
 (ns pgloader.source.mssql
   (:require [pgloader.source.protocol :refer [Source]]
+            [pgloader.log :as plog]
             [hugsql.core :as hugsql]
             [clojure.string :as str]
             [next.jdbc :as jdbc]
@@ -81,22 +82,47 @@
                        "[schema].[sequence] syntax, dropping: " s))
         nil)))
 
+(def ^:private tsql-default-functions
+  "T-SQL niladic functions used in column defaults, and their PostgreSQL
+   equivalents. Keys are lower-case."
+  {"getdate()"           "CURRENT_TIMESTAMP"
+   "getutcdate()"        "CURRENT_TIMESTAMP"
+   "sysdatetime()"       "CURRENT_TIMESTAMP"
+   "sysutcdatetime()"    "CURRENT_TIMESTAMP"
+   "sysdatetimeoffset()" "CURRENT_TIMESTAMP"
+   "current_timestamp"   "CURRENT_TIMESTAMP"
+   "newid()"             "gen_random_uuid()"
+   "newsequentialid()"   "gen_random_uuid()"})
+
+(defn- unquote-string-literal
+  "Return the value of a T-SQL string literal ('abc' or N'abc'), with doubled
+   quotes unescaped, or nil when s is not a single string literal."
+  [^String s]
+  (when-let [[_ body] (re-matches #"(?s)[Nn]?'((?:[^']|'')*)'" s)]
+    (str/replace body "''" "'")))
+
 (defn- sanitize-default
   "Normalise MSSQL column defaults for PostgreSQL:
    - NEXT VALUE FOR [schema].[seq] → nextval('schema.seq')  (#1497)
+   - T-SQL functions (GETDATE(), SYSUTCDATETIME(), NEWID(), …) → PostgreSQL
+   - String literals 'abc' and Unicode literals N'abc' → their value
    - CONVERT(…) expressions not already translated by mssql.sql → nil (#1409)
    - Empty-string defaults on numeric columns → nil (#1163)"
   [default pg-type]
   (when default
     (let [trimmed (str/trim default)
-          lower   (str/lower-case trimmed)]
+          lower   (str/lower-case trimmed)
+          literal (unquote-string-literal trimmed)]
       (cond
         ;; SQL Server sequence default → PostgreSQL nextval()
         (str/starts-with? lower "next value for") (translate-next-value-for trimmed)
+        (contains? tsql-default-functions lower) (get tsql-default-functions lower)
         ;; Any remaining CONVERT(…) that mssql.sql didn't map to a keyword
         (str/starts-with? lower "convert(") nil
         ;; Empty string on a numeric target type
-        (and (= trimmed "") (contains? numeric-pg-types pg-type)) nil
+        (and (or (= trimmed "") (= literal ""))
+             (contains? numeric-pg-types pg-type)) nil
+        literal literal
         :else default))))
 
 (defn- connection
@@ -353,4 +379,4 @@
 (defn create-source
   [uri-map _table-spec]
   (let [conn (connection uri-map)]
-    (->MSSQLSource conn (:raw uri-map))))
+    (->MSSQLSource conn (plog/redact-uri (:raw uri-map)))))

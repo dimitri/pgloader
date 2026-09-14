@@ -1,5 +1,6 @@
 (ns pgloader.source.pgsql
   (:require [pgloader.source.protocol :refer [Source partition-source]]
+            [pgloader.log :as plog]
             [hugsql.core :as hugsql]
             [clojure.string :as str]
             [next.jdbc :as jdbc]
@@ -308,7 +309,7 @@
 (defn create-source
   [uri-map _table-spec]
   (let [conn (connection uri-map)]
-    (->PGSQLSource conn (:raw uri-map) uri-map nil nil)))
+    (->PGSQLSource conn (plog/redact-uri (:raw uri-map)) uri-map nil nil)))
 
 (defn pgsql-partition-source
   [^PGSQLSource src table-spec-entry n chunk-bytes]

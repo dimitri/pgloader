@@ -53,7 +53,10 @@ test-unit:
 	  -n pgloader.load-file.parser-test \
 	  -n pgloader.transforms-test \
 	  -n pgloader.pg-service-test \
-	  -n pgloader.cli-test
+	  -n pgloader.cli-test \
+	  -n pgloader.log-test \
+	  -n pgloader.source.mssql-test \
+	  -n pgloader.source.mysql-test
 
 # ─── E2E integration tests ────────────────────────────────────────────────────
 # All suite management lives in tests/Makefile.

@@ -433,3 +433,56 @@
         (is (= 1 (count enum-types)))
         ;; type name uses the (already-renamed) table name
         (is (= "renamed_tbl_status_t" (:type-name (first enum-types))))))))
+
+(deftest test-auto-increment-column-def
+  (testing "MySQL AUTO_INCREMENT integers become serial types (with their own default)"
+    (let [ai (fn [t] {:column-name "id" :column-type t :is-nullable false
+                      :extra "auto_increment" :column-default nil})]
+      (is (= "  \"id\" serial"    (ddl/column-def (ai "int"))))
+      (is (= "  \"id\" serial"    (ddl/column-def (ai "int(9)"))))
+      (is (= "  \"id\" serial"    (ddl/column-def (ai "tinyint(4)"))))
+      (is (= "  \"id\" serial"    (ddl/column-def (ai "smallint"))))
+      (is (= "  \"id\" serial"    (ddl/column-def (ai "mediumint unsigned"))))
+      (is (= "  \"id\" bigserial" (ddl/column-def (ai "int unsigned"))))
+      (is (= "  \"id\" bigserial" (ddl/column-def (ai "int(11)"))))
+      (is (= "  \"id\" bigserial" (ddl/column-def (ai "bigint"))))
+      (is (= "  \"id\" bigserial" (ddl/column-def (ai "bigint(20) unsigned"))))))
+
+  (testing "a serial column never carries a DEFAULT of its own"
+    (is (= "  \"id\" serial"
+           (ddl/column-def {:column-name "id" :column-type "int" :is-nullable false
+                            :extra "auto_increment" :column-default "0"}))))
+
+  (testing "without auto_increment the plain integer mapping is unchanged"
+    (is (= "  \"id\" bigint NOT NULL"
+           (ddl/column-def {:column-name "id" :column-type "int unsigned"
+                            :is-nullable false :extra ""})))))
+
+(deftest test-reset-sequences-sql
+  (testing "next nextval() returns MAX + 1, or 1 on an empty table"
+    (is (= [(str "SELECT pg_catalog.setval("
+                 "pg_get_serial_sequence('\"shopdb\".\"orders\"', 'id')"
+                 ", GREATEST(MAX(\"id\"), 1), MAX(\"id\") IS NOT NULL)"
+                 " FROM \"shopdb\".\"orders\";\n")]
+           (ddl/reset-sequences-sql "shopdb" "orders"
+                                    [{:column-name "id" :column-type "int unsigned"
+                                      :extra "auto_increment"}
+                                     {:column-name "total" :column-type "int"
+                                      :extra ""}]))))
+
+  (testing "identifiers are escaped inside the string literals"
+    (let [[sql] (ddl/reset-sequences-sql "public" "o'brien"
+                                         [{:column-name "it's" :column-type "serial"
+                                           :extra "auto_increment"}])]
+      (is (str/includes? sql "pg_get_serial_sequence('\"public\".\"o''brien\"', 'it''s')"))))
+
+  (testing "non-integer targets (cast rules) are skipped"
+    (is (empty? (ddl/reset-sequences-sql "public" "t"
+                                         [{:column-name "id" :column-type "text"
+                                           :source-column-type "int"
+                                           :extra "auto_increment"}])))))
+
+(deftest test-create-schemas-sql
+  (is (= ["CREATE SCHEMA IF NOT EXISTS \"shopdb\";"
+          "CREATE SCHEMA IF NOT EXISTS \"public\";"]
+         (ddl/create-schemas-sql ["shopdb" "public" nil "shopdb"]))))

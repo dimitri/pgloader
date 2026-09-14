@@ -214,6 +214,34 @@
         (.rollback pg-conn)
         (log/warn (str label " failed (skipping): " (.getMessage e)))))))
 
+(defn- reset-sequences!
+  "Execute reset-sequences-sql statements, each in its own transaction.
+   Returns how many sequences were actually reset: setval() yields NULL for
+   columns that do not own a sequence, and those are not counted.
+   Errors are logged as warnings and skipped."
+  [^Connection pg-conn sqls label]
+  (reduce (fn [n sql]
+            (try
+              (let [row (first (jdbc/execute! pg-conn [sql]))]
+                (.commit pg-conn)
+                (if (some? (first (vals row))) (inc n) n))
+              (catch Exception e
+                (.rollback pg-conn)
+                (log/warn (str label " failed (skipping): " (.getMessage e)))
+                n)))
+          0 sqls))
+
+(defn- create-schemas!
+  "Create every target schema up front, before sequences, types and tables."
+  [^Connection pg-conn schemas]
+  (when-let [sqls (seq (ddl/create-schemas-sql schemas))]
+    (stats/new-entry! :pre "Create Schemas")
+    (let [start (System/nanoTime)]
+      (exec-post-ddl! pg-conn sqls "CREATE SCHEMA")
+      (stats/update-entry! :pre "Create Schemas"
+                           :rows (count sqls)
+                           :total-nanos (- (System/nanoTime) start)))))
+
 (defn- pg-major-version
   "Return the PostgreSQL major version as an integer (e.g. 13, 14, 15)."
   [^Connection pg-conn]
@@ -422,9 +450,9 @@
     ;; ── All other load types ──────────────────────────────────────────────────
     (let [source-uri  (:source cmd)
           target-uri  (get-in cmd [:target :target-uri])
-          _           (log/debug (str "Connecting to PostgreSQL at " (:raw target-uri)))
+          _           (log/debug (str "Connecting to PostgreSQL at " (plog/redact-uri (:raw target-uri))))
           ^Connection pg-conn (postgres-connection target-uri)
-          _           (log/info (str "Connected to PostgreSQL at " (:raw target-uri)))
+          _           (log/info (str "Connected to PostgreSQL at " (plog/redact-uri (:raw target-uri))))
           source-overrides (select-keys source-uri [:inline-data])
           commands-filters (:filters cmd)
           table-filter (when commands-filters
@@ -441,8 +469,8 @@
           source      (source-from-uri source-uri table-spec (:with-options cmd) source-overrides (:decoding-as cmd))
           verbose     (or (:debug opts) (:verbose opts) false)]
       (log/info "pgloader v4")
-      (log/info "Source:" (source-name source))
-      (log/info "Target:" (:raw target-uri))
+      (log/info "Source:" (plog/redact-uri (source-name source)))
+      (log/info "Target:" (plog/redact-uri (:raw target-uri)))
       (if copy/*dry-run*
       ;; Dry run: verify both connections are reachable, then stop.
       ;; Mirrors v3 behaviour: no catalog fetch, no DDL, no COPY.
@@ -467,8 +495,8 @@
                 (when-let [mysql-params (seq (filter :is-mysql (:set-parameters cmd)))]
                   (log/debug "Sending MySQL SET parameters to source connection")
                   (mysql-source/execute-set-params! source mysql-params)))
-              (let [_          (log/debug (str "Connecting to source: " (source-name source)))
-                    _          (log/info (str "Fetching catalog from " (source-name source)))
+              (let [_          (log/debug (str "Connecting to source: " (plog/redact-uri (source-name source))))
+                    _          (log/info (str "Fetching catalog from " (plog/redact-uri (source-name source))))
                     fetch-t0   (System/nanoTime)
                     cat        (catalog source)
                 ;; If MATERIALIZE ALL VIEWS, append view catalog entries to table catalog.
@@ -707,10 +735,15 @@
                         ;; Ensure extensions required by column defaults exist
                         ;; (e.g. pgcrypto for gen_random_uuid() on PG < 13).
                         (ensure-uuid-extension! pg-conn cat)
-                        ;; Create sequences before tables so that NEXT VALUE FOR
-                        ;; defaults (translated to nextval()) resolve correctly.
-                        (when (= :mssql (:type source-uri))
-                          (when-let [seqs (seq (mssql-source/catalog-sequences source))]
+                        ;; Create schemas first: sequences, ENUM types and tables
+                        ;; are all created inside them.
+                        (let [seqs (when (= :mssql (:type source-uri))
+                                     (seq (mssql-source/catalog-sequences source)))]
+                          (create-schemas! pg-conn (concat (map #(or (:schema %) "public") cat)
+                                                           (map :schema seqs)))
+                          ;; Create sequences before tables so that NEXT VALUE FOR
+                          ;; defaults (translated to nextval()) resolve correctly.
+                          (when seqs
                             (log/info (str "Creating " (count seqs) " sequence(s) from MS SQL"))
                             (run-ddl-tx pg-conn (ddl/create-sequences-sql seqs))))
                         (stats/new-entry! :pre "Create tables")
@@ -1049,15 +1082,16 @@
                         (log/info "Resetting sequences")
                         (stats/new-entry! :post "Reset Sequences")
                         (let [start (System/nanoTime)
-                              n     (atom 0)]
-                          (doseq [t cat]
-                            (let [schema (or (:schema t) "public")
-                                  table  (:table-name t)]
-                              (when-let [seqs (seq (ddl/reset-sequences-sql schema table (:columns t)))]
-                                (exec-post-ddl! pg-conn seqs (str "SEQUENCE for " table))
-                                (swap! n inc))))
+                              n     (reduce (fn [n t]
+                                              (+ n (reset-sequences!
+                                                    pg-conn
+                                                    (ddl/reset-sequences-sql (or (:schema t) "public")
+                                                                             (:table-name t)
+                                                                             (:columns t))
+                                                    (str "SEQUENCE for " (:table-name t)))))
+                                            0 cat)]
                           (stats/update-entry! :post "Reset Sequences"
-                                               :rows @n :total-nanos (- (System/nanoTime) start)))))
+                                               :rows n :total-nanos (- (System/nanoTime) start)))))
         ;; Execute AFTER LOAD DO statements — skip when the load failed (#930).
                     (when-let [after-cmds (and (not @load-failed) (seq (:after-load cmd)))]
                       (log/debug "Executing AFTER LOAD DO commands")

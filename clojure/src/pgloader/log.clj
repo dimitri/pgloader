@@ -1,7 +1,19 @@
 (ns pgloader.log
+  (:require [clojure.string :as str])
   (:import [java.util Locale]))
 
 (set! *warn-on-reflection* true)
+
+(defn redact-uri
+  "Mask passwords in a connection URI or JDBC URL so it can be logged:
+     postgresql://user:secret@host/db       → postgresql://user:****@host/db
+     jdbc:sqlserver://host;password=secret  → jdbc:sqlserver://host;password=****
+     jdbc:postgresql://host/db?password=x   → jdbc:postgresql://host/db?password=****"
+  [s]
+  (when s
+    (-> (str s)
+        (str/replace #"(://[^:/@;?#\s]*):[^/?#;\s]*@" "$1:****@")
+        (str/replace #"(?i)([;?&]password=)[^;&\s]*" "$1****"))))
 
 (defn- locale-format
   "Like clojure.core/format but with an explicit Locale to force '.' as decimal separator."
