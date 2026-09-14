@@ -1,5 +1,6 @@
 (ns pgloader.load-file.ast
   (:require [instaparse.core :as insta]
+            [clojure.edn]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [pgloader.pg-service :as pg-service]
@@ -258,6 +259,30 @@
                       (second c)))
                   (rest node))))
 
+(def ^:private typemod-operators
+  '#{and or not = < <= > >=})
+
+(defn- parse-when-typemod
+  "Parse the body of a cast rule typemod guard, e.g. \"= 1 precision\" or
+   \"and (= 18 precision) (= 6 scale)\", into a list form evaluated by
+   pgloader.cast. Only numbers, precision, scale and the operators
+   and, or, not, =, <, <=, >, >= are allowed."
+  [^String body]
+  (letfn [(valid? [form]
+            (cond
+              (number? form) true
+              (symbol? form) (contains? '#{precision scale} form)
+              (seq? form)    (and (contains? typemod-operators (first form))
+                                  (every? valid? (rest form)))
+              :else false))]
+    (let [form (try
+                 (clojure.edn/read-string (str "(" body ")"))
+                 (catch Exception _ nil))]
+      (if (and (seq? form) (valid? form))
+        form
+        (throw (ex-info (str "Unsupported CAST guard: when (" (str/trim body) ")")
+                        {:when body}))))))
+
 (defn- hiccup->cast-rule
   "Convert a hiccup cast-rule node into a cast rule map."
   [node]
@@ -325,16 +350,25 @@
                                                         :else
                                                         (second c)))
                                                     (rest we))]
-                                     {:when-extra (clojure.string/join "" parts)})
+                                     {:when-typemod (parse-when-typemod
+                                                     (clojure.string/join "" parts))})
                                    :else nil)]
                         (cond-> (or base {})
                           not-null? (assoc :when-not-null true))))
+          ;; with extra auto_increment | with extra on update current timestamp
+          with-extra (some (fn [n]
+                             (when (and (vector? n) (= :with-extra (first n)))
+                               (case (first (second n))
+                                 :extra-auto-increment "auto_increment"
+                                 :extra-on-update      "on update current_timestamp")))
+                           inner-children)
           drop-opts (parse-cast-options (map first flat-cast-opts))]
       (cond-> {:target-type target}
         source (assoc :source source)
         (seq drop-opts) (assoc :options drop-opts)
         using-fn (assoc :using using-fn)
-        when-cond (merge when-cond)))))
+        when-cond (merge when-cond)
+        with-extra (assoc :when-extra with-extra)))))
 
 (defn- hiccup->option-keyword
   "Convert a hiccup option node to a keyword or [keyword value] pair.

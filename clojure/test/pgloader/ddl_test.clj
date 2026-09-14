@@ -486,3 +486,23 @@
   (is (= ["CREATE SCHEMA IF NOT EXISTS \"shopdb\";"
           "CREATE SCHEMA IF NOT EXISTS \"public\";"]
          (ddl/create-schemas-sql ["shopdb" "public" nil "shopdb"]))))
+
+(deftest test-column-def-cast-type
+  (testing "a cast rule target type is used as-is, even when equal to the source type"
+    (is (= "  \"name\" varchar(100)"
+           (ddl/column-def {:column-name "name" :column-type "varchar(100)"
+                            :source-column-type "varchar(100)" :type-cast? true
+                            :is-nullable true :extra ""})))))
+
+(deftest test-apply-alter-schema-source-schema
+  (testing "ALTER SCHEMA matches the source schema of MS SQL tables (dbo → public)"
+    (let [cat [{:table-name "customers" :schema "public" :source-schema "dbo"}
+               {:table-name "items" :schema "sales" :source-schema "sales"}]]
+      (is (= ["shop" "sales"]
+             (mapv :schema (ddl/apply-alter-schema cat [{:source-name "dbo" :target-name "shop"}]))))
+      (is (= ["shop" "sales"]
+             (mapv :schema (ddl/apply-alter-schema cat [{:source-name "public" :target-name "shop"}]))))))
+  (testing "MySQL catalogs have no :source-schema"
+    (is (= ["pagila"]
+           (mapv :schema (ddl/apply-alter-schema [{:table-name "actor" :schema "sakila"}]
+                                                 [{:source-name "sakila" :target-name "pagila"}]))))))

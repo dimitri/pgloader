@@ -203,11 +203,12 @@
   (let [{:keys [column-name column-type column-default is-nullable extra
                 generated-expression]} col
         ;; Use column-type directly only when a cast rule actually changed the type
-        ;; (i.e., :source-column-type differs from :column-type, meaning :target-type
-        ;; was applied). When source equals column-type, no target was set; still call
-        ;; pg-type-for so MySQL type names (datetime, etc.) map to their PG equivalents.
+        ;; (:type-cast?, or :source-column-type differs from :column-type). Otherwise
+        ;; call pg-type-for so MySQL type names (datetime, etc.) map to their PG
+        ;; equivalents.
         src-type (:source-column-type col)
-        pg-type (if (and src-type (not= src-type column-type))
+        pg-type (if (or (:type-cast? col)
+                        (and src-type (not= src-type column-type)))
                   column-type
                   (pg-type-for (or src-type column-type) extra))
         quoted-name (identifier-quote column-name)]
@@ -461,7 +462,10 @@
     (let [rename-map (into {} (map (juxt :source-name :target-name))
                            alter-schema-rules)]
       (mapv (fn [t]
-              (assoc t :schema (get rename-map (:schema t) (:schema t))))
+              ;; Match the source schema name too: MS SQL maps dbo to public in
+              ;; its catalog, and ALTER SCHEMA 'dbo' RENAME TO 'shop' names dbo.
+              (assoc t :schema (get rename-map (:schema t)
+                                    (get rename-map (:source-schema t) (:schema t)))))
             catalog))
     catalog))
 

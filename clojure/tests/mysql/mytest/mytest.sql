@@ -475,6 +475,19 @@ INSERT INTO `legacy_notes` (id, author, note) VALUES
   (6, 'ascii only', NULL);
 
 -- ============================================================
+-- CAST rule guards and options, see mytest.load:
+--   type mediumint with extra auto_increment to bigserial
+--   type varchar to varchar keep typemod
+-- ============================================================
+CREATE TABLE `cast_guards` (
+  id   MEDIUMINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  code VARCHAR(12) NOT NULL,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `cast_guards` (code) VALUES ('AB-100'), ('CD-200');
+
+-- ============================================================
 -- #1757: varbinary-to-inet — VARBINARY(16) storing raw IP bytes
 -- 4 bytes = IPv4, 16 bytes = IPv6, 0 bytes = NULL
 -- ============================================================

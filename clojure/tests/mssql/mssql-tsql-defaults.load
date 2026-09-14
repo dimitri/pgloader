@@ -1,8 +1,15 @@
 -- T-SQL default expressions (N'…' literals, SYSUTCDATETIME(), NEWSEQUENTIALID()…)
--- translated to PostgreSQL, in a non-dbo schema. v4 only, see init.sql.
+-- translated to PostgreSQL, in a non-dbo schema, CAST type rules on SQL Server
+-- type names, ALTER SCHEMA on dbo. v4 only, see init.sql.
 LOAD DATABASE
      FROM mssql://sa:pgloaderTest1!@mssql:1433/tsqldefaults
      INTO postgresql://pgloader:pgloader@postgres:5432/target
 
      WITH include drop, create tables, create indexes, reset sequences,
-          foreign keys;
+          foreign keys
+
+     CAST type nvarchar to citext
+
+     ALTER SCHEMA 'dbo' RENAME TO 'shop'
+
+     BEFORE LOAD DO $$ create extension if not exists citext; $$;

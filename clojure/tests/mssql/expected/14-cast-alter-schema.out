@@ -1,0 +1,13 @@
+ table_schema |  table_name   | column_name | udt_name 
+--------------+---------------+-------------+----------
+ shop         | product_codes | code        | citext
+ shop         | product_codes | label       | citext
+ shop         | tsql_defaults | label       | text
+ shop         | tsql_defaults | status      | citext
+(4 rows)
+
+  code  | label  
+--------+--------
+ AB-100 | Widget
+(1 row)
+

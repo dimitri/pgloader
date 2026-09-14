@@ -273,7 +273,9 @@
     when-expr   = <'('> <opt-ws> when-inner* <opt-ws> <')'>
     when-inner  = when-expr | #'[^()]+'
     when-default-val = cast-type-name | dq-string
-    with-extra   = <'with'> <ws> <'extra'> <ws> <'on'> <ws> <'update'> <ws> <'current'> <ws> <'timestamp'>
+    with-extra   = <'with'> <ws> <'extra'> <ws> (extra-auto-increment | extra-on-update)
+    extra-auto-increment = <'auto_increment'>
+    extra-on-update = <'on'> <ws> <'update'> <ws> <'current'> <ws> <'timestamp'>
     column-ref  = schema-name <'.'> table-name <'.'> column-name
                 | table-name <'.'> column-name
                 | column-name

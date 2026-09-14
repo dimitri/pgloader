@@ -1,0 +1,8 @@
+   table_name    |  column_name  |     data_type     | character_maximum_length | numeric_precision | numeric_scale | has_sequence 
+-----------------+---------------+-------------------+--------------------------+-------------------+---------------+--------------
+ cast_guards     | id            | bigint            |                          |                64 |             0 | t
+ cast_guards     | code          | character varying |                       12 |                   |               | 
+ propertydecimal | ID            | numeric           |                          |                   |               | 
+ propertydecimal | propertyvalue | double precision  |                          |                53 |               | 
+(4 rows)
+

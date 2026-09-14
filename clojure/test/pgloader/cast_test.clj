@@ -291,3 +291,78 @@
                       :table-name  "ip_addresses"}]
             specs   (cast/resolve-specs rules columns)]
         (is (= [:varbinary-to-inet] specs))))))
+
+(deftest test-typemod-guards
+  (let [rules [{:source {:type :type :name "tinyint"} :when-typemod '(= 1 precision)
+                :target-type "smallint" :options {:drop-typemod true} :using :tinyint-to-integer}]]
+    (testing "the guard matches on the column typemod"
+      (is (= ["smallint" "tinyint(4)"]
+             (mapv :column-type
+                   (cast/apply-type-overrides [{:column-name "a" :column-type "tinyint(1)"}
+                                               {:column-name "b" :column-type "tinyint(4)"}]
+                                              rules))))))
+
+  (testing "and/or, precision and scale, missing typemod"
+    (let [rule {:source {:type :type :name "decimal"}
+                :when-typemod '(and (= 18 precision) (= 6 scale))
+                :target-type "double precision"}]
+      (is (= ["double precision" "decimal(10,2)" "decimal"]
+             (mapv :column-type
+                   (cast/apply-type-overrides [{:column-name "a" :column-type "decimal(18,6)"}
+                                               {:column-name "b" :column-type "decimal(10,2)"}
+                                               {:column-name "c" :column-type "decimal"}]
+                                              [rule]))))
+      (is (= ["bigserial" "int(9)"]
+             (mapv :column-type
+                   (cast/apply-type-overrides
+                    [{:column-name "a" :column-type "int(11)" :extra "auto_increment"}
+                     {:column-name "b" :column-type "int(9)" :extra "auto_increment"}]
+                    [{:source {:type :type :name "int"} :when-extra "auto_increment"
+                      :when-typemod '(or (> precision 9) (not (< precision 10)))
+                      :target-type "bigserial"}])))))))
+
+(deftest test-with-extra-auto-increment
+  (let [rules [{:source {:type :type :name "int"} :when-unsigned true
+                :when-extra "auto_increment" :target-type "bigserial"
+                :options {:drop-typemod true}}]]
+    (is (= ["bigserial" "int unsigned"]
+           (mapv :column-type
+                 (cast/apply-type-overrides
+                  [{:column-name "id" :column-type "int unsigned" :extra "auto_increment"}
+                   {:column-name "n"  :column-type "int unsigned" :extra ""}]
+                  rules))))))
+
+(deftest test-type-rules-match-source-data-type
+  (testing "MS SQL columns carry a mapped :column-type and their :source-data-type"
+    (let [cols  [{:column-name "email" :column-type "text" :source-data-type "nvarchar"}
+                 {:column-name "notes" :column-type "text" :source-data-type "ntext"}]
+          rules [{:source {:type :type :name "nvarchar"} :target-type "citext"}]
+          out   (cast/apply-type-overrides cols rules)]
+      (is (= ["citext" "text"] (mapv :column-type out)))
+      (is (= "text" (:source-column-type (first out))))
+      (is (true? (:type-cast? (first out))))))
+
+  (testing "rules on the mapped type keep working"
+    (is (= ["citext"]
+           (mapv :column-type
+                 (cast/apply-type-overrides
+                  [{:column-name "email" :column-type "text" :source-data-type "nvarchar"}]
+                  [{:source {:type :type :name "text"} :target-type "citext"}]))))))
+
+(deftest test-keep-typemod
+  (testing "keep typemod carries the source typemod to the target type"
+    (is (= ["varchar(100)" "numeric(18, 6)"]
+           (mapv :column-type
+                 (cast/apply-type-overrides
+                  [{:column-name "a" :column-type "varchar(100)"}
+                   {:column-name "b" :column-type "decimal(18, 6)"}]
+                  [{:source {:type :type :name "varchar"} :target-type "varchar"
+                    :options {:drop-typemod false}}
+                   {:source {:type :type :name "decimal"} :target-type "numeric"
+                    :options {:drop-typemod false}}])))))
+  (testing "without keep typemod the target type is used as written"
+    (is (= ["varchar"]
+           (mapv :column-type
+                 (cast/apply-type-overrides
+                  [{:column-name "a" :column-type "varchar(100)"}]
+                  [{:source {:type :type :name "varchar"} :target-type "varchar"}]))))))

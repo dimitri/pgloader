@@ -30,6 +30,7 @@
  idx_{oid}_PRIMARY
  idx_{oid}_PRIMARY
  idx_{oid}_PRIMARY
+ idx_{oid}_PRIMARY
  idx_{oid}_ak_countdata_idx
  idx_{oid}_domain_filter
  idx_{oid}_domain_filter_unq
@@ -42,5 +43,5 @@
  idx_{oid}_search
  idx_{oid}_update_type
  idx_{oid}_url
-(42 rows)
+(43 rows)
 

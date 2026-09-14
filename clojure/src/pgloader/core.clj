@@ -132,6 +132,12 @@
          :target-table  (or (:table-name table-spec)
                             (:target-table table-spec))))
 
+(defn- sql-one-line
+  "Collapse a (possibly multi-line) SQL statement onto one line for logging,
+   so every log line keeps its timestamp/level prefix."
+  [^String sql]
+  (str/replace (str/trim sql) #"\s+" " "))
+
 (defn- run-ddl-tx
   "Execute DDL statements for one table inside a single JDBC transaction.
    If any statement fails the transaction rolls back atomically —
@@ -389,11 +395,11 @@
           (try
             (doseq [sql (:before-load cmd)]
               (let [t0 (System/nanoTime)]
-                (log/debug (str "BEFORE LOAD (archive): " (clojure.string/trim sql)))
+                (log/debug (str "BEFORE LOAD (archive): " (sql-one-line sql)))
                 (next.jdbc/execute! pg-conn [sql])
                 (log/info (format "BEFORE LOAD done [%.3fs]: %s"
                                   (/ (- (System/nanoTime) t0) 1e9)
-                                  (clojure.string/trim sql)))))
+                                  (sql-one-line sql)))))
             (.commit pg-conn)
             (catch Exception e
               (.rollback pg-conn)
@@ -412,11 +418,11 @@
           (try
             (doseq [sql (:after-load cmd)]
               (let [t0 (System/nanoTime)]
-                (log/debug (str "AFTER LOAD (archive): " (clojure.string/trim sql)))
+                (log/debug (str "AFTER LOAD (archive): " (sql-one-line sql)))
                 (next.jdbc/execute! pg-conn [sql])
                 (log/info (format "AFTER LOAD done [%.3fs]: %s"
                                   (/ (- (System/nanoTime) t0) 1e9)
-                                  (clojure.string/trim sql)))))
+                                  (sql-one-line sql)))))
             (.commit pg-conn)
             (catch Exception e
               (.rollback pg-conn)
@@ -561,11 +567,11 @@
                   (try
                     (doseq [sql before-cmds]
                       (let [t0 (System/nanoTime)]
-                        (log/debug (str "BEFORE LOAD: " (clojure.string/trim sql)))
+                        (log/debug (str "BEFORE LOAD: " (sql-one-line sql)))
                         (jdbc/execute! pg-conn [sql])
                         (log/info (format "BEFORE LOAD done [%.3fs]: %s"
                                           (/ (- (System/nanoTime) t0) 1e9)
-                                          (clojure.string/trim sql)))))
+                                          (sql-one-line sql)))))
                     (.commit pg-conn)
                     (catch Exception e
                       (.rollback pg-conn)
@@ -1098,11 +1104,11 @@
                       (try
                         (doseq [sql after-cmds]
                           (let [t0 (System/nanoTime)]
-                            (log/debug (str "AFTER LOAD: " (clojure.string/trim sql)))
+                            (log/debug (str "AFTER LOAD: " (sql-one-line sql)))
                             (jdbc/execute! pg-conn [sql])
                             (log/info (format "AFTER LOAD done [%.3fs]: %s"
                                               (/ (- (System/nanoTime) t0) 1e9)
-                                              (clojure.string/trim sql)))))
+                                              (sql-one-line sql)))))
                         (.commit pg-conn)
                         (catch Exception e
                           (.rollback pg-conn)

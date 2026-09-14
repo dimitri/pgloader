@@ -216,6 +216,8 @@
                                                raw-def  (when-not ai (:column_default c))]
                                            {:column-name (:column_name c)
                                             :column-type pg-type
+                                            ;; for CAST type rules, e.g. type nvarchar to citext
+                                            :source-data-type col-type
                                             :is-nullable (= "YES" (:is_nullable c))
                                             :column-default (sanitize-default raw-def pg-type)
                                             :extra (when ai "auto_increment")

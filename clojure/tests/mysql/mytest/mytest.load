@@ -88,7 +88,13 @@ load database
 
       -- #1758: BINARY(16) → PostgreSQL uuid, BINARY(8) → bytea
       column binary_types.uuid_col to uuid drop typemod using binary-to-uuid,
-      column binary_types.data_col to bytea drop typemod using binary-to-bytea
+      column binary_types.data_col to bytea drop typemod using binary-to-bytea,
+
+      -- with extra auto_increment: a MEDIUMINT AUTO_INCREMENT is serial by default
+      type mediumint with extra auto_increment to bigserial drop typemod,
+
+      -- keep typemod: varchar(12) keeps its length
+      type varchar to varchar keep typemod
 
  -- UTF-8 bytes stored in latin1 columns: decode the stored bytes as UTF-8.
  DECODING TABLE NAMES MATCHING 'legacy_notes' AS utf8;

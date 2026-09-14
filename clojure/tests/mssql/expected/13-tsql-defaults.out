@@ -1,6 +1,6 @@
  column_name |  column_default   
 -------------+-------------------
- status      | 'new'::text
+ status      | 'new'::citext
  label       | 'it''s'::text
  created_utc | CURRENT_TIMESTAMP
  created_loc | CURRENT_TIMESTAMP

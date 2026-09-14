@@ -6,6 +6,7 @@
  binary_types
  bit_defaults
  bits
+ cast_guards
  countdata_template
  domain_filter
  empty
@@ -36,5 +37,5 @@
  utilisateurs__Yvelines2013-06-28
  uw_defined_meaning
  zero_dates_notnull
-(36 rows)
+(37 rows)
 

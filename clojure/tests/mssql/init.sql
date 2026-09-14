@@ -233,3 +233,16 @@ INSERT INTO shop.tsql_defaults DEFAULT VALUES;
 INSERT INTO shop.tsql_defaults DEFAULT VALUES;
 INSERT INTO shop.tsql_defaults DEFAULT VALUES;
 GO
+
+-- CAST type rules match SQL Server type names (type nvarchar to citext), and
+-- ALTER SCHEMA 'dbo' RENAME TO 'shop' applies to dbo tables.
+CREATE TABLE dbo.product_codes (
+    code  NVARCHAR(32) COLLATE Latin1_General_CS_AS NOT NULL PRIMARY KEY,
+    label NVARCHAR(120)
+);
+GO
+
+INSERT INTO dbo.product_codes (code, label) VALUES
+    (N'AB-100', N'Widget'),
+    (N'CD-200', N'Gadget');
+GO

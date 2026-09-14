@@ -277,6 +277,35 @@
 
 ;; ── Rule matching ─────────────────────────────────────────────────
 
+(defn- typemod
+  "Return [precision scale] from a type name such as decimal(18,6) or
+   tinyint(1); both are nil when the type has no typemod."
+  [^String col-type]
+  (if-let [[_ p s] (re-find #"\((\d+)(?:\s*,\s*(\d+))?\)" (or col-type ""))]
+    [(parse-long p) (some-> s parse-long)]
+    [nil nil]))
+
+(defn- eval-typemod-guard
+  "Evaluate a parsed CAST guard such as (and (= 18 precision) (= 6 scale))
+   against a column type. Comparisons involving a missing precision or scale
+   are false."
+  [form ^String col-type]
+  (let [[precision scale] (typemod col-type)]
+    (letfn [(value [x]
+              (case x precision precision scale scale x))
+            (ev [f]
+              (if (seq? f)
+                (let [[op & args] f]
+                  (case op
+                    and (every? ev args)
+                    or  (boolean (some ev args))
+                    not (not (ev (first args)))
+                    (let [vs (map value args)]
+                      (and (every? number? vs)
+                           (boolean (apply (case op = = < < <= <= > > >= >=) vs))))))
+                (boolean (value f))))]
+      (ev form))))
+
 (defn- matches-rule?
   "Return truthy if cast-rule applies to column col."
   [rule col]
@@ -304,6 +333,8 @@
          (if (:when-extra rule)
            (str/includes? col-extra (str/lower-case (:when-extra rule)))
            (not col-is-ai))
+         (or (nil? (:when-typemod rule))
+             (eval-typemod-guard (:when-typemod rule) col-type))
          (or (nil? (:when-default rule))
              (= col-def (:when-default rule)))
          (or (not (:when-unsigned rule))
@@ -313,6 +344,15 @@
              (false? (:is-nullable col)))))
 
       :else false)))
+
+;; Sources that map types while building their catalog (MS SQL) keep the
+;; source type name in :source-data-type, so type rules written against it
+;; (type nvarchar to citext) still match.
+(defn- rule-matches?
+  [rule col]
+  (or (matches-rule? rule col)
+      (when-let [source-type (:source-data-type col)]
+        (matches-rule? rule (assoc col :column-type source-type)))))
 
 ;; ── Default per-type casts (no user rule needed) ─────────────────
 
@@ -376,7 +416,7 @@
                                   col)
                   src-type (or (:source-column-type col) (:column-type col) "text")]
               (or (some (fn [rule]
-                          (when (matches-rule? rule col-for-match)
+                          (when (rule-matches? rule col-for-match)
                             (or (:using rule) (implicit-using rule col-for-match))))
                         rules)
                   (type-default-cast src-type))))
@@ -394,7 +434,7 @@
    the column and apply the cast function without changing its type."
   [columns cast-rules]
   (mapv (fn [col]
-          (if-let [rule (some #(when (matches-rule? % col) %) cast-rules)]
+          (if-let [rule (some #(when (rule-matches? % col) %) cast-rules)]
             (let [cast-kw (or (:using rule) (implicit-using rule col))]
               (cond-> col
                 ;; preserve original so resolve-specs can match on it
@@ -406,7 +446,16 @@
 
                 ;; only override the column type when the rule specifies one
                 (:target-type rule)
-                (assoc :column-type (:target-type rule))
+                (assoc :column-type (:target-type rule)
+                       :type-cast? true)
+
+                ;; keep typemod: carry the source typemod over to the target type
+                (and (:target-type rule)
+                     (false? (get-in rule [:options :drop-typemod]))
+                     (not (str/includes? (:target-type rule) "(")))
+                (assoc :column-type
+                       (str (:target-type rule)
+                            (re-find #"\(\d+(?:\s*,\s*\d+)?\)" (or (:column-type col) ""))))
 
                 (and (get-in rule [:options :drop-typemod])
                      (:target-type rule))

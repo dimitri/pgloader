@@ -569,3 +569,48 @@
                    WITH on error resume next;")]
       (is (:ok result) (str "Parse failed: " (:error result)))
       (is (nil? (get-in result [:ok :with-options :on-error-stop]))))))
+
+;; ── CAST guards: with extra, when (typemod expression) ──────────────────────
+
+(defn- first-cast-rule [cast-clause]
+  (let [result (parser/parse-string
+                (str "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t " cast-clause ";"))]
+    (is (:ok result) (str "Parse error: " (:error result)))
+    (first (get-in result [:ok :cast-rules]))))
+
+(deftest test-cast-with-extra
+  (testing "with extra auto_increment parses (3.x syntax)"
+    (let [rule (first-cast-rule
+                "CAST type int when unsigned with extra auto_increment to bigserial drop typemod")]
+      (is (= "auto_increment" (:when-extra rule)))
+      (is (true? (:when-unsigned rule)))
+      (is (= "bigserial" (:target-type rule)))
+      (is (true? (get-in rule [:options :drop-typemod])))))
+
+  (testing "with extra on update current timestamp sets :when-extra"
+    (let [rule (first-cast-rule
+                "CAST type timestamp with extra on update current timestamp to \"timestamp with time zone\" drop extra")]
+      (is (= "on update current_timestamp" (:when-extra rule))))))
+
+(deftest test-cast-when-typemod-guard
+  (testing "when (= 1 precision) is kept as a typemod guard, not as an extra"
+    (let [rule (first-cast-rule
+                "CAST type tinyint when (= 1 precision) to smallint drop typemod using tinyint-to-integer")]
+      (is (= '(= 1 precision) (:when-typemod rule)))
+      (is (nil? (:when-extra rule)))))
+
+  (testing "nested guards"
+    (let [rule (first-cast-rule
+                "CAST type decimal when (and (= 18 precision) (= 6 scale)) to \"double precision\" drop typemod")]
+      (is (= '(and (= 18 precision) (= 6 scale)) (:when-typemod rule)))))
+
+  (testing "unsupported guard expressions are rejected"
+    (let [result (parser/parse-string
+                  "LOAD DATABASE FROM mysql://h/db INTO pgsql://h/t
+                    CAST type int when (System/exit 1) to bigint;")]
+      (is (:error result))
+      (is (re-find #"Unsupported CAST guard" (str (:error result)))))))
+
+(deftest test-cast-keep-typemod
+  (let [rule (first-cast-rule "CAST type varchar to varchar keep typemod")]
+    (is (false? (get-in rule [:options :drop-typemod])))))
