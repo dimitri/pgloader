@@ -73,7 +73,7 @@ for more details.
 For example, for a full migration from SQLite:
 
     $ createdb newdb
-    $ java -jar pgloader.jar ./test/sqlite/sqlite.db postgresql:///newdb
+    $ java -jar pgloader.jar --type sqlite ./test/sqlite/sqlite.db postgresql:///newdb
 
 Or for a full migration from MySQL, including schema definition (tables,
 indexes, foreign keys, comments) and parallel loading of the corrected data:
