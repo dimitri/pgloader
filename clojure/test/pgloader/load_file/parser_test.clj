@@ -50,6 +50,20 @@
       (is (:create-indexes (:with-options cmd)))
       (is (:include-drop (:with-options cmd))))))
 
+(deftest test-parse-database-index-and-foreign-key-options
+  (doseq [[options expected]
+          [["create indexes, foreign keys" {:create-indexes true :foreign-keys true}]
+           ["create no indexes" {:create-indexes false}]
+           ["no foreign keys" {:foreign-keys false}]
+           ["create no indexes, no foreign keys"
+            {:create-indexes false :foreign-keys false}]]]
+    (testing options
+      (let [result (parser/parse-string
+                    (str "LOAD DATABASE FROM sqlite:///tiny.db "
+                         "INTO postgresql:///target WITH " options ";"))]
+        (is (:ok result))
+        (is (= expected (:with-options (:ok result))))))))
+
 (deftest test-parse-mysql-with-cast
   (let [result (parser/parse-string
                 "LOAD DATABASE FROM mysql://user@localhost/mydb

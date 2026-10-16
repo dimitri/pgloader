@@ -360,6 +360,8 @@
             :multiple-readers    [:multiple-readers true]
             :single-reader       [:multiple-readers false]
             :identifier-case     (first (second inner))
+            :create-no-indexes   [:create-indexes false]
+            :no-foreign-keys     [:foreign-keys false]
             :no-reset-sequences  [:reset-sequences false]
             :drop-schema         [:drop-schema true]
             :reindex             [:reindex true]

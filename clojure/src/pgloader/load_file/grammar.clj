@@ -191,12 +191,12 @@
     quoted-char = <'\\''> #\"[^']+\" <'\\''>
 
    with-db-clause   = <'WITH'> <ws> db-option (<opt-ws> <','> <opt-ws> db-option)*
-    db-option   = include-drop | create-tables | create-indexes | create-no-tables
+    db-option   = include-drop | create-tables | create-indexes | create-no-indexes | create-no-tables
                 | workers | concurrency | batch-rows | batch-size | prefetch-rows | batch-concurrency
                 | on-error-stop | on-error-resume | identifier-case
                 | multiple-readers | single-reader | rows-per-range | chunk-size
                 | include-no-drop | truncate | disable-triggers
-                | data-only | schema-only | foreign-keys | reset-sequences | no-reset-sequences
+                | data-only | schema-only | foreign-keys | no-foreign-keys | reset-sequences | no-reset-sequences
                 | max-parallel-create-index
                 | drop-schema | reindex | preserve-index-names | uniquify-index-names
     include-drop    = <'include'> <ws> <'drop'>
@@ -204,6 +204,7 @@
     create-tables   = <'create'> <ws> <'tables'>
     create-no-tables = <'create'> <ws> <'no'> <ws> <'tables'>
     create-indexes  = <'create'> <ws> <'indexes'>
+    create-no-indexes = <'create'> <ws> <'no'> <ws> <'indexes'>
     on-error-stop   = <'on'> <ws> <'error'> <ws> <'stop'>
     on-error-resume = <'on'> <ws> <'error'> <ws> <'resume'> <ws> <'next'>
     multiple-readers = <'multiple'> <ws> <'readers'> <ws> <'per'> <ws> <'thread'>
@@ -220,6 +221,7 @@
     data-only    = <'data'> <ws> <'only'>
     schema-only  = <'schema'> <ws> <'only'>
     foreign-keys = <'foreign'> <ws> <'keys'>
+    no-foreign-keys = <'no'> <ws> <'foreign'> <ws> <'keys'>
     reset-sequences    = <'reset'> <ws> <'sequences'>
     no-reset-sequences = <'reset'> <ws> <'no'> <ws> <'sequences'>
     drop-schema           = <'drop'> <ws> <'schema'>
