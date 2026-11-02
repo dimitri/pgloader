@@ -368,23 +368,37 @@
 (defun create-pgsql-fkeys (catalog &key (section :post) label log-level)
   "Actually create the Foreign Key References that where declared in the
    MySQL database"
-  (let ((fk-sql-list
-         (loop :for table :in (table-list catalog)
-            :append (loop :for fkey :in (table-fkey-list table)
-                       ;; we might have loaded fkeys referencing tables that
-                       ;; have not been included in (or have been excluded
-                       ;; from) the load
-                       :unless (and (fkey-table fkey)
-                                    (fkey-foreign-table fkey))
-                       :do (log-message :debug "Skipping foreign key ~a" fkey)
-                       :when (and (fkey-table fkey)
-                                  (fkey-foreign-table fkey))
-                       :collect (format-create-sql fkey))
-            :append (loop :for index :in (table-index-list table)
-                       :do (loop :for fkey :in (index-fk-deps index)
-                              :for sql := (format-create-sql fkey)
-                              :do (log-message :debug "EXTRA FK DEPS! ~a" sql)
-                              :collect sql)))))
+  (let* ((known-fkey-oids
+          ;; fkeys between two tables of the load are listed both in the
+          ;; table fkey list and in the fk deps of the referenced index,
+          ;; only create them once
+          (loop :for table :in (table-list catalog)
+             :append (loop :for fkey :in (table-fkey-list table)
+                        :when (fkey-oid fkey) :collect (fkey-oid fkey))))
+         (fk-sql-list
+          (loop :for table :in (table-list catalog)
+             :append (loop :for fkey :in (table-fkey-list table)
+                        ;; we might have loaded fkeys referencing tables that
+                        ;; have not been included in (or have been excluded
+                        ;; from) the load
+                        :unless (and (fkey-table fkey)
+                                     (fkey-foreign-table fkey))
+                        :do (log-message :debug "Skipping foreign key ~a" fkey)
+                        :when (and (fkey-table fkey)
+                                   (fkey-foreign-table fkey))
+                        :collect (format-create-sql fkey))
+             ;; also CREATE again the foreign keys that depend on the
+             ;; indexes, they have been dropped in drop-pgsql-fkeys
+             :append (loop :for index :in (table-index-list table)
+                        :append (loop :for fkey :in (index-fk-deps index)
+                                   :unless (and (fkey-oid fkey)
+                                                (member (fkey-oid fkey)
+                                                        known-fkey-oids))
+                                   :collect (let ((sql (format-create-sql fkey)))
+                                              (log-message :debug "EXTRA FK DEPS! ~a" sql)
+                                              (when (fkey-oid fkey)
+                                                (push (fkey-oid fkey) known-fkey-oids))
+                                              sql))))))
     ;; and now execute our list
     (pgsql-execute-with-timing section label fk-sql-list :log-level log-level)))
 
