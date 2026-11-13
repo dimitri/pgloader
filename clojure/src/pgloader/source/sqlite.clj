@@ -138,6 +138,21 @@
     :quote-ids name
     (str/lower-case name)))
 
+(defn- jdbc-value->str
+  "Convert a raw JDBC value read from SQLite to a String for COPY TEXT.
+   BLOB values arrive as byte[]; str would give the JVM \"[B@hash\" form, so
+   they are emitted as PostgreSQL bytea hex (\\x...) instead (#1782)."
+  [v]
+  (when (some? v)
+    (if (bytes? v)
+      (let [ba ^bytes v
+            sb (StringBuilder. (+ 2 (* 2 (alength ba))))]
+        (.append sb "\\x")
+        (dotimes [i (alength ba)]
+          (.append sb (format "%02x" (bit-and (int (aget ba i)) 0xff))))
+        (.toString sb))
+      (str v))))
+
 (deftype SQLiteSource
          [^java.sql.Connection conn
           ^String db-path
@@ -219,8 +234,7 @@
                     (if (<= i n-cols)
                       (recur (unchecked-inc i)
                              (conj! result
-                                    (let [v (.getObject ^ResultSet rs i)]
-                                      (when (some? v) (str v)))))
+                                    (jdbc-value->str (.getObject ^ResultSet rs i))))
                       (persistent! result)))
                   (thisfn))))))))
 
@@ -243,8 +257,7 @@
                          (if (<= i n)
                            (recur (inc i)
                                   (conj! result
-                                         (let [v (.getObject rs i)]
-                                           (when v (str v)))))
+                                         (jdbc-value->str (.getObject rs i))))
                            (persistent! result)))
                        (thisfn))))))})
         (catch Exception e

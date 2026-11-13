@@ -486,3 +486,13 @@
   (is (= ["CREATE SCHEMA IF NOT EXISTS \"shopdb\";"
           "CREATE SCHEMA IF NOT EXISTS \"public\";"]
          (ddl/create-schemas-sql ["shopdb" "public" nil "shopdb"]))))
+
+(deftest test-column-def-bytea-passthrough
+  ;; SQLite catalog already yields PostgreSQL type names; "bytea" must not
+  ;; fall through to the MySQL mapper's text default (#1782).
+  (let [col {:column-name "b"
+             :column-type "bytea"
+             :is-nullable true
+             :extra ""
+             :column-default nil}]
+    (is (= "  \"b\" bytea" (ddl/column-def col)))))
