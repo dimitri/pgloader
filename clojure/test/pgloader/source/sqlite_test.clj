@@ -157,3 +157,16 @@
         (is (= 2 (count mvs)))
         (is (nil?    (:query (first mvs))))
         (is (string? (:query (second mvs))))))))
+
+(deftest jdbc-value->str-test
+  (testing "BLOB byte[] values become PostgreSQL bytea hex, not the JVM [B@ form (#1782)"
+    (is (= "\\xdeadbeef"
+           (#'sqlite/jdbc-value->str (byte-array [0xde 0xad 0xbe 0xef]))))
+    (is (= "\\x007f80ff"
+           (#'sqlite/jdbc-value->str (byte-array [0 127 -128 -1]))))
+    (is (= "\\x" (#'sqlite/jdbc-value->str (byte-array 0)))))
+
+  (testing "other values keep their string form; nil stays nil"
+    (is (= "42" (#'sqlite/jdbc-value->str 42)))
+    (is (= "abc" (#'sqlite/jdbc-value->str "abc")))
+    (is (nil? (#'sqlite/jdbc-value->str nil)))))

@@ -55,6 +55,7 @@
       ;; Pass-through: native PostgreSQL types emitted by non-MySQL sources
       (= lower "uuid")   "uuid"
       (= lower "xml")    "xml"
+      (= lower "bytea")  "bytea"
       ;; Pass-through array types from PostgreSQL sources (#1371)
       (str/ends-with? lower "[]") lower
       (str/starts-with? upper "BIGSERIAL")    "bigserial"
