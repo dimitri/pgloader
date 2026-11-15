@@ -233,3 +233,46 @@ INSERT INTO shop.tsql_defaults DEFAULT VALUES;
 INSERT INTO shop.tsql_defaults DEFAULT VALUES;
 INSERT INTO shop.tsql_defaults DEFAULT VALUES;
 GO
+
+-- includetest: separate database for INCLUDING ONLY TABLE NAMES, loaded by
+-- mssql-including.load. Only the keep_* tables must be migrated; drop_audit
+-- must be left out, catalog queries included.
+CREATE DATABASE includetest;
+GO
+
+USE includetest;
+GO
+
+CREATE SCHEMA inc;
+GO
+
+CREATE TABLE inc.keep_orders (
+    id    INT IDENTITY(1,1) PRIMARY KEY,
+    label NVARCHAR(50) NOT NULL
+);
+GO
+
+CREATE TABLE inc.keep_items (
+    id       INT IDENTITY(1,1) PRIMARY KEY,
+    order_id INT NOT NULL,
+    qty      INT NOT NULL,
+    CONSTRAINT fk_keep_items_order FOREIGN KEY (order_id) REFERENCES inc.keep_orders(id)
+);
+GO
+
+CREATE TABLE inc.drop_audit (
+    id       INT IDENTITY(1,1) PRIMARY KEY,
+    order_id INT NOT NULL,
+    note     NVARCHAR(100),
+    CONSTRAINT fk_drop_audit_order FOREIGN KEY (order_id) REFERENCES inc.keep_orders(id)
+);
+GO
+
+INSERT INTO inc.keep_orders (label) VALUES ('first'), ('second');
+GO
+
+INSERT INTO inc.keep_items (order_id, qty) VALUES (1, 3), (1, 1), (2, 5);
+GO
+
+INSERT INTO inc.drop_audit (order_id, note) VALUES (1, 'created'), (2, 'created');
+GO

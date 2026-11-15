@@ -1,0 +1,10 @@
+-- INCLUDING ONLY TABLE NAMES must restrict the migration to the matching
+-- tables: keep_orders and keep_items are loaded, drop_audit is not.
+LOAD DATABASE
+     FROM mssql://sa:pgloaderTest1!@mssql:1433/includetest
+     INTO postgresql://pgloader:pgloader@postgres:5432/target
+
+     WITH include drop, create tables, create indexes, reset sequences,
+          foreign keys
+
+     INCLUDING ONLY TABLE NAMES LIKE 'keep%' IN SCHEMA 'inc';

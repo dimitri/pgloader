@@ -172,7 +172,8 @@
 
 (deftype MSSQLSource
          [^Connection conn
-          ^String source-name-str]
+          ^String source-name-str
+          table-filter]
 
   Source
   (source-name [_] source-name-str)
@@ -183,7 +184,12 @@
                (tables conn)
                (catch Exception e
                  (log/error (str "Failed to list tables: " (.getMessage e)))
-                 []))]
+                 []))
+          ;; Apply INCLUDING/EXCLUDING before the per-table metadata queries,
+          ;; so filtered-out tables cost no round trips.
+          ts (if table-filter
+               (filterv #(table-filter (:table_name %)) ts)
+               ts)]
       (log/debug (str "Fetched schema for " (count ts) " tables"))
       (->> ts
            (mapv (fn [t]
@@ -377,6 +383,6 @@
                     :cache      (:cache_size s)}))))))
 
 (defn create-source
-  [uri-map _table-spec]
+  [uri-map table-spec]
   (let [conn (connection uri-map)]
-    (->MSSQLSource conn (plog/redact-uri (:raw uri-map)))))
+    (->MSSQLSource conn (plog/redact-uri (:raw uri-map)) (:table-filter table-spec))))

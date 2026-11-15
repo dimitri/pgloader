@@ -1,0 +1,21 @@
+ table_name  
+-------------
+ keep_items
+ keep_orders
+(2 rows)
+
+ keep_orders 
+-------------
+           2
+(1 row)
+
+ keep_items 
+------------
+          3
+(1 row)
+
+ fkeys 
+-------
+     1
+(1 row)
+

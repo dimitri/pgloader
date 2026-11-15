@@ -23,12 +23,14 @@ all: run
 run:
 	$(PGLOADER_CMD) /suite/mssql.load
 	$(PGLOADER_CMD) /suite/mssql-filter-views.load
+	$(PGLOADER_CMD) /suite/mssql-including.load
 	$(_V4_ONLY_LOAD_CMD)
 	java -jar $(JAR) regress $(REGRESS_FLAGS) $(_REGRESS_EXTRA) /suite
 
 update-expected:
 	$(PGLOADER_CMD) /suite/mssql.load
 	$(PGLOADER_CMD) /suite/mssql-filter-views.load
+	$(PGLOADER_CMD) /suite/mssql-including.load
 	$(_V4_ONLY_LOAD_CMD)
 	java -jar $(JAR) regress --update /suite
 
